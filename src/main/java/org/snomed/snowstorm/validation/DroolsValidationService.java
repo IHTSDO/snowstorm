@@ -14,7 +14,10 @@ import org.ihtsdo.otf.resourcemanager.ResourceManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.config.Config;
-import org.snomed.snowstorm.core.data.domain.*;
+import org.snomed.snowstorm.core.data.domain.Concept;
+import org.snomed.snowstorm.core.data.domain.Description;
+import org.snomed.snowstorm.core.data.domain.Relationship;
+import org.snomed.snowstorm.core.data.domain.SnomedComponent;
 import org.snomed.snowstorm.core.data.services.*;
 import org.snomed.snowstorm.core.util.SearchAfterPage;
 import org.snomed.snowstorm.validation.domain.DroolsConcept;
@@ -131,10 +134,12 @@ public class DroolsValidationService {
 		// Look-up release hashes from the store to set/update the component effectiveTimes
 		setReleaseHashAndEffectiveTime(concepts, branchCriteria);
 
-		ConceptDroolsValidationService droolsConceptService = new ConceptDroolsValidationService(branchPath, branchCriteria, elasticsearchOperations, queryService);
-		DescriptionDroolsValidationService droolsDescriptionService = new DescriptionDroolsValidationService(branchPath, branchCriteria, versionControlHelper, elasticsearchOperations,
-				this.descriptionService, queryService, testResourceProvider);
-		RelationshipDroolsValidationService relationshipService = new RelationshipDroolsValidationService(branchPath, branchCriteria, queryService);
+		Set<String> inferredTopLevelHierarchies = getTopLevelHierarchies();
+		DisposableQueryService disposableQueryService = new DisposableQueryService(queryService, branchPath, branchCriteria);
+		ConceptDroolsValidationService droolsConceptService = new ConceptDroolsValidationService(branchCriteria, elasticsearchOperations, disposableQueryService, inferredTopLevelHierarchies);
+		DescriptionDroolsValidationService droolsDescriptionService = new DescriptionDroolsValidationService(branchPath, branchCriteria, elasticsearchOperations,
+				this.descriptionService, disposableQueryService, testResourceProvider, inferredTopLevelHierarchies);
+		RelationshipDroolsValidationService relationshipService = new RelationshipDroolsValidationService(disposableQueryService);
 		final List<InvalidContent> invalidContents = ruleExecutor.execute(ruleSetNames, droolsConcepts, droolsConceptService, droolsDescriptionService, relationshipService, false, false);
 
 		// If term-validation-service called join results
@@ -291,6 +296,19 @@ public class DroolsValidationService {
 		}
 		this.ruleExecutor = new RuleExecutorFactory().createRuleExecutor(droolsRulesPath);
 		this.testResourceProvider = ruleExecutor.newTestResourceProvider(testResourceManager);
+	}
+
+	private Long topLevelHierarchiesLastFetched;
+	private Set<String> topLevelHierarchies;
+
+	private Set<String> getTopLevelHierarchies() {
+		Branch latestMainBranch = branchService.findLatest("MAIN");
+		if (topLevelHierarchiesLastFetched == null || latestMainBranch.getHeadTimestamp() > topLevelHierarchiesLastFetched) {
+			topLevelHierarchies = queryService.searchForIds(queryService.createQueryBuilder(false), "MAIN", PageRequest.of(0, 1000))
+					.stream().map(Object::toString).collect(Collectors.toSet());
+			topLevelHierarchiesLastFetched = latestMainBranch.getHeadTimestamp();
+		}
+		return topLevelHierarchies;
 	}
 
 	@PreDestroy

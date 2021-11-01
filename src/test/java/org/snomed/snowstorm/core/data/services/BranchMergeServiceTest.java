@@ -1101,7 +1101,7 @@ class BranchMergeServiceTest extends AbstractTest {
 
 		final Concept conceptFromMergedA2 = conceptService.find(conceptId, "MAIN/A/A2");
 		assertEquals("100009003", conceptFromMergedA2.getModuleId());
-		assertEquals(1, descriptionService.findDescriptionsByConceptId("MAIN/A/A2", Collections.singleton(conceptId)).size());
+		assertEquals(1, descriptionService.findDescriptionsByConceptId("MAIN/A/A2", Collections.singleton(conceptId), true).size());
 
 		// Promote the branch (no conflicts at this point)
 		branchMergeService.mergeBranchSync("MAIN/A/A2", "MAIN/A", null);
@@ -1314,7 +1314,7 @@ class BranchMergeServiceTest extends AbstractTest {
 		assertEquals("NOT_SEMANTICALLY_EQUIVALENT", description.getInactivationIndicator());
 		assertEquals("{REFERS_TO=[10001000]}", description.getAssociationTargets().toString());
 
-		final Set<Description> descriptionsAfterMerge = descriptionService.findDescriptionsByConceptId("MAIN/A/A2", Collections.singleton(conceptId));
+		final Set<Description> descriptionsAfterMerge = descriptionService.findDescriptionsByConceptId("MAIN/A/A2", Collections.singleton(conceptId), true);
 		assertEquals(1, descriptionsAfterMerge.size(), itemsToString("Expecting 1 description, got:", descriptionsAfterMerge));
 
 		final Page<ReferenceSetMember> members = memberService.findMembers("MAIN/A/A2", descriptionId, LARGE_PAGE);

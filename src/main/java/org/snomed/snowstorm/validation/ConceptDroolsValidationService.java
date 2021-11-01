@@ -1,15 +1,12 @@
 package org.snomed.snowstorm.validation;
 
+import com.google.common.collect.Sets;
 import io.kaicode.elasticvc.api.BranchCriteria;
 import org.ihtsdo.drools.domain.Relationship;
 import org.snomed.snowstorm.config.Config;
 import org.snomed.snowstorm.core.data.domain.Concept;
-import org.snomed.snowstorm.core.data.domain.ConceptMini;
 import org.snomed.snowstorm.core.data.domain.Concepts;
-import org.snomed.snowstorm.core.data.services.QueryService;
 import org.snomed.snowstorm.validation.domain.DroolsConcept;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.data.elasticsearch.core.SearchHit;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQuery;
@@ -18,52 +15,59 @@ import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilde
 import java.util.*;
 import java.util.stream.Collectors;
 
-import static io.kaicode.elasticvc.api.ComponentService.LARGE_PAGE;
 import static org.elasticsearch.index.query.QueryBuilders.boolQuery;
 import static org.elasticsearch.index.query.QueryBuilders.termQuery;
 
 public class ConceptDroolsValidationService implements org.ihtsdo.drools.service.ConceptService {
 
-	private final String branchPath;
 	private final BranchCriteria branchCriteria;
 	private final ElasticsearchOperations elasticsearchTemplate;
-	private final QueryService queryService;
+	private final DisposableQueryService queryService;
+	private final Set<String> inferredTopLevelHierarchies;
+	private final Map<String, Boolean> conceptActiveStates = Collections.synchronizedMap(new HashMap<>());
+	private final Map<String, DroolsConcept> concepts = Collections.synchronizedMap(new HashMap<>());
 
-	ConceptDroolsValidationService(String branchPath, BranchCriteria branchCriteria, ElasticsearchOperations elasticsearchTemplate, QueryService queryService) {
-		this.branchPath = branchPath;
+	ConceptDroolsValidationService(BranchCriteria branchCriteria, ElasticsearchOperations elasticsearchTemplate, DisposableQueryService queryService, Set<String> inferredTopLevelHierarchies) {
 		this.branchCriteria = branchCriteria;
 		this.elasticsearchTemplate = elasticsearchTemplate;
 		this.queryService = queryService;
+		this.inferredTopLevelHierarchies = inferredTopLevelHierarchies;
 	}
 
 	@Override
 	public boolean isActive(String conceptId) {
-		NativeSearchQuery query = new NativeSearchQueryBuilder()
-				.withQuery(boolQuery()
-						.must(branchCriteria.getEntityBranchCriteria(Concept.class))
-						.must(termQuery(Concept.Fields.CONCEPT_ID, conceptId))
-						.must(termQuery(Concept.Fields.ACTIVE, true)))
-				.withPageable(Config.PAGE_OF_ONE)
-				.build();
-		List<Concept> matches = elasticsearchTemplate.search(query, Concept.class).stream().map(SearchHit::getContent).collect(Collectors.toList());
-		return !matches.isEmpty();
+		if (!conceptActiveStates.containsKey(conceptId)) {
+			NativeSearchQuery query = new NativeSearchQueryBuilder()
+					.withQuery(boolQuery()
+							.must(branchCriteria.getEntityBranchCriteria(Concept.class))
+							.must(termQuery(Concept.Fields.CONCEPT_ID, conceptId))
+							.must(termQuery(Concept.Fields.ACTIVE, true)))
+					.withPageable(Config.PAGE_OF_ONE)
+					.build();
+			List<Concept> matches = elasticsearchTemplate.search(query, Concept.class).stream().map(SearchHit::getContent).collect(Collectors.toList());
+			conceptActiveStates.put(conceptId, !matches.isEmpty());
+		}
+		return conceptActiveStates.get(conceptId);
 	}
 
 	@Override
 	public org.ihtsdo.drools.domain.Concept findById(String conceptId) {
-		NativeSearchQuery query = new NativeSearchQueryBuilder()
-				.withQuery(boolQuery()
-						.must(branchCriteria.getEntityBranchCriteria(Concept.class))
-						.must(termQuery(Concept.Fields.CONCEPT_ID, conceptId)))
-				.withPageable(Config.PAGE_OF_ONE)
-				.build();
-		List<Concept> matches = elasticsearchTemplate.search(query, Concept.class).stream().map(SearchHit::getContent).collect(Collectors.toList());
-		return !matches.isEmpty() ? new DroolsConcept(matches.get(0)) : null;
+		if (!concepts.containsKey(conceptId)) {
+			NativeSearchQuery query = new NativeSearchQueryBuilder()
+					.withQuery(boolQuery()
+							.must(branchCriteria.getEntityBranchCriteria(Concept.class))
+							.must(termQuery(Concept.Fields.CONCEPT_ID, conceptId)))
+					.withPageable(Config.PAGE_OF_ONE)
+					.build();
+			List<Concept> matches = elasticsearchTemplate.search(query, Concept.class).stream().map(SearchHit::getContent).collect(Collectors.toList());
+			concepts.put(conceptId, !matches.isEmpty() ? new DroolsConcept(matches.get(0)) : null);
+		}
+		return concepts.get(conceptId);
 	}
 
     @Override
 	public Set<String> getAllTopLevelHierarchies() {
-		return getConceptIdsByEcl(false, "<!" + Concepts.SNOMEDCT_ROOT);
+		return inferredTopLevelHierarchies;
 	}
 
 	@Override
@@ -89,27 +93,8 @@ public class ConceptDroolsValidationService implements org.ihtsdo.drools.service
 
 	@Override
 	public Set<String> findTopLevelHierarchiesOfConcept(org.ihtsdo.drools.domain.Concept concept) {
-		Set<String> statedParents = getStatedParents(concept);
-		if (statedParents.isEmpty()) {
-			return Collections.emptySet();
-		}
-
-		StringBuilder ecl = new StringBuilder("<!" + Concepts.SNOMEDCT_ROOT + " AND ");
-		Iterator<String> iterator = statedParents.iterator();
-		if (statedParents.size() > 1) {
-			ecl.append("(");
-		}
-		for (int i = 0; i < statedParents.size(); i++) {
-			if (i > 0) {
-				ecl.append(" OR ");
-			}
-			ecl.append(">>").append(iterator.next());// Include self because this ID is a parent.
-		}
-		if (statedParents.size() > 1) {
-			ecl.append(")");
-		}
-
-		return getConceptIdsByEcl(false, ecl.toString());
+		Set<String> statedAncestorsOfConcept = findStatedAncestorsOfConcept(concept);
+		return Sets.intersection(statedAncestorsOfConcept, inferredTopLevelHierarchies);
 	}
 
 	@Override
@@ -117,21 +102,16 @@ public class ConceptDroolsValidationService implements org.ihtsdo.drools.service
 		if (statedParentIds.isEmpty()) {
 			return Collections.emptySet();
 		}
-		StringBuilder eclBuilder = new StringBuilder("<" + Concepts.SNOMEDCT_ROOT + " AND ");
-		if (statedParentIds.size() > 1) {
-			eclBuilder.append("(");
-		}
+		StringBuilder eclBuilder = new StringBuilder();
 		for (int i = 0; i < statedParentIds.size(); i++) {
 			if (i > 0) {
 				eclBuilder.append(" OR ");
 			}
 			eclBuilder.append(">").append(statedParentIds.get(i));
 		}
-		if (statedParentIds.size() > 1) {
-			eclBuilder.append(")");
-		}
-		Page<Long> idPage = queryService.searchForIds(queryService.createQueryBuilder(true).ecl(eclBuilder.toString()), branchPath, LARGE_PAGE);
-		return idPage.getContent().stream().map(Object::toString).collect(Collectors.toSet());
+		Set<String> ancestors = new HashSet<>(getConceptIdsByEcl(true, eclBuilder.toString()));
+		ancestors.remove(Concepts.SNOMEDCT_ROOT);
+		return ancestors;
 	}
 
 	private Set<String> getStatedParents(org.ihtsdo.drools.domain.Concept concept) {
@@ -146,13 +126,6 @@ public class ConceptDroolsValidationService implements org.ihtsdo.drools.service
 	}
 
 	private Set<String> getConceptIdsByEcl(boolean stated, String ecl) {
-		try {
-			Page<ConceptMini> directDescendantsOfRoot = queryService.search(
-					queryService.createQueryBuilder(stated).ecl(ecl),
-					branchPath, PageRequest.of(0, 1000));
-			return directDescendantsOfRoot.getContent().stream().map(ConceptMini::getConceptId).collect(Collectors.toSet());
-		} catch (IllegalArgumentException e) {
-			return Collections.emptySet();
-		}
+		return queryService.searchForIdStrings(queryService.createQueryBuilder(stated).ecl(ecl));
 	}
 }

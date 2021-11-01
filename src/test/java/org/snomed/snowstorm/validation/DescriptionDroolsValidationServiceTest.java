@@ -1,15 +1,14 @@
 package org.snomed.snowstorm.validation;
 
 import com.google.common.collect.Lists;
+import io.kaicode.elasticvc.api.BranchCriteria;
 import io.kaicode.elasticvc.api.VersionControlHelper;
-import org.junit.Assert;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.snomed.snowstorm.AbstractTest;
 import org.snomed.snowstorm.TestConfig;
 import org.snomed.snowstorm.core.data.domain.Concept;
-import org.snomed.snowstorm.core.data.domain.Concepts;
 import org.snomed.snowstorm.core.data.domain.Description;
 import org.snomed.snowstorm.core.data.domain.Relationship;
 import org.snomed.snowstorm.core.data.services.ConceptService;
@@ -23,8 +22,10 @@ import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
 
+import java.util.Collections;
 import java.util.Set;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.snomed.snowstorm.core.data.domain.Concepts.ISA;
 import static org.snomed.snowstorm.core.data.domain.Concepts.SNOMEDCT_ROOT;
 
@@ -51,32 +52,29 @@ class DescriptionDroolsValidationServiceTest extends AbstractTest {
 
     public static final String PATH = "MAIN";
 
-    private Concept root;
-
-    private Concept bodyStructureAncestor;
-
     private Concept bodyStructureDescendant1;
-
-    private Concept bodyStructureDescendant2;
 
     @BeforeEach
     void setup() throws ServiceException {
-        root = new Concept(SNOMEDCT_ROOT);
-        bodyStructureAncestor = new Concept("123037004")
-				.addAxiom(new Relationship(ISA, SNOMEDCT_ROOT))
-				.addRelationship(new Relationship(ISA, SNOMEDCT_ROOT))
-				.addFSN("Body structure (body structure)");
+        Concept root = new Concept(SNOMEDCT_ROOT);
+        Concept bodyStructureAncestor = new Concept("123037004")
+                .addAxiom(new Relationship(ISA, SNOMEDCT_ROOT))
+                .addRelationship(new Relationship(ISA, SNOMEDCT_ROOT))
+                .addFSN("Body structure (body structure)");
         bodyStructureDescendant1 = new Concept("442083009")
 				.addAxiom(new Relationship(ISA, bodyStructureAncestor.getId()))
 				.addFSN("Anatomical or acquired body structure (body structure)");
-        bodyStructureDescendant2 = new Concept("302509004")
-				.addAxiom(new Relationship(ISA, bodyStructureDescendant1.getId()))
-				.addFSN("Entire heart (body structure)")
-				.addDescription(new Description("444221019", 20170731, true, "900000000000207008", "302509004", "en", "900000000000013009", "Entire heart", "900000000000448009"));
+        Concept bodyStructureDescendant2 = new Concept("302509004")
+                .addAxiom(new Relationship(ISA, bodyStructureDescendant1.getId()))
+                .addFSN("Entire heart (body structure)")
+                .addDescription(new Description("444221019", 20170731, true, "900000000000207008", "302509004", "en", "900000000000013009", "Entire heart", "900000000000448009"));
 
         conceptService.batchCreate(Lists.newArrayList(root, bodyStructureAncestor, bodyStructureDescendant1, bodyStructureDescendant2), PATH);
 
-        validationService = new DescriptionDroolsValidationService(PATH, versionControlHelper.getBranchCriteria(PATH), versionControlHelper, elasticsearchOperations, descriptionService, queryService, null);
+        BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(PATH);
+        DisposableQueryService disposableQueryService = new DisposableQueryService(queryService, PATH, branchCriteria);
+        validationService = new DescriptionDroolsValidationService(PATH, branchCriteria, elasticsearchOperations, descriptionService, disposableQueryService, null,
+                Collections.singleton("123037004"));
     }
 
     @Test
@@ -84,12 +82,13 @@ class DescriptionDroolsValidationServiceTest extends AbstractTest {
         Concept concept = new Concept("1760555000");
         concept.addAxiom(new Relationship(ISA, bodyStructureDescendant1.getId()));
 
-        Description description = new Description("5582049016", null, true, "900000000000207008", "1760555000", "en", "900000000000013009", "Entire heart", "900000000000448009");
+        Description description = new Description("5582049016", null, true, "900000000000207008", "1760555000",
+                "en", "900000000000013009", "Entire heart", "900000000000448009");
         org.ihtsdo.drools.domain.Concept droolConcept = new DroolsConcept(concept);
         org.ihtsdo.drools.domain.Description droolDescription = new DroolsDescription(description);
 
-        Set<org.ihtsdo.drools.domain.Description> descriptions = (validationService.findMatchingDescriptionInHierarchy(droolConcept, droolDescription));
+        Set<org.ihtsdo.drools.domain.Description> descriptions = validationService.findMatchingDescriptionInHierarchy(droolConcept, droolDescription);
 
-        Assert.assertEquals(1, descriptions.size());
+        assertEquals(1, descriptions.size());
     }
 }

@@ -700,6 +700,30 @@ public class QueryService implements ApplicationContextAware {
 				conceptClauses.must(termQuery(SnomedComponent.Fields.RELEASED, isReleased));
 			}
 		}
+
+		@Override
+		public boolean equals(Object o) {
+			if (this == o) return true;
+			if (o == null || getClass() != o.getClass()) return false;
+			ConceptQueryBuilder that = (ConceptQueryBuilder) o;
+			return stated == that.stated &&
+					Objects.equals(activeFilter, that.activeFilter) &&
+					Objects.equals(definitionStatusFilter, that.definitionStatusFilter) &&
+					Objects.equals(module, that.module) &&
+					Objects.equals(resultLanguageDialects, that.resultLanguageDialects) &&
+					Objects.equals(ecl, that.ecl) &&
+					Objects.equals(conceptIds, that.conceptIds) &&
+					Objects.equals(descriptionCriteria, that.descriptionCriteria) &&
+					Objects.equals(effectiveTime, that.effectiveTime) &&
+					Objects.equals(isNullEffectiveTime, that.isNullEffectiveTime) &&
+					Objects.equals(isReleased, that.isReleased);
+		}
+
+		@Override
+		public int hashCode() {
+			return Objects.hash(stated, activeFilter, definitionStatusFilter, module, resultLanguageDialects, ecl,
+					conceptIds, descriptionCriteria, effectiveTime, isNullEffectiveTime, isReleased);
+		}
 	}
 
 }
