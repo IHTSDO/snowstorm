@@ -98,22 +98,23 @@ public class ConceptAttributeSortHelper {
 					semanticTag = getTopLevelHierarchyTag(semanticTag, concept);
 				}
 				Map<Long, Short> attributeOrderMap = domainAttributeOrderMap.get(semanticTag);
-				if (attributeOrderMap != null) {
-					// Add sorting for Is a (attribute)
-					attributeOrderMap.putAll(domainAttributeOrderMap.getOrDefault("all", Collections.emptyMap()));
-
-					for (Axiom axiom : concept.getClassAxioms()) {
-						axiom.setRelationships(getSortedRelationships(axiom.getRelationships(), attributeOrderMap, concept.getConceptId()));
-					}
-					concept.setClassAxioms(getSortedAxioms(concept.getClassAxioms()));
-
-					for (Axiom axiom : concept.getGciAxioms()) {
-						axiom.setRelationships(getSortedRelationships(axiom.getRelationships(), attributeOrderMap, concept.getConceptId()));
-					}
-					concept.setGciAxioms(getSortedAxioms(concept.getGciAxioms()));
-
-					concept.setRelationships(getSortedRelationships(concept.getRelationships(), attributeOrderMap, concept.getConceptId()));
+				if (attributeOrderMap == null) {
+					attributeOrderMap = new HashMap<>();
 				}
+				// Add sorting for Is a (attribute)
+				attributeOrderMap.putAll(domainAttributeOrderMap.getOrDefault("all", Collections.emptyMap()));
+
+				for (Axiom axiom : concept.getClassAxioms()) {
+					axiom.setRelationships(getSortedRelationships(axiom.getRelationships(), attributeOrderMap, concept.getConceptId()));
+				}
+				concept.setClassAxioms(getSortedAxioms(concept.getClassAxioms()));
+
+				for (Axiom axiom : concept.getGciAxioms()) {
+					axiom.setRelationships(getSortedRelationships(axiom.getRelationships(), attributeOrderMap, concept.getConceptId()));
+				}
+				concept.setGciAxioms(getSortedAxioms(concept.getGciAxioms()));
+
+				concept.setRelationships(getSortedRelationships(concept.getRelationships(), attributeOrderMap, concept.getConceptId()));
 			}
 		}
 	}
