@@ -1,5 +1,6 @@
 package org.snomed.snowstorm.validation;
 
+import io.kaicode.elasticvc.api.BranchCriteria;
 import io.kaicode.elasticvc.api.VersionControlHelper;
 import org.junit.Assert;
 import org.junit.jupiter.api.BeforeEach;
@@ -32,7 +33,9 @@ class RelationshipDroolsValidationServiceTest extends AbstractTest {
 		conceptService.create(new Concept("100001")
 						.addAxiom(new Relationship(Concepts.ISA, Concepts.SNOMEDCT_ROOT)), branchPath);
 
-		service = new RelationshipDroolsValidationService(branchPath, versionControlHelper.getBranchCriteria(branchPath), queryService);
+		BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(branchPath);
+		DisposableQueryService disposableQueryService = new DisposableQueryService(queryService, branchPath, branchCriteria);
+		service = new RelationshipDroolsValidationService(disposableQueryService);
 	}
 
 	@Test
