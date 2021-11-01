@@ -7,6 +7,7 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.api.ComponentService;
+import io.kaicode.elasticvc.domain.Branch;
 import org.elasticsearch.common.collect.MapBuilder;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -22,11 +23,15 @@ import org.snomed.snowstorm.rest.View;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
+import org.springframework.data.elasticsearch.core.query.NativeSearchQuery;
+import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
 
 import java.io.IOException;
 import java.util.*;
 import java.util.stream.Collectors;
 
+import static org.elasticsearch.index.query.QueryBuilders.termQuery;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.snomed.snowstorm.config.Config.DEFAULT_LANGUAGE_DIALECTS;
 import static org.snomed.snowstorm.core.data.domain.Concepts.*;
@@ -59,6 +64,9 @@ class ConceptServiceTest extends AbstractTest {
 
 	@Autowired
 	private CodeSystemService codeSystemService;
+
+	@Autowired
+	private ElasticsearchOperations elasticsearchOperations;
 
 	private ServiceTestUtil testUtil;
 
@@ -1352,6 +1360,34 @@ class ConceptServiceTest extends AbstractTest {
 		conceptService.createUpdate(Collections.singletonList(actualConcept), "MAIN");
 		Concept conceptAfterUpdate = conceptService.find(actualConcept.getConceptId(), "MAIN");
 		assertEquals(2, conceptAfterUpdate.getDescriptions().iterator().next().getInactivationIndicatorMembers().size());
+	}
+
+	@Test
+	void testUpdateConceptWithInactiveDescriptionsNoComponentSaves() throws ServiceException {
+		// Create concept
+		Concept concept = new Concept().addFSN("Heart");
+		assertEquals(1, concept.getDescriptions().iterator().next().getAcceptabilityMap().size());
+		String branch = "MAIN";
+		conceptService.create(concept, branch);
+
+		// Version code system
+		codeSystemService.createVersion(codeSystem, 20220101, "");
+
+		// Inactivate description (will make lang refset members inactive)
+		concept = simulateRestTransfer(conceptService.find(concept.getConceptId(), branch));
+		concept.getDescriptions().iterator().next().setActive(false);
+		conceptService.update(concept, branch);
+		concept = simulateRestTransfer(conceptService.find(concept.getConceptId(), branch));
+
+		// Further updates must not result in any component changes
+		conceptService.update(concept, branch);
+
+		Branch latestCommit = branchService.findLatest(branch);
+		NativeSearchQuery query = new NativeSearchQueryBuilder().withQuery(termQuery("start", latestCommit.getHeadTimestamp())).build();
+		assertEquals(0, elasticsearchOperations.count(query, Concept.class));
+		assertEquals(0, elasticsearchOperations.count(query, Relationship.class));
+		assertEquals(0, elasticsearchOperations.count(query, Description.class));
+		assertEquals(0, elasticsearchOperations.count(query, ReferenceSetMember.class));
 	}
 
 	@Test

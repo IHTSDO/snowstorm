@@ -582,14 +582,17 @@ public class ConceptUpdateHelper extends ComponentService {
 		existingComponents.forEach(existingComponent -> {
 			if (!newComponents.contains(existingComponent)) {
 				if (uniqueIds.add(existingComponent.getId()) && existingComponent.isReleased()) {
-					existingComponent.setActive(false);
-					existingComponent.setChanged(true);
-					existingComponent.copyReleaseDetails(existingComponent, rebaseParentExistingComponentMap.get(existingComponent.getId()));
-					existingComponent.updateEffectiveTime();
+					if (existingComponent.isActive()) {
+						existingComponent.setActive(false);
+						existingComponent.setChanged(true);
+						existingComponent.copyReleaseDetails(existingComponent, rebaseParentExistingComponentMap.get(existingComponent.getId()));
+						existingComponent.updateEffectiveTime();
+						componentsToPersist.add(existingComponent);
+					}
 				} else {
 					existingComponent.markDeleted();
+					componentsToPersist.add(existingComponent);
 				}
-				componentsToPersist.add(existingComponent);
 			}
 		});
 	}
