@@ -1,21 +1,12 @@
 package org.snomed.snowstorm.validation;
 
-import io.kaicode.elasticvc.api.BranchCriteria;
 import org.snomed.snowstorm.core.data.domain.Concepts;
-import org.snomed.snowstorm.core.data.services.QueryService;
-import org.springframework.data.domain.PageRequest;
-
-import static org.elasticsearch.index.query.QueryBuilders.termQuery;
 
 public class RelationshipDroolsValidationService implements org.ihtsdo.drools.service.RelationshipService {
 
-	private final QueryService queryService;
-	private final String branchPath;
-	private BranchCriteria branchCriteria;
+	private final DisposableQueryService queryService;
 
-	RelationshipDroolsValidationService(String branchPath, BranchCriteria branchCriteria, QueryService queryService) {
-		this.branchPath = branchPath;
-		this.branchCriteria = branchCriteria;
+	RelationshipDroolsValidationService(DisposableQueryService queryService) {
 		this.queryService = queryService;
 	}
 
@@ -35,7 +26,7 @@ public class RelationshipDroolsValidationService implements org.ihtsdo.drools.se
 		String ecl;
 		if (Concepts.ISA.equals(relationshipTypeId)) {
 			// Concept is parent of any concept
-			ecl = "<" + conceptId;
+			ecl = "<!" + conceptId;
 		} else if (relationshipTypeId != null) {
 			// Concept is target of specific attribute type
 			ecl = "*:" + relationshipTypeId + "=" + conceptId;
@@ -44,6 +35,6 @@ public class RelationshipDroolsValidationService implements org.ihtsdo.drools.se
 			ecl = "*:*=" + conceptId;
 		}
 
-		return queryService.searchForIds(queryService.createQueryBuilder(true).ecl(ecl), branchPath, branchCriteria, PageRequest.of(0, 1)).getTotalElements() > 0;
+		return queryService.isAnyResults(queryService.createQueryBuilder(true).ecl(ecl));
 	}
 }

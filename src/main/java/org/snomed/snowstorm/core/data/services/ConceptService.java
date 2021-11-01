@@ -417,7 +417,7 @@ public class ConceptService extends ComponentService {
 		}
 		timer.checkpoint("get relationship def status " + getFetchCount(conceptMiniMap.size()));
 
-		descriptionService.joinDescriptions(branchCriteria, conceptIdMap, conceptMiniMap, timer, includeDescriptionInactivationInfo);
+		descriptionService.joinDescriptions(branchCriteria, conceptIdMap, conceptMiniMap, timer, true, includeDescriptionInactivationInfo);
 
 		conceptAttributeSortHelper.sortAttributes(conceptIdMap.values());
 		timer.checkpoint("Sort attributes");
