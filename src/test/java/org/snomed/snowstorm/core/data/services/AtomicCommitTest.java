@@ -135,7 +135,7 @@ class AtomicCommitTest extends AbstractTest {
 			fail("Should have thrown IllegalStateException > GraphBuilderException");
 		} catch (IllegalStateException e) {
 			GraphBuilderException graphBuilderException = (GraphBuilderException) e.getCause();
-			assertTrue(graphBuilderException.getMessage().startsWith("Loop found in transitive closure for concept 1000013 on branch MAIN/my-branch"));
+			assertTrue(graphBuilderException.getMessage().startsWith("Loop found in transitive closure for concept 1000012 on branch MAIN/my-branch"));
 		}
 
 		// Check B -> root relationship still has published flag and is not ended
