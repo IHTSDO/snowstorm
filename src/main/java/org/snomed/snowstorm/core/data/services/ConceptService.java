@@ -5,10 +5,7 @@ import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
-import io.kaicode.elasticvc.api.BranchCriteria;
-import io.kaicode.elasticvc.api.BranchService;
-import io.kaicode.elasticvc.api.ComponentService;
-import io.kaicode.elasticvc.api.VersionControlHelper;
+import io.kaicode.elasticvc.api.*;
 import io.kaicode.elasticvc.domain.Branch;
 import io.kaicode.elasticvc.domain.Commit;
 import io.kaicode.elasticvc.domain.DomainEntity;
@@ -44,6 +41,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.Assert;
 
 import javax.annotation.Nullable;
+import java.time.Duration;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.function.Function;
@@ -114,6 +112,8 @@ public class ConceptService extends ComponentService {
 
 	private final Cache<String, AsyncConceptChangeBatch> batchConceptChanges;
 
+	private final Cache<BranchTimepoint, BranchCriteria> branchCriteriaCache = CacheBuilder.newBuilder().expireAfterAccess(Duration.ofDays(1)).build();
+
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
 	public ConceptService() {
@@ -166,7 +166,7 @@ public class ConceptService extends ComponentService {
 		Map<String, BranchCriteria> codeSystemVersionBranchCriteria = new HashMap<>();
 		for (CodeSystemVersion codeSystemVersion : codeSystemVersions) {
 			String branchPath = codeSystemVersion.getBranchPath();
-			codeSystemVersionBranchCriteria.put(branchPath, versionControlHelper.getBranchCriteria(branchPath));
+			codeSystemVersionBranchCriteria.put(branchPath, getBranchCriteria(branchPath));
 		}
 
 		Function<ComponentType, BoolQueryBuilder> defaultFullQuery = componentType -> {
@@ -234,7 +234,7 @@ public class ConceptService extends ComponentService {
 	}
 
 	public boolean exists(String id, String path) {
-		final BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(path);
+		final BranchCriteria branchCriteria = getBranchCriteria(path);
 		return getNonExistentConceptIds(Collections.singleton(id), branchCriteria).isEmpty();
 	}
 
@@ -266,15 +266,29 @@ public class ConceptService extends ComponentService {
 		return doFind(conceptIds, languageDialects, branchCriteria, pageRequest, true, true, branchTimepoint.getBranchPath());
 	}
 
+	protected BranchCriteria getBranchCriteria(String branchPath) {
+		return getBranchCriteria(new BranchTimepoint(branchPath));
+	}
 	protected BranchCriteria getBranchCriteria(BranchTimepoint branchTimepoint) {
-		if (branchTimepoint.isBranchCreationTimepoint()) {
-			return versionControlHelper.getBranchCriteriaAtBranchCreationTimepoint(branchTimepoint.getBranchPath());
-		} else if (branchTimepoint.isBranchBaseTimepoint()) {
-			return versionControlHelper.getBranchCriteriaForParentBranchAtBranchBaseTimepoint(branchTimepoint.getBranchPath());
-		} else if (branchTimepoint.getTimepoint() != null) {
-			return versionControlHelper.getBranchCriteriaAtTimepoint(branchTimepoint.getBranchPath(), branchTimepoint.getTimepoint());
-		} else {
-			return versionControlHelper.getBranchCriteria(branchTimepoint.getBranchPath());
+		try {
+			String branchPath = branchTimepoint.getBranchPath();
+			if (branchTimepoint.isBranchCreationTimepoint()) {
+				// Creation date will not change so no need to check expiry.
+				return branchCriteriaCache.get(branchTimepoint, () -> versionControlHelper.getBranchCriteriaAtBranchCreationTimepoint(branchPath));
+			} else if (branchTimepoint.isBranchBaseTimepoint()) {
+				// Lookup base date and re-enter method. Using a date prevents an old cache entry being hit after a rebase commit.
+				Branch latest = branchService.findLatest(branchPath);
+				return getBranchCriteria(new BranchTimepoint(PathUtil.getParentPath(latest.getPath()), latest.getBase()));
+			} else if (branchTimepoint.getTimepoint() == null) {
+				// Lookup head date and re-enter method. Using a date prevents an old cache entry being hit after a new commit.
+				Branch latest = branchService.findLatest(branchPath);
+				return getBranchCriteria(new BranchTimepoint(branchPath, latest.getHead()));
+			} else {
+				return branchCriteriaCache.get(branchTimepoint, () ->
+						versionControlHelper.getBranchCriteriaAtTimepoint(branchPath, branchTimepoint.getTimepoint()));
+			}
+		} catch (ExecutionException e) {
+			throw new RuntimeServiceException("Failed to create branch criteria", e);
 		}
 	}
 
@@ -282,7 +296,7 @@ public class ConceptService extends ComponentService {
 		if (conceptIds.isEmpty()) {
 			return new ResultMapPage<>(new HashMap<>(), 0);
 		}
-		final BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(path);
+		final BranchCriteria branchCriteria = getBranchCriteria(path);
 		return findConceptMinis(branchCriteria, conceptIds, languageDialects);
 	}
 
@@ -522,7 +536,7 @@ public class ConceptService extends ComponentService {
 		final Branch branch = branchService.findBranchOrThrow(path);
 		final Set<String> conceptIds = concepts.stream().map(Concept::getConceptId).filter(Objects::nonNull).collect(Collectors.toSet());
 		if (!conceptIds.isEmpty()) {
-			final BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(path);
+			final BranchCriteria branchCriteria = getBranchCriteria(path);
 			final Collection<String> nonExistentConceptIds = getNonExistentConceptIds(conceptIds, branchCriteria);
 			conceptIds.removeAll(nonExistentConceptIds);
 			if (!conceptIds.isEmpty()) {

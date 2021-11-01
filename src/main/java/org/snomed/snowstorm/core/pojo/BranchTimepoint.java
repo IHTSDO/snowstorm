@@ -5,6 +5,7 @@ import com.google.common.base.Strings;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
+import java.util.Objects;
 import java.util.regex.Pattern;
 
 public class BranchTimepoint {
@@ -24,6 +25,11 @@ public class BranchTimepoint {
 
 	public BranchTimepoint(String branchPath) {
 		this.branchPath = branchPath;
+	}
+
+	public BranchTimepoint(String branchPath, Date timepoint) {
+		this(branchPath);
+		this.timepoint = timepoint;
 	}
 
 	public BranchTimepoint(String branchPath, String timepointString) {
@@ -78,5 +84,18 @@ public class BranchTimepoint {
 				", branchCreationTimepoint=" + branchCreationTimepoint +
 				", timepoint=" + (timepoint == null ? null : DATE_FORMAT.format(timepoint)) +
 				'}';
+	}
+
+	@Override
+	public boolean equals(Object o) {
+		if (this == o) return true;
+		if (o == null || getClass() != o.getClass()) return false;
+		BranchTimepoint that = (BranchTimepoint) o;
+		return branchCreationTimepoint == that.branchCreationTimepoint && branchBaseTimepoint == that.branchBaseTimepoint && branchPath.equals(that.branchPath) && Objects.equals(timepoint, that.timepoint);
+	}
+
+	@Override
+	public int hashCode() {
+		return Objects.hash(branchPath, branchCreationTimepoint, branchBaseTimepoint, timepoint);
 	}
 }
