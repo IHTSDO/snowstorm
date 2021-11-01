@@ -81,6 +81,33 @@ class ConceptAttributeSortHelperTest {
 	}
 
 	@Test
+	void sortYinAttributes() {
+		Concept concept = new Concept()
+				.addFSN("Yin pattern (pattern)")
+				.addAxiom(
+						relationship(0, "116680003", "1119477002", "Pattern (pattern)"),
+						relationship(1, "1155656004", "1155657008", "Yin (theoretical entity)")
+				);
+		concept.getClassAxioms().forEach(a -> a.setAxiomId(UUID.randomUUID().toString()));
+		conceptAttributeSortHelper.sortAttributes(Collections.singleton(concept));
+
+		ArrayList<Axiom> axioms = new ArrayList<>(concept.getClassAxioms());
+		assertEquals(1, axioms.size());
+		assertEquals(2, axioms.get(0).getRelationships().size(),
+				"Second axiom should have been sorted to the top because type 363714003 sorts higher than 363698007");
+
+		Axiom axiom = axioms.get(0);
+		for (Relationship relationship : axiom.getRelationships()) {
+			System.out.println(asString(relationship));
+		}
+
+		Iterator<Relationship> iterator = axiom.getRelationships().iterator();
+
+		assertEquals("0, 116680003, Pattern (pattern)", asString(iterator.next()));
+		assertEquals("1, 1155656004, Yin (theoretical entity)", asString(iterator.next()));
+	}
+
+	@Test
 	void sortConcreteAttributes() {
 		Concept concept = new Concept()
 				.addFSN("Product containing precisely nicotinic acid 500 milligram/1 each conventional release oral tablet (clinical drug)")
