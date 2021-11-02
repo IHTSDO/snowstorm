@@ -351,10 +351,6 @@ public class ConceptUpdateHelper extends ComponentService {
 			Collection<ReferenceSetMember> refsetMembersToPersist,
 			String indicatorReferenceSet) {
 
-		if (!newComponent.getInactivationIndicatorMembers().isEmpty()) {
-			throw new IllegalArgumentException("New component should not have inactivation indicator refset members joined.");
-		}
-
 		String newIndicatorName = newComponent.getInactivationIndicator();
 		final String newIndicatorId = newIndicatorName != null ? inactivationIndicatorNames.inverse().get(newIndicatorName) : null;
 		if (newIndicatorName != null && newIndicatorId == null) {
