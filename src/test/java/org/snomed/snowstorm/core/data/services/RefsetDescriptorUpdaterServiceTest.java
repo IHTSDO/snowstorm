@@ -34,7 +34,7 @@ class RefsetDescriptorUpdaterServiceTest extends AbstractTest {
 		conceptService.create(new Concept(Concepts.ISA)
 				.addAxiom(new Relationship(Concepts.ISA, Concepts.SNOMEDCT_ROOT)), MAIN);
 		conceptService.create(new Concept(Concepts.REFSET)
-				.addAxiom(new Relationship(Concepts.ISA, Concepts.FOUNDATION_METADATA).setModuleId(Concepts.MODEL_MODULE)).setModuleId(Concepts.MODEL_MODULE), MAIN);
+				.addAxiom(new Relationship(Concepts.ISA, Concepts.FOUNDATION_METADATA)).setModuleId(Concepts.MODEL_MODULE), MAIN);
 		conceptService.create(new Concept(Concepts.CLINICAL_FINDING)
 				.addAxiom(new Relationship(Concepts.ISA, Concepts.SNOMEDCT_ROOT)), MAIN);
 		conceptService.create(new Concept(Concepts.REFSET_HISTORICAL_ASSOCIATION)
@@ -42,9 +42,9 @@ class RefsetDescriptorUpdaterServiceTest extends AbstractTest {
 		conceptService.create(new Concept(Concepts.REFSET_POSSIBLY_EQUIVALENT_TO_ASSOCIATION)
 				.addAxiom(new Relationship(Concepts.ISA, Concepts.REFSET_HISTORICAL_ASSOCIATION)), MAIN);
 		conceptService.create(new Concept(Concepts.REFSET_SIMPLE)
-				.addAxiom(new Relationship(Concepts.ISA, Concepts.REFSET).setModuleId(Concepts.MODEL_MODULE)).setModuleId(Concepts.MODEL_MODULE), MAIN);
+				.addAxiom(new Relationship(Concepts.ISA, Concepts.REFSET)).setModuleId(Concepts.MODEL_MODULE), MAIN);
 		conceptService.create(new Concept(Concepts.REFSET_DESCRIPTOR_REFSET)
-				.addAxiom(new Relationship(Concepts.ISA, Concepts.REFSET).setModuleId(Concepts.MODEL_MODULE)).setModuleId(Concepts.MODEL_MODULE), MAIN);
+				.addAxiom(new Relationship(Concepts.ISA, Concepts.REFSET)).setModuleId(Concepts.MODEL_MODULE), MAIN);
 	}
 
 	@Test
