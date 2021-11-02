@@ -3,7 +3,6 @@ package org.snomed.snowstorm.core.data.services;
 import io.kaicode.elasticvc.api.BranchCriteria;
 import io.kaicode.elasticvc.api.CommitListener;
 import io.kaicode.elasticvc.api.VersionControlHelper;
-import io.kaicode.elasticvc.domain.Branch;
 import io.kaicode.elasticvc.domain.Commit;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -84,19 +83,19 @@ public class RefsetDescriptorUpdaterService implements CommitListener {
 		String branchPath = commit.getBranch().getPath();
 		for (SearchHit<QueryConcept> searchHit : searchHits.getSearchHits()) {
 			long conceptIdL = searchHit.getContent().getConceptIdL();
-			if (Concepts.REFSET.equals(String.valueOf(conceptIdL))) {
-				// Edge case where first importing.
-				continue;
-			}
+			String conceptIdS = String.valueOf(conceptIdL);
 
-			doAddToRefset(commit, conceptIdL, branchPath);
+			List<ReferenceSetMember> members = referenceSetMemberService.findMembers(branchPath, new MemberSearchRequest().referencedComponentId(conceptIdS).referenceSet(Concepts.REFSET_DESCRIPTOR_REFSET), PAGE_REQUEST).getContent();
+			if (members.isEmpty()) {
+				doAddMemberToRefset(commit, conceptIdL, branchPath);
+			}
 		}
 	}
 
-	private void doAddToRefset(Commit commit, long conceptIdL, String branchPath) {
+	private void doAddMemberToRefset(Commit commit, long conceptIdL, String branchPath) {
 		Set<ReferenceSetMember> referenceSetMembersToSave = getNewMembersInspiredByAncestors(commit, conceptIdL, branchPath);
 		if (referenceSetMembersToSave.isEmpty()) {
-			logger.info("Cannot proceed with updating {} |Reference set descriptor| on branch {} as relevant properties cannot be inherited from parent/grandparent.", branchPath, Concepts.REFSET_DESCRIPTOR_REFSET);
+			logger.info("Cannot proceed with updating {} |Reference set descriptor| on branch {} as relevant properties cannot be inherited from parent/grandparent.", Concepts.REFSET_DESCRIPTOR_REFSET, branchPath);
 			return;
 		}
 
