@@ -89,7 +89,8 @@ public class RefsetDescriptorUpdaterService implements CommitListener {
 				continue;
 			}
 
-			List<ReferenceSetMember> members = referenceSetMemberService.findMembers(Concepts.REFSET_DESCRIPTOR_REFSET, branchPath, conceptIdS);
+			// Returns unmodifiable collection, thus, create new collection.
+			List<ReferenceSetMember> members = new ArrayList<>(referenceSetMemberService.findMembers(branchPath, new MemberSearchRequest().referencedComponentId(conceptIdS).referenceSet(Concepts.REFSET_DESCRIPTOR_REFSET), PAGE_REQUEST).getContent());
 			if (!members.isEmpty()) {
 				doUpdateRefsetMembers(commit, conceptIdS, branchPath, members);
 			} else {
