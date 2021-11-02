@@ -3,7 +3,6 @@ package org.snomed.snowstorm.core.data.services;
 import io.kaicode.elasticvc.api.BranchCriteria;
 import io.kaicode.elasticvc.api.CommitListener;
 import io.kaicode.elasticvc.api.VersionControlHelper;
-import io.kaicode.elasticvc.domain.Branch;
 import io.kaicode.elasticvc.domain.Commit;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -84,19 +83,46 @@ public class RefsetDescriptorUpdaterService implements CommitListener {
 		String branchPath = commit.getBranch().getPath();
 		for (SearchHit<QueryConcept> searchHit : searchHits.getSearchHits()) {
 			long conceptIdL = searchHit.getContent().getConceptIdL();
-			if (Concepts.REFSET.equals(String.valueOf(conceptIdL))) {
+			String conceptIdS = String.valueOf(conceptIdL);
+			if (Concepts.REFSET.equals(conceptIdS)) {
 				// Edge case where first importing.
 				continue;
 			}
 
-			doAddToRefset(commit, conceptIdL, branchPath);
+			List<ReferenceSetMember> members = referenceSetMemberService.findMembers(Concepts.REFSET_DESCRIPTOR_REFSET, branchPath, conceptIdS);
+			if (!members.isEmpty()) {
+				doUpdateRefsetMembers(commit, conceptIdS, branchPath, members);
+			} else {
+				doAddMemberToRefset(commit, conceptIdL, branchPath);
+			}
 		}
 	}
 
-	private void doAddToRefset(Commit commit, long conceptIdL, String branchPath) {
+	private void doUpdateRefsetMembers(Commit commit, String conceptIdS, String branchPath, List<ReferenceSetMember> members) {
+		logger.info("Commit is updating a new Reference Set (conceptId: {}). {} |Reference set descriptor| will be updated accordingly on branch {}.", conceptIdS, Concepts.REFSET_DESCRIPTOR_REFSET, branchPath);
+
+		// Inactivate or remove previous
+		for (ReferenceSetMember member : members) {
+			if (member.isReleased()) {
+				member.setActive(false);
+			} else {
+				member.markDeleted();
+			}
+			member.markChanged();
+		}
+
+		// Create new entries
+		members.addAll(getNewMembersInspiredByAncestors(commit, Long.parseLong(conceptIdS), branchPath));
+
+		Set<String> referenceSetMembersSaved = new HashSet<>();
+		referenceSetMemberService.doSaveBatchMembers(members, commit).forEach(s -> referenceSetMembersSaved.add(s.getId()));
+		logger.info("New ReferenceSetMember(s) updated for {} |Reference set descriptor| on branch {}: {}", Concepts.REFSET_DESCRIPTOR_REFSET, branchPath, referenceSetMembersSaved);
+	}
+
+	private void doAddMemberToRefset(Commit commit, long conceptIdL, String branchPath) {
 		Set<ReferenceSetMember> referenceSetMembersToSave = getNewMembersInspiredByAncestors(commit, conceptIdL, branchPath);
 		if (referenceSetMembersToSave.isEmpty()) {
-			logger.info("Cannot proceed with updating {} |Reference set descriptor| on branch {} as relevant properties cannot be inherited from parent/grandparent.", branchPath, Concepts.REFSET_DESCRIPTOR_REFSET);
+			logger.info("Cannot proceed with updating {} |Reference set descriptor| on branch {} as relevant properties cannot be inherited from parent/grandparent.", Concepts.REFSET_DESCRIPTOR_REFSET, branchPath);
 			return;
 		}
 
