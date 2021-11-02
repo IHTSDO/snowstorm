@@ -1342,6 +1342,8 @@ class BranchMergeServiceTest extends AbstractTest {
 		codeSystemService.createVersion(codeSystemService.find(SNOMEDCT), 2021_07_01, "");
 		releaseVersionConcept = conceptService.find(conceptId, "MAIN");
 		assertEquals(2021_07_01, releaseVersionConcept.getReleasedEffectiveTime());
+		assertEquals(2021_07_01, releaseVersionConcept.getDescription(descriptionId)
+				.getLangRefsetMembersMap().get(US_EN_LANG_REFSET).iterator().next().getReleasedEffectiveTime());
 
 		// Rebase MAIN/A
 		branchMergeService.rebaseSync("MAIN/A", null);
@@ -1353,6 +1355,8 @@ class BranchMergeServiceTest extends AbstractTest {
 		conceptService.update(releaseVersionConcept, "MAIN");
 		codeSystemService.createVersion(codeSystemService.find(SNOMEDCT), 2021_08_01, "");
 		releaseVersionConcept = conceptService.find(conceptId, "MAIN");
+		assertEquals(2021_08_01, releaseVersionConcept.getDescription(descriptionId)
+				.getLangRefsetMembersMap().get(US_EN_LANG_REFSET).iterator().next().getReleasedEffectiveTime());
 
 		// Inactivate lang refset members on MAIN/A
 		Concept conceptOnA = conceptService.find(conceptId, "MAIN/A");
@@ -1363,6 +1367,9 @@ class BranchMergeServiceTest extends AbstractTest {
 
 		conceptOnA = conceptService.find(conceptId, "MAIN/A");
 		assertEquals(2021_07_01, conceptOnA.getReleasedEffectiveTime());
+		assertEquals(2021_07_01, conceptOnA.getDescription(descriptionId)
+				.getLangRefsetMembersMap().get(US_EN_LANG_REFSET).iterator().next().getReleasedEffectiveTime());
+
 		branchMergeService.rebaseSync("MAIN/A", Collections.singleton(conceptOnA));
 
 		final Concept mergedConcept = conceptService.find(conceptId, "MAIN/A");
