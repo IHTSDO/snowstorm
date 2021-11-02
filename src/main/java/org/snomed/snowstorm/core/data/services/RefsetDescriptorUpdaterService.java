@@ -84,10 +84,6 @@ public class RefsetDescriptorUpdaterService implements CommitListener {
 		for (SearchHit<QueryConcept> searchHit : searchHits.getSearchHits()) {
 			long conceptIdL = searchHit.getContent().getConceptIdL();
 			String conceptIdS = String.valueOf(conceptIdL);
-			if (Concepts.REFSET.equals(conceptIdS)) {
-				// Edge case where first importing.
-				continue;
-			}
 
 			// Returns unmodifiable collection, thus, create new collection.
 			List<ReferenceSetMember> members = new ArrayList<>(referenceSetMemberService.findMembers(branchPath, new MemberSearchRequest().referencedComponentId(conceptIdS).referenceSet(Concepts.REFSET_DESCRIPTOR_REFSET), PAGE_REQUEST).getContent());
