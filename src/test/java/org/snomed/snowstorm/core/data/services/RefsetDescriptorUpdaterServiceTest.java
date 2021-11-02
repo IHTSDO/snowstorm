@@ -84,9 +84,6 @@ class RefsetDescriptorUpdaterServiceTest extends AbstractTest {
 		// Change modelling for semantic index change. newRefSet2 now |is a| newRefSet1; previously it was a simple reference set.
 		changeIsATarget(newRefSet1, newRefSet2);
 
-		// Change additional fields of newRefSet1; simulating a different parent with different data.
-		changeAdditionalFields(newRefSet1, "A", "B", "C");
-
 		// when
 		conceptService.update(newRefSet2, "MAIN");
 
@@ -97,9 +94,9 @@ class RefsetDescriptorUpdaterServiceTest extends AbstractTest {
 		assertEquals(3, members.size());
 		assertEquals(newRefSet2.getId(), referenceSetMember.getReferencedComponentId());
 		assertEquals(Concepts.REFSET_DESCRIPTOR_REFSET, referenceSetMember.getRefsetId());
-		assertEquals("A", referenceSetMember.getAdditionalField("attributeDescription"));
-		assertEquals("B", referenceSetMember.getAdditionalField("attributeType"));
-		assertEquals("C", referenceSetMember.getAdditionalField("attributeOrder"));
+		assertEquals(Concepts.REFERENCED_COMPONENT, referenceSetMember.getAdditionalField("attributeDescription"));
+		assertEquals(Concepts.CONCEPT_TYPE_COMPONENT, referenceSetMember.getAdditionalField("attributeType"));
+		assertEquals("0", referenceSetMember.getAdditionalField("attributeOrder"));
 	}
 
 	private void givenRefSetAncestorsExist() throws ServiceException {
@@ -153,15 +150,6 @@ class RefsetDescriptorUpdaterServiceTest extends AbstractTest {
 		return memberSearchRequest;
 	}
 
-	private MemberSearchRequest buildMemberSearchRequest(boolean active, String referenceSetId, String referencedComponentId) {
-		MemberSearchRequest memberSearchRequest = new MemberSearchRequest();
-		memberSearchRequest.active(active);
-		memberSearchRequest.referenceSet(referenceSetId);
-		memberSearchRequest.referencedComponentId(referencedComponentId);
-
-		return memberSearchRequest;
-	}
-
 	private void changeIsATarget(Concept newRefSet1, Concept newRefSet2) {
 		Relationship relationship = new Relationship();
 		relationship.setTypeId(Concepts.ISA);
@@ -176,17 +164,5 @@ class RefsetDescriptorUpdaterServiceTest extends AbstractTest {
 		axioms.add(axiom);
 
 		newRefSet2.setRelationships(relationships);
-	}
-
-	private void changeAdditionalFields(Concept concept, String attributeDescription, String attributeType, String attributeOrder) {
-		List<ReferenceSetMember> members = memberService.findMembers("MAIN", buildMemberSearchRequest(true, Concepts.REFSET_DESCRIPTOR_REFSET, concept.getId()), PAGE_REQUEST).getContent();
-		for (ReferenceSetMember referenceSetMember : members) {
-			referenceSetMember.setAdditionalFields(Map.of(
-					"attributeDescription", attributeDescription,
-					"attributeType", attributeType,
-					"attributeOrder", attributeOrder));
-			referenceSetMember.setChanged(true);
-			memberService.updateMember("MAIN", referenceSetMember);
-		}
 	}
 }

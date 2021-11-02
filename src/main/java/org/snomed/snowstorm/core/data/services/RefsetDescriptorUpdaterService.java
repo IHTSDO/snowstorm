@@ -85,35 +85,11 @@ public class RefsetDescriptorUpdaterService implements CommitListener {
 			long conceptIdL = searchHit.getContent().getConceptIdL();
 			String conceptIdS = String.valueOf(conceptIdL);
 
-			// Returns unmodifiable collection, thus, create new collection.
-			List<ReferenceSetMember> members = new ArrayList<>(referenceSetMemberService.findMembers(branchPath, new MemberSearchRequest().referencedComponentId(conceptIdS).referenceSet(Concepts.REFSET_DESCRIPTOR_REFSET), PAGE_REQUEST).getContent());
-			if (!members.isEmpty()) {
-				doUpdateRefsetMembers(commit, conceptIdS, branchPath, members);
-			} else {
+			List<ReferenceSetMember> members = referenceSetMemberService.findMembers(branchPath, new MemberSearchRequest().referencedComponentId(conceptIdS).referenceSet(Concepts.REFSET_DESCRIPTOR_REFSET), PAGE_REQUEST).getContent();
+			if (members.isEmpty()) {
 				doAddMemberToRefset(commit, conceptIdL, branchPath);
 			}
 		}
-	}
-
-	private void doUpdateRefsetMembers(Commit commit, String conceptIdS, String branchPath, List<ReferenceSetMember> members) {
-		logger.info("Commit is updating a new Reference Set (conceptId: {}). {} |Reference set descriptor| will be updated accordingly on branch {}.", conceptIdS, Concepts.REFSET_DESCRIPTOR_REFSET, branchPath);
-
-		// Inactivate or remove previous
-		for (ReferenceSetMember member : members) {
-			if (member.isReleased()) {
-				member.setActive(false);
-			} else {
-				member.markDeleted();
-			}
-			member.markChanged();
-		}
-
-		// Create new entries
-		members.addAll(getNewMembersInspiredByAncestors(commit, Long.parseLong(conceptIdS), branchPath));
-
-		Set<String> referenceSetMembersSaved = new HashSet<>();
-		referenceSetMemberService.doSaveBatchMembers(members, commit).forEach(s -> referenceSetMembersSaved.add(s.getId()));
-		logger.info("New ReferenceSetMember(s) updated for {} |Reference set descriptor| on branch {}: {}", Concepts.REFSET_DESCRIPTOR_REFSET, branchPath, referenceSetMembersSaved);
 	}
 
 	private void doAddMemberToRefset(Commit commit, long conceptIdL, String branchPath) {
