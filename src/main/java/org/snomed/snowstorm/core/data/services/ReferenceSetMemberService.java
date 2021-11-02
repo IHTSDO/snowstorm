@@ -212,6 +212,26 @@ public class ReferenceSetMemberService extends ComponentService {
 		return findMembers(branchCriteria, uuids);
 	}
 
+	public List<ReferenceSetMember> findMembers(String refsetId, String branch, String referencedComponentId) {
+		BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(branch);
+		NativeSearchQuery query =
+				new NativeSearchQueryBuilder()
+						.withQuery(
+								boolQuery()
+										.must(branchCriteria.getEntityBranchCriteria(ReferenceSetMember.class))
+										.must(termQuery(ReferenceSetMember.Fields.REFSET_ID, refsetId))
+										.must(termQuery(ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID, referencedComponentId))
+										.must(termQuery(ReferenceSetMember.Fields.PATH, branch)))
+						.withPageable(LARGE_PAGE)
+						.build();
+
+		return elasticsearchTemplate
+				.search(query, ReferenceSetMember.class)
+				.stream()
+				.map(SearchHit::getContent)
+				.collect(Collectors.toList());
+	}
+
 	public ReferenceSetMember createMember(String branch, ReferenceSetMember member) {
 		Iterator<ReferenceSetMember> members = createMembers(branch, Collections.singleton(member)).iterator();
 		return members.hasNext() ? members.next() : null;
