@@ -35,7 +35,7 @@ class ReferenceSetMemberControllerTest extends AbstractTest {
 	private ReferenceSetMemberService referenceSetMemberService;
 
 	@Test
-	void findRefsetMembers_ShouldPage_WhenGivenSearchAfterRequestParameter() {
+	void findRefsetMembers_ShouldPage_WhenGivenSearchAfterRequestParameter() throws InterruptedException {
 		// create & assert first reference set member
 		ReferenceSetMember memberA = new ReferenceSetMember(Concepts.MODEL_MODULE, Concepts.REFSET_DESCRIPTOR_REFSET, Concepts.REFSET_MOVED_FROM_ASSOCIATION);
 		referenceSetMemberService.createMember("MAIN", memberA);
@@ -55,6 +55,7 @@ class ReferenceSetMemberControllerTest extends AbstractTest {
 
 		// query second page (using searchAfter token from firstPage)
 		ItemsPagePojo<ReferenceSetMember> secondPageMembers = findRefsetMembers(firstPageMembers.getSearchAfter());
+		Thread.sleep(10000);
 		assertEquals(1, secondPageMembers.getItems().size());
 		ReferenceSetMember secondPageMember = getReferenceSetMember(secondPageMembers);
 		assertEquals(memberB.getMemberId(), secondPageMember.getMemberId());
