@@ -139,6 +139,7 @@ public class ReferenceSetMemberController {
 			@RequestParam(name = "owlExpression.gci", required = false) Boolean owlExpressionGCI,
 			@RequestParam(defaultValue = "0") int offset,
 			@RequestParam(defaultValue = "50") int limit,
+		   	@RequestParam(required = false) String searchAfter,
 			@RequestHeader(value = "Accept-Language", defaultValue = Config.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) {
 
 		ControllerHelper.validatePageSize(offset, limit);
@@ -155,7 +156,7 @@ public class ReferenceSetMemberController {
 						.owlExpressionConceptId(owlExpressionConceptId)
 						.owlExpressionGCI(owlExpressionGCI)
 				,
-				ControllerHelper.getPageRequest(offset, limit)
+				ControllerHelper.getPageRequest(offset, limit, SORT_BY_MEMBER_ID_DESC, searchAfter)
 		);
 		joinReferencedComponents(members.getContent(), ControllerHelper.parseAcceptLanguageHeaderWithDefaultFallback(acceptLanguageHeader), branch);
 		return new ItemsPage<>(members);
