@@ -3,6 +3,7 @@ package org.snomed.snowstorm.core.data.services;
 public interface BranchMetadataKeys {
 	String PREVIOUS_PACKAGE = "previousPackage";// Used for classification
 	String DEPENDENCY_PACKAGE = "dependencyPackage";// Used for classification of extensions
+	String PREVIOUS_DEPENDENCY_PACKAGE = "previousDependencyPackage"; //Used for building previous Snapshot eg for RP SCS
 	String ASSERTION_GROUP_NAMES = "assertionGroupNames";
 	String REQUIRED_LANGUAGE_REFSETS = "requiredLanguageRefsets";
 	String DEFAULT_MODULE_ID = "defaultModuleId";

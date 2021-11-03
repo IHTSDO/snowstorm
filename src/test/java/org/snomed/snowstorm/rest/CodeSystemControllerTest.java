@@ -184,7 +184,9 @@ class CodeSystemControllerTest extends AbstractTest {
     public void startNewAuthoringCycle_ShouldReturnExpectedMetadata() {
         //given
         String requestUrl = startNewAuthoringCycle("SNOMEDCT");
-        CodeSystemNewAuthoringCycleRequest request = new CodeSystemNewAuthoringCycleRequest("SnomedCT_InternationalRF2_PRODUCTION_20210731T120000Z.zip", "20210731");
+        CodeSystemNewAuthoringCycleRequest request = new CodeSystemNewAuthoringCycleRequest("SnomedCT_InternationalRF2_PRODUCTION_20210731T120000Z.zip", 
+                 "20210731",
+                 "SnomedCT_InternationalRF2_PRODUCTION_20210131T120000Z.zip");
 
         //when
         this.testRestTemplate.postForEntity(requestUrl, request, void.class);
@@ -194,6 +196,7 @@ class CodeSystemControllerTest extends AbstractTest {
         LinkedHashMap<String, Object> receivedMetaData = getMetadata(responseEntity);
         assertNotNull(receivedMetaData);
         assertEquals("SnomedCT_InternationalRF2_PRODUCTION_20210731T120000Z.zip", receivedMetaData.get("previousPackage"));
+        assertEquals("SnomedCT_InternationalRF2_PRODUCTION_20210131T120000Z.zip", receivedMetaData.get("previousDependencyPackage"));
         assertEquals("20210731", receivedMetaData.get("previousRelease"));
     }
 
