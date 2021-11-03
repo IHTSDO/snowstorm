@@ -60,6 +60,10 @@ import static org.snomed.snowstorm.core.data.services.CodeSystemService.MAIN;
 
 @Service
 public class ReferenceSetMemberService extends ComponentService {
+	private static final Function<ReferenceSetMember, Object[]> REFERENCE_SET_MEMBER_ID_SEARCH_AFTER_EXTRACTOR = referenceSetMember -> {
+		String id = referenceSetMember.getId();
+		return id == null ? null : SearchAfterHelper.convertToTokenAndBack(new Object[]{id});
+	};
 	private static final Set<String> LANG_REFSET_MEMBER_FIELD_SET = Collections.singleton(ReferenceSetMember.LanguageFields.ACCEPTABILITY_ID);
 	private static final Set<String> OWL_REFSET_MEMBER_FIELD_SET = Collections.singleton(ReferenceSetMember.OwlExpressionFields.OWL_EXPRESSION);
 	public static final String AGGREGATION_MEMBER_COUNTS_BY_REFERENCE_SET = "memberCountsByReferenceSet";
