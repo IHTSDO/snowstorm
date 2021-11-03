@@ -8,9 +8,11 @@ import org.snomed.snowstorm.core.data.services.NotFoundException;
 import org.snomed.snowstorm.core.data.services.identifier.IdentifierService;
 import org.snomed.snowstorm.core.pojo.BranchTimepoint;
 import org.snomed.snowstorm.core.pojo.LanguageDialect;
+import org.snomed.snowstorm.rest.converter.SearchAfterHelper;
 import org.snomed.snowstorm.rest.pojo.ConceptMiniNestedFsn;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
+import org.springframework.data.elasticsearch.core.SearchAfterPageRequest;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -131,6 +133,15 @@ public class ControllerHelper {
 		int page = ((offset + limit) / limit) - 1;
 		int size = limit;
 		return sort == null ? PageRequest.of(page, size) : PageRequest.of(page, size, sort);
+	}
+
+	public static PageRequest getPageRequest(int offset, int limit, Sort sort, String searchAfter) {
+		validatePageSize(offset, limit);
+		if (!Strings.isNullOrEmpty(searchAfter)) {
+			return SearchAfterPageRequest.of(SearchAfterHelper.fromSearchAfterToken(searchAfter), limit, sort);
+		} else {
+			return ControllerHelper.getPageRequest(offset, limit);
+		}
 	}
 
 	//use parseAcceptLanguageHeader and work with LanguageDialects instead
