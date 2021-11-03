@@ -25,6 +25,7 @@ import org.snomed.snowstorm.rest.pojo.ItemsPage;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -41,6 +42,7 @@ import java.util.stream.Collectors;
 @Api(tags = "Refset Members", description = "-")
 @RequestMapping(produces = "application/json")
 public class ReferenceSetMemberController {
+	private static final Sort SORT_BY_MEMBER_ID_DESC = Sort.sort(ReferenceSetMember.class).by(ReferenceSetMember::getMemberId).descending();
 
 	@Autowired
 	private ReferenceSetMemberService memberService;
