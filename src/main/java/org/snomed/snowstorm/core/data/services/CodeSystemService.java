@@ -52,6 +52,7 @@ import static org.elasticsearch.index.query.QueryBuilders.*;
 import static org.snomed.snowstorm.config.Config.DEFAULT_LANGUAGE_CODES;
 import static org.snomed.snowstorm.core.data.services.BranchMetadataKeys.PREVIOUS_PACKAGE;
 import static org.snomed.snowstorm.core.data.services.BranchMetadataKeys.PREVIOUS_RELEASE;
+import static org.snomed.snowstorm.core.data.services.BranchMetadataKeys.PREVIOUS_DEPENDENCY_PACKAGE;
 
 @Service
 public class CodeSystemService {
@@ -582,7 +583,9 @@ public class CodeSystemService {
 		if (updateRequest.getPreviousRelease() != null) {
 			branchMetadata.putString(PREVIOUS_RELEASE, updateRequest.getPreviousRelease());
 		}
-
+		if (updateRequest.getPreviousDependency() != null) {
+			branchMetadata.putString(PREVIOUS_DEPENDENCY_PACKAGE, updateRequest.getPreviousDependency());
+		}
 		branchService.updateMetadata(branchPath, branchMetadata);
 	}
 }
