@@ -63,6 +63,10 @@ import static org.snomed.snowstorm.core.data.services.CodeSystemService.MAIN;
 @Service
 public class ReferenceSetMemberService extends ComponentService {
 	private static final Function<ReferenceSetMember, Object[]> REFERENCE_SET_MEMBER_ID_SEARCH_AFTER_EXTRACTOR = referenceSetMember -> {
+		if (referenceSetMember == null) {
+			return null;
+		}
+
 		String id = referenceSetMember.getId();
 		return id == null ? null : SearchAfterHelper.convertToTokenAndBack(new Object[]{id});
 	};
