@@ -1,7 +1,6 @@
 package org.snomed.snowstorm.core.data.services.traceability;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
-import io.kaicode.elasticvc.domain.Commit;
 
 import java.util.*;
 import java.util.function.Function;
@@ -190,7 +189,8 @@ public class Activity {
 		CONTENT_CHANGE,
 		CLASSIFICATION_SAVE,
 		REBASE,
-		PROMOTION
+		PROMOTION,
+		CREATE_CODE_SYSTEM_VERSION
 	}
 
 	public enum ComponentType {

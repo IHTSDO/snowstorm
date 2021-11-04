@@ -10,6 +10,8 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 import javax.annotation.PostConstruct;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -25,9 +27,13 @@ public class ScheduledDailyBuildImportService {
 
 	private boolean initialised = false;
 
+	private static int SCHEDULER_LOGGING_INTERVAL_IN_MINUTES = 30;
+
 	private boolean running;
 
-	private Logger logger = LoggerFactory.getLogger(getClass());
+	private final Logger logger = LoggerFactory.getLogger(getClass());
+
+	private Instant lastLogged;
 
 	@PostConstruct
 	public void init() {
@@ -40,6 +46,11 @@ public class ScheduledDailyBuildImportService {
 		if (!initialised) {
 			return;
 		}
+		if (lastLogged == null || Duration.between(lastLogged, Instant.now()).toMinutes() >= SCHEDULER_LOGGING_INTERVAL_IN_MINUTES) {
+			logger.info("Start scheduled daily build import...");
+			lastLogged = Instant.now();
+		}
+
 		if (!running) {
 			synchronized (this) {
 				if (!running) {
@@ -51,7 +62,7 @@ public class ScheduledDailyBuildImportService {
 							try {
 								dailyBuildService.performScheduledImport(codeSystem);
 							} catch (Exception e) {
-								logger.error("Failed to import daily build for code system " + codeSystem.getShortName(), e);
+								logger.error("Failed to import daily build for code system {}", codeSystem.getShortName(), e);
 							}
 						}
 					} finally {
@@ -60,7 +71,7 @@ public class ScheduledDailyBuildImportService {
 				}
 			}
 		} else {
-			logger.info("Daily build already running.");
+			logger.info("Daily build import is already running.");
 		}
 	}
 }

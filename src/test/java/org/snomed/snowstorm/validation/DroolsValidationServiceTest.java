@@ -18,7 +18,10 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
 
-import java.util.*;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.snomed.snowstorm.core.data.domain.Concepts.*;
@@ -72,7 +75,7 @@ class DroolsValidationServiceTest extends AbstractTest {
 
         final Concept updatedConcept = conceptService.update(foundConcept, DEFAULT_BRANCH);
         assertEquals(1, updatedConcept.getClassAxioms().size());
-		List<InvalidContent> invalidContents = droolValidationService.validateConcepts(DEFAULT_BRANCH, Collections.singleton(updatedConcept));
+		List<InvalidContent> invalidContents = droolValidationService.validateConcepts(DEFAULT_BRANCH, Collections.singleton(updatedConcept), false);
         assertEquals(2, invalidContents.size());
 
         int index = 0;
@@ -96,7 +99,7 @@ class DroolsValidationServiceTest extends AbstractTest {
         final Concept updatedConcept = conceptService.update(foundConcept, DEFAULT_BRANCH);
 
         assertEquals(0, updatedConcept.getClassAxioms().size());
-		List<InvalidContent> invalidContents = droolValidationService.validateConcepts(DEFAULT_BRANCH, Collections.singleton(updatedConcept));
+		List<InvalidContent> invalidContents = droolValidationService.validateConcepts(DEFAULT_BRANCH, Collections.singleton(updatedConcept), false);
         assertEquals(3, invalidContents.size());
 
         int index = 0;
@@ -138,7 +141,7 @@ class DroolsValidationServiceTest extends AbstractTest {
             }
         }
 
-		List<InvalidContent> invalidContents = droolValidationService.validateConcepts(DEFAULT_BRANCH, Collections.singleton(updatedConcept));
+		List<InvalidContent> invalidContents = droolValidationService.validateConcepts(DEFAULT_BRANCH, Collections.singleton(updatedConcept), false);
         assertEquals(2, invalidContents.size());
 
         int index = 0;

@@ -13,7 +13,7 @@ import java.util.Objects;
  */
 @JsonInclude(JsonInclude.Include.NON_EMPTY)
 @JsonView(value = View.Component.class)
-public class ConcreteValue implements AttributeValue {
+public class ConcreteValue {
 
 	@Transient
 	private ConcreteValue.DataType dataType;
@@ -161,12 +161,6 @@ public class ConcreteValue implements AttributeValue {
 	public String getValue() {
 		return this.value;
 	}
-
-	@Override
-	public String toString(boolean includeTerms) {
-		//includeTerms only applies to Concepts
-		return toString();
-	}
 	
 	@Override
 	public String toString() {
@@ -174,11 +168,6 @@ public class ConcreteValue implements AttributeValue {
 			case STRING : return "\"" + this.value + "\"";
 			default: return "#" + this.value;
 		}
-	}
-
-	@Override
-	public boolean isConcrete() {
-		return true;
 	}
 
 	@Override

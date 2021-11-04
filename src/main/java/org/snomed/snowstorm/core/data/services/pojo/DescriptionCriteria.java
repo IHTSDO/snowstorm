@@ -4,11 +4,15 @@ import org.snomed.snowstorm.core.data.services.DescriptionService;
 import org.springframework.util.CollectionUtils;
 
 import java.util.Collection;
+import java.util.Objects;
 import java.util.Set;
 
 import static org.snomed.snowstorm.config.Config.DEFAULT_LANGUAGE_CODES;
 
 public class DescriptionCriteria {
+
+	private static int searchTermMinLength = 3;
+	private static int searchTermMaxLength = 250;
 
 	private String term;
 	private Collection<String> searchLanguageCodes = DEFAULT_LANGUAGE_CODES;
@@ -25,6 +29,11 @@ public class DescriptionCriteria {
 	private Set<Long> acceptableIn;
 	private Set<Long> preferredOrAcceptableIn;
 
+	public static void configure(int searchTermMinimumLength, int searchTermMaximumLength) {
+		searchTermMinLength = searchTermMinimumLength;
+		searchTermMaxLength = searchTermMaximumLength;
+	}
+
 	public boolean hasDescriptionCriteria() {
 		return term != null
 				|| modules != null
@@ -35,11 +44,23 @@ public class DescriptionCriteria {
 	}
 
 	public DescriptionCriteria term(String term) {
-		if (term != null && term.isEmpty()) {
-			term = null;
+		if (term != null) {
+			if (term.isEmpty()) {
+				term = null;
+			} else if (term.length() < searchTermMinLength && !containsHanScript(term)) {
+				throw new IllegalArgumentException(String.format("Search term must have at least %s characters.", searchTermMinLength));
+			} else if (term.length() > searchTermMaxLength) {
+				throw new IllegalArgumentException(String.format("Search term can not have more than %s characters.", searchTermMaxLength));
+			}
 		}
 		this.term = term;
 		return this;
+	}
+
+	private static boolean containsHanScript(String s) {
+		return s.codePoints().anyMatch(
+				codepoint ->
+						Character.UnicodeScript.of(codepoint) == Character.UnicodeScript.HAN);
 	}
 
 	public String getTerm() {
@@ -174,4 +195,29 @@ public class DescriptionCriteria {
 		return searchMode;
 	}
 
+	@Override
+	public boolean equals(Object o) {
+		if (this == o) return true;
+		if (o == null || getClass() != o.getClass()) return false;
+		DescriptionCriteria that = (DescriptionCriteria) o;
+		return groupByConcept == that.groupByConcept &&
+				Objects.equals(term, that.term) &&
+				Objects.equals(searchLanguageCodes, that.searchLanguageCodes) &&
+				Objects.equals(active, that.active) &&
+				Objects.equals(modules, that.modules) &&
+				Objects.equals(semanticTag, that.semanticTag) &&
+				Objects.equals(semanticTags, that.semanticTags) &&
+				Objects.equals(conceptActive, that.conceptActive) &&
+				Objects.equals(conceptRefset, that.conceptRefset) &&
+				searchMode == that.searchMode &&
+				Objects.equals(type, that.type) &&
+				Objects.equals(preferredIn, that.preferredIn) &&
+				Objects.equals(acceptableIn, that.acceptableIn) &&
+				Objects.equals(preferredOrAcceptableIn, that.preferredOrAcceptableIn);
+	}
+
+	@Override
+	public int hashCode() {
+		return Objects.hash(term, searchLanguageCodes, active, modules, semanticTag, semanticTags, conceptActive, conceptRefset, groupByConcept, searchMode, type, preferredIn, acceptableIn, preferredOrAcceptableIn);
+	}
 }

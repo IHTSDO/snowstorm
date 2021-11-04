@@ -24,15 +24,17 @@ import java.io.InputStream;
 import java.util.*;
 import java.util.concurrent.ExecutorService;
 
+import static org.snomed.snowstorm.core.data.services.BranchMetadataHelper.AUTHOR_FLAGS_METADATA_KEY;
 import static org.snomed.snowstorm.core.data.services.BranchMetadataHelper.INTERNAL_METADATA_KEY;
-import static org.snomed.snowstorm.core.data.services.traceability.TraceabilityLogService.DISABLE_IMPORT_TRACEABILITY;
+import static org.snomed.snowstorm.core.data.services.BranchMetadataHelper.IMPORTING_CODE_SYSTEM_VERSION;
 import static org.snomed.snowstorm.core.rf2.RF2Type.FULL;
-import static org.snomed.snowstorm.mrcm.MRCMUpdateService.DISABLE_MRCM_AUTO_UPDATE_METADATA_KEY;
 
 @Service
 public class ImportService {
 
 	public static final String IMPORT_TYPE_KEY = "importType";
+
+	public static final String BATCH_CHANGE_KEY = "batch-change";
 
 	private final Map<String, ImportJob> importJobMap;
 
@@ -153,7 +155,7 @@ public class ImportService {
 			case DELTA:
 				return deltaImport(releaseFileStream, job, branchPath, patchReleaseVersion, releaseImporter, loadingProfile);
 			case SNAPSHOT:
-				return snapshotImport(releaseFileStream, branchPath, patchReleaseVersion, releaseImporter, loadingProfile);
+				return snapshotImport(releaseFileStream, job, branchPath, patchReleaseVersion, releaseImporter, loadingProfile);
 			case FULL:
 				return fullImport(releaseFileStream, branchPath, releaseImporter, loadingProfile);
 			default:
@@ -162,29 +164,35 @@ public class ImportService {
 	}
 
 	private void setImportMetadata(RF2Type importType, String branchPath, boolean createCodeSystemVersion) {
-		Metadata metadata = branchService.findLatest(branchPath).getMetadata();
+		Branch branch = branchService.findLatest(branchPath);
+		Metadata metadata = branch.getMetadata();
 		final Map<String, String> internalMetadataMap = metadata.getMapOrCreate(INTERNAL_METADATA_KEY);
-		internalMetadataMap.put(DISABLE_MRCM_AUTO_UPDATE_METADATA_KEY, "true");
 		internalMetadataMap.put(IMPORT_TYPE_KEY, importType.getName());
 		if (importType == FULL || createCodeSystemVersion) {
-			internalMetadataMap.put(DISABLE_IMPORT_TRACEABILITY, "true");
+			internalMetadataMap.put(IMPORTING_CODE_SYSTEM_VERSION, "true");
 		}
-		// Import metadata is saved to the store rather than just existing within the Commit object
-		// because imports can span multiple commits (if full import or creating a version)
+
+		boolean codeSystem = codeSystemService.findByBranchPath(branchPath).isPresent();
+		if (!codeSystem) {
+			metadata.getMapOrCreate(AUTHOR_FLAGS_METADATA_KEY).put(BATCH_CHANGE_KEY, "true");
+		}
+		// Import metadata is saved to the store rather than just existing within the Commit object.
+		// We can also not use the transient metadata function.
+		// This is because imports span multiple commits when importing a FULL type or creating a code system version.
 		branchService.updateMetadata(branchPath, metadata);
 	}
 
 	private void clearImportMetadata(String branchPath) {
 		Metadata metadata = branchService.findLatest(branchPath).getMetadata();
 		final Map<String, String> internalMetadataMap = metadata.getMapOrCreate(INTERNAL_METADATA_KEY);
-		internalMetadataMap.remove(DISABLE_MRCM_AUTO_UPDATE_METADATA_KEY);
 		internalMetadataMap.remove(IMPORT_TYPE_KEY);
-		internalMetadataMap.remove(DISABLE_IMPORT_TRACEABILITY);
+		internalMetadataMap.remove(IMPORTING_CODE_SYSTEM_VERSION);
 		branchService.updateMetadata(branchPath, metadata);
 	}
 
 	private Integer fullImport(final InputStream releaseFileStream, final String branchPath, final ReleaseImporter releaseImporter,
 			final LoadingProfile loadingProfile) throws ReleaseImportException {
+
 		final FullImportComponentFactoryImpl importComponentFactory = getFullImportComponentFactory(branchPath);
 		try {
 			releaseImporter.loadFullReleaseFiles(releaseFileStream, loadingProfile, importComponentFactory);
@@ -195,10 +203,12 @@ public class ImportService {
 		}
 	}
 
-	private Integer snapshotImport(final InputStream releaseFileStream, final String branchPath, final Integer patchReleaseVersion,
+	private Integer snapshotImport(final InputStream releaseFileStream, ImportJob job, final String branchPath, final Integer patchReleaseVersion,
 			final ReleaseImporter releaseImporter, final LoadingProfile loadingProfile) throws ReleaseImportException {
+
+		// If we are not creating a new version copy the release fields from the existing components
 		final ImportComponentFactoryImpl importComponentFactory =
-				getImportComponentFactory(branchPath, patchReleaseVersion, false, false);
+				getImportComponentFactory(branchPath, patchReleaseVersion, !job.isCreateCodeSystemVersion(), job.isClearEffectiveTimes());
 		try {
 			releaseImporter.loadSnapshotReleaseFiles(releaseFileStream, loadingProfile, importComponentFactory);
 			return importComponentFactory.getMaxEffectiveTime();
@@ -210,6 +220,7 @@ public class ImportService {
 
 	private Integer deltaImport(final InputStream releaseFileStream, final ImportJob job, final String branchPath, final Integer patchReleaseVersion,
 			final ReleaseImporter releaseImporter, final LoadingProfile loadingProfile) throws ReleaseImportException {
+
 		// If we are not creating a new version copy the release fields from the existing components
 		final ImportComponentFactoryImpl importComponentFactory =
 				getImportComponentFactory(branchPath, patchReleaseVersion, !job.isCreateCodeSystemVersion(), job.isClearEffectiveTimes());

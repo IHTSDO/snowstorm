@@ -3,10 +3,17 @@ package org.snomed.snowstorm.core.data.services;
 import ch.qos.logback.classic.Level;
 import io.kaicode.elasticvc.api.BranchCriteria;
 import io.kaicode.elasticvc.api.VersionControlHelper;
+import io.kaicode.elasticvc.domain.DomainEntity;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
+
+import org.elasticsearch.index.query.BoolQueryBuilder;
+import org.elasticsearch.search.aggregations.AggregationBuilders;
+import org.elasticsearch.search.aggregations.bucket.terms.TermsAggregationBuilder;
 import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.services.pojo.AuthoringStatsSummary;
+import org.snomed.snowstorm.core.data.services.pojo.PageWithBucketAggregations;
+import org.snomed.snowstorm.core.data.services.pojo.PageWithBucketAggregationsFactory;
 import org.snomed.snowstorm.core.pojo.LanguageDialect;
 import org.snomed.snowstorm.core.util.TimerUtil;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -15,6 +22,7 @@ import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.data.elasticsearch.core.SearchHit;
 import org.springframework.data.elasticsearch.core.SearchHits;
 import org.springframework.data.elasticsearch.core.SearchHitsIterator;
+import org.springframework.data.elasticsearch.core.query.NativeSearchQuery;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
 import org.springframework.data.elasticsearch.core.query.Query;
 import org.springframework.stereotype.Service;
@@ -25,9 +33,14 @@ import java.util.stream.Collectors;
 import static io.kaicode.elasticvc.api.VersionControlHelper.LARGE_PAGE;
 import static java.lang.Long.parseLong;
 import static org.elasticsearch.index.query.QueryBuilders.*;
+import static org.snomed.snowstorm.config.Config.AGGREGATION_SEARCH_SIZE;
 
 @Service
 public class AuthoringStatsService {
+	
+	public static final PageRequest NULL_PAGE = PageRequest.of(0,1);
+	public static final String AGGREGATION_COUNTS_BY_MODULE = "countByModule";
+	public static final TermsAggregationBuilder MODULE_AGGREGATION = AggregationBuilders.terms(AGGREGATION_COUNTS_BY_MODULE).field(SnomedComponent.Fields.MODULE_ID).size(AGGREGATION_SEARCH_SIZE);
 
 	@Autowired
 	private VersionControlHelper versionControlHelper;
@@ -37,7 +50,7 @@ public class AuthoringStatsService {
 
 	@Autowired
 	private ConceptService conceptService;
-
+	
 	public AuthoringStatsSummary getStats(String branch) {
 		BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(branch);
 
@@ -305,5 +318,29 @@ public class AuthoringStatsService {
 	private Query withTotalHitsTracking(Query query) {
 		query.setTrackTotalHits(true);
 		return query;
+	}
+	
+	public Map<String, Map<String, Long>> getComponentCountsPerModule(String branchPath) {
+		Map<String, Map<String, Long>> componentCountsPerModule = new HashMap<>();
+		componentCountsPerModule.put("Concept", getModuleCounts(branchPath, Concept.class));
+		componentCountsPerModule.put("Description", getModuleCounts(branchPath, Description.class));
+		componentCountsPerModule.put("RefsetMember", getModuleCounts(branchPath, ReferenceSetMember.class));
+		return componentCountsPerModule;
+	}
+
+	private Map<String, Long> getModuleCounts(String branchPath, Class<? extends SnomedComponent<?>> componentClass) {
+		BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(branchPath);
+		BoolQueryBuilder query = boolQuery()
+				.must(branchCriteria.getEntityBranchCriteria(componentClass)
+				.mustNot(existsQuery("end")));
+		NativeSearchQuery searchQuery = new NativeSearchQueryBuilder()
+				.withQuery(query)
+				.withPageable(NULL_PAGE)
+				.addAggregation(MODULE_AGGREGATION)
+				.build();
+
+		SearchHits<? extends SnomedComponent<?>> pageResults = elasticsearchOperations.search(searchQuery, componentClass);
+		PageWithBucketAggregations<? extends SnomedComponent<?>> aggPage = PageWithBucketAggregationsFactory.createPage(pageResults, pageResults.getAggregations(), NULL_PAGE);
+		return aggPage.getBuckets().get(AGGREGATION_COUNTS_BY_MODULE);
 	}
 }

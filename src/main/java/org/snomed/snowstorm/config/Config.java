@@ -27,6 +27,7 @@ import org.snomed.snowstorm.core.data.services.identifier.IdentifierCacheManager
 import org.snomed.snowstorm.core.data.services.identifier.IdentifierSource;
 import org.snomed.snowstorm.core.data.services.identifier.LocalRandomIdentifierSource;
 import org.snomed.snowstorm.core.data.services.identifier.SnowstormCISClient;
+import org.snomed.snowstorm.core.data.services.pojo.DescriptionCriteria;
 import org.snomed.snowstorm.core.data.services.servicehook.CommitServiceHookClient;
 import org.snomed.snowstorm.core.data.services.traceability.TraceabilityLogService;
 import org.snomed.snowstorm.core.pojo.LanguageDialect;
@@ -107,6 +108,12 @@ public abstract class Config extends ElasticsearchConfig {
 	@Value("${elasticsearch.index.max.terms.count}")
 	private int indexMaxTermsCount;
 
+	@Value("${search.term.minimumLength}")
+	private int searchTermMinimumLength;
+
+	@Value("${search.term.maximumLength}")
+	private int searchTermMaximumLength;
+
 	@Autowired
 	private DomainEntityConfiguration domainEntityConfiguration;
 
@@ -146,6 +153,9 @@ public abstract class Config extends ElasticsearchConfig {
 	@Autowired
 	private ECLPreprocessingService eclPreprocessingService;
 
+	@Autowired
+	private RefsetDescriptorUpdaterService refsetDescriptorUpdaterService;
+
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
 	@PostConstruct
@@ -156,6 +166,7 @@ public abstract class Config extends ElasticsearchConfig {
 		branchService.addCommitListener(semanticIndexUpdateService);
 		branchService.addCommitListener(mrcmUpdateService);
 		branchService.addCommitListener(branchClassificationStatusService);
+		branchService.addCommitListener(refsetDescriptorUpdaterService);
 		branchService.addCommitListener(traceabilityLogService);
 		branchService.addCommitListener(integrityService);
 		branchService.addCommitListener(multiSearchService);
@@ -164,6 +175,9 @@ public abstract class Config extends ElasticsearchConfig {
 		branchService.addCommitListener(BranchMetadataHelper::clearTransientMetadata);
 		branchService.addCommitListener(commit ->
 			logger.info("Completed commit on {} in {} seconds.", commit.getBranch().getPath(), secondsDuration(commit.getTimepoint())));
+
+		// Push configured term constraints into static field
+		DescriptionCriteria.configure(searchTermMinimumLength, searchTermMaximumLength);
 	}
 	
 	private String secondsDuration(Date timepoint) {

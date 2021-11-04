@@ -39,14 +39,13 @@ import java.util.stream.Collectors;
 
 import static io.kaicode.elasticvc.api.ComponentService.CLAUSE_LIMIT;
 import static io.kaicode.elasticvc.api.VersionControlHelper.LARGE_PAGE;
-import static io.kaicode.elasticvc.domain.Commit.CommitType.*;
+import static io.kaicode.elasticvc.domain.Commit.CommitType.CONTENT;
 import static java.lang.Long.parseLong;
 import static org.elasticsearch.index.query.QueryBuilders.termsQuery;
+import static org.snomed.snowstorm.core.data.services.traceability.Activity.ActivityType.CREATE_CODE_SYSTEM_VERSION;
 
 @Service
 public class TraceabilityLogService implements CommitListener {
-
-	public static final String DISABLE_IMPORT_TRACEABILITY = "disableImportTraceability";
 
 	@Value("${authoring.traceability.enabled}")
 	private boolean enabled;
@@ -80,7 +79,7 @@ public class TraceabilityLogService implements CommitListener {
 	@Override
 	public void preCommitCompletion(final Commit commit) throws IllegalStateException {
 
-		if (isTraceabilitySkippedForCommit(commit)) {
+		if (BranchMetadataHelper.isImportingCodeSystemVersion(commit)) {
 			return;
 		}
 
@@ -99,16 +98,15 @@ public class TraceabilityLogService implements CommitListener {
 		if (BranchMetadataHelper.isClassificationCommit(commit)) {
 			activityType = Activity.ActivityType.CLASSIFICATION_SAVE;
 		}
+		if (BranchMetadataHelper.isCreatingCodeSystemVersion(commit)) {
+			activityType = CREATE_CODE_SYSTEM_VERSION;
+		}
 		ServiceUtil.assertNotNull("Traceability activity type", activityType);
 
-		PersistedComponents persistedComponents = activityType != Activity.ActivityType.PROMOTION ? buildPersistedComponents(commit) : new PersistedComponents();
+		PersistedComponents persistedComponents = activityType == Activity.ActivityType.PROMOTION || activityType == Activity.ActivityType.CREATE_CODE_SYSTEM_VERSION ?
+				new PersistedComponents() : buildPersistedComponents(commit);
 
 		logActivity(SecurityUtil.getUsername(), commit, persistedComponents, activityType);
-	}
-
-	private boolean isTraceabilitySkippedForCommit(Commit commit) {
-		final Map<String, String> internalMap = commit.getBranch().getMetadata().getMapOrCreate(BranchMetadataHelper.INTERNAL_METADATA_KEY);
-		return BranchMetadataHelper.isTraceabilityDisabledForCommit(commit) || "true".equals(internalMap.get(DISABLE_IMPORT_TRACEABILITY));
 	}
 
 	private PersistedComponents buildPersistedComponents(final Commit commit) {
@@ -126,11 +124,6 @@ public class TraceabilityLogService implements CommitListener {
 				.build();
 	}
 
-	/**
-	 * This method may be called by a service class as an optimisation. In this
-	 * case the transient change and delete flags may be populated and depending
-	 * on these states, the <code>useChangeFlag</code> should be set accordingly.
-	 */
 	void logActivity(String userId, final Commit commit, final PersistedComponents persistedComponents, Activity.ActivityType activityType) {
 
 		ServiceUtil.assertNotNull("activityType", activityType);
@@ -176,7 +169,7 @@ public class TraceabilityLogService implements CommitListener {
 
 		Map<String, Activity.ConceptActivity> changes = activity.getChangesMap();
 		boolean changeFound = changes.values().stream().anyMatch(conceptActivity -> !conceptActivity.getComponentChanges().isEmpty());
-		if (commit.getCommitType() == CONTENT && !changeFound) {
+		if (commit.getCommitType() == CONTENT && !changeFound && activityType != CREATE_CODE_SYSTEM_VERSION) {
 			logger.info("Skipping traceability because there was no traceable change for commit {} at {}.", commit.getBranch().getPath(), commit.getTimepoint().getTime());
 			return;
 		}

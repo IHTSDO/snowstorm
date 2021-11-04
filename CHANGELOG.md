@@ -3,6 +3,33 @@ All notable changes to this project will be documented in this file.
 
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+
+## 7.4.0 Release (Oct 2021)
+Minor release with bug fixes and improvements.
+
+### Features
+- BROWSE-492 Restrict search term length. Defaults to min of 3, max of 250. Config item `search.term.maximumLength`.
+- Authoring
+  - FRI-182 Added method for author set flags on a branch `POST /branches/{branchPath}/actions/set-author-flag`
+  - FRI-145 Added convenience method to set previous package details for new authoring cycle `POST /codesystems/{shortName}/new-authoring-cycle`
+### Improvements
+- BROWSE-495 Refactor concept history function for better performance.
+- MAINT-1769 Add branch metadata upsert endpoint.
+- Documentation
+  - Minor improvements to getting stated guide.
+- Authoring
+  - FRI-256 Log traceability when content is versioned.
+  - FRI-121 Add admin traceability backfil function for v3.1 upgrade. 
+### Fixes
+- Fix #323 / MAINT-1734 Remove concept 'concrete' property from various API responses.
+- FHIR
+  - Fix #319 allow double encoded ECL in implicit FHIR value sets.
+- Authoring
+  - MAINT-1747 Fix content rollback of failed promotion commits.
+  - FRI-248 Prevent permanent branch lock after service commit hooks blocks promotion.
+  - FRI-253 Manually merged concepts logged as update in traceability rather than create.
+
+
 ## 7.3.0 Release (Sept 2021)
 Minor release to implement the `internalRelease` flag on code systems. This allows Snomed International to hide the first 
 few internal monthly releases of the International Edition from the public browser. Monthly public releases of the International Edition will be available starting Feburary 2022.

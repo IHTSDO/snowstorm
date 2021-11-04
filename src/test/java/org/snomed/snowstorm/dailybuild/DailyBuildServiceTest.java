@@ -37,10 +37,10 @@ import static org.junit.Assert.assertNotNull;
 
 @ExtendWith(SpringExtension.class)
 @ContextConfiguration(classes = TestConfig.class)
-class ScheduledDailyBuildImportServiceTest extends AbstractTest {
+class DailyBuildServiceTest extends AbstractTest {
 
 	@Autowired
-	private DailyBuildService dailyBuildImportService;
+	private DailyBuildService dailyBuildService;
 
 	@Autowired
 	private BranchService branchService;
@@ -86,7 +86,7 @@ class ScheduledDailyBuildImportServiceTest extends AbstractTest {
 		importService.importArchive(importId, new FileInputStream(baseLineRelease));
 		rf2Archive1 = ZipUtil.zipDirectoryRemovingCommentsAndBlankLines("src/test/resources/dummy-daily-build/DailyBuild_Day1");
 		rf2Archive2 = ZipUtil.zipDirectoryRemovingCommentsAndBlankLines("src/test/resources/dummy-daily-build/DailyBuild_Day2");
-		dailyBuildImportService.setResourceManager(new MockResourceManager(dailyBuildResourceConfig, resourceLoader));
+		dailyBuildService.setResourceManager(new MockResourceManager(dailyBuildResourceConfig, resourceLoader));
 	}
 
 	@Test
@@ -127,7 +127,7 @@ class ScheduledDailyBuildImportServiceTest extends AbstractTest {
 		assertNull(concept.getEffectiveTimeI());
 
 		// scheduled daily build import with changes to revert previous day's authoring and add a brand new concept
-		dailyBuildImportService.dailyBuildDeltaImport(snomedct, rf2Archive2.getAbsolutePath());
+		dailyBuildService.dailyBuildDeltaImport(snomedct, rf2Archive2.getAbsolutePath());
 		branchPage = branchService.findAllVersions(branchPath, Pageable.unpaged());
 
 		assertEquals(4, branchPage.getTotalElements());
@@ -177,12 +177,12 @@ class ScheduledDailyBuildImportServiceTest extends AbstractTest {
 		assertNull("Concept not yet imported", conceptService.find(dailyBuild2Concept, branchPath));
 
 		// Trigger #1 daily build import manually
-		dailyBuildImportService.dailyBuildDeltaImport(snomedExtensionCodeSystem, rf2Archive1.getAbsolutePath());
+		dailyBuildService.dailyBuildDeltaImport(snomedExtensionCodeSystem, rf2Archive1.getAbsolutePath());
 		assertNotNull("Concept imported in daily build #1", conceptService.find(dailyBuild1Concept, branchPath));
 		assertNull("Concept not yet imported", conceptService.find(dailyBuild2Concept, branchPath));
 
 		// Trigger #2 daily build import manually
-		dailyBuildImportService.dailyBuildDeltaImport(snomedExtensionCodeSystem, rf2Archive2.getAbsolutePath());
+		dailyBuildService.dailyBuildDeltaImport(snomedExtensionCodeSystem, rf2Archive2.getAbsolutePath());
 		assertNull("Daily build #1 import reverted and concept not present in daily build #2", conceptService.find(dailyBuild1Concept, branchPath));
 		assertNotNull("Concept imported in daily build #2", conceptService.find(dailyBuild2Concept, branchPath));
 
@@ -196,13 +196,13 @@ class ScheduledDailyBuildImportServiceTest extends AbstractTest {
 		assertNull("Daily build 2 Concept should have been reverted as part of the upgrade.", conceptService.find(dailyBuild2Concept, branchPath));
 
 		// Import daily build #1
-		dailyBuildImportService.dailyBuildDeltaImport(snomedExtensionCodeSystem, rf2Archive1.getAbsolutePath());
+		dailyBuildService.dailyBuildDeltaImport(snomedExtensionCodeSystem, rf2Archive1.getAbsolutePath());
 		assertEquals("Assert extension is still upgraded", 20200131, codeSystemService.find(shortName).getDependantVersionEffectiveTime().intValue());
 		assertNotNull("Daily build 1 Concept is now there.", conceptService.find(dailyBuild1Concept, branchPath));
 		assertNull("Daily build 2 Concept should not be there yet.", conceptService.find(dailyBuild2Concept, branchPath));
 
 		// Import daily build #2
-		dailyBuildImportService.dailyBuildDeltaImport(snomedExtensionCodeSystem, rf2Archive2.getAbsolutePath());
+		dailyBuildService.dailyBuildDeltaImport(snomedExtensionCodeSystem, rf2Archive2.getAbsolutePath());
 		assertEquals("Assert extension is still upgraded", 20200131, codeSystemService.find(shortName).getDependantVersionEffectiveTime().intValue());
 		assertNull("Daily build 1 Concept should now have been reverted.", conceptService.find(dailyBuild1Concept, branchPath));
 		assertNotNull("Daily build 2 Concept should now be there.", conceptService.find(dailyBuild2Concept, branchPath));

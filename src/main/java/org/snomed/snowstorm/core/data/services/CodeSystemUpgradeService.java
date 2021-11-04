@@ -21,6 +21,7 @@ import java.util.Date;
 import static org.snomed.snowstorm.core.data.services.BranchMetadataHelper.INTERNAL_METADATA_KEY;
 import static org.snomed.snowstorm.core.data.services.BranchMetadataKeys.DEPENDENCY_PACKAGE;
 import static org.snomed.snowstorm.core.data.services.BranchMetadataKeys.DEPENDENCY_RELEASE;
+import static org.snomed.snowstorm.core.data.services.BranchMetadataKeys.PREVIOUS_DEPENDENCY_PACKAGE;
 
 @Service
 public class CodeSystemUpgradeService {
@@ -116,9 +117,13 @@ public class CodeSystemUpgradeService {
 
 	private void updateBranchMetaData(String branchPath, CodeSystemVersion newParentVersion, Branch extensionBranch, boolean isReportEmpty) {
 		final Metadata metadata = extensionBranch.getMetadata();
+		
+		//Store the current dependency package, to move to the previous one once updated.
+		final String previousDependencyPackage = metadata.getString(DEPENDENCY_PACKAGE);
 
 		if (newParentVersion.getReleasePackage() != null) {
 			metadata.putString(DEPENDENCY_PACKAGE, newParentVersion.getReleasePackage());
+			metadata.putString(PREVIOUS_DEPENDENCY_PACKAGE, previousDependencyPackage);
 		} else {
 			logger.error("No release package is set for version {}", newParentVersion);
 		}

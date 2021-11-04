@@ -3,8 +3,12 @@ package org.snomed.snowstorm.rest;
 import io.kaicode.rest.util.branchpathrewrite.BranchPathUriUtil;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
-import org.snomed.snowstorm.core.data.domain.Concept;
 import org.snomed.snowstorm.core.data.services.*;
+import org.snomed.snowstorm.core.data.services.traceability.TraceabilityLogBackfiller;
+import org.snomed.snowstorm.ecl.BranchVersionECLCache;
+import org.snomed.snowstorm.ecl.ECLQueryService;
+import org.snomed.snowstorm.fix.ContentFixService;
+import org.snomed.snowstorm.fix.ContentFixType;
 import org.snomed.snowstorm.mrcm.MRCMUpdateService;
 import org.snomed.snowstorm.rest.pojo.UpdatedDocumentCount;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -13,9 +17,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.atomic.AtomicLong;
 
 @RestController
@@ -41,6 +43,15 @@ public class AdminController {
 	@Autowired
 	private SBranchService sBranchService;
 
+	@Autowired
+	private TraceabilityLogBackfiller traceabilityLogBackfiller;
+
+	@Autowired
+	private ContentFixService contentFixService;
+
+	@Autowired
+	private ECLQueryService eclQueryService;
+
 	@ApiOperation(value = "Rebuild the description index.",
 			notes = "Use this if the search configuration for international character handling of a language has been " +
 					"set or updated after importing content of that language. " +
@@ -51,6 +62,16 @@ public class AdminController {
 	public void rebuildDescriptionIndexForLanguage(@RequestParam String languageCode) throws IOException {
 		ControllerHelper.requiredParam(languageCode, "languageCode");
 		adminOperationsService.reindexDescriptionsForLanguage(languageCode);
+	}
+
+	@ApiOperation(value = "Backfill traceability information.",
+			notes = "Used to backfill data after upgrading to Traceability Service version 3.1.x. " +
+					"Sends previously missing information to the Traceability Service including the commit date of all code system versions.")
+	@RequestMapping(value = "/actions/traceability-backfill", method = RequestMethod.POST)
+	@PreAuthorize("hasPermission('ADMIN', 'global')")
+	public void traceabilityBackfill(@RequestParam(required = false) Long sinceEpochMillisecondDate) {
+		Date sinceDate = sinceEpochMillisecondDate != null ? new Date(sinceEpochMillisecondDate) : null;
+		traceabilityLogBackfiller.run(sinceDate);
 	}
 
 	@ApiOperation(value = "Rebuild the semantic index of the branch.",
@@ -223,6 +244,29 @@ public class AdminController {
 	@PreAuthorize("hasPermission('ADMIN', #branch)")
 	public void cleanInferredRelationships(@PathVariable String branch) {
 		adminOperationsService.cleanInferredRelationships(BranchPathUriUtil.decodePath(branch));
+	}
+
+	@RequestMapping(value = "/{branch}/actions/content-fix", method = RequestMethod.POST)
+	@PreAuthorize("hasPermission('AUTHOR', #branch)")
+	public void runContentFix(@PathVariable String branch, @RequestParam ContentFixType contentFixType, @RequestParam Set<Long> conceptIds) {
+		contentFixService.runContentFix(BranchPathUriUtil.decodePath(branch), contentFixType, conceptIds);
+	}
+
+	@RequestMapping(value = "/cache/ecl/stats", method = RequestMethod.GET)
+	@PreAuthorize("hasPermission('ADMIN', 'global')")
+	public Map<String, Map<String, Long>> getECLCacheStats() {
+		final Map<String, BranchVersionECLCache> cacheMap = eclQueryService.getResultsCache().getCacheMap();
+		Map<String, Map<String, Long>> stats = new LinkedHashMap<>();
+		for (String branch : new TreeSet<>(cacheMap.keySet())) {
+			stats.put(branch, cacheMap.get(branch).getStats());
+		}
+		return stats;
+	}
+
+	@RequestMapping(value = "/cache/ecl/clear", method = RequestMethod.POST)
+	@PreAuthorize("hasPermission('ADMIN', 'global')")
+	public void clearEclCache() {
+		eclQueryService.clearCache();
 	}
 
 }

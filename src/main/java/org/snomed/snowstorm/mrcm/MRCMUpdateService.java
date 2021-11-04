@@ -31,12 +31,9 @@ import static io.kaicode.elasticvc.domain.Commit.CommitType.CONTENT;
 import static java.lang.Long.parseLong;
 import static org.elasticsearch.index.query.QueryBuilders.boolQuery;
 import static org.elasticsearch.index.query.QueryBuilders.termQuery;
-import static org.snomed.snowstorm.core.data.services.BranchMetadataHelper.INTERNAL_METADATA_KEY;
 
 @Service
 public class MRCMUpdateService extends ComponentService implements CommitListener {
-
-	public static final String DISABLE_MRCM_AUTO_UPDATE_METADATA_KEY = "disableMrcmAutoUpdate";
 
 	@Autowired
 	private MRCMLoader mrcmLoader;
@@ -69,7 +66,7 @@ public class MRCMUpdateService extends ComponentService implements CommitListene
 
 	@Override
 	public void preCommitCompletion(Commit commit) {
-		if (Boolean.parseBoolean(commit.getBranch().getMetadata().getMapOrCreate(INTERNAL_METADATA_KEY).get(DISABLE_MRCM_AUTO_UPDATE_METADATA_KEY))) {
+		if (BranchMetadataHelper.isImportingCodeSystemVersion(commit)) {
 			logger.info("MRCM auto update is disabled on branch {}", commit.getBranch().getPath());
 			return;
 		}

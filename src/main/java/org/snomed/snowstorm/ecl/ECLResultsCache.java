@@ -4,6 +4,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.Date;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -31,5 +32,14 @@ public class ECLResultsCache {
 			cacheMap.put(path, branchVersionCache);
 		}
 		return branchVersionCache;
+	}
+
+	public Map<String, BranchVersionECLCache> getCacheMap() {
+		return new HashMap<>(cacheMap);
+	}
+
+	public void clearCache() {
+		cacheMap.clear();
+		logger.info("ECL cache cleared.");
 	}
 }

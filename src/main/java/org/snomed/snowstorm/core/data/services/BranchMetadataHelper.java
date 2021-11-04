@@ -23,8 +23,11 @@ public class BranchMetadataHelper {
 	public static final String INTERNAL_METADATA_KEY = "internal";
 	private static final String COMMIT_METADATA_KEY_PREFIX = "commit.";
 	private static final String DISABLE_CONTENT_AUTOMATIONS_TRANSIENT_METADATA_KEY = transientKey("disableContentAutomations");
-	private static final String DISABLE_TRACEABILITY_TRANSIENT_METADATA_KEY = transientKey("disableTraceabilityAutomations");
+	private static final String CREATING_CODE_SYSTEM_VERSION_TRANSIENT_METADATA_KEY = transientKey("creatingCodeSystemVersion");
 	private static final String CLASSIFICATION_COMMIT_TRANSIENT_METADATA_KEY = transientKey("classificationCommit");
+
+	public static final String AUTHOR_FLAGS_METADATA_KEY = "authorFlags";
+	public static final String IMPORTING_CODE_SYSTEM_VERSION = "importingCodeSystemVersion";
 
 	@Autowired
 	private ObjectMapper objectMapper;
@@ -44,12 +47,12 @@ public class BranchMetadataHelper {
 		return isTrue(getInternal(commit).get(DISABLE_CONTENT_AUTOMATIONS_TRANSIENT_METADATA_KEY));
 	}
 
-	public static void disableTraceabilityForCommit(Commit commit) {
-		getInternal(commit).put(DISABLE_TRACEABILITY_TRANSIENT_METADATA_KEY, "true");
+	public static void markCommitAsCreatingCodeSystemVersion(Commit commit) {
+		getInternal(commit).put(CREATING_CODE_SYSTEM_VERSION_TRANSIENT_METADATA_KEY, "true");
 	}
 
-	public static boolean isTraceabilityDisabledForCommit(Commit commit) {
-		return isTrue(getInternal(commit).get(DISABLE_TRACEABILITY_TRANSIENT_METADATA_KEY));
+	public static boolean isCreatingCodeSystemVersion(Commit commit) {
+		return isTrue(getInternal(commit).get(CREATING_CODE_SYSTEM_VERSION_TRANSIENT_METADATA_KEY));
 	}
 
 	public static void classificationCommit(Commit commit) {
@@ -80,6 +83,10 @@ public class BranchMetadataHelper {
 		metadataAsMap.keySet().stream().filter(key -> key.startsWith(COMMIT_METADATA_KEY_PREFIX)).collect(Collectors.toSet()).forEach(metadataAsMap::remove);
 		final Map<String, String> internalMap = metadata.getMapOrCreate(INTERNAL_METADATA_KEY);
 		internalMap.keySet().stream().filter(key -> key.startsWith(COMMIT_METADATA_KEY_PREFIX)).collect(Collectors.toSet()).forEach(internalMap::remove);
+	}
+
+	public static boolean isImportingCodeSystemVersion(Commit commit) {
+		return Boolean.parseBoolean(getInternal(commit).get(IMPORTING_CODE_SYSTEM_VERSION));
 	}
 
 	public String getBranchLockMetadata(String description) {

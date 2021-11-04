@@ -1,16 +1,17 @@
 package org.snomed.snowstorm.core.data.services;
 
 import io.kaicode.elasticvc.api.BranchService;
+import io.kaicode.elasticvc.domain.Branch;
 import org.junit.jupiter.api.Test;
 import org.snomed.snowstorm.AbstractTest;
 import org.snomed.snowstorm.core.data.domain.*;
+import org.snomed.snowstorm.core.data.services.pojo.MemberSearchRequest;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.PageRequest;
 
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.*;
 
 class ConceptUpdateHelperTest extends AbstractTest {
 	private static final String BRANCH_A = "MAIN/AAA";
@@ -44,8 +45,13 @@ class ConceptUpdateHelperTest extends AbstractTest {
 	@Autowired
 	private CodeSystemService codeSystemService;
 
+	@Autowired
+	private ReferenceSetMemberService referenceSetMemberService;
+
 	@Test
 	void saveNewOrUpdatedConcepts_ShouldRestoreDetailsFromParentCodeSystem() throws ServiceException {
+		//Need to start with a versioned MAIN so that children can inherit the dependentVersionEffectiveTime
+		givenVersionedMain();
 		// Extension A creates a Concept et al
 		givenCodeSystemExists(SHORTNAME_A, BRANCH_A);
 		givenBranchExists(BRANCH_A, MODULE_A);
@@ -66,6 +72,8 @@ class ConceptUpdateHelperTest extends AbstractTest {
 
 	@Test
 	void saveNewOrUpdatedConcepts_ShouldNotMoveDescriptionToDifferentCodeSystem() throws ServiceException {
+		//Need to start with a versioned MAIN so that children can inherit the dependentVersionEffectiveTime
+		givenVersionedMain();
 		// Extension A has a Component in one module, but a Description is another (which is wrong).
 		givenCodeSystemExists(SHORTNAME_A, BRANCH_A);
 		givenBranchExists(BRANCH_A, MODULE_A);
@@ -82,6 +90,8 @@ class ConceptUpdateHelperTest extends AbstractTest {
 
 	@Test
 	void saveNewOrUpdatedConcepts_ShouldAddNewRelationshipToCorrectModule() throws ServiceException {
+		//Need to start with a versioned MAIN so that children can inherit the dependentVersionEffectiveTime
+		givenVersionedMain();
 		// Extension A has a Component in one module, but a Description is another (which is wrong).
 		givenCodeSystemExists(SHORTNAME_A, BRANCH_A);
 		givenBranchExists(BRANCH_A, MODULE_A);
@@ -94,6 +104,83 @@ class ConceptUpdateHelperTest extends AbstractTest {
 		givenBranchExists(BRANCH_AB, MODULE_AB);
 		whenRelationshipAdded(getConcept(BRANCH_A));
 		assertEffectiveTimeAndModuleId(getRelationship(WITH_SIZE, getConcept(BRANCH_AB)), null, MODULE_AB); //New Relationship in correct module.
+	}
+
+	@Test
+	void deleteConceptsAndComponentsWithinCommit_ShouldRemoveEntryFromRefSetDescriptorRefSet_WhenDeletingRefSet() throws ServiceException {
+		givenRefSetAncestorsExist();
+		givenRefSetDescriptorRefSetHasEntry();
+		Concept newRefSet = createNewRefSet();
+		MemberSearchRequest memberSearchRequest = buildMemberSearchRequest(true, Concepts.REFSET_DESCRIPTOR_REFSET, newRefSet.getId());
+
+		// Assert before delete
+		List<ReferenceSetMember> referenceSetMembersBefore = referenceSetMemberService.findMembers("MAIN", memberSearchRequest, PageRequest.of(0, 10)).getContent();
+		assertEquals(1, referenceSetMembersBefore.size());
+
+		// Assert after delete
+		conceptService.deleteConceptAndComponents(newRefSet.getId(), "MAIN", false);
+		List<ReferenceSetMember> referenceSetMembersAfter = referenceSetMemberService.findMembers("MAIN", memberSearchRequest, PageRequest.of(0, 10)).getContent();
+		assertTrue(referenceSetMembersAfter.isEmpty());
+	}
+
+	private void givenRefSetAncestorsExist() throws ServiceException {
+		// Create root components
+		conceptService.create(new Concept(Concepts.SNOMEDCT_ROOT), MAIN);
+		conceptService.create(new Concept(Concepts.ISA).addAxiom(new Relationship(Concepts.ISA, Concepts.SNOMEDCT_ROOT)), MAIN);
+		conceptService.create(new Concept(Concepts.REFSET).addAxiom(new Relationship(Concepts.ISA, Concepts.FOUNDATION_METADATA)), MAIN);
+		conceptService.create(new Concept(Concepts.REFSET_SIMPLE).addAxiom(new Relationship(Concepts.ISA, Concepts.REFSET)), MAIN);
+		conceptService.create(new Concept(Concepts.REFSET_DESCRIPTOR_REFSET).addAxiom(new Relationship(Concepts.ISA, Concepts.REFSET)), MAIN);
+	}
+
+	private void givenRefSetDescriptorRefSetHasEntry() throws ServiceException {
+		// Create top-level Concept
+		Concept foodStructure = conceptService.create(
+				new Concept()
+						.addDescription(new Description("Food structure (food structure)"))
+						.addAxiom(new Relationship(Concepts.ISA, Concepts.SNOMEDCT_ROOT)),
+				"MAIN"
+		);
+
+		// Add top-level Concept to simple refset
+		ReferenceSetMember foodStructureMember = new ReferenceSetMember(Concepts.MODEL_MODULE, Concepts.REFSET_SIMPLE, foodStructure.getId());
+		referenceSetMemberService.createMember("MAIN", foodStructureMember);
+
+		// Add simple refset to refset descriptor
+		ReferenceSetMember refsetInDescriptor = new ReferenceSetMember(Concepts.MODEL_MODULE, Concepts.REFSET_DESCRIPTOR_REFSET, Concepts.REFSET_SIMPLE);
+		refsetInDescriptor.setAdditionalFields(Map.of(
+				"attributeDescription", Concepts.REFERENCED_COMPONENT,
+				"attributeType", Concepts.CONCEPT_TYPE_COMPONENT,
+				"attributeOrder", "0")
+		);
+
+		referenceSetMemberService.createMember("MAIN", refsetInDescriptor);
+	}
+
+	private Concept createNewRefSet() throws ServiceException {
+		Relationship relationship = new Relationship();
+		relationship.setTypeId(Concepts.ISA);
+		relationship.setDestinationId(Concepts.REFSET_SIMPLE);
+		Set<Relationship> relationships = new HashSet<>();
+		relationships.add(relationship);
+
+		Axiom axiom = new Axiom();
+		axiom.setRelationships(relationships);
+		Set<Axiom> axioms = new HashSet<>();
+		axioms.add(axiom);
+
+		Concept concept = new Concept();
+		concept.setClassAxioms(axioms);
+
+		return conceptService.create(concept, "MAIN");
+	}
+
+	private MemberSearchRequest buildMemberSearchRequest(boolean active, String referenceSetId, String referencedComponentId) {
+		MemberSearchRequest memberSearchRequest = new MemberSearchRequest();
+		memberSearchRequest.active(active);
+		memberSearchRequest.referenceSet(referenceSetId);
+		memberSearchRequest.referencedComponentId(referencedComponentId);
+
+		return memberSearchRequest;
 	}
 
 	private void givenCodeSystemExists(String shortName, String branchPath) {
@@ -114,6 +201,12 @@ class ConceptUpdateHelperTest extends AbstractTest {
 
 	private void givenCodeSystemVersionExists() {
 		codeSystemService.createVersion(codeSystemService.find(SHORTNAME_A), 20210131, "20210131");
+	}
+	
+	private void givenVersionedMain() {
+		CodeSystem rootCS = new CodeSystem("ROOT-CS", Branch.MAIN);
+		codeSystemService.createCodeSystem(rootCS);
+		codeSystemService.createVersion(rootCS, 20190731, "20190731");
 	}
 
 	private Concept getConcept(String branchPath) {

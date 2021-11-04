@@ -74,8 +74,11 @@ public class Concepts {
 	public static final String NONCONFORMANCE_TO_EDITORIAL_POLICY = "723277005";
 	public static final String NOT_SEMANTICALLY_EQUIVALENT = "723278000";
 
+	public static final String FOUNDATION_METADATA = "900000000000454005";
 	public static final String REFSET = "900000000000455006";
 	public static final String REFSET_SIMPLE = "446609009";
+	public static final String REFSET_MODULE_DEPENDENCY = "900000000000534007";
+	public static final String REFSET_DESCRIPTOR_REFSET = "900000000000456007";
 
 	// Historical reference sets
 	public static final String REFSET_HISTORICAL_ASSOCIATION = "900000000000522004";
@@ -177,5 +180,7 @@ public class Concepts {
 	public static final String SUBSTANCE = "105590001";
 	public static final String FINDING_SITE = "363698007";
 	public static final String HEART_STRUCTURE = "80891009";
+	public static final String REFERENCED_COMPONENT = "449608002";
+	public static final String CONCEPT_TYPE_COMPONENT = "900000000000461009";
 
 }

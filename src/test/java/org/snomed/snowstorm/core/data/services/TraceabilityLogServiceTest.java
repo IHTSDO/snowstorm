@@ -175,7 +175,10 @@ class TraceabilityLogServiceTest extends AbstractTest {
 		final Concept versionedConcept = conceptService.find(conceptId, MAIN);
 		assertEquals(20220131, versionedConcept.getEffectiveTimeI());
 
-		assertNull(getTraceabilityActivityWithTimeout(2), "There should be no traceability when creating a code system version.");
+		activity = getTraceabilityActivity();
+		assertNotNull(activity);
+		assertTrue(activity.getChangesMap().isEmpty());
+		assertEquals(CREATE_CODE_SYSTEM_VERSION, activity.getActivityType());
 	}
 
 	@Test
@@ -310,6 +313,102 @@ class TraceabilityLogServiceTest extends AbstractTest {
 		assertEquals(1, activity.getComponentChanges().size());
 		final Activity.ComponentChange componentChange = activity.getComponentChanges().iterator().next();
 		assertEquals(Activity.ChangeType.UPDATE, componentChange.getChangeType());
+	}
+
+	@Test
+	void rebaseVersionedWithManuallyChosenLeftHandSide() throws ServiceException, InterruptedException {
+		final String conceptId = conceptService.create(new Concept().addFSN("New concept"), "MAIN").getConceptId();
+		final Concept concept = conceptService.find(conceptId, "MAIN");
+		final Description description = concept.getDescriptions().iterator().next();
+		branchService.create("MAIN/A");
+		branchService.create("MAIN/B");
+		clearActivities();
+
+		description.setCaseSignificanceId(Concepts.ENTIRE_TERM_CASE_SENSITIVE);
+		concept.addDescription(description);
+		assertEquals(1, concept.getDescriptions().size());
+		conceptService.update(concept, "MAIN/A");
+
+		description.setCaseSignificanceId(Concepts.INITIAL_CHARACTER_CASE_INSENSITIVE);
+		concept.addDescription(description);
+		assertEquals(1, concept.getDescriptions().size());
+		conceptService.update(concept, "MAIN/B");
+
+		branchMergeService.mergeBranchSync("MAIN/A", "MAIN", Collections.emptyList());
+
+		Activity promotionActivity = getTraceabilityActivity();
+		assertEquals(PROMOTION, promotionActivity.getActivityType());
+		assertEquals("MAIN", promotionActivity.getBranchPath());
+		assertEquals("MAIN/A", promotionActivity.getSourceBranch());
+		assertTrue(promotionActivity.getChanges().isEmpty());
+
+		final CodeSystem codeSystem = codeSystemService.createCodeSystem(new CodeSystem("SNOMEDCT", MAIN));
+		codeSystemService.createVersion(codeSystem, 20220131, "");
+
+		branchMergeService.mergeBranchSync("MAIN", "MAIN/B", Collections.singleton(conceptService.find(conceptId, "MAIN")));
+
+		Activity rebaseActivity = getTraceabilityActivity();
+		assertEquals(REBASE, rebaseActivity.getActivityType());
+		assertEquals("MAIN/B", rebaseActivity.getBranchPath());
+		assertEquals("MAIN", rebaseActivity.getSourceBranch());
+		final Collection<Activity.ConceptActivity> changes = rebaseActivity.getChanges();
+		System.out.println(changes);
+		assertEquals(1, changes.size());
+		final Activity.ConceptActivity activity = changes.iterator().next();
+		assertEquals(3, activity.getComponentChanges().size());
+
+		assertEquals("[ComponentChange{componentType=CONCEPT, componentSubType=null, componentId='x', changeType=UPDATE, effectiveTimeNull=false}, " +
+						"ComponentChange{componentType=DESCRIPTION, componentSubType=900000000000003001, componentId='x', changeType=UPDATE, effectiveTimeNull=false}, " +
+						"ComponentChange{componentType=REFERENCE_SET_MEMBER, componentSubType=900000000000509007, componentId='x', changeType=UPDATE, effectiveTimeNull=false}]",
+				toString(activity.getComponentChanges()));
+	}
+
+	@Test
+	void rebaseVersionedWithManuallyChosenRightHandSide() throws ServiceException, InterruptedException {
+		final String conceptId = conceptService.create(new Concept().addFSN("New concept"), "MAIN").getConceptId();
+		final Concept concept = conceptService.find(conceptId, "MAIN");
+		final Description description = concept.getDescriptions().iterator().next();
+		branchService.create("MAIN/A");
+		branchService.create("MAIN/B");
+		clearActivities();
+
+		description.setCaseSignificanceId(Concepts.ENTIRE_TERM_CASE_SENSITIVE);
+		concept.addDescription(description);
+		assertEquals(1, concept.getDescriptions().size());
+		conceptService.update(concept, "MAIN/A");
+
+		description.setCaseSignificanceId(Concepts.INITIAL_CHARACTER_CASE_INSENSITIVE);
+		concept.addDescription(description);
+		assertEquals(1, concept.getDescriptions().size());
+		conceptService.update(concept, "MAIN/B");
+
+		branchMergeService.mergeBranchSync("MAIN/A", "MAIN", Collections.emptyList());
+
+		Activity promotionActivity = getTraceabilityActivity();
+		assertEquals(PROMOTION, promotionActivity.getActivityType());
+		assertEquals("MAIN", promotionActivity.getBranchPath());
+		assertEquals("MAIN/A", promotionActivity.getSourceBranch());
+		assertTrue(promotionActivity.getChanges().isEmpty());
+
+		final CodeSystem codeSystem = codeSystemService.createCodeSystem(new CodeSystem("SNOMEDCT", MAIN));
+		codeSystemService.createVersion(codeSystem, 20220131, "");
+
+		branchMergeService.mergeBranchSync("MAIN", "MAIN/B", Collections.singleton(conceptService.find(conceptId, "MAIN/B")));
+
+		Activity rebaseActivity = getTraceabilityActivity();
+		assertEquals(REBASE, rebaseActivity.getActivityType());
+		assertEquals("MAIN/B", rebaseActivity.getBranchPath());
+		assertEquals("MAIN", rebaseActivity.getSourceBranch());
+		final Collection<Activity.ConceptActivity> changes = rebaseActivity.getChanges();
+		System.out.println(changes);
+		assertEquals(1, changes.size());
+		final Activity.ConceptActivity activity = changes.iterator().next();
+		assertEquals(3, activity.getComponentChanges().size());
+
+		assertEquals("[ComponentChange{componentType=CONCEPT, componentSubType=null, componentId='x', changeType=UPDATE, effectiveTimeNull=false}, " +
+						"ComponentChange{componentType=DESCRIPTION, componentSubType=900000000000003001, componentId='x', changeType=UPDATE, effectiveTimeNull=true}, " +
+						"ComponentChange{componentType=REFERENCE_SET_MEMBER, componentSubType=900000000000509007, componentId='x', changeType=UPDATE, effectiveTimeNull=false}]",
+				toString(activity.getComponentChanges()));
 	}
 
 	@Test

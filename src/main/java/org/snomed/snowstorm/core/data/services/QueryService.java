@@ -219,13 +219,13 @@ public class QueryService implements ApplicationContextAware {
 			conceptBoolQuery.filter(termsQuery(Concept.Fields.CONCEPT_ID, conceptIds));
 		}
 		if (conceptQuery.getActiveFilter() != null) {
-			conceptBoolQuery.must(termQuery(Concept.Fields.ACTIVE, conceptQuery.getActiveFilter()));
+			conceptBoolQuery.must(termQuery(SnomedComponent.Fields.ACTIVE, conceptQuery.getActiveFilter()));
 		}
 		if (conceptQuery.getDefinitionStatusFilter() != null) {
 			conceptBoolQuery.must(termQuery(Concept.Fields.DEFINITION_STATUS_ID, conceptQuery.getDefinitionStatusFilter()));
 		}
 		if (conceptQuery.getModule() != null) {
-			conceptBoolQuery.must(termsQuery(Concept.Fields.MODULE_ID, conceptQuery.getModule()));
+			conceptBoolQuery.must(termsQuery(SnomedComponent.Fields.MODULE_ID, conceptQuery.getModule()));
 		}
 		if (conceptQuery.getEffectiveTime() !=null) {
 			conceptBoolQuery.must(termQuery(SnomedComponent.Fields.EFFECTIVE_TIME, conceptQuery.getEffectiveTime()));
@@ -310,18 +310,18 @@ public class QueryService implements ApplicationContextAware {
 		return findAncestorIds(versionControlHelper.getBranchCriteria(path), path, stated, conceptId);
 	}
 
-	public Set<Long> findParentIds(BranchCriteria branchCriteria, boolean stated, String conceptId) {
+	public Set<Long> findParentIds(BranchCriteria branchCriteria, boolean stated, Collection<Long> conceptIds) {
 		final NativeSearchQuery searchQuery = new NativeSearchQueryBuilder()
 				.withQuery(boolQuery()
 						.must(branchCriteria.getEntityBranchCriteria(QueryConcept.class))
-						.must(termQuery(QueryConcept.Fields.CONCEPT_ID, conceptId))
-						.must(termQuery("stated", stated))
+						.must(termsQuery(QueryConcept.Fields.CONCEPT_ID, conceptIds))
+						.must(termQuery(QueryConcept.Fields.STATED, stated))
 				)
 				.withPageable(PAGE_OF_ONE)
 				.build();
 		List<QueryConcept> concepts = elasticsearchTemplate.search(searchQuery, QueryConcept.class)
 				.stream().map(SearchHit::getContent).collect(Collectors.toList());
-		return concepts.isEmpty() ? Collections.emptySet() : concepts.get(0).getParents();
+		return concepts.isEmpty() ? Collections.emptySet() : concepts.stream().flatMap(queryConcept -> queryConcept.getParents().stream()).collect(Collectors.toSet());
 	}
 
 	public Set<Long> findAncestorIds(BranchCriteria branchCriteria, String path, boolean stated, String conceptId) {
@@ -329,7 +329,7 @@ public class QueryService implements ApplicationContextAware {
 				.withQuery(boolQuery()
 						.must(branchCriteria.getEntityBranchCriteria(QueryConcept.class))
 						.must(termQuery(QueryConcept.Fields.CONCEPT_ID, conceptId))
-						.must(termQuery("stated", stated))
+						.must(termQuery(QueryConcept.Fields.STATED, stated))
 				)
 				.withPageable(LARGE_PAGE)
 				.build();
@@ -347,7 +347,7 @@ public class QueryService implements ApplicationContextAware {
 				.withQuery(boolQuery()
 						.must(branchCriteria.getEntityBranchCriteria(QueryConcept.class))
 						.must(termsQuery(QueryConcept.Fields.CONCEPT_ID, conceptId))
-						.must(termQuery("stated", stated))
+						.must(termQuery(QueryConcept.Fields.STATED, stated))
 				)
 				.withPageable(LARGE_PAGE)
 				.build();
@@ -360,19 +360,34 @@ public class QueryService implements ApplicationContextAware {
 		return allAncestors;
 	}
 
-	public List<Long> findDescendantIdsAsUnion(BranchCriteria branchCriteria, boolean stated, Collection<Long> conceptIds) {
+	public Set<Long> findDescendantIdsAsUnion(BranchCriteria branchCriteria, boolean stated, Collection<Long> conceptIds) {
 		final NativeSearchQuery searchQuery = new NativeSearchQueryBuilder()
 				.withQuery(boolQuery()
 						.must(branchCriteria.getEntityBranchCriteria(QueryConcept.class))
-						.must(termsQuery("ancestors", conceptIds))
-						.must(termQuery("stated", stated))
+						.must(termsQuery(QueryConcept.Fields.ANCESTORS, conceptIds))
+						.must(termQuery(QueryConcept.Fields.STATED, stated))
 				)
 				.withFields(QueryConcept.Fields.CONCEPT_ID)
 				.withPageable(LARGE_PAGE)
 				.withSort(SortBuilders.fieldSort(QueryConcept.Fields.CONCEPT_ID))// This could be anything
 				.build();
 		SearchHits<QueryConcept> searchHits = elasticsearchTemplate.search(searchQuery, QueryConcept.class);
-		return searchHits.stream().map(SearchHit::getContent).map(QueryConcept::getConceptIdL).collect(Collectors.toList());
+		return searchHits.stream().map(SearchHit::getContent).map(QueryConcept::getConceptIdL).collect(Collectors.toSet());
+	}
+
+	public Set<Long> findChildrenIdsAsUnion(BranchCriteria branchCriteria, boolean stated, Collection<Long> conceptIds) {
+		final NativeSearchQuery searchQuery = new NativeSearchQueryBuilder()
+				.withQuery(boolQuery()
+						.must(branchCriteria.getEntityBranchCriteria(QueryConcept.class))
+						.must(termsQuery(QueryConcept.Fields.PARENTS, conceptIds))
+						.must(termQuery(QueryConcept.Fields.STATED, stated))
+				)
+				.withFields(QueryConcept.Fields.CONCEPT_ID)
+				.withPageable(LARGE_PAGE)
+				.withSort(SortBuilders.fieldSort(QueryConcept.Fields.CONCEPT_ID))// This could be anything
+				.build();
+		SearchHits<QueryConcept> searchHits = elasticsearchTemplate.search(searchQuery, QueryConcept.class);
+		return searchHits.stream().map(SearchHit::getContent).map(QueryConcept::getConceptIdL).collect(Collectors.toSet());
 	}
 
 	public Set<Long> findConceptIdsInReferenceSet(BranchCriteria branchCriteria, String referenceSetId) {
@@ -546,10 +561,6 @@ public class QueryService implements ApplicationContextAware {
 					|| isNullEffectiveTime != null || isReleased != null;
 		}
 
-		private ConceptQueryBuilder() {
-			this(false);
-		}
-
 		private boolean hasLogicalConditions() {
 			return ecl != null || activeFilter != null || effectiveTime != null || isReleased != null || definitionStatusFilter != null || conceptIds != null || module != null;
 		}
@@ -688,6 +699,47 @@ public class QueryService implements ApplicationContextAware {
 			if (isReleased != null) {
 				conceptClauses.must(termQuery(SnomedComponent.Fields.RELEASED, isReleased));
 			}
+		}
+
+		@Override
+		public String toString() {
+			return "ConceptQueryBuilder{" +
+					"stated=" + stated +
+					", activeFilter=" + activeFilter +
+					", definitionStatusFilter='" + definitionStatusFilter + '\'' +
+					", module=" + module +
+					", resultLanguageDialects=" + resultLanguageDialects +
+					", ecl='" + ecl + '\'' +
+					", conceptIds=" + conceptIds +
+					", descriptionCriteria=" + descriptionCriteria +
+					", effectiveTime=" + effectiveTime +
+					", isNullEffectiveTime=" + isNullEffectiveTime +
+					", isReleased=" + isReleased +
+					'}';
+		}
+
+		@Override
+		public boolean equals(Object o) {
+			if (this == o) return true;
+			if (o == null || getClass() != o.getClass()) return false;
+			ConceptQueryBuilder that = (ConceptQueryBuilder) o;
+			return stated == that.stated &&
+					Objects.equals(activeFilter, that.activeFilter) &&
+					Objects.equals(definitionStatusFilter, that.definitionStatusFilter) &&
+					Objects.equals(module, that.module) &&
+					Objects.equals(resultLanguageDialects, that.resultLanguageDialects) &&
+					Objects.equals(ecl, that.ecl) &&
+					Objects.equals(conceptIds, that.conceptIds) &&
+					Objects.equals(descriptionCriteria, that.descriptionCriteria) &&
+					Objects.equals(effectiveTime, that.effectiveTime) &&
+					Objects.equals(isNullEffectiveTime, that.isNullEffectiveTime) &&
+					Objects.equals(isReleased, that.isReleased);
+		}
+
+		@Override
+		public int hashCode() {
+			return Objects.hash(stated, activeFilter, definitionStatusFilter, module, resultLanguageDialects, ecl,
+					conceptIds, descriptionCriteria, effectiveTime, isNullEffectiveTime, isReleased);
 		}
 	}
 

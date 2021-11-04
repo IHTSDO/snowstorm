@@ -16,7 +16,7 @@ import org.springframework.stereotype.Service;
 import java.util.*;
 
 import static io.kaicode.elasticvc.api.VersionControlHelper.LARGE_PAGE;
-import static org.elasticsearch.index.query.QueryBuilders.termQuery;
+import static org.elasticsearch.index.query.QueryBuilders.*;
 
 @Service
 public class TraceabilityLogServiceHelper {
@@ -31,7 +31,17 @@ public class TraceabilityLogServiceHelper {
 
 		if (commit.isRebase()) {
 			// The rebase branch criteria usually includes component versions brought in from ancestor branches. We will exclude those from traceability.
-			branchCriteria.must(termQuery(SnomedComponent.Fields.PATH, branchPath));
+			final Set<String> versionsReplaced = commit.getEntityVersionsReplaced().getOrDefault(clazz.getSimpleName(), Collections.emptySet());
+			if (versionsReplaced.isEmpty()) {
+				branchCriteria.must(termQuery(SnomedComponent.Fields.PATH, branchPath));
+			} else {
+				branchCriteria.must(boolQuery()
+						// Either on the target branch
+						.should(termQuery(SnomedComponent.Fields.PATH, branchPath))
+						// Or on an ancestor branch and replaced in this commit (update or delete)
+						.should(termsQuery("_id", versionsReplaced))
+				);
+			}
 		}
 
 		final NativeSearchQuery searchQuery = new NativeSearchQueryBuilder()

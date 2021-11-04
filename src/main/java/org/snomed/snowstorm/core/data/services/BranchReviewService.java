@@ -31,7 +31,6 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
-import org.springframework.util.StringUtils;
 
 import javax.annotation.PostConstruct;
 import java.io.IOException;
@@ -159,10 +158,17 @@ public class BranchReviewService {
 				Concept sourceVersion = conceptOnSource.get(conceptId);
 				Concept targetVersion = conceptOnTarget.get(conceptId);
 				MergeReviewConceptVersions mergeVersion = new MergeReviewConceptVersions(sourceVersion, targetVersion);
-				if (sourceVersion != null && targetVersion != null) {
-					mergeVersion.setAutoMergedConcept(autoMergeConcept(sourceVersion, targetVersion));
+				if (sourceVersion == null && targetVersion == null) {
+					// Both are deleted, no conflict.
+					persistManualMergeConceptDeletion(mergeReview, conceptId);
+					logger.info("Concept {} deleted on both sides of the merge. Excluding from merge review {}.", conceptId, id);
+				} else {
+					if (sourceVersion != null && targetVersion != null) {
+						// Neither deleted, auto-merge.
+						mergeVersion.setAutoMergedConcept(autoMergeConcept(sourceVersion, targetVersion));
+					}
+					conflicts.put(conceptId, mergeVersion);
 				}
-				conflicts.put(conceptId, mergeVersion);
 			});
 		}
 		return conflicts.values();

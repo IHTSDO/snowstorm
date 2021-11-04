@@ -7,8 +7,10 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.snomed.otf.snomedboot.testutil.ZipUtil;
 import org.snomed.snowstorm.AbstractTest;
+import org.snomed.snowstorm.core.data.domain.CodeSystem;
 import org.snomed.snowstorm.core.data.domain.Concept;
 import org.snomed.snowstorm.core.data.domain.Concepts;
+import org.snomed.snowstorm.core.data.services.CodeSystemService;
 import org.snomed.snowstorm.core.data.services.ConceptService;
 import org.snomed.snowstorm.core.data.services.ServiceException;
 import org.snomed.snowstorm.core.rf2.RF2Type;
@@ -36,6 +38,9 @@ public abstract class AbstractExpressionTest extends AbstractTest {
 
     @Autowired
     private MRCMService mrcmService;
+
+    @Autowired
+    private CodeSystemService codeSystemService;
 
     protected ExpressionContext expressionContext;
 
@@ -73,7 +78,8 @@ public abstract class AbstractExpressionTest extends AbstractTest {
         ), "MAIN");
 
         File dummyMrcmImportFile = ZipUtil.zipDirectoryRemovingCommentsAndBlankLines("src/test/resources/dummy-snomed-content/SnomedCT_MiniRF2_dummy_mrcm_snap");
-        String importJob = importService.createJob(RF2Type.SNAPSHOT, "MAIN", false, false);
+        codeSystemService.createCodeSystem(new CodeSystem("SNOMEDCT", "MAIN"));
+        String importJob = importService.createJob(RF2Type.SNAPSHOT, "MAIN", true, false);
         try (FileInputStream inputStream = new FileInputStream(dummyMrcmImportFile)) {
             importService.importArchive(importJob, inputStream);
         }

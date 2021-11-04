@@ -93,11 +93,11 @@ public class SecurityAndUriConfig extends WebSecurityConfigurerAdapter {
 		return new FilterRegistrationBean<>(new BranchPathUriRewriteFilter(
 				"/branches/(.*)/children",
 				"/branches/(.*)/parents",
+				"/branches/(.*)/metadata-upsert",
 				"/branches/(.*)/actions/.*",
 				"/branches/(.*)",
 				"/rebuild/(.*)",
-				"/browser/(.*)/validate/concept",
-				"/browser/(.*)/validate/concepts",
+				"/browser/(.*)/validate.*",
 				"/browser/(.*)/concepts.*",
 				"/browser/(.*)/descriptions.*",
 				"/browser/(.*)/members.*",

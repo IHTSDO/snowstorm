@@ -34,7 +34,7 @@ public class AsyncRefsetMemberChangeBatch {
 		this.status = status;
 		if (status == Status.COMPLETED || status == Status.FAILED) {
 			endTime = new Date();
-			secondsDuration = TimerUtil.getDuration(startTime.getTime(), endTime.getTime());
+			secondsDuration = TimerUtil.getDurationSeconds(startTime.getTime(), endTime.getTime());
 		}
 	}
 

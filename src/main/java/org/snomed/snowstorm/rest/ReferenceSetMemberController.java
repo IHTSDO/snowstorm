@@ -25,6 +25,7 @@ import org.snomed.snowstorm.rest.pojo.ItemsPage;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -41,6 +42,8 @@ import java.util.stream.Collectors;
 @Api(tags = "Refset Members", description = "-")
 @RequestMapping(produces = "application/json")
 public class ReferenceSetMemberController {
+
+	private static final Sort SORT_BY_MEMBER_ID_DESC = Sort.sort(ReferenceSetMember.class).by(ReferenceSetMember::getMemberId).descending();
 
 	@Autowired
 	private ReferenceSetMemberService memberService;
@@ -128,7 +131,8 @@ public class ReferenceSetMemberController {
 			@ApiParam(value = "Set of referencedComponentId ids to limit search")
 			@RequestParam(required = false) Set<String> referencedComponentId, //Ideally this would be plural, but that would break backwards compatibility
 			@RequestParam(required = false) Boolean active,
-			@RequestParam(required = false) String targetComponent,
+			@ApiParam(value = "Set of target component ids to limit search")
+			@RequestParam(required = false) Set<String> targetComponent,
 			@RequestParam(required = false) String mapTarget,
 			@ApiParam("Search by concept identifiers within an owlExpression.")
 			@RequestParam(name = "owlExpression.conceptId", required = false) String owlExpressionConceptId,
@@ -136,6 +140,7 @@ public class ReferenceSetMemberController {
 			@RequestParam(name = "owlExpression.gci", required = false) Boolean owlExpressionGCI,
 			@RequestParam(defaultValue = "0") int offset,
 			@RequestParam(defaultValue = "50") int limit,
+		   	@RequestParam(required = false) String searchAfter,
 			@RequestHeader(value = "Accept-Language", defaultValue = Config.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) {
 
 		ControllerHelper.validatePageSize(offset, limit);
@@ -147,16 +152,37 @@ public class ReferenceSetMemberController {
 						.referenceSet(referenceSet)
 						.module(module)
 						.referencedComponentIds(referencedComponentId)
-						.targetComponentId(targetComponent)
+						.targetComponentIds(targetComponent)
 						.mapTarget(mapTarget)
 						.owlExpressionConceptId(owlExpressionConceptId)
 						.owlExpressionGCI(owlExpressionGCI)
 				,
+				ControllerHelper.getPageRequest(offset, limit, SORT_BY_MEMBER_ID_DESC, searchAfter)
+		);
+		joinReferencedComponents(members.getContent(), ControllerHelper.parseAcceptLanguageHeaderWithDefaultFallback(acceptLanguageHeader), branch);
+		return new ItemsPage<>(members);
+	}
+	
+	@ApiOperation("Search for reference set members using bulk filters")
+	@RequestMapping(value = "/{branch}/members/search", method = RequestMethod.POST)
+	@JsonView(value = View.Component.class)
+	public ItemsPage<ReferenceSetMember> findRefsetMembers(@PathVariable String branch,
+			@RequestBody MemberSearchRequest memberSearchRequest,
+			@RequestParam(defaultValue = "0") int offset,
+			@RequestParam(defaultValue = "50") int limit,
+			@RequestHeader(value = "Accept-Language", defaultValue = Config.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) {
+
+		ControllerHelper.validatePageSize(offset, limit);
+		branch = BranchPathUriUtil.decodePath(branch);
+		Page<ReferenceSetMember> members = memberService.findMembers(
+				branch,
+				memberSearchRequest,
 				ControllerHelper.getPageRequest(offset, limit)
 		);
 		joinReferencedComponents(members.getContent(), ControllerHelper.parseAcceptLanguageHeaderWithDefaultFallback(acceptLanguageHeader), branch);
 		return new ItemsPage<>(members);
 	}
+
 
 	private void joinReferencedComponents(List<ReferenceSetMember> members, List<LanguageDialect> languageDialects, String branch) {
 		Set<String> conceptIds = members.stream().map(ReferenceSetMember::getReferencedComponentId).filter(IdentifierService::isConceptId).collect(Collectors.toSet());

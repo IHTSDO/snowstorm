@@ -1,40 +1,51 @@
 package org.snomed.snowstorm.core.data.domain.expression;
 
-import org.snomed.snowstorm.core.data.domain.ConceptMicro;
-import org.snomed.snowstorm.core.data.domain.ConceptMini;
-import org.snomed.snowstorm.core.data.domain.ConcreteValue;
-import org.snomed.snowstorm.core.data.domain.AttributeValue;
+import org.snomed.snowstorm.core.data.domain.*;
 
 public class ExpressionAttribute {
 
 	private final ConceptMicro type;
-	private final AttributeValue value;
+	private final ConceptMicro target;
+	private final ConcreteValue value;
 	
-	public ExpressionAttribute(ConceptMini type, ConceptMini value) {
+	public ExpressionAttribute(ConceptMini type, ConceptMini target) {
 		this.type = new ConceptMicro(type);
-		this.value = new ConceptMicro(value);
+		this.target = new ConceptMicro(target);
+		this.value = null;
 	}
-	
-	public ExpressionAttribute(ConceptMini type, AttributeValue value) {
-		this.type = new ConceptMicro(type);
+
+	public ExpressionAttribute(ConceptMicro type, ConcreteValue value) {
+		this.type = type;
+		this.target = null;
 		this.value = value;
 	}
 
-	public ExpressionAttribute(ConceptMicro type, AttributeValue value) {
-		this.type = type;
-		this.value = value;
+	public ExpressionAttribute(ConceptMini type, ConcreteValue value) {
+		this(new ConceptMicro(type), value);
 	}
 
 	public ConceptMicro getType() {
 		return type;
 	}
+	
+	public ConceptMicro getTarget() {
+		return target;
+	}
 
-	public AttributeValue getValue() {
+	public ConcreteValue getValue() {
 		return value;
 	}
 	
+	public boolean isConcrete() {
+		return value != null;
+	}
+	
 	public String toString (boolean includeTerms) {
-		return type.toString(includeTerms) + " = " + value.toString(includeTerms);
+		if (isConcrete()) {
+			return type.toString(includeTerms) + " = " + value.toString();
+		} else {
+			return type.toString(includeTerms) + " = " + target.toString(includeTerms);
+		}
 	}
 
 }

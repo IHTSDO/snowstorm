@@ -158,13 +158,13 @@ public class DescriptionService extends ComponentService {
 		return new PageImpl<>(content, pageRequest, descriptions.getTotalHits());
 	}
 
-	public Set<Description> findDescriptionsByConceptId(String branchPath, Set<String> conceptIds) {
+	public Set<Description> findDescriptionsByConceptId(String branchPath, Set<String> conceptIds, boolean fetchLangRefsetMembers) {
 		BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(branchPath);
 		Map<String, Concept> conceptMap = new HashMap<>();
 		for (String conceptId : conceptIds) {
 			conceptMap.put(conceptId, new Concept(conceptId));
 		}
-		joinDescriptions(branchCriteria, conceptMap, null, null, false);
+		joinDescriptions(branchCriteria, conceptMap, null, null, fetchLangRefsetMembers, false);
 		return conceptMap.values().stream().flatMap(c -> c.getDescriptions().stream()).collect(Collectors.toSet());
 	}
 
@@ -276,7 +276,7 @@ public class DescriptionService extends ComponentService {
 	}
 
 	void joinDescriptions(BranchCriteria branchCriteria, Map<String, Concept> conceptIdMap, Map<String, ConceptMini> conceptMiniMap,
-			TimerUtil timer, boolean fetchInactivationInfo) {
+			TimerUtil timer, boolean fetchLangRefsetMembers, boolean fetchInactivationInfo) {
 
 		final NativeSearchQueryBuilder queryBuilder = new NativeSearchQueryBuilder();
 
@@ -325,8 +325,10 @@ public class DescriptionService extends ComponentService {
 		if (timer != null) timer.checkpoint("get descriptions " + getFetchCount(allConceptIds.size()));
 
 		// Fetch Lang Refset Members
-		joinLangRefsetMembers(branchCriteria, allConceptIds, descriptionIdMap);
-		if (timer != null) timer.checkpoint("get lang refset " + getFetchCount(allConceptIds.size()));
+		if (fetchLangRefsetMembers) {
+			joinLangRefsetMembers(branchCriteria, allConceptIds, descriptionIdMap);
+			if (timer != null) timer.checkpoint("get lang refset " + getFetchCount(allConceptIds.size()));
+		}
 
 		// Fetch Inactivation Indicators and Associations
 		if (fetchInactivationInfo) {

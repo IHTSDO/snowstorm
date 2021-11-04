@@ -160,6 +160,12 @@ public class Description extends SnomedComponent<Description> implements SnomedC
 		return new Object[] {active, term, getModuleId(), languageCode, typeId, caseSignificanceId};
 	}
 
+	@Override
+	public Description setActive(boolean active) {
+		super.setActive(active);
+		return this;
+	}
+
 	@JsonView(value = View.Component.class)
 	public String getType() {
 		return Concepts.descriptionTypeNames.get(typeId);
@@ -354,7 +360,7 @@ public class Description extends SnomedComponent<Description> implements SnomedC
 	}
 
 	public List<ReferenceSetMember> getAssociationTargetMembers() {
-		return associationTargetMembers;
+		return associationTargetMembers != null ? associationTargetMembers : Collections.emptyList();
 	}
 
 	public String getDescriptionId() {
@@ -473,12 +479,12 @@ public class Description extends SnomedComponent<Description> implements SnomedC
 	 * for the given language refset and/or language where specified in the dialect
 	 */
 	public boolean hasAcceptability(String acceptability, LanguageDialect dialect) {
-		//Is the language refset specified in the dialect?
+		// Is the language refset specified in the dialect?
 		if (dialect.getLanguageReferenceSet() != null) {
 			return hasAcceptability(acceptability, dialect.getLanguageReferenceSet().toString());
 		} 
-		//Fall back to just checking the language is as specified
-		return languageCode.equals(dialect.getLanguageCode());
+		// Only language code given
+		return active && languageCode.equals(dialect.getLanguageCode());
 	}
 
 	/**

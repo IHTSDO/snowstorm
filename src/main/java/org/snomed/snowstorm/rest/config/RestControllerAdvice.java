@@ -9,6 +9,7 @@ import org.snomed.snowstorm.core.data.services.NotFoundException;
 import org.snomed.snowstorm.core.data.services.TooCostlyException;
 import org.snomed.snowstorm.core.data.services.postcoordination.TransformationException;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.HttpMediaTypeNotSupportedException;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
@@ -37,7 +38,8 @@ public class RestControllerAdvice {
 			MethodArgumentTypeMismatchException.class,
 			MissingServletRequestParameterException.class,
 			ECLException.class,
-			TransformationException.class
+			TransformationException.class,
+			HttpMessageNotReadableException.class
 	})
 	@ResponseStatus(HttpStatus.BAD_REQUEST)
 	@ResponseBody

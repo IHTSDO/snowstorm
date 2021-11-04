@@ -5,10 +5,7 @@ import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
-import io.kaicode.elasticvc.api.BranchCriteria;
-import io.kaicode.elasticvc.api.BranchService;
-import io.kaicode.elasticvc.api.ComponentService;
-import io.kaicode.elasticvc.api.VersionControlHelper;
+import io.kaicode.elasticvc.api.*;
 import io.kaicode.elasticvc.domain.Branch;
 import io.kaicode.elasticvc.domain.Commit;
 import io.kaicode.elasticvc.domain.DomainEntity;
@@ -22,12 +19,12 @@ import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.repositories.*;
 import org.snomed.snowstorm.core.data.services.identifier.IdentifierService;
 import org.snomed.snowstorm.core.data.services.pojo.*;
-import org.snomed.snowstorm.core.data.services.traceability.TraceabilityLogService;
 import org.snomed.snowstorm.core.pojo.BranchTimepoint;
 import org.snomed.snowstorm.core.pojo.LanguageDialect;
 import org.snomed.snowstorm.core.util.PageHelper;
 import org.snomed.snowstorm.core.util.TimerUtil;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
@@ -44,9 +41,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.Assert;
 
 import javax.annotation.Nullable;
+import java.time.Duration;
 import java.util.*;
 import java.util.concurrent.*;
-import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
@@ -58,7 +55,7 @@ import static org.springframework.util.CollectionUtils.isEmpty;
 @Service
 public class ConceptService extends ComponentService {
 
-	private static final Map<ComponentType, Class<? extends DomainEntity<?>>> COMPONENT_DOCUMENT_TYPES = new HashMap<>();
+	private static final Map<ComponentType, Class<? extends DomainEntity<?>>> COMPONENT_DOCUMENT_TYPES = new EnumMap<>(ComponentType.class);
 
 	static {
 		COMPONENT_DOCUMENT_TYPES.put(ComponentType.Concept, Concept.class);
@@ -104,7 +101,8 @@ public class ConceptService extends ComponentService {
 	private ElasticsearchRestTemplate elasticsearchTemplate;
 
 	@Autowired
-	private TraceabilityLogService traceabilityLogService;
+	@Lazy
+	private CodeSystemService codeSystemService;
 
 	@Autowired
 	private ConceptAttributeSortHelper conceptAttributeSortHelper;
@@ -113,6 +111,8 @@ public class ConceptService extends ComponentService {
 	private RelationshipService relationshipService;
 
 	private final Cache<String, AsyncConceptChangeBatch> batchConceptChanges;
+
+	private final Cache<BranchTimepoint, BranchCriteria> branchCriteriaCache = CacheBuilder.newBuilder().expireAfterAccess(Duration.ofDays(1)).build();
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
@@ -158,35 +158,40 @@ public class ConceptService extends ComponentService {
 		return doFind(conceptIds, languageDialects, new BranchTimepoint(path), pageRequest);
 	}
 
-	public ConceptHistory loadConceptHistory(String conceptId, List<CodeSystemVersion> codeSystemVersions) {
-		Map<String, BranchCriteria> branchCriteria = new HashMap<>();
+	public ConceptHistory loadConceptHistory(String conceptId, String branch, boolean showFutureVersions, boolean showInternalReleases) {
+		CodeSystem codeSystem = codeSystemService.findClosestCodeSystemUsingAnyBranch(branch, false);
+		List<CodeSystemVersion> codeSystemVersions = codeSystemService.findAllVersions(codeSystem.getShortName(), showFutureVersions, showInternalReleases);
+
+		// Create branch criteria for each code system version
+		Map<String, BranchCriteria> codeSystemVersionBranchCriteria = new HashMap<>();
 		for (CodeSystemVersion codeSystemVersion : codeSystemVersions) {
 			String branchPath = codeSystemVersion.getBranchPath();
-			branchCriteria.put(branchPath, versionControlHelper.getBranchCriteria(branchPath));
+			codeSystemVersionBranchCriteria.put(branchPath, getBranchCriteria(branchPath));
 		}
 
-		BiFunction<String, ComponentType, BoolQueryBuilder> defaultFullQuery = (cId, cT) -> {
+		Function<ComponentType, BoolQueryBuilder> defaultFullQuery = componentType -> {
 			BoolQueryBuilder fullQuery = boolQuery();
 			fullQuery.must(
 					boolQuery() //Query for released Components
-							.must(existsQuery(Concept.Fields.EFFECTIVE_TIME))
-							.must(existsQuery(Concept.Fields.PATH))
+							.must(existsQuery(SnomedComponent.Fields.EFFECTIVE_TIME))
+							.must(existsQuery(SnomedComponent.Fields.PATH))
 			);
 
-			if (ComponentType.Axiom.equals(cT)) {
+			if (ComponentType.Axiom.equals(componentType)) {
 				fullQuery.must(
 						boolQuery() //Query for Axioms
 								.must(termQuery(ReferenceSetMember.Fields.REFSET_ID, Concepts.OWL_AXIOM_REFERENCE_SET))
-								.minimumShouldMatch(1)
-								.should(termQuery(ReferenceSetMember.Fields.CONCEPT_ID, cId))
-								.should(termQuery(ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID, cId))
+								.must(boolQuery()
+										// One of:
+										.should(termQuery(ReferenceSetMember.Fields.CONCEPT_ID, conceptId))
+										.should(termQuery(ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID, conceptId)))
 				);
 			} else {
 				fullQuery.must(
 						boolQuery() //Query for Concepts, Descriptions & Relationships
-								.minimumShouldMatch(1)
-								.should(termQuery(Concept.Fields.CONCEPT_ID, cId))
-								.should(termQuery(Relationship.Fields.SOURCE_ID, cId))
+								// One of:
+								.should(termQuery(Concept.Fields.CONCEPT_ID, conceptId))
+								.should(termQuery(Relationship.Fields.SOURCE_ID, conceptId))
 				);
 			}
 			return fullQuery;
@@ -196,22 +201,23 @@ public class ConceptService extends ComponentService {
 		for (Map.Entry<ComponentType, Class<? extends DomainEntity<?>>> entrySet : COMPONENT_DOCUMENT_TYPES.entrySet()) {
 			ComponentType componentType = entrySet.getKey();
 			Class<? extends DomainEntity<?>> documentType = entrySet.getValue();
-			BoolQueryBuilder fullQuery = defaultFullQuery.apply(conceptId, componentType);
-			BoolQueryBuilder codeSystemQuery = boolQuery();
+			BoolQueryBuilder componentQuery = defaultFullQuery.apply(componentType);
 
+			BoolQueryBuilder codeSystemQuery = boolQuery();
 			for (CodeSystemVersion codeSystemVersion : codeSystemVersions) {
 				codeSystemQuery
 						.should(
 								boolQuery()
-										.must(branchCriteria.get(codeSystemVersion.getBranchPath()).getEntityBranchCriteria(documentType))
-										.must(termQuery(Concept.Fields.EFFECTIVE_TIME, codeSystemVersion.getEffectiveDate()))
+										.must(termQuery(SnomedComponent.Fields.EFFECTIVE_TIME, codeSystemVersion.getEffectiveDate()))
+										// Branch criteria for this code system version and component type
+										.must(codeSystemVersionBranchCriteria.get(codeSystemVersion.getBranchPath()).getEntityBranchCriteria(documentType))
 						);
-				fullQuery.must(codeSystemQuery);
 			}
+			componentQuery.must(codeSystemQuery);
 
 			SearchHits<? extends DomainEntity<?>> searchHits = elasticsearchTemplate.search(
 					new NativeSearchQueryBuilder()
-							.withQuery(fullQuery)
+							.withQuery(componentQuery)
 							.withPageable(LARGE_PAGE)
 							.build(),
 					documentType
@@ -228,7 +234,7 @@ public class ConceptService extends ComponentService {
 	}
 
 	public boolean exists(String id, String path) {
-		final BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(path);
+		final BranchCriteria branchCriteria = getBranchCriteria(path);
 		return getNonExistentConceptIds(Collections.singleton(id), branchCriteria).isEmpty();
 	}
 
@@ -260,15 +266,29 @@ public class ConceptService extends ComponentService {
 		return doFind(conceptIds, languageDialects, branchCriteria, pageRequest, true, true, branchTimepoint.getBranchPath());
 	}
 
+	protected BranchCriteria getBranchCriteria(String branchPath) {
+		return getBranchCriteria(new BranchTimepoint(branchPath));
+	}
 	protected BranchCriteria getBranchCriteria(BranchTimepoint branchTimepoint) {
-		if (branchTimepoint.isBranchCreationTimepoint()) {
-			return versionControlHelper.getBranchCriteriaAtBranchCreationTimepoint(branchTimepoint.getBranchPath());
-		} else if (branchTimepoint.isBranchBaseTimepoint()) {
-			return versionControlHelper.getBranchCriteriaForParentBranchAtBranchBaseTimepoint(branchTimepoint.getBranchPath());
-		} else if (branchTimepoint.getTimepoint() != null) {
-			return versionControlHelper.getBranchCriteriaAtTimepoint(branchTimepoint.getBranchPath(), branchTimepoint.getTimepoint());
-		} else {
-			return versionControlHelper.getBranchCriteria(branchTimepoint.getBranchPath());
+		try {
+			String branchPath = branchTimepoint.getBranchPath();
+			if (branchTimepoint.isBranchCreationTimepoint()) {
+				// Creation date will not change so no need to check expiry.
+				return branchCriteriaCache.get(branchTimepoint, () -> versionControlHelper.getBranchCriteriaAtBranchCreationTimepoint(branchPath));
+			} else if (branchTimepoint.isBranchBaseTimepoint()) {
+				// Lookup base date and re-enter method. Using a date prevents an old cache entry being hit after a rebase commit.
+				Branch latest = branchService.findLatest(branchPath);
+				return getBranchCriteria(new BranchTimepoint(PathUtil.getParentPath(latest.getPath()), latest.getBase()));
+			} else if (branchTimepoint.getTimepoint() == null) {
+				// Lookup head date and re-enter method. Using a date prevents an old cache entry being hit after a new commit.
+				Branch latest = branchService.findLatest(branchPath);
+				return getBranchCriteria(new BranchTimepoint(branchPath, latest.getHead()));
+			} else {
+				return branchCriteriaCache.get(branchTimepoint, () ->
+						versionControlHelper.getBranchCriteriaAtTimepoint(branchPath, branchTimepoint.getTimepoint()));
+			}
+		} catch (ExecutionException e) {
+			throw new RuntimeServiceException("Failed to create branch criteria", e);
 		}
 	}
 
@@ -276,7 +296,7 @@ public class ConceptService extends ComponentService {
 		if (conceptIds.isEmpty()) {
 			return new ResultMapPage<>(new HashMap<>(), 0);
 		}
-		final BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(path);
+		final BranchCriteria branchCriteria = getBranchCriteria(path);
 		return findConceptMinis(branchCriteria, conceptIds, languageDialects);
 	}
 
@@ -312,14 +332,13 @@ public class ConceptService extends ComponentService {
 				concepts.getTotalElements());
 	}
 
-	private void populateConceptMinis(BranchCriteria branchCriteria, Map<String, ConceptMini> minisToPopulate, List<LanguageDialect> languageDialects) {
+	public void populateConceptMinis(BranchCriteria branchCriteria, Map<String, ConceptMini> minisToPopulate, List<LanguageDialect> languageDialects) {
 		if (!minisToPopulate.isEmpty()) {
 			Set<String> conceptIds = minisToPopulate.keySet();
 			Page<Concept> concepts = doFind(conceptIds, languageDialects, branchCriteria, PageRequest.of(0, conceptIds.size()), false, false, null);
 			concepts.getContent().forEach(c -> {
 				ConceptMini conceptMini = minisToPopulate.get(c.getConceptId());
-				conceptMini.setDefinitionStatus(c.getDefinitionStatus());
-				conceptMini.addActiveDescriptions(c.getDescriptions().stream().filter(SnomedComponent::isActive).collect(Collectors.toSet()));
+				conceptMini.populate(c);
 			});
 		}
 	}
@@ -412,7 +431,7 @@ public class ConceptService extends ComponentService {
 		}
 		timer.checkpoint("get relationship def status " + getFetchCount(conceptMiniMap.size()));
 
-		descriptionService.joinDescriptions(branchCriteria, conceptIdMap, conceptMiniMap, timer, includeDescriptionInactivationInfo);
+		descriptionService.joinDescriptions(branchCriteria, conceptIdMap, conceptMiniMap, timer, true, includeDescriptionInactivationInfo);
 
 		conceptAttributeSortHelper.sortAttributes(conceptIdMap.values());
 		timer.checkpoint("Sort attributes");
@@ -514,11 +533,10 @@ public class ConceptService extends ComponentService {
 
 	// Used by tests
 	public Iterable<Concept> batchCreate(List<Concept> concepts, String path) throws ServiceException {
-		final List<LanguageDialect> languageDialects = DEFAULT_LANGUAGE_DIALECTS;
 		final Branch branch = branchService.findBranchOrThrow(path);
 		final Set<String> conceptIds = concepts.stream().map(Concept::getConceptId).filter(Objects::nonNull).collect(Collectors.toSet());
 		if (!conceptIds.isEmpty()) {
-			final BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(path);
+			final BranchCriteria branchCriteria = getBranchCriteria(path);
 			final Collection<String> nonExistentConceptIds = getNonExistentConceptIds(conceptIds, branchCriteria);
 			conceptIds.removeAll(nonExistentConceptIds);
 			if (!conceptIds.isEmpty()) {
@@ -526,7 +544,7 @@ public class ConceptService extends ComponentService {
 			}
 		}
 		PersistedComponents persistedComponents = doSave(concepts, branch);
-		joinComponentsToConceptsWithExpandedDescriptions(persistedComponents, branch, languageDialects);
+		joinComponentsToConceptsWithExpandedDescriptions(persistedComponents, branch, DEFAULT_LANGUAGE_DIALECTS);
 		return persistedComponents.getPersistedConcepts();
 	}
 
@@ -777,11 +795,23 @@ public class ConceptService extends ComponentService {
 		return ids;
 	}
 
+	public boolean isActive(String conceptId, BranchCriteria branchCriteria) {
+		NativeSearchQueryBuilder queryBuilder = new NativeSearchQueryBuilder()
+				.withQuery(boolQuery()
+						.must(branchCriteria.getEntityBranchCriteria(Concept.class))
+						.must(termQuery(SnomedComponent.Fields.ACTIVE, true))
+						.must(termQuery(Concept.Fields.CONCEPT_ID, conceptId))
+				)
+				.withFields(Concept.Fields.CONCEPT_ID);
+		final SearchHits<Concept> hits = elasticsearchTemplate.search(queryBuilder.build(), Concept.class);
+		return hits.isEmpty();
+	}
+
 	public void addClauses(Set<String> conceptIds, Boolean active, BoolQueryBuilder conceptQuery) {
 		conceptQuery.must(termsQuery(Concept.Fields.CONCEPT_ID, conceptIds));
-		
+
 		if (active != null) {
-			conceptQuery.must(termsQuery(Concept.Fields.ACTIVE, active));
+			conceptQuery.must(termsQuery(SnomedComponent.Fields.ACTIVE, active));
 		}
 	}
 }

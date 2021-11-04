@@ -349,14 +349,17 @@ public class SemanticIndexUpdateService extends ComponentService implements Comm
 						save = true;
 					}
 				} else {
+					QueryConcept newQueryConcept = new QueryConcept(queryConcept);
 					if (node != null) {
 						// TC changes
-						queryConcept.setParents(node.getParents().stream().map(Node::getId).collect(Collectors.toSet()));
-						queryConcept.setAncestors(new HashSet<>(node.getTransitiveClosure(branchPath, throwExceptionIfTransitiveClosureLoopFound)));
-						save = true;
+						newQueryConcept.setParents(node.getParents().stream().map(Node::getId).collect(Collectors.toSet()));
+						newQueryConcept.setAncestors(new HashSet<>(node.getTransitiveClosure(branchPath, throwExceptionIfTransitiveClosureLoopFound)));
 					}
 					if (updatedConceptIds.contains(conceptId)) {
-						applyAttributeChanges(queryConcept, conceptId, conceptAttributeChanges);
+						applyAttributeChanges(newQueryConcept, conceptId, conceptAttributeChanges);
+					}
+					if (!queryConcept.fieldsMatch(newQueryConcept)) {
+						queryConcept = newQueryConcept;
 						save = true;
 					}
 				}
@@ -373,12 +376,16 @@ public class SemanticIndexUpdateService extends ComponentService implements Comm
 		for (Long nodeId : nodesNotFound) {
 			Node node = nodesToSave.get(nodeId);
 			QueryConcept queryConcept = createQueryConcept(form, branchPath, conceptAttributeChanges, throwExceptionIfTransitiveClosureLoopFound, nodeId, node);
+			if (node.getParents().isEmpty() && !queryConcept.isRoot()) {
+				// Concept is probably inactive, don't add to semantic index.
+				continue;
+			}
 			queryConcept.setCreating(true);
 			queryConceptsToSave.add(queryConcept);
 		}
 
 		// Delete query concepts which have no parents
-		queryConceptsToSave.stream().filter(c -> c.getParents().isEmpty() && !c.getConceptIdL().toString().equals(Concepts.SNOMEDCT_ROOT)).forEach(Entity::markDeleted);
+		queryConceptsToSave.stream().filter(c -> c.getParents().isEmpty() && !c.isRoot()).forEach(Entity::markDeleted);
 
 		queryConceptsToSave.forEach(QueryConcept::serializeGroupedAttributesMap);
 

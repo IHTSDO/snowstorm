@@ -35,6 +35,9 @@ public class ReleaseService {
 
 	@Autowired
 	private ElasticsearchOperations elasticsearchOperations;
+	
+	@Autowired
+	private ModuleDependencyService mdService;
 
 	@Autowired
 	private VersionControlHelper versionControlHelper;
@@ -46,7 +49,10 @@ public class ReleaseService {
 		try (Commit commit = branchService.openCommit(path, branchMetadataHelper.getBranchLockMetadata("Versioning components using effectiveTime " + effectiveTime))) {
 
 			// Disable traceability when versioning to prevent logging every component in the release
-			BranchMetadataHelper.disableTraceabilityForCommit(commit);
+			BranchMetadataHelper.markCommitAsCreatingCodeSystemVersion(commit);
+			
+			//Update the Module Dependency Refset members and persist
+			mdService.generateModuleDependencies(path, effectiveTime.toString(), null, commit);
 
 			BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(path);
 

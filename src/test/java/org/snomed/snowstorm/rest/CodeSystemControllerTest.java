@@ -8,11 +8,13 @@ import org.snomed.snowstorm.core.data.domain.CodeSystem;
 import org.snomed.snowstorm.core.data.services.CodeSystemService;
 import org.snomed.snowstorm.core.data.services.CodeSystemUpgradeService;
 import org.snomed.snowstorm.core.data.services.ServiceException;
+import org.snomed.snowstorm.rest.pojo.CodeSystemNewAuthoringCycleRequest;
 import org.snomed.snowstorm.rest.pojo.ItemsPage;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.boot.web.server.LocalServerPort;
+import org.springframework.http.ResponseEntity;
 import org.springframework.test.context.ActiveProfiles;
 
 import java.util.*;
@@ -173,6 +175,26 @@ class CodeSystemControllerTest extends AbstractTest {
         assertEquals(20200731, getDependantVersionEffectiveTimeFromResponse(response, 2));
     }
 
+    @Test
+    public void startNewAuthoringCycle_ShouldReturnExpectedMetadata() {
+        //given
+        String requestUrl = startNewAuthoringCycle("SNOMEDCT");
+        CodeSystemNewAuthoringCycleRequest request = new CodeSystemNewAuthoringCycleRequest("SnomedCT_InternationalRF2_PRODUCTION_20210731T120000Z.zip", 
+                 "20210731",
+                 "SnomedCT_InternationalRF2_PRODUCTION_20210131T120000Z.zip");
+
+        //when
+        this.testRestTemplate.postForEntity(requestUrl, request, void.class);
+
+        //then
+        ResponseEntity<Object> responseEntity = this.testRestTemplate.getForEntity(getBranch("MAIN"), Object.class);
+        LinkedHashMap<String, Object> receivedMetaData = getMetadata(responseEntity);
+        assertNotNull(receivedMetaData);
+        assertEquals("SnomedCT_InternationalRF2_PRODUCTION_20210731T120000Z.zip", receivedMetaData.get("previousPackage"));
+        assertEquals("SnomedCT_InternationalRF2_PRODUCTION_20210131T120000Z.zip", receivedMetaData.get("previousDependencyPackage"));
+        assertEquals("20210731", receivedMetaData.get("previousRelease"));
+    }
+
     //Wrapper for given blocks as used throughout test class
     private void givenAuthoringCycles() throws ServiceException {
         //given
@@ -238,6 +260,15 @@ class CodeSystemControllerTest extends AbstractTest {
         return null;
     }
 
+    private LinkedHashMap<String, Object> getMetadata(ResponseEntity<Object> responseEntity) {
+        LinkedHashMap<String, Object> body = (LinkedHashMap<String, Object>) responseEntity.getBody();
+        if (body == null) {
+            return new LinkedHashMap<>();
+        }
+
+        return (LinkedHashMap<String, Object>) body.get("metadata");
+    }
+
     private String listCodeSystems() {
         return "http://localhost:" + port + "/codesystems";
     }
@@ -248,5 +279,13 @@ class CodeSystemControllerTest extends AbstractTest {
 
     private String findAllVersions(String shortName) {
         return "http://localhost:" + port + "/codesystems/" + shortName + "/versions";
+    }
+
+    private String startNewAuthoringCycle(String shortName) {
+        return "http://localhost:" + port + "/codesystems/" + shortName + "/new-authoring-cycle";
+    }
+
+    private String getBranch(String branchPath) {
+        return "http://localhost:" + port + "/branches/" + branchPath;
     }
 }

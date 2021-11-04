@@ -30,9 +30,10 @@ import org.snomed.snowstorm.core.data.services.pojo.AsyncRefsetMemberChangeBatch
 import org.snomed.snowstorm.core.data.services.pojo.MemberSearchRequest;
 import org.snomed.snowstorm.core.data.services.pojo.PageWithBucketAggregations;
 import org.snomed.snowstorm.core.data.services.pojo.PageWithBucketAggregationsFactory;
+import org.snomed.snowstorm.core.util.PageHelper;
 import org.snomed.snowstorm.ecl.ECLQueryService;
+import org.snomed.snowstorm.rest.converter.SearchAfterHelper;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
@@ -63,7 +64,14 @@ import static org.snomed.snowstorm.core.data.services.CodeSystemService.MAIN;
 @Service
 @Lazy
 public class ReferenceSetMemberService extends ComponentService {
+	private static final Function<ReferenceSetMember, Object[]> REFERENCE_SET_MEMBER_ID_SEARCH_AFTER_EXTRACTOR = referenceSetMember -> {
+		if (referenceSetMember == null) {
+			return null;
+		}
 
+		String id = referenceSetMember.getId();
+		return id == null ? null : SearchAfterHelper.convertToTokenAndBack(new Object[]{id});
+	};
 	private static final Set<String> LANG_REFSET_MEMBER_FIELD_SET = Collections.singleton(ReferenceSetMember.LanguageFields.ACCEPTABILITY_ID);
 	private static final Set<String> OWL_REFSET_MEMBER_FIELD_SET = Collections.singleton(ReferenceSetMember.OwlExpressionFields.OWL_EXPRESSION);
 	public static final String AGGREGATION_MEMBER_COUNTS_BY_REFERENCE_SET = "memberCountsByReferenceSet";
@@ -117,7 +125,9 @@ public class ReferenceSetMemberService extends ComponentService {
 		NativeSearchQuery query = new NativeSearchQueryBuilder().withQuery(buildMemberQuery(searchRequest, branch, branchCriteria)).withPageable(pageRequest).build();
 		query.setTrackTotalHits(true);
 		SearchHits<ReferenceSetMember> searchHits = elasticsearchTemplate.search(query, ReferenceSetMember.class);
-		return new PageImpl<>(searchHits.get().map(SearchHit::getContent).collect(Collectors.toList()), query.getPageable(), searchHits.getTotalHits());
+		PageImpl<ReferenceSetMember> referenceSetMembers = new PageImpl<>(searchHits.get().map(SearchHit::getContent).collect(Collectors.toList()), query.getPageable(), searchHits.getTotalHits());
+
+		return PageHelper.toSearchAfterPage(referenceSetMembers, REFERENCE_SET_MEMBER_ID_SEARCH_AFTER_EXTRACTOR);
 	}
 
 	public Page<ReferenceSetMember> findMembers(String branch, BranchCriteria branchCriteria, MemberSearchRequest searchRequest, PageRequest pageRequest) {
@@ -146,13 +156,25 @@ public class ReferenceSetMemberService extends ComponentService {
 		if (referencedComponentIds != null && referencedComponentIds.size() > 0) {
 			query.must(termsQuery(ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID, referencedComponentIds));
 		}
+		
 		Map<String, String> additionalFields = searchRequest.getAdditionalFields();
 		for (String additionalFieldName : additionalFields.keySet()) {
 			String additionalFieldNameValue = additionalFields.get(additionalFieldName);
 			if (!Strings.isNullOrEmpty(additionalFieldNameValue)) {
-				query.must(termQuery(ReferenceSetMember.Fields.getAdditionalFieldKeywordTypeMapping(additionalFieldName), additionalFieldNameValue));
+				String fieldKeyword = ReferenceSetMember.Fields.getAdditionalFieldKeywordTypeMapping(additionalFieldName);
+				query.must(termQuery(fieldKeyword, additionalFieldNameValue));
 			}
 		}
+		
+		Map<String, Set<String>> additionalFieldSets = searchRequest.getAdditionalFieldSets();
+		for (String additionalFieldName : additionalFieldSets.keySet()) {
+			Set<String> additionalFieldNameValues = additionalFieldSets.get(additionalFieldName);
+			if (additionalFieldNameValues != null && additionalFieldNameValues.size() > 0) {
+				String fieldKeyword = ReferenceSetMember.Fields.getAdditionalFieldKeywordTypeMapping(additionalFieldName);
+				query.must(termsQuery(fieldKeyword, additionalFieldNameValues));
+			}
+		}
+		
 		String owlExpressionConceptId = searchRequest.getOwlExpressionConceptId();
 		if (!Strings.isNullOrEmpty(owlExpressionConceptId)) {
 			query.must(regexpQuery(ReferenceSetMember.OwlExpressionFields.OWL_EXPRESSION_KEYWORD_FIELD_PATH, String.format(".*:%s[^0-9].*", owlExpressionConceptId)));

@@ -6,7 +6,6 @@ import io.kaicode.elasticvc.domain.Commit;
 import org.ihtsdo.sso.integration.SecurityUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.snomed.snowstorm.core.data.services.RuntimeServiceException;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.web.client.RestTemplateBuilder;
 import org.springframework.http.HttpEntity;
@@ -78,7 +77,7 @@ public class CommitServiceHookClient implements CommitListener {
 			boolean promotion = commit.getCommitType().equals(Commit.CommitType.PROMOTION);
 			if (promotion && this.blockPromotion) {
 				logger.info("Promotion blocked as not all criteria have been completed; throwing exception.");
-				throw new RuntimeServiceException("Promotion blocked as not all criteria have been completed.", e);
+				throw new IllegalStateException("Promotion blocked as not all criteria have been completed.", e);
 			} else if (promotion) {
 				logger.info("Promotion will go ahead, despite not all criteria being completed, as per configuration.");
 			}
@@ -86,7 +85,7 @@ public class CommitServiceHookClient implements CommitListener {
 			// Cannot communicate with external system; perhaps lacking authentication or url configured incorrectly.
 			if (this.failIfError) {
 				logger.error("Cannot communicate with external system; throwing exception.");
-				throw new RuntimeServiceException("Cannot communicate with external system.", e);
+				throw new IllegalStateException("Cannot communicate with external system: " + this.serviceUrl, e);
 			} else {
 				logger.error("Cannot communicate with external system, however, failure will be ignored as per configuration.");
 			}
@@ -112,7 +111,7 @@ public class CommitServiceHookClient implements CommitListener {
 	}
 
 	private Object obfuscateToken(String authenticationToken) {
-		if (authenticationToken != null) {
+		if (authenticationToken != null && !authenticationToken.isEmpty()) {
 			if (authenticationToken.contains("=")) {
 				return authenticationToken.substring(0, authenticationToken.indexOf("=") + 4) + "...";
 			} else {

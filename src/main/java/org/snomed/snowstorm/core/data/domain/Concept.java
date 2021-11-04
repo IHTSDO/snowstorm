@@ -207,7 +207,7 @@ public class Concept extends SnomedComponent<Concept> implements ConceptView, Sn
 	}
 
 	public List<ReferenceSetMember> getAssociationTargetMembers() {
-		return associationTargetMembers;
+		return associationTargetMembers != null ? associationTargetMembers : Collections.emptyList();
 	}
 
 	@JsonView(value = View.Component.class)
@@ -402,6 +402,13 @@ public class Concept extends SnomedComponent<Concept> implements ConceptView, Sn
 
 	public void setGciAxioms(Set<Axiom> generalConceptInclusionAxioms) {
 		this.generalConceptInclusionAxioms = generalConceptInclusionAxioms;
+	}
+
+	@JsonIgnore
+	public Set<Axiom> getClassAndGciAxioms() {
+		Set<Axiom> classAndGciAxioms = new HashSet<>(getClassAxioms());
+		classAndGciAxioms.addAll(getGciAxioms());
+		return classAndGciAxioms;
 	}
 
 	@JsonView(value = View.Component.class)
