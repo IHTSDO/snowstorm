@@ -1285,23 +1285,52 @@ class SemanticIndexUpdateServiceTest extends AbstractTest {
 	@Test
 	void testNoRedundantSemanticUpdates() throws ServiceException {
 		// Given
-		Concept root = new Concept(SNOMEDCT_ROOT);
 		List<Concept> batch = new ArrayList<>();
-		batch.add(root);
+		batch.add(new Concept(SNOMEDCT_ROOT));
+		batch.add(new Concept(FINDING_SITE));
+		batch.add(new Concept(HEART_STRUCTURE));
+		batch.add(new Concept("20001011"));
+		batch.add(new Concept("20002011"));
+		batch.add(new Concept("20003011"));
 		for (int i = 0; i < 1000; i++) {
-			batch.add(new Concept("1000" + i + "011").addRelationship(new Relationship(ISA, SNOMEDCT_ROOT)));
+			batch.add(new Concept("1000" + i + "011")
+					.addRelationship(new Relationship(ISA, SNOMEDCT_ROOT))
+					.addRelationship(new Relationship(FINDING_SITE, "20003011").setGroupId(0))
+					.addRelationship(new Relationship(FINDING_SITE, "20001011").setGroupId(0))
+					.addRelationship(new Relationship(FINDING_SITE, HEART_STRUCTURE).setGroupId(0))
+					.addRelationship(new Relationship(FINDING_SITE, "20002011").setGroupId(1))
+			);
 		}
 		conceptService.batchCreate(batch, MAIN);
 		codeSystemService.createCodeSystem(new CodeSystem(CodeSystemService.SNOMEDCT, MAIN));
 
 		// When
-		// Version content and check that no unnecessary semantic index changes are made.
+		// Version content
 		Date now = new Date();
 		codeSystemService.createVersion(codeSystemService.find(CodeSystemService.SNOMEDCT), 20210101, "");
 
 		// Assert
+		// No unnecessary semantic index changes are made.
 		SearchHits<QueryConcept> semanticChanges =
 				elasticsearchOperations.search(new NativeSearchQueryBuilder().withQuery(rangeQuery("start").gte(now.getTime())).build(), QueryConcept.class);
+		assertEquals(0, semanticChanges.getTotalHits());
+
+		// Then..
+		// Given a concept made inactive
+		Concept randomConcept = conceptService.find("10001011", MAIN);
+		randomConcept.setActive(false);
+		randomConcept.getRelationships().forEach(relationship -> relationship.setActive(false));
+
+		conceptService.update(randomConcept, MAIN);
+
+		// When
+		// Version content
+		now = new Date();
+		codeSystemService.createVersion(codeSystemService.find(CodeSystemService.SNOMEDCT), 20210201, "");
+
+		// Assert
+		// No unnecessary semantic index changes are made.
+		semanticChanges = elasticsearchOperations.search(new NativeSearchQueryBuilder().withQuery(rangeQuery("start").gte(now.getTime())).build(), QueryConcept.class);
 		assertEquals(0, semanticChanges.getTotalHits());
 	}
 
