@@ -89,7 +89,7 @@ class RefsetDescriptorUpdaterServiceTest extends AbstractTest {
 
 		// then
 		List<ReferenceSetMember> members = memberService.findMembers("MAIN", buildMemberSearchRequest(true, Concepts.REFSET_DESCRIPTOR_REFSET), PAGE_REQUEST).getContent();
-		ReferenceSetMember referenceSetMember = members.get(2); // newRefSet2 is 3rd document.
+		ReferenceSetMember referenceSetMember = getReferenceSetMember(members, newRefSet2.getConceptId());
 
 		assertEquals(3, members.size());
 		assertEquals(newRefSet2.getId(), referenceSetMember.getReferencedComponentId());
@@ -164,5 +164,16 @@ class RefsetDescriptorUpdaterServiceTest extends AbstractTest {
 		axioms.add(axiom);
 
 		newRefSet2.setRelationships(relationships);
+	}
+
+	private ReferenceSetMember getReferenceSetMember(List<ReferenceSetMember> members, String referencedComponentId) {
+		for (ReferenceSetMember member : members) {
+			if (member.getReferencedComponentId().equals(referencedComponentId)) {
+				return member;
+			}
+
+		}
+
+		return null;
 	}
 }
