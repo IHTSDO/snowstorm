@@ -133,7 +133,7 @@ public class ReferenceSetMemberService extends ComponentService {
 	public Page<ReferenceSetMember> findMembers(String branch, BranchCriteria branchCriteria, MemberSearchRequest searchRequest, PageRequest pageRequest) {
 		NativeSearchQuery query = new NativeSearchQueryBuilder().withQuery(buildMemberQuery(searchRequest, branch, branchCriteria)).withPageable(pageRequest).build();
 		SearchHits<ReferenceSetMember> searchHits = elasticsearchTemplate.search(query, ReferenceSetMember.class);
-		return new PageImpl<>(searchHits.get().map(SearchHit::getContent).collect(Collectors.toList()), pageRequest, searchHits.getTotalHits());
+		return PageHelper.toSearchAfterPage(searchHits, pageRequest);
 	}
 
 	private BoolQueryBuilder buildMemberQuery(MemberSearchRequest searchRequest, String branch, BranchCriteria branchCriteria) {
