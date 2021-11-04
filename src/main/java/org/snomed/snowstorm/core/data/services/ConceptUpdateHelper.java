@@ -11,6 +11,7 @@ import io.kaicode.elasticvc.domain.DomainEntity;
 import io.kaicode.elasticvc.domain.Metadata;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.snomed.otf.owltoolkit.conversion.ConversionException;
 import org.snomed.snowstorm.config.Config;
 import org.snomed.snowstorm.config.SearchLanguagesConfiguration;
 import org.snomed.snowstorm.core.data.domain.*;
@@ -119,7 +120,11 @@ public class ConceptUpdateHelper extends ComponentService {
 				.forEach(concept -> concept.setConceptId(reservedIds.getNextId(ComponentType.Concept).toString()));
 
 		// Bulk convert axioms to OWLAxiom reference set members before persisting
-		axiomConversionService.populateAxiomMembers(newVersionConcepts, commit.getBranch().getPath());
+		try {
+			axiomConversionService.populateAxiomMembers(newVersionConcepts, commit.getBranch().getPath());
+		} catch (ConversionException e) {
+			throw new ServiceException("Failed to convert axiom to an OWL expression.", e);
+		}
 
 		// Create collections of components that will be written to store, including deletions
 		List<Description> descriptionsToPersist = new ArrayList<>();

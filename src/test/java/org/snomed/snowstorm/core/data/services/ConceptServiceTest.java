@@ -15,6 +15,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.AbstractTest;
 import org.snomed.snowstorm.core.data.domain.*;
+import org.snomed.snowstorm.core.data.services.pojo.AsyncConceptChangeBatch;
 import org.snomed.snowstorm.core.data.services.pojo.DescriptionCriteria;
 import org.snomed.snowstorm.core.data.services.pojo.MemberSearchRequest;
 import org.snomed.snowstorm.core.pojo.BranchTimepoint;
@@ -26,9 +27,12 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQuery;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
+import org.springframework.security.core.context.SecurityContext;
+import org.springframework.security.core.context.SecurityContextHolder;
 
 import java.io.IOException;
 import java.util.*;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 import static org.elasticsearch.index.query.QueryBuilders.termQuery;
@@ -1454,6 +1458,31 @@ class ConceptServiceTest extends AbstractTest {
 		conceptService.update(concept, "MAIN");
 		concept = conceptService.find(concept.getConceptId(), "MAIN");
 		assertEquals(2, concept.getClassAxioms().size());
+	}
+
+	@Test
+	public void testBulkJobAxiomSerialisationError() {
+		String batchId = conceptService.newCreateUpdateAsyncJob();
+		conceptService.createUpdateAsync(batchId, "MAIN", Collections.singletonList(new Concept().addAxiom(new Relationship(FINDING_SITE, HEART_STRUCTURE))),
+				SecurityContextHolder.getContext());
+
+		assertTrue(waitUntil(() -> conceptService.getBatchConceptChange(batchId).getStatus() == AsyncConceptChangeBatch.Status.FAILED, 10));
+		AsyncConceptChangeBatch batchConceptChange = conceptService.getBatchConceptChange(batchId);
+		assertEquals(AsyncConceptChangeBatch.Status.FAILED, batchConceptChange.getStatus());
+		assertEquals("Failed to convert axiom to an OWL expression.", batchConceptChange.getMessage());
+	}
+
+	private boolean waitUntil(Supplier<Boolean> supplier, int maxSecondsToWait) {
+		try {
+			int sleptSeconds = 0;
+			while (sleptSeconds < maxSecondsToWait && supplier.get() == Boolean.FALSE) {
+				Thread.sleep(1_000);
+				sleptSeconds++;
+			}
+			return sleptSeconds < maxSecondsToWait;
+		} catch (InterruptedException e) {
+			throw new RuntimeServiceException("Sleep interrupted.", e);
+		}
 	}
 
 	private void printAllDescriptions(String path) throws TooCostlyException {
