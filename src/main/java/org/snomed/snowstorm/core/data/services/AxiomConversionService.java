@@ -57,21 +57,17 @@ public class AxiomConversionService {
 		return sAxiom;
 	}
 
-	public void populateAxiomMembers(Collection<Concept> concepts, String branchPath) {
-		try {
-			AxiomRelationshipConversionService conversionService = setupConversionService(branchPath);
-			for (Concept concept : concepts) {
-				for (Axiom axiom : concept.getClassAxioms()) {
-					String owlExpression = conversionService.convertRelationshipsToAxiom(mapFromInternalRelationshipType(concept.getConceptId(), axiom.getDefinitionStatusId(), axiom.getRelationships(), true));
-					axiom.setReferenceSetMember(createMember(concept, axiom, owlExpression));
-				}
-				for (Axiom gciAxiom : concept.getGciAxioms()) {
-					String owlExpression = conversionService.convertRelationshipsToAxiom(mapFromInternalRelationshipType(concept.getConceptId(), gciAxiom.getDefinitionStatusId(), gciAxiom.getRelationships(), false));
-					gciAxiom.setReferenceSetMember(createMember(concept, gciAxiom, owlExpression));
-				}
+	public void populateAxiomMembers(Collection<Concept> concepts, String branchPath) throws ConversionException {
+		AxiomRelationshipConversionService conversionService = setupConversionService(branchPath);
+		for (Concept concept : concepts) {
+			for (Axiom axiom : concept.getClassAxioms()) {
+				String owlExpression = conversionService.convertRelationshipsToAxiom(mapFromInternalRelationshipType(concept.getConceptId(), axiom.getDefinitionStatusId(), axiom.getRelationships(), true));
+				axiom.setReferenceSetMember(createMember(concept, axiom, owlExpression));
 			}
-		} catch (final ConversionException e) {
-			throw new RuntimeException("Failed to convert Relationship(s) to Axiom(s).", e);
+			for (Axiom gciAxiom : concept.getGciAxioms()) {
+				String owlExpression = conversionService.convertRelationshipsToAxiom(mapFromInternalRelationshipType(concept.getConceptId(), gciAxiom.getDefinitionStatusId(), gciAxiom.getRelationships(), false));
+				gciAxiom.setReferenceSetMember(createMember(concept, gciAxiom, owlExpression));
+			}
 		}
 	}
 
