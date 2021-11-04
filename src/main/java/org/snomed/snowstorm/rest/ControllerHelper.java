@@ -140,7 +140,7 @@ public class ControllerHelper {
 		if (!Strings.isNullOrEmpty(searchAfter)) {
 			return SearchAfterPageRequest.of(SearchAfterHelper.fromSearchAfterToken(searchAfter), limit, sort);
 		} else {
-			return ControllerHelper.getPageRequest(offset, limit);
+			return ControllerHelper.getPageRequest(offset, limit, sort);
 		}
 	}
 
