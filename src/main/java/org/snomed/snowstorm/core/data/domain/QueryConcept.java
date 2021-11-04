@@ -176,6 +176,10 @@ public class QueryConcept extends DomainEntity<QueryConcept> {
 				|| !ancestors.equals(that.ancestors);
 	}
 
+	public boolean isRoot() {
+		return Concepts.SNOMEDCT_ROOT.equals(conceptIdL.toString());
+	}
+
 	public Long getConceptIdL() {
 		return conceptIdL;
 	}
@@ -228,6 +232,9 @@ public class QueryConcept extends DomainEntity<QueryConcept> {
 		if (groupedAttributesMap.isEmpty() && otherGroupedAttributesMap == null) {
 			return true;
 		}
+		// Sort both before comparing
+		groupedAttributesMap.values().forEach(value -> value.values().forEach(list -> list.sort(null)));
+		otherGroupedAttributesMap.values().forEach(value -> value.values().forEach(list -> list.sort(null)));
 		return groupedAttributesMap.equals(otherGroupedAttributesMap);
 	}
 
