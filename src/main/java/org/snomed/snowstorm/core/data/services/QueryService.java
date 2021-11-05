@@ -741,6 +741,7 @@ public class QueryService implements ApplicationContextAware {
 			return Objects.hash(stated, activeFilter, definitionStatusFilter, module, resultLanguageDialects, ecl,
 					conceptIds, descriptionCriteria, effectiveTime, isNullEffectiveTime, isReleased);
 		}
+
 	}
 
 }

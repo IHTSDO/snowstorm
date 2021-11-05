@@ -28,8 +28,8 @@ import org.snomed.snowstorm.ecl.validation.ECLValidator;
 import org.snomed.snowstorm.rest.converter.SearchAfterHelper;
 import org.snomed.snowstorm.rest.pojo.*;
 import org.snomed.snowstorm.validation.ConceptValidationHelper;
-import org.snomed.snowstorm.validation.InvalidContentWithSeverityStatus;
 import org.snomed.snowstorm.validation.DroolsValidationService;
+import org.snomed.snowstorm.validation.InvalidContentWithSeverityStatus;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
@@ -86,9 +86,6 @@ public class ConceptController {
 	@Autowired
 	private ECLQueryService eclQueryService;
 	
-	@Autowired
-	private CodeSystemService codeSystemService;
-
 	@Autowired
 	private DroolsValidationService validationService;
 
