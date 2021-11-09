@@ -628,7 +628,7 @@ public class QueryService implements ApplicationContextAware {
 		public ConceptQueryBuilder descriptionCriteria(Consumer<DescriptionCriteria> descriptionCriteriaUpdater) {
 			descriptionCriteriaUpdater.accept(descriptionCriteria);
 			return this;
-		}	
+		}
 
 		ConceptQueryBuilder descriptionTerm(String term) {
 			descriptionCriteria.term(term);

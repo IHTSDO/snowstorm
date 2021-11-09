@@ -34,7 +34,6 @@ import org.snomed.snowstorm.core.util.PageHelper;
 import org.snomed.snowstorm.ecl.ECLQueryService;
 import org.snomed.snowstorm.rest.converter.SearchAfterHelper;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.annotation.Lazy;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
@@ -62,7 +61,6 @@ import static org.snomed.snowstorm.core.data.domain.Concepts.inactivationAndAsso
 import static org.snomed.snowstorm.core.data.services.CodeSystemService.MAIN;
 
 @Service
-@Lazy
 public class ReferenceSetMemberService extends ComponentService {
 	private static final Function<ReferenceSetMember, Object[]> REFERENCE_SET_MEMBER_ID_SEARCH_AFTER_EXTRACTOR = referenceSetMember -> {
 		if (referenceSetMember == null) {
@@ -133,7 +131,7 @@ public class ReferenceSetMemberService extends ComponentService {
 	public Page<ReferenceSetMember> findMembers(String branch, BranchCriteria branchCriteria, MemberSearchRequest searchRequest, PageRequest pageRequest) {
 		NativeSearchQuery query = new NativeSearchQueryBuilder().withQuery(buildMemberQuery(searchRequest, branch, branchCriteria)).withPageable(pageRequest).build();
 		SearchHits<ReferenceSetMember> searchHits = elasticsearchTemplate.search(query, ReferenceSetMember.class);
-		return PageHelper.toSearchAfterPage(searchHits, pageRequest);
+		return new PageImpl<>(searchHits.get().map(SearchHit::getContent).collect(Collectors.toList()), pageRequest, searchHits.getTotalHits());
 	}
 
 	private BoolQueryBuilder buildMemberQuery(MemberSearchRequest searchRequest, String branch, BranchCriteria branchCriteria) {
