@@ -69,7 +69,7 @@ public class WebRoutingService {
 		}
 		
 		if (template.contains("{SCTID}")) {
-			template = template.replace("{SCTID}", uriParts.sctiId);
+			template = template.replace("{SCTID}", uriParts.sctId);
 		}
 		
 		if (template.contains("{VERSION_URI}")) {
@@ -82,7 +82,7 @@ public class WebRoutingService {
 				versionUri += concept.getModuleId();
 			}
 			if (uriParts.effectiveDate != null) {
-				versionUri += "/" + uriParts.effectiveDate;
+				versionUri += "/version/" + uriParts.effectiveDate;
 			}
 			template = template.replace("{VERSION_URI}", versionUri);
 		}
@@ -121,7 +121,7 @@ public class WebRoutingService {
 		Concept concept = null;
 		
 		if (version != null) {
-			concept = conceptService.find(uriParts.sctiId, null, version.getBranchPath());
+			concept = conceptService.find(uriParts.sctId, null, version.getBranchPath());
 			if (concept != null) {
 				//Ensure we're redirecting to a published version 
 				concept.setPath(multiSearchService.getPublishedVersionOfBranch(concept.getPath()));
@@ -129,7 +129,7 @@ public class WebRoutingService {
 		}
 		
 		if (concept == null) {
-			ConceptCriteria criteria = new ConceptCriteria().conceptIds(Collections.singleton(uriParts.sctiId));
+			ConceptCriteria criteria = new ConceptCriteria().conceptIds(Collections.singleton(uriParts.sctId));
 			Page<Concept> concepts = multiSearchService.findConcepts(criteria, PageRequest.of(0, 1));
 			List<Concept> content = concepts.getContent();
 			if (!content.isEmpty()) {
@@ -151,17 +151,34 @@ public class WebRoutingService {
 			throw new IllegalArgumentException("Malformed URI: " + uri);
 		} else if (uriTrimmed.startsWith("sct/")) {
 			parts.moduleId = uriSplit[1];
-			parts.sctiId = parts.moduleId;
-			if (uriSplit.length == 5 && uriSplit[2].equals("version")) {
-				parts.effectiveDate = Integer.parseInt(uriSplit[3]);
+			//If we just have the module id, look that up
+			parts.sctId = parts.moduleId;
+			//But if we find "id" then the next field is the sctid
+			if (uriSplit.length >= 4) {
+				if (uriSplit[2].equals("id")) {
+					parts.sctId = uriSplit[3];
+				} else if (uriSplit[2].equals("version")) {
+					try {
+						parts.effectiveDate = Integer.parseInt(uriSplit[3]);
+					} catch (Exception e) {
+						throw new IllegalArgumentException(uri + " version part was not an integer");
+					}
+				}
+				if (uriSplit.length == 6 && uriSplit[4].equals("id")) {
+					parts.sctId = uriSplit[5];
+				}
 			}
 		} else if (uriTrimmed.startsWith("id/")) {
-			parts.sctiId = uriSplit[1];
+			parts.sctId = uriSplit[1];
 			if (uriSplit.length >= 3) {
 				parts.moduleId = uriSplit[2];
 			}
 			if (uriSplit.length == 5 && uriSplit[3].equals("version")) {
-				parts.effectiveDate = Integer.parseInt(uriSplit[4]);
+				try {
+					parts.effectiveDate = Integer.parseInt(uriSplit[4]);
+				} catch (Exception e) {
+					throw new IllegalArgumentException(uri + " version part was not an integer");
+				}
 			}
 		} else {
 			throw new IllegalArgumentException(uri + " URI did not indicate sct or id");
@@ -169,19 +186,29 @@ public class WebRoutingService {
 		
 		//Validate the component id
 		//TODO Looking up a UUID for a refset member is in the specification
-		if (!parts.sctiId.matches("(0|[1-9]\\d*)") ||
-				!VerhoeffCheck.validateLastChecksumDigit(parts.sctiId)) {
+		if (!parts.sctId.matches("(0|[1-9]\\d*)") ||
+				!VerhoeffCheck.validateLastChecksumDigit(parts.sctId)) {
 			throw new IllegalArgumentException("URI featured invalid SCTID: " + uri);
 		}
 		
-		parts.nameSpace = extractNamespace(parts.sctiId);
+		parts.nameSpace = extractNamespace(parts.sctId);
 		return parts;
 	}
 
 	private class UriParts {
 		String nameSpace;
-		String sctiId;
+		String sctId;
 		String moduleId;
 		Integer effectiveDate;
+		
+		@Override
+		public String toString() {
+			return "[" 
+				+ "Namespace: " + nameSpace
+				+ ", sctId: " + sctId
+				+ ", moduleId: " + moduleId
+				+ ", effectiveDate: " + effectiveDate
+				+ "]";
+		}
 	}
 }
