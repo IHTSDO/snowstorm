@@ -21,7 +21,7 @@ public class WebRouteController {
 	WebRoutingService webRoutingService;
 
 	@ApiOperation(value = "Issue 302 redirection based on locally configured web routing", 
-					notes = "")
+					notes = "Swagger will attempt to follow the 302 redirection, so use developer's tools network tab to view the redirection issued.")
 	@RequestMapping(value = "/web-route", method = RequestMethod.GET)
 	@CrossOrigin
 	public ResponseEntity<?> issueRedirect(@RequestParam String uri,
