@@ -179,7 +179,7 @@ public class RelationshipService extends ComponentService {
 
 		Set<Long> destinationIds = new LongArraySet();
 		if (sourceConceptIds == null) {
-			NativeSearchQuery query = constructDestinationSearchQuery(sourceConceptIds, attributeTypeIds, branchCriteria, stated);
+			NativeSearchQuery query = constructDestinationSearchQuery(null, attributeTypeIds, branchCriteria, stated);
 			try (SearchHitsIterator<Relationship> stream = elasticsearchOperations.searchForStream(query, Relationship.class)) {
 				stream.forEachRemaining(hit -> {
 					if (hit.getContent().getDestinationId() != null) {
@@ -255,6 +255,14 @@ public class RelationshipService extends ComponentService {
 	 * @param force Delete the relationships even if they have been released.
 	 */
 	public void deleteRelationships(Set<String> relationshipIds, String branch, boolean force) {
+		doDeleteRelationships(relationshipIds, branch, force, null);
+	}
+
+	public void deleteRelationshipsWithinCommit(Set<String> relationshipIds, Commit commit) {
+		doDeleteRelationships(relationshipIds, commit.getBranch().getPath(), false, commit);
+	}
+
+	public void doDeleteRelationships(Set<String> relationshipIds, String branch, boolean force, Commit commit) {
 		if (relationshipIds.isEmpty()) {
 			return;
 		}
@@ -273,12 +281,21 @@ public class RelationshipService extends ComponentService {
 			}
 		}
 
-		try (Commit commit = branchService.openCommit(branch)) {
-			for (Relationship relationship : matches) {
-				relationship.markDeleted();
+		if (commit == null) {
+			try (Commit newCommit = branchService.openCommit(branch)) {
+				lowLevelDelete(matches, newCommit);
+				newCommit.markSuccessful();
 			}
-			conceptUpdateHelper.doSaveBatchRelationships(matches, commit);
-			commit.markSuccessful();
+		} else {
+			lowLevelDelete(matches, commit);
 		}
 	}
+
+	private void lowLevelDelete(List<Relationship> matches, Commit commit) {
+		for (Relationship relationship : matches) {
+			relationship.markDeleted();
+		}
+		conceptUpdateHelper.doSaveBatchRelationships(matches, commit);
+	}
+
 }

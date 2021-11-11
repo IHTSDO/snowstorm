@@ -23,10 +23,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
-import java.util.Comparator;
-import java.util.List;
-import java.util.Set;
-import java.util.UUID;
+import java.util.*;
 import java.util.stream.Collectors;
 
 import static io.kaicode.elasticvc.api.VersionControlHelper.LARGE_PAGE;
@@ -55,6 +52,12 @@ class ClassificationServiceTest extends AbstractTest {
 
 	@Autowired
 	private ReferenceSetMemberService referenceSetMemberService;
+
+	@Autowired
+	private RelationshipService relationshipService;
+
+	@Autowired
+	private BranchMergeService branchMergeService;
 
 	@Test
 	void testSaveRelationshipChanges() throws IOException, ServiceException, InterruptedException {
@@ -320,6 +323,50 @@ class ClassificationServiceTest extends AbstractTest {
 		assertEquals(SAVED, saveClassificationAndWaitForCompletion(path, classificationId));
 
 		assertEquals(conceptService.find(conceptId, path).getRelationships().size(), 1, "Not released redundant relationship deleted");
+	}
+
+	@Test
+	void testRemoveNotReleasedRedundantOrphanedRelationships() throws IOException, ServiceException, InterruptedException {
+		// Create concept with some stated modeling in an axiom
+		String main = "MAIN";
+		String conceptId = "123123123001";
+		conceptService.create(
+				new Concept(conceptId)
+						.addRelationship(new Relationship(Concepts.ISA, Concepts.SNOMEDCT_ROOT))
+				, main);
+
+		String branchA = "MAIN/A";
+		branchService.create(branchA);
+
+		final Concept savedConcept = conceptService.find(conceptId, branchA);
+		savedConcept.addRelationship(new Relationship("363698007", "84301002"));
+		conceptService.update(savedConcept, branchA);
+		assertEquals(1, relationshipService.findRelationships(branchA, null, null, null, null, conceptId,
+				"363698007", "84301002", null, null, PageRequest.of(0, 10)).getTotalElements());
+		conceptService.deleteConceptAndComponents(conceptId, MAIN, false);
+
+		// inferred relationship still exists on branch A although the concept does not.
+		branchMergeService.rebaseSync(branchA, Collections.emptySet());
+		Page<Relationship> relationships = relationshipService.findRelationships(branchA, null, null, null, null, conceptId,
+				"363698007", "84301002", null, null, PageRequest.of(0, 10));
+		assertEquals(1, relationships.getTotalElements());
+
+		String classificationId = UUID.randomUUID().toString();
+		Classification classification = createClassification(branchA, classificationId);
+
+		// Save orphan relationship removal
+		Optional<Relationship> relationship = relationships.stream().findFirst();
+		assertTrue(relationship.isPresent());
+		classificationService.saveRelationshipChanges(classification, new ByteArrayInputStream(("" +
+				"id\teffectiveTime\tactive\tmoduleId\tsourceId\tdestinationId\trelationshipGroup\ttypeId\tcharacteristicTypeId\tmodifierId\n" +
+				relationship.get().getId() + "\t\t0\t\t" + conceptId + "\t84301002\t0\t363698007\t900000000000011006\t900000000000451002\n" +
+				"").getBytes()), false);
+
+		assertEquals(SAVED, saveClassificationAndWaitForCompletion(branchA, classificationId));
+
+		assertEquals(0, relationshipService.findRelationships(branchA, null, null, null, null, conceptId,
+						"363698007", "84301002", null, null, PageRequest.of(0, 10)).getTotalElements(),
+				"Orphaned relationship deleted.");
 	}
 
 	@Test
