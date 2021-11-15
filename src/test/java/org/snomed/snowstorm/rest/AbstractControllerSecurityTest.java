@@ -123,16 +123,15 @@ public abstract class AbstractControllerSecurityTest extends AbstractTest {
 		return response;
 	}
 
-
-	protected void waitForStatus(ResponseEntity<String> response, String status, HttpHeaders userHeaders) {
-		waitForStatus(response, status, userHeaders, 30);
+	protected void waitForStatus(ResponseEntity<String> createdResponseWithLocationHeader, String requiredStatus, String failStatus, HttpHeaders userHeaders) {
+		waitForStatus(createdResponseWithLocationHeader, requiredStatus, failStatus, userHeaders, 30);
 	}
 
-	protected void waitForStatus(ResponseEntity<String> response, String requiredStatus, HttpHeaders userHeaders, int timeoutSeconds) {
+	protected void waitForStatus(ResponseEntity<String> createdResponseWithLocationHeader, String requiredStatus, String failStatus, HttpHeaders userHeaders, int timeoutSeconds) {
 		GregorianCalendar timeout = new GregorianCalendar();
 		timeout.add(Calendar.SECOND, timeoutSeconds);
 
-		URI location = response.getHeaders().getLocation();
+		URI location = createdResponseWithLocationHeader.getHeaders().getLocation();
 		String latestStatus;
 		do {
 			System.out.println("Get " + location.toString());
@@ -147,6 +146,9 @@ public abstract class AbstractControllerSecurityTest extends AbstractTest {
 			latestStatus = statusHolder.getStatus();
 			if (requiredStatus.equals(latestStatus)) {
 				return;
+			}
+			if (failStatus != null && failStatus.equals(latestStatus)) {
+				fail(String.format("Actual status matched failure status '%s'.", failStatus));
 			}
 			try {
 				Thread.sleep(1_000);
