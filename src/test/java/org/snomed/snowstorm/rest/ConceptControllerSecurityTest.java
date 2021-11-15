@@ -140,9 +140,9 @@ class ConceptControllerSecurityTest extends AbstractControllerSecurityTest {
 		RequestEntity<Object> request = new RequestEntity<>(concepts, HttpMethod.POST, new URI(
 				url + "/browser/" + "MAIN" + "/concepts/bulk"));
 		testStatusCode(HttpStatus.FORBIDDEN, userWithoutRoleHeaders, request);
-		waitForStatus(testStatusCode(HttpStatus.CREATED, authorHeaders, request), completedStatus, authorHeaders);
+		waitForStatus(testStatusCode(HttpStatus.CREATED, authorHeaders, request), completedStatus, null, authorHeaders);
 		testStatusCode(HttpStatus.FORBIDDEN, extensionAuthorHeaders, request);
-		waitForStatus(testStatusCode(HttpStatus.CREATED, multiExtensionAuthorHeaders, request), completedStatus, multiExtensionAuthorHeaders);
+		waitForStatus(testStatusCode(HttpStatus.CREATED, multiExtensionAuthorHeaders, request), completedStatus, null, multiExtensionAuthorHeaders);
 		testStatusCode(HttpStatus.FORBIDDEN, extensionAdminHeaders, request);
 		testStatusCode(HttpStatus.FORBIDDEN, globalAdminHeaders, request);
 
@@ -150,8 +150,8 @@ class ConceptControllerSecurityTest extends AbstractControllerSecurityTest {
 				url + "/browser/" + "MAIN/SNOMEDCT-A" + "/concepts/bulk"));
 		testStatusCode(HttpStatus.FORBIDDEN, userWithoutRoleHeaders, requestA);
 		testStatusCode(HttpStatus.FORBIDDEN, authorHeaders, requestA);
-		waitForStatus(testStatusCode(HttpStatus.CREATED, extensionAuthorHeaders, requestA), completedStatus, extensionAuthorHeaders);
-		waitForStatus(testStatusCode(HttpStatus.CREATED, multiExtensionAuthorHeaders, requestA), completedStatus, multiExtensionAuthorHeaders);
+		waitForStatus(testStatusCode(HttpStatus.CREATED, extensionAuthorHeaders, requestA), completedStatus, null, extensionAuthorHeaders);
+		waitForStatus(testStatusCode(HttpStatus.CREATED, multiExtensionAuthorHeaders, requestA), completedStatus, null, multiExtensionAuthorHeaders);
 		testStatusCode(HttpStatus.FORBIDDEN, extensionAdminHeaders, requestA);
 		testStatusCode(HttpStatus.FORBIDDEN, globalAdminHeaders, requestA);
 	}
