@@ -247,7 +247,6 @@ public class ExportService {
 								}
 							};
 						}
-
 						if (generateMDR && isMDRS) {
 							logger.info("MDR being generated rather than persisted.");
 							String exportDir = referenceSetType.getExportDir();
@@ -302,8 +301,6 @@ public class ExportService {
 		}
 	}
 
-
-
 	public String getFilename(ExportConfiguration exportConfiguration) {
 		return format("snomed-%s-%s-%s.zip",
 				exportConfiguration.getBranchPath().replace("/", "_"),
@@ -334,6 +331,7 @@ public class ExportService {
 
 		String componentFilePath = entryDirectoryPrefix + entryDirectory + entryFilenamePrefix + format("%s_%s_%s.txt", exportType.getName(), codeSystemRF2Name, filenameEffectiveDate);
 		logger.info("Exporting file {}", componentFilePath);
+		logger.info("Export filter is " + (exportFilter==null?"null" : "present"));
 		try {
 			// Open zip entry
 			zipOutputStream.putNextEntry(new ZipEntry(componentFilePath));

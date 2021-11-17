@@ -73,7 +73,7 @@ public class ExportController {
 	public List<ReferenceSetMember> generateModuleDependencyPreview (
 			@RequestParam String branchPath,
 			@RequestParam String effectiveDate,
-			@RequestParam(required = false) Set<String> moduleFilter) {
+			@RequestParam(required = false) Set<String> modulesIncluded) {
 		
 		//Need to detect if this is an Edition or Extension package so we know what MDRS rows to export
 		//Extensions only mention their own modules, despite being able to "see" those on MAIN
@@ -85,7 +85,7 @@ public class ExportController {
 				return moduleDependencyService.isExportable(rm, isExtension);
 			}
 		};
-		return moduleDependencyService.generateModuleDependencies(branchPath, effectiveDate, moduleFilter, null)
+		return moduleDependencyService.generateModuleDependencies(branchPath, effectiveDate, modulesIncluded, null)
 				.stream()
 				.filter(rm -> exportFilter.isValid(rm))
 				.collect(Collectors.toList());

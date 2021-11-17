@@ -103,7 +103,6 @@ class ModuleDependencyServiceTest extends AbstractTest {
 		Metadata metadata = new Metadata();
 		metadata.putString(BranchMetadataKeys.DEPENDENCY_PACKAGE, "Some Value");
 		branchService.updateMetadata(TEST_CS_PATH, metadata);
-
 		Set<ReferenceSetMember> mdr = mdService.generateModuleDependencies(TEST_CS_PATH, TEST_ET, null, null);
 		
 		//Working with a single MS module we expect to have dependencies to both the core and model module
