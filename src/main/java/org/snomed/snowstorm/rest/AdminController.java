@@ -9,6 +9,8 @@ import org.snomed.snowstorm.ecl.BranchVersionECLCache;
 import org.snomed.snowstorm.ecl.ECLQueryService;
 import org.snomed.snowstorm.fix.ContentFixService;
 import org.snomed.snowstorm.fix.ContentFixType;
+import org.snomed.snowstorm.fix.TechnicalFixService;
+import org.snomed.snowstorm.fix.TechnicalFixType;
 import org.snomed.snowstorm.mrcm.MRCMUpdateService;
 import org.snomed.snowstorm.rest.pojo.UpdatedDocumentCount;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -48,6 +50,9 @@ public class AdminController {
 
 	@Autowired
 	private ContentFixService contentFixService;
+
+	@Autowired
+	private TechnicalFixService technicalFixService;
 
 	@Autowired
 	private ECLQueryService eclQueryService;
@@ -250,6 +255,13 @@ public class AdminController {
 	@PreAuthorize("hasPermission('AUTHOR', #branch)")
 	public void runContentFix(@PathVariable String branch, @RequestParam ContentFixType contentFixType, @RequestParam Set<Long> conceptIds) {
 		contentFixService.runContentFix(BranchPathUriUtil.decodePath(branch), contentFixType, conceptIds);
+	}
+
+	@RequestMapping(value = "/{branch}/actions/technical-fix", method = RequestMethod.POST)
+	@PreAuthorize("hasPermission('ADMIN', #branch)")
+	@ResponseBody
+	public String runTechnicalFix(@PathVariable String branch, @RequestParam TechnicalFixType technicalFixType) {
+		return technicalFixService.runTechnicalFix(technicalFixType, BranchPathUriUtil.decodePath(branch));
 	}
 
 	@RequestMapping(value = "/cache/ecl/stats", method = RequestMethod.GET)
