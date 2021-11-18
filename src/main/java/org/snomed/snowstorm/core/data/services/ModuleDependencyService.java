@@ -1,9 +1,8 @@
 package org.snomed.snowstorm.core.data.services;
 
-import io.kaicode.elasticvc.api.BranchService;
-import io.kaicode.elasticvc.api.ComponentService;
-import io.kaicode.elasticvc.domain.Branch;
-import io.kaicode.elasticvc.domain.Commit;
+import java.util.*;
+import java.util.stream.Collectors;
+
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -19,8 +18,10 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StopWatch;
 
-import java.util.*;
-import java.util.stream.Collectors;
+import io.kaicode.elasticvc.api.BranchService;
+import io.kaicode.elasticvc.api.ComponentService;
+import io.kaicode.elasticvc.domain.Branch;
+import io.kaicode.elasticvc.domain.Commit;
 
 /*
  * Service to create module dependency refset members as required, either temporarily
@@ -86,9 +87,9 @@ public class ModuleDependencyService extends ComponentService {
 			//Map of components to Maps of ModuleId -> Counts, pull out all the 2nd level keys into a set
 			Map<String, Map<String, Long>> moduleCountMap = statsService.getComponentCountsPerModule(Branch.MAIN);
 			cachedInternationalModules= moduleCountMap.values().stream()
-					.map(Map::keySet)
-					.flatMap(Set::stream)
-					.collect(Collectors.toSet());
+				.map(Map::keySet)
+				.flatMap(Set::stream)
+				.collect(Collectors.toSet());
 			cacheValidAt = currentTime;
 			logger.info("MDR cache of International Modules refreshed for HEAD time: {}", currentTime);
 
@@ -155,9 +156,9 @@ public class ModuleDependencyService extends ComponentService {
 			modulesRequired = new HashSet<>(moduleFilter);
 		} else {
 			modulesRequired = moduleCountMap.values().stream()
-					.map(Map::keySet)
-					.flatMap(Set::stream)
-					.collect(Collectors.toSet());
+				.map(Map::keySet)
+				.flatMap(Set::stream)
+				.collect(Collectors.toSet());
 
 			//If we're not an Edition, remove all international modules
 			if (!isEdition) {
@@ -241,7 +242,7 @@ public class ModuleDependencyService extends ComponentService {
 	}
 
 	private String updateOrCreateModuleDependency(String moduleId, String thisLevel, Map<String, String> moduleParents,
-	                                              Set<ReferenceSetMember> moduleDependencies, String effectiveDate, Integer dependencyET, String branchPath, boolean isInternational) {
+			Set<ReferenceSetMember> moduleDependencies, String effectiveDate, Integer dependencyET, String branchPath, boolean isInternational) {
 		//Take us up a level
 		String nextLevel = moduleParents.get(thisLevel);
 		if (nextLevel == null) {
@@ -275,7 +276,7 @@ public class ModuleDependencyService extends ComponentService {
 	//TODO Look out for inactive reference set members and use active by preference
 	//or reactive inactive if required.
 	private ReferenceSetMember findOrCreateModuleDependency(String moduleId, Set<ReferenceSetMember> moduleDependencies,
-	                                                        String targetModuleId) {
+			String targetModuleId) {
 		for (ReferenceSetMember thisMember : moduleDependencies) {
 			if (thisMember.getReferencedComponentId().equals(targetModuleId)) {
 				return thisMember;
@@ -315,7 +316,7 @@ public class ModuleDependencyService extends ComponentService {
 			Page<Concept> modulePage = conceptService.find(conceptIds, null, branchPath, LARGE_PAGE);
 			Map<String, String> partialParentMap = modulePage.getContent().stream()
 					.collect(Collectors.toMap(Concept::getId, SnomedComponent::getModuleId));
-			moduleParentMap.putAll(partialParentMap);
+				moduleParentMap.putAll(partialParentMap);
 			int foundCount = modulePage.getContent().size();
 			if (foundCount != conceptIds.size()) {
 				String msg = "Found " + foundCount + " but expected " + conceptIds.size() + " module concepts in " + branchPath;

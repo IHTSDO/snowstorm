@@ -2,6 +2,7 @@ package org.snomed.snowstorm.core.data.services;
 
 import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.domain.Branch;
+import io.kaicode.elasticvc.domain.Metadata;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -76,14 +77,15 @@ class ModuleDependencyServiceTest extends AbstractTest {
 	void testInternationalMdrGeneration() throws InterruptedException, ServiceException {
 		createConcept("116680003", Concepts.CORE_MODULE, Branch.MAIN);
 		createConcept("10000200", Concepts.MODEL_MODULE, Branch.MAIN);
-		List<ReferenceSetMember> mdr = mdService.generateModuleDependencies(Branch.MAIN, TEST_ET, null, null);
+		Set<ReferenceSetMember> mdr = mdService.generateModuleDependencies(Branch.MAIN, TEST_ET, null, null);
 		//The model module has no dependencies, so we only expect 1 row for the core module
 		assertEquals(1, mdr.size());
-		assertEquals(Concepts.CORE_MODULE, mdr.get(0).getModuleId());
-		assertEquals(Concepts.MODEL_MODULE, mdr.get(0).getReferencedComponentId());
-		assertEquals(TEST_ET, mdr.get(0).getEffectiveTime());
-		assertEquals(TEST_ET, mdr.get(0).getAdditionalField(ModuleDependencyService.SOURCE_ET));
-		assertEquals(TEST_ET, mdr.get(0).getAdditionalField(ModuleDependencyService.TARGET_ET));
+		ReferenceSetMember first = mdr.iterator().next();
+		assertEquals(Concepts.CORE_MODULE, first.getModuleId());
+		assertEquals(Concepts.MODEL_MODULE, first.getReferencedComponentId());
+		assertEquals(TEST_ET, first.getEffectiveTime());
+		assertEquals(TEST_ET, first.getAdditionalField(ModuleDependencyService.SOURCE_ET));
+		assertEquals(TEST_ET, first.getAdditionalField(ModuleDependencyService.TARGET_ET));
 	}
 	
 	@Test
@@ -96,7 +98,13 @@ class ModuleDependencyServiceTest extends AbstractTest {
 		codeSystemService.createCodeSystem(codeSystemXY);
 		createConcept(TEST_MODULE, TEST_MODULE, TEST_CS_PATH);
 		
-		List<ReferenceSetMember> mdr = mdService.generateModuleDependencies(TEST_CS_PATH, TEST_ET, null, null);
+		//To be detected as an extension, and therefore not include modules found on MAIN
+		//We need to list a dependencyPackage in the metadata
+		Metadata metadata = new Metadata();
+		metadata.putString(BranchMetadataKeys.DEPENDENCY_PACKAGE, "Some Value");
+		branchService.updateMetadata(TEST_CS_PATH, metadata);
+
+		Set<ReferenceSetMember> mdr = mdService.generateModuleDependencies(TEST_CS_PATH, TEST_ET, null, null);
 		
 		//Working with a single MS module we expect to have dependencies to both the core and model module
 		assertEquals(2, mdr.size());
@@ -104,7 +112,7 @@ class ModuleDependencyServiceTest extends AbstractTest {
 		assertTrue(resultsContain(mdr, TEST_MODULE, Concepts.MODEL_MODULE, TEST_ET, TEST_ET, TEST_DEPENDENCY_ET));
 	}
 
-	private boolean resultsContain(List<ReferenceSetMember> mdr, String sourceModule, String targetModule, String effectiveDate,
+	private boolean resultsContain(Set<ReferenceSetMember> mdr, String sourceModule, String targetModule, String effectiveDate,
 			String sourceEffectiveDate, String targetEffectiveDate) {
 		for (ReferenceSetMember rm : mdr) {
 			if (rm.getModuleId().equals(sourceModule) &&
