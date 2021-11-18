@@ -139,7 +139,7 @@ public class SSubExpressionConstraint extends SubExpressionConstraint implements
 				break;
 			case parentof:
 				for (Long conceptId : conceptIds) {
-					Set<Long> parents = queryService.findParentIds(branchCriteria, stated, conceptId.toString());
+					Set<Long> parents = queryService.findParentIds(branchCriteria, stated, Collections.singleton(conceptId));
 					query.must(termsQuery(QueryConcept.Fields.CONCEPT_ID, parents));
 				}
 				break;
