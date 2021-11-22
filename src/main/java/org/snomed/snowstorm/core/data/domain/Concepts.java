@@ -93,6 +93,8 @@ public class Concepts {
 	public static final String REFSET_SIMILAR_TO_ASSOCIATION = "900000000000529008";
 	public static final String REFSET_ALTERNATIVE_ASSOCIATION = "900000000000530003";
 	public static final String REFSET_REFERS_TO_ASSOCIATION = "900000000000531004";
+	public static final String REFSET_PARTIALLY_EQUIVALENT_TO_ASSOCIATION = "1186924009";
+	public static final String REFSET_POSSIBLY_REPLACED_BY_ASSOCIATION = "1186921001";
 
 	// MRCM reference sets
 	public static final String REFSET_MRCM = "723564002";
@@ -137,6 +139,8 @@ public class Concepts {
 			.put(REFSET_SIMILAR_TO_ASSOCIATION, "SIMILAR_TO")
 			.put(REFSET_ALTERNATIVE_ASSOCIATION, "ALTERNATIVE")
 			.put(REFSET_REFERS_TO_ASSOCIATION, "REFERS_TO")
+			.put(REFSET_PARTIALLY_EQUIVALENT_TO_ASSOCIATION, "PARTIALLY_EQUIVALENT_TO")
+			.put(REFSET_POSSIBLY_REPLACED_BY_ASSOCIATION, "POSSIBLY_REPLACED_BY")
 			.build();
 
 	public static final Set<String> inactivationAndAssociationRefsets = new ImmutableSet.Builder<String>()
