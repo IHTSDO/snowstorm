@@ -73,6 +73,8 @@ public class Concepts {
 	public static final String CONCEPT_NON_CURRENT = "900000000000495008";
 	public static final String NONCONFORMANCE_TO_EDITORIAL_POLICY = "723277005";
 	public static final String NOT_SEMANTICALLY_EQUIVALENT = "723278000";
+	public static final String CLASSIFICATION_DERIVED_COMPONENT = "1186917008";
+	public static final String MEANING_OF_COMPONENT_UNKNOWN = "1186919006";
 
 	public static final String FOUNDATION_METADATA = "900000000000454005";
 	public static final String REFSET = "900000000000455006";
@@ -120,6 +122,9 @@ public class Concepts {
 			.put(CONCEPT_NON_CURRENT, "CONCEPT_NON_CURRENT")
 			.put(NONCONFORMANCE_TO_EDITORIAL_POLICY, "NONCONFORMANCE_TO_EDITORIAL_POLICY")
 			.put(NOT_SEMANTICALLY_EQUIVALENT, "NOT_SEMANTICALLY_EQUIVALENT")
+			.put(CLASSIFICATION_DERIVED_COMPONENT, "CLASSIFICATION_DERIVED_COMPONENT")
+			.put(MEANING_OF_COMPONENT_UNKNOWN, "MEANING_OF_COMPONENT_UNKNOWN")
+
 			.build();
 
 	public static final BiMap<String, String> historicalAssociationNames = new ImmutableBiMap.Builder<String, String>()
