@@ -113,7 +113,7 @@ public class ModuleDependencyService extends ComponentService {
 	 * @param commit optionally passed to persist generated members
 	 * @return
 	 */
-	public Set<ReferenceSetMember> generateModuleDependencies(String branchPath, String effectiveDate, Set<String> modulesIncluded, Commit commit) {
+	public Set<ReferenceSetMember> generateModuleDependencies(String branchPath, String effectiveDate, Set<String> modulesIncluded, boolean isDelta, Commit commit) {
 		StopWatch sw = new StopWatch("MDRGeneration");
 		sw.start();
 		refreshCache();
@@ -237,13 +237,16 @@ public class ModuleDependencyService extends ComponentService {
 				.flatMap(Set::stream)
 				.collect(Collectors.toSet());
 		
+		//For delta and update we're only interested in those records that have changed
+		Set<ReferenceSetMember> updatedMDRmembers = mdrMembers.stream()
+				.filter(rm -> rm.getEffectiveTime().equals(effectiveDate))
+				.collect(Collectors.toSet());
+		
 		if (commit != null) {
-			List<ReferenceSetMember> updatedMDRmembers = mdrMembers.stream()
-					.filter(rm -> rm.getEffectiveTime().equals(effectiveDate))
-					.collect(Collectors.toList());
 			doSaveBatchComponents(updatedMDRmembers, commit, ReferenceSetMember.Fields.MEMBER_ID, memberRepository);
 		}
-		return mdrMembers;
+		
+		return isDelta ? updatedMDRmembers : mdrMembers;
 	}
 
 	private String updateOrCreateModuleDependency(String moduleId, String thisLevel, Map<String, String> moduleParents,

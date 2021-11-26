@@ -52,7 +52,7 @@ public class ReleaseService {
 			BranchMetadataHelper.markCommitAsCreatingCodeSystemVersion(commit);
 			
 			//Update the Module Dependency Refset members and persist
-			mdService.generateModuleDependencies(path, effectiveTime.toString(), null, commit);
+			mdService.generateModuleDependencies(path, effectiveTime.toString(), null, false, commit);
 
 			BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(path);
 

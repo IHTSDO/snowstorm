@@ -77,7 +77,7 @@ class ModuleDependencyServiceTest extends AbstractTest {
 	void testInternationalMdrGeneration() throws InterruptedException, ServiceException {
 		createConcept("116680003", Concepts.CORE_MODULE, Branch.MAIN);
 		createConcept("10000200", Concepts.MODEL_MODULE, Branch.MAIN);
-		Set<ReferenceSetMember> mdr = mdService.generateModuleDependencies(Branch.MAIN, TEST_ET, null, null);
+		Set<ReferenceSetMember> mdr = mdService.generateModuleDependencies(Branch.MAIN, TEST_ET, null, false, null);
 		//The model module has no dependencies, so we only expect 1 row for the core module
 		assertEquals(1, mdr.size());
 		ReferenceSetMember first = mdr.iterator().next();
@@ -103,7 +103,7 @@ class ModuleDependencyServiceTest extends AbstractTest {
 		Metadata metadata = new Metadata();
 		metadata.putString(BranchMetadataKeys.DEPENDENCY_PACKAGE, "Some Value");
 		branchService.updateMetadata(TEST_CS_PATH, metadata);
-		Set<ReferenceSetMember> mdr = mdService.generateModuleDependencies(TEST_CS_PATH, TEST_ET, null, null);
+		Set<ReferenceSetMember> mdr = mdService.generateModuleDependencies(TEST_CS_PATH, TEST_ET, null, false, null);
 		
 		//Working with a single MS module we expect to have dependencies to both the core and model module
 		assertEquals(2, mdr.size());

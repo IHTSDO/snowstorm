@@ -259,7 +259,7 @@ public class ExportService {
 									filenameEffectiveDate,
 									exportType,
 									zipOutputStream,
-									mdrService.generateModuleDependencies(branchPath, transientEffectiveTime, moduleIds, null),
+									mdrService.generateModuleDependencies(branchPath, transientEffectiveTime, moduleIds, exportType.equals(RF2Type.DELTA), null),
 									transientEffectiveTime,
 									referenceSetType.getFieldNameList(),
 									codeSystemRF2Name,

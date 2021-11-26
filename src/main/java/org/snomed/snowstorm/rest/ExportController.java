@@ -85,7 +85,7 @@ public class ExportController {
 				return moduleDependencyService.isExportable(rm, isExtension);
 			}
 		};
-		return moduleDependencyService.generateModuleDependencies(branchPath, effectiveDate, modulesIncluded, null)
+		return moduleDependencyService.generateModuleDependencies(branchPath, effectiveDate, modulesIncluded, false, null)
 				.stream()
 				.filter(rm -> exportFilter.isValid(rm))
 				.collect(Collectors.toList());
