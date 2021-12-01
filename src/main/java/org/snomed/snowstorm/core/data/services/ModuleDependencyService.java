@@ -183,26 +183,17 @@ public class ModuleDependencyService extends ComponentService {
 		//For extensions, the module with the concepts in it is assumed to be the parent, UNLESS
 		//a module concept is defined in another module, in which case the owning module is the parent. 
 		//Calculate the top level for any given extension, so we know when to stop!
-		String topLevelExtensionModule = null;
+		
+		//INFRA-7999 This falls down if a country defines several modules and splits content up
+		//amoungst them (eg NO).  A better solution is:  if only one module is defined in itself,
+		//then this is more likely to be the parent.   Do content counting as a fall-back option.
 		if (!isInternational) {
-			Long greatestCount = 0L;
-			for (Map.Entry<String, Long> moduleCount : moduleCountMap.get("Concept").entrySet()) {
-				if (!cachedInternationalModules.contains(moduleCount.getKey()) && 
-						(topLevelExtensionModule == null || greatestCount < moduleCount.getValue())) {
-					topLevelExtensionModule = moduleCount.getKey();
-					greatestCount = moduleCount.getValue();
-				}
-			}
-			if (moduleHierarchyMap.get(topLevelExtensionModule) == null || 
-					moduleHierarchyMap.get(topLevelExtensionModule).contentEquals(topLevelExtensionModule)) {
-				moduleHierarchyMap.put(topLevelExtensionModule, Concepts.CORE_MODULE);
-			}
+			mapTopLevelExtensionModuleToCore(moduleCountMap, moduleHierarchyMap);
 		}
 
 		//Remove any map entries that we don't need
 		moduleMap.keySet().retainAll(modulesRequired);
-		
-		logger.info("Generating MDR for {}, {} modules [{}]", branchPath, isInternational ? "international" : "extension", String.join(", ", modulesRequired));
+		logger.info("Generating MDRS for {}, {} modules [{}]", branchPath, isInternational ? "international" : "extension", String.join(", ", modulesRequired));
 		
 		//Update or augment module dependencies as required
 		int recursionLimit = 0;
@@ -226,13 +217,13 @@ public class ModuleDependencyService extends ComponentService {
 						branchPath,
 						isInternational);
 				if (++recursionLimit > RECURSION_LIMIT) {
-					throw new IllegalStateException ("Recursion limit reached calculating MDR in " + branchPath + " for module " + thisLevel);
+					throw new IllegalStateException ("Recursion limit reached calculating MDRS in " + branchPath + " for module " + thisLevel);
 				}
 			}
 		}
 
 		sw.stop();
-		logger.info("MDR generation for {}, modules [{}] took {}s", branchPath, String.join(", ", modulesRequired), sw.getTotalTimeSeconds());
+		logger.info("MDRS generation for {}, modules [{}] took {}s", branchPath, String.join(", ", modulesRequired), sw.getTotalTimeSeconds());
 		Set<ReferenceSetMember> mdrMembers = moduleMap.values().stream()
 				.flatMap(Set::stream)
 				.collect(Collectors.toSet());
@@ -247,6 +238,44 @@ public class ModuleDependencyService extends ComponentService {
 		}
 		
 		return isDelta ? updatedMDRmembers : mdrMembers;
+	}
+
+	private void mapTopLevelExtensionModuleToCore(Map<String, Map<String, Long>> moduleCountMap,
+			Map<String, String> moduleHierarchyMap) {
+		//Safest solution is if only one extension module is currently mapped to itself
+		boolean firstSolutionSuccess = true;
+		String selfMappedModule = null;
+		for (Map.Entry<String, String> moduleMapping : moduleHierarchyMap.entrySet()) {
+			if (moduleMapping.getKey().equals(moduleMapping.getValue())) {
+				//Is this the first one encountered, or do we need to try the other solution?
+				if (selfMappedModule == null) {
+					selfMappedModule = moduleMapping.getKey();
+				} else {
+					firstSolutionSuccess = false;
+					break;
+				}
+			}
+		}
+		
+		if (firstSolutionSuccess && selfMappedModule != null) {
+			moduleHierarchyMap.put(selfMappedModule, Concepts.CORE_MODULE);
+			return;
+		}
+		
+		//Otherwise we'll hope that the default module is the one with the most concepts
+		String topLevelExtensionModule = null;
+		Long greatestCount = 0L;
+		for (Map.Entry<String, Long> moduleCount : moduleCountMap.get("Concept").entrySet()) {
+			if (!cachedInternationalModules.contains(moduleCount.getKey()) && 
+					(topLevelExtensionModule == null || greatestCount < moduleCount.getValue())) {
+				topLevelExtensionModule = moduleCount.getKey();
+				greatestCount = moduleCount.getValue();
+			}
+		}
+		if (moduleHierarchyMap.get(topLevelExtensionModule) == null || 
+				moduleHierarchyMap.get(topLevelExtensionModule).contentEquals(topLevelExtensionModule)) {
+			moduleHierarchyMap.put(topLevelExtensionModule, Concepts.CORE_MODULE);
+		}
 	}
 
 	private String updateOrCreateModuleDependency(String moduleId, String thisLevel, Map<String, String> moduleParents,
@@ -325,7 +354,7 @@ public class ModuleDependencyService extends ComponentService {
 			Page<Concept> modulePage = conceptService.find(new ArrayList<>(conceptIds), null, branchPath, LARGE_PAGE);
 			Map<String, String> partialParentMap = modulePage.getContent().stream()
 					.collect(Collectors.toMap(Concept::getId, SnomedComponent::getModuleId));
-				moduleParentMap.putAll(partialParentMap);
+			moduleParentMap.putAll(partialParentMap);
 			int foundCount = modulePage.getContent().size();
 			if (foundCount != conceptIds.size()) {
 				String msg = "Found " + foundCount + " but expected " + conceptIds.size() + " module concepts in " + branchPath;
