@@ -179,16 +179,8 @@ public class ModuleDependencyService extends ComponentService {
 		//Recover all these module concepts to find out what module they themselves were defined in.
 		//Generally, refset type modules are defined in the main extension module
 		Map<String, String> moduleHierarchyMap = getModuleOfModule(branchPath, new HashSet<>(modulesRequired));
-		
-		//For extensions, the module with the concepts in it is assumed to be the parent, UNLESS
-		//a module concept is defined in another module, in which case the owning module is the parent. 
-		//Calculate the top level for any given extension, so we know when to stop!
-		
-		//INFRA-7999 This falls down if a country defines several modules and splits content up
-		//amoungst them (eg NO).  A better solution is:  if only one module is defined in itself,
-		//then this is more likely to be the parent.   Do content counting as a fall-back option.
 		if (!isInternational) {
-			mapTopLevelExtensionModuleToCore(moduleCountMap, moduleHierarchyMap);
+			mapTopLevelExtensionModuleToCore(moduleCountMap, moduleHierarchyMap, moduleMap);
 		}
 
 		//Remove any map entries that we don't need
@@ -241,8 +233,20 @@ public class ModuleDependencyService extends ComponentService {
 	}
 
 	private void mapTopLevelExtensionModuleToCore(Map<String, Map<String, Long>> moduleCountMap,
-			Map<String, String> moduleHierarchyMap) {
-		//Safest solution is if only one extension module is currently mapped to itself
+			Map<String, String> moduleHierarchyMap, Map<String, Set<ReferenceSetMember>> moduleMap) {
+		//If we have multiple modules that are defined in themselves, then we must have existing 
+		//records supplied
+		List<String> selfMappedModules = getSelfMappedModules(moduleHierarchyMap);
+		if (selfMappedModules.size() > 1) {
+			for (String module : selfMappedModules) {
+				moduleHierarchyMap.put(module, determineClosestParentFromExistingHierarchy(module, selfMappedModules, moduleMap));
+			}
+			//Did we get them all?
+			if (getSelfMappedModules(moduleHierarchyMap).size() == 0) {
+				return;
+			}
+		}
+		//Safest alternative solution is if only one extension module is currently mapped to itself
 		boolean firstSolutionSuccess = true;
 		String selfMappedModule = null;
 		for (Map.Entry<String, String> moduleMapping : moduleHierarchyMap.entrySet()) {
@@ -276,6 +280,47 @@ public class ModuleDependencyService extends ComponentService {
 				moduleHierarchyMap.get(topLevelExtensionModule).contentEquals(topLevelExtensionModule)) {
 			moduleHierarchyMap.put(topLevelExtensionModule, Concepts.CORE_MODULE);
 		}
+	}
+
+	private String determineClosestParentFromExistingHierarchy(String module, List<String> selfMappedModules,
+			Map<String, Set<ReferenceSetMember>> moduleMap) {
+		
+		List<String> ancestors = findAncestorModules(module, selfMappedModules, moduleMap.get(module));
+		//If we only see a single ancestor, that's our closest parent
+		if (ancestors.size() == 0) {
+			return module;
+		} else if (ancestors.size() == 1) {
+			return ancestors.get(0);
+		} else {
+			//If we have a few, then we need to work out which one of those has the most ancestors itself
+			//to be the closest parent
+			int maxAncestors = 0;
+			String lowestLevelAncestor = null;
+			for (String ancestor : ancestors) {
+				int ancestorCount = findAncestorModules(ancestor, ancestors, moduleMap.get(ancestor)).size();
+				if (ancestorCount > maxAncestors) {
+					maxAncestors = ancestorCount;
+					lowestLevelAncestor = ancestor;
+				}
+			}
+			return lowestLevelAncestor;
+		}
+	}
+
+	private List<String> findAncestorModules(String module, List<String> targetSet,
+			Set<ReferenceSetMember> existingRefsetMembers) {
+		Set<String> ancestors = existingRefsetMembers.stream()
+				.filter(rm -> rm.isActive())
+				.map(rm -> rm.getReferencedComponentId())
+				.filter(m -> targetSet.contains(m))
+				.collect(Collectors.toSet());
+		return new ArrayList<>(ancestors);
+	}
+
+	private List<String> getSelfMappedModules(Map<String, String> moduleHierarchyMap) {
+		return new ArrayList<>(moduleHierarchyMap.keySet().stream()
+				.filter(m -> moduleHierarchyMap.get(m).equals(m))
+				.collect(Collectors.toSet()));
 	}
 
 	private String updateOrCreateModuleDependency(String moduleId, String thisLevel, Map<String, String> moduleParents,

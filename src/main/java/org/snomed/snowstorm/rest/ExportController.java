@@ -73,19 +73,20 @@ public class ExportController {
 	public List<ReferenceSetMember> generateModuleDependencyPreview (
 			@RequestParam String branchPath,
 			@RequestParam String effectiveDate,
+			@RequestParam(defaultValue="true") boolean isDelta,
 			@RequestParam(required = false) Set<String> modulesIncluded) {
 		
 		//Need to detect if this is an Edition or Extension package so we know what MDRS rows to export
 		//Extensions only mention their own modules, despite being able to "see" those on MAIN
 		Branch branch = branchService.findBranchOrThrow(branchPath);
 		final boolean isExtension = (branch.getMetadata() != null && !StringUtils.isEmpty(branch.getMetadata().getString(BranchMetadataKeys.DEPENDENCY_PACKAGE)));
-		
 		ExportFilter<ReferenceSetMember> exportFilter = new ExportFilter<ReferenceSetMember>() {
 			public boolean isValid(ReferenceSetMember rm) {
 				return moduleDependencyService.isExportable(rm, isExtension);
 			}
 		};
-		return moduleDependencyService.generateModuleDependencies(branchPath, effectiveDate, modulesIncluded, false, null)
+		
+		return moduleDependencyService.generateModuleDependencies(branchPath, effectiveDate, modulesIncluded, isDelta, null)
 				.stream()
 				.filter(rm -> exportFilter.isValid(rm))
 				.collect(Collectors.toList());
