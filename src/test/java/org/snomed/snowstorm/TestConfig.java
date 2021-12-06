@@ -33,8 +33,7 @@ import javax.annotation.PostConstruct;
 				ElasticsearchDataAutoConfiguration.class})
 public class TestConfig extends Config {
 
-	// Current version supported by AWS is 7.7.0.
-	private static final String ELASTIC_SEARCH_SERVER_VERSION = "7.7.0";
+	private static final String ELASTIC_SEARCH_SERVER_VERSION = "7.10.0";
 
 	// set it to true to use local instance instead of test container
 	static final boolean useLocalElasticsearch = false;
