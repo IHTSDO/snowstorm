@@ -5,6 +5,7 @@ import org.elasticsearch.common.Strings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.core.data.services.classification.pojo.ClassificationStatusResponse;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.web.client.RestTemplateBuilder;
 import org.springframework.core.io.FileSystemResource;
@@ -19,23 +20,28 @@ import org.springframework.web.client.RestTemplate;
 import java.io.*;
 import java.nio.file.Files;
 import java.util.Collections;
+import java.util.Optional;
 
 @Service
 class RemoteClassificationServiceClient {
 
 	private final RestTemplate restTemplate;
-
 	private final Logger logger = LoggerFactory.getLogger(getClass());
+	private final String messageStatusDestination;
 
 	private static final HttpHeaders MULTIPART_HEADERS = new HttpHeaders();
 	static {
 		MULTIPART_HEADERS.setContentType(MediaType.MULTIPART_FORM_DATA);
 	}
 
-	public RemoteClassificationServiceClient(@Value("${classification-service.url}") String serviceUrl,
-			@Value("${classification-service.username}") String serviceUsername,
-			@Value("${classification-service.password}") String servicePassword) {
+	@Autowired
+	private ClassificationStatusService classificationStatusService;
 
+	public RemoteClassificationServiceClient(@Value("${classification-service.url}") String serviceUrl,
+											 @Value("${classification-service.username}") String serviceUsername,
+											 @Value("${classification-service.password}") String servicePassword,
+											 @Value("${classification-service.message.status.destination}") String messageStatusDestination) {
+		this.messageStatusDestination = messageStatusDestination;
 		restTemplate = new RestTemplateBuilder()
 				.rootUri(serviceUrl)
 				.basicAuthentication(serviceUsername, servicePassword)
@@ -64,6 +70,9 @@ class RemoteClassificationServiceClient {
 		params.put("branch", Collections.singletonList(branchPath));
 		params.put("reasonerId", Collections.singletonList(reasonerId));
 
+		if (messageStatusDestination != null && !messageStatusDestination.isEmpty()) {
+			params.put("messageStatusDestination", Collections.singletonList(messageStatusDestination));
+		}
 
 		ResponseEntity<Void> response = restTemplate.postForEntity("/classifications", new HttpEntity<>(params, MULTIPART_HEADERS), Void.class);
 		String location = response.getHeaders().getLocation().toString();
@@ -74,8 +83,8 @@ class RemoteClassificationServiceClient {
 		return remoteClassificationId;
 	}
 
-	ClassificationStatusResponse getStatus(String classificationId) {
-		return restTemplate.getForObject("/classifications/{classificationId}", ClassificationStatusResponse.class, classificationId);
+	Optional<ClassificationStatusResponse> getStatusChange(String classificationId) {
+		return classificationStatusService.getStatusChange(classificationId);
 	}
 
 	InputStream downloadRf2Results(String classificationId) throws IOException {
