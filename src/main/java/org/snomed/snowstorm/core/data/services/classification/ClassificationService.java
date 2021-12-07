@@ -185,7 +185,12 @@ public class ClassificationService {
 							synchronized (classificationUserIdToUserContextMap) {
 								SecurityContextHolder.setContext(classificationUserIdToUserContextMap.get(classification.getUserId()));
 							}
-							ClassificationStatusResponse statusResponse = serviceClient.getStatus(classification.getId());
+							Optional<ClassificationStatusResponse> statusChange = serviceClient.getStatusChange(classification.getId());
+							if (statusChange.isEmpty()) {
+								continue;
+							}
+
+							ClassificationStatusResponse statusResponse = statusChange.get();
 							ClassificationStatus newStatus = statusResponse.getStatus();
 							boolean timeout = false;
 
