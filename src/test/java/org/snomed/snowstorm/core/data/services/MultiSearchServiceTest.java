@@ -95,7 +95,7 @@ class MultiSearchServiceTest extends AbstractTest {
 
 	private Page<Description> runSearch(String term) {
 		DescriptionCriteria criteria = new DescriptionCriteria().term(term);
-		return multiSearchService.findDescriptions(criteria, PageRequest.of(0, 10));
+		return multiSearchService.findDescriptions(criteria, null, PageRequest.of(0, 10));
 	}
 
 	private Page<Description> runSearch(String term, Boolean conceptActive) {
@@ -103,7 +103,7 @@ class MultiSearchServiceTest extends AbstractTest {
 			return runSearch(term);
 		} else {
 			DescriptionCriteria criteria = new DescriptionCriteria().term(term).conceptActive(conceptActive);
-			return multiSearchService.findDescriptions(criteria, PageRequest.of(0, 10));
+			return multiSearchService.findDescriptions(criteria, null, PageRequest.of(0, 10));
 		}
 	}
 }

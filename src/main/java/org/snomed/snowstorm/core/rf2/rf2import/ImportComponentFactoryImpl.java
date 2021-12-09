@@ -123,7 +123,7 @@ public class ImportComponentFactoryImpl extends ImpotentComponentFactory {
 		- Remove if earlier or equal effectiveTime to existing.
 		- Copy release fields from existing.
 	 */
-	private <T extends SnomedComponent<T>> void processEntities(Collection<T> components, Integer patchReleaseVersion, ElasticsearchOperations elasticsearchTemplate,
+	private <T extends SnomedComponent<?>> void processEntities(Collection<T> components, Integer patchReleaseVersion, ElasticsearchOperations elasticsearchTemplate,
 			Class<T> componentClass, boolean copyReleaseFields, boolean clearEffectiveTimes) {
 
 		Map<Integer, List<T>> effectiveDateMap = new HashMap<>();
@@ -182,7 +182,6 @@ public class ImportComponentFactoryImpl extends ImpotentComponentFactory {
 						.build(), componentClass)) {
 					stream.forEachRemaining(hit -> {
 						T t = idToUnreleasedComponentMap.get(hit.getContent().getId());
-						// noinspection unchecked
 						t.copyReleaseDetails(hit.getContent());
 						t.updateEffectiveTime();
 					});

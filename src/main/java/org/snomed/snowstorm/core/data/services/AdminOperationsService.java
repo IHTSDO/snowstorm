@@ -177,12 +177,12 @@ public class AdminOperationsService {
 		Branch latest = branchService.findBranchOrThrow(branch);
 		Map<Class, AtomicLong> reducedByType = new HashMap<>();
 		Map<String, Set<String>> versionsReplaced = latest.getVersionsReplaced();
-		final Map<Class<? extends DomainEntity>, ElasticsearchRepository> componentTypeRepoMap = domainEntityConfiguration.getAllTypeRepositoryMap();
-		for (Class<? extends DomainEntity> type : componentTypeRepoMap.keySet()) {
+		final Map<Class<? extends DomainEntity<?>>, ElasticsearchRepository> componentTypeRepoMap = domainEntityConfiguration.getAllTypeRepositoryMap();
+		for (Class<? extends DomainEntity<?>> type : componentTypeRepoMap.keySet()) {
 			Set<String> toRemove = new HashSet<>();
 			Set<String> versionsReplacedForType = versionsReplaced.getOrDefault(type.getSimpleName(), Collections.emptySet());
 			for (List<String> versionsReplacedSegment : Iterables.partition(versionsReplacedForType, 1_000)) {
-				try (final SearchHitsIterator<? extends DomainEntity> entitiesReplaced = elasticsearchTemplate.searchForStream(new NativeSearchQueryBuilder()
+				try (final SearchHitsIterator<? extends DomainEntity<?>> entitiesReplaced = elasticsearchTemplate.searchForStream(new NativeSearchQueryBuilder()
 						.withQuery(boolQuery()
 								.must(prefixQuery("path", branch + "/"))
 								.must(termsQuery("_id", versionsReplacedSegment))
@@ -614,11 +614,11 @@ public class AdminOperationsService {
 			branchRepository.save(sourceBranchCommit);
 
 			// Clone commit content into new path
-			Map<Class<? extends DomainEntity>, ElasticsearchRepository> allTypeRepositoryMap = domainEntityConfiguration.getAllTypeRepositoryMap();
-			for (Map.Entry<Class<? extends DomainEntity>, ElasticsearchRepository> entry : allTypeRepositoryMap.entrySet()) {
+			Map<Class<? extends DomainEntity<?>>, ElasticsearchRepository> allTypeRepositoryMap = domainEntityConfiguration.getAllTypeRepositoryMap();
+			for (Map.Entry<Class<? extends DomainEntity<?>>, ElasticsearchRepository> entry : allTypeRepositoryMap.entrySet()) {
 				ElasticsearchRepository elasticsearchRepository = entry.getValue();
-				List<DomainEntity> content = new ArrayList<>();
-				try (SearchHitsIterator<? extends DomainEntity> searchHitsStream = elasticsearchTemplate.searchForStream(new NativeSearchQueryBuilder()
+				List<DomainEntity<?>> content = new ArrayList<>();
+				try (SearchHitsIterator<? extends DomainEntity<?>> searchHitsStream = elasticsearchTemplate.searchForStream(new NativeSearchQueryBuilder()
 						.withQuery(boolQuery()
 								.must(termQuery("path", sourceBranchPath))
 								.must(termQuery("start", sourceBranchCommit.getStart().getTime()))
@@ -626,7 +626,7 @@ public class AdminOperationsService {
 						.withPageable(LARGE_PAGE)
 						.build(), entry.getKey())) {
 					searchHitsStream.forEachRemaining(searchHit -> {
-						DomainEntity domainEntity = searchHit.getContent();
+						DomainEntity<?> domainEntity = searchHit.getContent();
 						domainEntity.setPath(destinationBranchPath);
 						domainEntity.clearInternalId();// ES will create a new document rather than updating.
 						content.add(domainEntity);
