@@ -184,7 +184,7 @@ public class DescriptionService extends ComponentService {
 
 		// Fetch all matching description and concept ids
 		// ids of concepts where all descriptions and concept criteria are met
-		DescriptionMatches descriptionMatches = findDescriptionAndConceptIds(criteria, Collections.EMPTY_SET, branchCriteria, timer);
+		DescriptionMatches descriptionMatches = findDescriptionAndConceptIds(criteria, Collections.emptySet(), branchCriteria, timer);
 		BoolQueryBuilder descriptionQuery = descriptionMatches.getDescriptionQuery();
 
 		// Apply concept and acceptability filtering for final search
@@ -497,6 +497,10 @@ public class DescriptionService extends ComponentService {
 		Collection<String> modules = criteria.getModules();
 		if (!CollectionUtils.isEmpty(modules)) {
 			descriptionQuery.must(termsQuery(Description.Fields.MODULE_ID, modules));
+		}
+
+		if (!CollectionUtils.isEmpty(criteria.getConceptIds())) {
+			descriptionQuery.must(termsQuery(Description.Fields.CONCEPT_ID, criteria.getConceptIds()));
 		}
 
 		if (!CollectionUtils.isEmpty(conceptIdsCriteria)) {

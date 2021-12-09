@@ -46,7 +46,7 @@ public class ECLPreprocessingService implements CommitListener {
 		CACHED_CONCRETE_CONCEPT_IDS.remove(commit.getBranch().getPath());
 	}
 
-	public SExpressionConstraint replaceIncorrectConcreteAttributeValue(final SExpressionConstraint sExpressionConstraint, final String branch, final PageRequest pageRequest) {
+	public SExpressionConstraint replaceIncorrectConcreteAttributeValue(final SExpressionConstraint sExpressionConstraint, final String branch) {
 		if (sExpressionConstraint != null) {
 			if (!CACHED_CONCRETE_CONCEPT_IDS.containsKey(branch) || (CACHED_CONCRETE_CONCEPT_IDS.containsKey(branch) && CACHED_CONCRETE_CONCEPT_IDS.get(branch).isEmpty())) {
 				cacheConcreteConceptIds(branch);

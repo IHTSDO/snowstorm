@@ -64,7 +64,7 @@ public class ECLQueryService {
 			Collection<Long> conceptIdFilter, PageRequest pageRequest) throws ECLException {
 
 		final SExpressionConstraint sExpressionConstraint =
-				eclPreprocessingService.replaceIncorrectConcreteAttributeValue((SExpressionConstraint) eclQueryBuilder.createQuery(ecl), path, pageRequest);
+				eclPreprocessingService.replaceIncorrectConcreteAttributeValue((SExpressionConstraint) eclQueryBuilder.createQuery(ecl), path);
 		return doSelectConceptIds(ecl, branchCriteria, path, stated, conceptIdFilter, pageRequest, sExpressionConstraint);
 	}
 

@@ -10,6 +10,7 @@ import org.snomed.snowstorm.core.data.domain.ConceptMini;
 import org.snomed.snowstorm.core.data.domain.Description;
 import org.snomed.snowstorm.core.data.services.ConceptService;
 import org.snomed.snowstorm.core.data.services.MultiSearchService;
+import org.snomed.snowstorm.core.data.services.QueryService;
 import org.snomed.snowstorm.core.data.services.TooCostlyException;
 import org.snomed.snowstorm.core.data.services.pojo.ConceptCriteria;
 import org.snomed.snowstorm.core.data.services.pojo.DescriptionCriteria;
@@ -49,6 +50,7 @@ public class MultiSearchController {
 			@RequestParam String term,// Required!
 			@RequestParam(required = false) Boolean active,
 			@RequestParam(required = false) Collection<String> module,
+			@RequestParam(required = false) String ecl,
 
 			@ApiParam(value = "Set of two character language codes to match. " +
 					"The English language code 'en' will not be added automatically, in contrast to the Accept-Language header which always includes it. " +
@@ -75,7 +77,7 @@ public class MultiSearchController {
 				.conceptActive(conceptActive);
 
 		PageRequest pageRequest = ControllerHelper.getPageRequest(offset, limit);
-		Page<Description> descriptions = multiSearchService.findDescriptions(descriptionCriteria, pageRequest);
+		Page<Description> descriptions = multiSearchService.findDescriptions(descriptionCriteria, ecl, pageRequest);
 		timer.checkpoint("description search");
 
 		Map<String, List<Description>> branchDescriptions = new HashMap<>();

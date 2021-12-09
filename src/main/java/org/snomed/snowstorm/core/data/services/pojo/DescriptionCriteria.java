@@ -28,6 +28,7 @@ public class DescriptionCriteria {
 	private Set<Long> preferredIn;
 	private Set<Long> acceptableIn;
 	private Set<Long> preferredOrAcceptableIn;
+	private Collection<Long> conceptIds;
 
 	public static void configure(int searchTermMinimumLength, int searchTermMaximumLength) {
 		searchTermMinLength = searchTermMinimumLength;
@@ -193,6 +194,14 @@ public class DescriptionCriteria {
 
 	public DescriptionService.SearchMode getSearchMode() {
 		return searchMode;
+	}
+
+	public void conceptIds(Collection<Long> conceptIds) {
+		this.conceptIds = conceptIds;
+	}
+
+	public Collection<Long> getConceptIds() {
+		return conceptIds;
 	}
 
 	@Override
