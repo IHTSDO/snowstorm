@@ -1,4 +1,4 @@
-# Search
+# Search Guide
 
 **Prerequisite**: Select a [code system version branch](code-systems-and-branches.md) to search.
 
