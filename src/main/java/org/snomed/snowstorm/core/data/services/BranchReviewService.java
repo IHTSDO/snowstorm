@@ -163,6 +163,11 @@ public class BranchReviewService {
 					persistManualMergeConceptDeletion(mergeReview, conceptId);
 					logger.info("Concept {} deleted on both sides of the merge. Excluding from merge review {}.", conceptId, id);
 				} else {
+					if (sourceVersion != null && sourceVersion.isReleased() && targetVersion == null) {
+						// Deleted somewhere, whilst simultaneously versioned elsewhere.
+						mergeVersion.setAutoMergedConcept(sourceVersion);
+					}
+
 					if (sourceVersion != null && targetVersion != null) {
 						// Neither deleted, auto-merge.
 						mergeVersion.setAutoMergedConcept(autoMergeConcept(sourceVersion, targetVersion));
@@ -542,7 +547,7 @@ public class BranchReviewService {
 		NativeSearchQueryBuilder builder = new NativeSearchQueryBuilder()
 				.withQuery(boolQuery()
 						.must(termsQuery("_id", versionsReplaced))
-						.mustNot(getNonStatedRelationshipClause()))
+						.mustNot(getNonStatedModifiedReleasedRelationshipClause()))
 				.withPageable(LARGE_PAGE);
 		if (limitFieldsFetched.length > 0) {
 			builder.withFields(limitFieldsFetched);
@@ -556,6 +561,13 @@ public class BranchReviewService {
 						.must(branchUpdatesCriteria)
 						.mustNot(getNonStatedRelationshipClause()))
 				.withPageable(LARGE_PAGE);
+	}
+
+	private QueryBuilder getNonStatedModifiedReleasedRelationshipClause() {
+		return boolQuery()
+				.must(existsQuery(Relationship.Fields.EFFECTIVE_TIME))
+				.mustNot(existsQuery(Relationship.Fields.RELEASED))
+				.mustNot(termsQuery(Relationship.Fields.CHARACTERISTIC_TYPE_ID, Concepts.INFERRED_RELATIONSHIP, Concepts.ADDITIONAL_RELATIONSHIP));
 	}
 
 	private QueryBuilder getNonStatedRelationshipClause() {

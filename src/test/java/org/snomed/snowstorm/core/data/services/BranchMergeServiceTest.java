@@ -1834,6 +1834,144 @@ class BranchMergeServiceTest extends AbstractTest {
 		assertEquals("Promotion blocked; not all criteria have been met.", message);
 	}
 
+	@Test
+	void testAutoMergeWhenConceptDeletedSomewhereAndVersionedElsewhere() throws ServiceException, InterruptedException {
+		String codeSystemShortName = "SNOMEDCT-TEST";
+		String codeSystemBranch = "MAIN/TEST";
+		String childBranch = "MAIN/TEST/TEST-1";
+
+		// Create Concept on CodeSystem
+		CodeSystem codeSystem = codeSystemService.createCodeSystem(new CodeSystem(codeSystemShortName, codeSystemBranch));
+		Map<String, String> acceptabilityMap = Collections.singletonMap(US_EN_LANG_REFSET, descriptionAcceptabilityNames.get(ACCEPTABLE));
+		Concept concept = conceptService.create(
+				new Concept()
+						.addDescription(
+								new Description("Pizza (food)")
+										.setTypeId(FSN)
+										.setCaseSignificance("CASE_INSENSITIVE")
+										.setAcceptabilityMap(acceptabilityMap)
+						)
+						.addDescription(
+								new Description("Pizza")
+										.setTypeId(SYNONYM)
+										.setCaseSignificance("CASE_INSENSITIVE")
+										.setAcceptabilityMap(acceptabilityMap)
+						)
+						.addAxiom(new Relationship(ISA, SNOMEDCT_ROOT)),
+				"MAIN/TEST");
+
+		// On child branch, delete new Concept
+		branchService.create(childBranch);
+		conceptService.deleteConceptAndComponents(concept.getId(), childBranch, false);
+		assertNull(conceptService.find(concept.getId(), childBranch)); // Confirm deleted
+
+		// On parent branch, version new Concept
+		codeSystemService.createVersion(codeSystem, 20210812, "20210812");
+
+		// Rebase
+		MergeReview review = getMergeReviewInCurrentState(codeSystemBranch, childBranch);
+		Collection<MergeReviewConceptVersions> conflicts = reviewService.getMergeReviewConflictingConcepts(review.getId(), DEFAULT_LANGUAGE_DIALECTS);
+		assertEquals(1, conflicts.size());
+		assertEquals(concept, conflicts.iterator().next().getAutoMergedConcept());
+
+		reviewService.persistManualMergeConceptDeletion(reviewService.getMergeReviewOrThrow(review.getId()), Long.parseLong(concept.getId()));
+		reviewService.applyMergeReview(review);
+
+		assertNotNull(conceptService.find(concept.getId(), childBranch)); // Confirm restored post rebase
+	}
+
+	@Test
+	void testAutoMergeWhenDescriptionDeletedSomewhereAndVersionedElsewhere() throws ServiceException, InterruptedException {
+		String codeSystemShortName = "SNOMEDCT-TEST";
+		String codeSystemBranch = "MAIN/TEST";
+		String childBranch = "MAIN/TEST/TEST-1";
+
+		// Create Concept on CodeSystem
+		CodeSystem codeSystem = codeSystemService.createCodeSystem(new CodeSystem(codeSystemShortName, codeSystemBranch));
+		Map<String, String> acceptabilityMap = Collections.singletonMap(US_EN_LANG_REFSET, descriptionAcceptabilityNames.get(ACCEPTABLE));
+		Description fsn = new Description("Pizza (food)")
+				.setTypeId(FSN)
+				.setCaseSignificance("CASE_INSENSITIVE")
+				.setAcceptabilityMap(acceptabilityMap);
+		Description syn = new Description("Pizza")
+				.setTypeId(SYNONYM)
+				.setCaseSignificance("CASE_INSENSITIVE")
+				.setAcceptabilityMap(acceptabilityMap);
+		Relationship isA = new Relationship(ISA, SNOMEDCT_ROOT);
+		Concept concept = conceptService.create(
+				new Concept()
+						.addDescription(fsn)
+						.addDescription(syn)
+						.addRelationship(isA),
+				"MAIN/TEST");
+
+		// On child branch, delete new Description
+		branchService.create(childBranch);
+		descriptionService.deleteDescription(syn, childBranch, false);
+		assertNull(descriptionService.findDescription(childBranch, syn.getId())); // Confirm deleted
+
+		// On parent branch, version new Concept
+		codeSystemService.createVersion(codeSystem, 20210812, "20210812");
+
+		// Rebase
+		MergeReview review = getMergeReviewInCurrentState(codeSystemBranch, childBranch);
+		Collection<MergeReviewConceptVersions> conflicts = reviewService.getMergeReviewConflictingConcepts(review.getId(), DEFAULT_LANGUAGE_DIALECTS);
+		assertEquals(1, conflicts.size());
+		assertEquals(concept, conflicts.iterator().next().getAutoMergedConcept());
+
+		reviewService.persistManualMergeConceptDeletion(reviewService.getMergeReviewOrThrow(review.getId()), Long.parseLong(concept.getId()));
+		reviewService.applyMergeReview(review);
+
+		assertNotNull(descriptionService.findDescription(childBranch, syn.getId())); // Confirm restored post rebase
+	}
+
+	@Test
+	void testAutoMergeWhenRelationshipNormalDeletedSomewhereAndVersionedElsewhere() throws ServiceException, InterruptedException {
+		String codeSystemShortName = "SNOMEDCT-TEST";
+		String codeSystemBranch = "MAIN/TEST";
+		String childBranch = "MAIN/TEST/TEST-1";
+
+		// Create Concept on CodeSystem
+		CodeSystem codeSystem = codeSystemService.createCodeSystem(new CodeSystem(codeSystemShortName, codeSystemBranch));
+		Map<String, String> acceptabilityMap = Collections.singletonMap(US_EN_LANG_REFSET, descriptionAcceptabilityNames.get(ACCEPTABLE));
+		Description fsn = new Description("Pizza (food)")
+				.setTypeId(FSN)
+				.setCaseSignificance("CASE_INSENSITIVE")
+				.setAcceptabilityMap(acceptabilityMap);
+		Description syn = new Description("Pizza")
+				.setTypeId(SYNONYM)
+				.setCaseSignificance("CASE_INSENSITIVE")
+				.setAcceptabilityMap(acceptabilityMap);
+		Relationship isA = new Relationship(ISA, SNOMEDCT_ROOT).setInferred(true);
+
+		Concept concept = conceptService.create(
+				new Concept()
+						.addDescription(fsn)
+						.addDescription(syn)
+						.addRelationship(isA),
+				codeSystemBranch);
+
+		// On child branch, delete new Relationship
+		branchService.create(childBranch);
+		Relationship relationship = relationshipService.findRelationship(childBranch, isA.getRelationshipId());
+		assertNotNull(relationship); // Confirm present
+		relationshipService.deleteRelationship(isA.getRelationshipId(), childBranch, false);
+		assertNull(relationshipService.findRelationship(childBranch, isA.getRelationshipId())); // Confirm deleted
+
+		// On parent branch, version new Concept
+		codeSystemService.createVersion(codeSystem, 20210812, "20210812");
+
+		// Rebase
+		MergeReview review = getMergeReviewInCurrentState(codeSystemBranch, childBranch);
+		Collection<MergeReviewConceptVersions> conflicts = reviewService.getMergeReviewConflictingConcepts(review.getId(), DEFAULT_LANGUAGE_DIALECTS);
+		assertEquals(1, conflicts.size());
+		assertEquals(concept, conflicts.iterator().next().getAutoMergedConcept());
+		reviewService.persistManualMergeConceptDeletion(reviewService.getMergeReviewOrThrow(review.getId()), Long.parseLong(concept.getId()));
+		reviewService.applyMergeReview(review);
+
+		assertNotNull(relationshipService.findRelationship(childBranch, isA.getRelationshipId())); // Confirm restored post rebase
+	}
+
 	private MergeReview getMergeReviewInCurrentState(String source, String target) throws InterruptedException {
 		MergeReview review = reviewService.createMergeReview(source, target);
 
