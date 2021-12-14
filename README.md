@@ -33,6 +33,7 @@ The Authoring Platform is used for the maintenance of the International Edition 
   - [Extension Authoring](docs/extension-authoring.md)
   - [Elasticsearch Index Mapping Changes](docs/index-mapping-changes.md)
   - [Docker Quickstart](docs/using-docker.md)
+  - [Load Balancing](docs/load-balancing.md)
 - Use
   - [Using the API](docs/using-the-api.md)
     - [Code Systems & Branches](docs/code-systems-and-branches.md)
