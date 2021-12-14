@@ -45,12 +45,17 @@ An HTTP load balancer spreads traffic between the Snowstorm instances.
 This gives fault tolerance of the Snowstorm application and Elasticsearch service (if an index replica is used).
 
 This setup can be used for read only use cases. The authoring use case could be accommodated by this configuration if all authoring traffic is routed to a dedicated Snowstorm 
-instance for authoring. 
+instance for authoring.
+
+Any Snowstorm instance can be used to run RF2 imports, this requires read-only mode to be disabled. If hosting a primarily read-only Terminology Server service you may wish to 
+have a separate Snowstorm instance, that is not registered with the load balancer, to write RF2 imports to the Elasticsearch cluster.
 
 _Please bear in mind that when any Snowstorm instance starts it will fail all running classification jobs because the application assumes that the 
 authoring instance has been killed and restarted._
 
 ![](images/load-balancing_many-to-many.png)
+
+Three nodes are used for illustrative purposes, a different number can be used. The number of Snowstorm instances and Elasticsearch nodes do not need to match.
 
 ## Option C - Many Snowstorm-Elasticsearch Pairs
 In this deployment configuration there are many servers, each containing a Snowstorm and Elasticsearch node pair. 
