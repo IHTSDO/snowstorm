@@ -14,10 +14,7 @@ import org.ihtsdo.otf.resourcemanager.ResourceManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.config.Config;
-import org.snomed.snowstorm.core.data.domain.Concept;
-import org.snomed.snowstorm.core.data.domain.Description;
-import org.snomed.snowstorm.core.data.domain.Relationship;
-import org.snomed.snowstorm.core.data.domain.SnomedComponent;
+import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.services.*;
 import org.snomed.snowstorm.core.util.SearchAfterPage;
 import org.snomed.snowstorm.validation.domain.DroolsConcept;
@@ -253,7 +250,7 @@ public class DroolsValidationService {
 	private Set<String> getTopLevelHierarchies() {
 		Branch latestMainBranch = branchService.findLatest("MAIN");
 		if (topLevelHierarchiesLastFetched == null || latestMainBranch.getHeadTimestamp() > topLevelHierarchiesLastFetched) {
-			topLevelHierarchies = queryService.searchForIds(queryService.createQueryBuilder(false), "MAIN", PageRequest.of(0, 1000))
+			topLevelHierarchies = queryService.findChildrenIdsAsUnion(versionControlHelper.getBranchCriteria("MAIN"), false, Collections.singleton(Long.valueOf(Concepts.SNOMEDCT_ROOT)))
 					.stream().map(Object::toString).collect(Collectors.toSet());
 			topLevelHierarchiesLastFetched = latestMainBranch.getHeadTimestamp();
 		}
