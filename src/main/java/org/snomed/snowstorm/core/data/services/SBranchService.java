@@ -89,13 +89,15 @@ public class SBranchService {
 		return branch;
 	}
 
-	public Page<Branch> findAllVersionsAfterOrEqualToTimestamp(String path, Date timestamp, Pageable pageable) {
+	public Page<Branch> findAllVersionsAfterOrEqualToTimestampAsLightCommits(String path, Date timestamp, Pageable pageable) {
 		NativeSearchQueryBuilder queryBuilder = new NativeSearchQueryBuilder()
 				.withQuery(boolQuery()
 						.must(QueryBuilders.termQuery("path", path))
 						.must(QueryBuilders.rangeQuery("start").gte(timestamp.getTime())))
+				.withFields("path", "start", "end", "head", "base", "locked")
 				.withSort(SortBuilders.fieldSort("start"))
 				.withPageable(pageable);
+
 		SearchHits<Branch> searchHits = elasticsearchTemplate.search(queryBuilder.build(), Branch.class);
 		return new PageImpl<>(searchHits.get().map(SearchHit::getContent).collect(Collectors.toList()),
 				pageable, searchHits.getTotalHits());
