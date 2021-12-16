@@ -125,36 +125,37 @@ public class DailyBuildService {
 		Date baseForReleaseCommit = null;
 		Date baseForUpgradeCommit = null;
 		if (releaseCommitHead != null) {
-			List<Branch> commits = sBranchService.findAllVersionsAfterOrEqualToTimestamp(branchPath, releaseCommitHead, Pageable.unpaged()).getContent();
-			logger.info("{} commits found on {} since latest release.", commits.size() - 1, branchPath);
-			for (Branch commit : commits) {
+			List<Branch> lightCommits = sBranchService.findAllVersionsAfterOrEqualToTimestampAsLightCommits(branchPath, releaseCommitHead, Pageable.unpaged()).getContent();
+			logger.info("{} commits found on {} since latest release.", lightCommits.size() - 1, branchPath);
+			for (Branch lightCommit : lightCommits) {
 				// Don't rollback the release commit
-				if (commit.getHead().equals(releaseCommitHead)) {
-					baseForReleaseCommit = commit.getBase();
+				if (lightCommit.getHead().equals(releaseCommitHead)) {
+					baseForReleaseCommit = lightCommit.getBase();
 					commitsToRollback.clear();
 					logger.info("Release commit found, base version {} recorded.", baseForReleaseCommit.getTime());
 					continue;
 				}
 				// Exclude additional upgrade commits after code system version
-				if (baseForUpgradeCommit != null && !commit.getBase().equals(baseForUpgradeCommit)) {
+				if (baseForUpgradeCommit != null && !lightCommit.getBase().equals(baseForUpgradeCommit)) {
 					logger.info("Commit {} has base {} which is different to the last upgrade commit. " +
 									"This upgrade commit will not be rolled back nor will any commits before this.",
-							commit.getHeadTimestamp(), commit.getBaseTimestamp());
-					baseForUpgradeCommit = commit.getBase();
+							lightCommit.getHeadTimestamp(), lightCommit.getBaseTimestamp());
+					baseForUpgradeCommit = lightCommit.getBase();
 					commitsToRollback.clear();
 					continue;
 				// Exclude first upgrade commit after code system version
-				} else if (baseForUpgradeCommit == null && baseForReleaseCommit != null && !commit.getBase().equals(baseForReleaseCommit)) {
+				} else if (baseForUpgradeCommit == null && baseForReleaseCommit != null && !lightCommit.getBase().equals(baseForReleaseCommit)) {
 					logger.info("Commit {} has base {} which is different to the release commit. " +
 									"This upgrade commit will not be rolled back nor will any commits before this.",
-							commit.getHeadTimestamp(), commit.getBaseTimestamp());
-					baseForUpgradeCommit = commit.getBase();
+							lightCommit.getHeadTimestamp(), lightCommit.getBaseTimestamp());
+					baseForUpgradeCommit = lightCommit.getBase();
 					commitsToRollback.clear();
 					continue;
 				} else {
 					logger.info("Commit {} does not have a new base ({}) so will be rolled back.",
-							commit.getHeadTimestamp(), commit.getBaseTimestamp());
+							lightCommit.getHeadTimestamp(), lightCommit.getBaseTimestamp());
 				}
+				Branch commit = branchService.findAtTimepointOrThrow(lightCommit.getPath(), lightCommit.getHead());
 				commitsToRollback.add(commit);
 			}
 		} else {
@@ -167,6 +168,7 @@ public class DailyBuildService {
 
 		// Roll back in reverse order (i.e the most recent first)
 		Collections.reverse(commitsToRollback);
+
 		rollbackCommits(branchPath, commitsToRollback);
 	}
 
