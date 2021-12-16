@@ -13,7 +13,6 @@ import org.snomed.snowstorm.TestConfig;
 import org.snomed.snowstorm.core.data.domain.CodeSystem;
 import org.snomed.snowstorm.core.data.domain.CodeSystemVersion;
 import org.snomed.snowstorm.core.data.domain.Concept;
-import org.snomed.snowstorm.core.data.services.AdminOperationsService;
 import org.snomed.snowstorm.core.data.services.CodeSystemService;
 import org.snomed.snowstorm.core.data.services.CodeSystemUpgradeService;
 import org.snomed.snowstorm.core.data.services.ConceptService;
@@ -23,17 +22,21 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.ResourceLoader;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.elasticsearch.core.ElasticsearchRestTemplate;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
 
-import java.io.*;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.io.InputStream;
 import java.util.List;
 
-import static junit.framework.TestCase.*;
+import static junit.framework.TestCase.assertFalse;
+import static junit.framework.TestCase.assertNull;
+import static junit.framework.TestCase.assertTrue;
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.*;
 
 @ExtendWith(SpringExtension.class)
 @ContextConfiguration(classes = TestConfig.class)
@@ -57,9 +60,6 @@ class DailyBuildServiceTest extends AbstractTest {
 	@Autowired
 	private CodeSystemUpgradeService codeSystemUpgradeService;
 
-	@Autowired
-	private AdminOperationsService adminOperationsService;
-
 	private File baseLineRelease;
 
 	private File rf2Archive1;
@@ -67,9 +67,6 @@ class DailyBuildServiceTest extends AbstractTest {
 	private File rf2Archive2;
 
 	private CodeSystem snomedct;
-
-	@Autowired
-	private ElasticsearchRestTemplate elasticsearchTemplate;
 
 	@Autowired
 	private ResourceLoader resourceLoader;
