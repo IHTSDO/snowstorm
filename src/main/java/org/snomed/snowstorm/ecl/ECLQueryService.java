@@ -70,19 +70,6 @@ public class ECLQueryService {
 	public Page<Long> doSelectConceptIds(String ecl, BranchCriteria branchCriteria, String path, boolean stated, Collection<Long> conceptIdFilter,
 			PageRequest pageRequest, SExpressionConstraint expressionConstraint) {
 
-		BranchVersionECLCache branchVersionCache = null;
-		if (eclCacheEnabled) {
-			branchVersionCache = resultsCache.getOrCreateBranchVersionCache(path, branchCriteria.getTimepoint());
-			Page<Long> cachedPage = branchVersionCache.get(ecl, stated, pageRequest);
-			if (cachedPage != null) {
-				final int pageNumber = pageRequest != null ? pageRequest.getPageNumber() : 0;
-				final int pageSize = pageRequest != null ? pageRequest.getPageSize() : -1;
-				logger.debug("ECL cache hit {}@{} \"{}\" {}:{}", path, branchCriteria.getTimepoint().getTime(), ecl, pageNumber, pageSize);
-				branchVersionCache.recordHit();
-				return cachedPage;
-			}
-		}
-
 		TimerUtil eclSlowQueryTimer = getEclSlowQueryTimer();
 
 		if (expressionConstraint == null) {
@@ -94,29 +81,41 @@ public class ECLQueryService {
 
 		Optional<Page<Long>> pageOptional;
 		if (eclCacheEnabled) {
+			BranchVersionECLCache branchVersionCache = resultsCache.getOrCreateBranchVersionCache(path, branchCriteria.getTimepoint());
+
+			PageRequest queryPageRequest = pageRequest;
 			LongPredicate filter = null;
 			if (conceptIdFilter != null) {
 				// Fetch all, without conceptIdFilter or paging. Apply filter and paging afterwards.
 				// This may be expensive, but it's the only way to allow the cache to help with this sort of query.
-				pageOptional = expressionConstraint.select(path, branchCriteria, stated, null, null, queryService);
+				queryPageRequest = null;
 				final LongOpenHashSet fastSet = new LongOpenHashSet(conceptIdFilter);
 				filter = fastSet::contains;
+			}
+
+			Page<Long> cachedPage = branchVersionCache.get(ecl, stated, queryPageRequest);
+			if (cachedPage != null) {
+				final int pageNumber = pageRequest != null ? pageRequest.getPageNumber() : 0;
+				final int pageSize = pageRequest != null ? pageRequest.getPageSize() : -1;
+				logger.debug("ECL cache hit {}@{} \"{}\" {}:{}", path, branchCriteria.getTimepoint().getTime(), ecl, pageNumber, pageSize);
+				branchVersionCache.recordHit();
+
+				pageOptional = Optional.of(cachedPage);
 			} else {
-				pageOptional = expressionConstraint.select(path, branchCriteria, stated, null, pageRequest, queryService);
+				pageOptional = expressionConstraint.select(path, branchCriteria, stated, null, queryPageRequest, queryService);
+				if (pageOptional.isPresent()) {
+					// Cache results
+					final Page<Long> page = pageOptional.get();
+					branchVersionCache.put(ecl, stated, queryPageRequest, page);
+					eclSlowQueryTimer.checkpoint(String.format("ecl:'%s', with %s results in this page, now cached for this branch/commit/page.", ecl,
+							pageOptional.get().getNumberOfElements()));
+				}
 			}
 
 			if (pageOptional.isPresent()) {
-				// Cache results
-				final Page<Long> page = pageOptional.get();
-				if (branchVersionCache != null) {
-					branchVersionCache.put(ecl, stated, pageRequest, page);
-				}
-				eclSlowQueryTimer.checkpoint(String.format("ecl:'%s', with %s results in this page, now cached for this branch/commit/page.", ecl,
-						pageOptional.get().getNumberOfElements()));
-
 				// Filter results
 				if (filter != null) {
-					final List<Long> filteredList = page.get().filter(filter::test).collect(Collectors.toList());
+					final List<Long> filteredList = pageOptional.get().get().filter(filter::test).collect(Collectors.toList());
 					pageOptional = Optional.of(ConceptSelectorHelper.getPage(pageRequest, filteredList));
 				}
 			}
@@ -149,5 +148,9 @@ public class ECLQueryService {
 
 	public void clearCache() {
 		resultsCache.clearCache();
+	}
+
+	public void setEclCacheEnabled(boolean eclCacheEnabled) {
+		this.eclCacheEnabled = eclCacheEnabled;
 	}
 }
