@@ -8,6 +8,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.snomed.snowstorm.AbstractTest;
 import org.snomed.snowstorm.TestConfig;
+import org.snomed.snowstorm.config.Config;
 import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.services.BranchMergeService;
 import org.snomed.snowstorm.core.data.services.CodeSystemService;
@@ -902,6 +903,128 @@ class ConceptControllerTest extends AbstractTest {
 
 		//then
 		assertEquals(200, responseEntity.getStatusCodeValue());
+	}
+
+	@Test
+	void testModuleIdNotRestoredWhenLangRefSetChanged() throws ServiceException {
+		// A has Lait (food) as Acceptable
+		branchService.create("MAIN/SNOMEDCT-A1", Map.of(Config.DEFAULT_MODULE_ID_KEY, Concepts.CORE_MODULE));
+		Concept concept = conceptService.create(new Concept()
+				.addDescription(new Description("Milk (food)")
+						.setTypeId(Concepts.FSN)
+						.addLanguageRefsetMember(Concepts.US_EN_LANG_REFSET, Concepts.PREFERRED))
+				.addDescription(new Description("Lait (food)")
+						.setTypeId(Concepts.FSN)
+						.addLanguageRefsetMember(Concepts.US_EN_LANG_REFSET, Concepts.ACCEPTABLE)) // B will change this to Preferred
+				.addDescription(new Description("Milk")
+						.setTypeId(Concepts.SYNONYM)
+						.addLanguageRefsetMember(Concepts.US_EN_LANG_REFSET, Concepts.PREFERRED))
+				.addAxiom(new Relationship(ISA, SNOMEDCT_ROOT)), "MAIN/SNOMEDCT-A1");
+		assertExpectedModule(conceptService.find(concept.getId(), "MAIN/SNOMEDCT-A1"), "Lait (food)", Concepts.CORE_MODULE);
+
+		// B changes Lait (food) to be Preferred
+		branchService.create("MAIN/SNOMEDCT-A1/SNOMEDCT-B1", Map.of(Config.DEFAULT_MODULE_ID_KEY, Concepts.COMMON_FRENCH_MODULE));
+		for (Description description : concept.getDescriptions()) {
+			if (description.getTerm().equals("Lait (food)")) {
+				description.clearLanguageRefsetMembers();
+				description.addLanguageRefsetMember(Concepts.US_EN_LANG_REFSET, Concepts.PREFERRED);
+			}
+		}
+
+		assertExpectedModule(conceptService.update(concept, "MAIN/SNOMEDCT-A1/SNOMEDCT-B1"), "Lait (food)", Concepts.CORE_MODULE); // Assert response from update
+		assertExpectedModule(conceptService.find(concept.getId(), "MAIN/SNOMEDCT-A1/SNOMEDCT-B1"), "Lait (food)", Concepts.CORE_MODULE); // Assert response from find
+	}
+
+	@Test
+	void testModuleIdNotRestoredWhenTermChanged() throws ServiceException {
+		// A has Milk (food) as FSN
+		branchService.create("MAIN/SNOMEDCT-A1", Map.of(Config.DEFAULT_MODULE_ID_KEY, Concepts.CORE_MODULE));
+		Concept concept = conceptService.create(new Concept()
+				.addDescription(new Description("Milk (food)")
+						.setTypeId(Concepts.FSN)
+						.addLanguageRefsetMember(Concepts.US_EN_LANG_REFSET, Concepts.PREFERRED))
+				.addDescription(new Description("Milk")
+						.setTypeId(Concepts.SYNONYM)
+						.addLanguageRefsetMember(Concepts.US_EN_LANG_REFSET, Concepts.PREFERRED))
+				.addAxiom(new Relationship(ISA, SNOMEDCT_ROOT)), "MAIN/SNOMEDCT-A1");
+		assertExpectedModule(conceptService.find(concept.getId(), "MAIN/SNOMEDCT-A1"), "Milk (food)", Concepts.CORE_MODULE);
+
+		// B changes FSN to be Lait (food)
+		branchService.create("MAIN/SNOMEDCT-A1/SNOMEDCT-B1", Map.of(Config.DEFAULT_MODULE_ID_KEY, Concepts.COMMON_FRENCH_MODULE));
+		for (Description description : concept.getDescriptions()) {
+			if (description.getTerm().equals("Milk (food)")) {
+				description.setTerm("Lait (food)");
+			}
+		}
+
+		assertExpectedModule(conceptService.update(concept, "MAIN/SNOMEDCT-A1/SNOMEDCT-B1"), "Lait (food)", Concepts.COMMON_FRENCH_MODULE);
+		assertExpectedModule(conceptService.find(concept.getId(), "MAIN/SNOMEDCT-A1/SNOMEDCT-B1"), "Lait (food)", Concepts.COMMON_FRENCH_MODULE);
+	}
+
+	@Test
+	void testModuleIdNotRestoredWhenTypeChanged() throws ServiceException {
+		// A has Milk as Synonym
+		branchService.create("MAIN/SNOMEDCT-A1", Map.of(Config.DEFAULT_MODULE_ID_KEY, Concepts.CORE_MODULE));
+		Concept concept = conceptService.create(new Concept()
+				.addDescription(new Description("Milk (food)")
+						.setTypeId(Concepts.FSN)
+						.addLanguageRefsetMember(Concepts.US_EN_LANG_REFSET, Concepts.PREFERRED))
+				.addDescription(new Description("Milk")
+						.setTypeId(Concepts.SYNONYM)
+						.addLanguageRefsetMember(Concepts.US_EN_LANG_REFSET, Concepts.PREFERRED))
+				.addAxiom(new Relationship(ISA, SNOMEDCT_ROOT)), "MAIN/SNOMEDCT-A1");
+		assertExpectedModule(conceptService.find(concept.getId(), "MAIN/SNOMEDCT-A1"), "Milk", Concepts.CORE_MODULE);
+
+		// B changes Milk to Text Definition
+		branchService.create("MAIN/SNOMEDCT-A1/SNOMEDCT-B1", Map.of(Config.DEFAULT_MODULE_ID_KEY, Concepts.COMMON_FRENCH_MODULE));
+		for (Description description : concept.getDescriptions()) {
+			if (description.getTerm().equals("Milk")) {
+				description.setTypeId(Concepts.TEXT_DEFINITION);
+			}
+		}
+
+		assertExpectedModule(conceptService.update(concept, "MAIN/SNOMEDCT-A1/SNOMEDCT-B1"), "Milk", Concepts.COMMON_FRENCH_MODULE);
+		assertExpectedModule(conceptService.find(concept.getId(), "MAIN/SNOMEDCT-A1/SNOMEDCT-B1"), "Milk", Concepts.COMMON_FRENCH_MODULE);
+	}
+
+	@Test
+	void testModuleIdNotRestoredWhenActiveChanged() throws ServiceException {
+		// A has Milk as active
+		branchService.create("MAIN/SNOMEDCT-A1", Map.of(Config.DEFAULT_MODULE_ID_KEY, Concepts.CORE_MODULE));
+		Concept concept = conceptService.create(new Concept()
+				.addDescription(new Description("Milk (food)")
+						.setTypeId(Concepts.FSN)
+						.addLanguageRefsetMember(Concepts.US_EN_LANG_REFSET, Concepts.PREFERRED))
+				.addDescription(new Description("Milk")
+						.setTypeId(Concepts.SYNONYM)
+						.addLanguageRefsetMember(Concepts.US_EN_LANG_REFSET, Concepts.PREFERRED))
+				.addAxiom(new Relationship(ISA, SNOMEDCT_ROOT)), "MAIN/SNOMEDCT-A1");
+		assertExpectedModule(conceptService.find(concept.getId(), "MAIN/SNOMEDCT-A1"), "Milk", Concepts.CORE_MODULE);
+
+		// B changes Milk to be inactive
+		branchService.create("MAIN/SNOMEDCT-A1/SNOMEDCT-B1", Map.of(Config.DEFAULT_MODULE_ID_KEY, Concepts.COMMON_FRENCH_MODULE));
+		for (Description description : concept.getDescriptions()) {
+			if (description.getTerm().equals("Milk")) {
+				description.setActive(false);
+			}
+		}
+
+		assertExpectedModule(conceptService.update(concept, "MAIN/SNOMEDCT-A1/SNOMEDCT-B1"), "Milk", Concepts.COMMON_FRENCH_MODULE);
+		assertExpectedModule(conceptService.find(concept.getId(), "MAIN/SNOMEDCT-A1/SNOMEDCT-B1"), "Milk", Concepts.COMMON_FRENCH_MODULE);
+	}
+
+	private void assertExpectedModule(Concept concept, String descriptionTerm, String moduleId) {
+		boolean found = false;
+		for (Description description : concept.getDescriptions()) {
+			if (description.getTerm().equals(descriptionTerm)) {
+				found = true;
+				assertEquals(moduleId, description.getModuleId());
+			}
+		}
+
+		if (!found) {
+			fail("Cannot find Description.");
+		}
 	}
 
 	protected interface Procedure {

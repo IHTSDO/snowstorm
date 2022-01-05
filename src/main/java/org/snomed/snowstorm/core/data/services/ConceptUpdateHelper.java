@@ -568,10 +568,12 @@ public class ConceptUpdateHelper extends ComponentService {
 
 			// Trying Concept module in attempt to restore effective time for the case
 			// where content has changed and then been reverted.
-			if (defaultModuleId != null) {
+			if (shouldRestoreDefaultModuleId(defaultModuleId, existingComponent, newComponent)) {
+				logger.trace("Setting module of {} to be same as Concept.", newComponent.getId());
 				newComponent.setModuleId(newConcept.getModuleId());
 				newComponent.updateEffectiveTime();
 				if (newComponent.getEffectiveTime() == null) {
+					logger.trace("Setting module of {} to be same as branch default.", newComponent.getId());
 					newComponent.setModuleId(defaultModuleId);
 				}
 			}
@@ -598,6 +600,55 @@ public class ConceptUpdateHelper extends ComponentService {
 				}
 			}
 		});
+	}
+
+	private <C extends SnomedComponent<?>> boolean shouldRestoreDefaultModuleId(String defaultModuleId, C existingComponent, C newComponent) {
+		// Can't restore if nothing to restore to
+		if (defaultModuleId == null) {
+			return false;
+		}
+
+		// If modified anything other than Description, restore
+		if (!(existingComponent instanceof Description)) {
+			return true;
+		}
+
+		Description existingDescription = (Description) existingComponent;
+		Description newDescription = (Description) newComponent;
+
+		// Has the active state changed?
+		boolean existingActive = existingDescription.isActive();
+		boolean newActive = newDescription.isActive();
+		boolean differentActive = existingActive != newActive;
+		if (differentActive) {
+			return true;
+		}
+
+		// Has the term changed?
+		String existingTerm = existingDescription.getTerm();
+		String newTerm = newDescription.getTerm();
+		boolean differentTerm = existingTerm != null && !existingTerm.equals(newTerm);
+		if (differentTerm) {
+			return true;
+		}
+
+		// Has the type changed?
+		String existingType = existingDescription.getType();
+		String newType = newDescription.getType();
+		boolean differentType = existingType != null && !existingType.equals(newType);
+		if (differentType) {
+			return true;
+		}
+
+		// Has the case significance changed?
+		String existingCaseSignificance = existingDescription.getCaseSignificanceId();
+		String newCaseSignificance = newDescription.getCaseSignificanceId();
+		boolean differentCaseSignificance = existingCaseSignificance != null && !existingCaseSignificance.equals(newCaseSignificance);
+		if (differentCaseSignificance) {
+			return true;
+		}
+
+		return false;
 	}
 
 	@SuppressWarnings("unchecked")
