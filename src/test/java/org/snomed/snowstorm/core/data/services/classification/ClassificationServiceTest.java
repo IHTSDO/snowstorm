@@ -240,6 +240,40 @@ class ClassificationServiceTest extends AbstractTest {
 		conceptService.update(concept, extensionBranchPath);
 		assertEquals(Boolean.FALSE, BranchClassificationStatusService.getClassificationStatus(branchService.findLatest(extensionBranchPath)));
 	}
+	
+	@Test
+	void testSaveExtensionChangesToInternationalConcept() throws IOException, ServiceException, InterruptedException {
+		// Create concept with some stated modeling in an axiom
+		Relationship r = new Relationship("123456020", Concepts.ISA, Concepts.SNOMEDCT_ROOT);
+		r.setModuleId(Concepts.CORE_MODULE);
+		
+		conceptService.create(
+				new Concept("123123123001")
+						.addAxiom(
+								new Relationship(Concepts.ISA, Concepts.SNOMEDCT_ROOT),
+								new Relationship("363698007", "84301002"))
+						.addRelationship(r)
+						.setModuleId(Concepts.CORE_MODULE),
+						"MAIN");
+
+		String extensionBranchPath = "MAIN/SNOMEDCT-SE";
+		codeSystemService.createCodeSystem(new CodeSystem("SNOMEDCT-SE", extensionBranchPath));
+		branchService.updateMetadata(extensionBranchPath, ImmutableMap.of(Config.DEFAULT_MODULE_ID_KEY, "45991000052106", Config.DEFAULT_NAMESPACE_KEY, "1000052"));
+
+		// Save mock classification results - an extension inactivation of an international relationship
+		Classification classification = createClassification(extensionBranchPath, UUID.randomUUID().toString());
+		classificationService.saveRelationshipChanges(classification, new ByteArrayInputStream(("" +
+				"id\teffectiveTime\tactive\tmoduleId\tsourceId\tdestinationId\trelationshipGroup\ttypeId\tcharacteristicTypeId\tmodifierId\n" +
+				"123456020\t\t0\t\t123123123001\t138875005\t0\t116680003\t900000000000227009\t900000000000451002\n" +
+				"").getBytes()), false);
+
+		assertEquals(SAVED, saveClassificationAndWaitForCompletion(extensionBranchPath, classification.getId()));
+	
+		Concept concept = conceptService.find("123123123001", extensionBranchPath);
+		for (Relationship relationship : concept.getRelationships()) {
+			assertEquals(relationship.getModuleId(), "45991000052106", "Modified relationships have the extension module applied.");
+		}
+	}
 
 	@Test
 	void testSaveRelationshipChangesInExtensionThenDeleteInChildBranch() throws IOException, ServiceException, InterruptedException {
