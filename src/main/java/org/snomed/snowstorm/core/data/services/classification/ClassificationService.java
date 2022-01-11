@@ -523,7 +523,7 @@ public class ClassificationService {
 				case REDUNDANT:
 					int before = concept.getRelationships().size();
 					if (!concept.getRelationships().remove(new Relationship(relationshipChange.getRelationshipId())) || concept.getRelationships().size() == before) {
-						throw new ServiceException(String.format("Failed to remove relationship %s from concept %s.", relationshipChange.getRelationshipId(), concept.getConceptId()));
+						throw new ServiceException(String.format("Failed to remove relationship '%s' from concept %s.", relationshipChange.getRelationshipId(), concept.getConceptId()));
 					}
 					break;
 			}
