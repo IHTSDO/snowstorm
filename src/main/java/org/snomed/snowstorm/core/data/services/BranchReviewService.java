@@ -1,5 +1,6 @@
 package org.snomed.snowstorm.core.data.services;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.ObjectReader;
 import com.google.common.collect.Lists;
@@ -178,11 +179,79 @@ public class BranchReviewService {
 		assertMergeReviewCurrent(mergeReview);
 
 		// Check all conflicts manually merged
-		List<ManuallyMergedConcept> manuallyMergedConcepts = manuallyMergedConceptRepository.findByMergeReviewId(mergeReview.getId(), LARGE_PAGE).getContent();
+		List<ManuallyMergedConcept> manuallyMergedConcepts = new ArrayList<>(manuallyMergedConceptRepository.findByMergeReviewId(mergeReview.getId(), LARGE_PAGE).getContent());
 		Set<Long> manuallyMergedConceptIds = manuallyMergedConcepts.stream().map(ManuallyMergedConcept::getConceptId).collect(Collectors.toSet());
 		final Set<Long> conflictingConceptIds = getConflictingConceptIds(mergeReview);
 		final Set<Long> conflictsRemaining = new HashSet<>(conflictingConceptIds);
 		conflictsRemaining.removeAll(manuallyMergedConceptIds);
+		conflictsRemaining.removeIf(conflict -> {
+			// Silently restore components if innocently altered, i.e. edited after content was versioned.
+			String id = conflict.toString();
+			String mergeReviewId = mergeReview.getId();
+			Concept parent = conceptService.find(id, mergeReview.getSourcePath());
+			Concept child = conceptService.find(id, mergeReview.getTargetPath());
+
+			// Versioned on parent whilst simultaneously deleted on child
+			if (parent != null && parent.isReleased() && child == null) {
+				// Simply restore parent
+				manuallyMergedConcepts.add(new ManuallyMergedConcept(mergeReviewId, conflict, asJson(parent), false));
+
+				return true;
+			}
+
+			// Child has diverged from parent
+			if (parent != null && parent.isReleased() && parent.getEffectiveTime() != null && child != null && !child.isReleased() && child.getEffectiveTime() == null) {
+				// Find difference in Descriptions and restore
+				Set<Description> parentDescriptions = parent.getDescriptions();
+				Set<Description> childDescriptions = child.getDescriptions();
+
+				// Descriptions removed in child
+				Set<Description> parentDescriptionsDeletedInChild = new HashSet<>(parentDescriptions);
+				parentDescriptionsDeletedInChild.removeAll(childDescriptions);
+
+				// Descriptions added in child
+				Set<Description> childDescriptionsAddedInChild = new HashSet<>(childDescriptions);
+				childDescriptionsAddedInChild.removeAll(parentDescriptions);
+
+				// Restore parent Descriptions
+				for (Description description : parentDescriptionsDeletedInChild) {
+					parent.addDescription(description);
+				}
+
+				// Keep child Descriptions
+				for (Description description : childDescriptionsAddedInChild) {
+					parent.addDescription(description);
+				}
+
+				// Find difference in Axioms and restore
+				Set<Axiom> parentAxioms = parent.getClassAxioms();
+				Set<Axiom> childAxioms = child.getClassAxioms();
+
+				// Axioms removed in child
+				Set<Axiom> parentAxiomsDeletedInChild = new HashSet<>(parentAxioms);
+				parentAxiomsDeletedInChild.removeAll(childAxioms);
+
+				// Axioms added in child
+				Set<Axiom> childAxiomsAddedInChild = new HashSet<>(childAxioms);
+				childAxiomsAddedInChild.removeAll(parentAxioms);
+
+				// Restore parent Axioms
+				for (Axiom axiom : parentAxiomsDeletedInChild) {
+					parent.addAxiom(axiom);
+				}
+
+				// Keep child Axioms
+				for (Axiom axiom : childAxiomsAddedInChild) {
+					parent.addAxiom(axiom);
+				}
+
+				manuallyMergedConcepts.add(new ManuallyMergedConcept(mergeReviewId, conflict, asJson(parent), false));
+
+				return true;
+			}
+
+			return false;
+		});
 		if (!conflictsRemaining.isEmpty()) {
 			throw new IllegalStateException("Not all conflicting concepts have been resolved. Unresolved: " + conflictsRemaining);
 		}
@@ -210,6 +279,14 @@ public class BranchReviewService {
 			throw new ServiceException("Failed to deserialise manually merged concept from temp store. mergeReview:" + mergeReview.getId() + ", conceptId:" + manuallyMergedConcept.getConceptId(), e);
 		}
 		branchMergeService.mergeBranchSync(mergeReview.getSourcePath(), mergeReview.getTargetPath(), concepts);
+	}
+
+	private String asJson(Concept concept) {
+		try {
+			return objectMapper.writeValueAsString(concept);
+		} catch (JsonProcessingException e) {
+			return null;
+		}
 	}
 
 	private void assertMergeReviewCurrent(MergeReview mergeReview) {
