@@ -108,6 +108,9 @@ public class ReferenceSetMemberService extends ComponentService {
 	public Page<ReferenceSetMember> findMembers(String branch,
 			String referencedComponentId,
 			PageRequest pageRequest) {
+		if (branch == null || referencedComponentId == null || pageRequest == null) {
+			return Page.empty();
+		}
 
 		return findMembers(branch, new MemberSearchRequest().referencedComponentId(referencedComponentId), pageRequest);
 	}
