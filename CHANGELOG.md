@@ -3,6 +3,32 @@ All notable changes to this project will be documented in this file.
 
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 7.6.0 Release (Jan 2022)
+Minor release with bug fixes and improvements.
+
+### Features
+- Authoring
+  - FRI-27 Retrieve classification status via JMS optionally. To enable this you need to set `classification-service.job.status.use-jms=true`
+  and add the queue name in `classification-service.message.status.destination` parameter. It works with classification service 6.1.0 onwards.
+  - MAINT-1791 Add new inactivation reasons: `Classification Derived Concept` and `Meaning of Concept Unknown`.
+  - MAINT-1792 Add new historical associations: `PARTIALLY_EQUIVALENT_TO` and `POSSIBLY_REPLACED_BY`.
+
+### Improvements
+ - Authoring
+   - FRI-341 Exclude components updated by parent branch when logging rebase changes in traceability service.
+   - MAINT-1843 Update finding Top Level Hierarchies logic.
+   - VAL-231 Update logic of DescriptionDroolsValidationService when fetching FSNs with language reference sets.
+ - General
+   - Bump log4j-api from 2.15.0 to 2.17.0 for security updates.
+   - FRI-353 Add `isNullEffectiveTime` to refset member search api for unpublished components only.
+
+### Fixes
+ - Fixes #358 ECL-cache bug fix when combining ecl and conceptIds parameters.
+ - Fixes #352 Fix daily build rollback error when large number(over 100MB) of version replaced documents found.
+ - Authoring
+   - MAINT-1842 Fix false warnings when using semantic tag pattern.
+
+
 ## 7.5.4 Release (Dec 2021)
 Maintenance release with new features in FHIR and many improvements and fixes.
 
