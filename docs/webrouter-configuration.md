@@ -46,4 +46,28 @@ Obviously these lookups are expected to be received by a server at http://snomed
 uri.dereferencing.prefix=http://dev.snomed.info/
 ```
 
-The allows for servers other than snomed.info to receive URI lookups and still be able to dereference them without indicating an error.  The canonical URI format is then used in all forwarding instructions.
+This allows for servers other than snomed.info to receive URI lookups and still be able to dereference them without indicating an error.  The canonical URI format is then used in all forwarding instructions.
+
+###Examples
+
+#### Concept identifiers
+
+The identifier for a concept will be looked up across all CodeSystems, so this example for American Cheese when looked up using a web browser will resolve to the US Edition in the SNOMED CT Browser: 
+
+http://snomed.info/id/443971000124108
+
+#### Module specific identifiers
+
+The URI for a module will resolve to the concept that represents that module:
+
+http://dev.snomed.info/sct/45991000052106  
+
+And then for a specific concept in that module:
+
+http://dev.snomed.info/sct/45991000052106/id/60091000052109
+
+#### Version specific identifiers
+
+And in a particular version of that extension:
+
+http://dev.snomed.info/sct/45991000052106/version/20210531/id/60091000052109

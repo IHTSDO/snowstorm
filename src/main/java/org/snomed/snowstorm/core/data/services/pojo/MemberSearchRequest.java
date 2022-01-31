@@ -5,6 +5,7 @@ import java.util.*;
 public class MemberSearchRequest {
 
 	private Boolean active;
+	private Boolean isNullEffectiveTime;
 	private String referenceSet;
 	private String module;
 	private Set<String> referencedComponentIds;
@@ -145,5 +146,14 @@ public class MemberSearchRequest {
 
 	public MemberSearchRequest referencedComponentId(String referencedComponentId) {
 		return referencedComponentIds(Collections.singleton(referencedComponentId));
+	}
+
+	public MemberSearchRequest isNullEffectiveTime(Boolean isNullEffectiveTime) {
+		this.isNullEffectiveTime = isNullEffectiveTime;
+		return this;
+	}
+	
+	public Boolean isNullEffectiveTime() {
+		return this.isNullEffectiveTime;
 	}
 }

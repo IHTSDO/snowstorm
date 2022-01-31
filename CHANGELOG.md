@@ -3,7 +3,54 @@ All notable changes to this project will be documented in this file.
 
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 7.5.4 Release (Dec 2021)
+Maintenance release with new features in FHIR and many improvements and fixes.
 
+### Breaking
+- Authoring
+  - MAINT-1824 Disable traceability by default.
+
+### Features
+- FHIR
+  - Designation use context FHIR extension implementation.
+- General
+  - BROWSE-429 Add URI dereference support for module and version specific URIs.
+  - BROWSE-470 Implement ECL cache and add cache stats endpoint. To disable cache update config key `cache.ecl.enabled` to false.
+- Authoring
+  - FRI-299 Add POST version of member search to allow for bulk item filtering.
+  - FRI-73 Include MDR generation when versioning content. Add MDR Preview API, cache of international modules and logic for how high up MD tree to populate.
+
+### Improvements
+- General
+  - MAINT-1746 Concepts deleted on both sides of merge do not conflict but concepts deleted on one side of the merge still conflict.
+  - MAINT-1790 Allow pagination beyond 10K reference set members.
+  - MAINT-1811 Support single character search for Korean.
+  - MAINT-1825 Refactor code system and version cache.
+  - MAINT-1827 Make code system dependant version cache thread safe.
+  - MAINT-1834 Don't output unchanged MDRS rows when exporting Delta.
+- Authoring
+  - FRI-121 Add date filter to code system versioning traceability backfill.
+  - FRI-127 Move setAuthorFlag logic from controller to service and set batch-change flag when importing.
+  - FRI-262 Update descriptor refset when creating/deleting refset to prevent duplicates. Refactor metadata for importing code system version.
+  - FRI-283 Copy release info from parent branch when merge conflict.
+  - FRI-319 Reliable deduplication of historical indicators and associations. Remove incorrect inactivation indicator member collection check.
+  - MAINT-1722 Improve on-save validation performance with drools query and branch criteria cache.
+  - MAINT-1725 Order is-a relationships top when no config for a hierarchy.
+  - MAINT-1728 Stop writing semantic updates when no logical change.
+
+### Fixes
+- Fixes #347 Log4j vulnerability by upgrading minor versions to latest.
+- Fix #264 / MAINT-1664 Async axiom conversion error handling.
+- Fixes #339 importing RF2 from local file bug.
+- FHIR
+  - Fix #322 / MAINT-1779 FHIR: default dialect and no inactive terms.
+- Authoring
+  - MAINT-1719 Fixed NPE when constructing concrete values.
+  - MAINT-1722 Val performance: fix query cache key and tweak ECL string.
+  - MAINT-1758 Fix restoration of donated content when rolling back upgrade.
+  - MAINT-1810 Fix deletion of redundant orphan relationships.
+ 
+ 
 ## 7.4.0 Release (Oct 2021)
 Minor release with bug fixes and improvements.
 

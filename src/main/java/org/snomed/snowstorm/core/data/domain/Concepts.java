@@ -10,10 +10,11 @@ public class Concepts {
 
 	public static final String SNOMEDCT_ROOT = "138875005";
 
-
 	// Modules
 	public static final String CORE_MODULE = "900000000000207008";
 	public static final String MODEL_MODULE = "900000000000012004";
+	public static final String ICD10_MODULE = "449080006";
+	public static final String COMMON_FRENCH_MODULE = "11000241103";
 
 	public static final String PRIMITIVE = "900000000000074008";
 	public static final String FULLY_DEFINED = "900000000000073002";
@@ -73,6 +74,8 @@ public class Concepts {
 	public static final String CONCEPT_NON_CURRENT = "900000000000495008";
 	public static final String NONCONFORMANCE_TO_EDITORIAL_POLICY = "723277005";
 	public static final String NOT_SEMANTICALLY_EQUIVALENT = "723278000";
+	public static final String CLASSIFICATION_DERIVED_COMPONENT = "1186917008";
+	public static final String MEANING_OF_COMPONENT_UNKNOWN = "1186919006";
 
 	public static final String FOUNDATION_METADATA = "900000000000454005";
 	public static final String REFSET = "900000000000455006";
@@ -91,6 +94,8 @@ public class Concepts {
 	public static final String REFSET_SIMILAR_TO_ASSOCIATION = "900000000000529008";
 	public static final String REFSET_ALTERNATIVE_ASSOCIATION = "900000000000530003";
 	public static final String REFSET_REFERS_TO_ASSOCIATION = "900000000000531004";
+	public static final String REFSET_PARTIALLY_EQUIVALENT_TO_ASSOCIATION = "1186924009";
+	public static final String REFSET_POSSIBLY_REPLACED_BY_ASSOCIATION = "1186921001";
 
 	// MRCM reference sets
 	public static final String REFSET_MRCM = "723564002";
@@ -120,6 +125,9 @@ public class Concepts {
 			.put(CONCEPT_NON_CURRENT, "CONCEPT_NON_CURRENT")
 			.put(NONCONFORMANCE_TO_EDITORIAL_POLICY, "NONCONFORMANCE_TO_EDITORIAL_POLICY")
 			.put(NOT_SEMANTICALLY_EQUIVALENT, "NOT_SEMANTICALLY_EQUIVALENT")
+			.put(CLASSIFICATION_DERIVED_COMPONENT, "CLASSIFICATION_DERIVED_COMPONENT")
+			.put(MEANING_OF_COMPONENT_UNKNOWN, "MEANING_OF_COMPONENT_UNKNOWN")
+
 			.build();
 
 	public static final BiMap<String, String> historicalAssociationNames = new ImmutableBiMap.Builder<String, String>()
@@ -132,6 +140,8 @@ public class Concepts {
 			.put(REFSET_SIMILAR_TO_ASSOCIATION, "SIMILAR_TO")
 			.put(REFSET_ALTERNATIVE_ASSOCIATION, "ALTERNATIVE")
 			.put(REFSET_REFERS_TO_ASSOCIATION, "REFERS_TO")
+			.put(REFSET_PARTIALLY_EQUIVALENT_TO_ASSOCIATION, "PARTIALLY_EQUIVALENT_TO")
+			.put(REFSET_POSSIBLY_REPLACED_BY_ASSOCIATION, "POSSIBLY_REPLACED_BY")
 			.build();
 
 	public static final Set<String> inactivationAndAssociationRefsets = new ImmutableSet.Builder<String>()

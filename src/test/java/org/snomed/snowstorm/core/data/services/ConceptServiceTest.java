@@ -20,6 +20,7 @@ import org.snomed.snowstorm.core.data.services.pojo.DescriptionCriteria;
 import org.snomed.snowstorm.core.data.services.pojo.MemberSearchRequest;
 import org.snomed.snowstorm.core.pojo.BranchTimepoint;
 import org.snomed.snowstorm.core.pojo.LanguageDialect;
+import org.snomed.snowstorm.ecl.ECLQueryService;
 import org.snomed.snowstorm.rest.View;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
@@ -27,7 +28,6 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQuery;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
-import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
 
 import java.io.IOException;
@@ -71,6 +71,9 @@ class ConceptServiceTest extends AbstractTest {
 
 	@Autowired
 	private ElasticsearchOperations elasticsearchOperations;
+
+	@Autowired
+	private ECLQueryService eclQueryService;
 
 	private ServiceTestUtil testUtil;
 
@@ -1234,8 +1237,8 @@ class ConceptServiceTest extends AbstractTest {
 		conceptService.create(new Concept(SNOMEDCT_ROOT), "MAIN/A");
 
 		List<Concept> concepts = new ArrayList<>();
-		final int tenThousand = 10_000;
-		for (int i = 0; i < tenThousand; i++) {
+		final int tenThousandOneHundred = 10_100;
+		for (int i = 0; i < tenThousandOneHundred; i++) {
 			concepts.add(
 					new Concept(null, Concepts.CORE_MODULE)
 							.addDescription(new Description("Concept " + i))
@@ -1247,14 +1250,23 @@ class ConceptServiceTest extends AbstractTest {
 		final Iterable<Concept> conceptsCreated = conceptService.batchCreate(concepts, "MAIN/A");
 
 		final Page<Concept> page = conceptService.findAll("MAIN/A", PageRequest.of(0, 100));
-		assertEquals(tenThousand + 1, page.getTotalElements());
+		assertEquals(tenThousandOneHundred + 1, page.getTotalElements());
 		assertEquals(Concepts.CORE_MODULE, page.getContent().get(50).getModuleId());
 
 		Page<ConceptMini> conceptDescendants = queryService.search(queryService.createQueryBuilder(true).ecl("<" + SNOMEDCT_ROOT), "MAIN/A", PageRequest.of(0, 50));
-		assertEquals(tenThousand, conceptDescendants.getTotalElements());
+		assertEquals(tenThousandOneHundred, conceptDescendants.getTotalElements());
+
+		// Double search with filtered results to test ECL cache on more than 10K results
+		eclQueryService.setEclCacheEnabled(true);
+		String conceptId = conceptDescendants.getContent().get(0).getConceptId();
+		conceptDescendants = queryService.search(queryService.createQueryBuilder(true).ecl("<" + SNOMEDCT_ROOT).conceptIds(Collections.singleton(conceptId)), "MAIN/A", PageRequest.of(0, 50));
+		assertEquals(1, conceptDescendants.getTotalElements());
+		conceptDescendants = queryService.search(queryService.createQueryBuilder(true).ecl("<" + SNOMEDCT_ROOT).conceptIds(Collections.singleton(conceptId)), "MAIN/A", PageRequest.of(0, 50));
+		assertEquals(1, conceptDescendants.getTotalElements());
+		eclQueryService.setEclCacheEnabled(false);
 
 		Page<Description> descriptions = descriptionService.findDescriptions("MAIN/A", null, null, null, PageRequest.of(0, 50));
-		assertEquals(20_000, descriptions.getTotalElements());
+		assertEquals(20_200, descriptions.getTotalElements());
 
 		final String anotherModule = "123123";
 		List<Concept> toUpdate = new ArrayList<>();
@@ -1266,7 +1278,7 @@ class ConceptServiceTest extends AbstractTest {
 		conceptService.createUpdate(toUpdate, "MAIN/A");
 
 		final Page<Concept> pageAfterUpdate = conceptService.findAll("MAIN/A", PageRequest.of(0, 100));
-		assertEquals(tenThousand + 1, pageAfterUpdate.getTotalElements());
+		assertEquals(tenThousandOneHundred + 1, pageAfterUpdate.getTotalElements());
 		Concept someConcept = pageAfterUpdate.getContent().get(50);
 		if (someConcept.getId().equals(SNOMEDCT_ROOT)) {
 			someConcept = pageAfterUpdate.getContent().get(51);

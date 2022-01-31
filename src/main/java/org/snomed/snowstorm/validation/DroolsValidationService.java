@@ -14,10 +14,7 @@ import org.ihtsdo.otf.resourcemanager.ResourceManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.config.Config;
-import org.snomed.snowstorm.core.data.domain.Concept;
-import org.snomed.snowstorm.core.data.domain.Description;
-import org.snomed.snowstorm.core.data.domain.Relationship;
-import org.snomed.snowstorm.core.data.domain.SnomedComponent;
+import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.services.*;
 import org.snomed.snowstorm.core.util.SearchAfterPage;
 import org.snomed.snowstorm.validation.domain.DroolsConcept;
@@ -37,10 +34,8 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.PrintWriter;
 import java.util.*;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
 import java.util.stream.Collectors;
 
 import static io.kaicode.elasticvc.api.VersionControlHelper.LARGE_PAGE;
@@ -68,9 +63,6 @@ public class DroolsValidationService {
 	private BranchService branchService;
 
 	@Autowired
-	private TermValidationServiceClient termValidationServiceClient;
-
-	@Autowired
 	private ConceptService conceptService;
 
 	private final String droolsRulesPath;
@@ -78,7 +70,6 @@ public class DroolsValidationService {
 
 	private RuleExecutor ruleExecutor;
 	private TestResourceProvider testResourceProvider;
-	private final ExecutorService termValidationExecutorService;
 	private final ExecutorService batchExecutorService;
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
@@ -91,7 +82,6 @@ public class DroolsValidationService {
 		this.droolsRulesPath = droolsRulesPath;
 		testResourceManager = new ResourceManager(resourceManagerConfiguration, cloudResourceLoader);
 		newRuleExecutorAndResources();
-		termValidationExecutorService = Executors.newCachedThreadPool();
 		batchExecutorService = Executors.newFixedThreadPool(1);
 	}
 
@@ -133,7 +123,6 @@ public class DroolsValidationService {
 
 		// Look-up release hashes from the store to set/update the component effectiveTimes
 		setReleaseHashAndEffectiveTime(concepts, branchCriteria);
-
 		Set<String> inferredTopLevelHierarchies = getTopLevelHierarchies();
 		DisposableQueryService disposableQueryService = new DisposableQueryService(queryService, branchPath, branchCriteria);
 		ConceptDroolsValidationService droolsConceptService = new ConceptDroolsValidationService(branchCriteria, elasticsearchOperations, disposableQueryService, inferredTopLevelHierarchies);
@@ -141,19 +130,6 @@ public class DroolsValidationService {
 				this.descriptionService, disposableQueryService, testResourceProvider, inferredTopLevelHierarchies);
 		RelationshipDroolsValidationService relationshipService = new RelationshipDroolsValidationService(disposableQueryService);
 		final List<InvalidContent> invalidContents = ruleExecutor.execute(ruleSetNames, droolsConcepts, droolsConceptService, droolsDescriptionService, relationshipService, false, false);
-
-		// If term-validation-service called join results
-		if (termValidationFuture != null) {
-			try {
-				final List<InvalidContent> termValidationInvalidContents = termValidationFuture.get().getInvalidContents();
-				invalidContents.addAll(termValidationInvalidContents);
-			} catch (InterruptedException e) {
-				logger.warn("Term validation interrupted.");
-			} catch (ExecutionException e) {
-				final Throwable cause = e.getCause();
-				logger.error(cause.getMessage(), cause);
-			}
-		}
 
 		return invalidContents;
 	}
@@ -178,23 +154,6 @@ public class DroolsValidationService {
 							doneCount++;
 							if (doneCount % 10 == 0) {
 								logger.info("Validating concept {} of {}.", doneCount, total);
-							}
-							try {
-								final TermValidationResult termValidationResult = termValidationServiceClient.validateConcept(branch, concept, afterClassification);
-								final List<InvalidContent> invalidContents = termValidationResult.getInvalidContents();
-								writer.print(concept.getId());
-								writer.print("\t");
-								writer.print(concept.getFsn().getTerm());
-								writer.print("\t");
-								writer.print(invalidContents.size());
-								writer.print("\t");
-								writer.print(invalidContents.stream().map(InvalidContent::getMessage).collect(Collectors.toList()));
-								writer.print("\t");
-								writer.print(termValidationResult.getTsvDuration());
-								writer.print("\t");
-								writer.println(termValidationResult.getTotalDuration());
-							} catch (ServiceException e) {
-								e.printStackTrace();
 							}
 						}
 					}
@@ -304,15 +263,10 @@ public class DroolsValidationService {
 	private Set<String> getTopLevelHierarchies() {
 		Branch latestMainBranch = branchService.findLatest("MAIN");
 		if (topLevelHierarchiesLastFetched == null || latestMainBranch.getHeadTimestamp() > topLevelHierarchiesLastFetched) {
-			topLevelHierarchies = queryService.searchForIds(queryService.createQueryBuilder(false), "MAIN", PageRequest.of(0, 1000))
+			topLevelHierarchies = queryService.findChildrenIdsAsUnion(versionControlHelper.getBranchCriteria("MAIN"), false, Collections.singleton(Long.valueOf(Concepts.SNOMEDCT_ROOT)))
 					.stream().map(Object::toString).collect(Collectors.toSet());
 			topLevelHierarchiesLastFetched = latestMainBranch.getHeadTimestamp();
 		}
 		return topLevelHierarchies;
-	}
-
-	@PreDestroy
-	public void onShutdown() {
-		termValidationExecutorService.shutdown();
 	}
 }

@@ -52,8 +52,8 @@ public class DescriptionDroolsValidationService implements org.ihtsdo.drools.ser
 
 	@Override
 	public Set<String> getFSNs(Set<String> conceptIds, String... languageRefsetIds) {
-		return descriptionService.findDescriptionsByConceptId(branchPath, conceptIds, false).stream()
-				.filter(d -> d.isActive() && d.getTypeId().equals(Concepts.FSN))
+		return descriptionService.findDescriptionsByConceptId(branchPath, conceptIds, languageRefsetIds.length > 0 ? true : false).stream()
+				.filter(d -> d.isActive() && d.getTypeId().equals(Concepts.FSN) && (languageRefsetIds.length == 0 || d.getLangRefsetMembersMap().keySet().stream().anyMatch(k -> Arrays.asList(languageRefsetIds).contains(k))))
 				.map(org.snomed.snowstorm.core.data.domain.Description::getTerm)
 				.collect(Collectors.toSet());
 	}

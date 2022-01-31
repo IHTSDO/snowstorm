@@ -1,6 +1,7 @@
 package org.snomed.snowstorm.ecl.domain.expressionconstraint;
 
 import io.kaicode.elasticvc.api.BranchCriteria;
+import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 import org.snomed.langauges.ecl.domain.expressionconstraint.DottedExpressionConstraint;
 import org.snomed.langauges.ecl.domain.expressionconstraint.SubExpressionConstraint;
 import org.snomed.snowstorm.core.data.services.QueryService;
@@ -13,6 +14,8 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Slice;
 
 import java.util.*;
+import java.util.function.LongPredicate;
+import java.util.stream.Collectors;
 
 import static com.google.common.collect.Sets.newHashSet;
 import static java.util.stream.Collectors.toSet;
@@ -29,28 +32,41 @@ public class SDottedExpressionConstraint extends DottedExpressionConstraint impl
 
 	@Override
 	public Optional<Page<Long>> select(String path, BranchCriteria branchCriteria, boolean stated, Collection<Long> conceptIdFilter, PageRequest pageRequest, QueryService queryService) {
-		Optional<Page<Long>> conceptIds = SExpressionConstraintHelper.select(this, path, branchCriteria, stated, conceptIdFilter, null, queryService);
-
+		// Concept ids filtering should be done on attribute values for dot notation ECL query
+		// Fetch source concept ids
+		Optional<Page<Long>> conceptIds = SExpressionConstraintHelper.select(this, path, branchCriteria, stated, null, null, queryService);
 		if (conceptIds.isEmpty()) {
 			throw new UnsupportedOperationException("Dotted expression using wildcard focus concept is not supported.");
 		}
 
 		for (SubExpressionConstraint dottedAttribute : dottedAttributes) {
-			Optional<Page<Long>> attributeTypeIdsOptional = ((SSubExpressionConstraint)dottedAttribute).select(path, branchCriteria, stated, conceptIdFilter, null, queryService);
+			Optional<Page<Long>> attributeTypeIdsOptional = ((SSubExpressionConstraint)dottedAttribute).select(path, branchCriteria, stated, null, null, queryService);
 			List<Long> attributeTypeIds = attributeTypeIdsOptional.map(Slice::getContent).orElse(null);
 			// XXX Note that this content is not paginated
 			List<Long> idList = new ArrayList<>(queryService.findRelationshipDestinationIds(conceptIds.get().getContent(), attributeTypeIds, branchCriteria, stated));
 			conceptIds = Optional.of(new PageImpl<>(idList));
 		}
 
-		// Manually apply pagination
-		if (pageRequest != null) {
-			List<Long> content = conceptIds.get().getContent();
-			List<Long> pageOfContent = PageHelper.subList(content, pageRequest.getPageNumber(), pageRequest.getPageSize());
-			conceptIds = Optional.of(new PageImpl<>(pageOfContent, pageRequest, content.size()));
+		List<Long> results = conceptIds.get().getContent();
+		LongPredicate filter = null;
+		if (conceptIdFilter != null && !conceptIdFilter.isEmpty()) {
+			LongOpenHashSet fastSet = new LongOpenHashSet(conceptIdFilter);
+			filter = fastSet::contains;
+		}
+		// Filtering on final results
+		if (filter != null) {
+			results = conceptIds.get().getContent().stream().filter(filter::test).collect(Collectors.toList());
 		}
 
-		return conceptIds;
+		// Manually apply pagination
+		Optional<Page<Long>> pageResults;
+		if (pageRequest != null) {
+			List<Long> pageOfContent = PageHelper.subList(results, pageRequest.getPageNumber(), pageRequest.getPageSize());
+			pageResults = Optional.of(new PageImpl<>(pageOfContent, pageRequest, results.size()));
+		} else {
+			pageResults = Optional.of(new PageImpl<>(results));
+		}
+		return pageResults;
 	}
 
 	@Override

@@ -23,10 +23,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
-import java.util.Comparator;
-import java.util.List;
-import java.util.Set;
-import java.util.UUID;
+import java.util.*;
 import java.util.stream.Collectors;
 
 import static io.kaicode.elasticvc.api.VersionControlHelper.LARGE_PAGE;
@@ -55,6 +52,12 @@ class ClassificationServiceTest extends AbstractTest {
 
 	@Autowired
 	private ReferenceSetMemberService referenceSetMemberService;
+
+	@Autowired
+	private RelationshipService relationshipService;
+
+	@Autowired
+	private BranchMergeService branchMergeService;
 
 	@Test
 	void testSaveRelationshipChanges() throws IOException, ServiceException, InterruptedException {
@@ -237,6 +240,40 @@ class ClassificationServiceTest extends AbstractTest {
 		conceptService.update(concept, extensionBranchPath);
 		assertEquals(Boolean.FALSE, BranchClassificationStatusService.getClassificationStatus(branchService.findLatest(extensionBranchPath)));
 	}
+	
+	@Test
+	void testSaveExtensionChangesToInternationalConcept() throws IOException, ServiceException, InterruptedException {
+		// Create concept with some stated modeling in an axiom
+		Relationship r = new Relationship("123456020", Concepts.ISA, Concepts.SNOMEDCT_ROOT);
+		r.setModuleId(Concepts.CORE_MODULE);
+		
+		conceptService.create(
+				new Concept("123123123001")
+						.addAxiom(
+								new Relationship(Concepts.ISA, Concepts.SNOMEDCT_ROOT),
+								new Relationship("363698007", "84301002"))
+						.addRelationship(r)
+						.setModuleId(Concepts.CORE_MODULE),
+						"MAIN");
+
+		String extensionBranchPath = "MAIN/SNOMEDCT-SE";
+		codeSystemService.createCodeSystem(new CodeSystem("SNOMEDCT-SE", extensionBranchPath));
+		branchService.updateMetadata(extensionBranchPath, ImmutableMap.of(Config.DEFAULT_MODULE_ID_KEY, "45991000052106", Config.DEFAULT_NAMESPACE_KEY, "1000052"));
+
+		// Save mock classification results - an extension inactivation of an international relationship
+		Classification classification = createClassification(extensionBranchPath, UUID.randomUUID().toString());
+		classificationService.saveRelationshipChanges(classification, new ByteArrayInputStream(("" +
+				"id\teffectiveTime\tactive\tmoduleId\tsourceId\tdestinationId\trelationshipGroup\ttypeId\tcharacteristicTypeId\tmodifierId\n" +
+				"123456020\t\t0\t\t123123123001\t138875005\t0\t116680003\t900000000000227009\t900000000000451002\n" +
+				"").getBytes()), false);
+
+		assertEquals(SAVED, saveClassificationAndWaitForCompletion(extensionBranchPath, classification.getId()));
+	
+		Concept concept = conceptService.find("123123123001", extensionBranchPath);
+		for (Relationship relationship : concept.getRelationships()) {
+			assertEquals(relationship.getModuleId(), "45991000052106", "Modified relationships have the extension module applied.");
+		}
+	}
 
 	@Test
 	void testSaveRelationshipChangesInExtensionThenDeleteInChildBranch() throws IOException, ServiceException, InterruptedException {
@@ -320,6 +357,50 @@ class ClassificationServiceTest extends AbstractTest {
 		assertEquals(SAVED, saveClassificationAndWaitForCompletion(path, classificationId));
 
 		assertEquals(conceptService.find(conceptId, path).getRelationships().size(), 1, "Not released redundant relationship deleted");
+	}
+
+	@Test
+	void testRemoveNotReleasedRedundantOrphanedRelationships() throws IOException, ServiceException, InterruptedException {
+		// Create concept with some stated modeling in an axiom
+		String main = "MAIN";
+		String conceptId = "123123123001";
+		conceptService.create(
+				new Concept(conceptId)
+						.addRelationship(new Relationship(Concepts.ISA, Concepts.SNOMEDCT_ROOT))
+				, main);
+
+		String branchA = "MAIN/A";
+		branchService.create(branchA);
+
+		final Concept savedConcept = conceptService.find(conceptId, branchA);
+		savedConcept.addRelationship(new Relationship("363698007", "84301002"));
+		conceptService.update(savedConcept, branchA);
+		assertEquals(1, relationshipService.findRelationships(branchA, null, null, null, null, conceptId,
+				"363698007", "84301002", null, null, PageRequest.of(0, 10)).getTotalElements());
+		conceptService.deleteConceptAndComponents(conceptId, MAIN, false);
+
+		// inferred relationship still exists on branch A although the concept does not.
+		branchMergeService.rebaseSync(branchA, Collections.emptySet());
+		Page<Relationship> relationships = relationshipService.findRelationships(branchA, null, null, null, null, conceptId,
+				"363698007", "84301002", null, null, PageRequest.of(0, 10));
+		assertEquals(1, relationships.getTotalElements());
+
+		String classificationId = UUID.randomUUID().toString();
+		Classification classification = createClassification(branchA, classificationId);
+
+		// Save orphan relationship removal
+		Optional<Relationship> relationship = relationships.stream().findFirst();
+		assertTrue(relationship.isPresent());
+		classificationService.saveRelationshipChanges(classification, new ByteArrayInputStream(("" +
+				"id\teffectiveTime\tactive\tmoduleId\tsourceId\tdestinationId\trelationshipGroup\ttypeId\tcharacteristicTypeId\tmodifierId\n" +
+				relationship.get().getId() + "\t\t0\t\t" + conceptId + "\t84301002\t0\t363698007\t900000000000011006\t900000000000451002\n" +
+				"").getBytes()), false);
+
+		assertEquals(SAVED, saveClassificationAndWaitForCompletion(branchA, classificationId));
+
+		assertEquals(0, relationshipService.findRelationships(branchA, null, null, null, null, conceptId,
+						"363698007", "84301002", null, null, PageRequest.of(0, 10)).getTotalElements(),
+				"Orphaned relationship deleted.");
 	}
 
 	@Test

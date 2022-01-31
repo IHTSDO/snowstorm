@@ -105,6 +105,8 @@ public class CodeSystemService {
 
 	private final Map<String, Integer> versionCommitEffectiveTimeCache = new ConcurrentHashMap<>();
 
+	private Map<String, Integer> versionCommitEffectiveTimeCache = new HashMap<>();
+
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
 	public synchronized void init() {

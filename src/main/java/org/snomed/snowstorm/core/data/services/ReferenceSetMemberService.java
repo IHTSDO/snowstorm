@@ -140,6 +140,15 @@ public class ReferenceSetMemberService extends ComponentService {
 		if (searchRequest.getActive() != null) {
 			query.must(termQuery(ReferenceSetMember.Fields.ACTIVE, searchRequest.getActive()));
 		}
+		
+		if (searchRequest.isNullEffectiveTime() != null) {
+			if (searchRequest.isNullEffectiveTime()) {
+				query.mustNot(existsQuery(SnomedComponent.Fields.EFFECTIVE_TIME));
+			} else {
+				query.must(existsQuery(SnomedComponent.Fields.EFFECTIVE_TIME));
+			}
+		}
+		
 		String referenceSet = searchRequest.getReferenceSet();
 		if (!Strings.isNullOrEmpty(referenceSet)) {
 			List<Long> conceptIds = getConceptIds(branch, branchCriteria, referenceSet);

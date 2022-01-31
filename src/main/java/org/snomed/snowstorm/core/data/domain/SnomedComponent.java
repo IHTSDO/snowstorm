@@ -115,7 +115,7 @@ public abstract class SnomedComponent<C> extends DomainEntity<C> implements IdAn
 		setReleasedEffectiveTime(null);
 	}
 
-	private String buildReleaseHash() {
+	public String buildReleaseHash() {
 		return Strings.arrayToDelimitedString(getReleaseHashObjects(), "|");
 	}
 

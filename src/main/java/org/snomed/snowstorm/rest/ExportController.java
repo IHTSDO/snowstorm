@@ -1,11 +1,16 @@
 package org.snomed.snowstorm.rest;
 
+import io.kaicode.elasticvc.api.BranchService;
+import io.kaicode.elasticvc.domain.Branch;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
 
+import org.drools.core.util.StringUtils;
 import org.snomed.snowstorm.core.data.domain.ReferenceSetMember;
 import org.snomed.snowstorm.core.data.domain.jobs.ExportConfiguration;
+import org.snomed.snowstorm.core.data.services.BranchMetadataKeys;
 import org.snomed.snowstorm.core.data.services.ModuleDependencyService;
+import org.snomed.snowstorm.core.rf2.export.ExportFilter;
 import org.snomed.snowstorm.core.rf2.export.ExportService;
 import org.snomed.snowstorm.rest.pojo.ExportRequestView;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -19,6 +24,7 @@ import javax.validation.Valid;
 import java.io.IOException;
 import java.util.List;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 @RestController
 @Api(tags = "Export", description = "RF2")
@@ -27,6 +33,9 @@ public class ExportController {
 
 	@Autowired
 	private ExportService exportService;
+	
+	@Autowired
+	private BranchService branchService;
 	
 	@Autowired
 	private ModuleDependencyService moduleDependencyService;
@@ -64,8 +73,23 @@ public class ExportController {
 	public List<ReferenceSetMember> generateModuleDependencyPreview (
 			@RequestParam String branchPath,
 			@RequestParam String effectiveDate,
-			@RequestParam(required = false) Set<String> moduleFilter) {
-		return moduleDependencyService.generateModuleDependencies(branchPath, effectiveDate, moduleFilter, null);
+			@RequestParam(defaultValue="true") boolean isDelta,
+			@RequestParam(required = false) Set<String> modulesIncluded) {
+		
+		//Need to detect if this is an Edition or Extension package so we know what MDRS rows to export
+		//Extensions only mention their own modules, despite being able to "see" those on MAIN
+		Branch branch = branchService.findBranchOrThrow(branchPath);
+		final boolean isExtension = (branch.getMetadata() != null && !StringUtils.isEmpty(branch.getMetadata().getString(BranchMetadataKeys.DEPENDENCY_PACKAGE)));
+		ExportFilter<ReferenceSetMember> exportFilter = new ExportFilter<ReferenceSetMember>() {
+			public boolean isValid(ReferenceSetMember rm) {
+				return moduleDependencyService.isExportable(rm, isExtension);
+			}
+		};
+		
+		return moduleDependencyService.generateModuleDependencies(branchPath, effectiveDate, modulesIncluded, isDelta, null)
+				.stream()
+				.filter(rm -> exportFilter.isValid(rm))
+				.collect(Collectors.toList());
 	}
 
 }

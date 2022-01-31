@@ -1,6 +1,7 @@
 package org.snomed.snowstorm.core.data.services;
 
 import io.kaicode.elasticvc.api.BranchService;
+import io.kaicode.elasticvc.domain.Branch;
 import org.ihtsdo.otf.snomedboot.ReleaseImportException;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -19,6 +20,8 @@ import java.io.IOException;
 import java.util.*;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.snomed.snowstorm.core.data.domain.Concepts.ISA;
+import static org.snomed.snowstorm.core.data.domain.Concepts.PRIMITIVE;
 import static org.snomed.snowstorm.core.data.services.traceability.Activity.ActivityType.*;
 
 class TraceabilityLogServiceTest extends AbstractTest {
@@ -307,12 +310,7 @@ class TraceabilityLogServiceTest extends AbstractTest {
 		assertEquals("MAIN/B", rebaseActivity.getBranchPath());
 		assertEquals("MAIN", rebaseActivity.getSourceBranch());
 		final Collection<Activity.ConceptActivity> changes = rebaseActivity.getChanges();
-		System.out.println(changes);
-		assertEquals(1, changes.size());
-		final Activity.ConceptActivity activity = changes.iterator().next();
-		assertEquals(1, activity.getComponentChanges().size());
-		final Activity.ComponentChange componentChange = activity.getComponentChanges().iterator().next();
-		assertEquals(Activity.ChangeType.UPDATE, componentChange.getChangeType());
+		assertEquals(0, changes.size());
 	}
 
 	@Test
@@ -442,6 +440,69 @@ class TraceabilityLogServiceTest extends AbstractTest {
 		final Activity.ConceptActivity conceptActivity = activity.getChanges().iterator().next();
 		assertEquals("[ComponentChange{componentType=REFERENCE_SET_MEMBER, componentSubType=446609009, componentId='x', changeType=CREATE, effectiveTimeNull=true}]",
 				toString(conceptActivity.getComponentChanges()));
+	}
+
+	@Test
+	void testRebaseVersionedRelationshipWithChangesUpdatedByOtherProject() throws Exception {
+		// Create a concept with relationships and version in MAIN
+		conceptService.create(new Concept(ISA).setDefinitionStatusId(PRIMITIVE).addFSN("Is a (attribute)"), "MAIN");
+		final String disease = "10000001";
+		conceptService.create(new Concept(disease).addFSN("Disease (disorder)"), "MAIN");
+		Concept concept = conceptService.create(new Concept().addFSN("Test concept").addRelationship(0, ISA, disease), "MAIN");
+		assertEquals(1, concept.getRelationships().size());
+
+		final String conceptId = concept.getConceptId();
+		final CodeSystem codeSystem = codeSystemService.createCodeSystem(new CodeSystem("SNOMEDCT", MAIN));
+		codeSystemService.createVersion(codeSystem, 20220131, "");
+
+		// Check concept on MAIN after versioning
+		concept = conceptService.find(conceptId, "MAIN");
+		assertEquals(1, concept.getRelationships().size());
+		Relationship relationship = concept.getRelationships().iterator().next();
+		assertTrue(relationship.isActive());
+		assertTrue(relationship.isReleased());
+		assertEquals("20220131", relationship.getEffectiveTime());
+
+		final String relationshipId = concept.getRelationships().iterator().next().getRelationshipId();
+
+		// Create project A and inactivate the relationship created
+		Branch projectA = branchService.create("MAIN/A");
+		concept = conceptService.find(conceptId, projectA.getPath());
+		assertEquals("20220131", concept.getEffectiveTime());
+		concept.getRelationship(relationshipId).setActive(false);
+		conceptService.update(concept, projectA.getPath());
+
+		// Re-activate relationship on project A
+		concept = conceptService.find(conceptId, projectA.getPath());
+		concept.getRelationship(relationshipId).setActive(true);
+		conceptService.update(concept, projectA.getPath());
+
+		concept = conceptService.find(conceptId, projectA.getPath());
+		assertEquals("20220131", concept.getEffectiveTime());
+		assertEquals("20220131", concept.getRelationship(relationshipId).getEffectiveTime());
+
+		// Create project B and make the same inactivation as above and promote changes to MAIN
+		Branch projectB = branchService.create("MAIN/B");
+		concept = conceptService.find(conceptId, projectB.getPath());
+		concept.getRelationship(relationshipId).setActive(false);
+		conceptService.update(concept, projectB.getPath());
+		// Promote project B to MAIN
+		branchMergeService.mergeBranchSync(projectB.getPath(), "MAIN", Collections.singleton(conceptService.find(conceptId, projectB.getPath())));
+
+		// Rebase project A from MAIN without manual merge concepts
+		// Inferred relationship changes don't trigger merge review see details in mergeBranchSync() method
+		// The version on project A is ended and the version from MAIN is chosen by default
+		branchMergeService.mergeBranchSync("MAIN", projectA.getPath(), Collections.emptyList());
+		// Check the effectiveTimeNull is set to true in saved relationship after rebase
+		concept = conceptService.find(conceptId, projectA.getPath());
+		assertEquals("20220131", concept.getEffectiveTime());
+		assertNull(concept.getRelationship(relationshipId).getEffectiveTime());
+
+		Activity rebaseActivity = getTraceabilityActivity();
+		assertEquals(REBASE, rebaseActivity.getActivityType());
+		assertEquals("MAIN/A", rebaseActivity.getBranchPath());
+		assertEquals("MAIN", rebaseActivity.getSourceBranch());
+		assertTrue(rebaseActivity.getChanges().isEmpty());
 	}
 
 	private String toString(Set<Activity.ComponentChange> componentChanges) {

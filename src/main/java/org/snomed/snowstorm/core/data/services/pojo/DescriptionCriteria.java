@@ -60,7 +60,7 @@ public class DescriptionCriteria {
 	private static boolean containsHanScript(String s) {
 		return s.codePoints().anyMatch(
 				codepoint ->
-						Character.UnicodeScript.of(codepoint) == Character.UnicodeScript.HAN);
+						Character.UnicodeScript.of(codepoint) == Character.UnicodeScript.HAN || Character.UnicodeScript.of(codepoint) == Character.UnicodeScript.HANGUL);
 	}
 
 	public String getTerm() {
