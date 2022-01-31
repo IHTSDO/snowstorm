@@ -3,6 +3,13 @@ All notable changes to this project will be documented in this file.
 
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 7.7.0 Release
+
+### Breaking
+- General
+  - When using `returnIdOnly` parameter; the ids returned now use 'string' rather than 'number' JSON data type, to avoid rounding. Fixes #367.
+
+
 ## 7.5.4 Release (Dec 2021)
 Maintenance release with new features in FHIR and many improvements and fixes.
 
