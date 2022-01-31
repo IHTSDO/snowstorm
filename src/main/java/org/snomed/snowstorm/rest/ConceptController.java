@@ -23,6 +23,8 @@ import org.snomed.snowstorm.core.data.services.pojo.ResultMapPage;
 import org.snomed.snowstorm.core.pojo.BranchTimepoint;
 import org.snomed.snowstorm.core.pojo.LanguageDialect;
 import org.snomed.snowstorm.core.util.PageHelper;
+import org.snomed.snowstorm.core.util.SearchAfterPage;
+import org.snomed.snowstorm.core.util.SearchAfterPageImpl;
 import org.snomed.snowstorm.core.util.TimerUtil;
 import org.snomed.snowstorm.ecl.validation.ECLValidator;
 import org.snomed.snowstorm.rest.converter.SearchAfterHelper;
@@ -46,6 +48,7 @@ import org.springframework.web.util.UriComponentsBuilder;
 
 import javax.validation.Valid;
 import java.util.*;
+import java.util.stream.Collectors;
 
 import static io.kaicode.elasticvc.api.ComponentService.LARGE_PAGE;
 import static org.apache.commons.lang3.StringUtils.isNotBlank;
@@ -181,7 +184,10 @@ public class ConceptController {
 			pageRequest = getPageRequestWithSort(offset, limit, searchAfter, Sort.sort(QueryConcept.class).by(QueryConcept::getConceptIdL).descending());
 		}
 		if (returnIdOnly) {
-			return new ItemsPage<>(queryService.searchForIds(queryBuilder, branch, pageRequest));
+			SearchAfterPage<Long> longsPage = queryService.searchForIds(queryBuilder, branch, pageRequest);
+			SearchAfterPageImpl<String> stringPage = new SearchAfterPageImpl<>(longsPage.stream().map(Object::toString).collect(Collectors.toList()),
+					longsPage.getPageable(), longsPage.getTotalElements(), longsPage.getSearchAfter());
+			return new ItemsPage<>(stringPage);
 		} else {
 			return new ItemsPage<>(queryService.search(queryBuilder, branch, pageRequest));
 		}
