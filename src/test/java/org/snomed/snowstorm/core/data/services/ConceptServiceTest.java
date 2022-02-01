@@ -3,6 +3,7 @@ package org.snomed.snowstorm.core.data.services;
 import com.fasterxml.jackson.databind.DeserializationConfig;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import io.kaicode.elasticvc.api.BranchService;
@@ -14,6 +15,7 @@ import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.AbstractTest;
+import org.snomed.snowstorm.config.Config;
 import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.services.pojo.AsyncConceptChangeBatch;
 import org.snomed.snowstorm.core.data.services.pojo.DescriptionCriteria;
@@ -35,6 +37,7 @@ import java.util.*;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
+import static io.kaicode.elasticvc.api.ComponentService.LARGE_PAGE;
 import static org.elasticsearch.index.query.QueryBuilders.termQuery;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.snomed.snowstorm.config.Config.DEFAULT_LANGUAGE_DIALECTS;
@@ -660,6 +663,84 @@ class ConceptServiceTest extends AbstractTest {
 		inactiveConcept = conceptService.find(inactiveConcept.getId(), path);
 		assertEquals("OUTDATED", inactiveConcept.getInactivationIndicator());
 	}
+	
+	@Test
+	void testConcepReactivationInExtension() throws ServiceException {
+		String path = "MAIN";
+		String extensionModule = "45991000052106";
+		conceptService.batchCreate(Lists.newArrayList(new Concept("107658001"), new Concept("116680003")), path);
+		final Concept concept = new Concept("50960005", 20020131, true, "900000000000207008", "900000000000074008");
+		Description desc = new Description("84923010", 20020131, true, "900000000000207008", "50960005", "en", "900000000000013009", "Bleeding", "900000000000020002");
+		
+		concept.addDescription(desc);
+		concept.addAxiom(new Relationship(ISA, "107658001"));
+		Concept savedConcept = conceptService.create(concept, path);
+
+		// Make concept inactive
+		savedConcept.setActive(false);
+
+		// Set inactivation indicators using strings
+		savedConcept.setInactivationIndicator(Concepts.inactivationIndicatorNames.get(Concepts.DUPLICATE));
+		desc.setInactivationIndicator(Concepts.inactivationIndicatorNames.get(Concepts.CONCEPT_NON_CURRENT));
+
+		// Set association target using strings
+		HashMap<String, Set<String>> associationTargetStrings = new HashMap<>();
+		associationTargetStrings.put(Concepts.historicalAssociationNames.get(Concepts.REFSET_SAME_AS_ASSOCIATION), Collections.singleton("87100004"));
+		savedConcept.setAssociationTargets(associationTargetStrings);
+		assertTrue(savedConcept.getAssociationTargetMembers().isEmpty());
+		savedConcept.setInactivationIndicator("OUTDATED");
+		
+		Concept transferredConcept = simulateRestTransfer(savedConcept);
+		conceptService.update(transferredConcept, path);
+		
+		codeSystemService.createVersion(codeSystem, 20200131, "");
+		
+		//Now create an extension code system based off this 
+		String extensionBranchPath = "MAIN/SNOMEDCT-SE";
+		codeSystemService.createCodeSystem(new CodeSystem("SNOMEDCT-SE", extensionBranchPath));
+		branchService.updateMetadata(extensionBranchPath, ImmutableMap.of(Config.DEFAULT_MODULE_ID_KEY, extensionModule, Config.DEFAULT_NAMESPACE_KEY, "1000052"));
+
+		//Now we're going to REactivate that concept in an extension, so the concept itself will move module
+		//as will the inactivation indicators which will themselves be INactivated.
+
+		//First verify we can find our concept
+		Concept foundInactiveConcept = conceptService.find(savedConcept.getConceptId(), extensionBranchPath);
+		assertFalse(foundInactiveConcept.isActive());
+		
+		//Now let's reactivate that concept on the extension branch
+		foundInactiveConcept.setActive(true);
+		foundInactiveConcept.setInactivationIndicator(null);
+		foundInactiveConcept.setAssociationTargets(null);
+		foundInactiveConcept.setModuleId(extensionModule);
+		
+		conceptService.update(foundInactiveConcept, extensionBranchPath);
+		
+		Concept foundReactivatedConcept = conceptService.find(savedConcept.getConceptId(), extensionBranchPath);
+		assertEquals(extensionModule, foundReactivatedConcept.getModuleId());
+		
+		//Now the inactivation indicator and historical association should have been INACTIVED (since the concept is now active)
+		//And that change should have happened in the extension module
+		Page<ReferenceSetMember> page = referenceSetMemberService.findMembers(extensionBranchPath, savedConcept.getConceptId(), LARGE_PAGE);
+		assertEquals(2, page.getContent().size());
+		for (ReferenceSetMember rm : page.getContent()) {
+			assertFalse(rm.isActive());
+			assertEquals(extensionModule, rm.getModuleId());
+		}
+		
+		//Now the description itself will stay active in the international module,
+		//but it's Concept Non Current indicator will inactive, again in the extension module
+		for (Description d : foundReactivatedConcept.getDescriptions()) {
+			assertTrue(d.isActive());
+			assertEquals(Concepts.CORE_MODULE, d.getModuleId());
+			page = referenceSetMemberService.findMembers(extensionBranchPath, d.getDescriptionId(), LARGE_PAGE);
+			assertEquals(1, page.getContent().size());
+			for (ReferenceSetMember rm : page.getContent()) {
+				assertFalse(rm.isActive());
+				assertEquals(extensionModule, rm.getModuleId());
+			}
+		}
+	}
+
 
 	@Test
 	void testConceptReinactivationOfVersionedConceptWithSameReasonAndAssociation() throws ServiceException, IOException {
