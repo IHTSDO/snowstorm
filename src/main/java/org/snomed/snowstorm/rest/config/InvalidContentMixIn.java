@@ -1,6 +1,5 @@
 package org.snomed.snowstorm.rest.config;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonView;
 import org.ihtsdo.drools.domain.Component;
 import org.ihtsdo.drools.response.Severity;
@@ -32,7 +31,7 @@ public interface InvalidContentMixIn {
 	@JsonView(value = View.Component.class)
 	Severity getSeverity();
 
-	@JsonIgnore
+	@JsonView(value = View.Component.class)
 	Component getComponent();
 
 	@JsonView(value = View.Component.class)

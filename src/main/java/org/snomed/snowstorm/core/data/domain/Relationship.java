@@ -5,7 +5,6 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonView;
 import org.elasticsearch.common.Strings;
-import org.snomed.snowstorm.core.pojo.LanguageDialect;
 import org.snomed.snowstorm.rest.View;
 import org.springframework.data.annotation.Transient;
 import org.springframework.data.elasticsearch.annotations.Document;
@@ -14,8 +13,6 @@ import org.springframework.data.elasticsearch.annotations.FieldType;
 
 import javax.validation.constraints.NotNull;
 import javax.validation.constraints.Size;
-import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 
 import static org.snomed.snowstorm.core.data.domain.Concepts.*;
@@ -230,19 +227,6 @@ public class Relationship extends SnomedComponent<Relationship> {
 
 	public boolean isConcrete() {
 		return this.value != null && this.destinationId == null;
-	}
-
-	public Map<String, ConceptMini> createConceptMinis(List<LanguageDialect> languageDialects, Map<String, ConceptMini> relationshipConceptMinis) {
-		if (sourceId != null) {
-			setSource(relationshipConceptMinis.computeIfAbsent(sourceId, id -> new ConceptMini(id, languageDialects)));
-		}
-		if (typeId != null) {
-			setType(relationshipConceptMinis.computeIfAbsent(typeId, id -> new ConceptMini(id, languageDialects)));
-		}
-		if (destinationId != null) {
-			setTarget(relationshipConceptMinis.computeIfAbsent(destinationId, id -> new ConceptMini(id, languageDialects)));
-		}
-		return relationshipConceptMinis;
 	}
 
 	@Override

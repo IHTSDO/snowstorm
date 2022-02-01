@@ -404,13 +404,6 @@ public class Concept extends SnomedComponent<Concept> implements ConceptView, Sn
 		this.generalConceptInclusionAxioms = generalConceptInclusionAxioms;
 	}
 
-	@JsonIgnore
-	public Set<Axiom> getClassAndGciAxioms() {
-		Set<Axiom> classAndGciAxioms = new HashSet<>(getClassAxioms());
-		classAndGciAxioms.addAll(getGciAxioms());
-		return classAndGciAxioms;
-	}
-
 	@JsonView(value = View.Component.class)
 	public Long getDescendantCount() {
 		return descendantCount;

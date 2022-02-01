@@ -5,6 +5,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.Date;
+import java.util.concurrent.Callable;
 import java.util.function.Supplier;
 
 public class TimerUtil {
@@ -58,7 +59,7 @@ public class TimerUtil {
 
 	public void checkpoint(Supplier nameSupplier) {
 		final long now = new Date().getTime();
-		float secondsTaken = getDurationSeconds(lastCheck, now);
+		float secondsTaken = getDuration(lastCheck, now);
 		lastCheck = now;
 		if (secondsTaken >= durationLoggingThreshold) {
 			log("Timer {}: {} took {} seconds", timerName, nameSupplier.get(), secondsTaken);
@@ -68,19 +69,18 @@ public class TimerUtil {
 		}
 	}
 
-	public float finish() {
+	public void finish() {
 		final long now = new Date().getTime();
-		float secondsTaken = getDurationSeconds(start, now);
+		float secondsTaken = getDuration(start, now);
 		if (secondsTaken >= durationLoggingThreshold) {
 			log("Timer {}: total took {} seconds", timerName, secondsTaken);
 		}
 		if (childTimer != null) {
 			childTimer.finish();
 		}
-		return secondsTaken;
 	}
 
-	public static float getDurationSeconds(long startMilliseconds, long endMilliseconds) {
+	public static float getDuration(long startMilliseconds, long endMilliseconds) {
 		float millisTaken = endMilliseconds - startMilliseconds;
 		return millisTaken / 1000f;
 	}

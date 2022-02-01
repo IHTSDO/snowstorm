@@ -101,9 +101,7 @@ public class CodeSystemService {
 	private boolean latestVersionCanBeInternalRelease;
 
 	// Cache to prevent expensive aggregations. Entry per branch. Expires if there is a new commit.
-	private final Map<String, Pair<Date, CodeSystem>> contentInformationCache = new ConcurrentHashMap<>();
-
-	private final Map<String, Integer> versionCommitEffectiveTimeCache = new ConcurrentHashMap<>();
+	private final ConcurrentHashMap<String, Pair<Date, CodeSystem>> contentInformationCache = new ConcurrentHashMap<>();
 
 	private Map<String, Integer> versionCommitEffectiveTimeCache = new HashMap<>();
 

@@ -1,7 +1,5 @@
 package org.snomed.snowstorm.rest.pojo;
 
-import org.snomed.snowstorm.core.data.domain.Relationship;
-
 import java.util.Set;
 
 public class ConceptSearchRequest {
@@ -16,12 +14,10 @@ public class ConceptSearchRequest {
 	private Set<Long> preferredOrAcceptableIn;
 	private String definitionStatusFilter;
 	private Set<Long> module;
-	private Boolean includeLeafFlag;
-	private Relationship.CharacteristicType form;
 	private String eclFilter;
 	private Integer effectiveTime;
-	private Boolean nullEffectiveTime;
-	private Boolean published;
+	private Boolean isNullEffectiveTime;
+	private Boolean isPublished;
 	private String statedEclFilter;
 	private Set<String> conceptIds;
 	private boolean returnIdOnly;
@@ -109,33 +105,25 @@ public class ConceptSearchRequest {
 	public String getStatedEclFilter() {
 		return statedEclFilter;
 	}
-
-	public void setStatedEclFilter(String statedEclFilter) {
-		this.statedEclFilter = statedEclFilter;
-	}
-
-	public Integer getEffectiveTime() {
-		return effectiveTime;
-	}
-
+	
 	public void setEffectiveTime(Integer effectiveTime) {
 		this.effectiveTime = effectiveTime;
 	}
 
-	public Boolean isNullEffectiveTime() {
-		return nullEffectiveTime;
+	public Integer getEffectiveTime() {
+		return this.effectiveTime;
 	}
 
-	public void setNullEffectiveTime(Boolean nullEffectiveTime) {
-		this.nullEffectiveTime = nullEffectiveTime;
+	public void isPublished(Boolean isPublished) {
+		this.isPublished = isPublished;
 	}
-
+	
 	public Boolean isPublished() {
-		return published;
+		return this.isPublished;
 	}
 
-	public void setPublished(Boolean published) {
-		this.published = published;
+	public void setStatedEclFilter(String statedEclFilter) {
+		this.statedEclFilter = statedEclFilter;
 	}
 
 	public Set<String> getConceptIds() {
@@ -177,20 +165,9 @@ public class ConceptSearchRequest {
 	public void setSearchAfter(String searchAfter) {
 		this.searchAfter = searchAfter;
 	}
-	
-	public Relationship.CharacteristicType getForm() {
-		return form;
+
+	public Boolean isNullEffectiveTime() {
+		return isNullEffectiveTime;
 	}
 
-	public void setForm(Relationship.CharacteristicType form) {
-		this.form = form;
-	}
-	
-	public Boolean getIncludeLeafFlag() {
-		return includeLeafFlag;
-	}
-
-	public void setIncludeLeafFlag(Boolean includeLeafFlag) {
-		this.includeLeafFlag = includeLeafFlag;
-	}
 }

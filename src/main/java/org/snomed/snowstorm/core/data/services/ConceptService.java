@@ -332,13 +332,14 @@ public class ConceptService extends ComponentService {
 				concepts.getTotalElements());
 	}
 
-	public void populateConceptMinis(BranchCriteria branchCriteria, Map<String, ConceptMini> minisToPopulate, List<LanguageDialect> languageDialects) {
+	private void populateConceptMinis(BranchCriteria branchCriteria, Map<String, ConceptMini> minisToPopulate, List<LanguageDialect> languageDialects) {
 		if (!minisToPopulate.isEmpty()) {
 			Set<String> conceptIds = minisToPopulate.keySet();
 			Page<Concept> concepts = doFind(conceptIds, languageDialects, branchCriteria, PageRequest.of(0, conceptIds.size()), false, false, null);
 			concepts.getContent().forEach(c -> {
 				ConceptMini conceptMini = minisToPopulate.get(c.getConceptId());
-				conceptMini.populate(c);
+				conceptMini.setDefinitionStatus(c.getDefinitionStatus());
+				conceptMini.addActiveDescriptions(c.getDescriptions().stream().filter(SnomedComponent::isActive).collect(Collectors.toSet()));
 			});
 		}
 	}
@@ -795,21 +796,9 @@ public class ConceptService extends ComponentService {
 		return ids;
 	}
 
-	public boolean isActive(String conceptId, BranchCriteria branchCriteria) {
-		NativeSearchQueryBuilder queryBuilder = new NativeSearchQueryBuilder()
-				.withQuery(boolQuery()
-						.must(branchCriteria.getEntityBranchCriteria(Concept.class))
-						.must(termQuery(SnomedComponent.Fields.ACTIVE, true))
-						.must(termQuery(Concept.Fields.CONCEPT_ID, conceptId))
-				)
-				.withFields(Concept.Fields.CONCEPT_ID);
-		final SearchHits<Concept> hits = elasticsearchTemplate.search(queryBuilder.build(), Concept.class);
-		return hits.isEmpty();
-	}
-
 	public void addClauses(Set<String> conceptIds, Boolean active, BoolQueryBuilder conceptQuery) {
 		conceptQuery.must(termsQuery(Concept.Fields.CONCEPT_ID, conceptIds));
-
+		
 		if (active != null) {
 			conceptQuery.must(termsQuery(SnomedComponent.Fields.ACTIVE, active));
 		}

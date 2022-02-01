@@ -37,7 +37,6 @@ import org.springframework.util.CollectionUtils;
 
 import java.io.*;
 import java.nio.file.Files;
-import java.nio.file.Paths;
 import java.util.*;
 import java.util.stream.Collectors;
 import java.util.zip.ZipEntry;
@@ -67,9 +66,6 @@ public class ExportService {
 
 	@Autowired
 	private BranchMetadataHelper branchMetadataHelper;
-	
-	@Autowired
-	private ModuleDependencyService mdrService;
 
 	@Autowired
 	private ModuleDependencyService mdrService;
@@ -141,11 +137,6 @@ public class ExportService {
 
 		if (exportType == RF2Type.FULL) {
 			throw new IllegalArgumentException("FULL RF2 export is not implemented.");
-		}
-		
-		boolean generateMDR = false;
-		if (exportType == RF2Type.DELTA && !StringUtils.isEmpty(transientEffectiveTime)) {
-			generateMDR = true;
 		}
 
 		boolean generateMDR = false;
@@ -360,9 +351,6 @@ public class ExportService {
 			throw new ExportException("Failed to write export zip entry '" + componentFilePath + "'", e);
 		}
 	}
-	
-	private <T> int exportComponents(Class<T> componentClass, String entryDirectoryPrefix, String entryDirectory, String entryFilenamePrefix, String filenameEffectiveDate,
-			RF2Type exportType, ZipOutputStream zipOutputStream, List<T> components, String transientEffectiveTime, List<String> extraFieldNames, String codeSystemRF2Name) {
 
 	private <T> void doFilteredWrite(ExportFilter<T> exportFilter, ExportWriter<T> writer, T item) {
 		if (exportFilter == null || exportFilter.isValid(item)) {

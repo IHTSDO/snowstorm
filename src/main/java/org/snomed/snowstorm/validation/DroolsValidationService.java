@@ -29,7 +29,6 @@ import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilde
 import org.springframework.stereotype.Service;
 import org.springframework.util.Assert;
 
-import javax.annotation.PreDestroy;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.PrintWriter;
@@ -44,8 +43,6 @@ import static org.elasticsearch.index.query.QueryBuilders.*;
 
 @Service
 public class DroolsValidationService {
-
-	public static final String TERM_VALIDATION_SERVICE_ASSERTION_GROUP = "term-validation-service";
 
 	@Autowired
 	private VersionControlHelper versionControlHelper;
@@ -85,12 +82,11 @@ public class DroolsValidationService {
 		batchExecutorService = Executors.newFixedThreadPool(1);
 	}
 
-	public InvalidContentWithSeverityStatus validateConceptBeforeClassification(final Concept concept, final String branchPath) throws ServiceException {
-		final List<InvalidContent> invalidContents = validateConcepts(branchPath, Collections.singleton(concept), false);
-		return new InvalidContentWithSeverityStatus(invalidContents);
+	public List<InvalidContent> validateConcept(String branchPath, Concept concept) throws ServiceException {
+		return validateConcepts(branchPath, Collections.singleton(concept));
 	}
 
-	public List<InvalidContent> validateConcepts(String branchPath, Set<Concept> concepts, boolean afterClassification) throws ServiceException {
+	public List<InvalidContent> validateConcepts(String branchPath, Set<Concept> concepts) throws ServiceException {
 		// Get drools assertion groups to run
 		Branch branchWithInheritedMetadata = branchService.findBranchOrThrow(branchPath, true);
 		String assertionGroupNamesMetaString = branchWithInheritedMetadata.getMetadata().getString(BranchMetadataKeys.ASSERTION_GROUP_NAMES);
@@ -106,17 +102,6 @@ public class DroolsValidationService {
 
 		// Set temp component ids if needed
 		concepts.forEach(ConceptValidationHelper::generateTemporaryUUIDsIfNotSet);
-
-		Future<TermValidationResult> termValidationFuture = null;
-		if (ruleSetNames.contains(TERM_VALIDATION_SERVICE_ASSERTION_GROUP)) {
-			if (concepts.size() == 1) {
-				final Concept concept = concepts.iterator().next();
-				termValidationFuture = termValidationExecutorService.submit(() -> termValidationServiceClient.validateConcept(branchPath, concept, afterClassification));
-			} else {
-				logger.info("Not yet able to validate batches of concepts using the term-validation-service.");
-			}
-			ruleSetNames.remove(TERM_VALIDATION_SERVICE_ASSERTION_GROUP);
-		}
 
 		BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(branchWithInheritedMetadata);
 		Set<DroolsConcept> droolsConcepts = concepts.stream().map(DroolsConcept::new).collect(Collectors.toSet());
@@ -250,8 +235,10 @@ public class DroolsValidationService {
 	public void newRuleExecutorAndResources() {
 		Assert.notNull(droolsRulesPath, "Path to drools rules is required.");
 		File dir = new File(droolsRulesPath);
-		if (!dir.isDirectory() && !dir.mkdirs()) {
-			logger.warn("Failed to create directory {}", droolsRulesPath);
+		if (!dir.isDirectory()) {
+			if (!dir.mkdirs()) {
+				logger.warn("Failed to create directory {}", droolsRulesPath);
+			}
 		}
 		this.ruleExecutor = new RuleExecutorFactory().createRuleExecutor(droolsRulesPath);
 		this.testResourceProvider = ruleExecutor.newTestResourceProvider(testResourceManager);

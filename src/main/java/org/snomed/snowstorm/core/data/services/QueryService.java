@@ -80,7 +80,7 @@ public class QueryService implements ApplicationContextAware {
 
 	private static final Function<Long, Object[]> CONCEPT_ID_SEARCH_AFTER_EXTRACTOR =
 			conceptId -> conceptId == null ? null : SearchAfterHelper.convertToTokenAndBack(new Object[]{conceptId});
-			
+
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
 	public Page<ConceptMini> eclSearch(String ecl, boolean stated, String branchPath, PageRequest pageRequest) {

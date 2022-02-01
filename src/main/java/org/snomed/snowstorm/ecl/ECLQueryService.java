@@ -13,7 +13,6 @@ import org.snomed.snowstorm.core.data.services.QueryService;
 import org.snomed.snowstorm.core.util.TimerUtil;
 import org.snomed.snowstorm.ecl.domain.expressionconstraint.SExpressionConstraint;
 import org.snomed.snowstorm.ecl.validation.ECLPreprocessingService;
-import org.snomed.snowstorm.rest.ControllerHelper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
@@ -70,19 +69,6 @@ public class ECLQueryService {
 
 	public Page<Long> doSelectConceptIds(String ecl, BranchCriteria branchCriteria, String path, boolean stated, Collection<Long> conceptIdFilter,
 			PageRequest pageRequest, SExpressionConstraint expressionConstraint) {
-
-		BranchVersionECLCache branchVersionCache = null;
-		if (eclCacheEnabled) {
-			branchVersionCache = resultsCache.getOrCreateBranchVersionCache(path, branchCriteria.getTimepoint());
-			Page<Long> cachedPage = branchVersionCache.get(ecl, stated, pageRequest);
-			if (cachedPage != null) {
-				final int pageNumber = pageRequest != null ? pageRequest.getPageNumber() : 0;
-				final int pageSize = pageRequest != null ? pageRequest.getPageSize() : -1;
-				logger.debug("ECL cache hit {}@{} \"{}\" {}:{}", path, branchCriteria.getTimepoint().getTime(), ecl, pageNumber, pageSize);
-				branchVersionCache.recordHit();
-				return cachedPage;
-			}
-		}
 
 		TimerUtil eclSlowQueryTimer = getEclSlowQueryTimer();
 
@@ -152,14 +138,6 @@ public class ECLQueryService {
 		return ConceptSelectorHelper.fetchIds(query, conceptIdFilter, null, pageRequest, queryService);
 	}
 
-	public Boolean hasAnyResults (String ecl, String branch, BranchCriteria branchCriteria, boolean stated, Collection<Long> conceptIdFilter) {
-		
-		SExpressionConstraint expressionConstraint = (SExpressionConstraint) eclQueryBuilder.createQuery(ecl);
-		Optional<Page<Long>> pageOptional = expressionConstraint.select(branch, branchCriteria, stated, conceptIdFilter, ControllerHelper.getPageRequest(0,1), queryService);
-		
-		return pageOptional.get().hasContent();
-	}
-	
 	private TimerUtil getEclSlowQueryTimer() {
 		return new TimerUtil(String.format("ECL took more than %s seconds.", eclDurationLoggingThreshold), Level.INFO, eclDurationLoggingThreshold);
 	}
