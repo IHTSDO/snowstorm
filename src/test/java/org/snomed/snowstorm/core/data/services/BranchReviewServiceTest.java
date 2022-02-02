@@ -12,8 +12,8 @@ import org.snomed.snowstorm.core.data.domain.review.BranchReview;
 import org.snomed.snowstorm.core.data.domain.review.MergeReview;
 import org.snomed.snowstorm.core.data.domain.review.MergeReviewConceptVersions;
 import org.snomed.snowstorm.core.data.domain.review.ReviewStatus;
+import org.snomed.snowstorm.core.data.repositories.ManuallyMergedConceptRepository;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.elasticsearch.core.ElasticsearchRestTemplate;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
 
 import java.util.*;
@@ -36,6 +36,12 @@ class BranchReviewServiceTest extends AbstractTest {
 
 	@Autowired
 	private BranchMergeService mergeService;
+
+	@Autowired
+	private CodeSystemService codeSystemService;
+
+	@Autowired
+	private ManuallyMergedConceptRepository manuallyMergedConceptRepository;
 
 	private Date setupStartTime;
 	private Date setupEndTime;
@@ -298,12 +304,12 @@ class BranchReviewServiceTest extends AbstractTest {
 
 	@Test
 	void testCreateMergeReviewConceptDeletedOnChild() throws InterruptedException, ServiceException {
-		// Update concept 10000100 description on A
+		// Update concept 10000100 description on MAIN
 		Concept concept = conceptService.find("10000100", "MAIN");
 		getDescription(concept, true).setCaseSignificance("INITIAL_CHARACTER_CASE_INSENSITIVE");
 		conceptService.update(concept, "MAIN");
 
-		// Delete concept 10000100 on MAIN
+		// Delete concept 10000100 on A
 		conceptService.deleteConceptAndComponents("10000100", "MAIN/A", false);
 
 		MergeReview review = createMergeReviewAndWaitUntilCurrent("MAIN", "MAIN/A");
@@ -312,6 +318,26 @@ class BranchReviewServiceTest extends AbstractTest {
 		assertEquals(1, mergeReviewConflictingConcepts.size());
 		Set<String> conceptIds = mergeReviewConflictingConcepts.stream().map(conceptVersions -> conceptVersions.getSourceConcept().getId()).collect(Collectors.toSet());
 		assertTrue(conceptIds.contains("10000100"));
+	}
+
+	@Test
+	void testCreateMergeReviewVersionedConceptDeletedOnChild() throws InterruptedException, ServiceException {
+		// Update description on MAIN
+		Concept concept = conceptService.find("10000100", "MAIN");
+		getDescription(concept, true).setCaseSignificance("INITIAL_CHARACTER_CASE_INSENSITIVE");
+		conceptService.update(concept, "MAIN");
+
+		// Version MAIN
+		CodeSystem codeSystem = codeSystemService.createCodeSystem(new CodeSystem("SNOMEDCT", "MAIN"));
+		codeSystemService.createVersion(codeSystem, 20210812, "20210812");
+
+		// Delete concept on A
+		conceptService.deleteConceptAndComponents("10000100", "MAIN/A", false);
+
+		// Conflict is ignored as versioned concept will be silently restored.
+		MergeReview review = createMergeReviewAndWaitUntilCurrent("MAIN", "MAIN/A");
+		assertEquals(0, reviewService.getMergeReviewConflictingConcepts(review.getId(), DEFAULT_LANGUAGE_DIALECTS).size());
+		assertTrue(manuallyMergedConceptRepository.findOneByMergeReviewIdAndConceptId(review.getId(), "10000100").isDeleted());
 	}
 
 	@Test
