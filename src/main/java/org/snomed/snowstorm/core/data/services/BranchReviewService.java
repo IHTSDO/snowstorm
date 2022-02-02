@@ -1,6 +1,5 @@
 package org.snomed.snowstorm.core.data.services;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.ObjectReader;
 import com.google.common.collect.Lists;
@@ -163,6 +162,10 @@ public class BranchReviewService {
 					// Both are deleted, no conflict.
 					persistManualMergeConceptDeletion(mergeReview, conceptId);
 					logger.info("Concept {} deleted on both sides of the merge. Excluding from merge review {}.", conceptId, id);
+				} else if (sourceVersion != null && sourceVersion.isReleased() && targetVersion == null) {
+					// Deleted somewhere, whilst simultaneously versioned elsewhere.
+					persistManualMergeConceptDeletion(mergeReview, conceptId);
+					logger.info("Concept {} versioned somewhere whilst deleted elsewhere. Excluding from merge review {}.", conceptId, id);
 				} else {
 					if (sourceVersion != null && targetVersion != null) {
 						// Neither deleted, auto-merge.
@@ -179,79 +182,12 @@ public class BranchReviewService {
 		assertMergeReviewCurrent(mergeReview);
 
 		// Check all conflicts manually merged
-		List<ManuallyMergedConcept> manuallyMergedConcepts = new ArrayList<>(manuallyMergedConceptRepository.findByMergeReviewId(mergeReview.getId(), LARGE_PAGE).getContent());
+		List<ManuallyMergedConcept> manuallyMergedConcepts = manuallyMergedConceptRepository.findByMergeReviewId(mergeReview.getId(), LARGE_PAGE).getContent();
 		Set<Long> manuallyMergedConceptIds = manuallyMergedConcepts.stream().map(ManuallyMergedConcept::getConceptId).collect(Collectors.toSet());
 		final Set<Long> conflictingConceptIds = getConflictingConceptIds(mergeReview);
 		final Set<Long> conflictsRemaining = new HashSet<>(conflictingConceptIds);
 		conflictsRemaining.removeAll(manuallyMergedConceptIds);
-		conflictsRemaining.removeIf(conflict -> {
-			// Silently restore components if innocently altered, i.e. edited after content was versioned.
-			String id = conflict.toString();
-			String mergeReviewId = mergeReview.getId();
-			Concept parent = conceptService.find(id, mergeReview.getSourcePath());
-			Concept child = conceptService.find(id, mergeReview.getTargetPath());
 
-			// Versioned on parent whilst simultaneously deleted on child
-			if (parent != null && parent.isReleased() && child == null) {
-				// Simply restore parent
-				manuallyMergedConcepts.add(new ManuallyMergedConcept(mergeReviewId, conflict, asJson(parent), false));
-
-				return true;
-			}
-
-			// Child has diverged from parent
-			if (parent != null && parent.isReleased() && parent.getEffectiveTime() != null && child != null && !child.isReleased() && child.getEffectiveTime() == null) {
-				// Find difference in Descriptions and restore
-				Set<Description> parentDescriptions = parent.getDescriptions();
-				Set<Description> childDescriptions = child.getDescriptions();
-
-				// Descriptions removed in child
-				Set<Description> parentDescriptionsDeletedInChild = new HashSet<>(parentDescriptions);
-				parentDescriptionsDeletedInChild.removeAll(childDescriptions);
-
-				// Descriptions added in child
-				Set<Description> childDescriptionsAddedInChild = new HashSet<>(childDescriptions);
-				childDescriptionsAddedInChild.removeAll(parentDescriptions);
-
-				// Restore parent Descriptions
-				for (Description description : parentDescriptionsDeletedInChild) {
-					parent.addDescription(description);
-				}
-
-				// Keep child Descriptions
-				for (Description description : childDescriptionsAddedInChild) {
-					parent.addDescription(description);
-				}
-
-				// Find difference in Axioms and restore
-				Set<Axiom> parentAxioms = parent.getClassAxioms();
-				Set<Axiom> childAxioms = child.getClassAxioms();
-
-				// Axioms removed in child
-				Set<Axiom> parentAxiomsDeletedInChild = new HashSet<>(parentAxioms);
-				parentAxiomsDeletedInChild.removeAll(childAxioms);
-
-				// Axioms added in child
-				Set<Axiom> childAxiomsAddedInChild = new HashSet<>(childAxioms);
-				childAxiomsAddedInChild.removeAll(parentAxioms);
-
-				// Restore parent Axioms
-				for (Axiom axiom : parentAxiomsDeletedInChild) {
-					parent.addAxiom(axiom);
-				}
-
-				// Keep child Axioms
-				for (Axiom axiom : childAxiomsAddedInChild) {
-					parent.addAxiom(axiom);
-				}
-
-				manuallyMergedConcepts.add(new ManuallyMergedConcept(mergeReviewId, conflict, asJson(parent), false));
-
-				return true;
-			}
-
-			return false;
-		});
 		if (!conflictsRemaining.isEmpty()) {
 			throw new IllegalStateException("Not all conflicting concepts have been resolved. Unresolved: " + conflictsRemaining);
 		}
@@ -260,33 +196,36 @@ public class BranchReviewService {
 		}
 
 		// Perform rebase merge
-		ObjectReader conceptReader = objectMapper.readerFor(Concept.class);
 		ManuallyMergedConcept manuallyMergedConcept = null;
 		List<Concept> concepts = new ArrayList<>();
+		ObjectReader conceptReader = objectMapper.readerFor(Concept.class);
 		try {
 			for (ManuallyMergedConcept mmc : manuallyMergedConcepts) {
 				manuallyMergedConcept = mmc;
-				Concept concept;
-				if (manuallyMergedConcept.isDeleted()) {
+				Concept concept = null;
+
+				String conceptJson = manuallyMergedConcept.getConceptJson();
+				if (conceptJson != null) {
+					concept = conceptReader.readValue(conceptJson);
+				}
+
+				Concept sourceConcept = conceptService.find(String.valueOf(manuallyMergedConcept.getConceptId()), mergeReview.getSourcePath());
+				boolean sourceConceptVersioned = sourceConcept != null && sourceConcept.isReleased() && sourceConcept.getEffectiveTime() != null;
+				if (sourceConceptVersioned && concept == null) {
+					concept = sourceConcept;
+				} else if (sourceConceptVersioned && !concept.isReleased() && concept.getEffectiveTime() == null) {
+					concept = autoMergeConcept(sourceConcept, concept);
+				} else if (manuallyMergedConcept.isDeleted()) {
 					concept = new Concept(manuallyMergedConcept.getConceptId().toString());
 					concept.markDeleted();
-				} else {
-					concept = conceptReader.readValue(manuallyMergedConcept.getConceptJson());
 				}
+
 				concepts.add(concept);
 			}
 		} catch (IOException e) {
 			throw new ServiceException("Failed to deserialise manually merged concept from temp store. mergeReview:" + mergeReview.getId() + ", conceptId:" + manuallyMergedConcept.getConceptId(), e);
 		}
 		branchMergeService.mergeBranchSync(mergeReview.getSourcePath(), mergeReview.getTargetPath(), concepts);
-	}
-
-	private String asJson(Concept concept) {
-		try {
-			return objectMapper.writeValueAsString(concept);
-		} catch (JsonProcessingException e) {
-			return null;
-		}
 	}
 
 	private void assertMergeReviewCurrent(MergeReview mergeReview) {
