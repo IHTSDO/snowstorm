@@ -70,11 +70,12 @@ public class ReferenceSetMemberController {
 			@RequestParam(required = false) Boolean active,
 			@RequestParam(defaultValue = "0") int offset,
 			@RequestParam(defaultValue = "10") int limit,
+			@RequestParam(required = false) String searchAfter,
 			@RequestHeader(value = "Accept-Language", defaultValue = Config.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) {
 
 		branch = BranchPathUriUtil.decodePath(branch);
 		List<LanguageDialect> languageDialects = ControllerHelper.parseAcceptLanguageHeaderWithDefaultFallback(acceptLanguageHeader);
-		PageRequest pageRequest = ControllerHelper.getPageRequest(offset, limit);
+		PageRequest pageRequest = ControllerHelper.getPageRequest(offset, limit, SORT_BY_MEMBER_ID_DESC, searchAfter);
 
 		TimerUtil timer = new TimerUtil("Member aggregation debug " + branch);
 		// Find Reference Sets with aggregation
@@ -114,7 +115,7 @@ public class ReferenceSetMemberController {
 		timer.checkpoint("Load minis");
 
 		RefSetMemberPageWithBucketAggregations<ReferenceSetMember> pageWithBucketAggregations =
-				new RefSetMemberPageWithBucketAggregations<>(page.getContent(), page.getPageable(), page.getTotalElements(), page.getBuckets().get("memberCountsByReferenceSet"));
+				new RefSetMemberPageWithBucketAggregations<>(page.getContent(), page.getPageable(), page.getTotalElements(), page.getBuckets().get("memberCountsByReferenceSet"), page.getSearchAfterArray());
 		pageWithBucketAggregations.setReferenceSets(referenceSets);
 		timer.finish();
 		return pageWithBucketAggregations;
