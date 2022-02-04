@@ -210,10 +210,10 @@ public class BranchReviewService {
 				}
 
 				Concept sourceConcept = conceptService.find(String.valueOf(manuallyMergedConcept.getConceptId()), mergeReview.getSourcePath());
-				boolean sourceConceptVersioned = sourceConcept != null && sourceConcept.isReleased() && sourceConcept.getEffectiveTime() != null;
+				boolean sourceConceptVersioned = sourceConcept != null && sourceConcept.isReleased() && sourceConcept.getReleasedEffectiveTime() != null;
 				if (sourceConceptVersioned && concept == null) {
 					concept = sourceConcept;
-				} else if (sourceConceptVersioned && !concept.isReleased() && concept.getEffectiveTime() == null) {
+				} else if (sourceConceptVersioned && !concept.isReleased() && concept.getReleasedEffectiveTime() == null) {
 					concept = autoMergeConcept(sourceConcept, concept);
 				} else if (manuallyMergedConcept.isDeleted()) {
 					concept = new Concept(manuallyMergedConcept.getConceptId().toString());
