@@ -693,6 +693,10 @@ class ConceptServiceTest extends AbstractTest {
 		Concept transferredConcept = simulateRestTransfer(savedConcept);
 		conceptService.update(transferredConcept, path);
 		
+		//Check that the inactivation indicator and hist assoc got created
+		Page<ReferenceSetMember> page = referenceSetMemberService.findMembers("MAIN", transferredConcept.getConceptId(), LARGE_PAGE);
+		assertEquals(2, page.getContent().size());
+		
 		codeSystemService.createVersion(codeSystem, 20200131, "");
 		
 		//Now create an extension code system based off this 
@@ -713,14 +717,18 @@ class ConceptServiceTest extends AbstractTest {
 		foundInactiveConcept.setAssociationTargets(null);
 		foundInactiveConcept.setModuleId(extensionModule);
 		
-		conceptService.update(foundInactiveConcept, extensionBranchPath);
+		//We need to do this REST simulation otherwise the refsetMembers are still on the concept and 
+		//take priority over, say, the inactivation indicator String value.
+		transferredConcept = simulateRestTransfer(foundInactiveConcept);
+		conceptService.update(transferredConcept, extensionBranchPath);
 		
+		//Now pick it up again
 		Concept foundReactivatedConcept = conceptService.find(savedConcept.getConceptId(), extensionBranchPath);
 		assertEquals(extensionModule, foundReactivatedConcept.getModuleId());
 		
 		//Now the inactivation indicator and historical association should have been INACTIVED (since the concept is now active)
 		//And that change should have happened in the extension module
-		Page<ReferenceSetMember> page = referenceSetMemberService.findMembers(extensionBranchPath, savedConcept.getConceptId(), LARGE_PAGE);
+		page = referenceSetMemberService.findMembers(extensionBranchPath, savedConcept.getConceptId(), LARGE_PAGE);
 		assertEquals(2, page.getContent().size());
 		for (ReferenceSetMember rm : page.getContent()) {
 			assertFalse(rm.isActive());
