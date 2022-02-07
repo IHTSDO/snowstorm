@@ -906,7 +906,7 @@ class ConceptControllerTest extends AbstractTest {
 	}
 
 	@Test
-	void testModuleIdNotRestoredWhenLangRefSetChanged() throws ServiceException {
+	void testDescModuleNotModifiedWhenLangRefSetChanged() throws ServiceException {
 		// A has Lait (food) as Acceptable
 		branchService.create("MAIN/SNOMEDCT-A1", Map.of(Config.DEFAULT_MODULE_ID_KEY, Concepts.CORE_MODULE));
 		Concept concept = conceptService.create(new Concept()
@@ -931,8 +931,11 @@ class ConceptControllerTest extends AbstractTest {
 			}
 		}
 
-		assertExpectedModule(conceptService.update(concept, "MAIN/SNOMEDCT-A1/SNOMEDCT-B1"), "Lait (food)", Concepts.CORE_MODULE); // Assert response from update
-		assertExpectedModule(conceptService.find(concept.getId(), "MAIN/SNOMEDCT-A1/SNOMEDCT-B1"), "Lait (food)", Concepts.CORE_MODULE); // Assert response from find
+		Concept updatedConcept = conceptService.update(concept, "MAIN/SNOMEDCT-A1/SNOMEDCT-B1");
+		assertExpectedModule(updatedConcept, "Lait (food)", Concepts.CORE_MODULE); // Assert response from update
+		
+		Concept foundConcept = conceptService.find(concept.getId(), "MAIN/SNOMEDCT-A1/SNOMEDCT-B1");
+		assertExpectedModule(foundConcept, "Lait (food)", Concepts.CORE_MODULE); // Assert response from find
 	}
 
 	@Test
@@ -1013,12 +1016,12 @@ class ConceptControllerTest extends AbstractTest {
 		assertExpectedModule(conceptService.find(concept.getId(), "MAIN/SNOMEDCT-A1/SNOMEDCT-B1"), "Milk", Concepts.COMMON_FRENCH_MODULE);
 	}
 
-	private void assertExpectedModule(Concept concept, String descriptionTerm, String moduleId) {
+	private void assertExpectedModule(Concept concept, String descriptionTerm, String expectedModuleId) {
 		boolean found = false;
 		for (Description description : concept.getDescriptions()) {
 			if (description.getTerm().equals(descriptionTerm)) {
 				found = true;
-				assertEquals(moduleId, description.getModuleId());
+				assertEquals(expectedModuleId, description.getModuleId());
 			}
 		}
 

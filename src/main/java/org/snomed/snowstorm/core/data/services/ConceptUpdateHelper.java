@@ -160,10 +160,10 @@ public class ConceptUpdateHelper extends ComponentService {
 				}
 
 				// Create or update concept inactivation indicator refset members based on the json inactivation map
-				updateInactivationIndicator(newVersionConcept, existingConcept, existingConceptFromParent, refsetMembersToPersist, Concepts.CONCEPT_INACTIVATION_INDICATOR_REFERENCE_SET);
+				updateInactivationIndicator(newVersionConcept, existingConcept, existingConceptFromParent, refsetMembersToPersist, Concepts.CONCEPT_INACTIVATION_INDICATOR_REFERENCE_SET, defaultModuleId);
 
 				// Create or update concept historical association refset members based on the json inactivation map
-				updateAssociations(newVersionConcept, existingConcept, existingConceptFromParent, refsetMembersToPersist);
+				updateAssociations(newVersionConcept, existingConcept, existingConceptFromParent, refsetMembersToPersist, defaultModuleId);
 
 				for (Description description : newVersionConcept.getDescriptions()) {
 					if (description.isActive()) {
@@ -195,10 +195,10 @@ public class ConceptUpdateHelper extends ComponentService {
 
 				// Description inactivation indicator changes
 				updateInactivationIndicator(description, existingDescription, existingDescriptionFromParent, refsetMembersToPersist,
-						Concepts.DESCRIPTION_INACTIVATION_INDICATOR_REFERENCE_SET);
+						Concepts.DESCRIPTION_INACTIVATION_INDICATOR_REFERENCE_SET, defaultModuleId);
 
 				// Description association changes
-				updateAssociations(description, existingDescription, existingDescriptionFromParent, refsetMembersToPersist);
+				updateAssociations(description, existingDescription, existingDescriptionFromParent, refsetMembersToPersist, defaultModuleId);
 
 				// Description acceptability / language reference set changes
 				Set<ReferenceSetMember> newMembers = new HashSet<>();
@@ -328,8 +328,11 @@ public class ConceptUpdateHelper extends ComponentService {
 		}
 	}
 
-	private void updateAssociations(SnomedComponentWithAssociations newComponentVersion, SnomedComponentWithAssociations existingComponentVersion,
-			SnomedComponentWithAssociations existingComponentVersionFromParent, List<ReferenceSetMember> refsetMembersToPersist) {
+	private void updateAssociations(SnomedComponentWithAssociations newComponentVersion, 
+			SnomedComponentWithAssociations existingComponentVersion,
+			SnomedComponentWithAssociations existingComponentVersionFromParent, 
+			List<ReferenceSetMember> refsetMembersToPersist,
+			String defaultModuleId) {
 
 		Map<String, Set<String>> newVersionAssociations = newComponentVersion.getAssociationTargets();
 		if (newVersionAssociations == null) {
@@ -346,7 +349,7 @@ public class ConceptUpdateHelper extends ComponentService {
 		}
 
 		List<ReferenceSetMember> activeSet = updateMetadataRefset(membersRequired, ReferenceSetMember.AssociationFields.TARGET_COMP_ID, existingComponentVersion, existingComponentVersionFromParent,
-				SnomedComponentWithAssociations::getAssociationTargetMembers, newComponentVersion.getId(), newComponentVersion.getModuleId(), refsetMembersToPersist);
+				SnomedComponentWithAssociations::getAssociationTargetMembers, newComponentVersion.getId(), newComponentVersion.getModuleId(), defaultModuleId, refsetMembersToPersist);
 		activeSet.forEach(newComponentVersion::addAssociationTargetMember);
 	}
 
@@ -354,7 +357,8 @@ public class ConceptUpdateHelper extends ComponentService {
 			SnomedComponentWithInactivationIndicator existingComponent,
 			SnomedComponentWithInactivationIndicator existingConceptFromParent,
 			Collection<ReferenceSetMember> refsetMembersToPersist,
-			String indicatorReferenceSet) {
+			String indicatorReferenceSet,
+			String defaultModuleId) {
 
 		String newIndicatorName = newComponent.getInactivationIndicator();
 		final String newIndicatorId = newIndicatorName != null ? inactivationIndicatorNames.inverse().get(newIndicatorName) : null;
@@ -366,12 +370,12 @@ public class ConceptUpdateHelper extends ComponentService {
 			membersRequired.put(indicatorReferenceSet, Sets.newHashSet(newIndicatorId));
 		}
 		List<ReferenceSetMember> memberToKeep = updateMetadataRefset(membersRequired, ReferenceSetMember.AttributeValueFields.VALUE_ID, existingComponent, existingConceptFromParent, SnomedComponentWithInactivationIndicator::getInactivationIndicatorMembers,
-				newComponent.getId(), newComponent.getModuleId(), refsetMembersToPersist);
+				newComponent.getId(), newComponent.getModuleId(), defaultModuleId, refsetMembersToPersist);
 		memberToKeep.forEach(newComponent::addInactivationIndicatorMember);
 	}
 
 	private <T> List<ReferenceSetMember> updateMetadataRefset(Map<String, Set<String>> membersRequired, String fieldName, T existingComponent, T existingConceptFromParent,
-				Function<T, Collection<ReferenceSetMember>> getter, String refComponent, String moduleId, Collection<ReferenceSetMember> refsetMembersToPersist) {
+				Function<T, Collection<ReferenceSetMember>> getter, String refComponent, String moduleId, String defaultModuleId, Collection<ReferenceSetMember> refsetMembersToPersist) {
 
 		List<ReferenceSetMember> existingMembers = new ArrayList<>();
 		if (existingComponent != null) {
@@ -421,6 +425,13 @@ public class ConceptUpdateHelper extends ComponentService {
 
 				member.setActive(false);
 				member.markChanged();
+				
+				//Any change to a component in an extension needs to be done in the default module
+				if (member.isChanged() && (defaultModuleId != null && 
+						!defaultModuleId.equals(Concepts.CORE_MODULE))){
+					member.setModuleId(defaultModuleId);
+				}
+				 
 				toPersist.add(member);
 				duplicateIds.remove(member.getMemberId());
 			}
@@ -565,6 +576,13 @@ public class ConceptUpdateHelper extends ComponentService {
 				newComponent.setCreating(true);
 				newComponent.clearReleaseDetails();
 			}
+			
+			
+			//Any change to a component in an extension needs to be done in the default module
+			if (newComponent.isChanged() && (defaultModuleId != null && 
+					!defaultModuleId.equals(Concepts.CORE_MODULE))){
+				newComponent.setModuleId(defaultModuleId);
+			}
 
 			// Trying Concept module in attempt to restore effective time for the case
 			// where content has changed and then been reverted.
@@ -598,6 +616,7 @@ public class ConceptUpdateHelper extends ComponentService {
 					existingComponent.markDeleted();
 					componentsToPersist.add(existingComponent);
 				}
+
 			}
 		});
 	}
