@@ -362,4 +362,18 @@ class IntegrityServiceTest extends AbstractTest {
 		// CodeSystem integrity issue flag should be cleared
 		assertNull("The integrityIssue flag should be removed after all issues are fixed", integrityIssueFound);
 	}
+
+	@Test
+	void testDeepBranchStructure() {
+		sBranchService.create("MAIN/SNOMEDCT-NO");
+		sBranchService.create("MAIN/SNOMEDCT-NO/refsets");
+		sBranchService.create("MAIN/SNOMEDCT-NO/refsets/refset-77141000202106");
+		Branch task = sBranchService.create("MAIN/SNOMEDCT-NO/refsets/refset-77141000202106/task");
+		String extensionMain = "MAIN/SNOMEDCT-NO";
+		try {
+			integrityService.findChangedComponentsWithBadIntegrityNotFixed(task, extensionMain);
+		} catch (Exception e) {
+			fail("Shouldn't throw exception");
+		}
+	}
 }
