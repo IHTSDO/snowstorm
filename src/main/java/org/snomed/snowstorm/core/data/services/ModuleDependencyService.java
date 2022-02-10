@@ -188,7 +188,6 @@ public class ModuleDependencyService extends ComponentService {
 		logger.info("Generating MDRS for {}, {} modules [{}]", branchPath, isInternational ? "international" : "extension", String.join(", ", modulesRequired));
 		
 		//Update or augment module dependencies as required
-		int recursionLimit = 0;
 		for (String moduleId : modulesRequired) {
 			boolean isExtensionMod = !cachedInternationalModules.contains(moduleId);
 
@@ -199,6 +198,7 @@ public class ModuleDependencyService extends ComponentService {
 			}
 			
 			String thisLevel = moduleId;
+			int recursionLimit = 0;
 			while (!thisLevel.equals(Concepts.MODEL_MODULE)){
 				thisLevel = updateOrCreateModuleDependency(moduleId, 
 						thisLevel, 
@@ -209,7 +209,18 @@ public class ModuleDependencyService extends ComponentService {
 						branchPath,
 						isInternational);
 				if (++recursionLimit > RECURSION_LIMIT) {
-					throw new IllegalStateException ("Recursion limit reached calculating MDRS in " + branchPath + " for module " + thisLevel);
+					logger.warn("Recursion limit reached calculating MDRS in " + branchPath + " for module " + thisLevel + ". Falling back to assume dependency on Core Module");
+					Map<String, String> assumptionMap = new HashMap<>();
+					assumptionMap.put(thisLevel, Concepts.CORE_MODULE);
+					updateOrCreateModuleDependency(moduleId, 
+							thisLevel, 
+							assumptionMap, 
+							moduleDependencies,
+							effectiveDate,
+							dependencyET,
+							branchPath,
+							isInternational);
+					break;
 				}
 			}
 		}
