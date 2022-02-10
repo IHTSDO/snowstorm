@@ -743,6 +743,7 @@ class ConceptServiceTest extends AbstractTest {
 			page = referenceSetMemberService.findMembers(extensionBranchPath, d.getDescriptionId(), LARGE_PAGE);
 			assertEquals(1, page.getContent().size());
 			for (ReferenceSetMember rm : page.getContent()) {
+				//This is just the CNC indicator.  We didn't set any LangRefset members.
 				assertFalse(rm.isActive());
 				assertEquals(extensionModule, rm.getModuleId());
 			}
