@@ -36,6 +36,7 @@ import java.util.stream.Collectors;
 
 import static io.kaicode.elasticvc.api.VersionControlHelper.LARGE_PAGE;
 import static org.elasticsearch.index.query.QueryBuilders.*;
+import static org.snomed.snowstorm.core.data.domain.SnomedComponent.Fields.*;
 import static org.snomed.snowstorm.core.data.services.BranchMetadataHelper.INTERNAL_METADATA_KEY;
 import static org.snomed.snowstorm.core.data.services.IntegrityService.INTEGRITY_ISSUE_METADATA_KEY;
 import static org.snomed.snowstorm.core.util.PredicateUtil.not;
@@ -233,6 +234,8 @@ public class BranchMergeService {
 				removeRebaseDuplicateVersions(Description.class, boolQuery(), changesOnBranchIncludingOpenCommit, branchCriteriaIncludingOpenCommit, commit);
 				// Merge non-concept reference set members
 				removeRebaseDuplicateVersions(ReferenceSetMember.class, boolQuery().mustNot(existsQuery(ReferenceSetMember.Fields.CONCEPT_ID)), changesOnBranchIncludingOpenCommit, branchCriteriaIncludingOpenCommit, commit);
+				// Prefer latest edited versioned content
+				removeRebaseDivergedVersions(ReferenceSetMember.class, ReferenceSetMember.Fields.MEMBER_ID, changesOnBranchIncludingOpenCommit, branchCriteriaIncludingOpenCommit, commit);
 
 				// add integrity metadata in target branch if integrity issue found in source.
 				updateIntegrityMetadata(sourceBranch, commit.getBranch());
@@ -267,6 +270,84 @@ public class BranchMergeService {
 		String integrityIssueFound = sourceBranch.getMetadata().getMapOrCreate(INTERNAL_METADATA_KEY).get(INTEGRITY_ISSUE_METADATA_KEY);
 		if (Boolean.parseBoolean(integrityIssueFound)) {
 			targetBranch.getMetadata().getMapOrCreate(INTERNAL_METADATA_KEY).put(INTEGRITY_ISSUE_METADATA_KEY, integrityIssueFound);
+		}
+	}
+
+	private <T extends SnomedComponent> void removeRebaseDivergedVersions(Class<T> componentClass, String idField, BranchCriteria changesOnBranchIncludingOpenCommit, BranchCriteria branchCriteriaIncludingOpenCommit, Commit commit) {
+		// Find edited versioned content on branch
+		String path = commit.getBranch().getPath();
+		Map<String, T> editedVersionedContent = new HashMap<>(); // K => Id, V => Content
+		NativeSearchQueryBuilder editedVersionedContentQuery = new NativeSearchQueryBuilder();
+		editedVersionedContentQuery
+				.withQuery(changesOnBranchIncludingOpenCommit.getEntityBranchCriteria(componentClass))
+				.withQuery(branchCriteriaIncludingOpenCommit.getEntityBranchCriteria(componentClass))
+				.withQuery(
+						boolQuery()
+								.must(existsQuery(RELEASE_HASH))
+								.must(termQuery(PATH, path))
+								.mustNot(existsQuery(END))
+				)
+				.withFields(
+						PATH, RELEASED, RELEASED_EFFECTIVE_TIME,
+						ReferenceSetMember.Fields.MEMBER_ID, ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID,
+						ReferenceSetMember.Fields.REFSET_ID
+				)
+				.withPageable(LARGE_PAGE);
+		try (SearchHitsIterator<T> stream = elasticsearchTemplate.searchForStream(editedVersionedContentQuery.build(), componentClass)) {
+			stream.forEachRemaining(hit -> {
+				T content = hit.getContent();
+				editedVersionedContent.put(content.getId(), content);
+			});
+		}
+
+		// Find equivalent versioned content on parent
+		Map<String, T> equivalentVersionedContentOnParent = new HashMap<>(); // K => Id, V => Content
+		if (!editedVersionedContent.isEmpty()) {
+			for (Map.Entry<String, T> entrySet : editedVersionedContent.entrySet()) {
+				String componentId = entrySet.getKey();
+				T component = entrySet.getValue();
+				String componentPath = component.getPath();
+				String componentParentPath = PathUtil.getParentPath(componentPath);
+
+				if (componentParentPath != null && !componentParentPath.equals(componentPath)) {
+					NativeSearchQueryBuilder equivalentVersionedContentOnParentQuery = new NativeSearchQueryBuilder();
+					equivalentVersionedContentOnParentQuery
+							.withQuery(
+									boolQuery()
+											.must(existsQuery(RELEASE_HASH))
+											.must(termQuery(PATH, componentParentPath))
+											.must(termQuery(idField, componentId))
+											.mustNot(existsQuery(END))
+							)
+							.withFields(
+									PATH, RELEASED, RELEASED_EFFECTIVE_TIME,
+									ReferenceSetMember.Fields.MEMBER_ID, ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID,
+									ReferenceSetMember.Fields.REFSET_ID
+							)
+							.withPageable(LARGE_PAGE);
+					try (SearchHitsIterator<T> stream = elasticsearchTemplate.searchForStream(equivalentVersionedContentOnParentQuery.build(), componentClass)) {
+						stream.forEachRemaining(hit -> equivalentVersionedContentOnParent.put(hit.getContent().getId(), hit.getContent()));
+					}
+				}
+			}
+		}
+
+		// End versions on branch if parent has a newer versioned date
+		for (Map.Entry<String, T> entrySet : equivalentVersionedContentOnParent.entrySet()) {
+			String componentId = entrySet.getKey();
+			T parent = entrySet.getValue();
+			T child = editedVersionedContent.get(componentId);
+
+			boolean childIsDiverged = parent.isReleasedMoreRecentlyThan(child);
+			if (childIsDiverged) {
+				Date timepoint = commit.getTimepoint();
+				child.setEnd(timepoint);
+				ElasticsearchRepository repository = domainEntityConfiguration.getComponentTypeRepositoryMap().get(componentClass);
+				repository.save(child);
+
+				logger.info("Component {} on branch {} ({}) has different releasedEffectiveTime from parent branch ({}).", componentId, path, child.getReleasedEffectiveTime(), parent.getReleasedEffectiveTime());
+				logger.info("Ended component {} on {} at timepoint {} to match current commit.", componentId, path, timepoint);
+			}
 		}
 	}
 
