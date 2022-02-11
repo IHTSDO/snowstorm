@@ -1933,6 +1933,72 @@ class BranchMergeServiceTest extends AbstractTest {
 	}
 
 	@Test
+	void testAutoMergeWhenAcceptabilityEditedSomewhereAndVersionedElsewhere() throws ServiceException, InterruptedException {
+		String codeSystemShortName = "SNOMEDCT-TEST";
+		String parentBranch = "MAIN/TEST";
+		String childBranch = "MAIN/TEST/TEST-1";
+		Page<ReferenceSetMember> members;
+
+		// Create Concept on CodeSystem
+		CodeSystem codeSystem = codeSystemService.createCodeSystem(new CodeSystem(codeSystemShortName, parentBranch));
+		Map<String, String> acceptabilityMap = Collections.singletonMap(US_EN_LANG_REFSET, descriptionAcceptabilityNames.get(PREFERRED));
+		Description pizzaFood = new Description("Pizza (food)").setTypeId(FSN).setCaseSignificance("CASE_INSENSITIVE").setAcceptabilityMap(acceptabilityMap);
+		Description pizza = new Description("Pizza").setTypeId(SYNONYM).setCaseSignificance("CASE_INSENSITIVE").setAcceptabilityMap(acceptabilityMap);
+		Description pizzaPie = new Description("Pizza pie").setTypeId(SYNONYM).setCaseSignificance("CASE_INSENSITIVE").setAcceptabilityMap(acceptabilityMap);
+		Relationship isA = new Relationship(ISA, SNOMEDCT_ROOT);
+		Concept conceptOnParent = conceptService.create(new Concept().addDescription(pizzaFood).addDescription(pizza).addDescription(pizzaPie).addRelationship(isA), parentBranch);
+		String conceptId = conceptOnParent.getId();
+
+		// On parent branch, version new Concept
+		codeSystemService.createVersion(codeSystem, 20210812, "20210812");
+		conceptOnParent = conceptService.find(conceptId, parentBranch);
+		members = memberService.findMembers(parentBranch, new MemberSearchRequest().referencedComponentId(pizzaPie.getId()).referenceSet(US_EN_LANG_REFSET), PageRequest.of(0, 10));
+		assertVersioned(conceptOnParent, 20210812);
+		assertVersioned(getDescription(conceptOnParent, "Pizza (food)"), 20210812);
+		assertVersioned(getDescription(conceptOnParent, "Pizza"), 20210812);
+		assertVersioned(getDescription(conceptOnParent, "Pizza pie"), 20210812);
+		assertVersioned(getMember(members), 20210812);
+
+		// On child branch, change Acceptability of Pizza pie
+		branchService.create(childBranch);
+		Concept conceptOnChild = conceptService.find(conceptId, childBranch);
+		pizzaPie = getDescription(conceptOnChild, "Pizza pie");
+		pizzaPie.addLanguageRefsetMember(US_EN_LANG_REFSET, ACCEPTABLE);
+		conceptService.update(conceptOnChild, childBranch);
+		members = memberService.findMembers(childBranch, new MemberSearchRequest().referencedComponentId(pizzaPie.getId()).referenceSet(US_EN_LANG_REFSET), PageRequest.of(0, 10));
+		assertVersionedButChanged(getMember(members), 20210812); // This will be 20210813 in parent version post re-versioning
+
+		// On parent branch, inactivate Pizza pie
+		conceptOnParent = conceptService.find(conceptId, parentBranch);
+		pizzaPie = getDescription(conceptOnParent, "Pizza pie");
+		inactive(pizzaPie, "OUTDATED", null, null);
+		conceptService.update(conceptOnParent, parentBranch);
+
+		// On parent branch, version Concept again (task branch is now behind a version)
+		codeSystemService.createVersion(codeSystem, 20210813, "20210813");
+		conceptOnParent = conceptService.find(conceptId, parentBranch);
+		members = memberService.findMembers(parentBranch, new MemberSearchRequest().referencedComponentId(pizzaPie.getId()).referenceSet(US_EN_LANG_REFSET), PageRequest.of(0, 10));
+		assertVersioned(conceptOnParent, 20210812); // Not changed
+		assertVersioned(getDescription(conceptOnParent, "Pizza (food)"), 20210812); // Not changed
+		assertVersioned(getDescription(conceptOnParent, "Pizza"), 20210812); // Not changed
+		assertVersioned(getDescription(conceptOnParent, "Pizza pie"), 20210813); // Changed as inactivated
+		assertFalse(getDescription(conceptOnParent, "Pizza pie").isActive());
+		assertVersioned(getMember(members), 20210813); // Changed as inactivated
+		assertFalse(getMember(members).isActive());
+
+		// Rebase
+		MergeReview review = getMergeReviewInCurrentState(parentBranch, childBranch);
+		// AP calls this endpoint to check for conflicts
+		assertEquals(0, reviewService.getMergeReviewConflictingConcepts(review.getId(), new ArrayList<>()).size());
+
+		// Finalise rebase
+		reviewService.applyMergeReview(review);
+		members = memberService.findMembers(childBranch, new MemberSearchRequest().referencedComponentId(pizzaPie.getId()).referenceSet(US_EN_LANG_REFSET), PageRequest.of(0, 10));
+		assertVersioned(getMember(members), 20210813); // Overwritten child's version.
+		assertFalse(getMember(members).isActive());
+	}
+
+	@Test
 	void testAutoMergeWhenAxiomDeletedSomewhereAndVersionedElsewhere() throws ServiceException, InterruptedException {
 		String codeSystemShortName = "SNOMEDCT-TEST";
 		String parentBranch = "MAIN/TEST";
@@ -2056,6 +2122,12 @@ class BranchMergeServiceTest extends AbstractTest {
 		}
 	}
 
+	private void assertVersionedButChanged(ReferenceSetMember referenceSetMember, Integer releaseEffectiveTime){
+		assertNull(referenceSetMember.getEffectiveTimeI());
+		assertTrue(referenceSetMember.isReleased());
+		assertEquals(referenceSetMember.getReleasedEffectiveTime(), releaseEffectiveTime);
+	}
+
 	private void assertVersioned(Concept concept, Integer version) {
 		assertNotNull(concept);
 		assertEquals(concept.getEffectiveTimeI(), version);
@@ -2107,6 +2179,10 @@ class BranchMergeServiceTest extends AbstractTest {
 		}
 
 		return null;
+	}
+
+	private ReferenceSetMember getMember(Page<ReferenceSetMember> page){
+		return page.getContent().iterator().next();
 	}
 
 	private MergeReview getMergeReviewInCurrentState(String source, String target) throws InterruptedException {
