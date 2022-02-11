@@ -183,6 +183,12 @@ public class CodeSystemController {
 		codeSystemUpgradeService.upgrade(codeSystem, request.getNewDependantVersion(), TRUE.equals(request.getContentAutomations()));
 	}
 
+	@ApiOperation("Check if daily build import matches today's date.")
+	@RequestMapping(value = "/{shortName}/daily-build/check", method = RequestMethod.GET)
+	public boolean getLatestDailyBuild(@PathVariable String shortName) {
+		return dailyBuildService.hasLatestDailyBuild(shortName);
+	}
+
 	@ApiOperation(value = "Rollback daily build commits.",
 			notes = "If you have a daily build set up for a code system this operation should be used to revert/rollback the daily build content " +
 					"before importing any versioned content. Be sure to disable the daily build too.")
