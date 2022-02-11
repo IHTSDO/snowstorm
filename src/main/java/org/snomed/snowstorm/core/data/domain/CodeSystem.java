@@ -20,7 +20,7 @@ import java.util.Set;
  * Represents an edition or extension of SNOMED-CT
  */
 @Document(indexName = "codesystem")
-@JsonPropertyOrder({"name", "owner", "shortName", "branchPath", "dependantVersionEffectiveTime", "dailyBuildAvailable",
+@JsonPropertyOrder({"name", "owner", "shortName", "branchPath", "dependantVersionEffectiveTime", "dailyBuildAvailable", "latestDailyBuild",
 		"countryCode", "defaultLanguageCode", "defaultLanguageReferenceSets", "maintainerType", "latestVersion", "languages", "modules"})
 public class CodeSystem implements CodeSystemCreate {
 
@@ -59,6 +59,9 @@ public class CodeSystem implements CodeSystemCreate {
 
 	@Field(type = FieldType.Boolean)
 	private boolean dailyBuildAvailable;
+
+	@Field(type = FieldType.Keyword)
+	private String latestDailyBuild;
 
 	@Transient
 	private Integer dependantVersionEffectiveTime;
@@ -169,6 +172,14 @@ public class CodeSystem implements CodeSystemCreate {
 
 	public void setDailyBuildAvailable(boolean dailyBuildAvailable) {
 		this.dailyBuildAvailable = dailyBuildAvailable;
+	}
+
+	public String getLatestDailyBuild() {
+		return latestDailyBuild;
+	}
+
+	public void setLatestDailyBuild(String latestDailyBuild) {
+		this.latestDailyBuild = latestDailyBuild;
 	}
 
 	public Integer getDependantVersionEffectiveTime() {
