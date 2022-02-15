@@ -71,7 +71,7 @@ class RemoteClassificationServiceClient {
 		params.put("reasonerId", Collections.singletonList(reasonerId));
 
 		if (messageStatusDestination != null && !messageStatusDestination.isEmpty()) {
-			params.put("messageStatusDestination", Collections.singletonList(messageStatusDestination));
+			params.put("responseMessageQueue", Collections.singletonList(messageStatusDestination));
 		}
 
 		ResponseEntity<Void> response = restTemplate.postForEntity("/classifications", new HttpEntity<>(params, MULTIPART_HEADERS), Void.class);

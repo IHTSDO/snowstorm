@@ -192,17 +192,9 @@ public class ClassificationService {
 
 							ClassificationStatusResponse statusResponse = statusChange.get();
 							ClassificationStatus newStatus = statusResponse.getStatus();
-							boolean timeout = false;
-
-							if (classification.getStatus() == newStatus) {
-								// No status change
-								// Check for timeout
-								if (classification.getCreationDate().before(remoteClassificationCutoffTime)) {
-									timeout = true;
-								} else {
-									// Nothing to do
-									continue;
-								}
+							boolean timeout = classification.getCreationDate().before(remoteClassificationCutoffTime);
+							if (classification.getStatus() == newStatus && !timeout) {
+								continue;
 							}
 
 							if (timeout || classification.getStatus() != newStatus) {
