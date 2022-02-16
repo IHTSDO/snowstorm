@@ -1,5 +1,6 @@
 package org.snomed.snowstorm.fhir.services;
 
+import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.rest.param.StringParam;
 import ca.uhn.fhir.rest.param.TokenParam;
 import io.kaicode.elasticvc.api.BranchCriteria;
@@ -39,6 +40,7 @@ import org.springframework.stereotype.Component;
 
 import javax.servlet.http.HttpServletRequest;
 import java.text.ParseException;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
@@ -48,7 +50,7 @@ import static org.snomed.snowstorm.config.Config.DEFAULT_LANGUAGE_DIALECTS;
 @Component
 public class FHIRHelper implements FHIRConstants {
 
-	private static final java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("yyyyMMdd");
+	private static final SimpleDateFormat sdf = new SimpleDateFormat("yyyyMMdd");
 
 	@Autowired
 	private CodeSystemService codeSystemService;
@@ -67,7 +69,9 @@ public class FHIRHelper implements FHIRConstants {
 	
 	@Autowired
 	private ConceptService conceptService;
-	
+
+	private FhirContext fhirContext;
+
 	public static final Sort DEFAULT_SORT = Sort.sort(QueryConcept.class).by(QueryConcept::getConceptIdL).descending();
 	public static final Sort MEMBER_SORT = Sort.sort(ReferenceSetMember.class).by(ReferenceSetMember::getMemberId).descending();
 	
@@ -431,7 +435,7 @@ public class FHIRHelper implements FHIRConstants {
 	}
 
 	public Page<ConceptMini> eclSearch(String ecl, Boolean active, String termFilter, List<LanguageDialect> languageDialects, BranchPath branchPath, PageRequest pageRequest) {
-		QueryService.ConceptQueryBuilder queryBuilder = queryService.createQueryBuilder(false);  //Inferred view only for now
+		ConceptQueryBuilder queryBuilder = queryService.createQueryBuilder(false);  //Inferred view only for now
 		queryBuilder.ecl(ecl)
 				.descriptionCriteria(descriptionCriteria -> descriptionCriteria
 						.term(termFilter)
@@ -594,7 +598,7 @@ public class FHIRHelper implements FHIRConstants {
 		return c.getCode().equals(string);
 	}
 
-	public static void validateEffectiveTime (String input) throws org.snomed.snowstorm.fhir.services.FHIROperationException {
+	public static void validateEffectiveTime (String input) throws FHIROperationException {
 		if (!StringUtils.isEmpty(input)) {
 			try {
 				sdf.parse(input.trim());
@@ -604,4 +608,11 @@ public class FHIRHelper implements FHIRConstants {
 		}
 	}
 
+	public void setFhirContext(FhirContext fhirContext) {
+		this.fhirContext = fhirContext;
+	}
+
+	public FhirContext getFhirContext() {
+		return fhirContext;
+	}
 }
