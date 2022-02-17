@@ -436,31 +436,37 @@ public class SemanticIndexUpdateService extends ComponentService implements Comm
 	}
 
 	private Object convertConcreteValue(Relationship relationship, Map<String, ConcreteValue.DataType> concreteAttributeDataTypeMap) {
-		ConcreteValue.DataType dataTypeDefined = concreteAttributeDataTypeMap.get(relationship.getTypeId());
-		if (dataTypeDefined == null) {
-			throw new IllegalStateException(String.format("No MRCM range constraint is defined for concrete attribute %s", relationship.getTypeId()));
-		}
 		ConcreteValue.DataType actualType = relationship.getConcreteValue().getDataType();
-		String errorMsg = String.format("Concrete value %s with data type %s in relationship is not matching data type %s defined in the MRCM for attribute %s",
-				relationship.getConcreteValue().getValue(), actualType, dataTypeDefined, relationship.getTypeId());
+		ConcreteValue.DataType mrcmDataType = concreteAttributeDataTypeMap.get(relationship.getTypeId());
 
-		if ((ConcreteValue.DataType.DECIMAL == dataTypeDefined && actualType == ConcreteValue.DataType.STRING) ||
-				(ConcreteValue.DataType.STRING == dataTypeDefined && dataTypeDefined != actualType)) {
-			throw new IllegalStateException(errorMsg);
-		}
-
-		// need to check the actual value for Integer data type
-		if (ConcreteValue.DataType.INTEGER == dataTypeDefined) {
-			int intValue = NumberUtils.toInt(relationship.getConcreteValue().getValue(), -1);
-			if (intValue == -1) {
+		ConcreteValue.DataType typeToUse;
+		if (mrcmDataType != null) {
+			String errorMsg = String.format("Concrete value %s with data type %s in relationship is not matching data type %s defined in the MRCM for attribute %s",
+					relationship.getConcreteValue().getValue(), actualType, mrcmDataType, relationship.getTypeId());
+			if ((ConcreteValue.DataType.DECIMAL == mrcmDataType && actualType == ConcreteValue.DataType.STRING) ||
+					(ConcreteValue.DataType.STRING == mrcmDataType && mrcmDataType != actualType)) {
 				throw new IllegalStateException(errorMsg);
 			}
+
+			// need to check the actual value for Integer data type
+			if (ConcreteValue.DataType.INTEGER == mrcmDataType) {
+				int intValue = NumberUtils.toInt(relationship.getConcreteValue().getValue(), -1);
+				if (intValue == -1) {
+					throw new IllegalStateException(errorMsg);
+				}
+			}
+			typeToUse = mrcmDataType;
+		} else {
+			logger.warn("No MRCM range constraint is defined for concrete attribute {}. Assuming data type {} for relationship {}.",
+					relationship.getTypeId(), actualType, relationship.getRelationshipId());
+			typeToUse = actualType;
 		}
-		// convert concrete value
+
+		// Convert concrete value
 		Object value = relationship.getValue();
-		if (ConcreteValue.DataType.INTEGER == dataTypeDefined) {
+		if (ConcreteValue.DataType.INTEGER == typeToUse) {
 			value = Integer.parseInt(relationship.getConcreteValue().getValue());
-		} else if (ConcreteValue.DataType.DECIMAL == dataTypeDefined) {
+		} else if (ConcreteValue.DataType.DECIMAL == typeToUse) {
 			value = Float.parseFloat(relationship.getConcreteValue().getValue());
 		}
 		return value;
