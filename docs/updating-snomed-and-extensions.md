@@ -52,11 +52,10 @@ Use the following in the request to create the branch:
 {
   "shortName": "SNOMEDCT-ES",
   "branchPath": "MAIN/SNOMEDCT-ES",
-  "dependantVersion": 20190731  
+  "dependantVersion": 20210131
 }
 ```
-The dependantVersion is the version of the Edition which the extension being imported is dependant on. For the International Edition the release dates are currently either 
-the Janurary release xxxx0131 or the July release xxxx0731. An extension with an effective date of 20191130 would probably depend on the previous International Edition 20190731.
+The dependantVersion is the version of the Edition which the extension being imported is dependant on. For example an extension with an effective date of 20210430 might be dependant on the International Edition 20210131.
 This field is used when creating the extension branch so that the new branch can see content from the desired release in the parent branch. This dependantVersion will be changed when upgrading the extension. 
 
 There are many optional fields available for that request that can be used to provide additional information about the code system. These are used by the [SNOMED Browser project](https://github.com/IHTSDO/sct-browser-frontend).
@@ -77,29 +76,29 @@ Click on 'Try it now' and note the ID of the import as you will need it for the 
 As before, the RF2 file needs to be uploaded next. This can be done through Swagger using the /imports/{importId}/archive endpoint, or via curl. In both cases, specify the ID recovered in the previous step:
 
 ```bash
-curl -X POST --header 'Content-Type: multipart/form-data' --header 'Accept: application/json' -F file=@SnomedCT_SpanishRelease-es_Production_20190430T120000Z.zip 'http://localhost:8080/imports/<import id>/archive'
+curl -X POST --header 'Content-Type: multipart/form-data' --header 'Accept: application/json' -F file=@SnomedCT_SpanishRelease-es_Production_20210430T120000Z.zip 'http://localhost:8080/imports/<import id>/archive'
 ```
 
 You can watch log to see how this is progressing, or simply to the import endpoint - http://localhost:8080/imports/<import id>. This will take around 5-6 minutes.
 
-You can check the import has been a success using the Branching endpoint - http://localhost:8080/branches, where you should now see a MAIN/SNOMEDCT-ES and a MAIN/SNOMEDCT-ES/2019-04-30 branch.
+You can check the import has been a success using the Branching endpoint - http://localhost:8080/branches, where you should now see a MAIN/SNOMEDCT-ES and a MAIN/SNOMEDCT-ES/2021-04-30 branch.
 
 ## Importing a new International Edition
 
-Every 6 months there is a new International Edition and it is important to keep your terminology server up to date. An upgrade is an import again, but for the International Edition, it is a DELTA import onto MAIN. First, we need to create an import job as above
+Since Janurary 2022 a new SNOMED-CT International Edition release is published every month. **Please do not import delta archives created with the Delta Generator Tool into Snowstorm because this will make the content inconsistent.** New releases should be imported onto the `MAIN` branch using the `SNAPSHOT` import type. First, we need to create an import job as above
 
 ```json
 {
   "branchPath": "MAIN",
   "createCodeSystemVersion": true,
-  "type": "DELTA"
+  "type": "SNAPSHOT"
 }
 ```
 
-and then click on 'Try it now' and then note the id of the import as before. We now need to upload the July 2018 International release file as before:
+and then click on 'Try it now' and then note the id of the import as before. We now need to upload the July 2021 International release file as before:
 
 ```bash
-curl -X POST --header 'Content-Type: multipart/form-data' --header 'Accept: application/json' -F file=@SnomedCT_InternationalRF2_PRODUCTION_20190731T120000Z.zip  'http://localhost:8080/imports/<import id>/archive'
+curl -X POST --header 'Content-Type: multipart/form-data' --header 'Accept: application/json' -F file=@SnomedCT_InternationalRF2_PRODUCTION_20210731T120000Z.zip  'http://localhost:8080/imports/<import id>/archive'
 ```
 
 You can tail the system log to see how this is progressing, or simply to the import endpoint - http://localhost:8080/imports/<import id>
@@ -111,7 +110,7 @@ Once a new version of the International Edition is imported local extensions/edi
 In our example, we will now merge the MAIN branch into the SNOMEDCT-ES branch using the CodeSystem upgrade endpoint using the shortname, SNOMEDCT-ES, `/codesystems/SNOMEDCT-ES/upgrade`:
 ```json
 {
-  "newDependantVersion": 20190731
+  "newDependantVersion": 20210731
 }
 ```
 
@@ -119,20 +118,20 @@ You can check this has been successful by checking the status of the branch and 
 
 ## Upgrading to a new local Edition or Extension
 
-The edition or extension upgrade is an import again, but for this time, it is a DELTA import onto the relevant branch. First, we need to create an import job as before:
+The edition or extension upgrade is an import again. The SNAPSHOT import type can always be used for upgrades onto the relevant code system branch. If the extension archive contains delta RF2 files then the DELTA import type could also be used for a slightly faster import. First, we need to create an import job as before:
 
 ```json
 {
   "branchPath": "MAIN/SNOMEDCT-ES",
   "createCodeSystemVersion": true,
-  "type": "DELTA"
+  "type": "SNAPSHOT"
 }
 ```
 
-and then click on 'Try it now' and then note the id of the import as before. You now need to upload the October 2018 Spanish release file as before -
+and then click on 'Try it now' and then note the id of the import as before. You now need to upload the October 2021 Spanish release file as before -
 
 ```bash
-curl -X POST --header 'Content-Type: multipart/form-data' --header 'Accept: application/json' -F file=@SnomedCT_SpanishRelease-es_Production_20191031T120000Z.zip  'http://localhost:8080/imports/<import id>/archive'
+curl -X POST --header 'Content-Type: multipart/form-data' --header 'Accept: application/json' -F file=@SnomedCT_SpanishRelease-es_Production_20211031T120000Z.zip  'http://localhost:8080/imports/<import id>/archive'
 ```
 
 You can tail the system log to see how this is progressing, or simply to the import endpoint - http://localhost:8080/imports/<import id>
