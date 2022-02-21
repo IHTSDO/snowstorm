@@ -1097,15 +1097,13 @@ class SemanticIndexUpdateServiceTest extends AbstractTest {
 		String path = "MAIN";
 		List<Concept> concepts = createConcreteValueTestConcepts(path);
 
-		// 396070085 has no data type defined in the MRCM
+		// 396070085 has no data type defined in the MRCM - number data type will default to decimal
 		concepts.add(new Concept("34020007").addRelationship(new Relationship(UUID.randomUUID().toString(), ISA, "34020006"))
 				.addRelationship(new Relationship("3332956025", null, true, "900000000000207008", "34020007",
 						"#10.01", 1, "396070085", "900000000000011006", "900000000000451002")));
-		Exception exception = assertThrows(IllegalStateException.class, () -> {
-			simulateRF2Import(path, concepts);
-		});
-		assertEquals("No MRCM range constraint is defined for concrete attribute 396070085",
-				exception.getMessage());
+		simulateRF2Import(path, concepts);
+
+		assertEquals(1, queryService.search(queryService.createQueryBuilder(false).ecl("<<34020007:* = #10.01"), path, PAGE_REQUEST).getTotalElements());
 	}
 
 	@Test
