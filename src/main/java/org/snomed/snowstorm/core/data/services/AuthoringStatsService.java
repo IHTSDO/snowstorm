@@ -40,7 +40,10 @@ public class AuthoringStatsService {
 	
 	public static final PageRequest NULL_PAGE = PageRequest.of(0,1);
 	public static final String AGGREGATION_COUNTS_BY_MODULE = "countByModule";
-	public static final TermsAggregationBuilder MODULE_AGGREGATION = AggregationBuilders.terms(AGGREGATION_COUNTS_BY_MODULE).field(SnomedComponent.Fields.MODULE_ID).size(AGGREGATION_SEARCH_SIZE);
+	public static final TermsAggregationBuilder MODULE_AGGREGATION = AggregationBuilders
+			.terms(AGGREGATION_COUNTS_BY_MODULE)
+			.field(SnomedComponent.Fields.MODULE_ID + ".keyword")
+			.size(AGGREGATION_SEARCH_SIZE);
 
 	@Autowired
 	private VersionControlHelper versionControlHelper;
