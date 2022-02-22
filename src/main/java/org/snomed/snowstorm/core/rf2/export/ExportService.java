@@ -140,7 +140,7 @@ public class ExportService {
 		}
 
 		boolean generateMDR = false;
-		if (exportType == RF2Type.DELTA && !StringUtils.isEmpty(transientEffectiveTime)) {
+		if (exportType == RF2Type.DELTA && !StringUtils.isEmpty(transientEffectiveTime) && !unpromotedChangesOnly) {
 			generateMDR = true;
 		}
 
