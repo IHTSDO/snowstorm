@@ -56,7 +56,7 @@ public interface FHIRConstants {
 	String IMPLICIT_REFSET = "?fhir_vs=refset/";
 	String IMPLICIT_ECL= "?fhir_vs=ecl/";
 	
-	public enum FhirSctProperty {
+	enum FhirSctProperty {
 		INACTVE ("inactive"),
 		SUFFICIENTLY_DEFINED("sufficientlyDefined"),
 		MODULE_ID("moduleId"),

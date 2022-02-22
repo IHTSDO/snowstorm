@@ -7,6 +7,9 @@ import org.snomed.snowstorm.core.data.domain.expression.Expression;
 import org.snomed.snowstorm.core.data.services.ExpressionService;
 import org.snomed.snowstorm.core.pojo.LanguageDialect;
 import org.snomed.snowstorm.fhir.config.FHIRConstants;
+import org.snomed.snowstorm.fhir.domain.FHIRCodeSystemVersion;
+import org.snomed.snowstorm.fhir.domain.FHIRConcept;
+import org.snomed.snowstorm.fhir.domain.FHIRDesignation;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import java.util.Collection;
@@ -75,7 +78,33 @@ public class HapiParametersMapper implements FHIRConstants {
 		addChildren(parameters, childIds);
 		return parameters;
 	}
-	
+
+	public Parameters mapToFHIR(FHIRCodeSystemVersion codeSystemVersion, FHIRConcept concept) {
+		Parameters parameters = new Parameters();
+		parameters.addParameter("name", codeSystemVersion.getTitle());
+		parameters.addParameter("version", codeSystemVersion.getVersion());
+		parameters.addParameter("display", concept.getDisplay());
+
+		for (String parent : concept.getParents()) {
+			parameters.addParameter(createProperty(PARENT, parent, true));
+		}
+
+		for (FHIRDesignation designation : concept.getDesignations()) {
+			Parameters.ParametersParameterComponent desParam = parameters.addParameter().setName(DESIGNATION);
+			if (designation.getLanguage() != null) {
+				desParam.addPart().setName(LANGUAGE).setValue(new CodeType(designation.getLanguage()));
+			}
+			if (designation.getUse() != null) {
+				desParam.addPart().setName(USE).setValue(new CodeType(designation.getUse()));
+			}
+			if (designation.getValue() != null) {
+				desParam.addPart().setName(VALUE).setValue(new StringType(designation.getValue()));
+			}
+		}
+
+		return parameters;
+	}
+
 	public Parameters mapToFHIR(List<ReferenceSetMember> members, UriType requestedTargetSystem, BiMap<String, String> knownUriMap) {
 		UriType targetSystem;
 		Parameters p = getStandardParameters();

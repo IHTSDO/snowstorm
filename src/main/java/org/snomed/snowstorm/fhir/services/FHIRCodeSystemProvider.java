@@ -1,20 +1,21 @@
 package org.snomed.snowstorm.fhir.services;
 
-import ca.uhn.fhir.rest.annotation.IdParam;
-import ca.uhn.fhir.rest.annotation.Operation;
-import ca.uhn.fhir.rest.annotation.OperationParam;
-import ca.uhn.fhir.rest.annotation.OptionalParam;
-import ca.uhn.fhir.rest.annotation.Read;
-import ca.uhn.fhir.rest.annotation.Search;
+import ca.uhn.fhir.context.FhirContext;
+import ca.uhn.fhir.jpa.provider.TerminologyUploaderProvider;
+import ca.uhn.fhir.jpa.term.TermLoaderSvcImpl;
+import ca.uhn.fhir.jpa.term.api.ITermLoaderSvc;
+import ca.uhn.fhir.rest.annotation.*;
 import ca.uhn.fhir.rest.api.server.RequestDetails;
 import ca.uhn.fhir.rest.param.QuantityParam;
 import ca.uhn.fhir.rest.param.StringParam;
 import ca.uhn.fhir.rest.param.TokenParam;
 import ca.uhn.fhir.rest.server.IResourceProvider;
-
+import org.hl7.fhir.instance.model.api.IBaseParameters;
+import org.hl7.fhir.instance.model.api.IBaseResource;
+import org.hl7.fhir.instance.model.api.ICompositeType;
+import org.hl7.fhir.instance.model.api.IPrimitiveType;
 import org.hl7.fhir.r4.model.*;
 import org.hl7.fhir.r4.model.OperationOutcome.IssueType;
-import org.hl7.fhir.instance.model.api.IBaseResource;
 import org.snomed.snowstorm.core.data.domain.Concept;
 import org.snomed.snowstorm.core.data.domain.ConceptMini;
 import org.snomed.snowstorm.core.data.services.ConceptService;
@@ -25,6 +26,8 @@ import org.snomed.snowstorm.core.data.services.pojo.ConceptCriteria;
 import org.snomed.snowstorm.core.pojo.LanguageDialect;
 import org.snomed.snowstorm.fhir.config.FHIRConstants;
 import org.snomed.snowstorm.fhir.domain.BranchPath;
+import org.snomed.snowstorm.fhir.domain.FHIRCodeSystemVersion;
+import org.snomed.snowstorm.fhir.domain.FHIRConcept;
 import org.snomed.snowstorm.fhir.domain.SearchFilter;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
@@ -35,12 +38,17 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.util.*;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
+import java.util.stream.StreamSupport;
 
 import static io.kaicode.elasticvc.api.ComponentService.LARGE_PAGE;
 import static org.snomed.snowstorm.config.Config.DEFAULT_LANGUAGE_DIALECTS;
 
 @Component
 public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants {
+
+	private static final String PARAM_SYSTEM = "system";
+	private static final String PARAM_FILE = "file";
 
 	@Autowired
 	private ConceptService conceptService;
@@ -59,36 +67,66 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants 
 
 	@Autowired
 	private MultiSearchService multiSearchService;
-	
-	private List<LanguageDialect> defaultLanguages;
+
+	@Autowired
+	private FHIRTermCodeSystemStorage termCodeSystemStorage;
+
+	@Autowired
+	private FHIRCodeSystemService fhirCodeSystemService;
+
+	@Autowired
+	private FHIRConceptService fhirConceptService;
+
+	private final List<LanguageDialect> defaultLanguages;
 	
 	FHIRCodeSystemProvider() {
 		defaultLanguages = new ArrayList<>();
 		defaultLanguages.addAll(DEFAULT_LANGUAGE_DIALECTS);
 	}
 	
-	private static String[] defaultSortOrder = new String[] { "title", "-date" };
-	
+	private static final String[] defaultSortOrder = new String[] { "title", "-date" };
+
+	private static final Comparator<String> nullSafeStringComparator = Comparator.nullsFirst(Comparator.naturalOrder());
+	private static final Comparator<Date> nullSafeDateComparator = Comparator.nullsFirst(Comparator.naturalOrder());
 	//See https://stackoverflow.com/questions/61073018/streams-sorting-by-runtime-parameter
-	private static Map<String, Comparator<CodeSystem>> comparatorMap = Map.ofEntries(
-			new AbstractMap.SimpleEntry<>("_id", Comparator.comparing(CodeSystem::getId)),
-			new AbstractMap.SimpleEntry<>("-_id", Comparator.comparing(CodeSystem::getId).reversed()),
-			new AbstractMap.SimpleEntry<>("date", Comparator.comparing(CodeSystem::getDate)),
-			new AbstractMap.SimpleEntry<>("-date", Comparator.comparing(CodeSystem::getDate).reversed()),
-			new AbstractMap.SimpleEntry<>("description", Comparator.comparing(CodeSystem::getDescription)),
-			new AbstractMap.SimpleEntry<>("-description", Comparator.comparing(CodeSystem::getDescription).reversed()),
-			new AbstractMap.SimpleEntry<>("name", Comparator.comparing(CodeSystem::getName)),
-			new AbstractMap.SimpleEntry<>("-name", Comparator.comparing(CodeSystem::getName).reversed()),
-			new AbstractMap.SimpleEntry<>("publisher", Comparator.comparing(CodeSystem::getPublisher)),
-			new AbstractMap.SimpleEntry<>("-publisher", Comparator.comparing(CodeSystem::getPublisher).reversed()),
-			new AbstractMap.SimpleEntry<>("title", Comparator.comparing(CodeSystem::getTitle)),
-			new AbstractMap.SimpleEntry<>("-title", Comparator.comparing(CodeSystem::getTitle).reversed()),
-			new AbstractMap.SimpleEntry<>("url", Comparator.comparing(CodeSystem::getUrl)),
-			new AbstractMap.SimpleEntry<>("-url", Comparator.comparing(CodeSystem::getUrl).reversed()),
-			new AbstractMap.SimpleEntry<>("version", Comparator.comparing(CodeSystem::getVersion)),
-			new AbstractMap.SimpleEntry<>("-version", Comparator.comparing(CodeSystem::getVersion).reversed())
+	private static final Map<String, Comparator<CodeSystem>> comparatorMap = Map.ofEntries(
+			new AbstractMap.SimpleEntry<>("_id", Comparator.comparing(CodeSystem::getId, nullSafeStringComparator)),
+			new AbstractMap.SimpleEntry<>("-_id", Comparator.comparing(CodeSystem::getId, nullSafeStringComparator).reversed()),
+			new AbstractMap.SimpleEntry<>("date", Comparator.comparing(CodeSystem::getDate, nullSafeDateComparator)),
+			new AbstractMap.SimpleEntry<>("-date", Comparator.comparing(CodeSystem::getDate, nullSafeDateComparator).reversed()),
+			new AbstractMap.SimpleEntry<>("description", Comparator.comparing(CodeSystem::getDescription, nullSafeStringComparator)),
+			new AbstractMap.SimpleEntry<>("-description", Comparator.comparing(CodeSystem::getDescription, nullSafeStringComparator).reversed()),
+			new AbstractMap.SimpleEntry<>("name", Comparator.comparing(CodeSystem::getName, nullSafeStringComparator)),
+			new AbstractMap.SimpleEntry<>("-name", Comparator.comparing(CodeSystem::getName, nullSafeStringComparator).reversed()),
+			new AbstractMap.SimpleEntry<>("publisher", Comparator.comparing(CodeSystem::getPublisher, nullSafeStringComparator)),
+			new AbstractMap.SimpleEntry<>("-publisher", Comparator.comparing(CodeSystem::getPublisher, nullSafeStringComparator).reversed()),
+			new AbstractMap.SimpleEntry<>("title", Comparator.comparing(CodeSystem::getTitle, nullSafeStringComparator)),
+			new AbstractMap.SimpleEntry<>("-title", Comparator.comparing(CodeSystem::getTitle, nullSafeStringComparator).reversed()),
+			new AbstractMap.SimpleEntry<>("url", Comparator.comparing(CodeSystem::getUrl, nullSafeStringComparator)),
+			new AbstractMap.SimpleEntry<>("-url", Comparator.comparing(CodeSystem::getUrl, nullSafeStringComparator).reversed()),
+			new AbstractMap.SimpleEntry<>("version", Comparator.comparing(CodeSystem::getVersion, nullSafeStringComparator)),
+			new AbstractMap.SimpleEntry<>("-version", Comparator.comparing(CodeSystem::getVersion, nullSafeStringComparator).reversed())
 		);
-	
+
+	public static void main(String[] args) {
+		List<A> as = new ArrayList<>();
+		as.add(new A("A"));
+		as.add(new A(null));
+		as.sort(Comparator.comparing(A::getTitle, Comparator.nullsFirst(Comparator.naturalOrder())));
+//		as.sort(Comparator.comparing(A::getTitle));
+	}
+	private static final class A {
+		String title;
+
+		public A(String title) {
+			this.title = title;
+		}
+
+		public String getTitle() {
+			return title;
+		}
+	}
+
 	//See https://www.hl7.org/fhir/valueset.html#search
 	@Search
 	public List<CodeSystem> findCodeSystems(
@@ -143,10 +181,17 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants 
 				throw new FHIROperationException(IssueType.PROCESSING, sortField + " is not supported as a field to sort on.");
 			}
 		}
-		
-		Comparator<CodeSystem> chainedComparator = sortOn.stream().map(comparatorMap::get).reduce(Comparator::thenComparing).get();
-		return multiSearchService.getAllPublishedVersions().stream()
-				.map(cv -> csMapper.mapToFHIR(cv))
+
+		Comparator<CodeSystem> chainedComparator =
+				sortOn.stream().map(comparatorMap::get).reduce(Comparator::thenComparing).orElseGet(() -> Comparator.comparing(CodeSystem::getId));
+
+		Stream<CodeSystem> snomedCodeSystemStream = multiSearchService.getAllPublishedVersions().stream()
+				.map(cv -> csMapper.mapToFHIR(cv));
+
+		Stream<CodeSystem> fhirCodeSystemStream = StreamSupport.stream(fhirCodeSystemService.findAll().spliterator(), false)
+				.map(FHIRCodeSystemVersion::toHapiCodeSystem);
+
+		return Stream.concat(snomedCodeSystemStream, fhirCodeSystemStream)
 				.filter(cs -> csFilter.apply(cs, fhirHelper))
 				.sorted(chainedComparator)
 				.collect(Collectors.toList());
@@ -213,39 +258,54 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants 
 			String displayLanguage,
 			List<CodeType> propertiesType) throws FHIROperationException {
 
-		String conceptId = fhirHelper.recoverConceptId(code, coding);
+		String codeString = fhirHelper.recoverCode(code, coding);
 		List<LanguageDialect> designations = new ArrayList<>();
 		// Also if displayLanguage has been used, ensure that's part of our requested Language Codes
 		// And make it the first in the list so we pick it up for the display element
 		fhirHelper.setLanguageOptions(designations, displayLanguage, request);
-		Concept fullConcept;
-		BranchPath branchPath;
-		if (system == null || system.toString().equals(SNOMED_URI)) {
-			//Multisearch is expensive, so we'll try on default branch first 
-			branchPath = fhirHelper.getBranchPathFromURI(system);
-			fullConcept = conceptService.find(conceptId, designations, branchPath.toString());
-			if (fullConcept == null) {
-				ConceptCriteria criteria = new ConceptCriteria().conceptIds(Collections.singleton(conceptId));
-				Page<Concept> concepts = multiSearchService.findConcepts(criteria, PageRequest.of(0, 1));
-				List<Concept> content = concepts.getContent();
-				if (!content.isEmpty()) {
-					Concept concept = content.get(0);
-					branchPath = new BranchPath(concept.getPath());
-					fullConcept = conceptService.find(conceptId, designations, concept.getPath());
-				} else {
-					throw new NotFoundException(conceptId + " not found on any code system version");
+		if (system == null || system.toString().startsWith(SNOMED_URI)) {
+			Concept fullConcept;
+			BranchPath branchPath;
+			if (system == null || system.toString().equals(SNOMED_URI)) {
+				//Multisearch is expensive, so we'll try on default branch first
+				branchPath = fhirHelper.getBranchPathFromURI(system);
+				fullConcept = conceptService.find(codeString, designations, branchPath.toString());
+				if (fullConcept == null) {
+					ConceptCriteria criteria = new ConceptCriteria().conceptIds(Collections.singleton(codeString));
+					Page<Concept> concepts = multiSearchService.findConcepts(criteria, PageRequest.of(0, 1));
+					List<Concept> content = concepts.getContent();
+					if (!content.isEmpty()) {
+						Concept concept = content.get(0);
+						branchPath = new BranchPath(concept.getPath());
+						fullConcept = conceptService.find(codeString, designations, concept.getPath());
+					} else {
+						throw new NotFoundException(codeString + " not found on any code system version");
+					}
+				}
+			} else {
+				// System starts with http://snomed.info/sct
+				branchPath = fhirHelper.getBranchPathFromURI(system);
+				fullConcept = conceptService.find(codeString, designations, branchPath.toString());
+				if (fullConcept == null) {
+					throw new NotFoundException("Concept " + codeString + " was not found on branch " + branchPath);
 				}
 			}
+			Page<Long> childIds = queryService.searchForIds(queryService.createQueryBuilder(false).ecl("<!" + codeString), branchPath.toString(), LARGE_PAGE);
+			Set<FhirSctProperty> properties = FhirSctProperty.parse(propertiesType);
+			return pMapper.mapToFHIR(system, fullConcept, childIds.getContent(), properties, designations);
 		} else {
-			branchPath = fhirHelper.getBranchPathFromURI(system);
-			fullConcept = conceptService.find(conceptId, designations, branchPath.toString());
-			if (fullConcept == null) {
-				throw new NotFoundException("Concept " + conceptId + " was not found on branch " + branchPath);
+			FHIRCodeSystemVersion fhirCodeSystemVersion = fhirCodeSystemService.findCodeSystemVersion(system);
+			if (fhirCodeSystemVersion == null) {
+				throw new NotFoundException(String.format("CodeSystem %s not found.", system));
 			}
+			// TODO: ID must be a combination of url and version..
+			String codeSystemVersion = fhirCodeSystemVersion.getIdAndVersion();
+			FHIRConcept concept = fhirConceptService.findConcept(codeSystemVersion, codeString);
+			if (concept == null) {
+				throw new NotFoundException(String.format("Concept %s not found for system %s.", codeString, fhirCodeSystemVersion.getUrl()));
+			}
+			return pMapper.mapToFHIR(fhirCodeSystemVersion, concept);
 		}
-		Page<Long> childIds = queryService.searchForIds(queryService.createQueryBuilder(false).ecl("<!" + conceptId), branchPath.toString(), LARGE_PAGE);
-		Set<FhirSctProperty> properties = FhirSctProperty.parse(propertiesType);
-		return pMapper.mapToFHIR(system, fullConcept, childIds.getContent(), properties, designations);
 	}
 
 	@Operation(name="$validate-code", idempotent=true)
@@ -303,7 +363,7 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants 
 			Coding coding,
 			String displayLanguage) throws FHIROperationException {
 		List<LanguageDialect> languageDialects = fhirHelper.getLanguageDialects(null, request.getHeader(ACCEPT_LANGUAGE_HEADER));
-		String conceptId = fhirHelper.recoverConceptId(code, coding);
+		String conceptId = fhirHelper.recoverCode(code, coding);
 		ConceptCriteria criteria = new ConceptCriteria().conceptIds(Collections.singleton(conceptId));
 		Concept fullConcept = null;
 		if (codeSystem == null || codeSystem.toString().equals(SNOMED_URI)) {
@@ -360,7 +420,28 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants 
 		system = fhirHelper.enhanceCodeSystem(system, version, commonCoding);
 		return subsumes(request, response, codeA, codeB, system, version, codingA, codingB);
 	}
-	
+
+	@Operation(name="$upload-external-code-system")
+	public IBaseParameters uploadExternalCodeSystem(
+			HttpServletRequest theServletRequest,
+			@OperationParam(name= PARAM_SYSTEM, min = 1, typeName = "uri") IPrimitiveType<String> theCodeSystemUrl,
+			@OperationParam(name= PARAM_FILE, min = 1, max = OperationParam.MAX_UNLIMITED, typeName = "attachment") List<ICompositeType> theFiles,
+			RequestDetails theRequestDetails
+	) throws FHIROperationException {
+
+		if (theCodeSystemUrl.getValueAsString().startsWith(ITermLoaderSvc.SCT_URI)) {
+			throw new FHIROperationException(IssueType.NOTSUPPORTED, "Uploading a SNOMED-CT code system using the FHIR API is not supported. " +
+					"Please use the Snowstorm native API to manage SNOMED-CT code systems.");
+		}
+
+		FhirContext fhirContext = fhirHelper.getFhirContext();
+
+		TerminologyUploaderProvider uploaderProvider = new TerminologyUploaderProvider(fhirContext,
+				TermLoaderSvcImpl.withoutProxyCheck(new TermDeferredStorageSvc(), termCodeSystemStorage));
+
+		return uploaderProvider.uploadSnapshot(theServletRequest, theCodeSystemUrl, theFiles, theRequestDetails);
+	}
+
 	private Parameters subsumes(
 			HttpServletRequest request,
 			HttpServletResponse response,
@@ -371,8 +452,8 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants 
 			Coding codingA,
 			Coding codingB)
 			throws FHIROperationException {
-		String conceptAId = fhirHelper.recoverConceptId(codeA, codingA);
-		String conceptBId = fhirHelper.recoverConceptId(codeB, codingB);
+		String conceptAId = fhirHelper.recoverCode(codeA, codingA);
+		String conceptBId = fhirHelper.recoverCode(codeB, codingB);
 		if (conceptAId.equals(conceptBId)) {
 			return pMapper.singleOutValue("outcome", "equivalent");
 		}
