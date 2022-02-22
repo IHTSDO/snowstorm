@@ -37,9 +37,14 @@ import org.snomed.snowstorm.mrcm.MRCMLoader;
 import org.snomed.snowstorm.mrcm.MRCMUpdateService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.actuate.autoconfigure.jdbc.DataSourceHealthContributorAutoConfiguration;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.autoconfigure.data.elasticsearch.ElasticsearchDataAutoConfiguration;
 import org.springframework.boot.autoconfigure.elasticsearch.ElasticsearchRestClientAutoConfiguration;
+import org.springframework.boot.autoconfigure.flyway.FlywayAutoConfiguration;
+import org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration;
+import org.springframework.boot.autoconfigure.orm.jpa.HibernateJpaAutoConfiguration;
+import org.springframework.boot.autoconfigure.web.servlet.WebMvcAutoConfiguration;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.cloud.aws.autoconfigure.context.ContextStackAutoConfiguration;
@@ -72,6 +77,11 @@ import static java.lang.Long.parseLong;
 				ElasticsearchDataAutoConfiguration.class,
 				ElasticsearchRestClientAutoConfiguration.class,
 				ContextStackAutoConfiguration.class,
+				WebMvcAutoConfiguration.class,
+				FlywayAutoConfiguration.class,
+				HibernateJpaAutoConfiguration.class,
+				DataSourceHealthContributorAutoConfiguration.class,
+				DataSourceAutoConfiguration.class
 		}
 )
 @EnableElasticsearchRepositories(
