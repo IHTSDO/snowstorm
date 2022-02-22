@@ -329,7 +329,7 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 		//From either a saved VS instance or some implcit url, can we recover some ECL?
 		String ecl = getECL(id, url == null? null : url);
 		if (ecl != null) { 
-			String conceptId = fhirHelper.recoverConceptId(code, coding);
+			String conceptId = fhirHelper.recoverCode(code, coding);
 			BranchPath branchPath = fhirHelper.getBranchPathFromURI(codeSystem);
 			//Construct ECL to find the intersection of these two sets
 			String intersectionEcl = conceptId + " AND (" + ecl + ")";

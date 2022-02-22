@@ -17,13 +17,8 @@ import org.hl7.fhir.r4.model.ValueSet.FilterOperator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.core.data.domain.*;
-import org.snomed.snowstorm.core.data.services.CodeSystemService;
-import org.snomed.snowstorm.core.data.services.ConceptService;
-import org.snomed.snowstorm.core.data.services.DialectConfigurationService;
-import org.snomed.snowstorm.core.data.services.NotFoundException;
-import org.snomed.snowstorm.core.data.services.QueryService;
+import org.snomed.snowstorm.core.data.services.*;
 import org.snomed.snowstorm.core.data.services.QueryService.ConceptQueryBuilder;
-import org.snomed.snowstorm.core.data.services.identifier.IdentifierService;
 import org.snomed.snowstorm.core.data.services.pojo.ResultMapPage;
 import org.snomed.snowstorm.core.pojo.LanguageDialect;
 import org.snomed.snowstorm.core.util.SearchAfterPage;
@@ -123,7 +118,7 @@ public class FHIRHelper implements FHIRConstants {
 		String str = versionStr.replace(SNOMED_URI_UNVERSIONED, SNOMED_URI);
 		return str.contains(FHIRConstants.VERSION) ? 
 				  str.substring(FHIRConstants.SNOMED_URI.length() + 1, str.indexOf(FHIRConstants.VERSION))
-				: str.substring(FHIRConstants.SNOMED_URI.length() + 1, str.length());
+				: str.substring(FHIRConstants.SNOMED_URI.length() + 1);
 	}
 
 	public BranchPath getBranchPathFromURI(StringType codeSystemVersionUri) throws FHIROperationException {
@@ -359,39 +354,30 @@ public class FHIRHelper implements FHIRConstants {
 		}
 	}
 
-	public String recoverConceptId(CodeType code, Coding coding) throws FHIROperationException {
-		String conceptId = null;
+	public String recoverCode(CodeType code, Coding coding) throws FHIROperationException {
+		String codeString;
 		if (code == null && coding == null) {
 			throw new FHIROperationException(IssueType.INVARIANT, "Use one of 'code' or 'coding' parameters");
 		} else if (code != null && coding == null) {
 			if (code.getCode().contains("|")) {
 				throw new FHIROperationException(IssueType.NOTSUPPORTED, "'code' parameter cannot supply a codeSystem. Use 'coding' or provide CodeSystem in 'system' parameter");
 			}
-			conceptId = code.getCode();
-			if (!StringUtils.isNumeric(conceptId)) {
-				throw new FHIROperationException(IssueType.NOTSUPPORTED, "Only numeric SNOMED CT identifiers are currently supported");
-			}
-		} else if (code == null && coding != null) {
-			if (coding.getSystem() != null && !coding.getSystem().equals(SNOMED_URI)) {
-				throw new FHIROperationException(IssueType.NOTSUPPORTED, "CodeSystem of 'coding' may only be '" + SNOMED_URI + "'");
-			}
-			conceptId = coding.getCode();
+			codeString = code.getCode();
+		} else if (code == null) {
+			codeString = coding.getCode();
 		} else {
 			//Can only handle one of the two
 			throw new FHIROperationException(IssueType.INVARIANT, "Use either 'code' or 'coding' parameters, not both");
 		}
-		if (!IdentifierService.isConceptId(conceptId)) {
-			throw new FHIROperationException(IssueType.CODEINVALID, conceptId + " is not even a SNOMED CT code.");
-		}
-		return conceptId;
+		return codeString;
 	}
 
-	public StringType enhanceCodeSystem (StringType codeSystem, StringType version, Coding coding) throws FHIROperationException {
+	public StringType enhanceCodeSystem(StringType codeSystem, StringType version, Coding coding) throws FHIROperationException {
 
 		if (codeSystem != null) {
-			if (!codeSystem.asStringValue().equals(SNOMED_URI) && !codeSystem.asStringValue().equals(SNOMED_URI_UNVERSIONED)) {
-				throw new FHIROperationException(IssueType.VALUE, "Snowstorm FHIR API currently only accepts '" + SNOMED_URI + "' as a (code)system.  Additionally, the version parameter can be used to specify a module and effective date and 'xsct' can be used to indicate unversioned content.");
-			}
+//			if (!codeSystem.asStringValue().equals(SNOMED_URI) && !codeSystem.asStringValue().equals(SNOMED_URI_UNVERSIONED)) {
+//				throw new FHIROperationException(IssueType.VALUE, "Snowstorm FHIR API currently only accepts '" + SNOMED_URI + "' as a (code)system.  Additionally, the version parameter can be used to specify a module and effective date and 'xsct' can be used to indicate unversioned content.");
+//			}
 			
 			if (codeSystem.asStringValue().equals(SNOMED_URI_UNVERSIONED)) {
 				codeSystem.setValue(SNOMED_URI);
@@ -537,6 +523,9 @@ public class FHIRHelper implements FHIRConstants {
 	}
 	
 	public boolean objectMatches(Object obj, StringParam searchTerm) {
+		if (searchTerm == null) {
+			return true;
+		}
 		//If we've specified a search term but the target element is not populated, that's not a match
 		if (obj == null) {
 			return false;
@@ -615,4 +604,5 @@ public class FHIRHelper implements FHIRConstants {
 	public FhirContext getFhirContext() {
 		return fhirContext;
 	}
+
 }
