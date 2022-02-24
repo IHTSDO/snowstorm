@@ -8,7 +8,20 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 ### Breaking
 - General
   - When using `returnIdOnly` parameter; the ids returned now use 'string' rather than 'number' JSON data type, to avoid rounding. Fixes #367.
-  
+
+### Improvements
+  - General
+    - Add `searchAfter` request parameter to `/browser/{branch}/members` endpoint for querying 10K+ records.
+    - `latestDailyBuild` property added to `CodeSystem`
+  - Authoring
+    - FRI-234 Prevent versioned content being deleted when performing rebase.
+    - FRI-365 When Concepts are re-activated in an extension module, various historical associations and inactivation indicators are inactivated in the same extension module.
+    - MAINT-1871 Fix bug in IntegrityService to handle branch paths with more than 4 levels.
+    - FRI-393 Simple additional module now correctly assumes it is dependent on Core Module.
+    - FRI-388 Use existing responseMessageStatusQueue for classification status.
+    - MAINT-1882 Exclude MRCM reference sets when importing IPS terminology.
+    - MAINT-1883 Exclude Module Dependency reference set in exported archive when `unpromotedChangesOnly` flag is `true`.
+     
 ## 7.6.0 Release (Jan 2022)
 Minor release with bug fixes and improvements.
 
