@@ -750,7 +750,6 @@ class ConceptServiceTest extends AbstractTest {
 		}
 	}
 
-
 	@Test
 	void testConceptReinactivationOfVersionedConceptWithSameReasonAndAssociation() throws ServiceException, IOException {
 		String path = "MAIN";
@@ -865,6 +864,113 @@ class ConceptServiceTest extends AbstractTest {
 		final ReferenceSetMember secondTimeDescriptionInactivationIndicatorMember = activeDescriptions.get(0).getInactivationIndicatorMember();
 		assertEquals(descriptionInactivationIndicatorMember.getId(), secondTimeDescriptionInactivationIndicatorMember.getId(),
 				"Original inactivation indicator refset member must be reused because the value is the same.");
+	}
+	
+	@Test
+	void testPreviouslyUsedIndicatorAndAssociationAreReusedWherePossible() throws ServiceException, IOException {
+		/* When a refeset member is available to be reused, Snowstorm should pick this up and make that member active
+		 * rather than creating a new one (which then shows up as an unnecessary duplicate to our validation).
+		 * Now the value in attribute value is (probably) mutable so those can be picked up and modified for inactivation indicators
+		 * but refsetId is not mutable, so historical associations can only be reused if they are of the same association type */
+		
+		String path = "MAIN";
+		conceptService.batchCreate(Lists.newArrayList(new Concept("107658001"), new Concept("116680003")), path);
+		Concept concept = new Concept("50960005", 20020131, true, "900000000000207008", "900000000000074008");
+		concept.addDescription(new Description("84923010", 20020131, true, "900000000000207008", "50960005", "en", "900000000000013009", "Bleeding", "900000000000020002"));
+		concept.addAxiom(new Relationship(ISA, "107658001"));
+		concept = conceptService.create(concept, path);
+
+		// Version code system
+		codeSystemService.createVersion(codeSystem, 20190731, "");
+
+		// Make concept inactive
+		concept.setActive(false);
+		concept.setInactivationIndicator(Concepts.inactivationIndicatorNames.get(Concepts.DUPLICATE));
+		HashMap<String, Set<String>> associationTargetStrings = new HashMap<>();
+		associationTargetStrings.put(Concepts.historicalAssociationNames.get(Concepts.REFSET_SAME_AS_ASSOCIATION), Collections.singleton("87100004"));
+		concept.setAssociationTargets(associationTargetStrings);
+		concept = conceptService.update(concept, path);
+
+		// Check inactivation indicator string
+		concept = conceptService.find(concept.getId(), path);
+		assertEquals("DUPLICATE", concept.getInactivationIndicator());
+
+		// Check inactivation indicator reference set member was created
+		ReferenceSetMember inactivationIndicatorMember = concept.getInactivationIndicatorMember();
+		assertNotNull(inactivationIndicatorMember);
+		assertEquals(Concepts.DUPLICATE, inactivationIndicatorMember.getAdditionalField("valueId"));
+
+		// Check association target reference set member was created
+		Collection<ReferenceSetMember> associationTargetMembers = concept.getAssociationTargetMembers();
+		assertNotNull(associationTargetMembers);
+		assertEquals(1, associationTargetMembers.size());
+		ReferenceSetMember associationTargetMember = associationTargetMembers.iterator().next();
+		assertEquals(Concepts.REFSET_SAME_AS_ASSOCIATION, associationTargetMember.getRefsetId());
+
+		// Version code system
+		codeSystemService.createVersion(codeSystem, 20200131, "");
+		
+		// Now change the inactivation reason and association.
+		// We expect to change the refset member for the inactivation indicator, but will need
+		// a new historical association
+		concept = simulateRestTransfer(conceptService.find(concept.getId(), path));
+		concept.setInactivationIndicator(Concepts.inactivationIndicatorNames.get(Concepts.ERRONEOUS));
+		associationTargetStrings = new HashMap<>();
+		associationTargetStrings.put(Concepts.historicalAssociationNames.get(Concepts.REFSET_ALTERNATIVE_ASSOCIATION), Collections.singleton("87100004"));
+		concept.setAssociationTargets(associationTargetStrings);
+		concept = conceptService.update(concept, path);
+		
+		// Test that we still have the same inactivation indicator, but we should have a new association
+		ReferenceSetMember inactivationIndicatorMember2 = concept.getInactivationIndicatorMember();
+		assertEquals(inactivationIndicatorMember.getId(), inactivationIndicatorMember2.getId(), "Inactivation indicator refset member should be re-used.");
+		
+		associationTargetMembers = concept.getAssociationTargetMembers();
+		assertNotNull(associationTargetMembers);
+		assertEquals(2, associationTargetMembers.size());
+		for (ReferenceSetMember assoc : associationTargetMembers)  {
+			//Is the the old one we've replaced or the new one?
+			if (assoc.getRefsetId().equals(Concepts.REFSET_SAME_AS_ASSOCIATION)) {
+				assertFalse(assoc.isActive());
+				assertEquals(associationTargetMember.getId(), assoc.getId());
+			} else if (assoc.getRefsetId().equals(Concepts.REFSET_ALTERNATIVE_ASSOCIATION)) {
+				assertTrue(assoc.isActive());
+				assertNotEquals(associationTargetMember.getId(), assoc.getId());
+			} else {
+				assertTrue(false, "Association of unexpected type.  Only created SameAs and Alternative");
+			}
+		}
+		
+		// Version code system
+		codeSystemService.createVersion(codeSystem, 20200731, "");
+		
+		//NOW, lets version that and put the original values back and confirm that we reuse the original refset members
+		concept = simulateRestTransfer(conceptService.find(concept.getId(), path));
+		concept.setInactivationIndicator(Concepts.inactivationIndicatorNames.get(Concepts.DUPLICATE));
+		associationTargetStrings = new HashMap<>();
+		associationTargetStrings.put(Concepts.historicalAssociationNames.get(Concepts.REFSET_SAME_AS_ASSOCIATION), Collections.singleton("87100004"));
+		concept.setAssociationTargets(associationTargetStrings);
+		concept = conceptService.update(concept, path);
+
+		// Test that we still (again) have the same inactivation indicator, and we haven't gained a new association
+		// Furthermore, the association that's now active should be the same one that we originally had way up above
+		ReferenceSetMember inactivationIndicatorMember3 = concept.getInactivationIndicatorMember();
+		assertEquals(inactivationIndicatorMember.getId(), inactivationIndicatorMember3.getId(), "Inactivation indicator refset member should always be re-used.");
+		
+		associationTargetMembers = concept.getAssociationTargetMembers();
+		assertNotNull(associationTargetMembers);
+		assertEquals(2, associationTargetMembers.size(), "No need to create a new association refset member if one can be re-used");
+		for (ReferenceSetMember assoc : associationTargetMembers)  {
+			//The original association should now be active
+			if (assoc.getRefsetId().equals(Concepts.REFSET_SAME_AS_ASSOCIATION)) {
+				assertTrue(assoc.isActive());
+				assertEquals(associationTargetMember.getId(), assoc.getId());
+			} else if (assoc.getRefsetId().equals(Concepts.REFSET_ALTERNATIVE_ASSOCIATION)) {
+				assertFalse(assoc.isActive());
+				assertNotEquals(associationTargetMember.getId(), assoc.getId());
+			} else {
+				assertTrue(false, "Association of unexpected type.  Only created SameAs and Alternative");
+			}
+		}
 	}
 
 	@Test
