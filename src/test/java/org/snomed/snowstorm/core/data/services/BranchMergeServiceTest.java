@@ -598,8 +598,9 @@ class BranchMergeServiceTest extends AbstractTest {
 		for (ReferenceSetMember member : memberService.findMembers(path, conceptId, PageRequest.of(0, 10))) {
 			System.out.println(member.toString());
 		}
-		assertEquals(5, memberService.findMembers(path, conceptId, PageRequest.of(0, 10)).getTotalElements(), "One axiom, one inactive published association, one inactive published historic association, " +
-				"one new association and one new inactivation reason member."
+		//assertEquals(5, memberService.findMembers(path, conceptId, PageRequest.of(0, 10)).getTotalElements(), "One axiom, one inactive published association, one inactive published historic association, " +
+		//		"one new association and one new inactivation reason member."
+		assertEquals(3, memberService.findMembers(path, conceptId, PageRequest.of(0, 10)).getTotalElements(), "One axiom, one re-used association (same refetId) and one re-used inactivation reason member."
 		);
 
 		path = "MAIN/B/B2";
@@ -607,9 +608,7 @@ class BranchMergeServiceTest extends AbstractTest {
 		concept.setInactivationIndicator("AMBIGUOUS");
 		concept.setAssociationTargets(Maps.newHashMap("POSSIBLY_EQUIVALENT_TO", Sets.newHashSet(Concepts.ISA)));
 		conceptService.update(concept, path);
-		assertEquals(5, memberService.findMembers(path, conceptId, PageRequest.of(0, 10)).getTotalElements(), "One axiom, one inactive published association, one inactive published historic association, " +
-				"one new association and one new inactivation reason member."
-		);
+		assertEquals(3, memberService.findMembers(path, conceptId, PageRequest.of(0, 10)).getTotalElements(), "One axiom, one re-used association (same refetId) and one re-used inactivation reason member.");
 
 		// Promote B2
 		branchMergeService.mergeBranchSync("MAIN/B/B2", "MAIN/B", Collections.emptySet());
@@ -629,8 +628,7 @@ class BranchMergeServiceTest extends AbstractTest {
 		members.forEach(member -> memberIdCounts.computeIfAbsent(member.getId(), (id) -> new AtomicInteger()).incrementAndGet());
 		assertFalse(memberIdCounts.values().stream().anyMatch(value -> value.get() > 1), "No duplicate refset members.");
 
-		assertEquals(5, members.getTotalElements(), "One axiom, one inactive published association, one inactive published historic association, " +
-				"one new association and one new inactivation reason member.");
+		assertEquals(3, memberService.findMembers(path, conceptId, PageRequest.of(0, 10)).getTotalElements(), "One axiom, one re-used association (same refetId) and one re-used inactivation reason member.");
 		concept = conceptService.find(conceptId, path);
 		assertEquals("AMBIGUOUS", concept.getInactivationIndicator());
 		assertEquals("{POSSIBLY_EQUIVALENT_TO=[138875005]}", concept.getAssociationTargets().toString());
@@ -1415,7 +1413,7 @@ class BranchMergeServiceTest extends AbstractTest {
 		// Inactivate concept on MAIN and create Version #1 - with inactivation data
 		releaseVersionConcept.setActive(false);
 		releaseVersionConcept.setInactivationIndicator("DUPLICATE");
-		releaseVersionConcept.setAssociationTargets(Map.of("POSSIBLY_EQUIVALENT_TO", Collections.singleton("100002000")));
+		releaseVersionConcept.setAssociationTargets(Map.of("SAME_AS", Collections.singleton("100002000")));
 		conceptService.update(releaseVersionConcept, "MAIN");
 		codeSystemService.createVersion(codeSystemService.find(SNOMEDCT), 2021_08_01, "");
 		releaseVersionConcept = simulateRestTransfer(conceptService.find(conceptId, "MAIN"));
@@ -1452,7 +1450,8 @@ class BranchMergeServiceTest extends AbstractTest {
 		assertEquals(Map.of("POSSIBLY_EQUIVALENT_TO", Collections.singleton("100003000")), mergedConcept.getAssociationTargets());
 
 		final Collection<ReferenceSetMember> inactivationIndicatorMembers = mergedConcept.getInactivationIndicatorMembers();
-		assertEquals(2, inactivationIndicatorMembers.size());
+		//The inactivation value is mutable, so we will re-use the existing indicator.  So 1 refset member expected after modification
+		assertEquals(1, inactivationIndicatorMembers.size());
 
 		final ReferenceSetMember activeIndicatorMember = inactivationIndicatorMembers.stream().filter(ReferenceSetMember::isActive).findFirst().orElseThrow();
 		assertTrue(activeIndicatorMember.isActive());
@@ -1461,14 +1460,14 @@ class BranchMergeServiceTest extends AbstractTest {
 		assertEquals(2021_09_01, activeIndicatorMember.getReleasedEffectiveTime());
 		assertEquals("900000000000483008", activeIndicatorMember.getAdditionalField("valueId"));
 
-		final ReferenceSetMember inactiveIndicatorMember = inactivationIndicatorMembers.stream().filter(not(ReferenceSetMember::isActive)).findFirst().orElseThrow();
-		assertFalse(inactiveIndicatorMember.isActive());
+		assertTrue(inactivationIndicatorMembers.stream().filter(not(ReferenceSetMember::isActive)).findFirst().isEmpty());
+		/*assertFalse(inactiveIndicatorMember.isActive());
 		assertTrue(inactiveIndicatorMember.isReleased());
 		assertEquals(2021_09_01, inactiveIndicatorMember.getEffectiveTimeI());
 		assertEquals(2021_09_01, inactiveIndicatorMember.getReleasedEffectiveTime());
-		assertEquals("900000000000482003", inactiveIndicatorMember.getAdditionalField("valueId"));
+		assertEquals("900000000000482003", inactiveIndicatorMember.getAdditionalField("valueId"));*/
 
-
+		//However because refset ids are NOT mutable, we expect to have a refset member for each type of historical association
 		final List<ReferenceSetMember> associationTargetMembers = mergedConcept.getAssociationTargetMembers();
 		assertEquals(2, associationTargetMembers.size());
 

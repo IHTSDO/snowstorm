@@ -924,9 +924,12 @@ class ConceptServiceTest extends AbstractTest {
 		ReferenceSetMember inactivationIndicatorMember2 = concept.getInactivationIndicatorMember();
 		assertEquals(inactivationIndicatorMember.getId(), inactivationIndicatorMember2.getId(), "Inactivation indicator refset member should be re-used.");
 		
+		//Recover the concept afresh because the update method only re-connects active refset members
+		concept = conceptService.find(concept.getId(), path);
+		
 		associationTargetMembers = concept.getAssociationTargetMembers();
 		assertNotNull(associationTargetMembers);
-		assertEquals(2, associationTargetMembers.size());
+		assertEquals(2, associationTargetMembers.size(), "Existing associations should be reused.  Expect 1 per refsetId");
 		for (ReferenceSetMember assoc : associationTargetMembers)  {
 			//Is the the old one we've replaced or the new one?
 			if (assoc.getRefsetId().equals(Concepts.REFSET_SAME_AS_ASSOCIATION)) {
@@ -950,6 +953,9 @@ class ConceptServiceTest extends AbstractTest {
 		associationTargetStrings.put(Concepts.historicalAssociationNames.get(Concepts.REFSET_SAME_AS_ASSOCIATION), Collections.singleton("87100004"));
 		concept.setAssociationTargets(associationTargetStrings);
 		concept = conceptService.update(concept, path);
+		
+		//Recover the concept afresh because the update method only re-connects active refset members
+		concept = conceptService.find(concept.getId(), path);
 
 		// Test that we still (again) have the same inactivation indicator, and we haven't gained a new association
 		// Furthermore, the association that's now active should be the same one that we originally had way up above
