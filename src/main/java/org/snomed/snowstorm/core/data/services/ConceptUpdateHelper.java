@@ -350,6 +350,7 @@ public class ConceptUpdateHelper extends ComponentService {
 
 		List<ReferenceSetMember> activeSet = updateMetadataRefset(membersRequired, ReferenceSetMember.AssociationFields.TARGET_COMP_ID, existingComponentVersion, existingComponentVersionFromParent,
 				SnomedComponentWithAssociations::getAssociationTargetMembers, newComponentVersion.getId(), newComponentVersion.getModuleId(), defaultModuleId, refsetMembersToPersist);
+		//I don't think this is quite right, I think we also want to add the inactive members that are being persisted
 		activeSet.forEach(newComponentVersion::addAssociationTargetMember);
 	}
 
@@ -389,16 +390,42 @@ public class ConceptUpdateHelper extends ComponentService {
 		final List<ReferenceSetMember> toKeep = new ArrayList<>();
 		final List<ReferenceSetMember> notNeeded = new ArrayList<>();
 
-		// Find existing members to keep
+		// Find existing members to keep - use an existing one that has the same value if we can
 		for (ReferenceSetMember existingMember : existingMembers) {
 			final String refsetId = existingMember.getRefsetId();
-			String value = existingMember.getAdditionalField(fieldName);
-			if (membersRequired.containsKey(refsetId) && membersRequired.get(refsetId).contains(value)) {
+			String existingValue = existingMember.getAdditionalField(fieldName);
+			if (membersRequired.containsKey(refsetId) && membersRequired.get(refsetId).contains(existingValue)) {
 				// Keep member
 				toKeep.add(existingMember);
-				membersRequired.get(refsetId).remove(value);
+				membersRequired.get(refsetId).remove(existingValue);
 			} else {
 				notNeeded.add(existingMember);
+			}
+		}
+		
+		//Otherwise, value is mutable, so we can re-use any member with the same refsetId and modify the value
+		if (membersRequired.size() > 0 && toKeep.isEmpty()) {
+			notNeeded.clear();
+			//Any existing refset members that exactly matched refsetId + value would have matched above
+			//So we're safe to reuse anything we can 
+			for (Map.Entry<String, Set<String>> memberEntry : membersRequired.entrySet()) {
+				String refsetId = memberEntry.getKey();
+				Set<String> newValuesRequired = memberEntry.getValue();
+				for (String newValueRequired : newValuesRequired) {
+					for (ReferenceSetMember existingMember : existingMembers) {
+						//As long as we've not already reused this member!
+						if (!toKeep.contains(existingMember) && existingMember.getRefsetId().equals(refsetId)) {
+							// Keep member and modify the value
+							existingMember.setAdditionalField(fieldName, newValueRequired);
+							existingMember.markChanged();
+							toKeep.add(existingMember);
+							membersRequired.get(refsetId).remove(newValueRequired);
+							notNeeded.remove(existingMember);
+						} else {
+							notNeeded.add(existingMember);
+						}
+					}
+				}
 			}
 		}
 
@@ -411,7 +438,7 @@ public class ConceptUpdateHelper extends ComponentService {
 				.collect(Collectors.toSet());
 
 		for (ReferenceSetMember member : toKeep) {
-			if (!member.isActive() || duplicateIds.contains(member.getMemberId())) {
+			if (!member.isActive() || duplicateIds.contains(member.getMemberId()) || member.isChanged()) {
 				member.setActive(true);
 				member.markChanged();
 				toPersist.add(member);
@@ -437,7 +464,7 @@ public class ConceptUpdateHelper extends ComponentService {
 			}
 		}
 
-		// Create members as required
+		// Create any remaining required members
 		for (Map.Entry<String, Set<String>> entry : membersRequired.entrySet()) {
 			final String refsetId = entry.getKey();
 			for (String value : entry.getValue()) {
