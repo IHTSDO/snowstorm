@@ -69,6 +69,8 @@ public class DroolsValidationService {
 	private TestResourceProvider testResourceProvider;
 	private final ExecutorService batchExecutorService;
 
+	private Set<String> semanticTags;
+
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
 	public DroolsValidationService(
@@ -80,6 +82,10 @@ public class DroolsValidationService {
 		testResourceManager = new ResourceManager(resourceManagerConfiguration, cloudResourceLoader);
 		newRuleExecutorAndResources();
 		batchExecutorService = Executors.newFixedThreadPool(1);
+	}
+
+	public Set<String> getSemanticTags() {
+		return semanticTags;
 	}
 
 	public List<InvalidContent> validateConcept(String branchPath, Concept concept) throws ServiceException {
@@ -242,9 +248,11 @@ public class DroolsValidationService {
 		}
 		this.ruleExecutor = new RuleExecutorFactory().createRuleExecutor(droolsRulesPath);
 		this.testResourceProvider = ruleExecutor.newTestResourceProvider(testResourceManager);
+		this.semanticTags = testResourceProvider.getSemanticTags();
 	}
 
 	private Long topLevelHierarchiesLastFetched;
+
 	private Set<String> topLevelHierarchies;
 
 	private Set<String> getTopLevelHierarchies() {

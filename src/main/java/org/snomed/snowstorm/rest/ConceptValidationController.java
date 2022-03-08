@@ -54,6 +54,12 @@ public class ConceptValidationController {
 		validationService.newRuleExecutorAndResources();
 	}
 
+	@RequestMapping(value = "/validation-maintenance/semantic-tags", method = RequestMethod.GET)
+	@ApiOperation("Retrieve all semantic tags.")
+	public Set<String> getSemantictTags() {
+		return validationService.getSemanticTags();
+	}
+
 	@RequestMapping(value = "/{branch}/report/inactive-concepts-without-association", method = RequestMethod.GET)
 	@ApiOperation("Find inactive concepts with no historical association grouped by inactivation type.")
 	@JsonView(value = View.Component.class)
