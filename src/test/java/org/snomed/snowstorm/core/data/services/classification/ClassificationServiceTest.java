@@ -255,6 +255,11 @@ class ClassificationServiceTest extends AbstractTest {
 						.addRelationship(r)
 						.setModuleId(Concepts.CORE_MODULE),
 						"MAIN");
+		
+		//Make sure we version these components, otherwise the relationship to be inactivated actually gets deleted
+		//and we end up not checking its moduleId
+		CodeSystem international = codeSystemService.createCodeSystem(new CodeSystem("SNOMEDCT", "MAIN"));
+		codeSystemService.createVersion(international, 20210812, "20210812");
 
 		String extensionBranchPath = "MAIN/SNOMEDCT-SE";
 		codeSystemService.createCodeSystem(new CodeSystem("SNOMEDCT-SE", extensionBranchPath));
@@ -271,7 +276,7 @@ class ClassificationServiceTest extends AbstractTest {
 	
 		Concept concept = conceptService.find("123123123001", extensionBranchPath);
 		for (Relationship relationship : concept.getRelationships()) {
-			assertEquals(relationship.getModuleId(), "45991000052106", "Modified relationships have the extension module applied.");
+			assertEquals( "45991000052106", relationship.getModuleId(), "Modified relationships have the extension module applied.");
 		}
 	}
 
