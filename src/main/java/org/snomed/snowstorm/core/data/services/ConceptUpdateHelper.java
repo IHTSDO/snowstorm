@@ -607,7 +607,7 @@ public class ConceptUpdateHelper extends ComponentService {
 			
 			//Any change to a component in an extension needs to be done in the default module
 			if (newComponent.isChanged() && (defaultModuleId != null && 
-					!defaultModuleId.equals(Concepts.CORE_MODULE))){
+					!defaultModuleId.equals(Concepts.CORE_MODULE))) {
 				newComponent.setModuleId(defaultModuleId);
 			}
 
@@ -635,6 +635,12 @@ public class ConceptUpdateHelper extends ComponentService {
 							(existingParentComponent != null && !Objects.equals(existingComponent.getReleasedEffectiveTime(), existingParentComponent.getReleasedEffectiveTime()))) {
 						existingComponent.setActive(false);
 						existingComponent.setChanged(true);
+						
+						//Any change to a component in an extension needs to be done in the default module
+						if (defaultModuleId != null && !defaultModuleId.equals(Concepts.CORE_MODULE)) {
+							existingComponent.setModuleId(defaultModuleId);
+						}
+						
 						existingComponent.copyReleaseDetails(existingComponent, existingParentComponent);
 						existingComponent.updateEffectiveTime();
 						componentsToPersist.add(existingComponent);
