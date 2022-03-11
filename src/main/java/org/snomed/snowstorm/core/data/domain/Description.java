@@ -216,7 +216,12 @@ public class Description extends SnomedComponent<Description> implements SnomedC
 	}
 
 	public Description addLanguageRefsetMember(String refsetId, String acceptability) {
+		return addLanguageRefsetMember(refsetId, acceptability, true);
+	}
+
+	public Description addLanguageRefsetMember(String refsetId, String acceptability, boolean active) {
 		final ReferenceSetMember member = new ReferenceSetMember(getModuleId(), refsetId, descriptionId);
+		member.setActive(active);
 		member.setAdditionalField(ReferenceSetMember.LanguageFields.ACCEPTABILITY_ID, acceptability);
 		member.setReferencedComponentId(descriptionId);
 		// Replace any existing entry with new set containing just this member
@@ -465,8 +470,7 @@ public class Description extends SnomedComponent<Description> implements SnomedC
 	public boolean hasAcceptability(String acceptability) {
 		for (Set<ReferenceSetMember> members : langRefsetMembersMap.values()) {
 			for (ReferenceSetMember entry : members) {
-				if (entry.isActive()
-						&& acceptability == null || entry.getAdditionalField(ReferenceSetMember.LanguageFields.ACCEPTABILITY_ID).equals(acceptability)) {
+				if (entry.isActive() && (acceptability == null || entry.getAdditionalField(ReferenceSetMember.LanguageFields.ACCEPTABILITY_ID).equals(acceptability))) {
 					return true;
 				}
 			}
