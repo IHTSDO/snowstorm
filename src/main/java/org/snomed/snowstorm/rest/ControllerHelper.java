@@ -181,6 +181,7 @@ public class ControllerHelper {
 			Matcher matcher = LANGUAGE_PATTERN.matcher(value);
 			if (matcher.matches()) {
 				languageCode = matcher.group(1);
+				// Check if there is a default language reference set for a given language
 				languageReferenceSet = DialectConfigurationService.instance().findRefsetForDialect(value); 
 			} else if ((matcher = LANGUAGE_AND_REFSET_PATTERN.matcher(value)).matches()) {
 				languageCode = matcher.group(1);
