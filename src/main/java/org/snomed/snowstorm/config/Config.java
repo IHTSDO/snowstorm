@@ -23,10 +23,7 @@ import org.snomed.snowstorm.core.data.domain.jobs.ExportConfiguration;
 import org.snomed.snowstorm.core.data.domain.jobs.IdentifiersForRegistration;
 import org.snomed.snowstorm.core.data.services.*;
 import org.snomed.snowstorm.core.data.services.classification.BranchClassificationStatusService;
-import org.snomed.snowstorm.core.data.services.identifier.IdentifierCacheManager;
-import org.snomed.snowstorm.core.data.services.identifier.IdentifierSource;
-import org.snomed.snowstorm.core.data.services.identifier.LocalRandomIdentifierSource;
-import org.snomed.snowstorm.core.data.services.identifier.SnowstormCISClient;
+import org.snomed.snowstorm.core.data.services.identifier.*;
 import org.snomed.snowstorm.core.data.services.pojo.DescriptionCriteria;
 import org.snomed.snowstorm.core.data.services.servicehook.CommitServiceHookClient;
 import org.snomed.snowstorm.core.data.services.traceability.TraceabilityLogService;
@@ -219,6 +216,8 @@ public abstract class Config extends ElasticsearchConfig {
 
 		if (cisApiUrl.equals("local-random") || cisApiUrl.equals("local")) {// local is the legacy name
 			return new LocalRandomIdentifierSource(elasticsearchRestTemplate());
+		} else if (cisApiUrl.equals("local-sequential")) {
+			return new LocalSequentialIdentifierSource(elasticsearchRestTemplate());
 		} else {
 			return new SnowstormCISClient(cisApiUrl, username, password, softwareName, timeoutSeconds);
 		}
