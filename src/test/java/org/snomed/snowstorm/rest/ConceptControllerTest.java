@@ -1,5 +1,6 @@
 package org.snomed.snowstorm.rest;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.kaicode.elasticvc.api.BranchService;
 import org.json.JSONException;
@@ -10,11 +11,9 @@ import org.snomed.snowstorm.AbstractTest;
 import org.snomed.snowstorm.TestConfig;
 import org.snomed.snowstorm.config.Config;
 import org.snomed.snowstorm.core.data.domain.*;
-import org.snomed.snowstorm.core.data.services.BranchMergeService;
-import org.snomed.snowstorm.core.data.services.CodeSystemService;
-import org.snomed.snowstorm.core.data.services.ConceptService;
-import org.snomed.snowstorm.core.data.services.ServiceException;
+import org.snomed.snowstorm.core.data.services.*;
 import org.snomed.snowstorm.core.data.services.pojo.ConceptHistory;
+import org.snomed.snowstorm.core.data.services.pojo.RefSetMemberPageWithBucketAggregations;
 import org.snomed.snowstorm.core.pojo.BranchTimepoint;
 import org.snomed.snowstorm.loadtest.ItemsPagePojo;
 import org.snomed.snowstorm.rest.pojo.ConceptBulkLoadRequest;
@@ -70,6 +69,9 @@ class ConceptControllerTest extends AbstractTest {
 
 	@Autowired
 	private ObjectMapper objectMapper;
+
+	@Autowired
+	private ReferenceSetMemberService referenceSetMemberService;
 
 	private Date timepointWithOneRelationship;
 
@@ -1014,6 +1016,162 @@ class ConceptControllerTest extends AbstractTest {
 
 		assertExpectedModule(conceptService.update(concept, "MAIN/SNOMEDCT-A1/SNOMEDCT-B1"), "Milk", Concepts.COMMON_FRENCH_MODULE);
 		assertExpectedModule(conceptService.find(concept.getId(), "MAIN/SNOMEDCT-A1/SNOMEDCT-B1"), "Milk", Concepts.COMMON_FRENCH_MODULE);
+	}
+
+	@Test
+	void testMemberReturnedInHeadersWhenCreatingReferenceSetConcept() throws ServiceException, JsonProcessingException {
+		// data set up
+		givenReferenceSetsExist();
+		givenRefSetAncestorsExist();
+
+		// create test reference set concept
+		ResponseEntity<String> postConcept = postConcept(ConceptControllerTestConstants.CONCEPT_REFERENCE_SET_SIMPLE);
+		Concept concept = objectMapper.readValue(postConcept.getBody(), Concept.class);
+
+		// find member associating test concept with descriptor
+		ResponseEntity<String> getMembers = getDescriptorMembers(concept);
+		RefSetMemberPageWithBucketAggregations<LinkedHashMap> members = objectMapper.readValue(getMembers.getBody(), RefSetMemberPageWithBucketAggregations.class);
+
+		// response from headers should match those from manual search
+		String descriptorsInHeader = postConcept.getHeaders().get("Descriptors").iterator().next();
+		String[] a = descriptorsInHeader.split(",");
+		Arrays.sort(a); // Identifiers in order
+
+		String descriptorsInSearch = members.getContent().stream().map(member -> (String) member.get("memberId")).collect(Collectors.joining(","));
+		String[] b = descriptorsInSearch.split(",");
+		Arrays.sort(b); // Identifiers in order
+
+		assertThat(a).isEqualTo(b);
+	}
+
+	@Test
+	void testMemberReturnedInHeadersWhenUpdatingReferenceSetConcept() throws ServiceException, JsonProcessingException {
+		// data set up
+		givenReferenceSetsExist();
+		givenRefSetAncestorsExist();
+
+		// create test concept
+		ResponseEntity<String> postConcept = postConcept(ConceptControllerTestConstants.CONCEPT_REFERENCE_SET_SIMPLE);
+		Concept concept = objectMapper.readValue(postConcept.getBody(), Concept.class);
+		assertNotNull(postConcept.getHeaders().get("Descriptors"));
+
+		// edit test concept
+		ResponseEntity<String> putConcept = putConcept(concept.getConceptId(), ConceptControllerTestConstants.CONCEPT_REFERENCE_SET_SIMPLE);
+		concept = objectMapper.readValue(postConcept.getBody(), Concept.class);
+		assertNotNull(putConcept.getHeaders().get("Descriptors"));
+
+		// find member associating test concept with descriptor
+		ResponseEntity<String> getMembers = getDescriptorMembers(concept);
+		RefSetMemberPageWithBucketAggregations<LinkedHashMap> members = objectMapper.readValue(getMembers.getBody(), RefSetMemberPageWithBucketAggregations.class);
+		assertThat(members).isNotEmpty();
+
+		// response from headers should match those from manual search
+		String descriptorsInPostHeader = postConcept.getHeaders().get("Descriptors").iterator().next();
+		String[] a = descriptorsInPostHeader.split(",");
+		Arrays.sort(a); // Identifiers in order
+
+		String descriptorsInPutHeader = putConcept.getHeaders().get("Descriptors").iterator().next();
+		String[] b = descriptorsInPutHeader.split(",");
+		Arrays.sort(b); // Identifiers in order
+
+		String descriptorsInSearch = members.getContent().stream().map(member -> (String) member.get("memberId")).collect(Collectors.joining(","));
+		String[] c = descriptorsInSearch.split(",");
+		Arrays.sort(c); // Identifiers in order
+
+		assertThat(a).isEqualTo(b);
+		assertThat(b).isEqualTo(c);
+	}
+
+	@Test
+	void testMemberNotReturnedInHeadersWhenCreatingNonReferenceSetConcept() throws ServiceException, JsonProcessingException {
+		// data set up
+		givenReferenceSetsExist();
+		givenRefSetAncestorsExist();
+
+		// create test concept
+		ResponseEntity<String> postConcept = postConcept(ConceptControllerTestConstants.CONCEPT_WITH_VALIDATION_WARNINGS_ONLY);
+		Concept concept = objectMapper.readValue(postConcept.getBody(), Concept.class);
+		assertNull(postConcept.getHeaders().get("Descriptors"));
+
+		// find member associating test concept with descriptor (should be none)
+		ResponseEntity<String> getMembers = getDescriptorMembers(concept);
+		RefSetMemberPageWithBucketAggregations<LinkedHashMap> members = objectMapper.readValue(getMembers.getBody(), RefSetMemberPageWithBucketAggregations.class);
+		assertThat(members).isEmpty();
+	}
+
+	private ResponseEntity<String> putConcept(String conceptId, String conceptJson) {
+		HttpHeaders httpHeaders = new HttpHeaders();
+		httpHeaders.set("Content-Type", "application/json");
+		HttpEntity<String> httpEntity = new HttpEntity<>(conceptJson, httpHeaders);
+		URI requestUrl = UriComponentsBuilder.fromUriString("http://localhost:" + port + "/browser/MAIN/concepts/" + conceptId).queryParam("validate", "false").build().toUri();
+		return restTemplate.exchange(requestUrl, HttpMethod.PUT, httpEntity, String.class);
+	}
+
+	private ResponseEntity<String> getDescriptorMembers(Concept concept) {
+		HttpHeaders httpHeaders = new HttpHeaders();
+		httpHeaders.set("Content-Type", "application/json");
+		HttpEntity<String> httpEntity = new HttpEntity<>(null, httpHeaders);
+		URI requestUrl = UriComponentsBuilder
+				.fromUriString(
+						"http://localhost:" + port + "/browser/MAIN/members"
+				)
+				.queryParam("referenceSet", Concepts.REFSET_DESCRIPTOR_REFSET)
+				.queryParam("referencedComponentId", concept.getConceptId())
+				.build()
+				.toUri();
+
+		return restTemplate.exchange(requestUrl, HttpMethod.GET, httpEntity, String.class);
+	}
+
+	private ResponseEntity<String> postConcept(String conceptJson) {
+		HttpHeaders httpHeaders = new HttpHeaders();
+		httpHeaders.set("Content-Type", "application/json");
+		HttpEntity<String> httpEntity = new HttpEntity<>(conceptJson, httpHeaders);
+		URI requestUrl = UriComponentsBuilder.fromUriString("http://localhost:" + port + "/browser/MAIN/concepts").queryParam("validate", "false").build().toUri();
+		return restTemplate.exchange(requestUrl, HttpMethod.POST, httpEntity, String.class);
+	}
+
+	private void givenReferenceSetsExist() throws ServiceException {
+		conceptService.create(new Concept(Concepts.SNOMEDCT_ROOT), MAIN);
+		conceptService.create(new Concept(Concepts.ISA)
+				.addAxiom(new Relationship(Concepts.ISA, Concepts.SNOMEDCT_ROOT)), MAIN);
+		conceptService.create(new Concept(Concepts.REFSET)
+				.addAxiom(new Relationship(Concepts.ISA, Concepts.FOUNDATION_METADATA)).setModuleId(Concepts.MODEL_MODULE), MAIN);
+		conceptService.create(new Concept(Concepts.REFSET_SIMPLE)
+				.addAxiom(new Relationship(Concepts.ISA, Concepts.REFSET)).setModuleId(Concepts.MODEL_MODULE), MAIN);
+		conceptService.create(new Concept(Concepts.REFSET_DESCRIPTOR_REFSET)
+				.addAxiom(new Relationship(Concepts.ISA, Concepts.REFSET)).setModuleId(Concepts.MODEL_MODULE), MAIN);
+	}
+
+	private void givenRefSetAncestorsExist() throws ServiceException {
+		// Create top-level Concept
+		Concept foodStructure = conceptService.create(
+				new Concept()
+						.addDescription(new Description("History (foundation metadata concept)"))
+						.addAxiom(new Relationship(Concepts.ISA, Concepts.SNOMEDCT_ROOT)),
+				"MAIN"
+		);
+
+		// Add top-level Concept to simple refset
+		ReferenceSetMember foodStructureMember = new ReferenceSetMember(Concepts.MODEL_MODULE, Concepts.REFSET_SIMPLE, foodStructure.getId());
+		referenceSetMemberService.createMember("MAIN", foodStructureMember);
+
+		// Add simple refset to refset descriptor
+		ReferenceSetMember refsetInDescriptor = new ReferenceSetMember(Concepts.MODEL_MODULE, Concepts.REFSET_DESCRIPTOR_REFSET, Concepts.REFSET_SIMPLE);
+		refsetInDescriptor.setAdditionalFields(Map.of(
+				"attributeDescription", Concepts.REFERENCED_COMPONENT,
+				"attributeType", Concepts.CONCEPT_TYPE_COMPONENT,
+				"attributeOrder", "0")
+		);
+		referenceSetMemberService.createMember("MAIN", refsetInDescriptor);
+
+		refsetInDescriptor = new ReferenceSetMember(Concepts.MODEL_MODULE, Concepts.REFSET_DESCRIPTOR_REFSET, Concepts.REFSET_SIMPLE);
+		refsetInDescriptor.setAdditionalFields(Map.of(
+				"attributeDescription", Concepts.REFERENCED_COMPONENT,
+				"attributeType", Concepts.CONCEPT_TYPE_COMPONENT,
+				"attributeOrder", "1")
+		);
+		referenceSetMemberService.createMember("MAIN", refsetInDescriptor);
 	}
 
 	private void assertExpectedModule(Concept concept, String descriptionTerm, String expectedModuleId) {
