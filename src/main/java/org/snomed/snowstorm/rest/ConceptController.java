@@ -2,7 +2,6 @@ package org.snomed.snowstorm.rest;
 
 import ch.qos.logback.classic.Level;
 import com.fasterxml.jackson.annotation.JsonView;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import io.kaicode.elasticvc.api.BranchCriteria;
 import io.kaicode.elasticvc.api.VersionControlHelper;
 import io.kaicode.rest.util.branchpathrewrite.BranchPathUriUtil;
@@ -16,10 +15,7 @@ import org.snomed.snowstorm.config.Config;
 import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.domain.expression.Expression;
 import org.snomed.snowstorm.core.data.services.*;
-import org.snomed.snowstorm.core.data.services.pojo.AsyncConceptChangeBatch;
-import org.snomed.snowstorm.core.data.services.pojo.ConceptHistory;
-import org.snomed.snowstorm.core.data.services.pojo.MapPage;
-import org.snomed.snowstorm.core.data.services.pojo.ResultMapPage;
+import org.snomed.snowstorm.core.data.services.pojo.*;
 import org.snomed.snowstorm.core.pojo.BranchTimepoint;
 import org.snomed.snowstorm.core.pojo.LanguageDialect;
 import org.snomed.snowstorm.core.util.PageHelper;
@@ -38,6 +34,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.elasticsearch.core.SearchAfterPageRequest;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -61,6 +58,7 @@ import static org.springframework.util.CollectionUtils.isEmpty;
 @Api(tags = "Concepts", description = "-")
 @RequestMapping(produces = "application/json")
 public class ConceptController {
+	private static final PageRequest PAGE_REQUEST = PageRequest.of(0, 10);
 
 	@Autowired
 	private ConceptService conceptService;
@@ -88,6 +86,9 @@ public class ConceptController {
 
 	@Autowired
 	private DroolsValidationService validationService;
+
+	@Autowired
+	private ReferenceSetMemberService referenceSetMemberService;
 
 	@Value("${snowstorm.rest-api.allowUnlimitedConceptPagination:false}")
 	private boolean allowUnlimitedConceptPagination;
@@ -407,7 +408,7 @@ public class ConceptController {
 			@RequestParam(required = false, defaultValue = "false") boolean validate,
 			@RequestBody ConceptView conceptView,
 			@RequestHeader(value = "Accept-Language", defaultValue = Config.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) throws ServiceException {
-
+		branch = BranchPathUriUtil.decodePath(branch);
 		Concept concept = (Concept) conceptView;
 		if (validate) {
 			final InvalidContentWithSeverityStatus invalidContent = ConceptValidationHelper.validate(concept, BranchPathUriUtil.decodePath(branch), validationService);
@@ -418,15 +419,18 @@ public class ConceptController {
 				final Concept createdConcept = conceptService.create(concept, ControllerHelper.parseAcceptLanguageHeaderWithDefaultFallback(acceptLanguageHeader),
 						BranchPathUriUtil.decodePath(branch));
 				createdConcept.setValidationResults(ConceptValidationHelper.replaceTemporaryUUIDWithSCTID(invalidContent.getInvalidContents(), createdConcept));
-				return new ResponseEntity<>(createdConcept, ControllerHelper.getCreatedLocationHeaders(createdConcept.getId()), HttpStatus.OK);
+				HttpHeaders createdLocationHeaders = getCreatedLocationHeaders(createdConcept.getId());
+				joinDescriptorMembersHeader(concept, branch, createdLocationHeaders);
+				return new ResponseEntity<>(createdConcept, createdLocationHeaders, HttpStatus.OK);
 			}
 			concept.setValidationResults(invalidContent.getInvalidContents());
 			return new ResponseEntity<>(concept, HttpStatus.BAD_REQUEST);
 		}
 
-		final Concept createdConcept = conceptService.create(concept, ControllerHelper.parseAcceptLanguageHeaderWithDefaultFallback(acceptLanguageHeader),
-				BranchPathUriUtil.decodePath(branch));
-		return new ResponseEntity<>(createdConcept, getCreatedLocationHeaders(createdConcept.getId()), HttpStatus.OK);
+		final Concept createdConcept = conceptService.create(concept, ControllerHelper.parseAcceptLanguageHeaderWithDefaultFallback(acceptLanguageHeader), BranchPathUriUtil.decodePath(branch));
+		HttpHeaders createdLocationHeaders = getCreatedLocationHeaders(createdConcept.getId());
+		joinDescriptorMembersHeader(concept, branch, createdLocationHeaders);
+		return new ResponseEntity<>(createdConcept, createdLocationHeaders, HttpStatus.OK);
 	}
 
 	@PutMapping(value = "/browser/{branch}/concepts/{conceptId}")
@@ -438,7 +442,7 @@ public class ConceptController {
 			@RequestParam(required = false, defaultValue = "false") boolean validate,
 			@RequestBody ConceptView conceptView,
 			@RequestHeader(value = "Accept-Language", defaultValue = Config.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) throws ServiceException {
-
+		branch = BranchPathUriUtil.decodePath(branch);
 		Assert.isTrue(conceptView.getConceptId() != null && conceptId != null && conceptView.getConceptId().equals(conceptId), "The conceptId in the " +
 				"path must match the one in the request body.");
 
@@ -452,14 +456,18 @@ public class ConceptController {
 				final Concept updatedConcept = conceptService.update(concept, ControllerHelper.parseAcceptLanguageHeaderWithDefaultFallback(acceptLanguageHeader),
 						BranchPathUriUtil.decodePath(branch));
 				updatedConcept.setValidationResults(ConceptValidationHelper.replaceTemporaryUUIDWithSCTID(invalidContent.getInvalidContents(), updatedConcept));
-				return new ResponseEntity<>(updatedConcept, HttpStatus.OK);
+				HttpHeaders updatedLocationHeaders = getCreatedLocationHeaders(conceptId);
+				joinDescriptorMembersHeader(concept, branch, updatedLocationHeaders);
+				return new ResponseEntity<>(updatedConcept, updatedLocationHeaders, HttpStatus.OK);
 			}
 			concept.setValidationResults(invalidContent.getInvalidContents());
 			return new ResponseEntity<>(concept, HttpStatus.BAD_REQUEST);
 		}
 
-		return new ResponseEntity<>(conceptService.update(concept, ControllerHelper.parseAcceptLanguageHeaderWithDefaultFallback(acceptLanguageHeader),
-				BranchPathUriUtil.decodePath(branch)), HttpStatus.OK);
+		Concept update = conceptService.update(concept, ControllerHelper.parseAcceptLanguageHeaderWithDefaultFallback(acceptLanguageHeader), BranchPathUriUtil.decodePath(branch));
+		HttpHeaders updatedLocationHeaders = getCreatedLocationHeaders(conceptId);
+		joinDescriptorMembersHeader(concept, branch, updatedLocationHeaders);
+		return new ResponseEntity<>(update, updatedLocationHeaders, HttpStatus.OK);
 	}
 
 	@DeleteMapping(value = "/{branch}/concepts/{conceptId}")
@@ -583,5 +591,23 @@ public class ConceptController {
 			pageRequest = ControllerHelper.getPageRequest(offset, size, sort);
 		}
 		return pageRequest;
+	}
+
+	private void joinDescriptorMembersHeader(Concept concept, String branch, HttpHeaders createdLocationHeaders) {
+		Page<ReferenceSetMember> members = referenceSetMemberService.findMembers(
+				branch,
+				new MemberSearchRequest().referenceSet(Concepts.REFSET_DESCRIPTOR_REFSET).referencedComponentId(concept.getConceptId()),
+				PAGE_REQUEST
+		);
+
+		if (!members.isEmpty()) {
+			createdLocationHeaders.add(
+					"Descriptors",
+					members.getContent()
+							.stream()
+							.map(ReferenceSetMember::getMemberId)
+							.collect(Collectors.joining(","))
+			);
+		}
 	}
 }
