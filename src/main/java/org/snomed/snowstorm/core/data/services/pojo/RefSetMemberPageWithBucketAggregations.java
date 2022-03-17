@@ -7,6 +7,7 @@ import org.snomed.snowstorm.rest.converter.SearchAfterHelper;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -15,6 +16,10 @@ public class RefSetMemberPageWithBucketAggregations<T> extends PageImpl<T> {
 	private Map<String, Long> memberCountsByReferenceSet;
 	private Map<String, ConceptMini> referenceSets;
 	private Object[] searchAfterArray;
+
+	public RefSetMemberPageWithBucketAggregations() {
+		super(new ArrayList<>(), Pageable.unpaged(), 0);
+	}
 
 	public RefSetMemberPageWithBucketAggregations(List<T> content, Pageable pageable, long total, Map<String, Long> memberCountsByReferenceSet) {
 		super(content, pageable, total);
