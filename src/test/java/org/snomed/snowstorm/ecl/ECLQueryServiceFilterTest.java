@@ -1,27 +1,47 @@
 package org.snomed.snowstorm.ecl;
 
 import com.google.common.collect.Sets;
+import io.kaicode.elasticvc.api.BranchCriteria;
+import io.kaicode.elasticvc.api.VersionControlHelper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.snomed.snowstorm.AbstractTest;
+import org.snomed.snowstorm.TestConfig;
 import org.snomed.snowstorm.core.data.domain.Concept;
 import org.snomed.snowstorm.core.data.domain.Description;
+import org.snomed.snowstorm.core.data.services.ConceptService;
 import org.snomed.snowstorm.core.data.services.ServiceException;
-import org.snomed.snowstorm.core.data.services.ServiceTestUtil;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.test.context.ContextConfiguration;
+import org.springframework.test.context.junit.jupiter.SpringExtension;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
 import java.util.stream.Collectors;
 
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.snomed.snowstorm.TestConcepts.DISORDER;
 import static org.snomed.snowstorm.core.data.domain.Concepts.*;
 
-class ECLQueryServiceFilterTest extends ECLQueryServiceTest {
+@ExtendWith(SpringExtension.class)
+@ContextConfiguration(classes = TestConfig.class)
+class ECLQueryServiceFilterTest extends AbstractTest {
 
-	private ServiceTestUtil testUtil;
+	@Autowired
+	protected ECLQueryService eclQueryService;
+
+	@Autowired
+	protected ConceptService conceptService;
+
+	@Autowired
+	protected VersionControlHelper versionControlHelper;
+
+	protected Set<String> allConceptIds;
+	protected BranchCriteria branchCriteria;
 
 	@BeforeEach
 	void setup() throws ServiceException {
-		testUtil = new ServiceTestUtil(conceptService);
 		List<Concept> allConcepts = new ArrayList<>();
 
 		allConcepts.add(new Concept(DISORDER).addDescription(new Description("Disease(disorder)")));
@@ -74,7 +94,6 @@ class ECLQueryServiceFilterTest extends ECLQueryServiceTest {
 		// mixed type in term set
 		ecl = "< 64572001 |Disease|  {{ term = ( match:\"heart\" wild:\"Card*\")}}";
 		assertEquals(Sets.newHashSet("100001", "100002", "100003"), strings(selectConceptIds(ecl)));
-
 	}
 
 	@Test
@@ -83,6 +102,9 @@ class ECLQueryServiceFilterTest extends ECLQueryServiceTest {
 		String ecl = "< 64572001 |Disease|  {{ term = \"hjärt\", language = sv }}";
 		assertEquals(Sets.newHashSet("100002"), strings(selectConceptIds(ecl)));
 
+		ecl = "< 64572001 |Disease|  {{ term = \"hjärt\", language = en }}";
+		assertEquals(Collections.emptySet(), strings(selectConceptIds(ecl)));
+
 		// both in sv and en
 		ecl = "< 64572001 |Disease|  {{ term = \"hjärt\", language = sv }} {{ term = \"heart\", language = en }}";
 		assertEquals(Sets.newHashSet("100002"), strings(selectConceptIds(ecl)));
@@ -90,9 +112,8 @@ class ECLQueryServiceFilterTest extends ECLQueryServiceTest {
 
 		// no results
 		ecl = "< 64572001 |Disease|  {{ term = \"hjärt\", language = sv }} {{ term = \"Cardiac\", language = en }}";
-		assertEquals(Sets.newHashSet(), strings(selectConceptIds(ecl)));
+		assertEquals(Collections.emptySet(), strings(selectConceptIds(ecl)));
 	}
-
 
 	@Test
 	void testDescriptionTypeFilters() {
@@ -220,5 +241,16 @@ class ECLQueryServiceFilterTest extends ECLQueryServiceTest {
 		assertEquals(Sets.newHashSet("100002"), strings(selectConceptIds(ecl)));
 	}
 
-}
+	protected Set<String> strings(Collection<Long> ids) {
+		return ids.stream().map(Object::toString).collect(Collectors.toSet());
+	}
 
+	protected Collection<Long> selectConceptIds(String ecl) {
+		return selectConceptIds(ecl, PageRequest.of(0, 10000));
+	}
+
+	protected Collection<Long> selectConceptIds(String ecl, PageRequest pageRequest) {
+		return eclQueryService.selectConceptIds(ecl, branchCriteria, MAIN, false, pageRequest).getContent();
+	}
+
+}

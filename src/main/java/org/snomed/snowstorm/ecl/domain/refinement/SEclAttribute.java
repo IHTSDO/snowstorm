@@ -6,11 +6,11 @@ import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.snomed.langauges.ecl.domain.refinement.EclAttribute;
 import org.snomed.langauges.ecl.domain.refinement.EclAttributeGroup;
 import org.snomed.snowstorm.core.data.domain.QueryConcept;
+import org.snomed.snowstorm.ecl.ConceptSelectorHelper;
 import org.snomed.snowstorm.ecl.deserializer.ECLModelDeserializer;
 import org.snomed.snowstorm.ecl.domain.RefinementBuilder;
 import org.snomed.snowstorm.ecl.domain.SRefinement;
 import org.snomed.snowstorm.ecl.domain.expressionconstraint.MatchContext;
-import org.snomed.snowstorm.ecl.domain.expressionconstraint.SExpressionConstraintHelper;
 import org.snomed.snowstorm.ecl.domain.expressionconstraint.SSubExpressionConstraint;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Slice;
@@ -47,7 +47,7 @@ public class SEclAttribute extends EclAttribute implements SRefinement {
 			if (range.getPossibleAttributeValues() == null) {
 				throw new UnsupportedOperationException("Returning the attribute values of all concepts is not supported.");
 			}
-			Collection<Long> destinationConceptIds = refinementBuilder.getQueryService()
+			Collection<Long> destinationConceptIds = refinementBuilder.getEclContentService()
 					.findRelationshipDestinationIds(range.getPossibleAttributeValues().stream().map(Long::parseLong)
 							.collect(Collectors.toList()), range.getAttributeTypeIds(), branchCriteria, stated);
 			query.must(termsQuery(QueryConcept.Fields.CONCEPT_ID, destinationConceptIds));
@@ -215,7 +215,7 @@ public class SEclAttribute extends EclAttribute implements SRefinement {
 				if (attributeTypeProperties.isEmpty()) {
 					// Attribute type is not a wildcard but empty selection
 					// Force query to return nothing
-					attributeTypeProperties.add(SExpressionConstraintHelper.MISSING);
+					attributeTypeProperties.add(ConceptSelectorHelper.MISSING);
 				}
 			}
 

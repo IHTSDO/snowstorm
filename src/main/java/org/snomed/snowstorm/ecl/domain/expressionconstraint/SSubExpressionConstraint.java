@@ -3,12 +3,15 @@ package org.snomed.snowstorm.ecl.domain.expressionconstraint;
 import io.kaicode.elasticvc.api.BranchCriteria;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
+import org.snomed.langauges.ecl.domain.ConceptReference;
 import org.snomed.langauges.ecl.domain.expressionconstraint.ExpressionConstraint;
 import org.snomed.langauges.ecl.domain.expressionconstraint.SubExpressionConstraint;
+import org.snomed.langauges.ecl.domain.filter.*;
 import org.snomed.langauges.ecl.domain.refinement.Operator;
 import org.snomed.snowstorm.core.data.domain.Concepts;
 import org.snomed.snowstorm.core.data.domain.QueryConcept;
-import org.snomed.snowstorm.core.data.services.QueryService;
+import org.snomed.snowstorm.ecl.ConceptSelectorHelper;
+import org.snomed.snowstorm.ecl.ECLContentService;
 import org.snomed.snowstorm.ecl.deserializer.ECLModelDeserializer;
 import org.snomed.snowstorm.ecl.domain.RefinementBuilder;
 import org.snomed.snowstorm.ecl.domain.SubRefinementBuilder;
@@ -32,11 +35,13 @@ public class SSubExpressionConstraint extends SubExpressionConstraint implements
 	}
 
 	@Override
-	public Optional<Page<Long>> select(String path, BranchCriteria branchCriteria, boolean stated, Collection<Long> conceptIdFilter, PageRequest pageRequest, QueryService queryService) {
+	public Optional<Page<Long>> select(String path, BranchCriteria branchCriteria, boolean stated, Collection<Long> conceptIdFilter,
+			PageRequest pageRequest, ECLContentService eclContentService) {
+
 		if (isUnconstrained()) {
 			return Optional.empty();
 		}
-		return SExpressionConstraintHelper.select(this, path, branchCriteria, stated, conceptIdFilter, pageRequest, queryService);
+		return ConceptSelectorHelper.select(this, path, branchCriteria, stated, conceptIdFilter, pageRequest, eclContentService);
 	}
 
 	private boolean isUnconstrained() {
@@ -48,7 +53,7 @@ public class SSubExpressionConstraint extends SubExpressionConstraint implements
 		if (isUnconstrained()) {
 			return Optional.empty();
 		}
-		return SExpressionConstraintHelper.select(this, refinementBuilder);
+		return ConceptSelectorHelper.select(this, refinementBuilder);
 	}
 
 	@Override
@@ -59,6 +64,27 @@ public class SSubExpressionConstraint extends SubExpressionConstraint implements
 		}
 		if (nestedExpressionConstraint != null) {
 			conceptIds.addAll(((SExpressionConstraint) nestedExpressionConstraint).getConceptIds());
+		}
+		if (filterConstraints != null) {
+			for (FilterConstraint filterConstraint : filterConstraints) {
+				for (DescriptionTypeFilter descriptionTypeFilter : filterConstraint.getDescriptionTypeFilters()) {
+					for (DescriptionType type : descriptionTypeFilter.getTypes()) {
+						conceptIds.add(type.getTypeId());
+					}
+				}
+				for (DialectFilter dialectFilter : filterConstraint.getDialectFilters()) {
+					for (DialectAcceptability dialectAcceptability : dialectFilter.getDialectAcceptabilities()) {
+						if (dialectAcceptability.getDialectId() != null) {
+							conceptIds.add(dialectAcceptability.getDialectId().getConceptId());
+						}
+						if (dialectAcceptability.getAcceptabilityIdSet() != null) {
+							for (ConceptReference conceptReference : dialectAcceptability.getAcceptabilityIdSet()) {
+								conceptIds.add(conceptReference.getConceptId());
+							}
+						}
+					}
+				}
+			}
 		}
 		return conceptIds;
 	}
@@ -89,7 +115,7 @@ public class SSubExpressionConstraint extends SubExpressionConstraint implements
 			if (conceptIds.isEmpty()) {
 				// Attribute type is not a wildcard but empty selection
 				// Force query to return nothing
-				conceptIds = Collections.singletonList(SExpressionConstraintHelper.MISSING_LONG);
+				conceptIds = Collections.singletonList(ConceptSelectorHelper.MISSING_LONG);
 			}
 			BoolQueryBuilder filterQuery = boolQuery();
 			query.filter(filterQuery);
@@ -101,13 +127,13 @@ public class SSubExpressionConstraint extends SubExpressionConstraint implements
 			}
 		} else if (operator == Operator.memberOf) {
 			// Member of wildcard (any reference set)
-			query.must(termsQuery(QueryConcept.Fields.CONCEPT_ID, refinementBuilder.getQueryService().findConceptIdsInReferenceSet(refinementBuilder.getBranchCriteria(), null)));
+			query.must(termsQuery(QueryConcept.Fields.CONCEPT_ID, refinementBuilder.getEclContentService().findConceptIdsInReferenceSet(refinementBuilder.getBranchCriteria(), null)));
 		} else if (operator == Operator.descendantof || operator == Operator.childof) {
 			// Descendant of wildcard / Child of wildcard = anything but root
 			query.mustNot(termQuery(QueryConcept.Fields.CONCEPT_ID, Concepts.SNOMEDCT_ROOT));
 		} else if (operator == Operator.ancestorof || operator == Operator.parentof) {
 			// Ancestor of wildcard / Parent of wildcard = all non-leaf concepts
-			Collection<Long> conceptsWithDescendants = refinementBuilder.getQueryService().findRelationshipDestinationIds(
+			Collection<Long> conceptsWithDescendants = refinementBuilder.getEclContentService().findRelationshipDestinationIds(
 					null, Collections.singletonList(parseLong(Concepts.ISA)), refinementBuilder.getBranchCriteria(), refinementBuilder.isStated());
 			query.must(termsQuery(QueryConcept.Fields.CONCEPT_ID, conceptsWithDescendants));
 		}
@@ -116,7 +142,7 @@ public class SSubExpressionConstraint extends SubExpressionConstraint implements
 
 	private void applyConceptCriteriaWithOperator(Collection<Long> conceptIds, Operator operator, RefinementBuilder refinementBuilder) {
 		BoolQueryBuilder query = refinementBuilder.getQuery();
-		QueryService queryService = refinementBuilder.getQueryService();
+		ECLContentService conceptSelector = refinementBuilder.getEclContentService();
 		BranchCriteria branchCriteria = refinementBuilder.getBranchCriteria();
 		String path = refinementBuilder.getPath();
 		boolean stated = refinementBuilder.isStated();
@@ -139,12 +165,12 @@ public class SSubExpressionConstraint extends SubExpressionConstraint implements
 				break;
 			case parentof:
 				for (Long conceptId : conceptIds) {
-					Set<Long> parents = queryService.findParentIds(branchCriteria, stated, Collections.singleton(conceptId));
+					Set<Long> parents = conceptSelector.findParentIds(branchCriteria, stated, Collections.singleton(conceptId));
 					query.must(termsQuery(QueryConcept.Fields.CONCEPT_ID, parents));
 				}
 				break;
 			case ancestororselfof:
-				Set<Long> allAncestors = retrieveAllAncestors(conceptIds, branchCriteria, path, stated, queryService);
+				Set<Long> allAncestors = retrieveAllAncestors(conceptIds, branchCriteria, path, stated, conceptSelector);
 				query.must(
 						boolQuery()
 								.should(termsQuery(QueryConcept.Fields.CONCEPT_ID, allAncestors))
@@ -153,18 +179,18 @@ public class SSubExpressionConstraint extends SubExpressionConstraint implements
 				break;
 			case ancestorof:
 				// > x
-				Set<Long> allAncestors2 = retrieveAllAncestors(conceptIds, branchCriteria, path, stated, queryService);
+				Set<Long> allAncestors2 = retrieveAllAncestors(conceptIds, branchCriteria, path, stated, conceptSelector);
 				query.must(termsQuery(QueryConcept.Fields.CONCEPT_ID, allAncestors2));
 				break;
 			case memberOf:
 				// ^
-				query.filter(termsQuery(QueryConcept.Fields.CONCEPT_ID, queryService.findConceptIdsInReferenceSet(branchCriteria, conceptId)));
+				query.filter(termsQuery(QueryConcept.Fields.CONCEPT_ID, conceptSelector.findConceptIdsInReferenceSet(branchCriteria, conceptId)));
 				break;
 		}
 	}
 
-	private Set<Long> retrieveAllAncestors(Collection<Long> conceptIds, BranchCriteria branchCriteria, String path, boolean stated, QueryService queryService) {
-		return queryService.findAncestorIdsAsUnion(branchCriteria, stated, conceptIds);
+	private Set<Long> retrieveAllAncestors(Collection<Long> conceptIds, BranchCriteria branchCriteria, String path, boolean stated, ECLContentService eclContentService) {
+		return eclContentService.findAncestorIdsAsUnion(branchCriteria, stated, conceptIds);
 	}
 
 	public void toString(StringBuffer buffer) {

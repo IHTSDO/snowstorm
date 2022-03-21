@@ -23,6 +23,7 @@ class ECLModelDeserializerServiceTest {
 
 	@Test
 	public void testAll() throws JsonProcessingException {
+		assertConversionTest("<  64572001 |Disease|  {{ term = \"box\", type = syn, dialect = en-us (prefer) }}\n");
 		assertConversionTest("*");
 		assertConversionTest("100000000");
 		assertConversionTest("< 100000000");

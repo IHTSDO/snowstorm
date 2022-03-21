@@ -16,6 +16,7 @@ import java.util.stream.Collectors;
 
 import static org.junit.Assert.assertEquals;
 import static org.snomed.snowstorm.core.data.domain.Concepts.*;
+import static org.snomed.snowstorm.TestConcepts.*;
 
 /**
  * In this test suite we run all the same ECL query tests again against the stated form
@@ -56,7 +57,7 @@ class ECLQueryServiceStatedAxiomTest extends ECLQueryServiceTest {
 		allConcepts.add(new Concept(RIGHT).addAxiom(new Relationship(ISA, SNOMEDCT_ROOT)));
 
 		allConcepts.add(new Concept(BODY_STRUCTURE).addAxiom(new Relationship(ISA, SNOMEDCT_ROOT)));
-		allConcepts.add(new Concept(HEART_STRUCTURE).addAxiom(new Relationship(ISA, BODY_STRUCTURE)));
+		allConcepts.add(new Concept(Concepts.HEART_STRUCTURE).addAxiom(new Relationship(ISA, BODY_STRUCTURE)));
 		allConcepts.add(new Concept(SKIN_STRUCTURE).addAxiom(new Relationship(ISA, BODY_STRUCTURE)));
 		allConcepts.add(new Concept(THORACIC_STRUCTURE).addAxiom(new Relationship(ISA, BODY_STRUCTURE)));
 		allConcepts.add(new Concept(PULMONARY_VALVE_STRUCTURE).addAxiom(new Relationship(ISA, BODY_STRUCTURE)));
@@ -99,7 +100,7 @@ class ECLQueryServiceStatedAxiomTest extends ECLQueryServiceTest {
 		
 		allConcepts.add(new Concept(OPERATION_ON_HEART).addAxiom(
 				new Relationship(ISA, PROCEDURE),
-				new Relationship(PROCEDURE_SITE, HEART_STRUCTURE)));
+				new Relationship(PROCEDURE_SITE, Concepts.HEART_STRUCTURE)));
 
 		allConcepts.add(new Concept(CHEST_IMAGING).addAxiom(
 				new Relationship(ISA, PROCEDURE),

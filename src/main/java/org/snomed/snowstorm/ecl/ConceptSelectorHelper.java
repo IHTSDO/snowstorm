@@ -1,26 +1,30 @@
 package org.snomed.snowstorm.ecl;
 
 import com.google.common.collect.Sets;
+import io.kaicode.elasticvc.api.BranchCriteria;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 import it.unimi.dsi.fastutil.longs.LongComparators;
+import it.unimi.dsi.fastutil.longs.LongLinkedOpenHashSet;
 import org.apache.commons.lang3.NotImplementedException;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.search.sort.FieldSortBuilder;
 import org.elasticsearch.search.sort.SortBuilders;
 import org.elasticsearch.search.sort.SortOrder;
+import org.snomed.langauges.ecl.domain.expressionconstraint.SubExpressionConstraint;
+import org.snomed.langauges.ecl.domain.filter.FilterConstraint;
+import org.snomed.langauges.ecl.domain.filter.TermFilter;
 import org.snomed.snowstorm.core.data.domain.Concept;
 import org.snomed.snowstorm.core.data.domain.QueryConcept;
-import org.snomed.snowstorm.core.data.services.QueryService;
+import org.snomed.snowstorm.ecl.domain.RefinementBuilder;
+import org.snomed.snowstorm.ecl.domain.RefinementBuilderImpl;
+import org.snomed.snowstorm.ecl.domain.expressionconstraint.SExpressionConstraint;
 import org.springframework.data.domain.*;
 import org.springframework.data.elasticsearch.core.SearchAfterPageRequest;
 import org.springframework.data.elasticsearch.core.SearchHitsIterator;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
 
-import java.util.Collection;
-import java.util.Collections;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 import java.util.function.Function;
 
 import static io.kaicode.elasticvc.api.ComponentService.LARGE_PAGE;
@@ -29,7 +33,55 @@ import static org.elasticsearch.index.query.QueryBuilders.*;
 
 public class ConceptSelectorHelper {
 
+	// Used to force no match
+	public static final String MISSING = "missing";
+	public static final Long MISSING_LONG = 111L;
+
 	private ConceptSelectorHelper() {
+	}
+
+	public static Optional<Page<Long>> select(SExpressionConstraint sExpressionConstraint, RefinementBuilder refinementBuilder) {
+		return select(sExpressionConstraint, refinementBuilder.getPath(), refinementBuilder.getBranchCriteria(), refinementBuilder.isStated(), null, null, refinementBuilder.getEclContentService());
+	}
+
+	public static Optional<Page<Long>> select(SExpressionConstraint sExpressionConstraint, String path, BranchCriteria branchCriteria, boolean stated,
+			Collection<Long> conceptIdFilter, PageRequest pageRequest, ECLContentService eclContentService) {
+
+		BoolQueryBuilder query = getBranchAndStatedQuery(branchCriteria.getEntityBranchCriteria(QueryConcept.class), stated);
+		RefinementBuilder refinementBuilder = new RefinementBuilderImpl(query, path, branchCriteria, stated, eclContentService);
+		sExpressionConstraint.addCriteria(refinementBuilder);// This can add an inclusionFilter to the refinementBuilder.
+
+		// Get ECL filters
+		List<FilterConstraint> filterConstraints = null;
+		if (sExpressionConstraint instanceof SubExpressionConstraint) {
+			SubExpressionConstraint subExpressionConstraint = (SubExpressionConstraint) sExpressionConstraint;
+			filterConstraints = subExpressionConstraint.getFilterConstraints();
+			if (filterConstraints != null && filterConstraints.isEmpty()) {
+				filterConstraints = null;
+			}
+		}
+
+		Page<Long> conceptIds;
+		// If ECL filters present grab all concept ids and filter afterwards
+		if (filterConstraints != null) {
+			SortedSet<Long> conceptIdSortedSet =
+					new LongLinkedOpenHashSet(fetchIds(query, conceptIdFilter, refinementBuilder.getInclusionFilter(), null, eclContentService).getContent());
+
+			// Apply filter constraints
+			for (FilterConstraint filterConstraint : filterConstraints) {
+				for (TermFilter termFilter : filterConstraint.getTermFilters()) {
+					SortedMap<Long, Long> descriptionToConceptMap = eclContentService.filterByDescriptionTerm(conceptIdSortedSet, termFilter, branchCriteria);
+					conceptIdSortedSet = new LongLinkedOpenHashSet(descriptionToConceptMap.values());
+				}
+			}
+
+			conceptIds = getPage(pageRequest, new ArrayList<>(conceptIdSortedSet));
+		} else {
+			// If no ECL filters grab a page
+			conceptIds = fetchIds(query, conceptIdFilter, refinementBuilder.getInclusionFilter(), pageRequest, eclContentService);
+		}
+
+		return Optional.of(conceptIds);
 	}
 
 	public static BoolQueryBuilder getBranchAndStatedQuery(QueryBuilder branchCriteria, boolean stated) {
@@ -38,7 +90,9 @@ public class ConceptSelectorHelper {
 				.must(termQuery(QueryConcept.Fields.STATED, stated));
 	}
 
-	public static Page<Long> fetchIds(BoolQueryBuilder query, Collection<Long> filterByConceptIds, Function<QueryConcept, Boolean> inclusionFilter, PageRequest pageRequest, QueryService queryService) {
+	public static Page<Long> fetchIds(BoolQueryBuilder query, Collection<Long> filterByConceptIds, Function<QueryConcept, Boolean> inclusionFilter,
+			PageRequest pageRequest, ECLContentService conceptSelector) {
+
 		NativeSearchQueryBuilder searchQueryBuilder = new NativeSearchQueryBuilder()
 				.withQuery(query)
 				.withFields(getRequiredFields(inclusionFilter));
@@ -64,25 +118,25 @@ public class ConceptSelectorHelper {
 			} else {
 				searchQueryBuilder.withPageable(pageRequest);
 			}
-			Page<QueryConcept> queryConcepts = queryService.queryForPage(searchQueryBuilder.build());
+			Page<QueryConcept> queryConcepts = conceptSelector.queryForPage(searchQueryBuilder.build());
 			List<Long> ids = queryConcepts.getContent().stream().map(QueryConcept::getConceptIdL).collect(toList());
 			return new PageImpl<>(ids, pageRequest, queryConcepts.getTotalElements());
 		} else {
 			// Fetch all IDs
 			searchQueryBuilder.withPageable(LARGE_PAGE);
-			List<Long> ids = new LongArrayList();
-			try (SearchHitsIterator<QueryConcept> stream = queryService.streamQueryResults(searchQueryBuilder.build())) {
+			List<Long> addIds = new LongArrayList();
+			try (SearchHitsIterator<QueryConcept> stream = conceptSelector.streamQueryResults(searchQueryBuilder.build())) {
 				stream.forEachRemaining(hit -> {
 					if (inclusionFilter == null || inclusionFilter.apply(hit.getContent())) {
-						ids.add(hit.getContent().getConceptIdL());
+						addIds.add(hit.getContent().getConceptIdL());
 					}
 				});
 			}
 
 			// Stream search doesn't sort for us
-			ids.sort(LongComparators.OPPOSITE_COMPARATOR);
+			addIds.sort(LongComparators.OPPOSITE_COMPARATOR);
 
-			return getPage(pageRequest, ids);
+			return getPage(pageRequest, addIds);
 		}
 	}
 
@@ -116,4 +170,5 @@ public class ConceptSelectorHelper {
 		}
 		return fields.toArray(new String[]{});
 	}
+
 }
