@@ -9,7 +9,6 @@ import org.slf4j.LoggerFactory;
 import org.snomed.langauges.ecl.ECLException;
 import org.snomed.langauges.ecl.ECLQueryBuilder;
 import org.snomed.snowstorm.core.data.domain.QueryConcept;
-import org.snomed.snowstorm.core.data.services.QueryService;
 import org.snomed.snowstorm.core.util.TimerUtil;
 import org.snomed.snowstorm.ecl.domain.expressionconstraint.SExpressionConstraint;
 import org.snomed.snowstorm.ecl.validation.ECLPreprocessingService;
@@ -35,7 +34,7 @@ public class ECLQueryService {
 	private ECLPreprocessingService eclPreprocessingService;
 
 	@Autowired
-	private QueryService queryService;
+	private ECLContentService eclContentService;
 
 	@Value("${timer.ecl.duration-threshold}")
 	private int eclDurationLoggingThreshold;
@@ -102,7 +101,9 @@ public class ECLQueryService {
 
 				pageOptional = Optional.of(cachedPage);
 			} else {
-				pageOptional = expressionConstraint.select(path, branchCriteria, stated, null, queryPageRequest, queryService);
+				// Select 1
+				// When is pageRequest null?
+				pageOptional = expressionConstraint.select(path, branchCriteria, stated, null, queryPageRequest, eclContentService);
 				if (pageOptional.isPresent()) {
 					// Cache results
 					final Page<Long> page = pageOptional.get();
@@ -120,12 +121,14 @@ public class ECLQueryService {
 				}
 			}
 		} else {
-			pageOptional = expressionConstraint.select(path, branchCriteria, stated, conceptIdFilter, pageRequest, queryService);
+			// Select 2
+			pageOptional = expressionConstraint.select(path, branchCriteria, stated, conceptIdFilter, pageRequest, eclContentService);
 			pageOptional.ifPresent(conceptIds ->
 					eclSlowQueryTimer.checkpoint(String.format("ecl:'%s', with %s results in this page, cache not enabled.", ecl, conceptIds.getNumberOfElements())));
 		}
 
 		if (pageOptional.isEmpty()) {
+			// We only do this at the top level. Nested wildcards do not fetch all concepts.
 			return getWildcardPage(branchCriteria, stated, conceptIdFilter, pageRequest);
 		}
 
@@ -135,7 +138,7 @@ public class ECLQueryService {
 	private Page<Long> getWildcardPage(BranchCriteria branchCriteria, boolean stated, Collection<Long> conceptIdFilter, PageRequest pageRequest) {
 		// Wildcard expression. Grab a page of concepts with no criteria.
 		BoolQueryBuilder query = ConceptSelectorHelper.getBranchAndStatedQuery(branchCriteria.getEntityBranchCriteria(QueryConcept.class), stated);
-		return ConceptSelectorHelper.fetchIds(query, conceptIdFilter, null, pageRequest, queryService);
+		return ConceptSelectorHelper.fetchIds(query, conceptIdFilter, null, pageRequest, eclContentService);
 	}
 
 	private TimerUtil getEclSlowQueryTimer() {

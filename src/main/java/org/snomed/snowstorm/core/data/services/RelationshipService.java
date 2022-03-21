@@ -172,7 +172,7 @@ public class RelationshipService extends ComponentService {
 				.get().map(SearchHit::getContent).collect(Collectors.toList());
 	}
 
-	List<Long> findRelationshipDestinationIds(Collection<Long> sourceConceptIds, Collection<Long> attributeTypeIds, BranchCriteria branchCriteria, boolean stated) {
+	public List<Long> findRelationshipDestinationIds(Collection<Long> sourceConceptIds, Collection<Long> attributeTypeIds, BranchCriteria branchCriteria, boolean stated) {
 		if (attributeTypeIds != null && attributeTypeIds.isEmpty()) {
 			return Collections.emptyList();
 		}

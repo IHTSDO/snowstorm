@@ -3,7 +3,7 @@ package org.snomed.snowstorm.ecl.domain;
 import io.kaicode.elasticvc.api.BranchCriteria;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.snomed.snowstorm.core.data.domain.QueryConcept;
-import org.snomed.snowstorm.core.data.services.QueryService;
+import org.snomed.snowstorm.ecl.ECLContentService;
 
 import java.util.function.Function;
 
@@ -21,7 +21,7 @@ public interface RefinementBuilder {
 
 	boolean isStated();
 
-	QueryService getQueryService();
+	ECLContentService getEclContentService();
 
 	void inclusionFilterRequired();
 

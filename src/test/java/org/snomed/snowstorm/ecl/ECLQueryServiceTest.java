@@ -26,55 +26,14 @@ import java.util.stream.Collectors;
 
 import static io.kaicode.elasticvc.api.VersionControlHelper.LARGE_PAGE;
 import static org.junit.Assert.assertEquals;
+import static org.snomed.snowstorm.TestConcepts.*;
+import static org.snomed.snowstorm.TestConcepts.NON_EXISTENT_CONCEPT;
 import static org.snomed.snowstorm.core.data.domain.Concepts.*;
+import static org.snomed.snowstorm.core.data.domain.Concepts.HEART_STRUCTURE;
 
 @ExtendWith(SpringExtension.class)
 @ContextConfiguration(classes = TestConfig.class)
 class ECLQueryServiceTest extends AbstractTest {
-
-	// Model
-	protected static final String MODEL_COMPONENT = "900000000000441003";
-
-	// Attributes
-	protected static final String FINDING_SITE = "363698007";
-	protected static final String ASSOCIATED_MORPHOLOGY = "116676008";
-	protected static final String PROCEDURE_SITE = "363704007";
-	protected static final String PROCEDURE_SITE_DIRECT = "405813007";
-	protected static final String LATERALITY = "272741003";
-
-	// Qualifier Value
-	protected static final String RIGHT = "24028007";
-
-	// Body Structure
-	protected static final String BODY_STRUCTURE = "123037004";
-	protected static final String HEART_STRUCTURE = "80891009";
-	protected static final String SKIN_STRUCTURE = "39937001";
-	protected static final String THORACIC_STRUCTURE = "51185008";
-	protected static final String PULMONARY_VALVE_STRUCTURE = "39057004";
-	protected static final String RIGHT_VENTRICULAR_STRUCTURE = "53085002";
-	protected static final String STENOSIS = "415582006";
-	protected static final String HYPERTROPHY = "56246009";
-	protected static final String HEMORRHAGE = "50960005";
-	protected static final String LEFT_FOOT = "22335008";
-	protected static final String RIGHT_FOOT = "7769000";
-
-	// Finding
-	protected static final String DISORDER = "64572001";
-	protected static final String BLEEDING = "131148009";
-	protected static final String BLEEDING_SKIN = "297968009";
-	protected static final String PENTALOGY_OF_FALLOT = "204306007";
-	protected static final String PENTALOGY_OF_FALLOT_INCORRECT_GROUPING = "999204306007";
-
-	// Procedure
-	protected static final String PROCEDURE = "71388002";
-	protected static final String OPERATION_ON_HEART = "64915003";
-	protected static final String CHEST_IMAGING = "413815006";
-	
-	protected static final String AMPUTATION_FOOT_LEFT = "723311002";
-	protected static final String AMPUTATION_FOOT_RIGHT = "723312009";
-	protected static final String AMPUTATION_FOOT_BILATERAL = "180030006";
-
-	protected static final String NON_EXISTENT_CONCEPT = "12345001";
 
 	protected static final String MAIN = "MAIN";
 	protected static final boolean INFERRED = false;
@@ -106,7 +65,7 @@ class ECLQueryServiceTest extends AbstractTest {
 		allConcepts.add(new Concept(MODEL_COMPONENT).addRelationship(new Relationship(ISA, SNOMEDCT_ROOT)));
 		allConcepts.add(new Concept(CONCEPT_MODEL_ATTRIBUTE).addRelationship(new Relationship(ISA, MODEL_COMPONENT)));
 		allConcepts.add(new Concept(CONCEPT_MODEL_OBJECT_ATTRIBUTE).addRelationship(new Relationship(ISA, CONCEPT_MODEL_ATTRIBUTE)));
-		allConcepts.add(new Concept(FINDING_SITE).addRelationship(new Relationship(ISA, CONCEPT_MODEL_OBJECT_ATTRIBUTE)));
+		allConcepts.add(new Concept(Concepts.FINDING_SITE).addRelationship(new Relationship(ISA, CONCEPT_MODEL_OBJECT_ATTRIBUTE)));
 		allConcepts.add(new Concept(ASSOCIATED_MORPHOLOGY).addRelationship(new Relationship(ISA, CONCEPT_MODEL_OBJECT_ATTRIBUTE)));
 		allConcepts.add(new Concept(PROCEDURE_SITE).addRelationship(new Relationship(ISA, CONCEPT_MODEL_OBJECT_ATTRIBUTE)));
 		allConcepts.add(new Concept(PROCEDURE_SITE_DIRECT).addRelationship(new Relationship(ISA, PROCEDURE_SITE)));

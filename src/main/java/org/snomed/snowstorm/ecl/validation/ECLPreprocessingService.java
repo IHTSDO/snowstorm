@@ -26,7 +26,7 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 import static org.snomed.snowstorm.core.data.domain.Concepts.CONCEPT_MODEL_DATA_ATTRIBUTE;
-import static org.snomed.snowstorm.ecl.domain.expressionconstraint.SExpressionConstraintHelper.MISSING;
+import static org.snomed.snowstorm.ecl.ConceptSelectorHelper.MISSING;
 
 @Service
 public class ECLPreprocessingService implements CommitListener {

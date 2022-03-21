@@ -4,8 +4,6 @@ import com.google.common.collect.Iterables;
 import io.kaicode.elasticvc.api.BranchCriteria;
 import io.kaicode.elasticvc.api.VersionControlHelper;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
-import it.unimi.dsi.fastutil.longs.LongArraySet;
-import it.unimi.dsi.fastutil.longs.LongComparators;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.search.sort.SortBuilders;
 import org.slf4j.Logger;
@@ -30,7 +28,6 @@ import org.springframework.context.annotation.Lazy;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
 import org.springframework.data.elasticsearch.core.ElasticsearchRestTemplate;
 import org.springframework.data.elasticsearch.core.SearchHit;
 import org.springframework.data.elasticsearch.core.SearchHits;
@@ -47,7 +44,6 @@ import java.util.stream.Collectors;
 
 import static io.kaicode.elasticvc.api.ComponentService.CLAUSE_LIMIT;
 import static io.kaicode.elasticvc.api.ComponentService.LARGE_PAGE;
-import static java.lang.Long.parseLong;
 import static org.elasticsearch.index.query.QueryBuilders.*;
 import static org.snomed.snowstorm.config.Config.DEFAULT_LANGUAGE_DIALECTS;
 import static org.snomed.snowstorm.ecl.ConceptSelectorHelper.getDefaultSortForConcept;
@@ -65,13 +61,6 @@ public class QueryService implements ApplicationContextAware {
 
 	@Autowired
 	private ECLQueryService eclQueryService;
-
-	@Autowired
-	@Lazy
-	private ReferenceSetMemberService memberService;
-
-	@Autowired
-	private RelationshipService relationshipService;
 
 	@Autowired
 	private DescriptionService descriptionService;
@@ -295,17 +284,6 @@ public class QueryService implements ApplicationContextAware {
 		return termConceptIds.stream().filter(id -> conceptMiniMap.containsKey(id.toString())).map(id -> conceptMiniMap.get(id.toString())).collect(Collectors.toList());
 	}
 
-	public Page<QueryConcept> queryForPage(NativeSearchQuery searchQuery) {
-		searchQuery.setTrackTotalHits(true);
-		Pageable pageable = searchQuery.getPageable();
-		SearchHits<QueryConcept> searchHits = elasticsearchTemplate.search(searchQuery, QueryConcept.class);
-		return PageHelper.toSearchAfterPage(searchHits, pageable);
-	}
-
-	public SearchHitsIterator<QueryConcept> streamQueryResults(NativeSearchQuery searchQuery) {
-		return elasticsearchTemplate.searchForStream(searchQuery, QueryConcept.class);
-	}
-
 	public Set<Long> findAncestorIds(String conceptId, String path, boolean stated) {
 		return findAncestorIds(versionControlHelper.getBranchCriteria(path), path, stated, conceptId);
 	}
@@ -388,76 +366,6 @@ public class QueryService implements ApplicationContextAware {
 				.build();
 		SearchHits<QueryConcept> searchHits = elasticsearchTemplate.search(searchQuery, QueryConcept.class);
 		return searchHits.stream().map(SearchHit::getContent).map(QueryConcept::getConceptIdL).collect(Collectors.toSet());
-	}
-
-	public Set<Long> findConceptIdsInReferenceSet(BranchCriteria branchCriteria, String referenceSetId) {
-		return memberService.findConceptsInReferenceSet(branchCriteria, referenceSetId);
-	}
-
-	public List<Long> findRelationshipDestinationIds(Collection<Long> sourceConceptIds, List<Long> attributeTypeIds, BranchCriteria branchCriteria, boolean stated) {
-		if (!stated) {
-			// Use relationships - it's faster
-			return relationshipService.findRelationshipDestinationIds(sourceConceptIds, attributeTypeIds, branchCriteria, false);
-		}
-
-		// For the stated view we'll use the semantic index to access relationships from both stated relationships or axioms.
-
-		if (attributeTypeIds != null && attributeTypeIds.isEmpty()) {
-			return Collections.emptyList();
-		}
-
-		BoolQueryBuilder boolQuery = boolQuery()
-				.must(branchCriteria.getEntityBranchCriteria(QueryConcept.class))
-				.must(termsQuery(QueryConcept.Fields.STATED, stated));
-
-		if (attributeTypeIds != null) {
-			BoolQueryBuilder shoulds = boolQuery();
-			boolQuery.must(shoulds);
-			for (Long attributeTypeId : attributeTypeIds) {
-				if (!attributeTypeId.equals(Concepts.IS_A_LONG)) {
-					shoulds.should(existsQuery(QueryConcept.Fields.ATTR + "." + attributeTypeId));
-				}
-			}
-		}
-
-		if (sourceConceptIds != null) {
-			boolQuery.must(termsQuery(QueryConcept.Fields.CONCEPT_ID, sourceConceptIds));
-		}
-
-		NativeSearchQuery query = new NativeSearchQueryBuilder()
-				.withQuery(boolQuery)
-				.withPageable(LARGE_PAGE)
-				.build();
-
-		Set<Long> destinationIds = new LongArraySet();
-		try (SearchHitsIterator<QueryConcept> stream = elasticsearchTemplate.searchForStream(query, QueryConcept.class)) {
-			stream.forEachRemaining(hit -> {
-				QueryConcept queryConcept = hit.getContent();
-				if (attributeTypeIds != null) {
-					for (Long attributeTypeId : attributeTypeIds) {
-						if (attributeTypeId.equals(Concepts.IS_A_LONG)) {
-							destinationIds.addAll(queryConcept.getParents());
-						} else {
-							queryConcept.getAttr().getOrDefault(attributeTypeId.toString(), Collections.emptySet()).forEach(id -> addDestinationId(id, destinationIds));
-						}
-					}
-				} else {
-					queryConcept.getAttr().values().forEach(destinationSet -> destinationSet.forEach(destinationId -> addDestinationId(destinationId, destinationIds)));
-				}
-			});
-		}
-
-		// Stream search doesn't sort for us
-		// Sorting meaningless but supports deterministic pagination
-		List<Long> sortedIds = new LongArrayList(destinationIds);
-		sortedIds.sort(LongComparators.OPPOSITE_COMPARATOR);
-		return sortedIds;
-	}
-
-	private void addDestinationId(Object destinationId, Set<Long> destinationIds) {
-		if (destinationId instanceof String) {
-			destinationIds.add(parseLong((String)destinationId));
-		}
 	}
 
 	/**

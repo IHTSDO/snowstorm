@@ -29,6 +29,9 @@ import org.elasticsearch.search.aggregations.bucket.terms.Terms;
 import org.elasticsearch.search.sort.SortBuilders;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.snomed.langauges.ecl.domain.filter.SearchType;
+import org.snomed.langauges.ecl.domain.filter.TermFilter;
+import org.snomed.langauges.ecl.domain.filter.TypedSearchTerm;
 import org.snomed.snowstorm.config.SearchLanguagesConfiguration;
 import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.services.identifier.IdentifierService;
@@ -89,7 +92,7 @@ public class DescriptionService extends ComponentService {
 	private int aggregationMaxProcessableResultsSize;
 
 	public enum SearchMode {
-		STANDARD, REGEX, WHOLE_WORD, WILDCARD
+		STANDARD, REGEX, WHOLE_WORD, WILDCARD;
 	}
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
@@ -483,6 +486,34 @@ public class DescriptionService extends ComponentService {
 		joinLangRefsetMembers(branchCriteria, conceptMiniMap.keySet(), descriptionIdMap);
 	}
 
+	public SortedMap<Long, Long> filterByDescriptionTerm(Collection<Long> conceptIds, TermFilter termFilter, BranchCriteria branchCriteria) {
+		BoolQueryBuilder masterTermQuery = boolQuery();
+		for (TypedSearchTerm typedSearchTerm : termFilter.getTypedSearchTermSet()) {
+			BoolQueryBuilder termQuery = boolQuery();
+			SearchMode searchMode = typedSearchTerm.getType() == SearchType.WILDCARD ? SearchMode.WILDCARD : SearchMode.STANDARD;
+			addTermClauses(typedSearchTerm.getTerm(), null, null, termQuery, searchMode);
+			masterTermQuery.should(termQuery);// Logical OR
+		}
+
+		BoolQueryBuilder criteria = branchCriteria.getEntityBranchCriteria(Description.class)
+				.must(termsQuery(Description.Fields.CONCEPT_ID, conceptIds))
+				.must(masterTermQuery);
+
+		final SortedMap<Long, Long> descriptionToConceptMap = new Long2ObjectLinkedOpenHashMap<>();
+		NativeSearchQueryBuilder searchQueryBuilder = new NativeSearchQueryBuilder()
+				.withQuery(criteria)
+				.withFields(Description.Fields.DESCRIPTION_ID, Description.Fields.CONCEPT_ID)
+				.withPageable(LARGE_PAGE);
+		try (SearchHitsIterator<Description> stream = elasticsearchTemplate.searchForStream(searchQueryBuilder.build(), Description.class)) {
+			stream.forEachRemaining(hit -> {
+				Description description = hit.getContent();
+				descriptionToConceptMap.put(Long.parseLong(description.getDescriptionId()), Long.parseLong(description.getConceptId()));
+			});
+		}
+
+		return descriptionToConceptMap;
+	}
+
 	DescriptionMatches findDescriptionAndConceptIds(DescriptionCriteria criteria, Set<Long> conceptIdsCriteria, BranchCriteria branchCriteria, TimerUtil timer) throws TooCostlyException {
 
 		// Build up the description criteria
@@ -719,7 +750,9 @@ public class DescriptionService extends ComponentService {
 					for (String languageCode : languageCodes) {
 						Set<Character> charactersNotFoldedForLanguage = charactersNotFoldedSets.getOrDefault(languageCode, Collections.emptySet());
 						String foldedSearchTerm = DescriptionHelper.foldTerm(term, charactersNotFoldedForLanguage);
-						foldedSearchTerm = constructSearchTerm(analyze(foldedSearchTerm, new StandardAnalyzer(CharArraySet.EMPTY_SET)));
+						if (searchMode != SearchMode.WILDCARD) {
+							foldedSearchTerm = constructSearchTerm(analyze(foldedSearchTerm, new StandardAnalyzer(CharArraySet.EMPTY_SET)));
+						}
 						if (foldedSearchTerm.isEmpty()) {
 							continue;
 						}
@@ -727,8 +760,7 @@ public class DescriptionService extends ComponentService {
 						if (SearchMode.WHOLE_WORD == searchMode) {
 							languageQuery.filter(matchQuery(Description.Fields.TERM_FOLDED, foldedSearchTerm).operator(Operator.AND));
 						} else if (SearchMode.WILDCARD == searchMode) {
-							// TODO add support for term folding
-							languageQuery.filter(wildcardQuery(Description.Fields.TERM_FOLDED, term));
+							languageQuery.filter(wildcardQuery(Description.Fields.TERM_FOLDED, foldedSearchTerm));
 						} else {
 							languageQuery.filter(simpleQueryStringQuery(constructSimpleQueryString(foldedSearchTerm))
 											.field(Description.Fields.TERM_FOLDED).defaultOperator(Operator.AND));

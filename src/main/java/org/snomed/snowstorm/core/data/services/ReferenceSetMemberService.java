@@ -433,7 +433,7 @@ public class ReferenceSetMemberService extends ComponentService {
 		return doSaveBatchComponents(members, commit, ReferenceSetMember.Fields.MEMBER_ID, memberRepository);
 	}
 
-	Set<Long> findConceptsInReferenceSet(BranchCriteria branchCriteria, String referenceSetId) {
+	public Set<Long> findConceptsInReferenceSet(BranchCriteria branchCriteria, String referenceSetId) {
 		// Build query
 
 		BoolQueryBuilder boolQuery = boolQuery().must(branchCriteria.getEntityBranchCriteria(ReferenceSetMember.class))

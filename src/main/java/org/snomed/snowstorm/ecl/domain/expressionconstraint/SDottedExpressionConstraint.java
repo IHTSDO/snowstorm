@@ -4,8 +4,9 @@ import io.kaicode.elasticvc.api.BranchCriteria;
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 import org.snomed.langauges.ecl.domain.expressionconstraint.DottedExpressionConstraint;
 import org.snomed.langauges.ecl.domain.expressionconstraint.SubExpressionConstraint;
-import org.snomed.snowstorm.core.data.services.QueryService;
 import org.snomed.snowstorm.core.util.PageHelper;
+import org.snomed.snowstorm.ecl.ConceptSelectorHelper;
+import org.snomed.snowstorm.ecl.ECLContentService;
 import org.snomed.snowstorm.ecl.deserializer.ECLModelDeserializer;
 import org.snomed.snowstorm.ecl.domain.RefinementBuilder;
 import org.springframework.data.domain.Page;
@@ -30,20 +31,23 @@ public class SDottedExpressionConstraint extends DottedExpressionConstraint impl
 		super(subExpressionConstraint);
 	}
 
+
 	@Override
-	public Optional<Page<Long>> select(String path, BranchCriteria branchCriteria, boolean stated, Collection<Long> conceptIdFilter, PageRequest pageRequest, QueryService queryService) {
+	public Optional<Page<Long>> select(String path, BranchCriteria branchCriteria, boolean stated, Collection<Long> conceptIdFilter,
+			PageRequest pageRequest, ECLContentService eclContentService) {
+
 		// Concept ids filtering should be done on attribute values for dot notation ECL query
 		// Fetch source concept ids
-		Optional<Page<Long>> conceptIds = SExpressionConstraintHelper.select(this, path, branchCriteria, stated, null, null, queryService);
+		Optional<Page<Long>> conceptIds = ConceptSelectorHelper.select(this, path, branchCriteria, stated, null, null, eclContentService);
 		if (conceptIds.isEmpty()) {
 			throw new UnsupportedOperationException("Dotted expression using wildcard focus concept is not supported.");
 		}
 
 		for (SubExpressionConstraint dottedAttribute : dottedAttributes) {
-			Optional<Page<Long>> attributeTypeIdsOptional = ((SSubExpressionConstraint)dottedAttribute).select(path, branchCriteria, stated, null, null, queryService);
+			Optional<Page<Long>> attributeTypeIdsOptional = ((SSubExpressionConstraint)dottedAttribute).select(path, branchCriteria, stated, null, null, eclContentService);
 			List<Long> attributeTypeIds = attributeTypeIdsOptional.map(Slice::getContent).orElse(null);
 			// XXX Note that this content is not paginated
-			List<Long> idList = new ArrayList<>(queryService.findRelationshipDestinationIds(conceptIds.get().getContent(), attributeTypeIds, branchCriteria, stated));
+			List<Long> idList = new ArrayList<>(eclContentService.findRelationshipDestinationIds(conceptIds.get().getContent(), attributeTypeIds, branchCriteria, stated));
 			conceptIds = Optional.of(new PageImpl<>(idList));
 		}
 
@@ -71,7 +75,7 @@ public class SDottedExpressionConstraint extends DottedExpressionConstraint impl
 
 	@Override
 	public Optional<Page<Long>> select(RefinementBuilder refinementBuilder) {
-		return select(refinementBuilder.getPath(), refinementBuilder.getBranchCriteria(), refinementBuilder.isStated(), null, null, refinementBuilder.getQueryService());
+		return select(refinementBuilder.getPath(), refinementBuilder.getBranchCriteria(), refinementBuilder.isStated(), null, null, refinementBuilder.getEclContentService());
 	}
 
 	@Override

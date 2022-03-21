@@ -4,7 +4,8 @@ import io.kaicode.elasticvc.api.BranchCriteria;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.snomed.langauges.ecl.domain.expressionconstraint.CompoundExpressionConstraint;
 import org.snomed.langauges.ecl.domain.expressionconstraint.SubExpressionConstraint;
-import org.snomed.snowstorm.core.data.services.QueryService;
+import org.snomed.snowstorm.ecl.ConceptSelectorHelper;
+import org.snomed.snowstorm.ecl.ECLContentService;
 import org.snomed.snowstorm.ecl.deserializer.ECLModelDeserializer;
 import org.snomed.snowstorm.ecl.domain.RefinementBuilder;
 import org.snomed.snowstorm.ecl.domain.SubRefinementBuilder;
@@ -24,13 +25,15 @@ import static org.springframework.util.CollectionUtils.isEmpty;
 public class SCompoundExpressionConstraint extends CompoundExpressionConstraint implements SExpressionConstraint {
 
 	@Override
-	public Optional<Page<Long>> select(String path, BranchCriteria branchCriteria, boolean stated, Collection<Long> conceptIdFilter, PageRequest pageRequest, QueryService queryService) {
-		return SExpressionConstraintHelper.select(this, path, branchCriteria, stated, conceptIdFilter, pageRequest, queryService);
+	public Optional<Page<Long>> select(String path, BranchCriteria branchCriteria, boolean stated, Collection<Long> conceptIdFilter,
+			PageRequest pageRequest, ECLContentService eclContentService) {
+
+		return ConceptSelectorHelper.select(this, path, branchCriteria, stated, conceptIdFilter, pageRequest, eclContentService);
 	}
 
 	@Override
 	public Optional<Page<Long>> select(RefinementBuilder refinementBuilder) {
-		return SExpressionConstraintHelper.select(this, refinementBuilder);
+		return ConceptSelectorHelper.select(this, refinementBuilder);
 	}
 
 	@Override
