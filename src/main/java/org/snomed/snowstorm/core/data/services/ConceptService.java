@@ -502,7 +502,9 @@ public class ConceptService extends ComponentService {
 
 				if (conceptMiniMap != null) {
 					// Add placeholders for relationship type and target details
+					// Also ensure the transient relationships' module matches the axiom's module
 					relationships.forEach(relationship -> {
+						relationship.setModuleId(axiomMember.getModuleId());
 						relationship.setType(getConceptMini(conceptMiniMap, relationship.getTypeId(), languageDialects));
 						relationship.setTarget(getConceptMini(conceptMiniMap, relationship.getDestinationId(), languageDialects));
 					});
