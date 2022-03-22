@@ -487,7 +487,7 @@ public class CodeSystemService {
 		}
 		int todaysEffectiveTime = DateUtil.getTodaysEffectiveTime();
 		return content.stream()
-				.filter(version -> includeFutureVersions || version.getEffectiveDate() <= todaysEffectiveTime)
+				.filter(version -> includeFutureVersions || version.getEffectiveDate() < todaysEffectiveTime)
 				.filter(version -> includeInternalReleases || !version.isInternalRelease())
 				.collect(Collectors.toList());
 	}
