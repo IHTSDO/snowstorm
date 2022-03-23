@@ -12,6 +12,7 @@ import org.elasticsearch.search.sort.FieldSortBuilder;
 import org.elasticsearch.search.sort.SortBuilders;
 import org.elasticsearch.search.sort.SortOrder;
 import org.snomed.langauges.ecl.domain.expressionconstraint.SubExpressionConstraint;
+import org.snomed.langauges.ecl.domain.filter.DescriptionTypeFilter;
 import org.snomed.langauges.ecl.domain.filter.FilterConstraint;
 import org.snomed.langauges.ecl.domain.filter.LanguageFilter;
 import org.snomed.langauges.ecl.domain.filter.TermFilter;
@@ -75,9 +76,10 @@ public class ConceptSelectorHelper {
 
 				List<TermFilter> termFilters = descriptionFilter.getTermFilters();
 				List<LanguageFilter> languageFilters = descriptionFilter.getLanguageFilters();
-				if (!termFilters.isEmpty() || !languageFilters.isEmpty()) {
+				List<DescriptionTypeFilter> descriptionTypeFilters = descriptionFilter.getDescriptionTypeFilters();
+				if (!termFilters.isEmpty() || !languageFilters.isEmpty() || !descriptionTypeFilters.isEmpty()) {
 					SortedMap<Long, Long> descriptionToConceptMap =
-							eclContentService.applyDescriptionFilter(conceptIdSortedSet, termFilters, languageFilters, branchCriteria);
+							eclContentService.applyDescriptionFilter(conceptIdSortedSet, termFilters, languageFilters, descriptionTypeFilters, branchCriteria);
 					conceptIdSortedSet = new LongLinkedOpenHashSet(descriptionToConceptMap.values());
 				}
 			}

@@ -139,6 +139,15 @@ class ECLQueryServiceFilterTest extends AbstractTest {
 		assertEquals(Sets.newHashSet("100002"), strings(selectConceptIds(ecl)));
 
 		ecl = "< 64572001 |Disease| {{ term = \"hjärt\", language = sv, type = syn }} {{ term = \"heart\", language = en, type = syn}}";
+		assertEquals(Sets.newHashSet("100002"), strings(selectConceptIds(ecl)));
+
+		ecl = "< 64572001 |Disease| {{ term = \"hjärt\", language = sv, type = syn }} {{ term = \"heart\", language = en, type = (fsn syn)}}";
+		assertEquals(Sets.newHashSet("100002"), strings(selectConceptIds(ecl)));
+
+		ecl = "< 64572001 |Disease| {{ term = \"hjärt\", language = sv, type = syn }} {{ term = \"disorder\", language = en, type = (fsn syn)}}";
+		assertEquals(Sets.newHashSet("100002"), strings(selectConceptIds(ecl)));
+
+		ecl = "< 64572001 |Disease| {{ term = \"hjärt\", language = sv, type = syn }} {{ term = \"disorder\", language = en, type = (syn def)}}";
 		assertEquals(Sets.newHashSet(), strings(selectConceptIds(ecl)));
 
 		// description type set
