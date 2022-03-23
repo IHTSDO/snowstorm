@@ -12,10 +12,7 @@ import org.elasticsearch.search.sort.FieldSortBuilder;
 import org.elasticsearch.search.sort.SortBuilders;
 import org.elasticsearch.search.sort.SortOrder;
 import org.snomed.langauges.ecl.domain.expressionconstraint.SubExpressionConstraint;
-import org.snomed.langauges.ecl.domain.filter.DescriptionTypeFilter;
-import org.snomed.langauges.ecl.domain.filter.FilterConstraint;
-import org.snomed.langauges.ecl.domain.filter.LanguageFilter;
-import org.snomed.langauges.ecl.domain.filter.TermFilter;
+import org.snomed.langauges.ecl.domain.filter.*;
 import org.snomed.snowstorm.core.data.domain.Concept;
 import org.snomed.snowstorm.core.data.domain.QueryConcept;
 import org.snomed.snowstorm.ecl.domain.RefinementBuilder;
@@ -77,9 +74,10 @@ public class ConceptSelectorHelper {
 				List<TermFilter> termFilters = descriptionFilter.getTermFilters();
 				List<LanguageFilter> languageFilters = descriptionFilter.getLanguageFilters();
 				List<DescriptionTypeFilter> descriptionTypeFilters = descriptionFilter.getDescriptionTypeFilters();
-				if (!termFilters.isEmpty() || !languageFilters.isEmpty() || !descriptionTypeFilters.isEmpty()) {
-					SortedMap<Long, Long> descriptionToConceptMap =
-							eclContentService.applyDescriptionFilter(conceptIdSortedSet, termFilters, languageFilters, descriptionTypeFilters, branchCriteria);
+				List<DialectFilter> dialectFilters = descriptionFilter.getDialectFilters();
+				if (!termFilters.isEmpty() || !languageFilters.isEmpty() || !descriptionTypeFilters.isEmpty() || !dialectFilters.isEmpty()) {
+					SortedMap<Long, Long> descriptionToConceptMap = eclContentService.applyDescriptionFilter(conceptIdSortedSet,
+									termFilters, languageFilters, descriptionTypeFilters, dialectFilters, branchCriteria);
 					conceptIdSortedSet = new LongLinkedOpenHashSet(descriptionToConceptMap.values());
 				}
 			}

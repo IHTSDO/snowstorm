@@ -6,6 +6,7 @@ import it.unimi.dsi.fastutil.longs.LongArraySet;
 import it.unimi.dsi.fastutil.longs.LongComparators;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.snomed.langauges.ecl.domain.filter.DescriptionTypeFilter;
+import org.snomed.langauges.ecl.domain.filter.DialectFilter;
 import org.snomed.langauges.ecl.domain.filter.LanguageFilter;
 import org.snomed.langauges.ecl.domain.filter.TermFilter;
 import org.snomed.snowstorm.core.data.domain.Concepts;
@@ -145,9 +146,9 @@ public class ECLContentService {
 		return queryService.findAncestorIdsAsUnion(branchCriteria, stated, conceptIds);
 	}
 
-	public SortedMap<Long, Long> applyDescriptionFilter(Collection<Long> conceptIds,
-			List<TermFilter> termFilters, List<LanguageFilter> languageFilters, List<DescriptionTypeFilter> descriptionTypeFilters, BranchCriteria branchCriteria) {
+	public SortedMap<Long, Long> applyDescriptionFilter(Collection<Long> conceptIds, List<TermFilter> termFilters, List<LanguageFilter> languageFilters,
+			List<DescriptionTypeFilter> descriptionTypeFilters, List<DialectFilter> dialectFilters, BranchCriteria branchCriteria) {
 
-		return descriptionService.applyDescriptionFilter(conceptIds, termFilters, languageFilters, descriptionTypeFilters, branchCriteria);
+		return descriptionService.applyDescriptionFilter(conceptIds, termFilters, languageFilters, descriptionTypeFilters, dialectFilters, branchCriteria);
 	}
 }

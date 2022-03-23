@@ -176,17 +176,11 @@ class ECLQueryServiceFilterTest extends AbstractTest {
 		// dialect alias
 		ecl = "< 64572001 |Disease|  {{ term = \"hjärt\", dialect = sv-se }}";
 		assertEquals(Sets.newHashSet("100002"), strings(selectConceptIds(ecl)));
-
 	}
 
 	@Test
 	void testAcceptabilityFilters() {
-		// TO debug
-//		String ecl = "< 64572001 |Disease| {{ term = \"Heart disease\", type = (syn fsn), dialect = en-gb (prefer), dialect = (en-us en-nhs-clinical) (prefer) }}";
-//		assertEquals(Sets.newHashSet("100002"), strings(selectConceptIds(ecl)));
-//		String ecl = "< 64572001 |Disease| {{ term = \"Heart disease\", type = (syn fsn), dialect = (en-us en-nhs-clinical) (prefer), dialect = (en-gb en-uk-ext) (prefer) }}";
 		String ecl = "< 64572001 |Disease| {{ term = \"Heart disease\", type = syn, dialect = en-gb (accept), dialect = en-us (prefer) }}";
-//		assertEquals(Sets.newHashSet(), strings(selectConceptIds(ecl)));
 		assertEquals(Sets.newHashSet("100002"), strings(selectConceptIds(ecl)));
 
 		// dialectId and acceptability keyword
@@ -233,7 +227,7 @@ class ECLQueryServiceFilterTest extends AbstractTest {
 		assertEquals(Sets.newHashSet("100002"), strings(selectConceptIds(ecl)));
 
 		ecl = "< 64572001 |Disease| {{ term = \"Heart disease\", type = (syn fsn), dialect = en-gb (accept), dialect = en-us (prefer) }}";
-		assertEquals(Sets.newHashSet(), strings(selectConceptIds(ecl)));
+		assertEquals(Sets.newHashSet("100002"), strings(selectConceptIds(ecl)));
 
 		// multiple dialects with dialect set
 		ecl = "< 64572001 |Disease| {{ term = \"Heart disease\", type = (syn fsn), dialect = en-nhs-clinical (accept), dialect = (en-us en-gb) (prefer) }}";
@@ -243,8 +237,7 @@ class ECLQueryServiceFilterTest extends AbstractTest {
 		ecl = "< 64572001 |Disease| {{ term = \"Heart disease\", type = (syn fsn), dialect = en-gb (prefer), dialect = (en-us en-nhs-clinical) (prefer) }}";
 		assertEquals(Sets.newHashSet("100002"), strings(selectConceptIds(ecl)));
 
-		// en-gb accept and preferred in (en-us or en-nhs-clinical) should return no results
-		ecl = "< 64572001 |Disease| {{ term = \"Heart disease\", type = (syn fsn), dialect = en-gb (accept), dialect = (en-us en-gb en-nhs-clinical) (prefer) }}";
+		ecl = "< 64572001 |Disease| {{ term = \"Heart disease\", type = (syn), dialect = en-us (prefer), dialect = (en-gb en-nhs-clinical) (prefer) }}";
 		assertEquals(Sets.newHashSet(), strings(selectConceptIds(ecl)));
 
 		// multiple dialect sets
