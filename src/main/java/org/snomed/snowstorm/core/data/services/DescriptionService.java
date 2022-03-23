@@ -21,6 +21,7 @@ import org.apache.lucene.analysis.tokenattributes.CharTermAttribute;
 import org.elasticsearch.common.Strings;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.Operator;
+import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.search.aggregations.Aggregation;
 import org.elasticsearch.search.aggregations.AggregationBuilders;
 import org.elasticsearch.search.aggregations.Aggregations;
@@ -29,6 +30,7 @@ import org.elasticsearch.search.aggregations.bucket.terms.Terms;
 import org.elasticsearch.search.sort.SortBuilders;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.snomed.langauges.ecl.domain.filter.LanguageFilter;
 import org.snomed.langauges.ecl.domain.filter.SearchType;
 import org.snomed.langauges.ecl.domain.filter.TermFilter;
 import org.snomed.langauges.ecl.domain.filter.TypedSearchTerm;
@@ -486,18 +488,30 @@ public class DescriptionService extends ComponentService {
 		joinLangRefsetMembers(branchCriteria, conceptMiniMap.keySet(), descriptionIdMap);
 	}
 
-	public SortedMap<Long, Long> filterByDescriptionTerm(Collection<Long> conceptIds, TermFilter termFilter, BranchCriteria branchCriteria) {
-		BoolQueryBuilder masterTermQuery = boolQuery();
-		for (TypedSearchTerm typedSearchTerm : termFilter.getTypedSearchTermSet()) {
-			BoolQueryBuilder termQuery = boolQuery();
-			SearchMode searchMode = typedSearchTerm.getType() == SearchType.WILDCARD ? SearchMode.WILDCARD : SearchMode.STANDARD;
-			addTermClauses(typedSearchTerm.getTerm(), null, null, termQuery, searchMode);
-			masterTermQuery.should(termQuery);// Logical OR
+	public SortedMap<Long, Long> applyDescriptionFilter(Collection<Long> conceptIds, List<TermFilter> termFilters, List<LanguageFilter> languageFilters,
+			BranchCriteria branchCriteria) {
+
+		BoolQueryBuilder masterDescriptionQuery = boolQuery();
+
+		for (TermFilter termFilter : termFilters) {
+			BoolQueryBuilder termFilterQuery = boolQuery();
+			boolean termEquals = isEquals(termFilter.getBooleanComparisonOperator());
+			for (TypedSearchTerm typedSearchTerm : termFilter.getTypedSearchTermSet()) {
+				BoolQueryBuilder typedSearchTermQuery = boolQuery();
+				SearchMode searchMode = typedSearchTerm.getType() == SearchType.WILDCARD ? SearchMode.WILDCARD : SearchMode.STANDARD;
+				addTermClauses(typedSearchTerm.getTerm(), searchMode, typedSearchTermQuery);
+				termFilterQuery.should(typedSearchTermQuery);// Logical OR
+			}
+			addClause(termFilterQuery, masterDescriptionQuery, termEquals);
+		}
+
+		for (LanguageFilter languageFilter : languageFilters) {
+			addClause(termsQuery(Description.Fields.LANGUAGE_CODE, languageFilter.getLanguageCodes()), masterDescriptionQuery, isEquals(languageFilter.getBooleanComparisonOperator()));
 		}
 
 		BoolQueryBuilder criteria = branchCriteria.getEntityBranchCriteria(Description.class)
 				.must(termsQuery(Description.Fields.CONCEPT_ID, conceptIds))
-				.must(masterTermQuery);
+				.must(masterDescriptionQuery);
 
 		final SortedMap<Long, Long> descriptionToConceptMap = new Long2ObjectLinkedOpenHashMap<>();
 		NativeSearchQueryBuilder searchQueryBuilder = new NativeSearchQueryBuilder()
@@ -514,13 +528,17 @@ public class DescriptionService extends ComponentService {
 		return descriptionToConceptMap;
 	}
 
+	private boolean isEquals(String booleanComparisonOperator) {
+		return booleanComparisonOperator.equals("=");
+	}
+
 	DescriptionMatches findDescriptionAndConceptIds(DescriptionCriteria criteria, Set<Long> conceptIdsCriteria, BranchCriteria branchCriteria, TimerUtil timer) throws TooCostlyException {
 
 		// Build up the description criteria
 		final BoolQueryBuilder descriptionQuery = boolQuery();
 		BoolQueryBuilder descriptionBranchCriteria = branchCriteria.getEntityBranchCriteria(Description.class);
 		descriptionQuery.must(descriptionBranchCriteria);
-		addTermClauses(criteria.getTerm(), criteria.getSearchLanguageCodes(), criteria.getType(), descriptionQuery, criteria.getSearchMode());
+		addTermClauses(criteria.getTerm(), criteria.getSearchMode(), criteria.getSearchLanguageCodes(), criteria.getType(), descriptionQuery);
 
 		Boolean active = criteria.getActive();
 		if (active != null) {
@@ -711,76 +729,84 @@ public class DescriptionService extends ComponentService {
 		return newSet;
 	}
 
-	void addTermClauses(String term, Collection<String> languageCodes, Collection<Long> descriptionTypes, BoolQueryBuilder boolBuilder, SearchMode searchMode) {
-		if (IdentifierService.isConceptId(term)) {
-			boolBuilder.must(termQuery(Description.Fields.CONCEPT_ID, term));
-		} else {
-			if (!Strings.isNullOrEmpty(term)) {
-				BoolQueryBuilder termFilter = new BoolQueryBuilder();
-				boolBuilder.filter(termFilter);
-				boolean allLanguages = CollectionUtils.isEmpty(languageCodes);
-				if (searchMode == SearchMode.REGEX) {
-					// https://www.elastic.co/guide/en/elasticsearch/reference/master/query-dsl-query-string-query.html#_regular_expressions
-					if (term.startsWith("^")) {
-						term = term.substring(1);
-					}
-					if (term.endsWith("$")) {
-						term = term.substring(0, term.length()-1);
-					}
-					termFilter.must(regexpQuery(Description.Fields.TERM, term));
-					// Must match the requested languages
-					if (!allLanguages) {
-						boolBuilder.must(termsQuery(Description.Fields.LANGUAGE_CODE, languageCodes));
-					}
-				} else {
-					// Must match at least one of the following 'should' clauses:
-					BoolQueryBuilder shouldClauses = boolQuery();
-					// All prefixes given. Simple Query String Query: https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-simple-query-string-query.html
-					// e.g. 'Clin Fin' converts to 'clin* fin*' and matches 'Clinical Finding'
-					// Put search term through character folding for each requested language
-					Map<String, Set<Character>> charactersNotFoldedSets = searchLanguagesConfiguration.getCharactersNotFoldedSets();
-					if (allLanguages) {
-						Set<String> allLanguageCodes = new HashSet<>(charactersNotFoldedSets.keySet());
+	void addTermClauses(String term, SearchMode searchMode, Collection<String> languageCodes, Collection<Long> descriptionTypes, BoolQueryBuilder boolBuilder) {
+		if (term != null) {
+			addTermClauses(term, searchMode, boolBuilder);
+		}
 
-						// Any language - fully folded
-						allLanguageCodes.add("");
-
-						languageCodes = allLanguageCodes;
-					}
-					for (String languageCode : languageCodes) {
-						Set<Character> charactersNotFoldedForLanguage = charactersNotFoldedSets.getOrDefault(languageCode, Collections.emptySet());
-						String foldedSearchTerm = DescriptionHelper.foldTerm(term, charactersNotFoldedForLanguage);
-						if (searchMode != SearchMode.WILDCARD) {
-							foldedSearchTerm = constructSearchTerm(analyze(foldedSearchTerm, new StandardAnalyzer(CharArraySet.EMPTY_SET)));
-						}
-						if (foldedSearchTerm.isEmpty()) {
-							continue;
-						}
-						BoolQueryBuilder languageQuery = boolQuery();
-						if (SearchMode.WHOLE_WORD == searchMode) {
-							languageQuery.filter(matchQuery(Description.Fields.TERM_FOLDED, foldedSearchTerm).operator(Operator.AND));
-						} else if (SearchMode.WILDCARD == searchMode) {
-							languageQuery.filter(wildcardQuery(Description.Fields.TERM_FOLDED, foldedSearchTerm));
-						} else {
-							languageQuery.filter(simpleQueryStringQuery(constructSimpleQueryString(foldedSearchTerm))
-											.field(Description.Fields.TERM_FOLDED).defaultOperator(Operator.AND));
-						}
-						if (!languageCode.isEmpty()) {
-							languageQuery.must(termQuery(Description.Fields.LANGUAGE_CODE, languageCode));
-						}
-						shouldClauses.should(languageQuery);
-					}
-
-					if (SearchMode.WILDCARD != searchMode && containingNonAlphanumeric(term)) {
-						String regexString = constructRegexQuery(term);
-						termFilter.must(regexpQuery(Description.Fields.TERM, regexString));
-					}
-					termFilter.must(shouldClauses);
-				}
-			}
+		if (!CollectionUtils.isEmpty(languageCodes)) {
+			boolBuilder.must(termsQuery(Description.Fields.LANGUAGE_CODE, languageCodes));
 		}
 		if (descriptionTypes != null && !descriptionTypes.isEmpty()) {
 			boolBuilder.must(termsQuery(Description.Fields.TYPE_ID, descriptionTypes));
+		}
+	}
+
+	void addTermClauses(String term, SearchMode searchMode, BoolQueryBuilder typedSearchTermQuery) {
+		if (IdentifierService.isConceptId(term)) {
+			typedSearchTermQuery.must(termQuery(Description.Fields.CONCEPT_ID, term));
+		} else {
+			BoolQueryBuilder termFilter = new BoolQueryBuilder();
+			if (searchMode == SearchMode.REGEX) {
+				// https://www.elastic.co/guide/en/elasticsearch/reference/master/query-dsl-query-string-query.html#_regular_expressions
+				if (term.startsWith("^")) {
+					term = term.substring(1);
+				}
+				if (term.endsWith("$")) {
+					term = term.substring(0, term.length()-1);
+				}
+				termFilter.must(regexpQuery(Description.Fields.TERM, term));
+			} else {
+				Map<String, Set<Character>> charactersNotFoldedSets = searchLanguagesConfiguration.getCharactersNotFoldedSets();
+				Set<String> languageFoldingStrategies = new HashSet<>(charactersNotFoldedSets.keySet());
+				languageFoldingStrategies.add("");
+
+				// All prefixes given. Simple Query String Query: https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-simple-query-string-query.html
+				// e.g. 'Clin Fin' converts to 'clin* fin*' and matches 'Clinical Finding'
+				// Put search term through character folding for each requested language
+				BoolQueryBuilder foldedTermsQuery = boolQuery();
+				for (String languageFoldingStrategy : languageFoldingStrategies) {
+					BoolQueryBuilder termQuery = getTermQuery(term, searchMode, charactersNotFoldedSets, languageFoldingStrategy);
+					foldedTermsQuery.should(termQuery);// Logical OR
+				}
+				termFilter.must(foldedTermsQuery);
+
+				// Apply second constraint against non-folded term
+				if (SearchMode.WILDCARD != searchMode && containingNonAlphanumeric(term)) {
+					String regexString = constructRegexQuery(term);
+					termFilter.must(regexpQuery(Description.Fields.TERM, regexString));
+				}
+			}
+			typedSearchTermQuery.filter(termFilter);
+		}
+	}
+
+	private BoolQueryBuilder getTermQuery(String term, SearchMode searchMode, Map<String, Set<Character>> charactersNotFoldedSets, String languageCodeToMatch) {
+		BoolQueryBuilder termQuery = boolQuery();
+		Set<Character> charactersNotFoldedForLanguage = charactersNotFoldedSets.getOrDefault(languageCodeToMatch, Collections.emptySet());
+		String foldedSearchTerm = DescriptionHelper.foldTerm(term, charactersNotFoldedForLanguage);
+		if (searchMode != SearchMode.WILDCARD) {
+			foldedSearchTerm = constructSearchTerm(analyze(foldedSearchTerm, new StandardAnalyzer(CharArraySet.EMPTY_SET)));
+		}
+		if (foldedSearchTerm.isEmpty()) {
+			return termQuery;
+		}
+		if (SearchMode.WHOLE_WORD == searchMode) {
+			termQuery.filter(matchQuery(Description.Fields.TERM_FOLDED, foldedSearchTerm).operator(Operator.AND));
+		} else if (SearchMode.WILDCARD == searchMode) {
+			termQuery.filter(wildcardQuery(Description.Fields.TERM_FOLDED, foldedSearchTerm));
+		} else {
+			termQuery.filter(simpleQueryStringQuery(constructSimpleQueryString(foldedSearchTerm))
+							.field(Description.Fields.TERM_FOLDED).defaultOperator(Operator.AND));
+		}
+		return termQuery;
+	}
+
+	private void addClause(QueryBuilder queryClause, BoolQueryBuilder boolBuilder, boolean equals) {
+		if (equals) {
+			boolBuilder.must(queryClause);
+		} else {
+			boolBuilder.mustNot(queryClause);
 		}
 	}
 
