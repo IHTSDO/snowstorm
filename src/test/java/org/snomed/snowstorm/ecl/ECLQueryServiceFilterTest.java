@@ -72,6 +72,9 @@ class ECLQueryServiceFilterTest extends AbstractTest {
 		String ecl = "< 64572001 |Disease|  {{ term = \"heart ath\"}}";
 		assertEquals(Sets.newHashSet("100001"), strings(selectConceptIds(ecl)));
 
+		ecl = "< 64572001 |Disease|  {{ term != \"heart ath\"}}";
+		assertEquals(Sets.newHashSet("100002", "100003"), strings(selectConceptIds(ecl)));
+
 		ecl = "< 64572001 |Disease|  {{ term = \"ath heart\"}}";
 		assertEquals(Sets.newHashSet("100001"), strings(selectConceptIds(ecl)));
 
@@ -109,8 +112,11 @@ class ECLQueryServiceFilterTest extends AbstractTest {
 		ecl = "< 64572001 |Disease|  {{ term = \"hjärt\", language = sv }} {{ term = \"heart\", language = en }}";
 		assertEquals(Sets.newHashSet("100002"), strings(selectConceptIds(ecl)));
 
+		// no results because heart is not in sv
+		ecl = "< 64572001 |Disease|  {{ term = \"hjärt\", language = sv }} {{ term = \"heart\", language = sv }}";
+		assertEquals(Collections.emptySet(), strings(selectConceptIds(ecl)));
 
-		// no results
+		// no results because the two matching descriptions are on different concepts
 		ecl = "< 64572001 |Disease|  {{ term = \"hjärt\", language = sv }} {{ term = \"Cardiac\", language = en }}";
 		assertEquals(Collections.emptySet(), strings(selectConceptIds(ecl)));
 	}

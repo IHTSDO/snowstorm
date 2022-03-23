@@ -7,7 +7,7 @@ import java.util.Set;
 
 public class SearchLanguagesConfiguration {
 
-	private Map<String, String> charactersNotFolded = new HashMap<>();
+	private final Map<String, String> charactersNotFolded = new HashMap<>();
 	private Map<String, Set<Character>> charactersNotFoldedSets;
 
 	public Map<String, String> getCharactersNotFolded() {

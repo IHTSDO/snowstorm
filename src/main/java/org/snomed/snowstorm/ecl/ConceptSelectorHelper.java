@@ -13,6 +13,7 @@ import org.elasticsearch.search.sort.SortBuilders;
 import org.elasticsearch.search.sort.SortOrder;
 import org.snomed.langauges.ecl.domain.expressionconstraint.SubExpressionConstraint;
 import org.snomed.langauges.ecl.domain.filter.FilterConstraint;
+import org.snomed.langauges.ecl.domain.filter.LanguageFilter;
 import org.snomed.langauges.ecl.domain.filter.TermFilter;
 import org.snomed.snowstorm.core.data.domain.Concept;
 import org.snomed.snowstorm.core.data.domain.QueryConcept;
@@ -68,9 +69,15 @@ public class ConceptSelectorHelper {
 					new LongLinkedOpenHashSet(fetchIds(query, conceptIdFilter, refinementBuilder.getInclusionFilter(), null, eclContentService).getContent());
 
 			// Apply filter constraints
-			for (FilterConstraint filterConstraint : filterConstraints) {
-				for (TermFilter termFilter : filterConstraint.getTermFilters()) {
-					SortedMap<Long, Long> descriptionToConceptMap = eclContentService.filterByDescriptionTerm(conceptIdSortedSet, termFilter, branchCriteria);
+			// For each filter constraint all sub-filters (term, language, etc) must apply.
+			// If multiple options are given within a sub-filter they are conjunction (OR).
+			for (FilterConstraint descriptionFilter : filterConstraints) {
+
+				List<TermFilter> termFilters = descriptionFilter.getTermFilters();
+				List<LanguageFilter> languageFilters = descriptionFilter.getLanguageFilters();
+				if (!termFilters.isEmpty() || !languageFilters.isEmpty()) {
+					SortedMap<Long, Long> descriptionToConceptMap =
+							eclContentService.applyDescriptionFilter(conceptIdSortedSet, termFilters, languageFilters, branchCriteria);
 					conceptIdSortedSet = new LongLinkedOpenHashSet(descriptionToConceptMap.values());
 				}
 			}
