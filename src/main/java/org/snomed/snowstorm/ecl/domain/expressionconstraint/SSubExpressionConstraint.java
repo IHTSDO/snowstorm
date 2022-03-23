@@ -138,6 +138,7 @@ public class SSubExpressionConstraint extends SubExpressionConstraint implements
 			query.must(termsQuery(QueryConcept.Fields.CONCEPT_ID, conceptsWithDescendants));
 		}
 		// Else Wildcard! which has no constraints
+		// <<!* and >>!* also match everything
 	}
 
 	private void applyConceptCriteriaWithOperator(Collection<Long> conceptIds, Operator operator, RefinementBuilder refinementBuilder) {
@@ -149,7 +150,16 @@ public class SSubExpressionConstraint extends SubExpressionConstraint implements
 
 		switch (operator) {
 			case childof:
+				// <!
 				query.must(termsQuery(QueryConcept.Fields.PARENTS, conceptIds));
+				break;
+			case childorselfof:
+				// <<!
+				query.must(
+						boolQuery()
+								.should(termsQuery(QueryConcept.Fields.PARENTS, conceptIds))
+								.should(termsQuery(QueryConcept.Fields.CONCEPT_ID, conceptIds))
+				);
 				break;
 			case descendantorselfof:
 				// <<
@@ -164,10 +174,24 @@ public class SSubExpressionConstraint extends SubExpressionConstraint implements
 				query.must(termsQuery(QueryConcept.Fields.ANCESTORS, conceptIds));
 				break;
 			case parentof:
+				// >!
 				for (Long conceptId : conceptIds) {
 					Set<Long> parents = conceptSelector.findParentIds(branchCriteria, stated, Collections.singleton(conceptId));
 					query.must(termsQuery(QueryConcept.Fields.CONCEPT_ID, parents));
 				}
+				break;
+			case parentorselfof:
+				// >>!
+				BoolQueryBuilder parentsQuery = boolQuery();
+				for (Long conceptId : conceptIds) {
+					Set<Long> parents = conceptSelector.findParentIds(branchCriteria, stated, Collections.singleton(conceptId));
+					parentsQuery.must(termsQuery(QueryConcept.Fields.CONCEPT_ID, parents));
+				}
+				query.must(
+						boolQuery()
+								.should(parentsQuery)
+								.should(termsQuery(QueryConcept.Fields.CONCEPT_ID, conceptIds))
+				);
 				break;
 			case ancestororselfof:
 				Set<Long> allAncestors = retrieveAllAncestors(conceptIds, branchCriteria, path, stated, conceptSelector);

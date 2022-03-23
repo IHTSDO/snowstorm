@@ -203,7 +203,7 @@ class ECLQueryServiceTest extends AbstractTest {
 		// Child of wildcard
 		assertEquals(
 				allConceptsButRoot,
-				strings(selectConceptIds("<*")));
+				strings(selectConceptIds("<!*")));
 
 		// Ancestor of
 		assertEquals(
@@ -230,11 +230,19 @@ class ECLQueryServiceTest extends AbstractTest {
 
 		assertEquals(
 				Sets.newHashSet(SNOMEDCT_ROOT),
+				strings(selectConceptIds(">>!" + SNOMEDCT_ROOT)));
+
+		assertEquals(
+				Sets.newHashSet(SNOMEDCT_ROOT),
 				strings(selectConceptIds(">!" + CLINICAL_FINDING)));
 
 		assertEquals(
 				Sets.newHashSet(CLINICAL_FINDING),
 				strings(selectConceptIds(">!" + BLEEDING)));
+
+		assertEquals(
+				Sets.newHashSet(CLINICAL_FINDING, BLEEDING),
+				strings(selectConceptIds(">>!" + BLEEDING)));
 	}
 
 	@Test
@@ -243,6 +251,10 @@ class ECLQueryServiceTest extends AbstractTest {
 		assertEquals(
 				Sets.newHashSet(MODEL_COMPONENT, RIGHT, BODY_STRUCTURE, CLINICAL_FINDING, PROCEDURE, ISA),
 				strings(selectConceptIds("<!" + SNOMEDCT_ROOT)));
+
+		assertEquals(
+				Sets.newHashSet(SNOMEDCT_ROOT, MODEL_COMPONENT, RIGHT, BODY_STRUCTURE, CLINICAL_FINDING, PROCEDURE, ISA),
+				strings(selectConceptIds("<<!" + SNOMEDCT_ROOT)));
 
 		assertEquals(
 				Sets.newHashSet(BLEEDING, DISORDER),
