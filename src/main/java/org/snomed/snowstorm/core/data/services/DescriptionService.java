@@ -30,10 +30,7 @@ import org.elasticsearch.search.aggregations.bucket.terms.Terms;
 import org.elasticsearch.search.sort.SortBuilders;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.snomed.langauges.ecl.domain.filter.LanguageFilter;
-import org.snomed.langauges.ecl.domain.filter.SearchType;
-import org.snomed.langauges.ecl.domain.filter.TermFilter;
-import org.snomed.langauges.ecl.domain.filter.TypedSearchTerm;
+import org.snomed.langauges.ecl.domain.filter.*;
 import org.snomed.snowstorm.config.SearchLanguagesConfiguration;
 import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.services.identifier.IdentifierService;
@@ -489,7 +486,7 @@ public class DescriptionService extends ComponentService {
 	}
 
 	public SortedMap<Long, Long> applyDescriptionFilter(Collection<Long> conceptIds, List<TermFilter> termFilters, List<LanguageFilter> languageFilters,
-			BranchCriteria branchCriteria) {
+			List<DescriptionTypeFilter> descriptionTypeFilters, BranchCriteria branchCriteria) {
 
 		BoolQueryBuilder masterDescriptionQuery = boolQuery();
 
@@ -506,7 +503,13 @@ public class DescriptionService extends ComponentService {
 		}
 
 		for (LanguageFilter languageFilter : languageFilters) {
-			addClause(termsQuery(Description.Fields.LANGUAGE_CODE, languageFilter.getLanguageCodes()), masterDescriptionQuery, isEquals(languageFilter.getBooleanComparisonOperator()));
+			addClause(termsQuery(Description.Fields.LANGUAGE_CODE, languageFilter.getLanguageCodes()), masterDescriptionQuery,
+					isEquals(languageFilter.getBooleanComparisonOperator()));
+		}
+
+		for (DescriptionTypeFilter descriptionTypeFilter : descriptionTypeFilters) {
+			Set<String> typeIds = descriptionTypeFilter.getTypes().stream().map(DescriptionType::getTypeId).collect(Collectors.toSet());
+			addClause(termsQuery(Description.Fields.TYPE_ID, typeIds), masterDescriptionQuery, isEquals(descriptionTypeFilter.getBooleanComparisonOperator()));
 		}
 
 		BoolQueryBuilder criteria = branchCriteria.getEntityBranchCriteria(Description.class)
