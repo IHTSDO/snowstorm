@@ -30,6 +30,7 @@ import org.elasticsearch.search.aggregations.bucket.terms.Terms;
 import org.elasticsearch.search.sort.SortBuilders;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.snomed.langauges.ecl.domain.ConceptReference;
 import org.snomed.langauges.ecl.domain.filter.*;
 import org.snomed.snowstorm.config.SearchLanguagesConfiguration;
 import org.snomed.snowstorm.core.data.domain.*;
@@ -59,6 +60,7 @@ import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 import static java.lang.Long.parseLong;
@@ -84,6 +86,9 @@ public class DescriptionService extends ComponentService {
 
 	@Autowired
 	private ConceptUpdateHelper conceptUpdateHelper;
+
+	@Autowired
+	private DialectConfigurationService dialectConfigurationService;
 
 	private final Map<String, SemanticTagCacheEntry> semanticTagAggregationCache = new ConcurrentHashMap<>();
 
@@ -486,7 +491,7 @@ public class DescriptionService extends ComponentService {
 	}
 
 	public SortedMap<Long, Long> applyDescriptionFilter(Collection<Long> conceptIds, List<TermFilter> termFilters, List<LanguageFilter> languageFilters,
-			List<DescriptionTypeFilter> descriptionTypeFilters, BranchCriteria branchCriteria) {
+			List<DescriptionTypeFilter> descriptionTypeFilters, List<DialectFilter> dialectFilters, BranchCriteria branchCriteria) {
 
 		BoolQueryBuilder masterDescriptionQuery = boolQuery();
 
@@ -528,11 +533,76 @@ public class DescriptionService extends ComponentService {
 			});
 		}
 
+		if (!descriptionToConceptMap.isEmpty() && !dialectFilters.isEmpty()) {
+			for (DialectFilter dialectFilter : dialectFilters) {
+				BoolQueryBuilder masterLangRefsetQuery = boolQuery();
+				masterLangRefsetQuery.filter(termsQuery(ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID, descriptionToConceptMap.keySet()));
+				boolean equals = isEquals(dialectFilter.getBooleanComparisonOperator());
+				Map<String, Set<String>> acceptabilityMap = dialectAcceptabilitiesToMap(dialectFilter.getDialectAcceptabilities());
+				BoolQueryBuilder acceptabilityQuery = boolQuery();
+				for (Map.Entry<String, Set<String>> stringSetEntry : acceptabilityMap.entrySet()) {
+					BoolQueryBuilder langRefsetQuery = boolQuery();
+					langRefsetQuery.must(termQuery(REFSET_ID, stringSetEntry.getKey()));
+					if (!stringSetEntry.getValue().isEmpty()) {
+						langRefsetQuery.must(termsQuery(ReferenceSetMember.Fields.ADDITIONAL_FIELDS_PREFIX + "acceptabilityId", stringSetEntry.getValue()));
+					}
+					acceptabilityQuery.should(langRefsetQuery);
+				}
+				addClause(acceptabilityQuery, masterLangRefsetQuery, equals);
+				NativeSearchQueryBuilder langRefsetSearch = new NativeSearchQueryBuilder()
+						.withQuery(masterLangRefsetQuery)
+						.withFields(ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID)
+						.withPageable(LARGE_PAGE);
+				Set<Long> acceptableDescriptions = new LongOpenHashSet();
+				try (SearchHitsIterator<ReferenceSetMember> stream = elasticsearchTemplate.searchForStream(langRefsetSearch.build(), ReferenceSetMember.class)) {
+					stream.forEachRemaining(hit -> acceptableDescriptions.add(Long.parseLong(hit.getContent().getReferencedComponentId())));
+				}
+
+				Set<Long> notAcceptableDescriptions =
+						descriptionToConceptMap.keySet().stream().filter(Predicate.not(acceptableDescriptions::contains)).collect(Collectors.toSet());
+				for (Long notAcceptableDescription : notAcceptableDescriptions) {
+					descriptionToConceptMap.remove(notAcceptableDescription);
+				}
+			}
+		}
+
 		return descriptionToConceptMap;
 	}
 
 	private boolean isEquals(String booleanComparisonOperator) {
 		return booleanComparisonOperator.equals("=");
+	}
+
+	private Map<String, Set<String>> dialectAcceptabilitiesToMap(List<DialectAcceptability> dialectAcceptabilities) {
+		Map<String, Set<String>> acceptabilityMap = new HashMap<>();
+		for (DialectAcceptability dialectAcceptability : dialectAcceptabilities) {
+			String dialectId;
+			if (dialectAcceptability.getDialectId() != null) {
+				dialectId = dialectAcceptability.getDialectId().getConceptId();
+			} else {
+				String dialectAlias = dialectAcceptability.getDialectAlias();
+				Long refsetForDialect = dialectConfigurationService.findRefsetForDialect(dialectAlias);
+				if (refsetForDialect == null) {
+					throw new IllegalArgumentException(String.format("Dialect alias not recognised '%s'", dialectAlias));
+				}
+				dialectId = refsetForDialect.toString();
+			}
+			Set<String> acceptability = new HashSet<>();
+
+			for (ConceptReference conceptReference : orEmpty(dialectAcceptability.getAcceptabilityIdSet())) {
+				acceptability.add(conceptReference.getConceptId());
+			}
+			for (Acceptability acceptabilityToken : orEmpty(dialectAcceptability.getAcceptabilityTokenSet())) {
+				acceptability.add(acceptabilityToken.getAcceptabilityId());
+			}
+
+			acceptabilityMap.put(dialectId, acceptability);
+		}
+		return acceptabilityMap;
+	}
+
+	private <T> Collection<T> orEmpty(Collection<T> collection) {
+		return collection != null ? collection : Collections.emptySet();
 	}
 
 	DescriptionMatches findDescriptionAndConceptIds(DescriptionCriteria criteria, Set<Long> conceptIdsCriteria, BranchCriteria branchCriteria, TimerUtil timer) throws TooCostlyException {

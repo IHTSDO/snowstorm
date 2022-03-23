@@ -14,16 +14,30 @@ public class DialectConfigurationService {
 	
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
-	private Map<String, String> config = new HashMap<>();
+	private final Map<String, String> config = new HashMap<>();
 
 	private Map<String, DialectConfiguration> dialects;
-	
-	public static DialectConfigurationService instance() {
-		return singleton;
-	}
 
+	// Used by Spring to fill the properties
 	public Map<String, String> getConfig() {
 		return config;
+	}
+
+	@PostConstruct
+	private void init() {
+		Map<String, DialectConfiguration> dialects = new HashMap<>();
+		for (String key : config.keySet()) {
+			String dialectCode = key.substring(key.lastIndexOf(".") + 1).toLowerCase();
+			long languageRefsetId = Long.parseLong(config.get(key));
+			dialects.put(dialectCode, new DialectConfiguration(dialectCode, languageRefsetId));
+			logger.info("Known dialect " + dialectCode + " - refset: " + languageRefsetId);
+		}
+		this.dialects = Collections.unmodifiableMap(dialects);
+		singleton = this;
+	}
+
+	public static DialectConfigurationService instance() {
+		return singleton;
 	}
 
 	public Long findRefsetForDialect(String dialectCode) {
@@ -31,33 +45,6 @@ public class DialectConfigurationService {
 			return dialects.get(dialectCode).languageRefsetId;
 		}
 		return null;
-	}
-
-	@PostConstruct
-	private void init() {
-		dialects = new HashMap<>();
-		for (String key : config.keySet()) {
-			String dialectCode = key.substring(key.lastIndexOf(".") + 1).toLowerCase();
-			long languageRefsetId = Long.parseLong(config.get(key));
-			dialects.put(dialectCode, new DialectConfiguration(dialectCode, languageRefsetId));
-			logger.info("Known dialect " + dialectCode + " - refset: " + languageRefsetId);
-		}
-		singleton = this;
-	}
-	
-
-	public Map<String, DialectConfiguration> getConfigurations() {
-		return dialects;
-	}
-	
-	public class DialectConfiguration {
-		String dialectCode;
-		Long languageRefsetId;
-		
-		DialectConfiguration(String dialectCode, Long languageRefsetId) {
-			this.dialectCode = dialectCode;
-			this.languageRefsetId = languageRefsetId;
-		}
 	}
 
 	public LanguageDialect getLanguageDialect(String dialectCode) {
@@ -73,6 +60,16 @@ public class DialectConfigurationService {
 
 	public void report() {
 		logger.info(dialects.size() + " known dialects configured");
+	}
+
+	public static class DialectConfiguration {
+		String dialectCode;
+		Long languageRefsetId;
+
+		DialectConfiguration(String dialectCode, Long languageRefsetId) {
+			this.dialectCode = dialectCode;
+			this.languageRefsetId = languageRefsetId;
+		}
 	}
 
 }
