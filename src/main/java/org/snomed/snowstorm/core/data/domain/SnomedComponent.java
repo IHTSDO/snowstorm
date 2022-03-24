@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonView;
 import io.kaicode.elasticvc.domain.DomainEntity;
 import org.elasticsearch.common.Strings;
+import org.slf4j.Logger;
 import org.snomed.snowstorm.rest.View;
 import org.springframework.data.annotation.Transient;
 import org.springframework.data.elasticsearch.annotations.Field;
@@ -70,6 +71,19 @@ public abstract class SnomedComponent<C> extends DomainEntity<C> implements IdAn
 		if (isReleased() && getReleaseHash().equals(buildReleaseHash())) {
 			setEffectiveTimeI(getReleasedEffectiveTime());
 		} else {
+			setEffectiveTimeI(null);
+		}
+	}
+
+	public void updateEffectiveTime(Logger logger) {
+		logger.info("Is released: {}", isReleased());
+		logger.info("Get release hash: {}", getReleaseHash());
+		logger.info("Build release hash: {}", buildReleaseHash());
+		if (isReleased() && getReleaseHash().equals(buildReleaseHash())) {
+			logger.info("Set effective time to releasedEffectiveTime: {}", getReleasedEffectiveTime());
+			setEffectiveTimeI(getReleasedEffectiveTime());
+		} else {
+			logger.info("Set effective time to null");
 			setEffectiveTimeI(null);
 		}
 	}

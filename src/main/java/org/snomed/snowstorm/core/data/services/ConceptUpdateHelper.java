@@ -252,8 +252,10 @@ public class ConceptUpdateHelper extends ComponentService {
 			}
 
 			// Descriptions
+			logger.info("Descriptions: mark deletions and updates");
 			markDeletionsAndUpdates(newVersionConcept, existingConcept, existingConceptFromParent, Concept::getDescriptions,
 					defaultModuleId, descriptionsToPersist, rebaseConflictSave);
+			logger.info("End of mark deletions and updates");
 
 			// Relationships
 			markDeletionsAndUpdates(newVersionConcept, existingConcept, existingConceptFromParent, Concept::getRelationships,
@@ -593,12 +595,16 @@ public class ConceptUpdateHelper extends ComponentService {
 		// Mark updates
 		for (C newComponent : newComponents) {
 			final C existingComponent = existingComponentMap.get(newComponent.getId());
-
+			logger.info("New component: {}", newComponent);
+			logger.info("Existing component: {}", existingComponent);
+			logger.info("Rebase: {}", rebase);
+			logger.info("Changed: {}", existingComponent == null || newComponent.isComponentChanged(existingComponent) || rebase);
 			newComponent.setChanged(existingComponent == null || newComponent.isComponentChanged(existingComponent) || rebase);
 			if (existingComponent != null) {
 				newComponent.setCreating(false);// May have been set true earlier
 				newComponent.copyReleaseDetails(existingComponent, rebaseParentExistingComponentMap.get(newComponent.getId()));
-				newComponent.updateEffectiveTime();
+				logger.info("Update effective time");
+				newComponent.updateEffectiveTime(logger);
 			} else {
 				newComponent.setCreating(true);
 				newComponent.clearReleaseDetails();
