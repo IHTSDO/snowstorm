@@ -31,6 +31,7 @@ import org.elasticsearch.search.sort.SortBuilders;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.langauges.ecl.domain.ConceptReference;
+import org.snomed.langauges.ecl.domain.expressionconstraint.SubExpressionConstraint;
 import org.snomed.langauges.ecl.domain.filter.*;
 import org.snomed.snowstorm.config.SearchLanguagesConfiguration;
 import org.snomed.snowstorm.core.data.domain.*;
@@ -41,6 +42,8 @@ import org.snomed.snowstorm.core.data.services.pojo.PageWithBucketAggregationsFa
 import org.snomed.snowstorm.core.data.services.pojo.SimpleAggregation;
 import org.snomed.snowstorm.core.util.DescriptionHelper;
 import org.snomed.snowstorm.core.util.TimerUtil;
+import org.snomed.snowstorm.ecl.ECLQueryService;
+import org.snomed.snowstorm.ecl.domain.expressionconstraint.SExpressionConstraint;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
@@ -71,6 +74,9 @@ import static org.snomed.snowstorm.core.data.domain.ReferenceSetMember.LanguageF
 
 @Service
 public class DescriptionService extends ComponentService {
+
+	// Query value used to prevent matching
+	private static final String NO_MATCH = "no-match";
 
 	@Autowired
 	private SearchLanguagesConfiguration searchLanguagesConfiguration;
@@ -491,9 +497,10 @@ public class DescriptionService extends ComponentService {
 	}
 
 	public SortedMap<Long, Long> applyDescriptionFilter(Collection<Long> conceptIds, List<TermFilter> termFilters, List<LanguageFilter> languageFilters,
-			List<DescriptionTypeFilter> descriptionTypeFilters, List<DialectFilter> dialectFilters, BranchCriteria branchCriteria) {
+			List<DescriptionTypeFilter> descriptionTypeFilters, List<DialectFilter> dialectFilters, BranchCriteria branchCriteria, ECLQueryService eclQueryService) {
 
 		BoolQueryBuilder masterDescriptionQuery = boolQuery();
+		masterDescriptionQuery.must(termQuery(SnomedComponent.Fields.ACTIVE, true));
 
 		for (TermFilter termFilter : termFilters) {
 			BoolQueryBuilder termFilterQuery = boolQuery();
@@ -513,12 +520,20 @@ public class DescriptionService extends ComponentService {
 		}
 
 		for (DescriptionTypeFilter descriptionTypeFilter : descriptionTypeFilters) {
-			Set<String> typeIds = descriptionTypeFilter.getTypes().stream().map(DescriptionType::getTypeId).collect(Collectors.toSet());
+			Set<String> typeIds;
+			if (descriptionTypeFilter.getSubExpressionConstraint() != null) {
+				typeIds = runExpressionConstraint(branchCriteria, eclQueryService, descriptionTypeFilter.getSubExpressionConstraint());
+				if (typeIds.isEmpty()) {
+					typeIds.add(NO_MATCH);
+				}
+			} else {
+				typeIds = descriptionTypeFilter.getTypes().stream().map(DescriptionType::getTypeId).collect(Collectors.toSet());
+			}
 			addClause(termsQuery(Description.Fields.TYPE_ID, typeIds), masterDescriptionQuery, isEquals(descriptionTypeFilter.getBooleanComparisonOperator()));
 		}
 
 		BoolQueryBuilder criteria = branchCriteria.getEntityBranchCriteria(Description.class)
-				.must(termsQuery(Description.Fields.CONCEPT_ID, conceptIds))
+				.filter(termsQuery(Description.Fields.CONCEPT_ID, conceptIds))
 				.must(masterDescriptionQuery);
 
 		final SortedMap<Long, Long> descriptionToConceptMap = new Long2ObjectLinkedOpenHashMap<>();
@@ -536,19 +551,30 @@ public class DescriptionService extends ComponentService {
 		if (!descriptionToConceptMap.isEmpty() && !dialectFilters.isEmpty()) {
 			for (DialectFilter dialectFilter : dialectFilters) {
 				BoolQueryBuilder masterLangRefsetQuery = boolQuery();
+				masterLangRefsetQuery.must(termQuery(SnomedComponent.Fields.ACTIVE, true));
 				masterLangRefsetQuery.filter(termsQuery(ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID, descriptionToConceptMap.keySet()));
+
 				boolean equals = isEquals(dialectFilter.getBooleanComparisonOperator());
-				Map<String, Set<String>> acceptabilityMap = dialectAcceptabilitiesToMap(dialectFilter.getDialectAcceptabilities());
 				BoolQueryBuilder acceptabilityQuery = boolQuery();
-				for (Map.Entry<String, Set<String>> stringSetEntry : acceptabilityMap.entrySet()) {
-					BoolQueryBuilder langRefsetQuery = boolQuery();
-					langRefsetQuery.must(termQuery(REFSET_ID, stringSetEntry.getKey()));
-					if (!stringSetEntry.getValue().isEmpty()) {
-						langRefsetQuery.must(termsQuery(ReferenceSetMember.Fields.ADDITIONAL_FIELDS_PREFIX + "acceptabilityId", stringSetEntry.getValue()));
+				if (dialectFilter.getSubExpressionConstraint() != null) {
+					Set<String> dialects = runExpressionConstraint(branchCriteria, eclQueryService, dialectFilter.getSubExpressionConstraint());
+					if (dialects.isEmpty()) {
+						dialects.add(NO_MATCH);
 					}
-					acceptabilityQuery.should(langRefsetQuery);
+					acceptabilityQuery.must(termsQuery(REFSET_ID, dialects));
+				} else {
+					Map<String, Set<String>> acceptabilityMap = dialectAcceptabilitiesToMap(dialectFilter.getDialectAcceptabilities(), branchCriteria, eclQueryService);
+					for (Map.Entry<String, Set<String>> stringSetEntry : acceptabilityMap.entrySet()) {
+						BoolQueryBuilder langRefsetQuery = boolQuery();
+						langRefsetQuery.must(termQuery(REFSET_ID, stringSetEntry.getKey()));
+						if (!stringSetEntry.getValue().isEmpty()) {
+							langRefsetQuery.must(termsQuery(ReferenceSetMember.Fields.ADDITIONAL_FIELDS_PREFIX + "acceptabilityId", stringSetEntry.getValue()));
+						}
+						acceptabilityQuery.should(langRefsetQuery);
+					}
 				}
 				addClause(acceptabilityQuery, masterLangRefsetQuery, equals);
+
 				NativeSearchQueryBuilder langRefsetSearch = new NativeSearchQueryBuilder()
 						.withQuery(masterLangRefsetQuery)
 						.withFields(ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID)
@@ -573,19 +599,22 @@ public class DescriptionService extends ComponentService {
 		return booleanComparisonOperator.equals("=");
 	}
 
-	private Map<String, Set<String>> dialectAcceptabilitiesToMap(List<DialectAcceptability> dialectAcceptabilities) {
+	private Map<String, Set<String>> dialectAcceptabilitiesToMap(List<DialectAcceptability> dialectAcceptabilities, BranchCriteria branchCriteria, ECLQueryService eclQueryService) {
 		Map<String, Set<String>> acceptabilityMap = new HashMap<>();
 		for (DialectAcceptability dialectAcceptability : dialectAcceptabilities) {
-			String dialectId;
-			if (dialectAcceptability.getDialectId() != null) {
-				dialectId = dialectAcceptability.getDialectId().getConceptId();
+			Set<String> dialectIds;
+			if (dialectAcceptability.getSubExpressionConstraint() != null) {
+				dialectIds = runExpressionConstraint(branchCriteria, eclQueryService, dialectAcceptability.getSubExpressionConstraint());
+				if (dialectIds.isEmpty()) {
+					dialectIds.add(NO_MATCH);
+				}
 			} else {
 				String dialectAlias = dialectAcceptability.getDialectAlias();
 				Long refsetForDialect = dialectConfigurationService.findRefsetForDialect(dialectAlias);
 				if (refsetForDialect == null) {
 					throw new IllegalArgumentException(String.format("Dialect alias not recognised '%s'", dialectAlias));
 				}
-				dialectId = refsetForDialect.toString();
+				dialectIds = Collections.singleton(refsetForDialect.toString());
 			}
 			Set<String> acceptability = new HashSet<>();
 
@@ -596,9 +625,16 @@ public class DescriptionService extends ComponentService {
 				acceptability.add(acceptabilityToken.getAcceptabilityId());
 			}
 
-			acceptabilityMap.put(dialectId, acceptability);
+			for (String dialectId : dialectIds) {
+				acceptabilityMap.put(dialectId, acceptability);
+			}
 		}
 		return acceptabilityMap;
+	}
+
+	private Set<String> runExpressionConstraint(BranchCriteria branchCriteria, ECLQueryService eclQueryService, SubExpressionConstraint subExpressionConstraint) {
+		return eclQueryService.doSelectConceptIds((SExpressionConstraint) subExpressionConstraint, branchCriteria, false, null, null)
+				.stream().map(Object::toString).collect(Collectors.toSet());
 	}
 
 	private <T> Collection<T> orEmpty(Collection<T> collection) {

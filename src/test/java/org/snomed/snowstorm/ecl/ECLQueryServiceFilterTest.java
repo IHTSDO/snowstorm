@@ -1,6 +1,5 @@
 package org.snomed.snowstorm.ecl;
 
-import com.google.common.collect.Sets;
 import io.kaicode.elasticvc.api.BranchCriteria;
 import io.kaicode.elasticvc.api.VersionControlHelper;
 import org.junit.jupiter.api.BeforeEach;
@@ -10,6 +9,7 @@ import org.snomed.snowstorm.AbstractTest;
 import org.snomed.snowstorm.TestConfig;
 import org.snomed.snowstorm.core.data.domain.Concept;
 import org.snomed.snowstorm.core.data.domain.Description;
+import org.snomed.snowstorm.core.data.domain.Relationship;
 import org.snomed.snowstorm.core.data.services.ConceptService;
 import org.snomed.snowstorm.core.data.services.ServiceException;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -20,6 +20,7 @@ import org.springframework.test.context.junit.jupiter.SpringExtension;
 import java.util.*;
 import java.util.stream.Collectors;
 
+import static com.google.common.collect.Sets.newHashSet;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.snomed.snowstorm.TestConcepts.DISORDER;
 import static org.snomed.snowstorm.core.data.domain.Concepts.*;
@@ -27,6 +28,8 @@ import static org.snomed.snowstorm.core.data.domain.Concepts.*;
 @ExtendWith(SpringExtension.class)
 @ContextConfiguration(classes = TestConfig.class)
 class ECLQueryServiceFilterTest extends AbstractTest {
+
+	private static final String MODULE_A = "25000001";
 
 	@Autowired
 	protected ECLQueryService eclQueryService;
@@ -58,207 +61,228 @@ class ECLQueryServiceFilterTest extends AbstractTest {
 				.addDescription(new Description("hjärtsjukdom").setLanguageCode("sv").setType("SYNONYM")
 						.addLanguageRefsetMember("46011000052107", PREFERRED))
 				.addRelationship(ISA, DISORDER));
-		allConcepts.add(new Concept("100003").addDescription(new Description( "Cardiac arrest (disorder)"))
+		allConcepts.add(new Concept("100003").setModuleId(MODULE_A).setDefinitionStatusId(DEFINED).addDescription(new Description( "Cardiac arrest (disorder)"))
 				.addRelationship(ISA, DISORDER));
-
+		allConcepts.addAll(newMetadataConcepts(CORE_MODULE, MODULE_A, PRIMITIVE, DEFINED, PREFERRED, ACCEPTABLE, FSN, SYNONYM, TEXT_DEFINITION, "46011000052107"));
 
 		conceptService.batchCreate(allConcepts, MAIN);
 		allConceptIds = allConcepts.stream().map(Concept::getId).collect(Collectors.toSet());
 		branchCriteria = versionControlHelper.getBranchCriteria(MAIN);
 	}
 
+	private List<Concept> newMetadataConcepts(String... conceptIds) {
+		return Arrays.stream(conceptIds).map(id -> new Concept(id).addRelationship(new Relationship(ISA, SNOMEDCT_ROOT))).collect(Collectors.toList());
+	}
+
 	@Test
 	void testTermFilters() {
 		String ecl = "< 64572001 |Disease|  {{ term = \"heart ath\"}}";
-		assertEquals(Sets.newHashSet("100001"), strings(selectConceptIds(ecl)));
+		assertEquals(newHashSet("100001"), select(ecl));
 
-		ecl = "< 64572001 |Disease|  {{ term != \"heart ath\"}}";
-		assertEquals(Sets.newHashSet("100002", "100003"), strings(selectConceptIds(ecl)));
+		ecl = "< 64572001 |Disease|  {{ D term != \"heart ath\"}}";
+		assertEquals(newHashSet("100002", "100003"), select(ecl));
 
-		ecl = "< 64572001 |Disease|  {{ term = \"ath heart\"}}";
-		assertEquals(Sets.newHashSet("100001"), strings(selectConceptIds(ecl)));
+		ecl = "< 64572001 |Disease|  {{ D term = \"ath heart\"}}";
+		assertEquals(newHashSet("100001"), select(ecl));
 
 		// two filters
 		ecl = "< 64572001 |Disease|  {{ term = \"heart\"}} {{ term = \"ath\"}}";
-		assertEquals(Sets.newHashSet("100001"), strings(selectConceptIds(ecl)));
+		assertEquals(newHashSet("100001"), select(ecl));
 
 		// search type is match by default
 		ecl = "< 64572001 |Disease|  {{ term = match:\"heart\"}} {{ term = match:\"ath\"}}";
-		assertEquals(Sets.newHashSet("100001"), strings(selectConceptIds(ecl)));
+		assertEquals(newHashSet("100001"), select(ecl));
 
 		// mixed search type
 		ecl = "< 64572001 |Disease|  {{ term = \"heart\"}} {{ term = wild:\"*ease\"}}";
-		assertEquals(Sets.newHashSet("100002"), strings(selectConceptIds(ecl)));
+		assertEquals(newHashSet("100002"), select(ecl));
 
 		// search term set
 		ecl = "< 64572001 |Disease|  {{ term = (\"heart\" \"card\")}}";
-		assertEquals(Sets.newHashSet("100001", "100002", "100003"), strings(selectConceptIds(ecl)));
+		assertEquals(newHashSet("100001", "100002", "100003"), select(ecl));
 
 		// mixed type in term set
 		ecl = "< 64572001 |Disease|  {{ term = ( match:\"heart\" wild:\"Card*\")}}";
-		assertEquals(Sets.newHashSet("100001", "100002", "100003"), strings(selectConceptIds(ecl)));
+		assertEquals(newHashSet("100001", "100002", "100003"), select(ecl));
 	}
 
 	@Test
 	void testLanguageFilters() {
 		// sv language only
 		String ecl = "< 64572001 |Disease|  {{ term = \"hjärt\", language = sv }}";
-		assertEquals(Sets.newHashSet("100002"), strings(selectConceptIds(ecl)));
+		assertEquals(newHashSet("100002"), select(ecl));
 
 		ecl = "< 64572001 |Disease|  {{ term = \"hjärt\", language = en }}";
-		assertEquals(Collections.emptySet(), strings(selectConceptIds(ecl)));
+		assertEquals(Collections.emptySet(), select(ecl));
 
 		// both in sv and en
 		ecl = "< 64572001 |Disease|  {{ term = \"hjärt\", language = sv }} {{ term = \"heart\", language = en }}";
-		assertEquals(Sets.newHashSet("100002"), strings(selectConceptIds(ecl)));
+		assertEquals(newHashSet("100002"), select(ecl));
 
 		// no results because heart is not in sv
 		ecl = "< 64572001 |Disease|  {{ term = \"hjärt\", language = sv }} {{ term = \"heart\", language = sv }}";
-		assertEquals(Collections.emptySet(), strings(selectConceptIds(ecl)));
+		assertEquals(Collections.emptySet(), select(ecl));
 
 		// no results because the two matching descriptions are on different concepts
 		ecl = "< 64572001 |Disease|  {{ term = \"hjärt\", language = sv }} {{ term = \"Cardiac\", language = en }}";
-		assertEquals(Collections.emptySet(), strings(selectConceptIds(ecl)));
+		assertEquals(Collections.emptySet(), select(ecl));
 	}
 
 	@Test
 	void testDescriptionTypeFilters() {
 		// type syn
 		String ecl = "< 64572001 |Disease| {{ term = \"hjärt\", language = sv, type = syn }}";
-		assertEquals(Sets.newHashSet("100002"), strings(selectConceptIds(ecl)));
+		assertEquals(newHashSet("100002"), select(ecl));
 
 		// type id for synonym
 		ecl = "< 64572001 |Disease| {{ term = \"hjärt\", language = sv, typeId = 900000000000013009 |synonym| }}";
-		assertEquals(Sets.newHashSet("100002"), strings(selectConceptIds(ecl)));
+		assertEquals(newHashSet("100002"), select(ecl));
 
 		// no results for text definition
 		ecl = "< 64572001 |Disease| {{ term = \"hjärt\", language = sv, typeId = 900000000000550004 |Definition| }}";
-		assertEquals(Sets.newHashSet(), strings(selectConceptIds(ecl)));
+		assertEquals(newHashSet(), select(ecl));
 
-		ecl = "< 64572001 |Disease| {{ term = \"hjärt\", language = sv, type = syn }} {{ term = \"heart\", language = en, type = fsn}}";
-		assertEquals(Sets.newHashSet("100002"), strings(selectConceptIds(ecl)));
+		ecl = "< 64572001 |Disease| {{ D term = \"hjärt\", language = sv, type = syn }} {{ term = \"heart\", language = en, type = fsn}}";
+		assertEquals(newHashSet("100002"), select(ecl));
 
 		ecl = "< 64572001 |Disease| {{ term = \"hjärt\", language = sv, type = syn }} {{ term = \"heart\", language = en, type = syn}}";
-		assertEquals(Sets.newHashSet("100002"), strings(selectConceptIds(ecl)));
+		assertEquals(newHashSet("100002"), select(ecl));
 
 		ecl = "< 64572001 |Disease| {{ term = \"hjärt\", language = sv, type = syn }} {{ term = \"heart\", language = en, type = (fsn syn)}}";
-		assertEquals(Sets.newHashSet("100002"), strings(selectConceptIds(ecl)));
+		assertEquals(newHashSet("100002"), select(ecl));
 
 		ecl = "< 64572001 |Disease| {{ term = \"hjärt\", language = sv, type = syn }} {{ term = \"disorder\", language = en, type = (fsn syn)}}";
-		assertEquals(Sets.newHashSet("100002"), strings(selectConceptIds(ecl)));
+		assertEquals(newHashSet("100002"), select(ecl));
 
 		ecl = "< 64572001 |Disease| {{ term = \"hjärt\", language = sv, type = syn }} {{ term = \"disorder\", language = en, type = (syn def)}}";
-		assertEquals(Sets.newHashSet(), strings(selectConceptIds(ecl)));
+		assertEquals(newHashSet(), select(ecl));
 
 		// description type set
 		ecl = "< 64572001 |Disease| {{ term = \"heart\", type = (syn fsn) }}";
-		assertEquals(Sets.newHashSet("100001", "100002"), strings(selectConceptIds(ecl)));
+		assertEquals(newHashSet("100001", "100002"), select(ecl));
 
 		// type id
 		ecl = "< 64572001 |Disease| {{ term = \"heart\", typeId = (900000000000013009 |Synonym| 900000000000003001 |Fully specified name|)}}";
-		assertEquals(Sets.newHashSet("100001", "100002"), strings(selectConceptIds(ecl)));
+		assertEquals(newHashSet("100001", "100002"), select(ecl));
 	}
-
 
 	@Test
 	void testDialectFilters() {
 		// dialect id
 		String ecl = "< 64572001 |Disease| {{ dialectId = 46011000052107 }}";
-		assertEquals(Sets.newHashSet("100002"), strings(selectConceptIds(ecl)));
+		assertEquals(newHashSet("100002"), select(ecl));
 
 		// with term and language
 		ecl = "< 64572001 |Disease| {{ term = \"hjärt\", language = sv, dialectId = 46011000052107 }}";
-		assertEquals(Sets.newHashSet("100002"), strings(selectConceptIds(ecl)));
+		assertEquals(newHashSet("100002"), select(ecl));
 
 		ecl = "< 64572001 |Disease| {{ term = \"hjärt\", dialectId = 46011000052107 }}";
-		assertEquals(Sets.newHashSet("100002"), strings(selectConceptIds(ecl)));
+		assertEquals(newHashSet("100002"), select(ecl));
 
 		// dialect alias
 		ecl = "< 64572001 |Disease|  {{ term = \"hjärt\", dialect = sv-se }}";
-		assertEquals(Sets.newHashSet("100002"), strings(selectConceptIds(ecl)));
+		assertEquals(newHashSet("100002"), select(ecl));
 	}
 
 	@Test
 	void testAcceptabilityFilters() {
 		String ecl = "< 64572001 |Disease| {{ term = \"Heart disease\", type = syn, dialect = en-gb (accept), dialect = en-us (prefer) }}";
-		assertEquals(Sets.newHashSet("100002"), strings(selectConceptIds(ecl)));
+		assertEquals(newHashSet("100002"), select(ecl));
 
 		// dialectId and acceptability keyword
 		ecl = "< 64572001 |Disease| {{ term = \"hjärt\", type = syn, dialectId = 46011000052107(prefer) }}";
-		assertEquals(Sets.newHashSet("100002"), strings(selectConceptIds(ecl)));
+		assertEquals(newHashSet("100002"), select(ecl));
 
 		ecl = "< 64572001 |Disease| {{ term = \"hjärt\", type = syn, dialectId = 46011000052107(accept) }}";
-		assertEquals(Sets.newHashSet(), strings(selectConceptIds(ecl)));
+		assertEquals(newHashSet(), select(ecl));
+
+		ecl = "< 64572001 |Disease| {{ term = \"hjärt\", type = syn, dialectId = <46011000052107(accept) }}";
+		assertEquals(newHashSet(), select(ecl));
 
 		// dialectId and acceptability id
 		ecl = "< 64572001 |Disease| {{ term = \"hjärt\", type = syn, dialectId = 46011000052107(900000000000548007 |Preferred|) }}";
-		assertEquals(Sets.newHashSet("100002"), strings(selectConceptIds(ecl)));
+		assertEquals(newHashSet("100002"), select(ecl));
 
 		ecl = "< 64572001 |Disease| {{ term = \"hjärt\", type = syn, dialectId = 46011000052107(900000000000549004 |Acceptable|) }}";
-		assertEquals(Sets.newHashSet(), strings(selectConceptIds(ecl)));
+		assertEquals(newHashSet(), select(ecl));
 
 		// dialect alias and acceptability
 		ecl = "< 64572001 |Disease| {{ term = \"hjärt\", type = syn, dialect = sv-se(prefer) }}";
-		assertEquals(Sets.newHashSet("100002"), strings(selectConceptIds(ecl)));
+		assertEquals(newHashSet("100002"), select(ecl));
 
 		ecl = "< 64572001 |Disease| {{ term = \"hjärt\", type = syn, dialect = sv-se(accept) }}";
-		assertEquals(Sets.newHashSet(), strings(selectConceptIds(ecl)));
+		assertEquals(newHashSet(), select(ecl));
 
 		// dialect alias  and acceptability id
 		ecl = "< 64572001 |Disease| {{ term = \"hjärt\", type = syn, dialect = sv-se(900000000000548007 |Preferred|) }}";
-		assertEquals(Sets.newHashSet("100002"), strings(selectConceptIds(ecl)));
+		assertEquals(newHashSet("100002"), select(ecl));
 
 		ecl = "< 64572001 |Disease| {{ term = \"hjärt\", type = syn, dialect = sv-se(900000000000549004 |Acceptable|) }}";
-		assertEquals(Sets.newHashSet(), strings(selectConceptIds(ecl)));
+		assertEquals(newHashSet(), select(ecl));
 
 		// dialect set
 		// en-gb accept or en-us preferred
 		ecl = "< 64572001 |Disease| {{ term = \"Heart disease\", type = (syn fsn), dialect = (en-gb(accept) en-us(prefer)) }}";
-		assertEquals(Sets.newHashSet("100002"), strings(selectConceptIds(ecl)));
+		assertEquals(newHashSet("100002"), select(ecl));
 
 		// en-gb or en-us preferred
 		ecl = "< 64572001 |Disease| {{ term = \"Heart disease\", typeId = (900000000000013009 900000000000003001), dialect = (en-gb en-us) (prefer) }}";
-		assertEquals(Sets.newHashSet("100002"), strings(selectConceptIds(ecl)));
+		assertEquals(newHashSet("100002"), select(ecl));
 
 
 		// multiple dialects
 		// en-gb preferred and en-us preferred
 		ecl = "< 64572001 |Disease| {{ term = \"Heart disease\", type = (syn fsn), dialect = en-gb (prefer), dialect = en-us (prefer) }}";
-		assertEquals(Sets.newHashSet("100002"), strings(selectConceptIds(ecl)));
+		assertEquals(newHashSet("100002"), select(ecl));
 
 		ecl = "< 64572001 |Disease| {{ term = \"Heart disease\", type = (syn fsn), dialect = en-gb (accept), dialect = en-us (prefer) }}";
-		assertEquals(Sets.newHashSet("100002"), strings(selectConceptIds(ecl)));
+		assertEquals(newHashSet("100002"), select(ecl));
 
 		// multiple dialects with dialect set
 		ecl = "< 64572001 |Disease| {{ term = \"Heart disease\", type = (syn fsn), dialect = en-nhs-clinical (accept), dialect = (en-us en-gb) (prefer) }}";
-		assertEquals(Sets.newHashSet(), strings(selectConceptIds(ecl)));
+		assertEquals(newHashSet(), select(ecl));
 
 		// en-gb preferred and preferred in (en-us or en-nhs-clinical)
 		ecl = "< 64572001 |Disease| {{ term = \"Heart disease\", type = (syn fsn), dialect = en-gb (prefer), dialect = (en-us en-nhs-clinical) (prefer) }}";
-		assertEquals(Sets.newHashSet("100002"), strings(selectConceptIds(ecl)));
+		assertEquals(newHashSet("100002"), select(ecl));
 
 		ecl = "< 64572001 |Disease| {{ term = \"Heart disease\", type = (syn), dialect = en-us (prefer), dialect = (en-gb en-nhs-clinical) (prefer) }}";
-		assertEquals(Sets.newHashSet(), strings(selectConceptIds(ecl)));
+		assertEquals(newHashSet(), select(ecl));
 
 		// multiple dialect sets
 		// preferred in en-uk-ext or en-nhs-clinical AND preferred in en-us or en-gb
 		ecl = "< 64572001 |Disease| {{ term = \"Heart disease\", type = (syn fsn), dialect = (en-uk-ext en-nhs-clinical) (prefer), dialect = (en-us en-gb) (prefer) }}";
-		assertEquals(Sets.newHashSet(), strings(selectConceptIds(ecl)));
+		assertEquals(newHashSet(), select(ecl));
 
 		ecl = "< 64572001 |Disease| {{ term = \"Heart disease\", type = (syn fsn), dialect = (en-us en-nhs-clinical) (prefer), dialect = (en-gb en-uk-ext) (prefer) }}";
-		assertEquals(Sets.newHashSet("100002"), strings(selectConceptIds(ecl)));
+		assertEquals(newHashSet("100002"), select(ecl));
 	}
 
-	protected Set<String> strings(Collection<Long> ids) {
-		return ids.stream().map(Object::toString).collect(Collectors.toSet());
+	@Test
+	public void testDefinitionStatusFilter() {
+		assertEquals(newHashSet("100001", "100002"), select("< 64572001 |Disease| {{ C definitionStatus = primitive }}"));
+		assertEquals(newHashSet("100001", "100002"), select("< 64572001 |Disease| {{ C definitionStatus != defined }}"));
+		assertEquals(newHashSet("100001", "100002"), select("< 64572001 |Disease| {{ C definitionStatusId = 900000000000074008 |Primitive| }}"));
+		assertEquals(newHashSet("100001", "100002"), select("< 64572001 |Disease| {{ C definitionStatusId = << 900000000000074008 |Primitive| }}"));
+		assertEquals(newHashSet("100003"), select("< 64572001 |Disease| {{ C definitionStatus = defined }}"));
+		assertEquals(newHashSet("100003"), select("< 64572001 |Disease| {{ C definitionStatus != primitive }}"));
+		assertEquals(newHashSet("100003"), select("< 64572001 |Disease| {{ C definitionStatusId = 900000000000073002 |Defined| }}"));
+		assertEquals(newHashSet("100003"), select("< 64572001 |Disease| {{ C definitionStatusId = << 900000000000073002 |Defined| }}"));
 	}
 
-	protected Collection<Long> selectConceptIds(String ecl) {
-		return selectConceptIds(ecl, PageRequest.of(0, 10000));
+	@Test
+	public void testModuleFilter() {
+		assertEquals(newHashSet("100001", "100002"), select("< 64572001 |Disease| {{ C moduleId = 900000000000207008 }}"));
+		assertEquals(newHashSet("100001", "100002"), select("< 64572001 |Disease| {{ C moduleId = << 900000000000207008 }}"));
+		assertEquals(newHashSet(), select("< 64572001 |Disease| {{ C moduleId = < 900000000000207008 }}"));
+		assertEquals(newHashSet("100003"), select("< 64572001 |Disease| {{ C moduleId = 25000001 }}"));
+		assertEquals(newHashSet("100003"), select("< 64572001 |Disease| {{ C moduleId = << 25000001 }}"));
+		assertEquals(newHashSet("100003"), select("< 64572001 |Disease| {{ C moduleId != 900000000000207008 }}"));
 	}
 
-	protected Collection<Long> selectConceptIds(String ecl, PageRequest pageRequest) {
-		return eclQueryService.selectConceptIds(ecl, branchCriteria, MAIN, false, pageRequest).getContent();
+	protected Set<String> select(String ecl) {
+		return eclQueryService.selectConceptIds(ecl, branchCriteria, MAIN, false, PageRequest.of(0, 10000))
+				.getContent().stream().map(Object::toString).collect(Collectors.toSet());
 	}
 
 }
