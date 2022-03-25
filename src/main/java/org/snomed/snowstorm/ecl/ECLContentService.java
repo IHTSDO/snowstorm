@@ -157,7 +157,7 @@ public class ECLContentService {
 
 	public Set<Long> applyConceptFilters(List<ConceptFilterConstraint> conceptFilters, Set<Long> conceptIdsToFilter, String path, BranchCriteria branchCriteria, boolean stated) {
 
-		BoolQueryBuilder superQuery = boolQuery();
+		BoolQueryBuilder superQuery = branchCriteria.getEntityBranchCriteria(Concept.class);
 		for (ConceptFilterConstraint conceptFilter : conceptFilters) {
 			BoolQueryBuilder conceptFilterQuery = boolQuery();
 
