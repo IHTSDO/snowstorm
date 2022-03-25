@@ -48,6 +48,9 @@ import static org.elasticsearch.index.query.QueryBuilders.*;
 import static org.snomed.snowstorm.config.Config.DEFAULT_LANGUAGE_DIALECTS;
 import static org.snomed.snowstorm.ecl.ConceptSelectorHelper.getDefaultSortForConcept;
 
+/**
+ * High level service to query SNOMED CT content using terms, ECL or a combination of both.
+ */
 @Service
 public class QueryService implements ApplicationContextAware {
 

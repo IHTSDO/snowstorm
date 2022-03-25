@@ -23,7 +23,9 @@ import static java.util.stream.Collectors.toSet;
 
 public class SDottedExpressionConstraint extends DottedExpressionConstraint implements SExpressionConstraint {
 
-	public SDottedExpressionConstraint() {
+	@SuppressWarnings("unused")
+	// For JSON
+	private SDottedExpressionConstraint() {
 		this(null);
 	}
 

@@ -18,7 +18,9 @@ import static com.google.common.collect.Sets.newHashSet;
 
 public class SRefinedExpressionConstraint extends RefinedExpressionConstraint implements SExpressionConstraint {
 
-	public SRefinedExpressionConstraint() {
+	@SuppressWarnings("unused")
+	// For JSON
+	private SRefinedExpressionConstraint() {
 		this(null, null);
 	}
 

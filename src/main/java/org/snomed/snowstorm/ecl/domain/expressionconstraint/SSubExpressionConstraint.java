@@ -23,10 +23,13 @@ import java.util.*;
 import static com.google.common.collect.Sets.newHashSet;
 import static java.lang.Long.parseLong;
 import static org.elasticsearch.index.query.QueryBuilders.*;
+import static org.snomed.snowstorm.core.util.CollectionUtils.orEmpty;
 
 public class SSubExpressionConstraint extends SubExpressionConstraint implements SExpressionConstraint {
 
-	public SSubExpressionConstraint() {
+	@SuppressWarnings("unused")
+	// For JSON
+	private SSubExpressionConstraint() {
 		this(null);
 	}
 
@@ -65,17 +68,23 @@ public class SSubExpressionConstraint extends SubExpressionConstraint implements
 		if (nestedExpressionConstraint != null) {
 			conceptIds.addAll(((SExpressionConstraint) nestedExpressionConstraint).getConceptIds());
 		}
-		if (filterConstraints != null) {
-			for (FilterConstraint filterConstraint : filterConstraints) {
-				for (DescriptionTypeFilter descriptionTypeFilter : filterConstraint.getDescriptionTypeFilters()) {
+		if (conceptFilterConstraints != null) {
+			for (ConceptFilterConstraint conceptFilterConstraint : conceptFilterConstraints) {
+				collectConceptIds(conceptIds, conceptFilterConstraint.getDefinitionStatusFilters());
+				collectConceptIds(conceptIds, conceptFilterConstraint.getModuleFilters());
+			}
+		}
+		if (descriptionFilterConstraints != null) {
+			for (DescriptionFilterConstraint descriptionFilterConstraint : descriptionFilterConstraints) {
+				for (DescriptionTypeFilter descriptionTypeFilter : descriptionFilterConstraint.getDescriptionTypeFilters()) {
 					for (DescriptionType type : descriptionTypeFilter.getTypes()) {
 						conceptIds.add(type.getTypeId());
 					}
 				}
-				for (DialectFilter dialectFilter : filterConstraint.getDialectFilters()) {
+				for (DialectFilter dialectFilter : descriptionFilterConstraint.getDialectFilters()) {
 					for (DialectAcceptability dialectAcceptability : dialectFilter.getDialectAcceptabilities()) {
-						if (dialectAcceptability.getDialectId() != null) {
-							conceptIds.add(dialectAcceptability.getDialectId().getConceptId());
+						if (dialectAcceptability.getSubExpressionConstraint() != null) {
+							conceptIds.addAll(((SSubExpressionConstraint)dialectAcceptability.getSubExpressionConstraint()).getConceptIds());
 						}
 						if (dialectAcceptability.getAcceptabilityIdSet() != null) {
 							for (ConceptReference conceptReference : dialectAcceptability.getAcceptabilityIdSet()) {
@@ -87,6 +96,18 @@ public class SSubExpressionConstraint extends SubExpressionConstraint implements
 			}
 		}
 		return conceptIds;
+	}
+
+	private void collectConceptIds(Set<String> conceptIds, List<FieldFilter> fieldFilters) {
+		for (FieldFilter fieldFilter : orEmpty(fieldFilters)) {
+			for (ConceptReference conceptReference : orEmpty(fieldFilter.getConceptReferences())) {
+				conceptIds.add(conceptReference.getConceptId());
+			}
+			SubExpressionConstraint subExpressionConstraint = fieldFilter.getSubExpressionConstraint();
+			if (subExpressionConstraint instanceof SSubExpressionConstraint) {
+				conceptIds.addAll(((SSubExpressionConstraint) subExpressionConstraint).getConceptIds());
+			}
+		}
 	}
 
 	@Override
@@ -194,7 +215,7 @@ public class SSubExpressionConstraint extends SubExpressionConstraint implements
 				);
 				break;
 			case ancestororselfof:
-				Set<Long> allAncestors = retrieveAllAncestors(conceptIds, branchCriteria, path, stated, conceptSelector);
+				Set<Long> allAncestors = retrieveAllAncestors(conceptIds, branchCriteria, stated, conceptSelector);
 				query.must(
 						boolQuery()
 								.should(termsQuery(QueryConcept.Fields.CONCEPT_ID, allAncestors))
@@ -203,7 +224,7 @@ public class SSubExpressionConstraint extends SubExpressionConstraint implements
 				break;
 			case ancestorof:
 				// > x
-				Set<Long> allAncestors2 = retrieveAllAncestors(conceptIds, branchCriteria, path, stated, conceptSelector);
+				Set<Long> allAncestors2 = retrieveAllAncestors(conceptIds, branchCriteria, stated, conceptSelector);
 				query.must(termsQuery(QueryConcept.Fields.CONCEPT_ID, allAncestors2));
 				break;
 			case memberOf:
@@ -213,7 +234,7 @@ public class SSubExpressionConstraint extends SubExpressionConstraint implements
 		}
 	}
 
-	private Set<Long> retrieveAllAncestors(Collection<Long> conceptIds, BranchCriteria branchCriteria, String path, boolean stated, ECLContentService eclContentService) {
+	private Set<Long> retrieveAllAncestors(Collection<Long> conceptIds, BranchCriteria branchCriteria, boolean stated, ECLContentService eclContentService) {
 		return eclContentService.findAncestorIdsAsUnion(branchCriteria, stated, conceptIds);
 	}
 

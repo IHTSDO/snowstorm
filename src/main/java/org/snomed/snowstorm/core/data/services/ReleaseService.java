@@ -56,7 +56,7 @@ public class ReleaseService {
 
 			BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(path);
 
-			Set<Class<? extends SnomedComponent>> componentTypes = domainEntityConfiguration.getComponentTypeRepositoryMap().keySet();
+			Set<Class<? extends SnomedComponent<?>>> componentTypes = domainEntityConfiguration.getComponentTypeRepositoryMap().keySet();
 			for (Class<? extends SnomedComponent> componentType : componentTypes) {
 				releaseComponentsOfType(componentType, effectiveTime, commit, branchCriteria);
 			}
@@ -68,7 +68,7 @@ public class ReleaseService {
 		}
 	}
 
-	private <T extends SnomedComponent> void releaseComponentsOfType(Class<T> componentType, Integer effectiveTime, Commit commit, BranchCriteria branchCriteria) {
+	private <T extends SnomedComponent<?>> void releaseComponentsOfType(Class<T> componentType, Integer effectiveTime, Commit commit, BranchCriteria branchCriteria) {
 		NativeSearchQuery searchQuery = new NativeSearchQueryBuilder()
 				.withQuery(boolQuery()
 						.must(branchCriteria.getEntityBranchCriteria(componentType))

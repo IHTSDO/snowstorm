@@ -143,7 +143,7 @@ class QueryServiceTest extends AbstractTest {
 	void testDefinitionStatusFilter() {
 		QueryService.ConceptQueryBuilder query = service.createQueryBuilder(false)
 				.ecl(pizza_2.getConceptId())
-				.definitionStatusFilter(Concepts.SUFFICIENTLY_DEFINED);
+				.definitionStatusFilter(Concepts.DEFINED);
 		assertEquals(0, service.search(query, PATH, PAGE_REQUEST).getTotalElements());
 		QueryService.ConceptQueryBuilder query2 = service.createQueryBuilder(false)
 				.ecl(pizza_2.getConceptId())

@@ -273,7 +273,7 @@ public class BranchMergeService {
 		}
 	}
 
-	private <T extends SnomedComponent> void removeRebaseDivergedVersions(Class<T> componentClass, String idField, BranchCriteria changesOnBranchIncludingOpenCommit, BranchCriteria branchCriteriaIncludingOpenCommit, Commit commit) {
+	private <T extends SnomedComponent<T>> void removeRebaseDivergedVersions(Class<T> componentClass, String idField, BranchCriteria changesOnBranchIncludingOpenCommit, BranchCriteria branchCriteriaIncludingOpenCommit, Commit commit) {
 		// Find edited versioned content on branch
 		String path = commit.getBranch().getPath();
 		Map<String, T> editedVersionedContent = new HashMap<>(); // K => Id, V => Content
@@ -351,7 +351,7 @@ public class BranchMergeService {
 		}
 	}
 
-	private <T extends SnomedComponent> void removeRebaseDuplicateVersions(Class<T> componentClass, QueryBuilder clause,
+	private <T extends SnomedComponent<T>> void removeRebaseDuplicateVersions(Class<T> componentClass, QueryBuilder clause,
 			BranchCriteria changesOnBranchCriteria, BranchCriteria branchCriteriaIncludingOpenCommit, Commit commit) throws ServiceException {
 
 		String idField;
@@ -421,7 +421,7 @@ public class BranchMergeService {
 		fixDuplicateComponentsOfType(branch, commit, branchCriteria, ReferenceSetMember.class, ReferenceSetMember.Fields.MEMBER_ID, referenceSetMemberRepository, endThisVersion, fixesApplied);
 	}
 
-	private void fixDuplicateComponentsOfType(String branch, Commit commit, BranchCriteria branchCriteria, Class<? extends SnomedComponent> clazz, String idField,
+	private void fixDuplicateComponentsOfType(String branch, Commit commit, BranchCriteria branchCriteria, Class<? extends SnomedComponent<?>> clazz, String idField,
 											  ElasticsearchRepository repository, boolean endThisVersion, Map<Class, Set<String>> fixesApplied) {
 
 		logger.info("Searching for duplicate {} records on {}", clazz.getSimpleName(), branch);
@@ -557,7 +557,7 @@ public class BranchMergeService {
 		copyChangesOnBranchToCommit(source, commit, entityClass, entityRepository, "Promoting", true);
 	}
 
-	private <T extends DomainEntity> void copyChangesOnBranchToCommit(String source, Commit commit, Class<T> entityClass,
+	private <T extends DomainEntity<T>> void copyChangesOnBranchToCommit(String source, Commit commit, Class<T> entityClass,
 			ElasticsearchRepository<T, String> entityRepository, String logAction, boolean endEntitiesOnSource) {
 
 		// Load all entities on source

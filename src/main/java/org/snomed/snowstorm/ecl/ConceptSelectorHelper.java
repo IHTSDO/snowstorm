@@ -51,34 +51,44 @@ public class ConceptSelectorHelper {
 		sExpressionConstraint.addCriteria(refinementBuilder);// This can add an inclusionFilter to the refinementBuilder.
 
 		// Get ECL filters
-		List<FilterConstraint> filterConstraints = null;
+		List<ConceptFilterConstraint> conceptFilters = null;
+		List<DescriptionFilterConstraint> descriptionFilters = null;
 		if (sExpressionConstraint instanceof SubExpressionConstraint) {
 			SubExpressionConstraint subExpressionConstraint = (SubExpressionConstraint) sExpressionConstraint;
-			filterConstraints = subExpressionConstraint.getFilterConstraints();
-			if (filterConstraints != null && filterConstraints.isEmpty()) {
-				filterConstraints = null;
+			conceptFilters = subExpressionConstraint.getConceptFilterConstraints();
+			if (conceptFilters != null && conceptFilters.isEmpty()) {
+				conceptFilters = null;
+			}
+			descriptionFilters = subExpressionConstraint.getDescriptionFilterConstraints();
+			if (descriptionFilters != null && descriptionFilters.isEmpty()) {
+				descriptionFilters = null;
 			}
 		}
 
 		Page<Long> conceptIds;
 		// If ECL filters present grab all concept ids and filter afterwards
-		if (filterConstraints != null) {
+		if (conceptFilters != null || descriptionFilters != null) {
 			SortedSet<Long> conceptIdSortedSet =
 					new LongLinkedOpenHashSet(fetchIds(query, conceptIdFilter, refinementBuilder.getInclusionFilter(), null, eclContentService).getContent());
 
 			// Apply filter constraints
-			// For each filter constraint all sub-filters (term, language, etc) must apply.
-			// If multiple options are given within a sub-filter they are conjunction (OR).
-			for (FilterConstraint descriptionFilter : filterConstraints) {
+			if (conceptFilters != null) {
+				conceptIdSortedSet = new LongLinkedOpenHashSet(eclContentService.applyConceptFilters(conceptFilters, conceptIdSortedSet, path, branchCriteria, stated));
+			}
+			if (descriptionFilters != null) {
+				// For each filter constraint all sub-filters (term, language, etc) must apply.
+				// If multiple options are given within a sub-filter they are conjunction (OR).
+				for (DescriptionFilterConstraint descriptionFilter : descriptionFilters) {
 
-				List<TermFilter> termFilters = descriptionFilter.getTermFilters();
-				List<LanguageFilter> languageFilters = descriptionFilter.getLanguageFilters();
-				List<DescriptionTypeFilter> descriptionTypeFilters = descriptionFilter.getDescriptionTypeFilters();
-				List<DialectFilter> dialectFilters = descriptionFilter.getDialectFilters();
-				if (!termFilters.isEmpty() || !languageFilters.isEmpty() || !descriptionTypeFilters.isEmpty() || !dialectFilters.isEmpty()) {
-					SortedMap<Long, Long> descriptionToConceptMap = eclContentService.applyDescriptionFilter(conceptIdSortedSet,
-									termFilters, languageFilters, descriptionTypeFilters, dialectFilters, branchCriteria);
-					conceptIdSortedSet = new LongLinkedOpenHashSet(descriptionToConceptMap.values());
+					List<TermFilter> termFilters = descriptionFilter.getTermFilters();
+					List<LanguageFilter> languageFilters = descriptionFilter.getLanguageFilters();
+					List<DescriptionTypeFilter> descriptionTypeFilters = descriptionFilter.getDescriptionTypeFilters();
+					List<DialectFilter> dialectFilters = descriptionFilter.getDialectFilters();
+					if (!termFilters.isEmpty() || !languageFilters.isEmpty() || !descriptionTypeFilters.isEmpty() || !dialectFilters.isEmpty()) {
+						SortedMap<Long, Long> descriptionToConceptMap = eclContentService.applyDescriptionFilter(conceptIdSortedSet,
+								termFilters, languageFilters, descriptionTypeFilters, dialectFilters, branchCriteria);
+						conceptIdSortedSet = new LongLinkedOpenHashSet(descriptionToConceptMap.values());
+					}
 				}
 			}
 

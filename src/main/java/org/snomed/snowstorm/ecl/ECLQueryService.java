@@ -24,6 +24,9 @@ import java.util.Optional;
 import java.util.function.LongPredicate;
 import java.util.stream.Collectors;
 
+/**
+ * Highest level service for executing ECL.
+ */
 @Service
 public class ECLQueryService {
 
@@ -58,25 +61,29 @@ public class ECLQueryService {
 		return selectConceptIds(ecl, branchCriteria, path, stated, conceptIdFilter, null);
 	}
 
-	public Page<Long> selectConceptIds(String ecl, BranchCriteria branchCriteria, String path, boolean stated,
-			Collection<Long> conceptIdFilter, PageRequest pageRequest) throws ECLException {
-
-		final SExpressionConstraint sExpressionConstraint =
-				eclPreprocessingService.replaceIncorrectConcreteAttributeValue((SExpressionConstraint) eclQueryBuilder.createQuery(ecl), path, pageRequest);
-		return doSelectConceptIds(ecl, branchCriteria, path, stated, conceptIdFilter, pageRequest, sExpressionConstraint);
+	public Page<Long> selectConceptIds(String ecl, BranchCriteria branchCriteria, String path, boolean stated, Collection<Long> conceptIdFilter,
+			PageRequest pageRequest) throws ECLException {
+		return selectConceptIds(ecl, branchCriteria, path, stated, conceptIdFilter, pageRequest, false);
 	}
 
-	public Page<Long> doSelectConceptIds(String ecl, BranchCriteria branchCriteria, String path, boolean stated, Collection<Long> conceptIdFilter,
-			PageRequest pageRequest, SExpressionConstraint expressionConstraint) {
-
-		TimerUtil eclSlowQueryTimer = getEclSlowQueryTimer();
-
-		if (expressionConstraint == null) {
-			expressionConstraint = (SExpressionConstraint) eclQueryBuilder.createQuery(ecl);
+	public Page<Long> selectConceptIds(String ecl, BranchCriteria branchCriteria, String path, boolean stated, Collection<Long> conceptIdFilter,
+			PageRequest pageRequest, boolean skipEclPreprocessing) throws ECLException {
+		SExpressionConstraint expressionConstraint = (SExpressionConstraint) eclQueryBuilder.createQuery(ecl);
+		if (!skipEclPreprocessing) {
+			expressionConstraint = eclPreprocessingService.replaceIncorrectConcreteAttributeValue(expressionConstraint, path, pageRequest);
 		}
+		return doSelectConceptIds(expressionConstraint, branchCriteria, stated, conceptIdFilter, pageRequest);
+	}
+
+	public Page<Long> doSelectConceptIds(SExpressionConstraint expressionConstraint, BranchCriteria branchCriteria, boolean stated, Collection<Long> conceptIdFilter,
+			PageRequest pageRequest) {
 
 		// - Optimisation idea -
 		// Changing something like "(id) AND (<<id OR >>id)"  to  "(id AND <<id) OR (id AND >>id)" will run in a fraction of the time because there will be no large fetches
+
+		TimerUtil eclSlowQueryTimer = getEclSlowQueryTimer();
+		String ecl = expressionConstraint.toString();
+		String path = branchCriteria.getBranchPath();
 
 		Optional<Page<Long>> pageOptional;
 		if (eclCacheEnabled) {
@@ -123,8 +130,9 @@ public class ECLQueryService {
 		} else {
 			// Select 2
 			pageOptional = expressionConstraint.select(path, branchCriteria, stated, conceptIdFilter, pageRequest, eclContentService);
-			pageOptional.ifPresent(conceptIds ->
-					eclSlowQueryTimer.checkpoint(String.format("ecl:'%s', with %s results in this page, cache not enabled.", ecl, conceptIds.getNumberOfElements())));
+			if (pageOptional.isPresent()) {
+				eclSlowQueryTimer.checkpoint(String.format("ecl:'%s', with %s results in this page, cache not enabled.", ecl, pageOptional.get().getNumberOfElements()));
+			}
 		}
 
 		if (pageOptional.isEmpty()) {

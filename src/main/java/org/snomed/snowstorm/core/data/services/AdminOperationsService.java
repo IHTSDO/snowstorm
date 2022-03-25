@@ -449,7 +449,7 @@ public class AdminOperationsService {
 
 		// For each entity type
 		final BranchCriteria changesOnFixBranch = versionControlHelper.getChangesOnBranchCriteria(releaseFixBranch);
-		for (Class<? extends DomainEntity> type : domainEntityConfiguration.getAllDomainEntityTypes()) {
+		for (Class<? extends DomainEntity<?>> type : domainEntityConfiguration.getAllDomainEntityTypes()) {
 			// Grab all the entities of this type on the fix branch
 			NativeSearchQuery query = new NativeSearchQueryBuilder()
 					.withQuery(boolQuery().must(changesOnFixBranch.getEntityBranchCriteria(type)))
