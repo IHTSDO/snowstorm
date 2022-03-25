@@ -2,14 +2,17 @@ package org.snomed.snowstorm.ecl;
 
 import io.kaicode.elasticvc.api.BranchCriteria;
 import io.kaicode.elasticvc.api.VersionControlHelper;
+import org.apache.commons.collections4.CollectionUtils;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.snomed.snowstorm.AbstractTest;
 import org.snomed.snowstorm.TestConfig;
+import org.snomed.snowstorm.core.data.domain.CodeSystem;
 import org.snomed.snowstorm.core.data.domain.Concept;
 import org.snomed.snowstorm.core.data.domain.Description;
 import org.snomed.snowstorm.core.data.domain.Relationship;
+import org.snomed.snowstorm.core.data.services.CodeSystemService;
 import org.snomed.snowstorm.core.data.services.ConceptService;
 import org.snomed.snowstorm.core.data.services.ServiceException;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -40,14 +43,19 @@ class ECLQueryServiceFilterTest extends AbstractTest {
 	@Autowired
 	protected VersionControlHelper versionControlHelper;
 
-	protected Set<String> allConceptIds;
+	@Autowired
+	protected CodeSystemService codeSystemService;
+
+	protected Collection<String> allConceptIds = new HashSet<>();
 	protected BranchCriteria branchCriteria;
 
 	@BeforeEach
 	void setup() throws ServiceException {
 		List<Concept> allConcepts = new ArrayList<>();
 
-		allConcepts.add(new Concept(DISORDER).addDescription(new Description("Disease(disorder)")));
+		allConcepts.add(new Concept(DISORDER).addDescription(new Description("Disease(disorder)")).addRelationship(new Relationship(ISA, SNOMEDCT_ROOT)));
+		allConcepts.addAll(newMetadataConcepts(CORE_MODULE, MODULE_A, PRIMITIVE, DEFINED, PREFERRED, ACCEPTABLE, FSN, SYNONYM, TEXT_DEFINITION, "46011000052107"));
+		createConceptsAndVersionCodeSystem(allConcepts, 20200131);
 
 		allConcepts.add(new Concept("100001").addDescription(new Description("Athlete's heart (disorder)"))
 				.addRelationship(ISA, DISORDER));
@@ -61,13 +69,26 @@ class ECLQueryServiceFilterTest extends AbstractTest {
 				.addDescription(new Description("hjärtsjukdom").setLanguageCode("sv").setType("SYNONYM")
 						.addLanguageRefsetMember("46011000052107", PREFERRED))
 				.addRelationship(ISA, DISORDER));
+		createConceptsAndVersionCodeSystem(allConcepts, 20210131);
 		allConcepts.add(new Concept("100003").setModuleId(MODULE_A).setDefinitionStatusId(DEFINED).addDescription(new Description( "Cardiac arrest (disorder)"))
 				.addRelationship(ISA, DISORDER));
-		allConcepts.addAll(newMetadataConcepts(CORE_MODULE, MODULE_A, PRIMITIVE, DEFINED, PREFERRED, ACCEPTABLE, FSN, SYNONYM, TEXT_DEFINITION, "46011000052107"));
+		createConceptsAndVersionCodeSystem(allConcepts, 20220131);
 
 		conceptService.batchCreate(allConcepts, MAIN);
 		allConceptIds = allConcepts.stream().map(Concept::getId).collect(Collectors.toSet());
 		branchCriteria = versionControlHelper.getBranchCriteria(MAIN);
+	}
+
+	private void createConceptsAndVersionCodeSystem(List<Concept> allConcepts, int effectiveDate) throws ServiceException {
+		conceptService.batchCreate(allConcepts, MAIN);
+		allConceptIds = CollectionUtils.union(allConceptIds, allConcepts.stream().map(Concept::getId).collect(Collectors.toSet()));
+		allConcepts.clear();
+		CodeSystem codeSystem = codeSystemService.findByBranchPath("MAIN").orElse(null);
+		if (codeSystem == null) {
+			codeSystem = new CodeSystem("SNOMEDCT", "MAIN");
+			codeSystemService.createCodeSystem(codeSystem);
+		}
+		codeSystemService.createVersion(codeSystemService.find("SNOMEDCT"), effectiveDate, "");
 	}
 
 	private List<Concept> newMetadataConcepts(String... conceptIds) {
@@ -278,6 +299,15 @@ class ECLQueryServiceFilterTest extends AbstractTest {
 		assertEquals(newHashSet("100003"), select("< 64572001 |Disease| {{ C moduleId = 25000001 }}"));
 		assertEquals(newHashSet("100003"), select("< 64572001 |Disease| {{ C moduleId = << 25000001 }}"));
 		assertEquals(newHashSet("100003"), select("< 64572001 |Disease| {{ C moduleId != 900000000000207008 }}"));
+	}
+
+	@Test
+	public void testEffectiveTimeFilter() {
+		assertEquals(newHashSet("64572001"), select("<< 64572001 |Disease| {{ C effectiveTime = \"20200131\" }}"));
+		assertEquals(newHashSet("100001", "100002", "100003"), select("<< 64572001 |Disease| {{ C effectiveTime != \"20200131\" }}"));
+		assertEquals(newHashSet("100001", "100002", "100003"), select("<< 64572001 |Disease| {{ C effectiveTime > \"20200131\" }}"));
+		assertEquals(newHashSet("100003"), select("<< 64572001 |Disease| {{ C effectiveTime > \"20200131\" }} {{ C effectiveTime = \"20220131\" }}"));
+		assertEquals(newHashSet("100001", "100002"), select("<< 64572001 |Disease| {{ C effectiveTime > \"20200131\" }} {{ C effectiveTime < \"20220131\" }}"));
 	}
 
 	protected Set<String> select(String ecl) {
