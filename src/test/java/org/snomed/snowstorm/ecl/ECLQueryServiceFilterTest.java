@@ -3,17 +3,16 @@ package org.snomed.snowstorm.ecl;
 import io.kaicode.elasticvc.api.BranchCriteria;
 import io.kaicode.elasticvc.api.VersionControlHelper;
 import org.apache.commons.collections4.CollectionUtils;
+import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.snomed.snowstorm.AbstractTest;
 import org.snomed.snowstorm.TestConfig;
-import org.snomed.snowstorm.core.data.domain.CodeSystem;
-import org.snomed.snowstorm.core.data.domain.Concept;
-import org.snomed.snowstorm.core.data.domain.Description;
-import org.snomed.snowstorm.core.data.domain.Relationship;
+import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.services.CodeSystemService;
 import org.snomed.snowstorm.core.data.services.ConceptService;
+import org.snomed.snowstorm.core.data.services.ReferenceSetMemberService;
 import org.snomed.snowstorm.core.data.services.ServiceException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.PageRequest;
@@ -33,6 +32,7 @@ import static org.snomed.snowstorm.core.data.domain.Concepts.*;
 class ECLQueryServiceFilterTest extends AbstractTest {
 
 	private static final String MODULE_A = "25000001";
+	public static final String IPS_REFSET = "816080008";
 
 	@Autowired
 	protected ECLQueryService eclQueryService;
@@ -45,6 +45,10 @@ class ECLQueryServiceFilterTest extends AbstractTest {
 
 	@Autowired
 	protected CodeSystemService codeSystemService;
+
+	@Autowired
+	protected ReferenceSetMemberService memberService;
+
 
 	protected Collection<String> allConceptIds = new HashSet<>();
 	protected BranchCriteria branchCriteria;
@@ -72,11 +76,24 @@ class ECLQueryServiceFilterTest extends AbstractTest {
 		createConceptsAndVersionCodeSystem(allConcepts, 20210131);
 		allConcepts.add(new Concept("100003").setModuleId(MODULE_A).setDefinitionStatusId(DEFINED).addDescription(new Description( "Cardiac arrest (disorder)"))
 				.addRelationship(ISA, DISORDER));
+		// IPS refset
+		allConcepts.add(new Concept(IPS_REFSET).addRelationship(new Relationship(ISA, SNOMEDCT_ROOT)));
+		// Two inactive concepts
+		allConcepts.add(new Concept("200001").setActive(false).addRelationship(new Relationship(ISA, SNOMEDCT_ROOT)));
+		allConcepts.add(new Concept("200002").setActive(false).addRelationship(new Relationship(ISA, SNOMEDCT_ROOT)));
 		createConceptsAndVersionCodeSystem(allConcepts, 20220131);
+
+		// Some active and some inactive concepts are active members of the IPS refset.
+		memberService.createMembers(MAIN, createSimpleRefsetMembers(IPS_REFSET, "100001", "100002", "200001", "200002"));
 
 		conceptService.batchCreate(allConcepts, MAIN);
 		allConceptIds = allConcepts.stream().map(Concept::getId).collect(Collectors.toSet());
 		branchCriteria = versionControlHelper.getBranchCriteria(MAIN);
+	}
+
+	@NotNull
+	private Set<ReferenceSetMember> createSimpleRefsetMembers(String refsetId, String... referencedComponentIds) {
+		return Arrays.stream(referencedComponentIds).map(id -> new ReferenceSetMember(CORE_MODULE, refsetId, id)).collect(Collectors.toSet());
 	}
 
 	private void createConceptsAndVersionCodeSystem(List<Concept> allConcepts, int effectiveDate) throws ServiceException {
@@ -308,6 +325,15 @@ class ECLQueryServiceFilterTest extends AbstractTest {
 		assertEquals(newHashSet("100001", "100002", "100003"), select("<< 64572001 |Disease| {{ C effectiveTime > \"20200131\" }}"));
 		assertEquals(newHashSet("100003"), select("<< 64572001 |Disease| {{ C effectiveTime > \"20200131\" }} {{ C effectiveTime = \"20220131\" }}"));
 		assertEquals(newHashSet("100001", "100002"), select("<< 64572001 |Disease| {{ C effectiveTime > \"20200131\" }} {{ C effectiveTime < \"20220131\" }}"));
+	}
+
+	@Test
+	public void testActiveFilter() {
+		assertEquals(newHashSet("100001", "100002", "200001", "200002"), select("^ 816080008"));
+		assertEquals(newHashSet("100001", "100002"), select("^ 816080008 {{ C active = 1 }}"));
+		assertEquals(newHashSet("100001", "100002"), select("^ 816080008 {{ C active = true }}"));
+		assertEquals(newHashSet("200001", "200002"), select("^ 816080008 {{ C active = 0 }}"));
+		assertEquals(newHashSet("200001", "200002"), select("^ 816080008 {{ C active = false }}"));
 	}
 
 	protected Set<String> select(String ecl) {
