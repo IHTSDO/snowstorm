@@ -170,6 +170,9 @@ public class BranchReviewService {
 					if (sourceVersion != null && targetVersion != null) {
 						// Neither deleted, auto-merge.
 						mergeVersion.setAutoMergedConcept(autoMergeConcept(sourceVersion, targetVersion));
+
+						// Upgrade components if behind a release/version
+						mergeVersion.setTargetConcept(upgradeComponents(sourceVersion, targetVersion));
 					}
 					conflicts.put(conceptId, mergeVersion);
 				}
@@ -228,6 +231,106 @@ public class BranchReviewService {
 		branchMergeService.mergeBranchSync(mergeReview.getSourcePath(), mergeReview.getTargetPath(), concepts);
 	}
 
+	private Concept upgradeComponents(Concept sourceVersion, Concept targetVersion) {
+		// Copy from latest component
+		Concept winningConcept = sourceVersion.isReleasedMoreRecentlyThan(targetVersion) ? sourceVersion : targetVersion;
+
+		Concept upgradedConcept = new Concept();
+		upgradedConcept.setConceptId(winningConcept.getConceptId());
+		upgradedConcept.setEffectiveTimeI(winningConcept.getEffectiveTimeI());
+		upgradedConcept.setActive(winningConcept.isActive());
+		upgradedConcept.setReleased(winningConcept.isReleased());
+		upgradedConcept.setReleaseHash(winningConcept.getReleaseHash());
+		upgradedConcept.setReleasedEffectiveTime(winningConcept.getReleasedEffectiveTime());
+		upgradedConcept.setModuleId(winningConcept.getModuleId());
+		upgradedConcept.setDefinitionStatusId(winningConcept.getDefinitionStatusId());
+		upgradedConcept.setInactivationIndicator(winningConcept.getInactivationIndicator());
+		upgradedConcept.setAssociationTargets(winningConcept.getAssociationTargets());
+		upgradedConcept.setDescriptions(mergePublishedDescriptions(sourceVersion.getDescriptions(), targetVersion.getDescriptions()));
+		upgradedConcept.setRelationships(mergePublishedRelationships(sourceVersion.getRelationships(), targetVersion.getRelationships()));
+		upgradedConcept.setClassAxioms(mergePublishedAxioms(sourceVersion.getClassAxioms(), targetVersion.getClassAxioms()));
+		upgradedConcept.setGciAxioms(mergePublishedAxioms(sourceVersion.getGciAxioms(), sourceVersion.getGciAxioms()));
+
+		return upgradedConcept;
+	}
+
+	private Set<Description> mergePublishedDescriptions(Set<Description> sourceDescriptions, Set<Description> targetDescriptions) {
+		Map<String, Description> mergedDescriptions = new HashMap<>();
+
+		for (Description sourceDescription : sourceDescriptions) {
+			boolean publishedAndUnchanged = sourceDescription.getReleasedEffectiveTime() != null && sourceDescription.getEffectiveTimeI() != null;
+			if (publishedAndUnchanged) {
+				mergedDescriptions.put(sourceDescription.getId(), sourceDescription);
+			}
+		}
+
+		for (Description targetDescription : targetDescriptions) {
+			String targetDescriptionId = targetDescription.getId();
+			Description sourceDescription = mergedDescriptions.get(targetDescriptionId);
+
+			if (sourceDescription == null) {
+				mergedDescriptions.put(targetDescriptionId, targetDescription);
+			} else if (!sourceDescription.isReleasedMoreRecentlyThan(targetDescription)) {
+				mergedDescriptions.put(targetDescriptionId, targetDescription);
+			}
+		}
+
+		return new HashSet<>(mergedDescriptions.values());
+	}
+
+	private Set<Relationship> mergePublishedRelationships(Set<Relationship> sourceRelationships, Set<Relationship> targetRelationships) {
+		Map<String, Relationship> mergedRelationships = new HashMap<>();
+
+		for (Relationship sourceRelationship : sourceRelationships) {
+			boolean publishedAndUnchanged = sourceRelationship.getReleasedEffectiveTime() != null && sourceRelationship.getEffectiveTimeI() != null;
+			if (publishedAndUnchanged) {
+				mergedRelationships.put(sourceRelationship.getId(), sourceRelationship);
+			}
+		}
+
+		for (Relationship targetRelationship : targetRelationships) {
+			String targetComponentId = targetRelationship.getId();
+			Relationship sourceRelationship = mergedRelationships.get(targetComponentId);
+
+			if (sourceRelationship == null) {
+				mergedRelationships.put(targetComponentId, targetRelationship);
+			} else if (!sourceRelationship.isReleasedMoreRecentlyThan(targetRelationship)) {
+				mergedRelationships.put(targetComponentId, targetRelationship);
+			}
+		}
+
+		return new HashSet<>(mergedRelationships.values());
+	}
+
+
+	private Set<Axiom> mergePublishedAxioms(Set<Axiom> sourceAxioms, Set<Axiom> targetAxioms) {
+		Map<String, Axiom> mergedAxioms = new HashMap<>();
+
+		for (Axiom sourceAxiom : sourceAxioms) {
+			if (sourceAxiom.isReleased()) {
+				mergedAxioms.put(sourceAxiom.getAxiomId(), sourceAxiom);
+			}
+		}
+
+		for (Axiom targetAxiom : targetAxioms) {
+			String targetAxiomId = targetAxiom.getAxiomId();
+			Axiom sourceAxiom = mergedAxioms.get(targetAxiomId);
+
+			if (sourceAxiom == null) {
+				mergedAxioms.put(targetAxiomId, targetAxiom);
+			} else {
+				ReferenceSetMember sourceMember = sourceAxiom.getReferenceSetMember();
+				ReferenceSetMember targetMember = targetAxiom.getReferenceSetMember();
+
+				if (!sourceMember.isReleasedMoreRecentlyThan(targetMember)) {
+					mergedAxioms.put(targetAxiomId, targetAxiom);
+				}
+			}
+		}
+
+		return new HashSet<>(mergedAxioms.values());
+	}
+
 	private void assertMergeReviewCurrent(MergeReview mergeReview) {
 		if (mergeReview.getStatus() != ReviewStatus.CURRENT) {
 			throw new IllegalStateException("Merge review state is not " + ReviewStatus.CURRENT);
@@ -255,6 +358,9 @@ public class BranchReviewService {
 		mergedConcept.setDefinitionStatus(winningConcept.getDefinitionStatus());
 		mergedConcept.setEffectiveTimeI(winningConcept.getEffectiveTimeI());
 		mergedConcept.setModuleId(winningConcept.getModuleId());
+		mergedConcept.setReleased(winningConcept.isReleased());
+		mergedConcept.setReleaseHash(winningConcept.getReleaseHash());
+		mergedConcept.setReleasedEffectiveTime(winningConcept.getReleasedEffectiveTime());
 
 		mergedConcept.setInactivationIndicator(winningConcept.getInactivationIndicator());
 		mergedConcept.setAssociationTargets(winningConcept.getAssociationTargets());
