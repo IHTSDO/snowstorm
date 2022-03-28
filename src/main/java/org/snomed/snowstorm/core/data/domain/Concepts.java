@@ -15,6 +15,7 @@ public class Concepts {
 	public static final String MODEL_MODULE = "900000000000012004";
 	public static final String ICD10_MODULE = "449080006";
 	public static final String COMMON_FRENCH_MODULE = "11000241103";
+	public static final String MODULE = "900000000000443000";
 
 	public static final String PRIMITIVE = "900000000000074008";
 	public static final String FULLY_DEFINED = "900000000000073002";
