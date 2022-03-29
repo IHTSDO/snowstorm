@@ -598,28 +598,27 @@ public class ConceptUpdateHelper extends ComponentService {
 			if (existingComponent != null) {
 				newComponent.setCreating(false);// May have been set true earlier
 				newComponent.copyReleaseDetails(existingComponent, rebaseParentExistingComponentMap.get(newComponent.getId()));
-				newComponent.updateEffectiveTime();
 			} else {
 				newComponent.setCreating(true);
 				newComponent.clearReleaseDetails();
 			}
-			
-			
-			//Any change to a component in an extension needs to be done in the default module
-			if (newComponent.isComponentChanged(existingComponent) && (defaultModuleId != null &&
-					!defaultModuleId.equals(Concepts.CORE_MODULE))) {
+
+			// Any change to a component in an extension needs to be done in the default module
+			if (newComponent.isComponentChanged(existingComponent) && (defaultModuleId != null && !defaultModuleId.equals(Concepts.CORE_MODULE))) {
 				newComponent.setModuleId(defaultModuleId);
 			}
+			newComponent.updateEffectiveTime();
 
 			// Trying Concept module in attempt to restore effective time for the case
 			// where content has changed and then been reverted.
-			if (shouldRestoreDefaultModuleId(defaultModuleId, existingComponent, newComponent)) {
+			if (newComponent.getEffectiveTime() == null && shouldRestoreDefaultModuleId(defaultModuleId, existingComponent, newComponent)) {
 				logger.trace("Setting module of {} to be same as Concept.", newComponent.getId());
 				newComponent.setModuleId(newConcept.getModuleId());
 				newComponent.updateEffectiveTime();
 				if (newComponent.getEffectiveTime() == null) {
 					logger.trace("Setting module of {} to be same as branch default.", newComponent.getId());
 					newComponent.setModuleId(defaultModuleId);
+					newComponent.updateEffectiveTime();
 				}
 			}
 		}

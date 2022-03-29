@@ -1686,6 +1686,109 @@ class ConceptServiceTest extends AbstractTest {
 		assertEquals("Failed to convert axiom to an OWL expression.", batchConceptChange.getMessage());
 	}
 
+	@Test
+	public void testUpdateExistingDescriptionThenRevertEffectiveTimeNotNull() throws ServiceException {
+		// 1. Create a concept with descriptions on MAIN
+		conceptService.create(new Concept("100001")
+				.addDescription(new Description("100001","caseSignificanceId")
+						.setCaseSignificanceId(CASE_INSENSITIVE)), "MAIN");
+
+		// 2. Version MAIN
+		codeSystemService.createVersion(codeSystem, 20220131, "January 2022");
+
+		// 3. Create a task under MAIN
+		branchService.create("MAIN/A");
+		branchService.create("MAIN/A/A-1");
+
+		Concept concept = conceptService.find("100001", "MAIN/A/A-1");
+		Description description = concept.getDescription("100001");
+		assertEquals(CASE_INSENSITIVE, description.getCaseSignificanceId());
+		assertNotNull(description.getEffectiveTime());
+
+		// 4. Change the caseSignificanceId for a description and save on task.
+		description.setCaseSignificanceId(ENTIRE_TERM_CASE_SENSITIVE);
+		conceptService.update(concept, "MAIN/A/A-1");
+
+		// 5. The effective time should be cleared.
+		concept = conceptService.find("100001", "MAIN/A/A-1");
+		description = concept.getDescription("100001");
+		assertEquals(ENTIRE_TERM_CASE_SENSITIVE, description.getCaseSignificanceId());
+		assertNull(description.getEffectiveTime());
+
+		// 6. Revert the change in Step 4. (i.e change the caseSignificanceId back to what was before) and save.
+		description.setCaseSignificanceId(CASE_INSENSITIVE);
+		conceptService.update(concept, "MAIN/A/A-1");
+
+		// 7. The effective time should NOT be cleared.
+		concept = conceptService.find("100001", "MAIN/A/A-1");
+		description = concept.getDescription("100001");
+		assertEquals(CASE_INSENSITIVE, description.getCaseSignificanceId());
+		assertNotNull(description.getEffectiveTime());
+	}
+
+	@Test
+	void testUpdateExistingDescriptionInExtensionThenRevertEffectiveTimeNotNull() throws ServiceException {
+		// 1. Create a concept on MAIN
+		conceptService.create(new Concept("100001"), "MAIN");
+
+		// 2. Version MAIN
+		codeSystemService.createVersion(codeSystem, 20220131, "January 2022");
+
+		// 3. Create extension code system
+		CodeSystem extension = codeSystemService.createCodeSystem(new CodeSystem("SNOMEDCT-BE", "MAIN/SNOMEDCT-BE"));
+		branchService.updateMetadata("MAIN/SNOMEDCT-BE", ImmutableMap.of(Config.DEFAULT_MODULE_ID_KEY, "11000172109", Config.DEFAULT_NAMESPACE_KEY, "1000172"));
+
+		// 4. Add description on extension
+		Concept concept = conceptService.find("100001", "MAIN/SNOMEDCT-BE");
+		Description description = new Description("100001","caseSignificanceId")
+				.setModuleId("11000172109")
+				.setLanguageCode("fr")
+				.setCaseSignificanceId(CASE_INSENSITIVE);
+		conceptService.update(concept.addDescription(description), "MAIN/SNOMEDCT-BE");
+
+		// 5. Version extension
+		codeSystemService.createVersion(extension, 20220228, "February 2022");
+
+		// 6. Create a task under MAIN
+		branchService.create("MAIN/SNOMEDCT-BE/BE");
+		branchService.create("MAIN/SNOMEDCT-BE/BE/BE-1");
+
+		concept = conceptService.find("100001", "MAIN/SNOMEDCT-BE/BE/BE-1");
+		description = concept.getDescription("100001");
+		assertEquals(CASE_INSENSITIVE, description.getCaseSignificanceId());
+		assertEquals("11000172109", description.getModuleId());
+		assertEquals("fr", description.getLanguageCode());
+		assertTrue(description.isActive());
+		assertTrue(description.isReleased());
+		assertNotNull(description.getEffectiveTime());
+		assertNotNull(description.getReleasedEffectiveTime());
+
+		// 7. Change the caseSignificanceId for a description and save on task.
+		description.setCaseSignificanceId(ENTIRE_TERM_CASE_SENSITIVE);
+		conceptService.update(concept, "MAIN/SNOMEDCT-BE/BE/BE-1");
+
+		// 8. The effective time should be cleared.
+		concept = conceptService.find("100001", "MAIN/SNOMEDCT-BE/BE/BE-1");
+		description = concept.getDescription("100001");
+		assertEquals(ENTIRE_TERM_CASE_SENSITIVE, description.getCaseSignificanceId());
+		assertNull(description.getEffectiveTime());
+
+		// 9. Revert the change in Step 7. (i.e change the caseSignificanceId back to what was before) and save.
+		description.setCaseSignificanceId(CASE_INSENSITIVE);
+		conceptService.update(concept, "MAIN/SNOMEDCT-BE/BE/BE-1");
+
+		// 10. The effective time should NOT be cleared.
+		concept = conceptService.find("100001", "MAIN/SNOMEDCT-BE/BE/BE-1");
+		description = concept.getDescription("100001");
+		assertEquals(CASE_INSENSITIVE, description.getCaseSignificanceId());
+		assertEquals("11000172109", description.getModuleId());
+		assertEquals("fr", description.getLanguageCode());
+		assertTrue(description.isActive());
+		assertTrue(description.isReleased());
+		assertNotNull(description.getEffectiveTime());
+		assertNotNull(description.getReleasedEffectiveTime());
+	}
+
 	private boolean waitUntil(Supplier<Boolean> supplier, int maxSecondsToWait) {
 		try {
 			int sleptSeconds = 0;
