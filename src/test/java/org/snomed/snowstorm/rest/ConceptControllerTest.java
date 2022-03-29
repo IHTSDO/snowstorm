@@ -915,8 +915,9 @@ class ConceptControllerTest extends AbstractTest {
 
 	@Test
 	void testDescModuleNotModifiedWhenLangRefSetChanged() throws ServiceException {
+		CodeSystem codeSystem = codeSystemService.createCodeSystem(new CodeSystem("SNOMEDCT-A1", "MAIN/SNOMEDCT-A1"));
 		// A has Lait (food) as Acceptable
-		branchService.create("MAIN/SNOMEDCT-A1", Map.of(Config.DEFAULT_MODULE_ID_KEY, Concepts.CORE_MODULE));
+		branchService.updateMetadata("MAIN/SNOMEDCT-A1", Map.of(Config.DEFAULT_MODULE_ID_KEY, Concepts.CORE_MODULE));
 		Concept concept = conceptService.create(new Concept()
 				.addDescription(new Description("Milk (food)")
 						.setTypeId(Concepts.FSN)
@@ -929,6 +930,9 @@ class ConceptControllerTest extends AbstractTest {
 						.addLanguageRefsetMember(Concepts.US_EN_LANG_REFSET, Concepts.PREFERRED))
 				.addAxiom(new Relationship(ISA, SNOMEDCT_ROOT)), "MAIN/SNOMEDCT-A1");
 		assertExpectedModule(conceptService.find(concept.getId(), "MAIN/SNOMEDCT-A1"), "Lait (food)", Concepts.CORE_MODULE);
+
+		// Version
+		codeSystemService.createVersion(codeSystem, 20200131, "");
 
 		// B changes Lait (food) to be Preferred
 		branchService.create("MAIN/SNOMEDCT-A1/SNOMEDCT-B1", Map.of(Config.DEFAULT_MODULE_ID_KEY, Concepts.COMMON_FRENCH_MODULE));

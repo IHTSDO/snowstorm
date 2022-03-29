@@ -1686,6 +1686,418 @@ class ConceptServiceTest extends AbstractTest {
 		assertEquals("Failed to convert axiom to an OWL expression.", batchConceptChange.getMessage());
 	}
 
+	// Effective time and module ID tests
+	@Test
+	public void testUpdateExistingDescriptionThenRevert_ShouldNotChangeEffectiveTime() throws ServiceException {
+		// Create a concept with a description on MAIN
+		conceptService.create(new Concept("100001")
+				.addDescription(new Description("100001","caseSignificanceId")
+						.setCaseSignificanceId(CASE_INSENSITIVE)), "MAIN");
+
+		// Version MAIN
+		codeSystemService.createVersion(codeSystem, 20220131, "January 2022");
+
+		// Create a task under MAIN
+		branchService.create("MAIN/A");
+
+		Concept concept = conceptService.find("100001", "MAIN/A");
+		Description description = concept.getDescription("100001");
+		assertEquals(CASE_INSENSITIVE, description.getCaseSignificanceId());
+		assertNotNull(description.getEffectiveTime());
+
+		// Change the caseSignificanceId for a description and save on task.
+		description.setCaseSignificanceId(ENTIRE_TERM_CASE_SENSITIVE);
+		conceptService.update(concept, "MAIN/A");
+
+		// The effective time should be cleared.
+		concept = conceptService.find("100001", "MAIN/A");
+		description = concept.getDescription("100001");
+		assertEquals(ENTIRE_TERM_CASE_SENSITIVE, description.getCaseSignificanceId());
+		assertNull(description.getEffectiveTime());
+
+		// Revert the change.
+		description.setCaseSignificanceId(CASE_INSENSITIVE);
+		conceptService.update(concept, "MAIN/A");
+
+		// The effective time should NOT be cleared.
+		concept = conceptService.find("100001", "MAIN/A");
+		description = concept.getDescription("100001");
+		assertEquals(CASE_INSENSITIVE, description.getCaseSignificanceId());
+		assertNotNull(description.getEffectiveTime());
+	}
+
+	@Test
+	void testUpdateExistingDescriptionInExtensionThenRevert_ShouldNotChangeEffectiveTime() throws ServiceException {
+		// Create a concept on MAIN
+		conceptService.create(new Concept("100001"), "MAIN");
+
+		// Version MAIN
+		codeSystemService.createVersion(codeSystem, 20220131, "January 2022");
+
+		// Create extension code system SNOMEDCT-BE
+		CodeSystem extension = codeSystemService.createCodeSystem(new CodeSystem("SNOMEDCT-BE", "MAIN/SNOMEDCT-BE"));
+		branchService.updateMetadata("MAIN/SNOMEDCT-BE", ImmutableMap.of(Config.DEFAULT_MODULE_ID_KEY, "11000172109", Config.DEFAULT_NAMESPACE_KEY, "1000172"));
+
+		// Add a description in extension
+		Concept concept = conceptService.find("100001", "MAIN/SNOMEDCT-BE");
+		Description description = new Description("100001","caseSignificanceId")
+				.setModuleId("11000172109")
+				.setLanguageCode("fr")
+				.setCaseSignificanceId(CASE_INSENSITIVE);
+		conceptService.update(concept.addDescription(description), "MAIN/SNOMEDCT-BE");
+
+		// Version extension
+		codeSystemService.createVersion(extension, 20220228, "February 2022");
+
+		// Create a task under MAIN/SNOMEDCT-BE
+		branchService.create("MAIN/SNOMEDCT-BE/BE");
+
+		concept = conceptService.find("100001", "MAIN/SNOMEDCT-BE/BE");
+		description = concept.getDescription("100001");
+		assertEquals(CASE_INSENSITIVE, description.getCaseSignificanceId());
+		assertNotNull(description.getEffectiveTime());
+
+		// Change the caseSignificanceId for a description and save on task.
+		description.setCaseSignificanceId(ENTIRE_TERM_CASE_SENSITIVE);
+		conceptService.update(concept, "MAIN/SNOMEDCT-BE/BE");
+
+		// The effective time should be cleared.
+		concept = conceptService.find("100001", "MAIN/SNOMEDCT-BE/BE");
+		description = concept.getDescription("100001");
+		assertEquals(ENTIRE_TERM_CASE_SENSITIVE, description.getCaseSignificanceId());
+		assertNull(description.getEffectiveTime());
+
+		// Revert the change.
+		description.setCaseSignificanceId(CASE_INSENSITIVE);
+		conceptService.update(concept, "MAIN/SNOMEDCT-BE/BE");
+
+		// The effective time should NOT be cleared.
+		concept = conceptService.find("100001", "MAIN/SNOMEDCT-BE/BE");
+		description = concept.getDescription("100001");
+		assertEquals(CASE_INSENSITIVE, description.getCaseSignificanceId());
+		assertNotNull(description.getEffectiveTime());
+	}
+
+	@Test
+	void testUpdatePublishedInternationalInferredRelationshipInExtension_ShouldClearEffectiveTime_ShouldChangeModuleId() throws ServiceException {
+		// Create a new relationship on MAIN
+		conceptService.create(new Concept(ISA).setDefinitionStatusId(PRIMITIVE).addDescription(fsn("Is a (attribute)")), "MAIN");
+		conceptService.create(new Concept(SNOMEDCT_ROOT).setDefinitionStatusId(PRIMITIVE).addDescription(fsn("SNOMED CT Concept")), "MAIN");
+		conceptService.create(new Concept("100001").addRelationship(new Relationship("100001", ISA, SNOMEDCT_ROOT)), "MAIN");
+
+		// Version MAIN
+		codeSystemService.createVersion(codeSystem, 20220131, "January 2022");
+
+		// Create extension code system SNOMEDCT-BE
+		CodeSystem extension = codeSystemService.createCodeSystem(new CodeSystem("SNOMEDCT-BE", "MAIN/SNOMEDCT-BE"));
+		branchService.updateMetadata("MAIN/SNOMEDCT-BE", ImmutableMap.of(Config.DEFAULT_MODULE_ID_KEY, "11000172109", Config.DEFAULT_NAMESPACE_KEY, "1000172"));
+
+		// Version extension
+		codeSystemService.createVersion(extension, 20220228, "February 2022");
+
+		// Create a task under MAIN/SNOMEDCT-BE
+		branchService.create("MAIN/SNOMEDCT-BE/BE");
+
+		Concept concept = conceptService.find("100001", "MAIN/SNOMEDCT-BE/BE");
+		Relationship relationship = concept.getRelationships().iterator().next();
+
+		assertEquals(relationship.getReleasedEffectiveTime(), relationship.getEffectiveTimeI());
+		assertEquals(concept.getModuleId(), relationship.getModuleId());
+
+		// Inactivate the relationship
+		relationship.setActive(false);
+		conceptService.update(concept, "MAIN/SNOMEDCT-BE/BE");
+
+		concept = conceptService.find("100001", "MAIN/SNOMEDCT-BE/BE");
+		relationship = concept.getRelationships().iterator().next();
+
+		assertNull(relationship.getEffectiveTimeI());
+		assertEquals("11000172109", relationship.getModuleId());
+	}
+
+	@Test
+	void testRevertPublishedInternationalInferredRelationshipInExtension_ShouldNotChangeEffectiveTimeOrModuleId() throws ServiceException {
+		// Create a new relationship on MAIN
+		conceptService.create(new Concept(ISA).setDefinitionStatusId(PRIMITIVE).addDescription(fsn("Is a (attribute)")), "MAIN");
+		conceptService.create(new Concept(SNOMEDCT_ROOT).setDefinitionStatusId(PRIMITIVE).addDescription(fsn("SNOMED CT Concept")), "MAIN");
+		conceptService.create(new Concept("100001").addRelationship(new Relationship("100001", ISA, SNOMEDCT_ROOT)), "MAIN");
+
+		// Version MAIN
+		codeSystemService.createVersion(codeSystem, 20220131, "January 2022");
+
+		// Create extension code system SNOMEDCT-BE
+		CodeSystem extension = codeSystemService.createCodeSystem(new CodeSystem("SNOMEDCT-BE", "MAIN/SNOMEDCT-BE"));
+		branchService.updateMetadata("MAIN/SNOMEDCT-BE", ImmutableMap.of(Config.DEFAULT_MODULE_ID_KEY, "11000172109", Config.DEFAULT_NAMESPACE_KEY, "1000172"));
+
+		// Version extension
+		codeSystemService.createVersion(extension, 20220228, "February 2022");
+
+		// Create a task under MAIN/SNOMEDCT-BE
+		branchService.create("MAIN/SNOMEDCT-BE/BE");
+
+		Concept concept = conceptService.find("100001", "MAIN/SNOMEDCT-BE/BE");
+		Relationship relationship = concept.getRelationships().iterator().next();
+
+		assertEquals(relationship.getReleasedEffectiveTime(), relationship.getEffectiveTimeI());
+		assertEquals(concept.getModuleId(), relationship.getModuleId());
+
+		// Inactivate the relationship
+		relationship.setActive(false);
+		conceptService.update(concept, "MAIN/SNOMEDCT-BE/BE");
+
+		// Revert the change
+		relationship.setActive(true);
+		conceptService.update(concept, "MAIN/SNOMEDCT-BE/BE");
+
+		concept = conceptService.find("100001", "MAIN/SNOMEDCT-BE/BE");
+		relationship = concept.getRelationships().iterator().next();
+
+		assertEquals(relationship.getReleasedEffectiveTime(), relationship.getEffectiveTimeI());
+		assertEquals(concept.getModuleId(), relationship.getModuleId());
+	}
+
+	@Test
+	void testUpdatePublishedInternationalComponent_ShouldClearEffectiveTime_ShouldNotChangeModuleId() throws ServiceException {
+		// Create a concept on MAIN
+		conceptService.create(new Concept("100001"), "MAIN");
+
+		// Version MAIN
+		codeSystemService.createVersion(codeSystem, 20220131, "January 2022");
+
+		// Create a task under MAIN
+		branchService.create("MAIN/A");
+
+		Concept concept = conceptService.find("100001", "MAIN/A");
+		assertEquals(concept.getReleasedEffectiveTime(), concept.getEffectiveTimeI());
+		assertEquals(CORE_MODULE, concept.getModuleId());
+
+		// Inactivate the concept
+		concept.setActive(false);
+		conceptService.update(concept, "MAIN/A");
+
+		// Effective time should be cleared, module ID should not change
+		concept = conceptService.find("100001", "MAIN/A");
+		assertNull(concept.getEffectiveTimeI());
+		assertEquals(CORE_MODULE, concept.getModuleId());
+	}
+
+	@Test
+	void testRevertPublishedInternationalComponent_ShoulNotChangeEffectiveTimeOrModuleId() throws ServiceException {
+		// Create a concept on MAIN
+		conceptService.create(new Concept("100001"), "MAIN");
+
+		// Version MAIN
+		codeSystemService.createVersion(codeSystem, 20220131, "January 2022");
+
+		// Create a task under MAIN
+		branchService.create("MAIN/A");
+
+		Concept concept = conceptService.find("100001", "MAIN/A");
+		assertEquals(concept.getReleasedEffectiveTime(), concept.getEffectiveTimeI());
+		assertEquals(CORE_MODULE, concept.getModuleId());
+
+		// Inactivate the concept
+		concept.setActive(false);
+		conceptService.update(concept, "MAIN/A");
+
+		// Revert the change
+		concept.setActive(true);
+		conceptService.update(concept, "MAIN/A");
+
+		// Effective time should be cleared, module ID should not change
+		concept = conceptService.find("100001", "MAIN/A");
+		assertEquals(concept.getReleasedEffectiveTime(), concept.getEffectiveTimeI());
+		assertEquals(CORE_MODULE, concept.getModuleId());
+	}
+
+	@Test
+	void testUpdatePublishedExtensionComponent_ShouldClearEffectiveTime_ShouldNotChangeModuleId() throws ServiceException {
+		// Create extension code system SNOMEDCT-BE
+		CodeSystem extension = codeSystemService.createCodeSystem(new CodeSystem("SNOMEDCT-BE", "MAIN/SNOMEDCT-BE"));
+		branchService.updateMetadata("MAIN/SNOMEDCT-BE", ImmutableMap.of(Config.DEFAULT_MODULE_ID_KEY, "11000172109", Config.DEFAULT_NAMESPACE_KEY, "1000172"));
+
+		// Create a concept on MAIN/SNOMEDCT-BE
+		conceptService.create(new Concept("100001", "11000172109"), "MAIN/SNOMEDCT-BE");
+
+		// Version extension
+		codeSystemService.createVersion(extension, 20220228, "February 2022");
+
+		// Create a task under MAIN/SNOMEDCT-BE
+		branchService.create("MAIN/SNOMEDCT-BE/BE");
+
+		Concept concept = conceptService.find("100001", "MAIN/SNOMEDCT-BE/BE");
+		assertEquals(concept.getReleasedEffectiveTime(), concept.getEffectiveTimeI());
+		assertEquals("11000172109", concept.getModuleId());
+
+		// Inactivate the concept
+		concept.setActive(false);
+		conceptService.update(concept, "MAIN/SNOMEDCT-BE/BE");
+
+		// Effective time should be cleared, module ID should change to the default module ID of the extension branch
+		concept = conceptService.find("100001", "MAIN/SNOMEDCT-BE/BE");
+		assertNull(concept.getEffectiveTimeI());
+		assertEquals("11000172109", concept.getModuleId());
+	}
+
+	@Test
+	void testRevertPublishedExtensionComponent_ShoulNotChangeEffectiveTimeOrModuleId() throws ServiceException {
+		// Create extension code system SNOMEDCT-BE
+		CodeSystem extension = codeSystemService.createCodeSystem(new CodeSystem("SNOMEDCT-BE", "MAIN/SNOMEDCT-BE"));
+		branchService.updateMetadata("MAIN/SNOMEDCT-BE", ImmutableMap.of(Config.DEFAULT_MODULE_ID_KEY, "11000172109", Config.DEFAULT_NAMESPACE_KEY, "1000172"));
+
+		// Create a concept on MAIN/SNOMEDCT-BE
+		conceptService.create(new Concept("100001", "11000172109"), "MAIN/SNOMEDCT-BE");
+
+		// Version extension
+		codeSystemService.createVersion(extension, 20220228, "February 2022");
+
+		// Create a task under MAIN/SNOMEDCT-BE
+		branchService.create("MAIN/SNOMEDCT-BE/BE");
+
+		Concept concept = conceptService.find("100001", "MAIN/SNOMEDCT-BE/BE");
+		assertEquals(concept.getReleasedEffectiveTime(), concept.getEffectiveTimeI());
+		assertEquals("11000172109", concept.getModuleId());
+
+		// Inactivate the concept
+		concept.setActive(false);
+		conceptService.update(concept, "MAIN/SNOMEDCT-BE/BE");
+
+		// Revert the change
+		concept.setActive(true);
+		conceptService.update(concept, "MAIN/SNOMEDCT-BE/BE");
+
+		// Effective time should be cleared, module ID should not change
+		concept = conceptService.find("100001", "MAIN/SNOMEDCT-BE/BE");
+		assertEquals(concept.getReleasedEffectiveTime(), concept.getEffectiveTimeI());
+		assertEquals("11000172109", concept.getModuleId());
+	}
+
+	@Test
+	void testUpdateUnpublishedInternationalComponent_ShouldNotChangeEffectiveTimeOrModuleId() throws ServiceException {
+		// Create a concept on MAIN
+		conceptService.create(new Concept("100001"), "MAIN");
+
+		// Create a task under MAIN
+		branchService.create("MAIN/A");
+
+		Concept concept = conceptService.find("100001", "MAIN/A");
+
+		// Inactivate the concept
+		concept.setActive(false);
+		conceptService.update(concept, "MAIN/A");
+
+		// Effective time and module ID should not change
+		concept = conceptService.find("100001", "MAIN/A");
+		assertNull(concept.getEffectiveTimeI());
+		assertEquals(CORE_MODULE, concept.getModuleId());
+	}
+
+	@Test
+	void testRevertUnpublishedInternationalComponent_ShouldNotChangeEffectiveTimeOrModuleId() throws ServiceException {
+		// Create a concept on MAIN
+		conceptService.create(new Concept("100001"), "MAIN");
+
+		// Create a task under MAIN
+		branchService.create("MAIN/A");
+
+		Concept concept = conceptService.find("100001", "MAIN/A");
+
+		// Inactivate the concept
+		concept.setActive(false);
+		conceptService.update(concept, "MAIN/A");
+
+		// Revert the change
+		concept.setActive(true);
+		conceptService.update(concept, "MAIN/A");
+
+		// Effective time and module ID should not change
+		concept = conceptService.find("100001", "MAIN/A");
+		assertNull(concept.getEffectiveTimeI());
+		assertEquals(CORE_MODULE, concept.getModuleId());
+	}
+
+	@Test
+	void testUpdateUnpublishedExtensionComponent_ShouldNotChangeEffectiveTimeOrModuleId() throws ServiceException {
+		// Create extension code system SNOMEDCT-BE
+		codeSystemService.createCodeSystem(new CodeSystem("SNOMEDCT-BE", "MAIN/SNOMEDCT-BE"));
+		branchService.updateMetadata("MAIN/SNOMEDCT-BE", ImmutableMap.of(Config.DEFAULT_MODULE_ID_KEY, "11000172109", Config.DEFAULT_NAMESPACE_KEY, "1000172"));
+
+		// Create a concept on MAIN/SNOMEDCT-BE
+		conceptService.create(new Concept("100001", "11000172109"), "MAIN/SNOMEDCT-BE");
+
+		// Create a task under MAIN/SNOMEDCT-BE
+		branchService.create("MAIN/SNOMEDCT-BE/BE");
+
+		Concept concept = conceptService.find("100001", "MAIN/SNOMEDCT-BE/BE");
+
+		// Inactivate the concept
+		concept.setActive(false);
+		conceptService.update(concept, "MAIN/SNOMEDCT-BE/BE");
+
+		// Effective time should be cleared, module ID should change to the default module ID of the extension branch
+		concept = conceptService.find("100001", "MAIN/SNOMEDCT-BE/BE");
+		assertNull(concept.getEffectiveTimeI());
+		assertEquals("11000172109", concept.getModuleId());
+	}
+
+	@Test
+	void testRevertUnpublishedExtensionComponent_ShoulNotChangeEffectiveTimeOrModuleId() throws ServiceException {
+		// Create extension code system SNOMEDCT-BE
+		codeSystemService.createCodeSystem(new CodeSystem("SNOMEDCT-BE", "MAIN/SNOMEDCT-BE"));
+		branchService.updateMetadata("MAIN/SNOMEDCT-BE", ImmutableMap.of(Config.DEFAULT_MODULE_ID_KEY, "11000172109", Config.DEFAULT_NAMESPACE_KEY, "1000172"));
+
+		// Create a concept on MAIN/SNOMEDCT-BE
+		conceptService.create(new Concept("100001", "11000172109"), "MAIN/SNOMEDCT-BE");
+
+		// Create a task under MAIN/SNOMEDCT-BE
+		branchService.create("MAIN/SNOMEDCT-BE/BE");
+
+		Concept concept = conceptService.find("100001", "MAIN/SNOMEDCT-BE/BE");
+
+		// Inactivate the concept
+		concept.setActive(false);
+		conceptService.update(concept, "MAIN/SNOMEDCT-BE/BE");
+
+		// Revert the change
+		concept.setActive(true);
+		conceptService.update(concept, "MAIN/SNOMEDCT-BE/BE");
+
+		// Effective time and module ID should not change
+		concept = conceptService.find("100001", "MAIN/SNOMEDCT-BE/BE");
+		assertNull(concept.getEffectiveTimeI());
+		assertEquals("11000172109", concept.getModuleId());
+	}
+
+	@Test
+	void testCreateNewInternationalComponent_EffectiveTimeIsNull_CoreModuleId() throws ServiceException {
+		// Create a concept on MAIN
+		conceptService.create(new Concept("100001"), "MAIN");
+
+		// Create a task under MAIN
+		branchService.create("MAIN/A");
+
+		Concept concept = conceptService.find("100001", "MAIN/A");
+		assertNull(concept.getEffectiveTimeI());
+		assertEquals(CORE_MODULE, concept.getModuleId());
+	}
+
+	@Test
+	void testCreateNewExtensionComponent_EffectiveTimeIsNull_DefaultModuleId() throws ServiceException {
+		// Create extension code system SNOMEDCT-BE
+		codeSystemService.createCodeSystem(new CodeSystem("SNOMEDCT-BE", "MAIN/SNOMEDCT-BE"));
+		branchService.updateMetadata("MAIN/SNOMEDCT-BE", ImmutableMap.of(Config.DEFAULT_MODULE_ID_KEY, "11000172109", Config.DEFAULT_NAMESPACE_KEY, "1000172"));
+
+		// Create a concept on MAIN/SNOMEDCT-BE
+		conceptService.create(new Concept("100001", "11000172109"), "MAIN/SNOMEDCT-BE");
+
+		// Create a task under MAIN/SNOMEDCT-BE
+		branchService.create("MAIN/SNOMEDCT-BE/BE");
+
+		Concept concept = conceptService.find("100001", "MAIN/SNOMEDCT-BE/BE");
+		assertNull(concept.getEffectiveTimeI());
+		assertEquals("11000172109", concept.getModuleId());
+	}
+
 	private boolean waitUntil(Supplier<Boolean> supplier, int maxSecondsToWait) {
 		try {
 			int sleptSeconds = 0;
