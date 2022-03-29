@@ -67,7 +67,7 @@ public class Concepts {
 	public static final String OUTDATED = "900000000000483008";
 	public static final String AMBIGUOUS = "900000000000484002";
 	public static final String ERRONEOUS = "900000000000485001";
-	public static final String DESCRIPTION_ERROR = "1217318005";
+	public static final String GRAMMATICAL_DESCRIPTION_ERROR = "1217318005";
 	public static final String LIMITED = "900000000000486000";
 	public static final String MOVED_ELSEWHERE = "900000000000487009";
 	public static final String PENDING_MOVE = "900000000000492006";
@@ -119,7 +119,7 @@ public class Concepts {
 			.put(OUTDATED, "OUTDATED")
 			.put(AMBIGUOUS, "AMBIGUOUS")
 			.put(ERRONEOUS, "ERRONEOUS")
-			.put(DESCRIPTION_ERROR, "DESCRIPTION_ERROR")
+			.put(GRAMMATICAL_DESCRIPTION_ERROR, "GRAMMATICAL_DESCRIPTION_ERROR")
 			.put(LIMITED, "LIMITED")
 			.put(MOVED_ELSEWHERE, "MOVED_ELSEWHERE")
 			.put(PENDING_MOVE, "PENDING_MOVE")
