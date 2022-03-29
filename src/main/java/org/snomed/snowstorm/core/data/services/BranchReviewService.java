@@ -246,62 +246,37 @@ public class BranchReviewService {
 		upgradedConcept.setDefinitionStatusId(winningConcept.getDefinitionStatusId());
 		upgradedConcept.setInactivationIndicator(winningConcept.getInactivationIndicator());
 		upgradedConcept.setAssociationTargets(winningConcept.getAssociationTargets());
-		upgradedConcept.setDescriptions(mergePublishedDescriptions(sourceVersion.getDescriptions(), targetVersion.getDescriptions()));
-		upgradedConcept.setRelationships(mergePublishedRelationships(sourceVersion.getRelationships(), targetVersion.getRelationships()));
+		upgradedConcept.setDescriptions(mergePublished(sourceVersion.getDescriptions(), targetVersion.getDescriptions()));
+		upgradedConcept.setRelationships(mergePublished(sourceVersion.getRelationships(), targetVersion.getRelationships()));
 		upgradedConcept.setClassAxioms(mergePublishedAxioms(sourceVersion.getClassAxioms(), targetVersion.getClassAxioms()));
 		upgradedConcept.setGciAxioms(mergePublishedAxioms(sourceVersion.getGciAxioms(), sourceVersion.getGciAxioms()));
 
 		return upgradedConcept;
 	}
 
-	private Set<Description> mergePublishedDescriptions(Set<Description> sourceDescriptions, Set<Description> targetDescriptions) {
-		Map<String, Description> mergedDescriptions = new HashMap<>();
+	private <T extends SnomedComponent> Set<T> mergePublished(Set<T> sourceComponents, Set<T> targetComponents) {
+		Map<String, T> mergedComponents = new HashMap<>();
 
-		for (Description sourceDescription : sourceDescriptions) {
-			boolean publishedAndUnchanged = sourceDescription.getReleasedEffectiveTime() != null && sourceDescription.getEffectiveTimeI() != null;
+		for (T sourceComponent : sourceComponents) {
+			boolean publishedAndUnchanged = sourceComponent.getReleasedEffectiveTime() != null && sourceComponent.getEffectiveTimeI() != null;
 			if (publishedAndUnchanged) {
-				mergedDescriptions.put(sourceDescription.getId(), sourceDescription);
+				mergedComponents.put(sourceComponent.getId(), sourceComponent);
 			}
 		}
 
-		for (Description targetDescription : targetDescriptions) {
-			String targetDescriptionId = targetDescription.getId();
-			Description sourceDescription = mergedDescriptions.get(targetDescriptionId);
+		for (T targetComponent : targetComponents) {
+			String targetDescriptionId = targetComponent.getId();
+			T sourceComponent = mergedComponents.get(targetDescriptionId);
 
-			if (sourceDescription == null) {
-				mergedDescriptions.put(targetDescriptionId, targetDescription);
-			} else if (!sourceDescription.isReleasedMoreRecentlyThan(targetDescription)) {
-				mergedDescriptions.put(targetDescriptionId, targetDescription);
+			if (sourceComponent == null) {
+				mergedComponents.put(targetDescriptionId, targetComponent);
+			} else if (!sourceComponent.isReleasedMoreRecentlyThan(targetComponent)) {
+				mergedComponents.put(targetDescriptionId, targetComponent);
 			}
 		}
 
-		return new HashSet<>(mergedDescriptions.values());
+		return new HashSet<>(mergedComponents.values());
 	}
-
-	private Set<Relationship> mergePublishedRelationships(Set<Relationship> sourceRelationships, Set<Relationship> targetRelationships) {
-		Map<String, Relationship> mergedRelationships = new HashMap<>();
-
-		for (Relationship sourceRelationship : sourceRelationships) {
-			boolean publishedAndUnchanged = sourceRelationship.getReleasedEffectiveTime() != null && sourceRelationship.getEffectiveTimeI() != null;
-			if (publishedAndUnchanged) {
-				mergedRelationships.put(sourceRelationship.getId(), sourceRelationship);
-			}
-		}
-
-		for (Relationship targetRelationship : targetRelationships) {
-			String targetComponentId = targetRelationship.getId();
-			Relationship sourceRelationship = mergedRelationships.get(targetComponentId);
-
-			if (sourceRelationship == null) {
-				mergedRelationships.put(targetComponentId, targetRelationship);
-			} else if (!sourceRelationship.isReleasedMoreRecentlyThan(targetRelationship)) {
-				mergedRelationships.put(targetComponentId, targetRelationship);
-			}
-		}
-
-		return new HashSet<>(mergedRelationships.values());
-	}
-
 
 	private Set<Axiom> mergePublishedAxioms(Set<Axiom> sourceAxioms, Set<Axiom> targetAxioms) {
 		Map<String, Axiom> mergedAxioms = new HashMap<>();
