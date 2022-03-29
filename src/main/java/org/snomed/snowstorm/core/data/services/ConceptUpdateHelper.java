@@ -606,7 +606,7 @@ public class ConceptUpdateHelper extends ComponentService {
 			
 			
 			//Any change to a component in an extension needs to be done in the default module
-			if (newComponent.isChanged() && (defaultModuleId != null && 
+			if (newComponent.isComponentChanged(existingComponent) && (defaultModuleId != null &&
 					!defaultModuleId.equals(Concepts.CORE_MODULE))) {
 				newComponent.setModuleId(defaultModuleId);
 			}
