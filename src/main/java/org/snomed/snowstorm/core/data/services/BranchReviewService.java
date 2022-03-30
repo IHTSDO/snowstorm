@@ -256,22 +256,30 @@ public class BranchReviewService {
 
 	private <T extends SnomedComponent> Set<T> mergePublished(Set<T> sourceComponents, Set<T> targetComponents) {
 		Map<String, T> mergedComponents = new HashMap<>();
-
 		for (T sourceComponent : sourceComponents) {
-			boolean publishedAndUnchanged = sourceComponent.getReleasedEffectiveTime() != null && sourceComponent.getEffectiveTimeI() != null;
-			if (publishedAndUnchanged) {
+			if (sourceComponent.getEffectiveTimeI() != null) {
 				mergedComponents.put(sourceComponent.getId(), sourceComponent);
 			}
 		}
 
 		for (T targetComponent : targetComponents) {
-			String targetDescriptionId = targetComponent.getId();
-			T sourceComponent = mergedComponents.get(targetDescriptionId);
-
-			if (sourceComponent == null) {
-				mergedComponents.put(targetDescriptionId, targetComponent);
-			} else if (!sourceComponent.isReleasedMoreRecentlyThan(targetComponent)) {
-				mergedComponents.put(targetDescriptionId, targetComponent);
+			String targetComponentId = targetComponent.getId();
+			if (mergedComponents.containsKey(targetComponentId)) {
+				T sourceComponent = mergedComponents.get(targetComponentId);
+				if (sourceComponent.isReleasedMoreRecentlyThan(targetComponent)) {
+					// target component is an old version
+					if (targetComponent.getEffectiveTimeI() != null) {
+						mergedComponents.put(targetComponentId, sourceComponent);
+					} else {
+						// target version with change but need to update old release details
+						targetComponent.setReleasedEffectiveTime(sourceComponent.getReleasedEffectiveTime());
+						targetComponent.setReleaseHash(sourceComponent.getReleaseHash());
+						mergedComponents.put(targetComponentId, targetComponent);
+					}
+				}
+			} else {
+				// component only exists in target
+				mergedComponents.put(targetComponentId, targetComponent);
 			}
 		}
 
