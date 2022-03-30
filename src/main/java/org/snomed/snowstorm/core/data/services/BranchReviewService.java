@@ -361,24 +361,24 @@ public class BranchReviewService {
 		return mergedConcept;
 	}
 
-	private <T extends IdAndEffectiveTimeComponent> Set<T> mergeComponentSets(Set<T> sourceDescriptions, Set<T> targetDescriptions) {
-		final Set<T> mergedDescriptions = new HashSet<>(sourceDescriptions);
-		for (final T targetDescription : targetDescriptions) {
-			if (targetDescription.getEffectiveTimeI() == null) {
-				if (mergedDescriptions.contains(targetDescription)) {
-					Optional<T> sourceDescription = mergedDescriptions.stream()
-							.filter(otherDescription -> otherDescription.getId().equals(targetDescription.getId())).findFirst();
-					if (sourceDescription.isPresent() && sourceDescription.get().getEffectiveTimeI() != null) {
-						// Only target description is unpublished, replace.
-						mergedDescriptions.add(targetDescription);
+	private <T extends IdAndEffectiveTimeComponent> Set<T> mergeComponentSets(Set<T> sourceComponents, Set<T> targetComponents) {
+		final Set<T> mergedComponents = new HashSet<>(sourceComponents);
+		for (final T targetComponent : targetComponents) {
+			if (targetComponent.getEffectiveTimeI() == null) {
+				if (mergedComponents.contains(targetComponent)) {
+					Optional<T> sourceComponent = mergedComponents.stream()
+							.filter(otherComponent -> otherComponent.getId().equals(targetComponent.getId())).findFirst();
+					if (sourceComponent.isPresent() && sourceComponent.get().getEffectiveTimeI() != null) {
+						// Only target component is unpublished, replace.
+						mergedComponents.add(targetComponent);
 					}
 				} else {
-					// Target description is new and not yet promoted to source.
-					mergedDescriptions.add(targetDescription);
+					// Target component is new and not yet promoted to source.
+					mergedComponents.add(targetComponent);
 				}
 			}
 		}
-		return mergedDescriptions;
+		return mergedComponents;
 	}
 
 	public BranchReview getCreateReview(String source, String target) {
