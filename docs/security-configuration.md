@@ -14,7 +14,7 @@ The `AUTHOR` roles is required for making content changes, for example creating 
 
 Roles can be granted to user groups using the Admin Permissions section of the API, see [Swagger docs](http://localhost:8080/).
 
-The 
+RBAC is not enabled per default. To enable it use the configuration option `ims-security.roles.enabled=true`.
 
 ### Checking Which Roles Apply
 The roles of the currently logged in user are listed against each branch, for example if the current user is in a group which allows authoring on the US extension:  
