@@ -17,10 +17,17 @@ import java.util.*;
 
 import static org.junit.Assert.*;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-
+/**
+ * Use cases to be coded into test cases:
+ * 1. BE where we have the Belgian edition dependent on the common French before the International
+ * 2. NO where the majority of concepts are in a sub-module (can't make assumptions about "most concepts")
+ * 3. NZ where module 1 and module 2 are mutually dependent on each other.  Module 1 has no content and is defined in Module 2.
+ *
+ */
 class ModuleDependencyServiceTest extends AbstractTest {
 	
 	private static String TEST_MODULE = "10123400";
+	private static String TEST_MODULE2 = "20123400";
 	private static String TEST_ET = "20990131";
 	private static String TEST_DEPENDENCY_ET = "19990131";
 	private static String TEST_CS_INT = "SNOMEDCT-INT";
@@ -109,6 +116,55 @@ class ModuleDependencyServiceTest extends AbstractTest {
 		assertEquals(2, mdr.size());
 		assertTrue(resultsContain(mdr, TEST_MODULE, Concepts.CORE_MODULE, TEST_ET, TEST_ET, TEST_DEPENDENCY_ET));
 		assertTrue(resultsContain(mdr, TEST_MODULE, Concepts.MODEL_MODULE, TEST_ET, TEST_ET, TEST_DEPENDENCY_ET));
+	}
+	
+	@Test
+	void testCircularMdrGeneration() throws InterruptedException, ServiceException {
+		createConcept("116680003", Concepts.CORE_MODULE, Branch.MAIN);
+		CodeSystem codeSystemXY = new CodeSystem(TEST_CS_MS, TEST_CS_PATH);
+		
+		//Creating the code system after MAIN has been versioned should ensure the dependencyVersionEffectiveTime 
+		//is picked up from there
+		codeSystemService.createCodeSystem(codeSystemXY);
+		createConcept(TEST_MODULE, TEST_MODULE, TEST_CS_PATH);
+		
+		//To be detected as an extension, and therefore not include modules found on MAIN
+		//We need to list a dependencyPackage in the metadata
+		Metadata metadata = new Metadata();
+		metadata.putString(BranchMetadataKeys.DEPENDENCY_PACKAGE, "Some Value");
+		branchService.updateMetadata(TEST_CS_PATH, metadata);
+		
+		//Now create two exisiting MDRS members that reference each other
+		ReferenceSetMember rm1 = createRefsetMemberMdrs(TEST_MODULE, TEST_MODULE2);
+		rmService.createMember(TEST_CS_PATH, rm1);
+		
+		ReferenceSetMember rm2 = createRefsetMemberMdrs(TEST_MODULE2, TEST_MODULE);
+		rmService.createMember(TEST_CS_PATH, rm2);
+		
+		Set<ReferenceSetMember> mdr = mdService.generateModuleDependencies(TEST_CS_PATH, TEST_ET, null, false, null);
+		
+		//Working with a 2 mutually dependent modules we expect to see 6 entries
+		//Each module to both the core and the model module (2 x 2 = 4)
+		//And each module to the other (1 x 2 = 2)
+		//Watch that TEST_ET is the time of the extension and the Depedency Time is the ET on MAIN
+		assertEquals(6, mdr.size());
+		assertTrue(resultsContain(mdr, TEST_MODULE, Concepts.CORE_MODULE, TEST_ET, TEST_ET, TEST_DEPENDENCY_ET));
+		assertTrue(resultsContain(mdr, TEST_MODULE, Concepts.MODEL_MODULE, TEST_ET, TEST_ET, TEST_DEPENDENCY_ET));
+		assertTrue(resultsContain(mdr, TEST_MODULE2, Concepts.CORE_MODULE, TEST_ET, TEST_ET, TEST_DEPENDENCY_ET));
+		assertTrue(resultsContain(mdr, TEST_MODULE2, Concepts.MODEL_MODULE, TEST_ET, TEST_ET, TEST_DEPENDENCY_ET));
+		assertTrue(resultsContain(mdr, TEST_MODULE, TEST_MODULE2, TEST_ET, TEST_ET, TEST_ET));
+		assertTrue(resultsContain(mdr, TEST_MODULE2, TEST_MODULE, TEST_ET, TEST_ET, TEST_ET));
+	}
+
+	private ReferenceSetMember createRefsetMemberMdrs(String moduleId, String targetModuleId) {
+		ReferenceSetMember rm = new ReferenceSetMember();
+		rm.setMemberId(UUID.randomUUID().toString());
+		rm.setModuleId(moduleId);
+		rm.setRefsetId(Concepts.REFSET_MODULE_DEPENDENCY);
+		rm.setReferencedComponentId(targetModuleId);
+		rm.setActive(true);
+		rm.setCreating(true);
+		return rm;
 	}
 
 	private boolean resultsContain(Set<ReferenceSetMember> mdr, String sourceModule, String targetModule, String effectiveDate,

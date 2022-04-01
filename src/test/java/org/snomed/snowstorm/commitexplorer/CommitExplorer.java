@@ -10,6 +10,7 @@ import org.elasticsearch.search.builder.SearchSourceBuilder;
 import org.elasticsearch.search.sort.SortBuilders;
 import org.elasticsearch.search.sort.SortOrder;
 import org.snomed.snowstorm.config.ElasticsearchConfig;
+import org.snomed.snowstorm.core.data.domain.Relationship;
 import org.snomed.snowstorm.core.data.domain.SnomedComponent;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
@@ -41,9 +42,10 @@ public class CommitExplorer {
 	private final String indexNamePrefix;
 
 	private void run() {
-		listCommits("MAIN");
+		//listCommits("MAIN");
 		//listRecentVersions("209889006", Concept.class);
-//		listRecentVersions("890431008", Concept.class);
+		//listRecentVersions("890431008", Concept.class);
+		listRecentVersions("12392023020", Relationship.class);
 		//listRecentVersions("646067016", Description.class);
 		//listRecentVersions("84fd3311-705d-4ab0-ab84-989eaa048839", ReferenceSetMember.class);
 	}
