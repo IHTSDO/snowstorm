@@ -257,6 +257,7 @@ public class BranchReviewService {
 	private <T extends SnomedComponent> Set<T> mergePublished(Set<T> sourceComponents, Set<T> targetComponents) {
 		Map<String, T> mergedComponents = new HashMap<>();
 		for (T sourceComponent : sourceComponents) {
+			// published and no further changes
 			if (sourceComponent.getEffectiveTimeI() != null) {
 				mergedComponents.put(sourceComponent.getId(), sourceComponent);
 			}
@@ -266,16 +267,11 @@ public class BranchReviewService {
 			String targetComponentId = targetComponent.getId();
 			if (mergedComponents.containsKey(targetComponentId)) {
 				T sourceComponent = mergedComponents.get(targetComponentId);
-				if (sourceComponent.isReleasedMoreRecentlyThan(targetComponent)) {
-					// target component is an old version
-					if (targetComponent.getEffectiveTimeI() != null) {
-						mergedComponents.put(targetComponentId, sourceComponent);
-					} else {
-						// target version with change but need to update old release details
-						targetComponent.setReleasedEffectiveTime(sourceComponent.getReleasedEffectiveTime());
-						targetComponent.setReleaseHash(sourceComponent.getReleaseHash());
-						mergedComponents.put(targetComponentId, targetComponent);
-					}
+				if (targetComponent.getEffectiveTimeI() == null) {
+					// target version with change but need to update old release details
+					targetComponent.setReleasedEffectiveTime(sourceComponent.getReleasedEffectiveTime());
+					targetComponent.setReleaseHash(sourceComponent.getReleaseHash());
+					mergedComponents.put(targetComponentId, targetComponent);
 				}
 			} else {
 				// component only exists in target
