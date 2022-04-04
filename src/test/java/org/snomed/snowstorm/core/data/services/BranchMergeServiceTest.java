@@ -3118,6 +3118,462 @@ class BranchMergeServiceTest extends AbstractTest {
 		assertFalse(description.isReleased());
 	}
 
+	@Test
+	void testPropertiesWhenRebasingDifferentScenarios() throws ServiceException, InterruptedException {
+		/*
+		 * Concept has been released.
+		 * Concept has been updated & released.
+		 * Task was created before the second release,
+		 * and has no subsequent changes.
+		 * Assert properties after rebasing and selecting
+		 * L/M/R columns within the merge.
+		 * */
+		String year = "2022";
+		assertReleaseProperties(year + "0131",
+				year + "0331",
+				year + "0331",
+				year + "0131",
+				year + "0131",
+				"left",
+				year + "0331",
+				year + "0331"
+		);
+
+		year = "2023";
+		assertReleaseProperties(year + "0131",
+				year + "0331",
+				year + "0331",
+				year + "0131",
+				year + "0131",
+				"middle",
+				year + "0331",
+				year + "0331"
+		);
+
+		year = "2024";
+		assertReleaseProperties(year + "0131",
+				year + "0331",
+				year + "0331",
+				year + "0131",
+				year + "0131",
+				"right",
+				year + "0331",
+				year + "0331"
+		);
+
+		/*
+		 * Concept has been released.
+		 * Concept has been updated & released.
+		 * Task was created before the second release,
+		 * but has subsequent changes.
+		 * Assert properties after rebasing and selecting
+		 * L/M/R columns within the merge.
+		 * */
+		year = "2025";
+		assertReleaseProperties(year + "0131",
+				year + "0331",
+				year + "0331",
+				year + "0131",
+				null,
+				"left",
+				year + "0331",
+				year + "0331"
+		);
+
+		year = "2026";
+		assertReleaseProperties(year + "0131",
+				year + "0331",
+				year + "0331",
+				year + "0331",
+				null,
+				"middle",
+				year + "0331",
+				null
+		);
+
+		year = "2027";
+		assertReleaseProperties(year + "0131",
+				year + "0331",
+				year + "0331",
+				year + "0331",
+				null,
+				"right",
+				year + "0331",
+				null
+		);
+
+		/*
+		 * Concept has been released.
+		 * Concept has been updated & released.
+		 * Task was created after the second release, but
+		 * has subsequent changes.
+		 * Assert properties after rebasing and selecting
+		 * L/M/R columns within the merge.
+		 * */
+		year = "2028";
+		assertReleaseProperties(year + "0131",
+				year + "0331",
+				year + "0331",
+				year + "0331",
+				null,
+				null,
+				year + "0331",
+				null
+		);
+
+		year = "2029";
+		assertReleaseProperties(year + "0131",
+				year + "0331",
+				year + "0331",
+				year + "0331",
+				null,
+				"left",
+				year + "0331",
+				year + "0331"
+		);
+
+		year = "2030";
+		assertReleaseProperties(year + "0131",
+				year + "0331",
+				year + "0331",
+				year + "0331",
+				null,
+				"middle",
+				year + "0331",
+				null
+		);
+
+		year = "2031";
+		assertReleaseProperties(year + "0131",
+				year + "0331",
+				year + "0331",
+				year + "0331",
+				null,
+				"right",
+				year + "0331",
+				null
+		);
+
+		/*
+		 * Concept has been released.
+		 * Concept has been updated & released.
+		 * Task was created before the second release, and has had
+		 * no subsequent changes.
+		 * Assert properties after rebasing and selecting
+		 * L/M/R columns within the merge.
+		 * */
+		year = "2032";
+		assertReleaseProperties(year + "0131",
+				year + "0331",
+				null,
+				year + "0131",
+				year + "0131",
+				"left",
+				year + "0331",
+				null
+		);
+
+		year = "2033";
+		assertReleaseProperties(year + "0131",
+				year + "0331",
+				null,
+				year + "0131",
+				year + "0131",
+				"middle",
+				year + "0331",
+				null
+		);
+
+		year = "2034";
+		assertReleaseProperties(year + "0131",
+				year + "0331",
+				null,
+				year + "0131",
+				year + "0131",
+				"right",
+				year + "0331",
+				null
+		);
+
+		/*
+		 * Concept has been released.
+		 * Concept has been updated and released, and has subsequent changes.
+		 * Task was created before the second release, and has also had
+		 * subsequent changes.
+		 * Assert properties after rebasing and selecting L/M/R columns within the merge.
+		 * */
+		year = "2035";
+		assertReleaseProperties(year + "0131",
+				year + "0331",
+				null,
+				year + "0131",
+				null,
+				"left",
+				year + "0331",
+				null
+		);
+
+		year = "2036";
+		assertReleaseProperties(year + "0131",
+				year + "0331",
+				null,
+				year + "0131",
+				null,
+				"middle",
+				year + "0331",
+				null
+		);
+
+		year = "2037";
+		assertReleaseProperties(year + "0131",
+				year + "0331",
+				null,
+				year + "0131",
+				null,
+				"right",
+				year + "0331",
+				null
+		);
+
+		/*
+		 * Concept has been released.
+		 * Concept has been updated and released, and has subsequent changes.
+		 * Task was created before the first release and has null release properties.
+		 * Assert properties after rebasing and selecting L/M/R columns within the merge.
+		 * */
+		year = "2038";
+		assertReleaseProperties(year + "0131",
+				year + "0331",
+				null,
+				null,
+				null,
+				"left",
+				year + "0331",
+				null
+		);
+
+		year = "2039";
+		assertReleaseProperties(year + "0131",
+				year + "0331",
+				null,
+				null,
+				null,
+				"middle",
+				year + "0331",
+				null
+		);
+
+		year = "2040";
+		assertReleaseProperties(year + "0131",
+				year + "0331",
+				null,
+				null,
+				null,
+				"right",
+				year + "0331",
+				null
+		);
+
+		/*
+		 * Concept has not been released and has null release properties
+		 * on both project and task.
+		 * Assert properties after rebasing and selecting L/M/R columns within the merge.
+		 * */
+		assertReleaseProperties(null,
+				null,
+				null,
+				null,
+				null,
+				"left",
+				null,
+				null
+		);
+
+		assertReleaseProperties(null,
+				null,
+				null,
+				null,
+				null,
+				"middle",
+				null,
+				null
+		);
+
+		assertReleaseProperties(null,
+				null,
+				null,
+				null,
+				null,
+				"right",
+				null,
+				null
+		);
+	}
+
+	void assertReleaseProperties(
+			String initialReleaseEffectiveTime,
+			String projectReleaseEffectiveTime,
+			String projectEffectiveTime,
+			String taskReleaseEffectiveTime,
+			String taskEffectiveTime,
+			String column,
+			String finalReleaseEffectiveTime,
+			String finalEffectiveTime
+	) throws ServiceException, InterruptedException {
+		Map<String, String> intPreferred = Map.of(US_EN_LANG_REFSET, descriptionAcceptabilityNames.get(PREFERRED), GB_EN_LANG_REFSET, descriptionAcceptabilityNames.get(PREFERRED));
+		Map<String, String> intAcceptable = Map.of(US_EN_LANG_REFSET, descriptionAcceptabilityNames.get(PREFERRED), GB_EN_LANG_REFSET, descriptionAcceptabilityNames.get(ACCEPTABLE));
+		String ci = "CASE_INSENSITIVE";
+		Concept concept;
+		CodeSystem codeSystem;
+		MergeReview review;
+		Collection<MergeReviewConceptVersions> conflicts;
+
+		// International project
+		String project = "MAIN/" + UUID.randomUUID().toString().substring(0, 5);
+		branchService.create(project);
+
+		// International task (Created before / after versioning depending on scenario)
+		String task = project + "/" + UUID.randomUUID().toString().substring(0, 5);
+
+		// Create Concept
+		concept = new Concept()
+				.addDescription(new Description("Cinnamon bun (food)").setTypeId(FSN).setCaseSignificance(ci).setAcceptabilityMap(intPreferred))
+				.addDescription(new Description("Cinnamon bun").setTypeId(SYNONYM).setCaseSignificance(ci).setAcceptabilityMap(intPreferred))
+				.addDescription(new Description("Cinnamon roll").setTypeId(SYNONYM).setCaseSignificance(ci).setAcceptabilityMap(intAcceptable))
+				.addAxiom(new Relationship(ISA, SNOMEDCT_ROOT));
+		concept = conceptService.create(concept, project);
+		String cinnamonId = concept.getConceptId();
+
+		// Promote Project to Main
+		concept = conceptService.find(cinnamonId, "MAIN");
+		assertNull(concept);
+		branchMergeService.mergeBranchSync(project, "MAIN", Collections.emptySet());
+		concept = conceptService.find(cinnamonId, "MAIN");
+		assertNotNull(concept);
+
+		// Task created before International versioning
+		if (taskReleaseEffectiveTime == null && taskEffectiveTime == null) {
+			branchService.create(task);
+		}
+
+		// Version International
+		if (initialReleaseEffectiveTime != null) {
+			// Version
+			codeSystem = codeSystemService.find("SNOMEDCT");
+			codeSystemService.createVersion(codeSystem, Integer.parseInt(initialReleaseEffectiveTime), initialReleaseEffectiveTime);
+
+			// Rebase project
+			review = getMergeReviewInCurrentState("MAIN", project);
+			conflicts = reviewService.getMergeReviewConflictingConcepts(review.getId(), new ArrayList<>());
+			assertEquals(0, conflicts.size());
+
+			reviewService.applyMergeReview(review);
+		}
+
+		// Update International Concept (publish)
+		if (projectReleaseEffectiveTime != null && !projectReleaseEffectiveTime.equals(initialReleaseEffectiveTime)) {
+			// Change Concept module
+			concept = conceptService.find(cinnamonId, project);
+			concept.setModuleId(MODEL_MODULE);
+			conceptService.update(concept, project);
+
+			// Promote project to main
+			branchMergeService.mergeBranchSync(project, "MAIN", Collections.emptySet());
+
+			// Version International
+			codeSystem = codeSystemService.find("SNOMEDCT");
+			codeSystemService.createVersion(codeSystem, Integer.parseInt(projectReleaseEffectiveTime), projectReleaseEffectiveTime);
+
+			// Rebase project
+			review = getMergeReviewInCurrentState("MAIN", project);
+			conflicts = reviewService.getMergeReviewConflictingConcepts(review.getId(), new ArrayList<>());
+			assertEquals(0, conflicts.size());
+
+			reviewService.applyMergeReview(review);
+		}
+
+		// Task has latest version
+		if (taskReleaseEffectiveTime != null && taskReleaseEffectiveTime.equals(projectReleaseEffectiveTime)) {
+			branchService.create(task);
+		}
+
+		// Update Concept on project (do not publish)
+		if (projectEffectiveTime == null) {
+			// Change Concept
+			concept = conceptService.find(cinnamonId, project);
+			concept.setModuleId(CORE_MODULE);
+			conceptService.update(concept, project);
+
+			// Promote project to main
+			branchMergeService.mergeBranchSync(project, "MAIN", Collections.emptySet());
+		}
+
+		// Task is behind a version
+		if (taskReleaseEffectiveTime != null && !taskReleaseEffectiveTime.equals(projectReleaseEffectiveTime)) {
+			branchService.create(task);
+		}
+
+		// Update Concept on task (do not publish)
+		if (taskEffectiveTime == null) {
+			// Change Concept
+			concept = conceptService.find(cinnamonId, task);
+			concept.setDefinitionStatusId(FULLY_DEFINED);
+			conceptService.update(concept, task);
+		}
+
+		// Update Concept on project (to allow task to rebase)
+		if (column != null) {
+			concept = conceptService.find(cinnamonId, project);
+			concept.addDescription(new Description("Cinnamon swirls").setTypeId(SYNONYM).setCaseSignificance(ci).setAcceptabilityMap(intAcceptable));
+			conceptService.update(concept, project);
+		}
+
+		// Rebase task
+		review = getMergeReviewInCurrentState(project, task);
+		conflicts = reviewService.getMergeReviewConflictingConcepts(review.getId(), new ArrayList<>());
+		if (column == null) {
+			assertEquals(0, conflicts.size());
+		} else {
+			if ((taskReleaseEffectiveTime != null && taskReleaseEffectiveTime.equals(projectReleaseEffectiveTime))) {
+				assertTrue(conflicts.size() != 0);
+			}
+
+			for (MergeReviewConceptVersions conflict : conflicts) {
+				Concept conceptToAccept = conflict.getSourceConcept();
+
+				column = column.toLowerCase();
+				if ("middle".equals(column)) {
+					conceptToAccept = conflict.getAutoMergedConcept();
+				} else if ("right".equals(column)) {
+					conceptToAccept = conflict.getTargetConcept();
+				}
+
+				reviewService.persistManuallyMergedConcept(review, Long.parseLong(cinnamonId), conceptToAccept);
+			}
+
+			reviewService.applyMergeReview(review);
+		}
+
+		// Assert state of task
+		concept = conceptService.find(cinnamonId, task);
+
+		Integer fRET;
+		if (finalReleaseEffectiveTime != null) {
+			fRET = Integer.parseInt(finalReleaseEffectiveTime);
+			assertEquals(fRET, concept.getReleasedEffectiveTime());
+		} else {
+			assertNull(concept.getReleasedEffectiveTime());
+		}
+
+		Integer fET;
+		if (finalEffectiveTime != null) {
+			fET = Integer.parseInt(finalEffectiveTime);
+			assertEquals(fET, concept.getEffectiveTimeI());
+		} else {
+			assertNull(concept.getEffectiveTimeI());
+		}
+	}
+
 	private void assertNotVersioned(Description description) {
 		assertNull(description.getEffectiveTime());
 		assertFalse(description.isReleased());
