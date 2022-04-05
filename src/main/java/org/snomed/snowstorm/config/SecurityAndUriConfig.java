@@ -31,7 +31,6 @@ import org.springframework.security.config.annotation.web.configurers.Expression
 import org.springframework.security.web.firewall.DefaultHttpFirewall;
 import org.springframework.security.web.firewall.HttpFirewall;
 import org.springframework.web.bind.annotation.RequestMethod;
-import org.springframework.web.servlet.mvc.method.RequestMappingInfo;
 import springfox.documentation.builders.RequestHandlerSelectors;
 import springfox.documentation.service.ApiInfo;
 import springfox.documentation.service.Contact;
@@ -43,7 +42,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 
-import static com.google.common.base.Predicates.not;
 import static springfox.documentation.builders.PathSelectors.regex;
 
 @Configuration
@@ -184,11 +182,13 @@ public class SecurityAndUriConfig extends WebSecurityConfigurerAdapter {
 
 	@Bean
 	// Swagger config
+	@SuppressWarnings("unchecked")
 	public Docket api() {
 		Docket docket = new Docket(DocumentationType.SWAGGER_2);
         final String version = buildProperties != null ? buildProperties.getVersion() : "DEV";
         docket.apiInfo(new ApiInfo("Snowstorm", "SNOMED CT Terminology Server REST API", version, null,
-				new Contact("SNOMED International", "https://github.com/IHTSDO/snowstorm", null), "Apache 2.0", "http://www.apache.org/licenses/LICENSE-2.0"));
+				new Contact("SNOMED International", "https://github.com/IHTSDO/snowstorm", null), "Apache 2.0",
+		        "http://www.apache.org/licenses/LICENSE-2.0", Collections.emptyList()));
 		ApiSelectorBuilder apiSelectorBuilder = docket.select();
 
 		if (restApiReadOnly) {
@@ -201,18 +201,16 @@ public class SecurityAndUriConfig extends WebSecurityConfigurerAdapter {
 					.apis(requestHandler -> {
 						// Hide POST/PUT/PATCH/DELETE
 						if (requestHandler != null) {
-							RequestMappingInfo requestMapping = requestHandler.getRequestMapping();
 							// Allow FHIR endpoints with GET method (even if endpoint has POST too)
-							if (requestMapping.getPatternsCondition().getPatterns()
-									.stream().
-											anyMatch(pattern -> alwaysAllowReadOnlyPostEndpointPrefixes
-													.stream()
-													.anyMatch(pattern::startsWith))
-									&& requestMapping.getMethodsCondition().getMethods().contains(RequestMethod.GET)) {
+							Set<String> patterns = requestHandler.getPatternsCondition().getPatterns();
+								if (patterns.stream()
+									.anyMatch(pattern -> alwaysAllowReadOnlyPostEndpointPrefixes
+											.stream()
+											.anyMatch(pattern::startsWith))
+									&& requestHandler.supportedMethods().contains(RequestMethod.GET)) {
 								return true;
 							}
-							if (requestMapping.getPatternsCondition().getPatterns()
-									.stream().
+							if (patterns.stream().
 											anyMatch(pattern -> alwaysAllowReadOnlyPostEndpoints
 													.stream()
 													.anyMatch(pattern::equals))) {
@@ -220,27 +218,26 @@ public class SecurityAndUriConfig extends WebSecurityConfigurerAdapter {
 							}
 							if (restApiAllowReadOnlyPostEndpoints) {
 								// Allow specific endpoints with POST method
-								if (requestMapping.getPatternsCondition().getPatterns()
-										.stream().
+								if (patterns.stream().
 												anyMatch(pattern -> whenEnabledAllowReadOnlyPostEndpoints
 														.stream()
 														.anyMatch(pattern::equals))
-										&& requestMapping.getMethodsCondition().getMethods().contains(RequestMethod.POST)) {
+										&& requestHandler.supportedMethods().contains(RequestMethod.POST)) {
 									return true;
 								}
 							}
-							Set<RequestMethod> methods = requestMapping.getMethodsCondition().getMethods();
+							Set<RequestMethod> methods = requestHandler.supportedMethods();
 							return !methods.contains(RequestMethod.POST) && !methods.contains(RequestMethod.PUT)
 									&& !methods.contains(RequestMethod.PATCH) && !methods.contains(RequestMethod.DELETE);
 						}
 						return false;
 					})
 					// Also hide endpoints related to authoring
-					.paths(not(regex("/merge.*")))
-					.paths(not(regex("/review.*")))
-					.paths(not(regex(".*/classification.*")))
-					.paths(not(regex("/exports.*")))
-					.paths(not(regex("/imports.*")));
+					.paths(regex("/merge.*").negate())
+					.paths(regex("/review.*").negate())
+					.paths(regex(".*/classification.*").negate())
+					.paths(regex("/exports.*").negate())
+					.paths(regex("/imports.*").negate());
 		} else {
 			// Not read-only mode, allow everything!
 			apiSelectorBuilder
@@ -249,8 +246,8 @@ public class SecurityAndUriConfig extends WebSecurityConfigurerAdapter {
 
 		// Don't show the error or root endpoints in swagger
 		apiSelectorBuilder
-				.paths(not(regex("/error")))
-				.paths(not(regex("/")));
+				.paths(regex("/error").negate())
+				.paths(regex("/").negate());
 
 		return apiSelectorBuilder.build();
 	}
