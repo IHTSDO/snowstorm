@@ -1,7 +1,6 @@
 package org.snomed.snowstorm.rest;
 
 import org.junit.jupiter.api.Test;
-import org.snomed.snowstorm.rest.pojo.CodeSystemMigrationRequest;
 import org.snomed.snowstorm.rest.pojo.CodeSystemUpdateRequest;
 import org.snomed.snowstorm.rest.pojo.CodeSystemUpgradeRequest;
 import org.snomed.snowstorm.rest.pojo.CreateCodeSystemVersionRequest;

@@ -39,7 +39,7 @@ public class BranchVersionECLCache {
 	}
 
 	static String normaliseEclString(String ecl) {
-		return ecl.toLowerCase().replaceAll("\\|[^|]*\\|", "").replace("and", ",").replace("  ", " ");
+		return ecl.toLowerCase().replaceAll("\\|[^|]*\\|", "").replace("  ", " ").replace(" and ", ", ").trim();
 	}
 
 	public void recordHit() {
