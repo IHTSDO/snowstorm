@@ -198,6 +198,15 @@ public class CodeSystemController {
 		dailyBuildService.rollbackDailyBuildContent(codeSystem);
 	}
 
+	@ApiOperation(value = "Trigger scheduled daily build import.",
+		notes = "The daily build import is scheduled to perform at a configured time interval per default." + 
+				"This operation manually triggers the scheduled daily build import service to perform.")
+	@RequestMapping(value = "/{shortName}/daily-build/import", method = RequestMethod.POST)
+	public void triggerScheduledImport(@PathVariable String shortName) {
+			CodeSystem codeSystem = codeSystemService.find(shortName);
+			dailyBuildService.triggerScheduledImport(codeSystem);
+	}
+
 	@ApiOperation(value = "Generate additional english language refset",
 			notes = "Before running this extensions must be upgraded already. " +
 					"You must specify the branch path(e.g MAIN/SNOMEDCT-NZ/{project}/{task}) of the task for the delta to be added. " +
