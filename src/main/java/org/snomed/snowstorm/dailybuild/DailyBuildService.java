@@ -86,6 +86,13 @@ public class DailyBuildService {
 		SimpleDateFormat formatter = new SimpleDateFormat("yyyy-MM-dd");
 		return latestDailyBuild.equals(formatter.format(new Date()));
 	}
+	public void triggerScheduledImport(CodeSystem codeSystem) {
+		try {
+			performScheduledImport(codeSystem);
+		} catch (Exception e) {
+			logger.error("Failed to import daily build for code system {}", codeSystem.getShortName(), e);
+		}
+	}
 
 	void performScheduledImport(CodeSystem codeSystem) throws IOException, ReleaseImportException {
 		String branchPath = codeSystem.getBranchPath();
