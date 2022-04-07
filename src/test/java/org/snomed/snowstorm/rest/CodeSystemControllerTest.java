@@ -1,27 +1,23 @@
 package org.snomed.snowstorm.rest;
 
+import io.kaicode.elasticvc.api.PathUtil;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.snomed.snowstorm.AbstractTest;
 import org.snomed.snowstorm.TestConfig;
 import org.snomed.snowstorm.core.data.domain.CodeSystem;
+import org.snomed.snowstorm.core.data.domain.CodeSystemVersion;
 import org.snomed.snowstorm.core.data.services.CodeSystemService;
 import org.snomed.snowstorm.core.data.services.CodeSystemUpgradeService;
 import org.snomed.snowstorm.core.data.services.ServiceException;
-import org.snomed.snowstorm.rest.pojo.BranchPojo;
-import org.snomed.snowstorm.rest.pojo.CodeSystemNewAuthoringCycleRequest;
 import org.snomed.snowstorm.rest.pojo.ItemsPage;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.boot.web.server.LocalServerPort;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpMethod;
-import org.springframework.http.RequestEntity;
 import org.springframework.http.ResponseEntity;
 import org.springframework.test.context.ActiveProfiles;
 
-import java.net.URI;
 import java.util.*;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -183,21 +179,44 @@ class CodeSystemControllerTest extends AbstractTest {
     @Test
     public void startNewAuthoringCycle_ShouldReturnExpectedMetadata() {
         //given
-        String requestUrl = startNewAuthoringCycle("SNOMEDCT");
-        CodeSystemNewAuthoringCycleRequest request = new CodeSystemNewAuthoringCycleRequest("SnomedCT_InternationalRF2_PRODUCTION_20210731T120000Z.zip", 
-                 "20210731",
-                 "SnomedCT_InternationalRF2_PRODUCTION_20210131T120000Z.zip");
+        CodeSystem codeSystem = codeSystemService.find("SNOMEDCT");
+        String requestUrl = startNewAuthoringCycle(codeSystem.getShortName());
 
         //when
-        this.testRestTemplate.postForEntity(requestUrl, request, void.class);
+        this.testRestTemplate.postForEntity(requestUrl, null, void.class);
 
         //then
-        ResponseEntity<Object> responseEntity = this.testRestTemplate.getForEntity(getBranch("MAIN"), Object.class);
+        ResponseEntity<Object> responseEntity = this.testRestTemplate.getForEntity(getBranch(codeSystem.getBranchPath()), Object.class);
         LinkedHashMap<String, Object> receivedMetaData = getMetadata(responseEntity);
         assertNotNull(receivedMetaData);
-        assertEquals("SnomedCT_InternationalRF2_PRODUCTION_20210731T120000Z.zip", receivedMetaData.get("previousPackage"));
-        assertEquals("SnomedCT_InternationalRF2_PRODUCTION_20210131T120000Z.zip", receivedMetaData.get("previousDependencyPackage"));
-        assertEquals("20210731", receivedMetaData.get("previousRelease"));
+
+        CodeSystemVersion codeSystemVersion = codeSystemService.findLatestImportedVersion(codeSystem.getShortName());
+        assertEquals(String.valueOf(codeSystemVersion.getEffectiveDate()), receivedMetaData.get("previousRelease"));
+        assertEquals(codeSystemVersion.getReleasePackage(), receivedMetaData.get("previousPackage"));
+        assertNull(receivedMetaData.get("previousDependencyPackage"));
+    }
+
+    @Test
+    public void startNewAuthoringCycle_ShouldReturnExpectedMetadata_WhenCodeSystemDependsOnInternational() {
+        //given
+        CodeSystem codeSystem = codeSystemService.find("SNOMEDCT-DM");
+        String requestUrl = startNewAuthoringCycle(codeSystem.getShortName());
+
+        //when
+        this.testRestTemplate.postForEntity(requestUrl, null, void.class);
+
+        //then
+        ResponseEntity<Object> responseEntity = this.testRestTemplate.getForEntity(getBranch(codeSystem.getBranchPath()), Object.class);
+        LinkedHashMap<String, Object> receivedMetaData = getMetadata(responseEntity);
+        assertNotNull(receivedMetaData);
+
+        CodeSystemVersion codeSystemVersion = codeSystemService.findLatestImportedVersion(codeSystem.getShortName());
+        assertEquals(String.valueOf(codeSystemVersion.getEffectiveDate()), receivedMetaData.get("previousRelease"));
+        assertEquals(codeSystemVersion.getReleasePackage(), receivedMetaData.get("previousPackage"));
+
+        Optional<CodeSystem> parentCodeSystem = codeSystemService.findByBranchPath(PathUtil.getParentPath(codeSystem.getBranchPath()));
+        CodeSystemVersion parentCodeSystemVersion = codeSystemService.findVersion(parentCodeSystem.get().getShortName(), codeSystem.getDependantVersionEffectiveTime());
+        assertEquals(parentCodeSystemVersion.getReleasePackage(), receivedMetaData.get("previousDependencyPackage"));
     }
 
     //Wrapper for given blocks as used throughout test class
@@ -230,6 +249,8 @@ class CodeSystemControllerTest extends AbstractTest {
 
     private void givenCodeSystemVersionExists(String shortName, int effectiveDate, String description) {
         codeSystemService.createVersion(codeSystemService.find(shortName), effectiveDate, description);
+        CodeSystemVersion codeSystemVersion = codeSystemService.findVersion(shortName, effectiveDate);
+        codeSystemService.updateCodeSystemVersionPackage(codeSystemVersion, "SnomedCT_InternationalRF2_PRODUCTION_" + effectiveDate + "T120000Z.zip");
     }
 
     private void givenCodeSystemExists(String shortName, String branchPath, Integer dependantVersion) {
@@ -246,6 +267,8 @@ class CodeSystemControllerTest extends AbstractTest {
         CodeSystem codeSystem = codeSystemService.find(shortName);
         codeSystem.setDependantVersionEffectiveTime(dependsOn);
         codeSystemService.createVersion(codeSystem, effectiveDate, description);
+        CodeSystemVersion codeSystemVersion = codeSystemService.findVersion(shortName, effectiveDate);
+        codeSystemService.updateCodeSystemVersionPackage(codeSystemVersion, "SnomedCT_DMEditionRF2_PRODUCTION_" + effectiveDate + "T120000Z.zip");
     }
 
     private Integer getDependantVersionEffectiveTimeFromResponse(ItemsPage<ItemsPage<?>> response, int index) {

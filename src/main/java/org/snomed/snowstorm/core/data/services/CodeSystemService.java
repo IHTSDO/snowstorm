@@ -24,7 +24,6 @@ import org.snomed.snowstorm.core.data.services.pojo.PageWithBucketAggregationsFa
 import org.snomed.snowstorm.core.pojo.LanguageDialect;
 import org.snomed.snowstorm.core.util.DateUtil;
 import org.snomed.snowstorm.core.util.LangUtil;
-import org.snomed.snowstorm.rest.pojo.CodeSystemNewAuthoringCycleRequest;
 import org.snomed.snowstorm.rest.pojo.CodeSystemUpdateRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -569,22 +568,31 @@ public class CodeSystemService {
 	}
 
 	@PreAuthorize("hasPermission('ADMIN', #codeSystem.branchPath)")
-	public void updateCodeSystemBranchMetadata(CodeSystem codeSystem, CodeSystemNewAuthoringCycleRequest updateRequest) {
+	public void updateCodeSystemBranchMetadata(CodeSystem codeSystem) {
 		String branchPath = codeSystem.getBranchPath();
 		Branch branch = branchService.findBranchOrThrow(branchPath);
-
 		if (branch.isLocked()) {
 			throw new IllegalStateException("Branch metadata can not be updated when branch is locked.");
 		}
+		// Find latest version including future / internal releases
+		final CodeSystemVersion codeSystemVersion = findLatestImportedVersion(codeSystem.getShortName());
+		if (codeSystemVersion == null) {
+			throw new IllegalStateException("Latest code system version not found.");
+		}
 		Metadata branchMetadata = branch.getMetadata();
-		if (updateRequest.getPreviousPackage() != null) {
-			branchMetadata.putString(PREVIOUS_PACKAGE, updateRequest.getPreviousPackage());
-		}
-		if (updateRequest.getPreviousRelease() != null) {
-			branchMetadata.putString(PREVIOUS_RELEASE, updateRequest.getPreviousRelease());
-		}
-		if (updateRequest.getPreviousDependency() != null) {
-			branchMetadata.putString(PREVIOUS_DEPENDENCY_PACKAGE, updateRequest.getPreviousDependency());
+		branchMetadata.putString(PREVIOUS_RELEASE, String.valueOf(codeSystemVersion.getEffectiveDate()));
+		branchMetadata.putString(PREVIOUS_PACKAGE, codeSystemVersion.getReleasePackage());
+
+		if (codeSystem.getDependantVersionEffectiveTime() != null) {
+			final Optional<CodeSystem> parentCodeSystem = findByBranchPath(PathUtil.getParentPath(branchPath));
+			if (parentCodeSystem.isEmpty()) {
+				throw new IllegalStateException("Dependant version set but parent code system not found.");
+			}
+			final CodeSystemVersion parentCodeSystemVersion = findVersion(parentCodeSystem.get().getShortName(), codeSystem.getDependantVersionEffectiveTime());
+			if (parentCodeSystemVersion == null) {
+				throw new IllegalStateException("Dependant version " + codeSystem.getDependantVersionEffectiveTime() + " not found.");
+			}
+			branchMetadata.putString(PREVIOUS_DEPENDENCY_PACKAGE, parentCodeSystemVersion.getReleasePackage());
 		}
 		branchService.updateMetadata(branchPath, branchMetadata);
 	}
