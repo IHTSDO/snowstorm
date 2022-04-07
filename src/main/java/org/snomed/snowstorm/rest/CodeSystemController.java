@@ -240,9 +240,10 @@ public class CodeSystemController {
 
 	@ApiOperation("Start new authoring cycle for given code system")
 	@RequestMapping(value = "/{shortName}/new-authoring-cycle", method = RequestMethod.POST)
-	public void startNewAuthoringCycle(@PathVariable String shortName, @RequestBody CodeSystemNewAuthoringCycleRequest updateRequest) {
+	@PreAuthorize("hasPermission('ADMIN', 'global')")
+	public void startNewAuthoringCycle(@PathVariable String shortName) {
 		CodeSystem codeSystem = ControllerHelper.throwIfNotFound("Code System", codeSystemService.find(shortName));
-		codeSystemService.updateCodeSystemBranchMetadata(codeSystem, updateRequest);
+		codeSystemService.updateCodeSystemBranchMetadata(codeSystem);
 	}
 
 	private CodeSystem joinUserPermissionsInfo(CodeSystem codeSystem) {
