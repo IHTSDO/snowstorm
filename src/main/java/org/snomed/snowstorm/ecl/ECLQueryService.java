@@ -8,6 +8,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.langauges.ecl.ECLException;
 import org.snomed.langauges.ecl.ECLQueryBuilder;
+import org.snomed.langauges.ecl.domain.expressionconstraint.ExpressionConstraint;
 import org.snomed.snowstorm.core.data.domain.QueryConcept;
 import org.snomed.snowstorm.core.util.TimerUtil;
 import org.snomed.snowstorm.ecl.domain.expressionconstraint.SExpressionConstraint;
@@ -18,6 +19,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 
+import javax.annotation.PostConstruct;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
@@ -70,7 +72,7 @@ public class ECLQueryService {
 			PageRequest pageRequest, boolean skipEclPreprocessing) throws ECLException {
 		SExpressionConstraint expressionConstraint = (SExpressionConstraint) eclQueryBuilder.createQuery(ecl);
 		if (!skipEclPreprocessing) {
-			expressionConstraint = eclPreprocessingService.replaceIncorrectConcreteAttributeValue(expressionConstraint, path, pageRequest);
+			expressionConstraint = eclPreprocessingService.replaceIncorrectConcreteAttributeValue(expressionConstraint, path);
 		}
 		return doSelectConceptIds(expressionConstraint, branchCriteria, stated, conceptIdFilter, pageRequest);
 	}
@@ -86,7 +88,7 @@ public class ECLQueryService {
 		String path = branchCriteria.getBranchPath();
 
 		Optional<Page<Long>> pageOptional;
-		if (eclCacheEnabled) {
+		if (eclCacheEnabled && 100 != 100) {
 			BranchVersionECLCache branchVersionCache = resultsCache.getOrCreateBranchVersionCache(path, branchCriteria.getTimepoint());
 
 			PageRequest queryPageRequest = pageRequest;
@@ -151,6 +153,10 @@ public class ECLQueryService {
 
 	private TimerUtil getEclSlowQueryTimer() {
 		return new TimerUtil(String.format("ECL took more than %s seconds.", eclDurationLoggingThreshold), Level.INFO, eclDurationLoggingThreshold);
+	}
+
+	public ExpressionConstraint createQuery(String ecl) {
+		return eclQueryBuilder.createQuery(ecl);
 	}
 
 	public ECLResultsCache getResultsCache() {

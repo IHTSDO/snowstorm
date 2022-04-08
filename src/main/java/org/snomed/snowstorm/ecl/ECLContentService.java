@@ -10,15 +10,13 @@ import org.elasticsearch.index.query.TermsQueryBuilder;
 import org.snomed.langauges.ecl.domain.ConceptReference;
 import org.snomed.langauges.ecl.domain.expressionconstraint.SubExpressionConstraint;
 import org.snomed.langauges.ecl.domain.filter.*;
-import org.snomed.snowstorm.core.data.domain.Concept;
-import org.snomed.snowstorm.core.data.domain.Concepts;
-import org.snomed.snowstorm.core.data.domain.QueryConcept;
-import org.snomed.snowstorm.core.data.domain.SnomedComponent;
+import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.services.DescriptionService;
 import org.snomed.snowstorm.core.data.services.QueryService;
 import org.snomed.snowstorm.core.data.services.ReferenceSetMemberService;
 import org.snomed.snowstorm.core.data.services.RelationshipService;
 import org.snomed.snowstorm.core.util.PageHelper;
+import org.snomed.snowstorm.ecl.domain.expressionconstraint.SExpressionConstraint;
 import org.snomed.snowstorm.ecl.domain.expressionconstraint.SSubExpressionConstraint;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Lazy;
@@ -31,6 +29,7 @@ import org.springframework.data.elasticsearch.core.query.NativeSearchQuery;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
 import org.springframework.stereotype.Service;
 
+import javax.annotation.PostConstruct;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -66,6 +65,20 @@ public class ECLContentService {
 	@Lazy
 	private ECLQueryService eclQueryService;
 
+	private SExpressionConstraint historyMaxECL;
+
+	private static final List<Long> HISTORY_PROFILE_MIN = Collections.singletonList(parseLong(Concepts.REFSET_SAME_AS_ASSOCIATION));
+	private static final List<Long> HISTORY_PROFILE_MOD = List.of(
+			parseLong(Concepts.REFSET_SAME_AS_ASSOCIATION),
+			parseLong(Concepts.REFSET_REPLACED_BY_ASSOCIATION),
+			parseLong(Concepts.REFSET_WAS_A_ASSOCIATION),
+			parseLong(Concepts.REFSET_PARTIALLY_EQUIVALENT_TO_ASSOCIATION));
+
+	@PostConstruct
+	public void init() {
+		historyMaxECL = (SExpressionConstraint) eclQueryService.createQuery("< 900000000000522004 |Historical association reference set|");
+	}
+
 	public Page<QueryConcept> queryForPage(NativeSearchQuery searchQuery) {
 		searchQuery.setTrackTotalHits(true);
 		Pageable pageable = searchQuery.getPageable();
@@ -77,8 +90,8 @@ public class ECLContentService {
 		return elasticsearchTemplate.searchForStream(searchQuery, QueryConcept.class);
 	}
 
-	public Set<Long> findConceptIdsInReferenceSet(BranchCriteria branchCriteria, String referenceSetId) {
-		return memberService.findConceptsInReferenceSet(branchCriteria, referenceSetId);
+	public Set<Long> findConceptIdsInReferenceSet(String referenceSetId, List<MemberFilterConstraint> memberFilterConstraints, BranchCriteria branchCriteria) {
+		return memberService.findConceptsInReferenceSet(referenceSetId, memberFilterConstraints, branchCriteria);
 	}
 
 	public List<Long> findRelationshipDestinationIds(Collection<Long> sourceConceptIds, List<Long> attributeTypeIds, BranchCriteria branchCriteria, boolean stated) {
@@ -162,9 +175,7 @@ public class ECLContentService {
 			BoolQueryBuilder conceptFilterQuery = boolQuery();
 
 			// Active filter
-			for (ActiveFilter activeFilter : orEmpty(conceptFilter.getActiveFilters())) {
-				conceptFilterQuery.must(termQuery(SnomedComponent.Fields.ACTIVE, activeFilter.isActive()));
-			}
+			applyActiveFilters(orEmpty(conceptFilter.getActiveFilters()), conceptFilterQuery);
 
 			// Definition status filter
 			applyFieldFilters(conceptFilter.getDefinitionStatusFilters(), conceptFilterQuery, path, branchCriteria, stated);
@@ -173,41 +184,8 @@ public class ECLContentService {
 			applyFieldFilters(conceptFilter.getModuleFilters(), conceptFilterQuery, path, branchCriteria, stated);
 
 			// EffectiveTimeFilter
-			for (EffectiveTimeFilter effectiveTimeFilter : orEmpty(conceptFilter.getEffectiveTimeFilters())) {
-				TimeComparisonOperator operator = effectiveTimeFilter.getOperator();
-				Set<Integer> effectiveTimes = effectiveTimeFilter.getEffectiveTime();
-				BoolQueryBuilder query = boolQuery();
-				String effectiveTimeField = SnomedComponent.Fields.EFFECTIVE_TIME;
-				switch (operator) {
-					case EQUAL:
-						query.must(termsQuery(effectiveTimeField, effectiveTimes));
-						break;
-					case NOT_EQUAL:
-						query.mustNot(termsQuery(effectiveTimeField, effectiveTimes));
-						break;
-					case LESS_THAN_OR_EQUAL:
-						for (Integer effectiveTime : effectiveTimes) {
-							query.must(rangeQuery(effectiveTimeField).lte(effectiveTime));
-						}
-						break;
-					case LESS_THAN:
-						for (Integer effectiveTime : effectiveTimes) {
-							query.must(rangeQuery(effectiveTimeField).lt(effectiveTime));
-						}
-						break;
-					case GREATER_THAN_OR_EQUAL:
-						for (Integer effectiveTime : effectiveTimes) {
-							query.must(rangeQuery(effectiveTimeField).gte(effectiveTime));
-						}
-						break;
-					case GREATER_THAN:
-						for (Integer effectiveTime : effectiveTimes) {
-							query.must(rangeQuery(effectiveTimeField).gt(effectiveTime));
-						}
-						break;
-				}
-				conceptFilterQuery.must(query);
-			}
+			applyEffectiveTimeFilters(conceptFilter.getEffectiveTimeFilters(), conceptFilterQuery);
+
 			superQuery.must(conceptFilterQuery);
 		}
 
@@ -224,11 +202,37 @@ public class ECLContentService {
 		return conceptIds;
 	}
 
-	private void applyFieldFilters(List<FieldFilter> fieldFilters, BoolQueryBuilder conceptFilterQuery, String path, BranchCriteria branchCriteria, boolean stated) {
+	public SortedMap<Long, Long> applyDescriptionFilter(Collection<Long> conceptIds, DescriptionFilterConstraint descriptionFilter, BranchCriteria branchCriteria, boolean stated) {
+		List<FieldFilter> moduleFilters = orEmpty(descriptionFilter.getModuleFilters());
+		List<EffectiveTimeFilter> effectiveTimeFilters = orEmpty(descriptionFilter.getEffectiveTimeFilters());
+		List<ActiveFilter> activeFilters = orEmpty(descriptionFilter.getActiveFilters());
+
+		BoolQueryBuilder masterDescriptionQuery = boolQuery();
+
+		// Module filter
+		applyFieldFilters(moduleFilters, masterDescriptionQuery, branchCriteria.getBranchPath(), branchCriteria, stated);
+
+		// Effective time filters
+		applyEffectiveTimeFilters(effectiveTimeFilters, masterDescriptionQuery);
+
+		// Active filters
+		applyActiveFilters(activeFilters, masterDescriptionQuery);
+
+		List<TermFilter> termFilters = orEmpty(descriptionFilter.getTermFilters());
+		List<LanguageFilter> languageFilters = orEmpty(descriptionFilter.getLanguageFilters());
+		List<DescriptionTypeFilter> descriptionTypeFilters = orEmpty(descriptionFilter.getDescriptionTypeFilters());
+		List<DialectFilter> dialectFilters = orEmpty(descriptionFilter.getDialectFilters());
+
+		return descriptionService.applyDescriptionFilter(conceptIds, termFilters, languageFilters, descriptionTypeFilters, dialectFilters,
+				branchCriteria, eclQueryService, masterDescriptionQuery);
+	}
+
+	private void applyFieldFilters(List<FieldFilter> fieldFilters, BoolQueryBuilder filterQuery, String path, BranchCriteria branchCriteria, boolean stated) {
 		for (FieldFilter fieldFilter : orEmpty(fieldFilters)) {
 			Set<String> values = null;
 			SubExpressionConstraint subExpressionConstraint = fieldFilter.getSubExpressionConstraint();
 			if (subExpressionConstraint != null) {
+				// TODO: Ensure caching
 				Optional<Page<Long>> concepts = ConceptSelectorHelper.select((SSubExpressionConstraint) subExpressionConstraint, path, branchCriteria, stated, null, null, this);
 				if (concepts.isPresent()) {
 					values = concepts.get().get().map(Object::toString).collect(Collectors.toSet());
@@ -239,17 +243,101 @@ public class ECLContentService {
 			if (values != null) {
 				TermsQueryBuilder termsQuery = termsQuery(fieldFilter.getField(), values);
 				if (fieldFilter.isEquals()) {
-					conceptFilterQuery.must(termsQuery);
+					filterQuery.must(termsQuery);
 				} else {
-					conceptFilterQuery.mustNot(termsQuery);
+					filterQuery.mustNot(termsQuery);
 				}
 			}
 		}
 	}
 
-	public SortedMap<Long, Long> applyDescriptionFilter(Collection<Long> conceptIds, List<TermFilter> termFilters, List<LanguageFilter> languageFilters,
-			List<DescriptionTypeFilter> descriptionTypeFilters, List<DialectFilter> dialectFilters, BranchCriteria branchCriteria) {
+	private void applyActiveFilters(List<ActiveFilter> activeFilters, BoolQueryBuilder componentFilterQuery) {
+		if (activeFilters.isEmpty()) {
+			componentFilterQuery.must(termQuery(SnomedComponent.Fields.ACTIVE, true));
+		} else {
+			for (ActiveFilter activeFilter : activeFilters) {
+				componentFilterQuery.must(termQuery(SnomedComponent.Fields.ACTIVE, activeFilter.isActive()));
+			}
+		}
+	}
 
-		return descriptionService.applyDescriptionFilter(conceptIds, termFilters, languageFilters, descriptionTypeFilters, dialectFilters, branchCriteria, eclQueryService);
+	private void applyEffectiveTimeFilters(List<EffectiveTimeFilter> effectiveTimeFilters, BoolQueryBuilder componentFilterQuery) {
+		for (EffectiveTimeFilter effectiveTimeFilter : orEmpty(effectiveTimeFilters)) {
+			TimeComparisonOperator operator = effectiveTimeFilter.getOperator();
+			Set<Integer> effectiveTimes = effectiveTimeFilter.getEffectiveTime();
+			BoolQueryBuilder query = boolQuery();
+			String effectiveTimeField = SnomedComponent.Fields.EFFECTIVE_TIME;
+			switch (operator) {
+				case EQUAL:
+					query.must(termsQuery(effectiveTimeField, effectiveTimes));
+					break;
+				case NOT_EQUAL:
+					query.mustNot(termsQuery(effectiveTimeField, effectiveTimes));
+					break;
+				case LESS_THAN_OR_EQUAL:
+					for (Integer effectiveTime : effectiveTimes) {
+						query.must(rangeQuery(effectiveTimeField).lte(effectiveTime));
+					}
+					break;
+				case LESS_THAN:
+					for (Integer effectiveTime : effectiveTimes) {
+						query.must(rangeQuery(effectiveTimeField).lt(effectiveTime));
+					}
+					break;
+				case GREATER_THAN_OR_EQUAL:
+					for (Integer effectiveTime : effectiveTimes) {
+						query.must(rangeQuery(effectiveTimeField).gte(effectiveTime));
+					}
+					break;
+				case GREATER_THAN:
+					for (Integer effectiveTime : effectiveTimes) {
+						query.must(rangeQuery(effectiveTimeField).gt(effectiveTime));
+					}
+					break;
+			}
+			componentFilterQuery.must(query);
+		}
+	}
+
+	public Set<Long> findHistoricConcepts(SortedSet<Long> initialConcepts, HistorySupplement historySupplement, BranchCriteria branchCriteria) {
+		List<Long> associationTypes = getHistoricAssociationTypes(historySupplement, branchCriteria);
+
+		// Find all active historic associations where the target component id matches one of the initially selected concept.
+		// Return the referenced component, these are the inactive concepts with that association.
+		NativeSearchQueryBuilder queryBuilder = new NativeSearchQueryBuilder()
+				.withQuery(branchCriteria.getEntityBranchCriteria(ReferenceSetMember.class)
+						.must(termQuery(ReferenceSetMember.Fields.ACTIVE, true))
+						.must(termsQuery(ReferenceSetMember.Fields.REFSET_ID, associationTypes)))
+				.withFilter(termsQuery(ReferenceSetMember.Fields.ADDITIONAL_FIELDS_PREFIX + ReferenceSetMember.AssociationFields.TARGET_COMP_ID, initialConcepts))
+				.withFields(ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID)
+				.withPageable(LARGE_PAGE);
+
+		Set<Long> conceptIds = new LongOpenHashSet();
+		try (SearchHitsIterator<ReferenceSetMember> stream = elasticsearchTemplate.searchForStream(queryBuilder.build(), ReferenceSetMember.class)) {
+			stream.forEachRemaining(hit -> conceptIds.add(parseLong(hit.getContent().getReferencedComponentId())));
+		}
+		return conceptIds;
+	}
+
+	private List<Long> getHistoricAssociationTypes(HistorySupplement historySupplement, BranchCriteria branchCriteria) {
+		List<Long> associations;
+
+		SExpressionConstraint expressionConstraint = null;
+		if (historySupplement.getHistorySubset() != null) {
+			expressionConstraint = (SExpressionConstraint) historySupplement.getHistorySubset();
+		} else if (historySupplement.getHistoryProfile() == HistoryProfile.MAX) {
+			expressionConstraint = historyMaxECL;
+		}
+		if (expressionConstraint != null) {
+			Page<Long> associationsPage = eclQueryService.doSelectConceptIds(expressionConstraint, branchCriteria, false, null, null);
+			associations = associationsPage.getContent();
+		} else {
+			if (historySupplement.getHistoryProfile() == HistoryProfile.MIN) {
+				associations = HISTORY_PROFILE_MIN;
+			} else {
+				associations = HISTORY_PROFILE_MOD;
+			}
+		}
+		return associations;
 	}
 }

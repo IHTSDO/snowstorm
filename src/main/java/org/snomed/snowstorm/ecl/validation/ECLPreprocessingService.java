@@ -5,6 +5,8 @@ import io.kaicode.elasticvc.api.CommitListener;
 import io.kaicode.elasticvc.api.VersionControlHelper;
 import io.kaicode.elasticvc.domain.Commit;
 import org.snomed.langauges.ecl.domain.expressionconstraint.SubExpressionConstraint;
+import org.snomed.langauges.ecl.domain.filter.SearchType;
+import org.snomed.langauges.ecl.domain.filter.TypedSearchTerm;
 import org.snomed.langauges.ecl.domain.refinement.EclAttributeGroup;
 import org.snomed.langauges.ecl.domain.refinement.EclRefinement;
 import org.snomed.langauges.ecl.domain.refinement.SubAttributeSet;
@@ -51,7 +53,7 @@ public class ECLPreprocessingService implements CommitListener {
 		CACHED_CONCRETE_CONCEPT_IDS.remove(commit.getBranch().getPath());
 	}
 
-	public SExpressionConstraint replaceIncorrectConcreteAttributeValue(final SExpressionConstraint sExpressionConstraint, final String branch, final PageRequest pageRequest) {
+	public SExpressionConstraint replaceIncorrectConcreteAttributeValue(final SExpressionConstraint sExpressionConstraint, final String branch) {
 		if (sExpressionConstraint != null) {
 			if (!CACHED_CONCRETE_CONCEPT_IDS.containsKey(branch) || (CACHED_CONCRETE_CONCEPT_IDS.containsKey(branch) && CACHED_CONCRETE_CONCEPT_IDS.get(branch).isEmpty())) {
 				cacheConcreteConceptIds(branch);
@@ -94,8 +96,8 @@ public class ECLPreprocessingService implements CommitListener {
 	private void setPlaceholder(final SEclAttribute sEclAttribute) {
 		if (sEclAttribute.getNumericValue() != null) {
 			sEclAttribute.setNumericValue(String.valueOf(Float.MAX_VALUE));
-		} else if (sEclAttribute.getStringValue() != null) {
-			sEclAttribute.setStringValue(MISSING);
+		} else if (sEclAttribute.getStringValues() != null) {
+			sEclAttribute.setStringValues(Collections.singletonList(new TypedSearchTerm(SearchType.MATCH, MISSING)));
 		}
 	}
 

@@ -14,7 +14,9 @@ import org.snomed.snowstorm.core.data.services.CodeSystemService;
 import org.snomed.snowstorm.core.data.services.ConceptService;
 import org.snomed.snowstorm.core.data.services.ReferenceSetMemberService;
 import org.snomed.snowstorm.core.data.services.ServiceException;
+import org.snomed.snowstorm.core.data.services.pojo.MemberSearchRequest;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
@@ -59,6 +61,9 @@ class ECLQueryServiceFilterTest extends AbstractTest {
 
 		allConcepts.add(new Concept(DISORDER).addDescription(new Description("Disease(disorder)")).addRelationship(new Relationship(ISA, SNOMEDCT_ROOT)));
 		allConcepts.addAll(newMetadataConcepts(CORE_MODULE, MODULE_A, PRIMITIVE, DEFINED, PREFERRED, ACCEPTABLE, FSN, SYNONYM, TEXT_DEFINITION, "46011000052107"));
+		allConcepts.add(new Concept(REFSET_HISTORICAL_ASSOCIATION).addRelationship(new Relationship(ISA, SNOMEDCT_ROOT)));
+		allConcepts.add(new Concept(REFSET_SAME_AS_ASSOCIATION).addRelationship(new Relationship(ISA, REFSET_HISTORICAL_ASSOCIATION)));
+		allConcepts.add(new Concept(REFSET_SIMILAR_TO_ASSOCIATION).addRelationship(new Relationship(ISA, REFSET_HISTORICAL_ASSOCIATION)));
 		createConceptsAndVersionCodeSystem(allConcepts, 20200131);
 
 		allConcepts.add(new Concept("100001").addDescription(new Description("Athlete's heart (disorder)"))
@@ -86,7 +91,14 @@ class ECLQueryServiceFilterTest extends AbstractTest {
 		// Some active and some inactive concepts are active members of the IPS refset.
 		memberService.createMembers(MAIN, createSimpleRefsetMembers(IPS_REFSET, "100001", "100002", "200001", "200002"));
 
-		conceptService.batchCreate(allConcepts, MAIN);
+		// Historical associations
+		memberService.createMembers(MAIN, Set.of(
+				new ReferenceSetMember(CORE_MODULE, REFSET_SAME_AS_ASSOCIATION, "200001")
+						.setAdditionalField(ReferenceSetMember.AssociationFields.TARGET_COMP_ID, "100001"),
+				new ReferenceSetMember(CORE_MODULE, REFSET_SIMILAR_TO_ASSOCIATION, "200002")
+						.setAdditionalField(ReferenceSetMember.AssociationFields.TARGET_COMP_ID, "100001")
+		));
+
 		allConceptIds = allConcepts.stream().map(Concept::getId).collect(Collectors.toSet());
 		branchCriteria = versionControlHelper.getBranchCriteria(MAIN);
 	}
@@ -334,6 +346,16 @@ class ECLQueryServiceFilterTest extends AbstractTest {
 		assertEquals(newHashSet("100001", "100002"), select("^ 816080008 {{ C active = true }}"));
 		assertEquals(newHashSet("200001", "200002"), select("^ 816080008 {{ C active = 0 }}"));
 		assertEquals(newHashSet("200001", "200002"), select("^ 816080008 {{ C active = false }}"));
+	}
+
+	@Test
+	public void historySupplement() {
+		Page<ReferenceSetMember> members = memberService.findMembers(MAIN, new MemberSearchRequest().referenceSet(REFSET_SAME_AS_ASSOCIATION), PageRequest.of(0, 10));
+		for (ReferenceSetMember member : members) {
+			System.out.println(member);
+		}
+		assertEquals(newHashSet("100001", "200001"), select("100001 {{ + HISTORY-MIN }}"));
+		assertEquals(newHashSet("100001", "200001", "200002"), select("100001 {{ + HISTORY-MAX }}"));
 	}
 
 	protected Set<String> select(String ecl) {

@@ -1182,6 +1182,7 @@ class SemanticIndexUpdateServiceTest extends AbstractTest {
 		assertEquals(1, queryService.search(queryService.createQueryBuilder(false).ecl("*:396070081 = \"123test\""), path, PAGE_REQUEST).getTotalElements());
 		assertEquals(0, queryService.search(queryService.createQueryBuilder(false).ecl("*:396070081 = \"50\""), path, PAGE_REQUEST).getTotalElements());
 		assertEquals(0, queryService.search(queryService.createQueryBuilder(false).ecl("*:396070081 = \"#50\""), path, PAGE_REQUEST).getTotalElements());
+		assertEquals(1, queryService.search(queryService.createQueryBuilder(false).ecl("*:396070081 = (\"50\" \"123test\")"), path, PAGE_REQUEST).getTotalElements());
 
 		// number query
 		assertEquals(1, queryService.search(queryService.createQueryBuilder(false).ecl("*:396070080 = #100.000005"), path, PAGE_REQUEST).getTotalElements());
