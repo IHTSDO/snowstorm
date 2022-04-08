@@ -23,7 +23,6 @@ class ECLModelDeserializerServiceTest {
 
 	@Test
 	public void testAll() throws JsonProcessingException {
-		assertConversionTest("<  64572001 |Disease|  {{ term = \"box\", type = syn, dialect = en-us (prefer) }}\n");
 		assertConversionTest("*");
 		assertConversionTest("100000000");
 		assertConversionTest("< 100000000");
@@ -187,6 +186,20 @@ class ECLModelDeserializerServiceTest {
 		// # Attribute Values
 		assertConversionTest("< 404684003 |Clinical finding| : 47429007 |Associated with| = ( " +
 				"< 404684003 |Clinical finding| : 116676008 |Associated morphology| = << 55641003 |Infarct| )");
+
+		// All concrete values
+		assertConversionTest("< 404684003 |Clinical finding| : 1000000 = true");
+		assertConversionTest("< 404684003 |Clinical finding| : 2000000 = #10");
+		assertConversionTest("< 404684003 |Clinical finding| : 3000000 = \"Supplier A\"");
+		assertConversionTest("< 404684003 |Clinical finding| : 3000000 = (\"Supplier A\" \"Supplier Z\")");
+
+		// Concept filters
+		assertConversionTest("< 404684003 |Clinical finding| {{ C active = true }}");
+
+		// Description filters
+		assertConversionTest("< 64572001 |Disease| {{ D term = \"box\", type = syn, dialect = en-us (prefer) }}");
+		assertConversionTest("< 404684003 |Clinical finding| {{ D term = \"heart\" }}");
+		assertConversionTest("< 64572001 |Disease| {{ D term = \"hjärt\", language = sv }} {{ D term = \"heart\", language = en }}");
 	}
 
 	private void assertConversionTest(String inputEcl) throws JsonProcessingException {

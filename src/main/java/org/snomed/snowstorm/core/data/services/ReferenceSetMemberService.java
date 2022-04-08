@@ -21,6 +21,8 @@ import org.elasticsearch.search.aggregations.AggregationBuilders;
 import org.elasticsearch.search.sort.FieldSortBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.snomed.langauges.ecl.domain.filter.MemberFieldFilter;
+import org.snomed.langauges.ecl.domain.filter.MemberFilterConstraint;
 import org.snomed.snowstorm.config.Config;
 import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.repositories.ReferenceSetMemberRepository;
@@ -59,6 +61,7 @@ import static org.elasticsearch.index.query.QueryBuilders.*;
 import static org.snomed.snowstorm.config.Config.AGGREGATION_SEARCH_SIZE;
 import static org.snomed.snowstorm.core.data.domain.Concepts.inactivationAndAssociationRefsets;
 import static org.snomed.snowstorm.core.data.services.CodeSystemService.MAIN;
+import static org.snomed.snowstorm.core.util.CollectionUtils.orEmpty;
 
 @Service
 public class ReferenceSetMemberService extends ComponentService {
@@ -433,21 +436,43 @@ public class ReferenceSetMemberService extends ComponentService {
 		return doSaveBatchComponents(members, commit, ReferenceSetMember.Fields.MEMBER_ID, memberRepository);
 	}
 
-	public Set<Long> findConceptsInReferenceSet(BranchCriteria branchCriteria, String referenceSetId) {
+	public Set<Long> findConceptsInReferenceSet(String referenceSetId, List<MemberFilterConstraint> memberFilterConstraints, BranchCriteria branchCriteria) {
 		// Build query
 
-		BoolQueryBuilder boolQuery = boolQuery().must(branchCriteria.getEntityBranchCriteria(ReferenceSetMember.class))
+		BoolQueryBuilder memberQuery = boolQuery().must(branchCriteria.getEntityBranchCriteria(ReferenceSetMember.class));
+
+		if (memberFilterConstraints != null) {
+			for (MemberFilterConstraint memberFilterConstraint : memberFilterConstraints) {
+				for (MemberFieldFilter fieldFilter : orEmpty(memberFilterConstraint.getMemberFieldFilters())) {
+					String fieldName = fieldFilter.getFieldName();
+
+					if (fieldFilter.getExpressionComparisonOperator() != null) {
+						// TODO
+					} else if (fieldFilter.getNumericComparisonOperator() != null) {
+						
+					} else if (fieldFilter.getStringComparisonOperator() != null) {
+
+					} else if (fieldFilter.getTimeComparisonOperator() != null) {
+
+					}
+				}
+			}
+		}
+
+
+
+		memberQuery
 				.must(termQuery(SnomedComponent.Fields.ACTIVE, true))
 				.must(regexpQuery(ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID, ".*0."));// Matches the concept partition identifier
 		// Allow searching across all refsets
 		if (referenceSetId != null) {
-			boolQuery.must(termQuery(ReferenceSetMember.Fields.REFSET_ID, referenceSetId));
+			memberQuery.must(termQuery(ReferenceSetMember.Fields.REFSET_ID, referenceSetId));
 		}
 
 		// Build search query
 		NativeSearchQuery query = new NativeSearchQueryBuilder()
-				.withQuery(boolQuery)
-				.withFields(ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID)// Triggers FastResultsMapper
+				.withQuery(memberQuery)
+				.withFields(ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID)
 				.withSort(new FieldSortBuilder("_doc"))// Fastest unordered sort
 				.withPageable(LARGE_PAGE)
 				.build();

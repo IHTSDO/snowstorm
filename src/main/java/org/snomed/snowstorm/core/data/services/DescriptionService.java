@@ -497,10 +497,8 @@ public class DescriptionService extends ComponentService {
 	}
 
 	public SortedMap<Long, Long> applyDescriptionFilter(Collection<Long> conceptIds, List<TermFilter> termFilters, List<LanguageFilter> languageFilters,
-			List<DescriptionTypeFilter> descriptionTypeFilters, List<DialectFilter> dialectFilters, BranchCriteria branchCriteria, ECLQueryService eclQueryService) {
-
-		BoolQueryBuilder masterDescriptionQuery = boolQuery();
-		masterDescriptionQuery.must(termQuery(SnomedComponent.Fields.ACTIVE, true));
+			List<DescriptionTypeFilter> descriptionTypeFilters, List<DialectFilter> dialectFilters,
+			BranchCriteria branchCriteria, ECLQueryService eclQueryService, BoolQueryBuilder masterDescriptionQuery) {
 
 		for (TermFilter termFilter : termFilters) {
 			BoolQueryBuilder termFilterQuery = boolQuery();
@@ -568,7 +566,7 @@ public class DescriptionService extends ComponentService {
 						BoolQueryBuilder langRefsetQuery = boolQuery();
 						langRefsetQuery.must(termQuery(REFSET_ID, stringSetEntry.getKey()));
 						if (!stringSetEntry.getValue().isEmpty()) {
-							langRefsetQuery.must(termsQuery(ReferenceSetMember.Fields.ADDITIONAL_FIELDS_PREFIX + "acceptabilityId", stringSetEntry.getValue()));
+							langRefsetQuery.must(termsQuery(ACCEPTABILITY_ID_FIELD_PATH, stringSetEntry.getValue()));
 						}
 						acceptabilityQuery.should(langRefsetQuery);
 					}

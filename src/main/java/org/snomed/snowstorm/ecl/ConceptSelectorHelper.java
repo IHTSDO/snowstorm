@@ -12,7 +12,10 @@ import org.elasticsearch.search.sort.FieldSortBuilder;
 import org.elasticsearch.search.sort.SortBuilders;
 import org.elasticsearch.search.sort.SortOrder;
 import org.snomed.langauges.ecl.domain.expressionconstraint.SubExpressionConstraint;
-import org.snomed.langauges.ecl.domain.filter.*;
+import org.snomed.langauges.ecl.domain.filter.ConceptFilterConstraint;
+import org.snomed.langauges.ecl.domain.filter.DescriptionFilterConstraint;
+import org.snomed.langauges.ecl.domain.filter.HistorySupplement;
+import org.snomed.langauges.ecl.domain.filter.MemberFilterConstraint;
 import org.snomed.snowstorm.core.data.domain.Concept;
 import org.snomed.snowstorm.core.data.domain.QueryConcept;
 import org.snomed.snowstorm.ecl.domain.RefinementBuilder;
@@ -53,6 +56,8 @@ public class ConceptSelectorHelper {
 		// Get ECL filters
 		List<ConceptFilterConstraint> conceptFilters = null;
 		List<DescriptionFilterConstraint> descriptionFilters = null;
+		List<MemberFilterConstraint> memberFilterConstraints = null;
+		HistorySupplement historySupplement = null;
 		if (sExpressionConstraint instanceof SubExpressionConstraint) {
 			SubExpressionConstraint subExpressionConstraint = (SubExpressionConstraint) sExpressionConstraint;
 			conceptFilters = subExpressionConstraint.getConceptFilterConstraints();
@@ -63,11 +68,14 @@ public class ConceptSelectorHelper {
 			if (descriptionFilters != null && descriptionFilters.isEmpty()) {
 				descriptionFilters = null;
 			}
+			memberFilterConstraints = subExpressionConstraint.getMemberFilterConstraints();
+
+			historySupplement = subExpressionConstraint.getHistorySupplement();
 		}
 
 		Page<Long> conceptIds;
 		// If ECL filters present grab all concept ids and filter afterwards
-		if (conceptFilters != null || descriptionFilters != null) {
+		if (conceptFilters != null || descriptionFilters != null || historySupplement != null) {
 			SortedSet<Long> conceptIdSortedSet =
 					new LongLinkedOpenHashSet(fetchIds(query, conceptIdFilter, refinementBuilder.getInclusionFilter(), null, eclContentService).getContent());
 
@@ -79,17 +87,15 @@ public class ConceptSelectorHelper {
 				// For each filter constraint all sub-filters (term, language, etc) must apply.
 				// If multiple options are given within a sub-filter they are conjunction (OR).
 				for (DescriptionFilterConstraint descriptionFilter : descriptionFilters) {
-
-					List<TermFilter> termFilters = descriptionFilter.getTermFilters();
-					List<LanguageFilter> languageFilters = descriptionFilter.getLanguageFilters();
-					List<DescriptionTypeFilter> descriptionTypeFilters = descriptionFilter.getDescriptionTypeFilters();
-					List<DialectFilter> dialectFilters = descriptionFilter.getDialectFilters();
-					if (!termFilters.isEmpty() || !languageFilters.isEmpty() || !descriptionTypeFilters.isEmpty() || !dialectFilters.isEmpty()) {
-						SortedMap<Long, Long> descriptionToConceptMap = eclContentService.applyDescriptionFilter(conceptIdSortedSet,
-								termFilters, languageFilters, descriptionTypeFilters, dialectFilters, branchCriteria);
-						conceptIdSortedSet = new LongLinkedOpenHashSet(descriptionToConceptMap.values());
-					}
+					SortedMap<Long, Long> descriptionToConceptMap = eclContentService.applyDescriptionFilter(conceptIdSortedSet, descriptionFilter, branchCriteria, stated);
+					conceptIdSortedSet = new LongLinkedOpenHashSet(descriptionToConceptMap.values());
 				}
+			}
+
+			// Add history supplement
+			if (historySupplement != null) {
+				Set<Long> historicConcepts = eclContentService.findHistoricConcepts(conceptIdSortedSet, historySupplement, branchCriteria);
+				conceptIdSortedSet.addAll(historicConcepts);
 			}
 
 			conceptIds = getPage(pageRequest, new ArrayList<>(conceptIdSortedSet));

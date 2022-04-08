@@ -1,8 +1,12 @@
 package org.snomed.snowstorm.ecl.domain.refinement;
 
+import org.snomed.langauges.ecl.domain.filter.TypedSearchTerm;
+
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 class AttributeRange {
 
@@ -11,11 +15,12 @@ class AttributeRange {
 	private final Set<String> possibleAttributeTypes;
 	private final Integer cardinalityMin;
 	private final Integer cardinalityMax;
+	private final String operator;
 	private List<String> possibleAttributeValues;
-	private String operator;
 	private boolean isConcrete;
 	private boolean isNumeric;
-	private String concreteStringValue;
+	private boolean isSearchTerm;
+	private Set<String> concreteStringValues;
 	private Float concreteNumberValue;
 
 	private AttributeRange(boolean attributeTypeWildcard, List<Long> attributeTypeIds, Set<String> possibleAttributeTypes,
@@ -49,12 +54,13 @@ class AttributeRange {
 	}
 
 	public static AttributeRange newConcreteStringRange(boolean attributeTypeWildcard, List<Long> attributeTypeIds, Set<String> attributeTypeFields,
-				String operator, String stringValue, Integer cardinalityMin, Integer cardinalityMax) {
+				String operator, List<TypedSearchTerm> typedSearchTerms, Integer cardinalityMin, Integer cardinalityMax) {
 
 		final AttributeRange range = new AttributeRange(attributeTypeWildcard, attributeTypeIds, attributeTypeFields, operator, cardinalityMin, cardinalityMax);
 		range.isConcrete = true;
-		range.concreteStringValue = stringValue;
-		range.possibleAttributeValues = Collections.singletonList(stringValue);
+		range.isSearchTerm = true;
+		range.concreteStringValues = typedSearchTerms.stream().map(TypedSearchTerm::getTerm).collect(Collectors.toSet());
+		range.possibleAttributeValues = new ArrayList<>(range.concreteStringValues);
 		return range;
 	}
 
@@ -64,7 +70,7 @@ class AttributeRange {
 
 	boolean isValueWithinRange(Object conceptAttributeValue) {
 		if (!isConcrete) {
-			return operator.equals("=") == ( possibleAttributeValues == null || possibleAttributeValues.contains(conceptAttributeValue.toString()) );
+			return operator.equals("=") == ( possibleAttributeValues == null || possibleAttributeValues.contains(conceptAttributeValue.toString()));
 		} else {
 			if (isNumeric) {
 				if (!(conceptAttributeValue instanceof String)) {
@@ -87,7 +93,10 @@ class AttributeRange {
 				}
 				return false;
 			} else {
-				return concreteStringValue.equals(conceptAttributeValue);
+				if (conceptAttributeValue instanceof String) {
+					return concreteStringValues.contains(conceptAttributeValue);
+				}
+				return false;
 			}
 		}
 	}

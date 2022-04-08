@@ -15,6 +15,8 @@ import org.snomed.snowstorm.ecl.ECLContentService;
 import org.snomed.snowstorm.ecl.deserializer.ECLModelDeserializer;
 import org.snomed.snowstorm.ecl.domain.RefinementBuilder;
 import org.snomed.snowstorm.ecl.domain.SubRefinementBuilder;
+import org.snomed.snowstorm.ecl.domain.filter.SConceptFilterConstraint;
+import org.snomed.snowstorm.ecl.domain.filter.SDescriptionFilterConstraint;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 
@@ -148,7 +150,9 @@ public class SSubExpressionConstraint extends SubExpressionConstraint implements
 			}
 		} else if (operator == Operator.memberOf) {
 			// Member of wildcard (any reference set)
-			query.must(termsQuery(QueryConcept.Fields.CONCEPT_ID, refinementBuilder.getEclContentService().findConceptIdsInReferenceSet(refinementBuilder.getBranchCriteria(), null)));
+			Set<Long> conceptIdsInReferenceSet = refinementBuilder.getEclContentService()
+					.findConceptIdsInReferenceSet(null, getMemberFilterConstraints(), refinementBuilder.getBranchCriteria());
+			query.must(termsQuery(QueryConcept.Fields.CONCEPT_ID, conceptIdsInReferenceSet));
 		} else if (operator == Operator.descendantof || operator == Operator.childof) {
 			// Descendant of wildcard / Child of wildcard = anything but root
 			query.mustNot(termQuery(QueryConcept.Fields.CONCEPT_ID, Concepts.SNOMEDCT_ROOT));
@@ -166,7 +170,6 @@ public class SSubExpressionConstraint extends SubExpressionConstraint implements
 		BoolQueryBuilder query = refinementBuilder.getQuery();
 		ECLContentService conceptSelector = refinementBuilder.getEclContentService();
 		BranchCriteria branchCriteria = refinementBuilder.getBranchCriteria();
-		String path = refinementBuilder.getPath();
 		boolean stated = refinementBuilder.isStated();
 
 		switch (operator) {
@@ -229,7 +232,8 @@ public class SSubExpressionConstraint extends SubExpressionConstraint implements
 				break;
 			case memberOf:
 				// ^
-				query.filter(termsQuery(QueryConcept.Fields.CONCEPT_ID, conceptSelector.findConceptIdsInReferenceSet(branchCriteria, conceptId)));
+				Set<Long> conceptIdsInReferenceSet = conceptSelector.findConceptIdsInReferenceSet(conceptId, getMemberFilterConstraints(), branchCriteria);
+				query.filter(termsQuery(QueryConcept.Fields.CONCEPT_ID, conceptIdsInReferenceSet));
 				break;
 		}
 	}
@@ -255,6 +259,13 @@ public class SSubExpressionConstraint extends SubExpressionConstraint implements
 			buffer.append("( ");
 			ECLModelDeserializer.expressionConstraintToString(nestedExpressionConstraint, buffer);
 			buffer.append(" )");
+		}
+		for (ConceptFilterConstraint conceptFilterConstraint : orEmpty(conceptFilterConstraints)) {
+			System.out.println(conceptFilterConstraint.getClass().toString());
+			((SConceptFilterConstraint)conceptFilterConstraint).toString(buffer);
+		}
+		for (DescriptionFilterConstraint descriptionFilterConstraint : orEmpty(descriptionFilterConstraints)) {
+			((SDescriptionFilterConstraint) descriptionFilterConstraint).toString(buffer);
 		}
 	}
 }
