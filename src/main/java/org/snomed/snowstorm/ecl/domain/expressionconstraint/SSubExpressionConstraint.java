@@ -78,12 +78,12 @@ public class SSubExpressionConstraint extends SubExpressionConstraint implements
 		}
 		if (descriptionFilterConstraints != null) {
 			for (DescriptionFilterConstraint descriptionFilterConstraint : descriptionFilterConstraints) {
-				for (DescriptionTypeFilter descriptionTypeFilter : descriptionFilterConstraint.getDescriptionTypeFilters()) {
+				for (DescriptionTypeFilter descriptionTypeFilter : orEmpty(descriptionFilterConstraint.getDescriptionTypeFilters())) {
 					for (DescriptionType type : descriptionTypeFilter.getTypes()) {
 						conceptIds.add(type.getTypeId());
 					}
 				}
-				for (DialectFilter dialectFilter : descriptionFilterConstraint.getDialectFilters()) {
+				for (DialectFilter dialectFilter : orEmpty(descriptionFilterConstraint.getDialectFilters())) {
 					for (DialectAcceptability dialectAcceptability : dialectFilter.getDialectAcceptabilities()) {
 						if (dialectAcceptability.getSubExpressionConstraint() != null) {
 							conceptIds.addAll(((SSubExpressionConstraint)dialectAcceptability.getSubExpressionConstraint()).getConceptIds());
