@@ -513,8 +513,8 @@ public class DescriptionService extends ComponentService {
 		}
 
 		for (LanguageFilter languageFilter : languageFilters) {
-			addClause(termsQuery(Description.Fields.LANGUAGE_CODE, languageFilter.getLanguageCodes()), masterDescriptionQuery,
-					isEquals(languageFilter.getBooleanComparisonOperator()));
+			addClause(termsQuery(Description.Fields.LANGUAGE_CODE, languageFilter.getLanguageCodes().stream().map(String::toLowerCase).collect(Collectors.toList())),
+					masterDescriptionQuery, isEquals(languageFilter.getBooleanComparisonOperator()));
 		}
 
 		for (DescriptionTypeFilter descriptionTypeFilter : descriptionTypeFilters) {
@@ -878,8 +878,11 @@ public class DescriptionService extends ComponentService {
 				}
 				termFilter.must(foldedTermsQuery);
 
-				// Apply second constraint against non-folded term
-				if (SearchMode.WILDCARD != searchMode && containingNonAlphanumeric(term)) {
+				if (SearchMode.WILDCARD == searchMode) {
+					String replace = term.replace("*", ".*");
+					termFilter.must(regexpQuery(Description.Fields.TERM, replace));
+				} else if (containingNonAlphanumeric(term)) {
+					// Apply second constraint against non-folded term
 					String regexString = constructRegexQuery(term);
 					termFilter.must(regexpQuery(Description.Fields.TERM, regexString));
 				}
@@ -937,7 +940,7 @@ public class DescriptionService extends ComponentService {
 	}
 
 	private boolean containingNonAlphanumeric(String term) {
-		String[] words = term.split(" ", -1);
+		String[] words = term.split(" ");
 		for (String word : words) {
 			if (!StringUtils.isAlphanumeric(word)) {
 				return true;

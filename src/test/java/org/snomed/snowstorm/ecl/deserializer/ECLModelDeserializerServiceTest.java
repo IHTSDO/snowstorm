@@ -200,6 +200,7 @@ class ECLModelDeserializerServiceTest {
 		assertConversionTest("< 64572001 |Disease| {{ D term = \"box\", type = syn, dialect = en-us (prefer) }}");
 		assertConversionTest("< 404684003 |Clinical finding| {{ D term = \"heart\" }}");
 		assertConversionTest("< 64572001 |Disease| {{ D term = \"hjärt\", language = sv }} {{ D term = \"heart\", language = en }}");
+		assertConversionTest("< 125605004 |Fracture of bone| minus < 125605004 |Fracture of bone| {{ D term != \"fracture\" }}");
 	}
 
 	private void assertConversionTest(String inputEcl) throws JsonProcessingException {

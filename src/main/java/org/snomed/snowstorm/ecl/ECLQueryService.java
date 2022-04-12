@@ -87,8 +87,10 @@ public class ECLQueryService {
 		String ecl = expressionConstraint.toString();
 		String path = branchCriteria.getBranchPath();
 
+		logger.info("ECL on path {}, \"{}\"", path, ecl);
+
 		Optional<Page<Long>> pageOptional;
-		if (eclCacheEnabled && 100 != 100) {
+		if (eclCacheEnabled) {
 			BranchVersionECLCache branchVersionCache = resultsCache.getOrCreateBranchVersionCache(path, branchCriteria.getTimepoint());
 
 			PageRequest queryPageRequest = pageRequest;
