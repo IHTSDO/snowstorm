@@ -82,6 +82,9 @@ public class SSubExpressionConstraint extends SubExpressionConstraint implements
 					for (DescriptionType type : orEmpty(descriptionTypeFilter.getTypes())) {
 						conceptIds.add(type.getTypeId());
 					}
+					if (descriptionTypeFilter.getSubExpressionConstraint() != null) {
+						conceptIds.addAll(((SSubExpressionConstraint)descriptionTypeFilter.getSubExpressionConstraint()).getConceptIds());
+					}
 				}
 				for (DialectFilter dialectFilter : orEmpty(descriptionFilterConstraint.getDialectFilters())) {
 					for (DialectAcceptability dialectAcceptability : dialectFilter.getDialectAcceptabilities()) {

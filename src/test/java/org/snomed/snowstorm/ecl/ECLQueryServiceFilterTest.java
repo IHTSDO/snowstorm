@@ -214,6 +214,9 @@ class ECLQueryServiceFilterTest extends AbstractTest {
 		// type id
 		ecl = "< 64572001 |Disease| {{ term = \"heart\", typeId = (900000000000013009 |Synonym| 900000000000003001 |Fully specified name|)}}";
 		assertEquals(newHashSet("100001", "100002"), select(ecl));
+
+		ecl = "<  56265001 |Heart disease|  {{ term = \"hjärta\", language = sv, typeId =  900000000000013009 |synonym|  }}";
+		assertEquals(newHashSet(), select(ecl));
 	}
 
 	@Test
