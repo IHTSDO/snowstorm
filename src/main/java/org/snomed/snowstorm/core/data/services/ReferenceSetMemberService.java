@@ -21,8 +21,7 @@ import org.elasticsearch.search.aggregations.AggregationBuilders;
 import org.elasticsearch.search.sort.FieldSortBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.snomed.langauges.ecl.domain.filter.MemberFieldFilter;
-import org.snomed.langauges.ecl.domain.filter.MemberFilterConstraint;
+import org.snomed.langauges.ecl.domain.filter.*;
 import org.snomed.snowstorm.config.Config;
 import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.repositories.ReferenceSetMemberRepository;
@@ -33,6 +32,7 @@ import org.snomed.snowstorm.core.data.services.pojo.MemberSearchRequest;
 import org.snomed.snowstorm.core.data.services.pojo.PageWithBucketAggregations;
 import org.snomed.snowstorm.core.data.services.pojo.PageWithBucketAggregationsFactory;
 import org.snomed.snowstorm.core.util.PageHelper;
+import org.snomed.snowstorm.ecl.ECLContentService;
 import org.snomed.snowstorm.ecl.ECLQueryService;
 import org.snomed.snowstorm.rest.converter.SearchAfterHelper;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -445,20 +445,44 @@ public class ReferenceSetMemberService extends ComponentService {
 			for (MemberFilterConstraint memberFilterConstraint : memberFilterConstraints) {
 				for (MemberFieldFilter fieldFilter : orEmpty(memberFilterConstraint.getMemberFieldFilters())) {
 					String fieldName = fieldFilter.getFieldName();
+					fieldName = "additionalFields." + fieldName + ".keyword";
 
 					if (fieldFilter.getExpressionComparisonOperator() != null) {
 						// TODO
 					} else if (fieldFilter.getNumericComparisonOperator() != null) {
-						
+						NumericComparisonOperator operator = fieldFilter.getNumericComparisonOperator();
+						if (operator == NumericComparisonOperator.EQUAL) {
+							memberQuery.must(termQuery(fieldName, fieldFilter.getNumericValue()));
+						} else if (operator == NumericComparisonOperator.NOT_EQUAL) {
+							memberQuery.mustNot(termQuery(fieldName, fieldFilter.getNumericValue()));
+						} else {
+							float value = Float.parseFloat(fieldFilter.getNumericValue());
+							ECLContentService.addNumericConstraint(operator, fieldName, Collections.singleton(value), memberQuery);
+						}
 					} else if (fieldFilter.getStringComparisonOperator() != null) {
-
+						boolean must = fieldFilter.getStringComparisonOperator().equals("=");
+						for (TypedSearchTerm searchTerm : fieldFilter.getSearchTerms()) {
+							QueryBuilder query;
+							if (searchTerm.getType() == SearchType.WILDCARD) {
+								// There will only be one term for wildcard
+								String regex = searchTerm.getTerm().replace("*", ".*");
+								query = regexpQuery(fieldName + ".keyword", regex);
+							} else {
+								// Prefix query
+								query = wildcardQuery(fieldName, searchTerm.getTerm() + "*");
+							}
+							if (must) {
+								memberQuery.must(query);
+							} else {
+								memberQuery.mustNot(query);
+							}
+						}
 					} else if (fieldFilter.getTimeComparisonOperator() != null) {
-
+						ECLContentService.addNumericConstraint(fieldFilter.getTimeComparisonOperator(), fieldName, fieldFilter.getTimeValues(), memberQuery);
 					}
 				}
 			}
 		}
-
 
 
 		memberQuery

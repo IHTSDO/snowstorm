@@ -263,39 +263,43 @@ public class ECLContentService {
 
 	private void applyEffectiveTimeFilters(List<EffectiveTimeFilter> effectiveTimeFilters, BoolQueryBuilder componentFilterQuery) {
 		for (EffectiveTimeFilter effectiveTimeFilter : orEmpty(effectiveTimeFilters)) {
-			TimeComparisonOperator operator = effectiveTimeFilter.getOperator();
+			NumericComparisonOperator operator = effectiveTimeFilter.getOperator();
 			Set<Integer> effectiveTimes = effectiveTimeFilter.getEffectiveTime();
 			BoolQueryBuilder query = boolQuery();
 			String effectiveTimeField = SnomedComponent.Fields.EFFECTIVE_TIME;
-			switch (operator) {
-				case EQUAL:
-					query.must(termsQuery(effectiveTimeField, effectiveTimes));
-					break;
-				case NOT_EQUAL:
-					query.mustNot(termsQuery(effectiveTimeField, effectiveTimes));
-					break;
-				case LESS_THAN_OR_EQUAL:
-					for (Integer effectiveTime : effectiveTimes) {
-						query.must(rangeQuery(effectiveTimeField).lte(effectiveTime));
-					}
-					break;
-				case LESS_THAN:
-					for (Integer effectiveTime : effectiveTimes) {
-						query.must(rangeQuery(effectiveTimeField).lt(effectiveTime));
-					}
-					break;
-				case GREATER_THAN_OR_EQUAL:
-					for (Integer effectiveTime : effectiveTimes) {
-						query.must(rangeQuery(effectiveTimeField).gte(effectiveTime));
-					}
-					break;
-				case GREATER_THAN:
-					for (Integer effectiveTime : effectiveTimes) {
-						query.must(rangeQuery(effectiveTimeField).gt(effectiveTime));
-					}
-					break;
-			}
+			addNumericConstraint(operator, effectiveTimeField, effectiveTimes, query);
 			componentFilterQuery.must(query);
+		}
+	}
+
+	public static void addNumericConstraint(NumericComparisonOperator operator, String field, Collection<? extends Number> values, BoolQueryBuilder query) {
+		switch (operator) {
+			case EQUAL:
+				query.must(termsQuery(field, values));
+				break;
+			case NOT_EQUAL:
+				query.mustNot(termsQuery(field, values));
+				break;
+			case LESS_THAN_OR_EQUAL:
+				for (Number effectiveTime : values) {
+					query.must(rangeQuery(field).lte(effectiveTime));
+				}
+				break;
+			case LESS_THAN:
+				for (Number effectiveTime : values) {
+					query.must(rangeQuery(field).lt(effectiveTime));
+				}
+				break;
+			case GREATER_THAN_OR_EQUAL:
+				for (Number effectiveTime : values) {
+					query.must(rangeQuery(field).gte(effectiveTime));
+				}
+				break;
+			case GREATER_THAN:
+				for (Number effectiveTime : values) {
+					query.must(rangeQuery(field).gt(effectiveTime));
+				}
+				break;
 		}
 	}
 
