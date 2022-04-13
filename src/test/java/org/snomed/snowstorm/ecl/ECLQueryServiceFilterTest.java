@@ -18,6 +18,7 @@ import org.snomed.snowstorm.core.data.services.pojo.MemberSearchRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
 
@@ -25,103 +26,33 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 import static com.google.common.collect.Sets.newHashSet;
+import static io.kaicode.elasticvc.domain.Branch.MAIN;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.snomed.snowstorm.TestConcepts.DISORDER;
 import static org.snomed.snowstorm.core.data.domain.Concepts.*;
 
 @ExtendWith(SpringExtension.class)
-@ContextConfiguration(classes = TestConfig.class)
-class ECLQueryServiceFilterTest extends AbstractTest {
-
-	private static final String MODULE_A = "25000001";
-	public static final String IPS_REFSET = "816080008";
+@ContextConfiguration(classes = ECLQueryServiceFilterTestConfig.class)
+@DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
+class ECLQueryServiceFilterTest {
 
 	@Autowired
-	protected ECLQueryService eclQueryService;
+	private ECLQueryService eclQueryService;
 
 	@Autowired
-	protected ConceptService conceptService;
+	private VersionControlHelper versionControlHelper;
 
 	@Autowired
-	protected VersionControlHelper versionControlHelper;
-
-	@Autowired
-	protected CodeSystemService codeSystemService;
-
-	@Autowired
-	protected ReferenceSetMemberService memberService;
-
+	private ReferenceSetMemberService memberService;
 
 	protected Collection<String> allConceptIds = new HashSet<>();
 	protected BranchCriteria branchCriteria;
 
 	@BeforeEach
-	void setup() throws ServiceException {
-		List<Concept> allConcepts = new ArrayList<>();
-
-		allConcepts.add(new Concept(DISORDER).addDescription(new Description("Disease(disorder)")).addRelationship(new Relationship(ISA, SNOMEDCT_ROOT)));
-		allConcepts.addAll(newMetadataConcepts(CORE_MODULE, MODULE_A, PRIMITIVE, DEFINED, PREFERRED, ACCEPTABLE, FSN, SYNONYM, TEXT_DEFINITION, "46011000052107"));
-		allConcepts.add(new Concept(REFSET_HISTORICAL_ASSOCIATION).addRelationship(new Relationship(ISA, SNOMEDCT_ROOT)));
-		allConcepts.add(new Concept(REFSET_SAME_AS_ASSOCIATION).addRelationship(new Relationship(ISA, REFSET_HISTORICAL_ASSOCIATION)));
-		allConcepts.add(new Concept(REFSET_SIMILAR_TO_ASSOCIATION).addRelationship(new Relationship(ISA, REFSET_HISTORICAL_ASSOCIATION)));
-		createConceptsAndVersionCodeSystem(allConcepts, 20200131);
-
-		allConcepts.add(new Concept("100001").addDescription(new Description("Athlete's heart (disorder)"))
-				.addRelationship(ISA, DISORDER));
-		allConcepts.add(new Concept("100002")
-				.addDescription(new Description( "Heart disease (disorder)").setLanguageCode("en").setType("FSN")
-						.addLanguageRefsetMember(US_EN_LANG_REFSET, PREFERRED)
-						.addLanguageRefsetMember(GB_EN_LANG_REFSET, PREFERRED))
-				.addDescription(new Description("Heart disease").setLanguageCode("en").setType("SYNONYM")
-						.addLanguageRefsetMember(US_EN_LANG_REFSET, PREFERRED)
-						.addLanguageRefsetMember(GB_EN_LANG_REFSET, ACCEPTABLE))
-				.addDescription(new Description("hjärtsjukdom").setLanguageCode("sv").setType("SYNONYM")
-						.addLanguageRefsetMember("46011000052107", PREFERRED))
-				.addRelationship(ISA, DISORDER));
-		createConceptsAndVersionCodeSystem(allConcepts, 20210131);
-		allConcepts.add(new Concept("100003").setModuleId(MODULE_A).setDefinitionStatusId(DEFINED).addDescription(new Description( "Cardiac arrest (disorder)"))
-				.addRelationship(ISA, DISORDER));
-		// IPS refset
-		allConcepts.add(new Concept(IPS_REFSET).addRelationship(new Relationship(ISA, SNOMEDCT_ROOT)));
-		// Two inactive concepts
-		allConcepts.add(new Concept("200001").setActive(false).addRelationship(new Relationship(ISA, SNOMEDCT_ROOT)));
-		allConcepts.add(new Concept("200002").setActive(false).addRelationship(new Relationship(ISA, SNOMEDCT_ROOT)));
-		createConceptsAndVersionCodeSystem(allConcepts, 20220131);
-
-		// Some active and some inactive concepts are active members of the IPS refset.
-		memberService.createMembers(MAIN, createSimpleRefsetMembers(IPS_REFSET, "100001", "100002", "200001", "200002"));
-
-		// Historical associations
-		memberService.createMembers(MAIN, Set.of(
-				new ReferenceSetMember(CORE_MODULE, REFSET_SAME_AS_ASSOCIATION, "200001")
-						.setAdditionalField(ReferenceSetMember.AssociationFields.TARGET_COMP_ID, "100001"),
-				new ReferenceSetMember(CORE_MODULE, REFSET_SIMILAR_TO_ASSOCIATION, "200002")
-						.setAdditionalField(ReferenceSetMember.AssociationFields.TARGET_COMP_ID, "100001")
-		));
-
-		allConceptIds = allConcepts.stream().map(Concept::getId).collect(Collectors.toSet());
+	void setup() {
 		branchCriteria = versionControlHelper.getBranchCriteria(MAIN);
-	}
-
-	@NotNull
-	private Set<ReferenceSetMember> createSimpleRefsetMembers(String refsetId, String... referencedComponentIds) {
-		return Arrays.stream(referencedComponentIds).map(id -> new ReferenceSetMember(CORE_MODULE, refsetId, id)).collect(Collectors.toSet());
-	}
-
-	private void createConceptsAndVersionCodeSystem(List<Concept> allConcepts, int effectiveDate) throws ServiceException {
-		conceptService.batchCreate(allConcepts, MAIN);
-		allConceptIds = CollectionUtils.union(allConceptIds, allConcepts.stream().map(Concept::getId).collect(Collectors.toSet()));
-		allConcepts.clear();
-		CodeSystem codeSystem = codeSystemService.findByBranchPath("MAIN").orElse(null);
-		if (codeSystem == null) {
-			codeSystem = new CodeSystem("SNOMEDCT", "MAIN");
-			codeSystemService.createCodeSystem(codeSystem);
-		}
-		codeSystemService.createVersion(codeSystemService.find("SNOMEDCT"), effectiveDate, "");
-	}
-
-	private List<Concept> newMetadataConcepts(String... conceptIds) {
-		return Arrays.stream(conceptIds).map(id -> new Concept(id).addRelationship(new Relationship(ISA, SNOMEDCT_ROOT))).collect(Collectors.toList());
+		allConceptIds = eclQueryService.selectConceptIds("*", branchCriteria, MAIN, false, PageRequest.of(0, 1000))
+				.getContent().stream().map(Object::toString).collect(Collectors.toSet());
 	}
 
 	@Test

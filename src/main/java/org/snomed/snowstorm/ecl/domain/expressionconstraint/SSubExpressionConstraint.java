@@ -17,6 +17,8 @@ import org.snomed.snowstorm.ecl.domain.RefinementBuilder;
 import org.snomed.snowstorm.ecl.domain.SubRefinementBuilder;
 import org.snomed.snowstorm.ecl.domain.filter.SConceptFilterConstraint;
 import org.snomed.snowstorm.ecl.domain.filter.SDescriptionFilterConstraint;
+import org.snomed.snowstorm.ecl.domain.filter.SHistorySupplement;
+import org.snomed.snowstorm.ecl.domain.filter.SMemberFilterConstraint;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 
