@@ -1,12 +1,12 @@
 package org.snomed.snowstorm.ecl.domain.filter;
 
 import org.snomed.langauges.ecl.domain.filter.EffectiveTimeFilter;
-import org.snomed.langauges.ecl.domain.filter.TimeComparisonOperator;
+import org.snomed.langauges.ecl.domain.filter.NumericComparisonOperator;
 
 import java.util.Set;
 
 public class SEffectiveTimeFilter extends EffectiveTimeFilter {
-	public SEffectiveTimeFilter(TimeComparisonOperator operator, Set<Integer> effectiveTimes) {
+	public SEffectiveTimeFilter(NumericComparisonOperator operator, Set<Integer> effectiveTimes) {
 		super(operator, effectiveTimes);
 	}
 
