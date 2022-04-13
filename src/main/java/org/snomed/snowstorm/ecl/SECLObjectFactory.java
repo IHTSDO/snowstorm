@@ -80,7 +80,7 @@ public class SECLObjectFactory extends ECLObjectFactory {
 	}
 
 	@Override
-	public EffectiveTimeFilter getEffectiveTimeFilter(TimeComparisonOperator operator, Set<Integer> effectiveTimes) {
+	public EffectiveTimeFilter getEffectiveTimeFilter(NumericComparisonOperator operator, Set<Integer> effectiveTimes) {
 		return new SEffectiveTimeFilter(operator, effectiveTimes);
 	}
 
@@ -141,7 +141,7 @@ public class SECLObjectFactory extends ECLObjectFactory {
 
 	@Override
 	public MemberFieldFilter getMemberFieldFilter(String fieldName) {
-		return new SMemberFieldFilter();
+		return new SMemberFieldFilter(fieldName);
 	}
 
 	@Override

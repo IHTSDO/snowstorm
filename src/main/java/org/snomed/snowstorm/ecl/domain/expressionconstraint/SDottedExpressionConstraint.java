@@ -98,11 +98,17 @@ public class SDottedExpressionConstraint extends DottedExpressionConstraint impl
 		((SSubExpressionConstraint)subExpressionConstraint).addCriteria(refinementBuilder);
 	}
 
-	public void toString(StringBuffer buffer) {
+	@Override
+	public String toEclString() {
+		return toString(new StringBuffer()).toString();
+	}
+
+	public StringBuffer toString(StringBuffer buffer) {
 		ECLModelDeserializer.expressionConstraintToString(subExpressionConstraint, buffer);
 		for (SubExpressionConstraint dottedAttribute : dottedAttributes) {
 			buffer.append(" . ");
 			ECLModelDeserializer.expressionConstraintToString(dottedAttribute, buffer);
 		}
+		return buffer;
 	}
 }

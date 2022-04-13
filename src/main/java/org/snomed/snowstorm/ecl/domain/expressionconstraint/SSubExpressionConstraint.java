@@ -242,7 +242,12 @@ public class SSubExpressionConstraint extends SubExpressionConstraint implements
 		return eclContentService.findAncestorIdsAsUnion(branchCriteria, stated, conceptIds);
 	}
 
-	public void toString(StringBuffer buffer) {
+	@Override
+	public String toEclString() {
+		return toString(new StringBuffer()).toString();
+	}
+
+	public StringBuffer toString(StringBuffer buffer) {
 		if (operator != null) {
 			buffer.append(operator.getText()).append(" ");
 		}
@@ -267,5 +272,12 @@ public class SSubExpressionConstraint extends SubExpressionConstraint implements
 		for (DescriptionFilterConstraint descriptionFilterConstraint : orEmpty(descriptionFilterConstraints)) {
 			((SDescriptionFilterConstraint) descriptionFilterConstraint).toString(buffer);
 		}
+		for (MemberFilterConstraint memberFilterConstraint : orEmpty(memberFilterConstraints)) {
+			((SMemberFilterConstraint) memberFilterConstraint).toString(buffer);
+		}
+		if (getHistorySupplement() != null) {
+			((SHistorySupplement)getHistorySupplement()).toString(buffer);
+		}
+		return buffer;
 	}
 }

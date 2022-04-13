@@ -201,6 +201,12 @@ class ECLModelDeserializerServiceTest {
 		assertConversionTest("< 404684003 |Clinical finding| {{ D term = \"heart\" }}");
 		assertConversionTest("< 64572001 |Disease| {{ D term = \"hjärt\", language = sv }} {{ D term = \"heart\", language = en }}");
 		assertConversionTest("< 125605004 |Fracture of bone| minus < 125605004 |Fracture of bone| {{ D term != \"fracture\" }}");
+
+		// Member filters
+		assertConversionTest("^ 447562003 |ICD-10 complex map reference set| {{ M mapTarget = \"J45.9\" }}");
+
+		// History supplement filters
+		assertConversionTest("195967001 |Asthma| {{ + HISTORY-MIN }}");
 	}
 
 	private void assertConversionTest(String inputEcl) throws JsonProcessingException {

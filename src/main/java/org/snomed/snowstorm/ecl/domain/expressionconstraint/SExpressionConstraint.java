@@ -16,4 +16,6 @@ public interface SExpressionConstraint extends SRefinement {
 			PageRequest pageRequest, ECLContentService eclContentService);
 
 	Optional<Page<Long>> select(RefinementBuilder refinementBuilder);
+
+	String toEclString();
 }

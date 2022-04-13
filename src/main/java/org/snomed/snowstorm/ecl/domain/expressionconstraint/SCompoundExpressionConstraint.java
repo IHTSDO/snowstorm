@@ -81,7 +81,12 @@ public class SCompoundExpressionConstraint extends CompoundExpressionConstraint 
 		}
 	}
 
-	public void toString(StringBuffer buffer) {
+	@Override
+	public String toEclString() {
+		return toString(new StringBuffer()).toString();
+	}
+
+	public StringBuffer toString(StringBuffer buffer) {
 		boolean first = true;
 		if (conjunctionExpressionConstraints != null) {
 			for (SubExpressionConstraint expressionConstraint : conjunctionExpressionConstraints) {
@@ -105,5 +110,6 @@ public class SCompoundExpressionConstraint extends CompoundExpressionConstraint 
 			buffer.append(" minus ");
 			ECLModelDeserializer.expressionConstraintToString(exclusionExpressionConstraint, buffer);
 		}
+		return buffer;
 	}
 }

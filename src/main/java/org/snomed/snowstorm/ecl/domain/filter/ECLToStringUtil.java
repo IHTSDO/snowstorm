@@ -6,6 +6,8 @@ import org.snomed.langauges.ecl.domain.filter.SearchType;
 import org.snomed.langauges.ecl.domain.filter.TypedSearchTerm;
 import org.snomed.snowstorm.ecl.domain.expressionconstraint.SSubExpressionConstraint;
 
+import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 
@@ -66,7 +68,7 @@ public class ECLToStringUtil {
 		}
 	}
 
-	public static void toString(StringBuffer buffer, Set<Integer> values) {
+	public static void toString(StringBuffer buffer, Collection<Integer> values) {
 		if (values != null) {
 			if (values.size() > 1) {
 				buffer.append(" (");
