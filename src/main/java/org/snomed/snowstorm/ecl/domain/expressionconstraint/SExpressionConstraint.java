@@ -12,7 +12,7 @@ import java.util.Optional;
 
 public interface SExpressionConstraint extends SRefinement {
 
-	Optional<Page<Long>> select(String path, BranchCriteria branchCriteria, boolean stated, Collection<Long> conceptIdFilter,
+	Optional<Page<Long>> select(BranchCriteria branchCriteria, boolean stated, Collection<Long> conceptIdFilter,
 			PageRequest pageRequest, ECLContentService eclContentService);
 
 	Optional<Page<Long>> select(RefinementBuilder refinementBuilder);

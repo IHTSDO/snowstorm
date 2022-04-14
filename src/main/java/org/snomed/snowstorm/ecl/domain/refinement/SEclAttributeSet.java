@@ -12,6 +12,7 @@ import org.snomed.snowstorm.ecl.domain.SubRefinementBuilder;
 import org.snomed.snowstorm.ecl.domain.expressionconstraint.MatchContext;
 
 import java.util.*;
+import java.util.function.Consumer;
 
 import static com.google.common.collect.Sets.newHashSet;
 import static java.util.stream.Collectors.toSet;
@@ -21,6 +22,10 @@ import static org.springframework.util.CollectionUtils.isEmpty;
 public class SEclAttributeSet extends EclAttributeSet implements SRefinement {
 
 	@Override
+	public void addCriteria(RefinementBuilder refinementBuilder, Consumer<List<Long>> filteredOrSupplementedContentCallback) {
+		addCriteria(refinementBuilder);
+	}
+
 	public void addCriteria(RefinementBuilder refinementBuilder) {
 		// In Elasticsearch disjunction (OR) clauses are written by adding a 'must' clause and appending 'should' clauses to that.
 		// The first two types of refinements have to be part of the first 'should' query because they may be the

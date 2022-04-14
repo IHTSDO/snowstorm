@@ -77,9 +77,10 @@ public class ExpressionUtil {
 			}
 		}
 
-		if (compound.getExclusionExpressionConstraint() != null) {
+		if (compound.getExclusionExpressionConstraints() != null) {
+			expressionBuilder.append(constructExpression(compound.getExclusionExpressionConstraints().getFirst()));
 			expressionBuilder.append(" MINUS ");
-			expressionBuilder.append(constructExpression(compound.getExclusionExpressionConstraint()));
+			expressionBuilder.append(constructExpression(compound.getExclusionExpressionConstraints().getSecond()));
 		}
 		return expressionBuilder.toString();
 	}

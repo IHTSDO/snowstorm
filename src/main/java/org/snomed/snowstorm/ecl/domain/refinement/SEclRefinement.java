@@ -10,6 +10,7 @@ import org.snomed.snowstorm.ecl.domain.expressionconstraint.MatchContext;
 
 import java.util.List;
 import java.util.Set;
+import java.util.function.Consumer;
 
 import static com.google.common.collect.Sets.newHashSet;
 import static java.util.stream.Collectors.toSet;
@@ -19,6 +20,10 @@ import static org.springframework.util.CollectionUtils.isEmpty;
 public class SEclRefinement extends EclRefinement implements SRefinement {
 
 	@Override
+	public void addCriteria(RefinementBuilder refinementBuilder, Consumer<List<Long>> filteredOrSupplementedContentCallback) {
+		addCriteria(refinementBuilder);
+	}
+
 	public void addCriteria(RefinementBuilder refinementBuilder) {
 		((SSubRefinement)subRefinement).addCriteria(refinementBuilder);
 

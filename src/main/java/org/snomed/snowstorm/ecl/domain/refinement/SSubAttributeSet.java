@@ -6,11 +6,17 @@ import org.snomed.snowstorm.ecl.domain.RefinementBuilder;
 import org.snomed.snowstorm.ecl.domain.SRefinement;
 import org.snomed.snowstorm.ecl.domain.expressionconstraint.MatchContext;
 
+import java.util.List;
 import java.util.Set;
+import java.util.function.Consumer;
 
 public class SSubAttributeSet extends SubAttributeSet implements SRefinement {
 
 	@Override
+	public void addCriteria(RefinementBuilder refinementBuilder, Consumer<List<Long>> filteredOrSupplementedContentCallback) {
+		addCriteria(refinementBuilder);
+	}
+
 	public void addCriteria(RefinementBuilder refinementBuilder) {
 		if (attribute != null) {
 			((SEclAttribute)attribute).addCriteria(refinementBuilder);

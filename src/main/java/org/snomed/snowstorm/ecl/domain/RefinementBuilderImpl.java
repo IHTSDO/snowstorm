@@ -17,9 +17,9 @@ public class RefinementBuilderImpl implements RefinementBuilder {
 	private Function<QueryConcept, Boolean> inclusionFilter;
 	private boolean inclusionFilterRequired;
 
-	public RefinementBuilderImpl(BoolQueryBuilder query, String path, BranchCriteria branchCriteria, boolean stated, ECLContentService eclContentService) {
+	public RefinementBuilderImpl(BoolQueryBuilder query, BranchCriteria branchCriteria, boolean stated, ECLContentService eclContentService) {
 		this.query = query;
-		this.path = path;
+		this.path = branchCriteria.getBranchPath();
 		this.branchCriteria = branchCriteria;
 		this.stated = stated;
 		this.eclContentService = eclContentService;
