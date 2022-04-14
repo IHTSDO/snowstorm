@@ -2,18 +2,11 @@ package org.snomed.snowstorm.ecl;
 
 import io.kaicode.elasticvc.api.BranchCriteria;
 import io.kaicode.elasticvc.api.VersionControlHelper;
-import org.apache.commons.collections4.CollectionUtils;
-import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.snomed.snowstorm.AbstractTest;
-import org.snomed.snowstorm.TestConfig;
-import org.snomed.snowstorm.core.data.domain.*;
-import org.snomed.snowstorm.core.data.services.CodeSystemService;
-import org.snomed.snowstorm.core.data.services.ConceptService;
+import org.snomed.snowstorm.core.data.domain.ReferenceSetMember;
 import org.snomed.snowstorm.core.data.services.ReferenceSetMemberService;
-import org.snomed.snowstorm.core.data.services.ServiceException;
 import org.snomed.snowstorm.core.data.services.pojo.MemberSearchRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
@@ -22,14 +15,16 @@ import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
 
-import java.util.*;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import static com.google.common.collect.Sets.newHashSet;
 import static io.kaicode.elasticvc.domain.Branch.MAIN;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.snomed.snowstorm.TestConcepts.DISORDER;
-import static org.snomed.snowstorm.core.data.domain.Concepts.*;
+import static org.snomed.snowstorm.core.data.domain.Concepts.REFSET_SAME_AS_ASSOCIATION;
 
 @ExtendWith(SpringExtension.class)
 @ContextConfiguration(classes = ECLQueryServiceFilterTestConfig.class)
@@ -60,8 +55,21 @@ class ECLQueryServiceFilterTest {
 		String ecl = "< 64572001 |Disease|  {{ term = \"heart ath\"}}";
 		assertEquals(newHashSet("100001"), select(ecl));
 
+		ecl = "( < 64572001 |Disease|  {{ term = \"heart ath\"}} )";
+		assertEquals(newHashSet("100001"), select(ecl));
+
+		assertEquals(newHashSet("100001"), select("* {{ D term = \"heart ath\" }}"));
+
 		ecl = "< 64572001 |Disease|  {{ D term != \"heart ath\"}}";
 		assertEquals(newHashSet("100002", "100003"), select(ecl));
+
+		ecl = "< 64572001 |Disease| minus ( < 64572001 |Disease| {{ D term != \"heart ath\"}} )";
+		assertEquals(newHashSet("100001"), select(ecl));
+
+		ecl = "< 64572001 |Disease| minus < 64572001 |Disease| {{ D term != \"heart ath\"}}";
+		assertEquals(newHashSet("100001"), select(ecl));
+		// TODO: this ECL adds the wrong filter to the compound expression constraint RefinementBuilder - it excludes all
+		// descendants of Disease rather than just those without the heart term
 
 		ecl = "< 64572001 |Disease|  {{ D term = \"ath heart\"}}";
 		assertEquals(newHashSet("100001"), select(ecl));
@@ -77,6 +85,9 @@ class ECLQueryServiceFilterTest {
 		// mixed search type
 		ecl = "< 64572001 |Disease|  {{ term = \"heart\"}} {{ term = wild:\"*ease\"}}";
 		assertEquals(newHashSet("100002"), select(ecl));
+
+		ecl = "< 64572001 |Disease|  {{ term = \"heart\"}} {{ term = wild:\"disea*\"}}";// Should not match because wildcard is a whole term match
+		assertEquals(newHashSet(), select(ecl));
 
 		// search term set
 		ecl = "< 64572001 |Disease|  {{ term = (\"heart\" \"card\")}}";
@@ -166,6 +177,10 @@ class ECLQueryServiceFilterTest {
 		// dialect alias
 		ecl = "< 64572001 |Disease|  {{ term = \"hjärt\", dialect = sv-se }}";
 		assertEquals(newHashSet("100002"), select(ecl));
+
+		// dialect alias with no content
+		ecl = "< 64572001 |Disease| {{ dialect = en-au }}";
+		assertEquals(newHashSet(), select(ecl));
 	}
 
 	@Test
@@ -289,6 +304,7 @@ class ECLQueryServiceFilterTest {
 			System.out.println(member);
 		}
 		assertEquals(newHashSet("100001", "200001"), select("100001 {{ + HISTORY-MIN }}"));
+		assertEquals(newHashSet("100001", "200001"), select("( 100001 {{ + HISTORY-MIN }} )"));
 		assertEquals(newHashSet("100001", "200001", "200002"), select("100001 {{ + HISTORY-MAX }}"));
 	}
 

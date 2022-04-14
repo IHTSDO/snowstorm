@@ -19,6 +19,7 @@ import org.springframework.data.domain.Slice;
 
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 import static com.google.common.collect.Sets.newHashSet;
@@ -30,6 +31,10 @@ public class SEclAttribute extends EclAttribute implements SRefinement {
 	private RefinementBuilder refinementBuilder;
 
 	@Override
+	public void addCriteria(RefinementBuilder refinementBuilder, Consumer<List<Long>> filteredOrSupplementedContentCallback) {
+		addCriteria(refinementBuilder);
+	}
+
 	public void addCriteria(RefinementBuilder refinementBuilder) {
 		this.refinementBuilder = refinementBuilder;
 		// Input validation

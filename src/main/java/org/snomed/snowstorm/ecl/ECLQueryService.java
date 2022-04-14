@@ -19,7 +19,6 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 
-import javax.annotation.PostConstruct;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
@@ -87,7 +86,8 @@ public class ECLQueryService {
 		String ecl = expressionConstraint.toString();
 		String path = branchCriteria.getBranchPath();
 
-		logger.info("ECL on path {}, \"{}\"", path, ecl);
+		logger.info("ECL on path {}, \"{}\"", path, expressionConstraint.toEclString());
+		System.out.println(ecl);
 
 		Optional<Page<Long>> pageOptional;
 		if (eclCacheEnabled) {
@@ -107,14 +107,14 @@ public class ECLQueryService {
 			if (cachedPage != null) {
 				final int pageNumber = pageRequest != null ? pageRequest.getPageNumber() : 0;
 				final int pageSize = pageRequest != null ? pageRequest.getPageSize() : -1;
-				logger.debug("ECL cache hit {}@{} \"{}\" {}:{}", path, branchCriteria.getTimepoint().getTime(), ecl, pageNumber, pageSize);
+				logger.info("ECL cache hit {}@{} \"{}\" {}:{}", path, branchCriteria.getTimepoint().getTime(), ecl, pageNumber, pageSize);
 				branchVersionCache.recordHit();
 
 				pageOptional = Optional.of(cachedPage);
 			} else {
 				// Select 1
 				// When is pageRequest null?
-				pageOptional = expressionConstraint.select(path, branchCriteria, stated, null, queryPageRequest, eclContentService);
+				pageOptional = expressionConstraint.select(branchCriteria, stated, null, queryPageRequest, eclContentService);
 				if (pageOptional.isPresent()) {
 					// Cache results
 					final Page<Long> page = pageOptional.get();
@@ -133,7 +133,7 @@ public class ECLQueryService {
 			}
 		} else {
 			// Select 2
-			pageOptional = expressionConstraint.select(path, branchCriteria, stated, conceptIdFilter, pageRequest, eclContentService);
+			pageOptional = expressionConstraint.select(branchCriteria, stated, conceptIdFilter, pageRequest, eclContentService);
 			if (pageOptional.isPresent()) {
 				eclSlowQueryTimer.checkpoint(String.format("ecl:'%s', with %s results in this page, cache not enabled.", ecl, pageOptional.get().getNumberOfElements()));
 			}
@@ -150,7 +150,7 @@ public class ECLQueryService {
 	private Page<Long> getWildcardPage(BranchCriteria branchCriteria, boolean stated, Collection<Long> conceptIdFilter, PageRequest pageRequest) {
 		// Wildcard expression. Grab a page of concepts with no criteria.
 		BoolQueryBuilder query = ConceptSelectorHelper.getBranchAndStatedQuery(branchCriteria.getEntityBranchCriteria(QueryConcept.class), stated);
-		return ConceptSelectorHelper.fetchIds(query, conceptIdFilter, null, pageRequest, eclContentService);
+		return ConceptSelectorHelper.fetchWildcardIds(query, conceptIdFilter, pageRequest, eclContentService);
 	}
 
 	private TimerUtil getEclSlowQueryTimer() {

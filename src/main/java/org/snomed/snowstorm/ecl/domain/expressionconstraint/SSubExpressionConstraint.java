@@ -1,6 +1,9 @@
 package org.snomed.snowstorm.ecl.domain.expressionconstraint;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import io.kaicode.elasticvc.api.BranchCriteria;
+import it.unimi.dsi.fastutil.longs.LongArrayList;
+import it.unimi.dsi.fastutil.longs.LongLinkedOpenHashSet;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
 import org.snomed.langauges.ecl.domain.ConceptReference;
@@ -23,6 +26,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 
 import java.util.*;
+import java.util.function.Consumer;
 
 import static com.google.common.collect.Sets.newHashSet;
 import static java.lang.Long.parseLong;
@@ -42,17 +46,25 @@ public class SSubExpressionConstraint extends SubExpressionConstraint implements
 	}
 
 	@Override
-	public Optional<Page<Long>> select(String path, BranchCriteria branchCriteria, boolean stated, Collection<Long> conceptIdFilter,
+	public Optional<Page<Long>> select(BranchCriteria branchCriteria, boolean stated, Collection<Long> conceptIdFilter,
 			PageRequest pageRequest, ECLContentService eclContentService) {
 
 		if (isUnconstrained()) {
 			return Optional.empty();
 		}
-		return ConceptSelectorHelper.select(this, path, branchCriteria, stated, conceptIdFilter, pageRequest, eclContentService);
+		return Optional.of(ConceptSelectorHelper.select(this, branchCriteria, stated, conceptIdFilter, pageRequest, eclContentService));
 	}
 
-	private boolean isUnconstrained() {
-		return wildcard && (operator == null || operator == Operator.descendantorselfof || operator == Operator.ancestororselfof);
+	@JsonIgnore
+	public boolean isUnconstrained() {
+		return wildcard
+				&& (operator == null || operator == Operator.descendantorselfof || operator == Operator.ancestororselfof)
+				&& !isAnyFiltersOrSupplements();
+	}
+
+	@JsonIgnore
+	public boolean isAnyFiltersOrSupplements() {
+		return conceptFilterConstraints != null || descriptionFilterConstraints != null || memberFilterConstraints != null || getHistorySupplement() != null;
 	}
 
 	@Override
@@ -60,7 +72,7 @@ public class SSubExpressionConstraint extends SubExpressionConstraint implements
 		if (isUnconstrained()) {
 			return Optional.empty();
 		}
-		return ConceptSelectorHelper.select(this, refinementBuilder);
+		return Optional.of(ConceptSelectorHelper.select(this, refinementBuilder));
 	}
 
 	@Override
@@ -126,8 +138,48 @@ public class SSubExpressionConstraint extends SubExpressionConstraint implements
 	}
 
 	@Override
-	public void addCriteria(RefinementBuilder refinementBuilder) {
+	public void addCriteria(RefinementBuilder refinementBuilder, Consumer<List<Long>> filteredOrSupplementedContentCallback) {
 		BoolQueryBuilder query = refinementBuilder.getQuery();
+		doAddCriteria(refinementBuilder, query);
+
+		if (isAnyFiltersOrSupplements()) {
+			//
+			// Run content selection using filters and apply further conceptId constraints
+			//
+
+			ECLContentService eclContentService = refinementBuilder.getEclContentService();
+			BranchCriteria branchCriteria = refinementBuilder.getBranchCriteria();
+			boolean stated = refinementBuilder.isStated();
+
+			// Grab all concept ids, this call is cacheable
+			SortedSet<Long> conceptIdSortedSet =
+					new LongLinkedOpenHashSet(ConceptSelectorHelper.fetchIds(query, null, refinementBuilder, null).getContent());
+
+			// Apply filter constraints
+			if (getConceptFilterConstraints() != null) {
+				conceptIdSortedSet = new LongLinkedOpenHashSet(eclContentService.applyConceptFilters(getConceptFilterConstraints(), conceptIdSortedSet, branchCriteria, stated));
+			}
+			if (getDescriptionFilterConstraints() != null) {
+				// For each filter constraint all sub-filters (term, language, etc) must apply.
+				// If multiple options are given within a sub-filter they are conjunction (OR).
+				for (DescriptionFilterConstraint descriptionFilter : getDescriptionFilterConstraints()) {
+					SortedMap<Long, Long> descriptionToConceptMap = eclContentService.applyDescriptionFilter(conceptIdSortedSet, descriptionFilter, branchCriteria, stated);
+					conceptIdSortedSet = new LongLinkedOpenHashSet(descriptionToConceptMap.values());
+				}
+			}
+
+			// Add history supplement
+			if (getHistorySupplement() != null) {
+				Set<Long> historicConcepts = eclContentService.findHistoricConcepts(conceptIdSortedSet, getHistorySupplement(), branchCriteria);
+				conceptIdSortedSet.addAll(historicConcepts);
+			}
+
+			query.must(termsQuery(QueryConcept.Fields.CONCEPT_ID, conceptIdSortedSet));
+			filteredOrSupplementedContentCallback.accept(new LongArrayList(conceptIdSortedSet));
+		}
+	}
+
+	private void doAddCriteria(RefinementBuilder refinementBuilder, BoolQueryBuilder query) {
 		if (conceptId != null) {
 			if (operator != null) {
 				applyConceptCriteriaWithOperator(Collections.singleton(parseLong(conceptId)), operator, refinementBuilder);

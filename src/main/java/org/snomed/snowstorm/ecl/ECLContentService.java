@@ -168,7 +168,7 @@ public class ECLContentService {
 		return queryService.findAncestorIdsAsUnion(branchCriteria, stated, conceptIds);
 	}
 
-	public Set<Long> applyConceptFilters(List<ConceptFilterConstraint> conceptFilters, Set<Long> conceptIdsToFilter, String path, BranchCriteria branchCriteria, boolean stated) {
+	public Set<Long> applyConceptFilters(List<ConceptFilterConstraint> conceptFilters, Set<Long> conceptIdsToFilter, BranchCriteria branchCriteria, boolean stated) {
 
 		BoolQueryBuilder superQuery = branchCriteria.getEntityBranchCriteria(Concept.class);
 		for (ConceptFilterConstraint conceptFilter : conceptFilters) {
@@ -178,10 +178,10 @@ public class ECLContentService {
 			applyActiveFilters(orEmpty(conceptFilter.getActiveFilters()), conceptFilterQuery);
 
 			// Definition status filter
-			applyFieldFilters(conceptFilter.getDefinitionStatusFilters(), conceptFilterQuery, path, branchCriteria, stated);
+			applyFieldFilters(conceptFilter.getDefinitionStatusFilters(), conceptFilterQuery, branchCriteria, stated);
 
 			// Module filter
-			applyFieldFilters(conceptFilter.getModuleFilters(), conceptFilterQuery, path, branchCriteria, stated);
+			applyFieldFilters(conceptFilter.getModuleFilters(), conceptFilterQuery, branchCriteria, stated);
 
 			// EffectiveTimeFilter
 			applyEffectiveTimeFilters(conceptFilter.getEffectiveTimeFilters(), conceptFilterQuery);
@@ -210,7 +210,7 @@ public class ECLContentService {
 		BoolQueryBuilder masterDescriptionQuery = boolQuery();
 
 		// Module filter
-		applyFieldFilters(moduleFilters, masterDescriptionQuery, branchCriteria.getBranchPath(), branchCriteria, stated);
+		applyFieldFilters(moduleFilters, masterDescriptionQuery, branchCriteria, stated);
 
 		// Effective time filters
 		applyEffectiveTimeFilters(effectiveTimeFilters, masterDescriptionQuery);
@@ -227,26 +227,30 @@ public class ECLContentService {
 				branchCriteria, eclQueryService, masterDescriptionQuery);
 	}
 
-	private void applyFieldFilters(List<FieldFilter> fieldFilters, BoolQueryBuilder filterQuery, String path, BranchCriteria branchCriteria, boolean stated) {
+	private void applyFieldFilters(List<FieldFilter> fieldFilters, BoolQueryBuilder filterQuery, BranchCriteria branchCriteria, boolean stated) {
 		for (FieldFilter fieldFilter : orEmpty(fieldFilters)) {
 			Set<String> values = null;
 			SubExpressionConstraint subExpressionConstraint = fieldFilter.getSubExpressionConstraint();
 			if (subExpressionConstraint != null) {
-				// TODO: Ensure caching
-				Optional<Page<Long>> concepts = ConceptSelectorHelper.select((SSubExpressionConstraint) subExpressionConstraint, path, branchCriteria, stated, null, null, this);
-				if (concepts.isPresent()) {
-					values = concepts.get().get().map(Object::toString).collect(Collectors.toSet());
+				if (!subExpressionConstraint.isWildcard()) {
+					// TODO: Ensure caching
+					List<Long> concepts = ConceptSelectorHelper.select(
+							(SSubExpressionConstraint) subExpressionConstraint, branchCriteria, stated, null, null, this).getContent();
+					values = concepts.stream().map(Object::toString).collect(Collectors.toSet());
 				}
 			} else {
 				values = fieldFilter.getConceptReferences().stream().map(ConceptReference::getConceptId).collect(Collectors.toSet());
 			}
+			String field = fieldFilter.getField();
 			if (values != null) {
-				TermsQueryBuilder termsQuery = termsQuery(fieldFilter.getField(), values);
+				TermsQueryBuilder termsQuery = termsQuery(field, values);
 				if (fieldFilter.isEquals()) {
 					filterQuery.must(termsQuery);
 				} else {
 					filterQuery.mustNot(termsQuery);
 				}
+			} else {
+				filterQuery.must(existsQuery(field));
 			}
 		}
 	}

@@ -13,6 +13,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 
 import java.util.*;
+import java.util.function.Consumer;
 
 import static com.google.common.collect.Sets.newHashSet;
 
@@ -29,15 +30,15 @@ public class SRefinedExpressionConstraint extends RefinedExpressionConstraint im
 	}
 
 	@Override
-	public Optional<Page<Long>> select(String path, BranchCriteria branchCriteria, boolean stated, Collection<Long> conceptIdFilter,
+	public Optional<Page<Long>> select(BranchCriteria branchCriteria, boolean stated, Collection<Long> conceptIdFilter,
 			PageRequest pageRequest, ECLContentService eclContentService) {
 
-		return ConceptSelectorHelper.select(this, path, branchCriteria, stated, conceptIdFilter, pageRequest, eclContentService);
+		return Optional.of(ConceptSelectorHelper.select(this, branchCriteria, stated, conceptIdFilter, pageRequest, eclContentService));
 	}
 
 	@Override
 	public Optional<Page<Long>> select(RefinementBuilder refinementBuilder) {
-		return ConceptSelectorHelper.select(this, refinementBuilder);
+		return Optional.of(ConceptSelectorHelper.select(this, refinementBuilder));
 	}
 
 	@Override
@@ -49,8 +50,8 @@ public class SRefinedExpressionConstraint extends RefinedExpressionConstraint im
 	}
 
 	@Override
-	public void addCriteria(RefinementBuilder refinementBuilder) {
-		((SSubExpressionConstraint)subexpressionConstraint).addCriteria(refinementBuilder);
+	public void addCriteria(RefinementBuilder refinementBuilder, Consumer<List<Long>> filteredOrSupplementedContentCallback) {
+		((SSubExpressionConstraint)subexpressionConstraint).addCriteria(refinementBuilder, (ids) -> {});
 		((SEclRefinement)eclRefinement).addCriteria(refinementBuilder);
 
 		if (refinementBuilder.isInclusionFilterRequired()) {
