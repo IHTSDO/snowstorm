@@ -137,6 +137,15 @@ public class SSubExpressionConstraint extends SubExpressionConstraint implements
 		super.setNestedExpressionConstraint(nestedExpressionConstraint);
 	}
 
+	private SSubExpressionConstraint cloneWithoutFiltersOrSupplements() {
+		SSubExpressionConstraint clone = new SSubExpressionConstraint(operator);
+		clone.setConceptId(conceptId);
+		clone.setTerm(term);
+		clone.setWildcard(wildcard);
+		clone.setNestedExpressionConstraint(nestedExpressionConstraint);
+		return clone;
+	}
+
 	@Override
 	public void addCriteria(RefinementBuilder refinementBuilder, Consumer<List<Long>> filteredOrSupplementedContentCallback) {
 		BoolQueryBuilder query = refinementBuilder.getQuery();
@@ -152,8 +161,9 @@ public class SSubExpressionConstraint extends SubExpressionConstraint implements
 			boolean stated = refinementBuilder.isStated();
 
 			// Grab all concept ids, this call is cacheable
+			SSubExpressionConstraint sSubExpressionConstraint = cloneWithoutFiltersOrSupplements();
 			SortedSet<Long> conceptIdSortedSet =
-					new LongLinkedOpenHashSet(ConceptSelectorHelper.fetchIds(query, null, refinementBuilder, null).getContent());
+					new LongLinkedOpenHashSet(eclContentService.fetchAllIdsWithCaching(sSubExpressionConstraint, branchCriteria, stated));
 
 			// Apply filter constraints
 			if (getConceptFilterConstraints() != null) {

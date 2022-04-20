@@ -79,6 +79,10 @@ public class ECLContentService {
 		historyMaxECL = (SExpressionConstraint) eclQueryService.createQuery("< 900000000000522004 |Historical association reference set|");
 	}
 
+	public List<Long> fetchAllIdsWithCaching(SSubExpressionConstraint sSubExpressionConstraint, BranchCriteria branchCriteria, boolean stated) {
+		return eclQueryService.doSelectConceptIds(sSubExpressionConstraint, branchCriteria, stated, null, null).getContent();
+	}
+
 	public Page<QueryConcept> queryForPage(NativeSearchQuery searchQuery) {
 		searchQuery.setTrackTotalHits(true);
 		Pageable pageable = searchQuery.getPageable();
