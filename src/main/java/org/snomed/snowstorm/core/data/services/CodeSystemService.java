@@ -6,6 +6,7 @@ import io.kaicode.elasticvc.api.PathUtil;
 import io.kaicode.elasticvc.api.VersionControlHelper;
 import io.kaicode.elasticvc.domain.Branch;
 import io.kaicode.elasticvc.domain.Metadata;
+import org.elasticsearch.common.Strings;
 import org.elasticsearch.search.aggregations.AggregationBuilders;
 import org.elasticsearch.search.aggregations.bucket.MultiBucketsAggregation;
 import org.elasticsearch.search.aggregations.bucket.terms.ParsedStringTerms;
@@ -579,6 +580,9 @@ public class CodeSystemService {
 		if (codeSystemVersion == null) {
 			throw new IllegalStateException("Latest code system version not found.");
 		}
+		if (Strings.isNullOrEmpty(codeSystemVersion.getReleasePackage())) {
+			throw new IllegalStateException("Previous package not found.");
+		}
 		Metadata branchMetadata = branch.getMetadata();
 		branchMetadata.putString(PREVIOUS_RELEASE, String.valueOf(codeSystemVersion.getEffectiveDate()));
 		branchMetadata.putString(PREVIOUS_PACKAGE, codeSystemVersion.getReleasePackage());
@@ -591,6 +595,9 @@ public class CodeSystemService {
 			final CodeSystemVersion parentCodeSystemVersion = findVersion(parentCodeSystem.get().getShortName(), codeSystem.getDependantVersionEffectiveTime());
 			if (parentCodeSystemVersion == null) {
 				throw new IllegalStateException("Dependant version " + codeSystem.getDependantVersionEffectiveTime() + " not found.");
+			}
+			if (Strings.isNullOrEmpty(parentCodeSystemVersion.getReleasePackage())) {
+				throw new IllegalStateException("Previous dependency package not found.");
 			}
 			branchMetadata.putString(PREVIOUS_DEPENDENCY_PACKAGE, parentCodeSystemVersion.getReleasePackage());
 		}
