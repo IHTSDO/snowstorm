@@ -1,6 +1,6 @@
 package org.snomed.snowstorm.rest.pojo;
 
-import io.swagger.annotations.ApiModelProperty;
+import io.swagger.v3.oas.annotations.media.Schema;
 import org.snomed.snowstorm.core.data.domain.CodeSystem;
 import org.snomed.snowstorm.core.data.services.pojo.CodeSystemConfiguration;
 
@@ -13,7 +13,7 @@ public class CodeSystemUpdateRequest {
 	public String defaultLanguageCode;
 	public String[] defaultLanguageReferenceSets;
 
-	@ApiModelProperty(value = "false")
+	@Schema(defaultValue = "false")
 	public boolean dailyBuildAvailable;
 
 	public CodeSystemUpdateRequest() {

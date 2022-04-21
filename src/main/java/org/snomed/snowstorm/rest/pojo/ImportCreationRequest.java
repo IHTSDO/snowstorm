@@ -1,19 +1,19 @@
 package org.snomed.snowstorm.rest.pojo;
 
-import io.swagger.annotations.ApiModelProperty;
+import io.swagger.v3.oas.annotations.media.Schema;
 import org.snomed.snowstorm.core.rf2.RF2Type;
 
 public class ImportCreationRequest {
 
 	private RF2Type type;
 
-	@ApiModelProperty(example = "MAIN", required = true)
+	@Schema(example = "MAIN", required = true)
 	private String branchPath;
 
-	@ApiModelProperty(value = "false")
+	@Schema(defaultValue = "false")
 	private boolean createCodeSystemVersion;
 
-	@ApiModelProperty(value = "false")
+	@Schema(defaultValue = "false")
 	private boolean internalRelease;
 
 	public RF2Type getType() {

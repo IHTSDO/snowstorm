@@ -2,9 +2,9 @@ package org.snomed.snowstorm.rest;
 
 import com.fasterxml.jackson.annotation.JsonView;
 import io.kaicode.rest.util.branchpathrewrite.BranchPathUriUtil;
-import io.swagger.annotations.Api;
-import io.swagger.annotations.ApiOperation;
-import io.swagger.annotations.ApiParam;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.snomed.snowstorm.config.Config;
 import org.snomed.snowstorm.core.data.domain.ConceptMini;
 import org.snomed.snowstorm.core.data.domain.Description;
@@ -32,7 +32,7 @@ import static org.apache.commons.collections4.CollectionUtils.isEmpty;
 import static org.apache.commons.lang3.StringUtils.isNotBlank;
 
 @RestController
-@Api(tags = "Descriptions", description = "-")
+@Tag(name = "Descriptions", description = "-")
 @RequestMapping(produces = "application/json")
 public class DescriptionController {
 
@@ -42,11 +42,11 @@ public class DescriptionController {
 	@Autowired
 	private DescriptionService descriptionService;
 
-	@ApiOperation(value = "Search for concept descriptions.",
-			notes = "The Accept-Language header is used to specify the user's preferred language, 'en' is always added as a fallback if not already included in the list. " +
+	@Operation(summary = "Search for concept descriptions.",
+			description = "The Accept-Language header is used to specify the user's preferred language, 'en' is always added as a fallback if not already included in the list. " +
 					"Each language is used as an optional clause for matching and will include the correct character folding behaviour for that language. " +
 					"The Accept-Language header list is also used to chose the best translated FSN and PT values in the response.")
-	@RequestMapping(value = "browser/{branch}/descriptions", method = RequestMethod.GET)
+	@GetMapping(value = "browser/{branch}/descriptions")
 	@JsonView(value = View.Component.class)
 	public Page<BrowserDescriptionSearchResult> findBrowserDescriptions(
 			@PathVariable String branch,
@@ -54,12 +54,12 @@ public class DescriptionController {
 			@RequestParam(required = false) Boolean active,
 			@RequestParam(required = false) Set<String> module,
 
-			@ApiParam(value = "Set of two character language codes to match. " +
+			@Parameter(description = "Set of two character language codes to match. " +
 					"The English language code 'en' will not be added automatically, in contrast to the Accept-Language header which always includes it. " +
 					"Accept-Language header still controls result FSN and PT language selection.")
 			@RequestParam(required = false) Set<String> language,
 
-			@ApiParam(value = "Set of description type ids to use include. Defaults to any. " +
+			@Parameter(description = "Set of description type ids to use include. Defaults to any. " +
 					"Pick descendants of '900000000000446008 | Description type (core metadata concept) |'. " +
 					"Examples: 900000000000003001 (FSN), 900000000000013009 (Synonym), 900000000000550004 (Definition)")
 			@RequestParam(required = false) Set<Long> type,
@@ -67,16 +67,16 @@ public class DescriptionController {
 			@Deprecated
 			@RequestParam(required = false) String semanticTag,
 
-			@ApiParam(value = "Set of semantic tags.")
+			@Parameter(name = "Set of semantic tags.")
 			@RequestParam(required = false) Set<String> semanticTags,
 
-			@ApiParam(value = "Set of description language reference sets. The description must be preferred in at least one of these to match.")
+			@Parameter(name = "Set of description language reference sets. The description must be preferred in at least one of these to match.")
 			@RequestParam(required = false) Set<Long> preferredIn,
 
-			@ApiParam(value = "Set of description language reference sets. The description must be acceptable in at least one of these to match.")
+			@Parameter(name = "Set of description language reference sets. The description must be acceptable in at least one of these to match.")
 			@RequestParam(required = false) Set<Long> acceptableIn,
 
-			@ApiParam(value = "Set of description language reference sets. The description must be preferred OR acceptable in at least one of these to match.")
+			@Parameter(name = "Set of description language reference sets. The description must be preferred OR acceptable in at least one of these to match.")
 			@RequestParam(required = false) Set<Long> preferredOrAcceptableIn,
 
 			@RequestParam(required = false) Boolean conceptActive,
@@ -152,11 +152,11 @@ public class DescriptionController {
 		}
 	}
 
-	@RequestMapping(value = "{branch}/descriptions", method = RequestMethod.GET)
+	@GetMapping(value = "{branch}/descriptions")
 	@JsonView(value = View.Component.class)
 	public ItemsPage<Description> findDescriptions(@PathVariable String branch,
-			@RequestParam(required = false) @ApiParam("The concept id to match") String conceptId,
-			@RequestParam(required = false) @ApiParam("Set of concept ids to match") Set<String> conceptIds,
+			@RequestParam(required = false) @Parameter(description = "The concept id to match") String conceptId,
+			@RequestParam(required = false) @Parameter(description = "Set of concept ids to match") Set<String> conceptIds,
 			@RequestParam(defaultValue = "0") int offset, @RequestParam(defaultValue = "50") int limit) {
 
 		branch = BranchPathUriUtil.decodePath(branch);
@@ -167,28 +167,28 @@ public class DescriptionController {
 		return new ItemsPage<>(descriptionService.findDescriptions(branch, null, null, unmodifiableSet(conceptIds), ControllerHelper.getPageRequest(offset, limit)));
 	}
 
-	@RequestMapping(value = "{branch}/descriptions/{descriptionId}", method = RequestMethod.GET)
+	@GetMapping(value = "{branch}/descriptions/{descriptionId}")
 	@JsonView(value = View.Component.class)
 	public Description fetchDescription(@PathVariable String branch, @PathVariable String descriptionId) {
 		return ControllerHelper.throwIfNotFound("Description", descriptionService.findDescription(BranchPathUriUtil.decodePath(branch), descriptionId));
 	}
 
-	@ApiOperation(value = "Delete a description.")
-	@RequestMapping(value = "{branch}/descriptions/{descriptionId}", method = RequestMethod.DELETE)
+	@Operation(summary = "Delete a description.")
+	@DeleteMapping(value = "{branch}/descriptions/{descriptionId}")
 	@PreAuthorize("hasPermission('AUTHOR', #branch)")
 	@JsonView(value = View.Component.class)
 	public void deleteDescription(
 			@PathVariable String branch,
 			@PathVariable String descriptionId,
-			@ApiParam("Force the deletion of a released description.")
+			@Parameter(description = "Force the deletion of a released description.")
 			@RequestParam(defaultValue = "false") boolean force) {
 		branch = BranchPathUriUtil.decodePath(branch);
 		Description description = ControllerHelper.throwIfNotFound("Description", descriptionService.findDescription(branch, descriptionId));
 		descriptionService.deleteDescription(description, branch, force);
 	}
 
-	@ApiOperation("List semantic tags of all active concepts together with a count of concepts using each.")
-	@RequestMapping(value = "{branch}/descriptions/semantictags", method = RequestMethod.GET)
+	@Operation(summary = "List semantic tags of all active concepts together with a count of concepts using each.")
+	@GetMapping(value = "{branch}/descriptions/semantictags")
 	@JsonView(value = View.Component.class)
 	public Map<String, Long> countSemanticTags(@PathVariable String branch) {
 

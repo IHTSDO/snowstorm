@@ -5,9 +5,9 @@ import io.kaicode.elasticvc.api.PathUtil;
 import io.kaicode.elasticvc.domain.Branch;
 import io.kaicode.elasticvc.domain.Metadata;
 import io.kaicode.rest.util.branchpathrewrite.BranchPathUriUtil;
-import io.swagger.annotations.Api;
-import io.swagger.annotations.ApiOperation;
-import io.swagger.annotations.ApiParam;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.snomed.snowstorm.config.Config;
 import org.snomed.snowstorm.core.data.domain.BranchMergeJob;
 import org.snomed.snowstorm.core.data.domain.Concept;
@@ -29,12 +29,15 @@ import org.springframework.web.bind.annotation.*;
 
 import javax.validation.Valid;
 import javax.validation.constraints.NotNull;
-import java.util.*;
+import java.util.Collection;
+import java.util.Date;
+import java.util.List;
+import java.util.Map;
 
 import static org.snomed.snowstorm.core.data.services.BranchMetadataHelper.INTERNAL_METADATA_KEY;
 
 @RestController
-@Api(tags = "Branching", description = "-")
+@Tag(name = "Branching", description = "-")
 @RequestMapping(produces = "application/json")
 public class BranchController {
 
@@ -59,14 +62,14 @@ public class BranchController {
 	@Value("${snowstorm.rest-api.readonly}")
 	private boolean restApiReadOnly;
 
-	@ApiOperation("Retrieve all branches")
-	@RequestMapping(value = "/branches", method = RequestMethod.GET)
+	@Operation(summary = "Retrieve all branches")
+	@GetMapping(value = "/branches")
 	public List<Branch> retrieveAllBranches() {
 		return clearMetadata(branchService.findAll());
 	}
 	
-	@ApiOperation("Retrieve branch descendants")
-	@RequestMapping(value = "/branches/{branch}/children", method = RequestMethod.GET)
+	@Operation(summary = "Retrieve branch descendants")
+	@GetMapping(value = "/branches/{branch}/children")
 	public List<Branch> retrieveBranchDescendants(
 			@PathVariable String branch,
 			@RequestParam(required = false, defaultValue = "false") boolean immediateChildren,
@@ -77,7 +80,7 @@ public class BranchController {
 		return clearMetadata(branchMergeService.findChildBranches(BranchPathUriUtil.decodePath(branch), immediateChildren, pageRequest));
 	}
 
-	@RequestMapping(value = "/branches", method = RequestMethod.POST)
+	@PostMapping(value = "/branches")
 	@PreAuthorize("hasPermission('AUTHOR', #request.branch)")
 	public BranchPojo createBranch(@RequestBody CreateBranchRequest request) {
 		return getBranchPojo(sBranchService.create(request.getBranch(), request.getMetadata()));
@@ -91,8 +94,8 @@ public class BranchController {
 		return new BranchPojo(branch, branch.getMetadata().getAsMap(), userRolesForBranch);
 	}
 
-	@ApiOperation("Replace all branch metadata")
-	@RequestMapping(value = "/branches/{branch}", method = RequestMethod.PUT)
+	@Operation(summary = "Replace all branch metadata")
+	@PutMapping(value = "/branches/{branch}")
 	@PreAuthorize("hasPermission('ADMIN', #branch)")
 	public BranchPojo updateBranch(@PathVariable String branch, @RequestBody UpdateBranchRequest request) {
 		branch = BranchPathUriUtil.decodePath(branch);
@@ -107,9 +110,9 @@ public class BranchController {
 		return getBranchPojo(branchService.updateMetadata(branch, newMetadata));
 	}
 
-	@ApiOperation(value = "Upsert branch metadata",
-			notes = "The item or items in the request will be merged with the existing metadata.")
-	@RequestMapping(value = "/branches/{branch}/metadata-upsert", method = RequestMethod.PUT)
+	@Operation(summary = "Upsert branch metadata",
+			description = "The item or items in the request will be merged with the existing metadata.")
+	@PutMapping(value = "/branches/{branch}/metadata-upsert")
 	@PreAuthorize("hasPermission('ADMIN', #branch)")
 	public Map<String, Object> updateBranchMetadataItems(@PathVariable String branch, @RequestBody Map<String, Object> metadataToInsert) {
 		branch = BranchPathUriUtil.decodePath(branch);
@@ -124,19 +127,19 @@ public class BranchController {
 		return getBranchPojo(branchService.updateMetadata(branch, newMetadata)).getMetadata();
 	}
 
-	@ApiOperation("Retrieve a single branch")
-	@RequestMapping(value = "/branches/{branch}", method = RequestMethod.GET)
+	@Operation(summary = "Retrieve a single branch")
+	@GetMapping(value = "/branches/{branch}")
 	public BranchPojo retrieveBranch(@PathVariable String branch, @RequestParam(required = false, defaultValue = "false") boolean includeInheritedMetadata) {
 		return getBranchPojo(branchService.findBranchOrThrow(BranchPathUriUtil.decodePath(branch), includeInheritedMetadata));
 	}
 
-	@RequestMapping(value = "/branches/{branch}/actions/lock", method = RequestMethod.POST)
+	@PostMapping(value = "/branches/{branch}/actions/lock")
 	@PreAuthorize("hasPermission('ADMIN', #branch)")
 	public void lockBranch(@PathVariable String branch, @RequestParam String lockMessage) {
 		branchService.lockBranch(BranchPathUriUtil.decodePath(branch), lockMessage);
 	}
 
-	@RequestMapping(value = "/branches/{branch}/actions/unlock", method = RequestMethod.POST)
+	@PostMapping(value = "/branches/{branch}/actions/unlock")
 	@PreAuthorize("hasPermission('ADMIN', #branch)")
 	public void unlockBranch(@PathVariable String branch) {
 		branch = BranchPathUriUtil.decodePath(branch);
@@ -148,7 +151,7 @@ public class BranchController {
 		branchService.unlock(branch);
 	}
 
-	@RequestMapping(value = "/branches/{branchPath}/actions/set-author-flag", method = RequestMethod.POST)
+	@PostMapping(value = "/branches/{branchPath}/actions/set-author-flag")
 	@PreAuthorize("hasPermission('AUTHOR', #branchPath)")
 	public BranchPojo setAuthorFlag(@PathVariable String branchPath, @RequestBody SetAuthorFlag setAuthorFlag) {
 		branchPath = BranchPathUriUtil.decodePath(branchPath);
@@ -161,7 +164,7 @@ public class BranchController {
 		return getBranchPojo(sBranchService.setAuthorFlag(branchPath, setAuthorFlag));
 	}
 
-	@RequestMapping(value = "/reviews", method = RequestMethod.POST)
+	@PostMapping(value = "/reviews")
 	@PreAuthorize("hasPermission('AUTHOR', #request.source) and hasPermission('AUTHOR', #request.target)")
 	public ResponseEntity<Void> createBranchReview(@RequestBody @Valid CreateReviewRequest request) {
 		BranchReview branchReview = reviewService.getCreateReview(request.getSource(), request.getTarget());
@@ -169,12 +172,12 @@ public class BranchController {
 		return ControllerHelper.getCreatedResponse(id);
 	}
 
-	@RequestMapping(value = "/reviews/{id}", method = RequestMethod.GET)
+	@GetMapping(value = "/reviews/{id}")
 	public BranchReview getBranchReview(@PathVariable String id) {
 		return ControllerHelper.throwIfNotFound("Branch review", reviewService.getBranchReview(id));
 	}
 
-	@RequestMapping(value = "/reviews/{id}/concept-changes", method = RequestMethod.GET)
+	@GetMapping(value = "/reviews/{id}/concept-changes")
 	public BranchReviewConceptChanges getBranchReviewConceptChanges(@PathVariable String id) {
 		BranchReview branchReview = reviewService.getBranchReviewOrThrow(id);
 		if (branchReview.getStatus() != ReviewStatus.CURRENT) {
@@ -183,19 +186,19 @@ public class BranchController {
 		return new BranchReviewConceptChanges(branchReview.getChangedConcepts());
 	}
 
-	@RequestMapping(value = "/merge-reviews", method = RequestMethod.POST)
+	@PostMapping(value = "/merge-reviews")
 	@PreAuthorize("hasPermission('AUTHOR', #request.source) and hasPermission('AUTHOR', #request.target)")
 	public ResponseEntity<Void> createMergeReview(@RequestBody @Valid CreateReviewRequest request) {
 		MergeReview mergeReview = reviewService.createMergeReview(request.getSource(), request.getTarget());
 		return ControllerHelper.getCreatedResponse(mergeReview.getId());
 	}
 
-	@RequestMapping(value = "/merge-reviews/{id}", method = RequestMethod.GET)
+	@GetMapping(value = "/merge-reviews/{id}")
 	public MergeReview getMergeReview(@PathVariable String id) {
 		return ControllerHelper.throwIfNotFound("Merge review", reviewService.getMergeReview(id));
 	}
 
-	@RequestMapping(value = "/merge-reviews/{id}/details", method = RequestMethod.GET)
+	@GetMapping(value = "/merge-reviews/{id}/details")
 	public Collection<MergeReviewConceptVersions> getMergeReviewConflictingConcepts(
 			@PathVariable String id,
 			@RequestHeader(value = "Accept-Language", defaultValue = Config.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) {
@@ -203,52 +206,52 @@ public class BranchController {
 		return reviewService.getMergeReviewConflictingConcepts(id, ControllerHelper.parseAcceptLanguageHeaderWithDefaultFallback(acceptLanguageHeader));
 	}
 
-	@RequestMapping(value = "/merge-reviews/{id}/{conceptId}", method = RequestMethod.POST)
+	@PostMapping(value = "/merge-reviews/{id}/{conceptId}")
 	public void saveMergeReviewConflictingConcept(@PathVariable String id, @PathVariable Long conceptId, @RequestBody Concept manuallyMergedConcept) throws ServiceException {
 		reviewService.persistManuallyMergedConcept(reviewService.getMergeReviewOrThrow(id), conceptId, manuallyMergedConcept);
 	}
 
-	@RequestMapping(value = "/merge-reviews/{id}/{conceptId}", method = RequestMethod.DELETE)
+	@DeleteMapping(value = "/merge-reviews/{id}/{conceptId}")
 	public void deleteMergeReviewConflictingConcept(@PathVariable String id, @PathVariable Long conceptId) {
 		reviewService.persistManualMergeConceptDeletion(reviewService.getMergeReviewOrThrow(id), conceptId);
 	}
 
-	@RequestMapping(value = "/merge-reviews/{id}/apply", method = RequestMethod.POST)
+	@PostMapping(value = "/merge-reviews/{id}/apply")
 	public void applyMergeReview(@PathVariable String id) throws ServiceException {
 		reviewService.applyMergeReview(reviewService.getMergeReviewOrThrow(id));
 	}
 
-	@ApiOperation(value = "Perform a branch rebase or promotion.",
-			notes = "The integrity-check endpoint should be used before performing a promotion to avoid promotion errors.")
-	@RequestMapping(value = "/merges", method = RequestMethod.POST)
+	@Operation(summary = "Perform a branch rebase or promotion.",
+			description = "The integrity-check endpoint should be used before performing a promotion to avoid promotion errors.")
+	@PostMapping(value = "/merges")
 	@PreAuthorize("hasPermission('AUTHOR', #mergeRequest.target)")
 	public ResponseEntity<Void> mergeBranch(@RequestBody MergeRequest mergeRequest) {
 		BranchMergeJob mergeJob = branchMergeService.mergeBranchAsync(mergeRequest);
 		return ControllerHelper.getCreatedResponse(mergeJob.getId());
 	}
 
-	@RequestMapping(value = "/merges/{mergeId}", method = RequestMethod.GET)
+	@GetMapping(value = "/merges/{mergeId}")
 	public BranchMergeJob retrieveMerge(@PathVariable String mergeId) {
 		return branchMergeService.getBranchMergeJobOrThrow(mergeId);
 	}
 
-	@ApiOperation(value = "Perform integrity check against changed components on this branch.",
-			notes = "Returns a report containing an entry for each type of issue found together with a map of components. " +
+	@Operation(summary = "Perform integrity check against changed components on this branch.",
+			description = "Returns a report containing an entry for each type of issue found together with a map of components. " +
 					"In the component map each key represents an existing component and the corresponding map value is the id of a component which is missing or inactive.")
-	@RequestMapping(value = "/{branch}/integrity-check", method = RequestMethod.POST)
-	public IntegrityIssueReport integrityCheck(@ApiParam(value="The branch path") @PathVariable(value="branch") @NotNull final String branchPath) throws ServiceException {
+	@PostMapping(value = "/{branch}/integrity-check")
+	public IntegrityIssueReport integrityCheck(@Parameter(description = "The branch path") @PathVariable(value = "branch") @NotNull final String branchPath) throws ServiceException {
 		Branch branch = branchService.findBranchOrThrow(BranchPathUriUtil.decodePath(branchPath));
 		return integrityService.findChangedComponentsWithBadIntegrityNotFixed(branch);
 	}
 
 
-	@RequestMapping(value = "/{branch}/upgrade-integrity-check", method = RequestMethod.POST)
-	@ApiOperation(value = "Perform integrity check against changed components during extension upgrade on the extension main branch and fix branch.",
-			notes = "Returns a report containing an entry for each type of issue found together with a map of components which still need to be fixed. " +
+	@PostMapping(value = "/{branch}/upgrade-integrity-check")
+	@Operation(summary = "Perform integrity check against changed components during extension upgrade on the extension main branch and fix branch.",
+			description = "Returns a report containing an entry for each type of issue found together with a map of components which still need to be fixed. " +
 					"In the component map each key represents an existing component and the corresponding map value is the id of a component which is missing or inactive.")
 	public IntegrityIssueReport upgradeIntegrityCheck(
-			@ApiParam(value="The fix branch path") @PathVariable(value="branch") @NotNull final String fixBranchPath,
-			@ApiParam(value="Extension main branch e.g MAIN/{Code System}") @RequestParam @NotNull String extensionMainBranchPath) throws ServiceException {
+			@Parameter(description = "The fix branch path") @PathVariable(value = "branch") @NotNull final String fixBranchPath,
+			@Parameter(description = "Extension main branch e.g MAIN/{Code System}") @RequestParam @NotNull String extensionMainBranchPath) throws ServiceException {
 		Branch branch = branchService.findBranchOrThrow(BranchPathUriUtil.decodePath(fixBranchPath));
 		if ("MAIN".equalsIgnoreCase(extensionMainBranchPath)) {
 			throw new IllegalArgumentException("Extension main branch path can't be MAIN");
@@ -264,11 +267,11 @@ public class BranchController {
 		return integrityService.findChangedComponentsWithBadIntegrityNotFixed(branch, extensionMainBranchPath);
 	}
 
-	@RequestMapping(value = "/{branch}/integrity-check-full", method = RequestMethod.POST)
-	@ApiOperation(value = "Perform integrity check against all components on this branch.",
-			notes = "Returns a report containing an entry for each type of issue found together with a map of components. " +
+	@PostMapping(value = "/{branch}/integrity-check-full")
+	@Operation(summary = "Perform integrity check against all components on this branch.",
+			description = "Returns a report containing an entry for each type of issue found together with a map of components. " +
 					"In the component map each key represents an existing component and the corresponding map value is the id of a component which is missing or inactive.")
-	public IntegrityIssueReport fullIntegrityCheck(@ApiParam(value="The branch path") @PathVariable(value="branch") @NotNull final String branchPath) throws ServiceException {
+	public IntegrityIssueReport fullIntegrityCheck(@Parameter(description = "The branch path") @PathVariable(value = "branch") @NotNull final String branchPath) throws ServiceException {
 		Branch branch = branchService.findBranchOrThrow(BranchPathUriUtil.decodePath(branchPath));
 		return integrityService.findAllComponentsWithBadIntegrity(branch, true);
 	}

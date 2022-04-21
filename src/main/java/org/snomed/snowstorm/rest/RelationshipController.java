@@ -2,9 +2,9 @@ package org.snomed.snowstorm.rest;
 
 import com.fasterxml.jackson.annotation.JsonView;
 import io.kaicode.rest.util.branchpathrewrite.BranchPathUriUtil;
-import io.swagger.annotations.Api;
-import io.swagger.annotations.ApiOperation;
-import io.swagger.annotations.ApiParam;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.snomed.snowstorm.config.Config;
 import org.snomed.snowstorm.core.data.domain.ConceptMini;
 import org.snomed.snowstorm.core.data.domain.Relationship;
@@ -21,7 +21,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.*;
 
 @RestController
-@Api(tags = "Relationships", description = "-")
+@Tag(name = "Relationships", description = "-")
 @RequestMapping(produces = "application/json")
 public class RelationshipController {
 
@@ -45,7 +45,7 @@ public class RelationshipController {
 		}
 	}
 
-	@RequestMapping(value = "{branch}/relationships", method = RequestMethod.GET)
+	@GetMapping(value = "{branch}/relationships")
 	@JsonView(value = View.Component.class)
 	public ItemsPage<Relationship> findRelationships(@PathVariable String branch,
 			@RequestParam(required = false) Boolean active,
@@ -100,7 +100,7 @@ public class RelationshipController {
 		});
 	}
 
-	@RequestMapping(value = "{branch}/relationships/{relationshipId}", method = RequestMethod.GET)
+	@GetMapping(value = "{branch}/relationships/{relationshipId}")
 	@JsonView(value = View.Component.class)
 	public Relationship fetchRelationship(
 			@PathVariable String branch,
@@ -114,27 +114,27 @@ public class RelationshipController {
 		return ControllerHelper.throwIfNotFound("Relationship", relationship);
 	}
 
-	@ApiOperation(value = "Delete a relationship.")
-	@RequestMapping(value = "{branch}/relationships/{relationshipId}", method = RequestMethod.DELETE)
+	@Operation(summary = "Delete a relationship.")
+	@DeleteMapping(value = "{branch}/relationships/{relationshipId}")
 	@PreAuthorize("hasPermission('AUTHOR', #branch)")
 	@ResponseStatus(HttpStatus.NO_CONTENT)
 	public void deleteRelationship(
 			@PathVariable String branch,
 			@PathVariable String relationshipId,
-			@ApiParam("Force the deletion of a released relationship.")
+			@Parameter(description = "Force the deletion of a released relationship.")
 			@RequestParam(defaultValue = "false") boolean force) {
 		branch = BranchPathUriUtil.decodePath(branch);
 		relationshipService.deleteRelationship(relationshipId, branch, force);
 	}
 
-	@ApiOperation(value = "Batch delete relationships.")
-	@RequestMapping(value = "{branch}/relationships", method = RequestMethod.DELETE)
+	@Operation(summary = "Batch delete relationships.")
+	@DeleteMapping(value = "{branch}/relationships")
 	@PreAuthorize("hasPermission('AUTHOR', #branch)")
 	@ResponseStatus(HttpStatus.NO_CONTENT)
 	public void deleteRelationships(
 			@PathVariable String branch,
 			@RequestBody RelationshipIdPojo relationshipIdPojo,
-			@ApiParam("Force the deletion of released relationships.")
+			@Parameter(description = "Force the deletion of released relationships.")
 			@RequestParam(defaultValue = "false") boolean force) {
 		branch = BranchPathUriUtil.decodePath(branch);
 		relationshipService.deleteRelationships(relationshipIdPojo.relationshipIds, branch, force);
