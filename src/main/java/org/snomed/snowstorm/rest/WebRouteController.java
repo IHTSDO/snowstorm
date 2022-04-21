@@ -1,11 +1,7 @@
 package org.snomed.snowstorm.rest;
 
-import io.swagger.annotations.Api;
-import io.swagger.annotations.ApiOperation;
-
-import java.net.URI;
-import java.net.URISyntaxException;
-
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.snomed.snowstorm.core.data.services.WebRoutingService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpHeaders;
@@ -13,16 +9,19 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.net.URI;
+import java.net.URISyntaxException;
+
 @RestController
-@Api(tags = "Web Route", description = "-")
+@Tag(name = "Web Route", description = "-")
 public class WebRouteController {
 
 	@Autowired
 	WebRoutingService webRoutingService;
 
-	@ApiOperation(value = "Issue 302 redirection based on locally configured web routing", 
-					notes = "Swagger will attempt to follow the 302 redirection, so use developer's tools network tab to view the redirection issued.")
-	@RequestMapping(value = "/web-route", method = RequestMethod.GET)
+	@Operation(summary = "Issue 302 redirection based on locally configured web routing",
+					description = "Swagger will attempt to follow the 302 redirection, so use developer's tools network tab to view the redirection issued.")
+	@GetMapping(value = "/web-route")
 	@CrossOrigin
 	public ResponseEntity<?> issueRedirect(@RequestParam String uri,
 			@RequestParam(required = false) String _format,
