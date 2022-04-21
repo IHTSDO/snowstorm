@@ -47,12 +47,12 @@ public class SSubExpressionConstraint extends SubExpressionConstraint implements
 
 	@Override
 	public Optional<Page<Long>> select(BranchCriteria branchCriteria, boolean stated, Collection<Long> conceptIdFilter,
-			PageRequest pageRequest, ECLContentService eclContentService) {
+			PageRequest pageRequest, ECLContentService eclContentService, boolean triedCache) {
 
 		if (isUnconstrained()) {
 			return Optional.empty();
 		}
-		return Optional.of(ConceptSelectorHelper.select(this, branchCriteria, stated, conceptIdFilter, pageRequest, eclContentService));
+		return Optional.of(ConceptSelectorHelper.select(this, branchCriteria, stated, conceptIdFilter, pageRequest, eclContentService, triedCache));
 	}
 
 	@JsonIgnore
@@ -64,7 +64,12 @@ public class SSubExpressionConstraint extends SubExpressionConstraint implements
 
 	@JsonIgnore
 	public boolean isAnyFiltersOrSupplements() {
-		return conceptFilterConstraints != null || descriptionFilterConstraints != null || memberFilterConstraints != null || getHistorySupplement() != null;
+		return isAnyFiltersOrSupplementsExcludingMemberFilters() || memberFilterConstraints != null;
+	}
+
+	@JsonIgnore
+	public boolean isAnyFiltersOrSupplementsExcludingMemberFilters() {
+		return conceptFilterConstraints != null || descriptionFilterConstraints != null || getHistorySupplement() != null;
 	}
 
 	@Override
@@ -143,83 +148,108 @@ public class SSubExpressionConstraint extends SubExpressionConstraint implements
 		clone.setTerm(term);
 		clone.setWildcard(wildcard);
 		clone.setNestedExpressionConstraint(nestedExpressionConstraint);
+		clone.setMemberFieldsToReturn(getMemberFieldsToReturn());
+		clone.setReturnAllMemberFields(isReturnAllMemberFields());
 		return clone;
 	}
 
 	@Override
-	public void addCriteria(RefinementBuilder refinementBuilder, Consumer<List<Long>> filteredOrSupplementedContentCallback) {
+	public void addCriteria(RefinementBuilder refinementBuilder, Consumer<List<Long>> filteredOrSupplementedContentCallback, boolean triedCache) {
 		BoolQueryBuilder query = refinementBuilder.getQuery();
-		doAddCriteria(refinementBuilder, query);
 
-		if (isAnyFiltersOrSupplements()) {
-			//
-			// Run content selection using filters and apply further conceptId constraints
-			//
+		if (operator == Operator.memberOf || isAnyFiltersOrSupplements()) {
+			// Fetching required
 
 			ECLContentService eclContentService = refinementBuilder.getEclContentService();
 			BranchCriteria branchCriteria = refinementBuilder.getBranchCriteria();
 			boolean stated = refinementBuilder.isStated();
 
-			// Grab all concept ids, this call is cacheable
-			SSubExpressionConstraint sSubExpressionConstraint = cloneWithoutFiltersOrSupplements();
-			SortedSet<Long> conceptIdSortedSet =
-					new LongLinkedOpenHashSet(eclContentService.fetchAllIdsWithCaching(sSubExpressionConstraint, branchCriteria, stated));
+			SortedSet<Long> conceptIdSortedSet;
 
-			// Apply filter constraints
-			if (getConceptFilterConstraints() != null) {
-				conceptIdSortedSet = new LongLinkedOpenHashSet(eclContentService.applyConceptFilters(getConceptFilterConstraints(), conceptIdSortedSet, branchCriteria, stated));
+			// Cache results before applying filters, apart from member queries with field filters.
+			Collection<Long> prefetchedConceptIds = null;
+			if (operator == Operator.memberOf && (memberFilterConstraints != null || triedCache)) {
+				// If there is a member filter constraint we can assume the reulsts set will be fairly small / not reusable.
+				// If there are no filters this
+				// Fetch without cache.
+				prefetchedConceptIds = doAddCriteria(refinementBuilder, query);
 			}
-			if (getDescriptionFilterConstraints() != null) {
-				// For each filter constraint all sub-filters (term, language, etc) must apply.
-				// If multiple options are given within a sub-filter they are conjunction (OR).
-				for (DescriptionFilterConstraint descriptionFilter : getDescriptionFilterConstraints()) {
-					SortedMap<Long, Long> descriptionToConceptMap = eclContentService.applyDescriptionFilter(conceptIdSortedSet, descriptionFilter, branchCriteria, stated);
-					conceptIdSortedSet = new LongLinkedOpenHashSet(descriptionToConceptMap.values());
+			if (prefetchedConceptIds == null) {
+				// Grab all concept ids using query without filters, should be cached
+				SSubExpressionConstraint sSubExpressionConstraint = cloneWithoutFiltersOrSupplements();
+				prefetchedConceptIds = eclContentService.fetchAllIdsWithCaching(sSubExpressionConstraint, branchCriteria, stated);
+			}
+			conceptIdSortedSet = new LongLinkedOpenHashSet(prefetchedConceptIds);
+
+			if (!conceptIdSortedSet.isEmpty()) {
+
+				// Apply filter constraints
+				if (getConceptFilterConstraints() != null) {
+					conceptIdSortedSet = new LongLinkedOpenHashSet(eclContentService.applyConceptFilters(getConceptFilterConstraints(), conceptIdSortedSet, branchCriteria, stated));
 				}
-			}
+				if (getDescriptionFilterConstraints() != null) {
+					// For each filter constraint all sub-filters (term, language, etc) must apply.
+					// If multiple options are given within a sub-filter they are conjunction (OR).
+					for (DescriptionFilterConstraint descriptionFilter : getDescriptionFilterConstraints()) {
+						SortedMap<Long, Long> descriptionToConceptMap = eclContentService.applyDescriptionFilter(conceptIdSortedSet, descriptionFilter, branchCriteria, stated);
+						conceptIdSortedSet = new LongLinkedOpenHashSet(descriptionToConceptMap.values());
+					}
+				}
 
-			// Add history supplement
-			if (getHistorySupplement() != null) {
-				Set<Long> historicConcepts = eclContentService.findHistoricConcepts(conceptIdSortedSet, getHistorySupplement(), branchCriteria);
-				conceptIdSortedSet.addAll(historicConcepts);
+				// Add history supplement
+				if (getHistorySupplement() != null) {
+					Set<Long> historicConcepts = eclContentService.findHistoricConcepts(conceptIdSortedSet, getHistorySupplement(), branchCriteria);
+					conceptIdSortedSet.addAll(historicConcepts);
+				}
 			}
 
 			query.must(termsQuery(QueryConcept.Fields.CONCEPT_ID, conceptIdSortedSet));
 			filteredOrSupplementedContentCallback.accept(new LongArrayList(conceptIdSortedSet));
+		} else {
+			doAddCriteria(refinementBuilder, query);
 		}
 	}
 
-	private void doAddCriteria(RefinementBuilder refinementBuilder, BoolQueryBuilder query) {
+	/**
+	 * Adds criteria to semantic index query.
+	 * Has to prefetch conceptIds in some scenarios for example nested constraints or member query.
+	 * These are returned by the method to show that further fetches can be avoided.
+	 */
+	private Collection<Long> doAddCriteria(RefinementBuilder refinementBuilder, BoolQueryBuilder query) {
 		if (conceptId != null) {
 			if (operator != null) {
-				applyConceptCriteriaWithOperator(Collections.singleton(parseLong(conceptId)), operator, refinementBuilder);
+				return applyConceptCriteriaWithOperator(Collections.singleton(parseLong(conceptId)), operator, refinementBuilder);
 			} else {
 				query.must(QueryBuilders.termQuery(QueryConcept.Fields.CONCEPT_ID, conceptId));
 			}
 		} else if (nestedExpressionConstraint != null) {
 			Optional<Page<Long>> conceptIdsOptional = ((SExpressionConstraint)nestedExpressionConstraint).select(refinementBuilder);
 			if (conceptIdsOptional.isEmpty()) {
-				return;
+				return null;
 			}
 			List<Long> conceptIds = conceptIdsOptional.get().getContent();
+			boolean matchesNothing = false;
 			if (conceptIds.isEmpty()) {
 				// Attribute type is not a wildcard but empty selection
 				// Force query to return nothing
 				conceptIds = Collections.singletonList(ConceptSelectorHelper.MISSING_LONG);
+				matchesNothing = true;
 			}
 			BoolQueryBuilder filterQuery = boolQuery();
 			query.filter(filterQuery);
 			if (operator != null) {
 				SubRefinementBuilder filterRefinementBuilder = new SubRefinementBuilder(refinementBuilder, filterQuery);
-				applyConceptCriteriaWithOperator(conceptIds, operator, filterRefinementBuilder);
+				return applyConceptCriteriaWithOperator(conceptIds, operator, filterRefinementBuilder);
 			} else {
 				filterQuery.must(termsQuery(QueryConcept.Fields.CONCEPT_ID, conceptIds));
+				return matchesNothing ? Collections.emptyList() : conceptIds;
 			}
 		} else if (operator == Operator.memberOf) {
 			// Member of wildcard (any reference set)
 			Set<Long> conceptIdsInReferenceSet = refinementBuilder.getEclContentService()
 					.findConceptIdsInReferenceSet(null, getMemberFilterConstraints(), refinementBuilder.getBranchCriteria());
 			query.must(termsQuery(QueryConcept.Fields.CONCEPT_ID, conceptIdsInReferenceSet));
+			return conceptIdsInReferenceSet;
 		} else if (operator == Operator.descendantof || operator == Operator.childof) {
 			// Descendant of wildcard / Child of wildcard = anything but root
 			query.mustNot(termQuery(QueryConcept.Fields.CONCEPT_ID, Concepts.SNOMEDCT_ROOT));
@@ -231,9 +261,10 @@ public class SSubExpressionConstraint extends SubExpressionConstraint implements
 		}
 		// Else Wildcard! which has no constraints
 		// <<!* and >>!* also match everything
+		return null;
 	}
 
-	private void applyConceptCriteriaWithOperator(Collection<Long> conceptIds, Operator operator, RefinementBuilder refinementBuilder) {
+	private Set<Long> applyConceptCriteriaWithOperator(Collection<Long> conceptIds, Operator operator, RefinementBuilder refinementBuilder) {
 		BoolQueryBuilder query = refinementBuilder.getQuery();
 		ECLContentService conceptSelector = refinementBuilder.getEclContentService();
 		BranchCriteria branchCriteria = refinementBuilder.getBranchCriteria();
@@ -299,10 +330,11 @@ public class SSubExpressionConstraint extends SubExpressionConstraint implements
 				break;
 			case memberOf:
 				// ^
-				Set<Long> conceptIdsInReferenceSet = conceptSelector.findConceptIdsInReferenceSet(conceptId, getMemberFilterConstraints(), branchCriteria);
+				Set<Long> conceptIdsInReferenceSet = conceptSelector.findConceptIdsInReferenceSet(conceptIds, getMemberFilterConstraints(), branchCriteria);
 				query.filter(termsQuery(QueryConcept.Fields.CONCEPT_ID, conceptIdsInReferenceSet));
-				break;
+				return conceptIdsInReferenceSet;
 		}
+		return null;
 	}
 
 	private Set<Long> retrieveAllAncestors(Collection<Long> conceptIds, BranchCriteria branchCriteria, boolean stated, ECLContentService eclContentService) {

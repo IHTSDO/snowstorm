@@ -37,11 +37,12 @@ public class ConceptSelectorHelper {
 	}
 
 	public static Page<Long> select(SExpressionConstraint sExpressionConstraint, RefinementBuilder refinementBuilder) {
-		return select(sExpressionConstraint, refinementBuilder.getBranchCriteria(), refinementBuilder.isStated(), null, null, refinementBuilder.getEclContentService());
+		return select(sExpressionConstraint, refinementBuilder.getBranchCriteria(), refinementBuilder.isStated(),
+				null, null, refinementBuilder.getEclContentService(), false);
 	}
 
 	public static Page<Long> select(SExpressionConstraint sExpressionConstraint, BranchCriteria branchCriteria, boolean stated,
-			Collection<Long> conceptIdFilter, PageRequest pageRequest, ECLContentService eclContentService) {
+			Collection<Long> conceptIdFilter, PageRequest pageRequest, ECLContentService eclContentService, boolean triedCache) {
 
 		BoolQueryBuilder query = getBranchAndStatedQuery(branchCriteria.getEntityBranchCriteria(QueryConcept.class), stated);
 		RefinementBuilder refinementBuilder = new RefinementBuilderImpl(query, branchCriteria, stated, eclContentService);
@@ -49,7 +50,7 @@ public class ConceptSelectorHelper {
 		// This can add an inclusionFilter to the refinementBuilder or run pre-selections to apply filters
 
 		PrefetchResult prefetchResult = new PrefetchResult();
-		sExpressionConstraint.addCriteria(refinementBuilder, prefetchResult::set);
+		sExpressionConstraint.addCriteria(refinementBuilder, prefetchResult::set, triedCache);
 
 		// TODO: Member Filtering
 		// List<MemberFilterConstraint> memberFilterConstraints = null;

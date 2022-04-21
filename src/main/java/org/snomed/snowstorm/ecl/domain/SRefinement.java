@@ -8,7 +8,7 @@ import java.util.function.Consumer;
 
 public interface SRefinement {
 
-	void addCriteria(RefinementBuilder refinementBuilder, Consumer<List<Long>> filteredOrSupplementedContentCallback);
+	void addCriteria(RefinementBuilder refinementBuilder, Consumer<List<Long>> filteredOrSupplementedContentCallback, boolean triedCache);
 
 	@JsonIgnore
 	Set<String> getConceptIds();

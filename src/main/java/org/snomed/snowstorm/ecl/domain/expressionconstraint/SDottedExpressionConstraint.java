@@ -40,19 +40,22 @@ public class SDottedExpressionConstraint extends DottedExpressionConstraint impl
 
 	@Override
 	public Optional<Page<Long>> select(BranchCriteria branchCriteria, boolean stated, Collection<Long> conceptIdFilter,
-			PageRequest pageRequest, ECLContentService eclContentService) {
+			PageRequest pageRequest, ECLContentService eclContentService, boolean triedCache) {
+
+		triedCache = false;// The subExpressionConstraint has not been through the cache
 
 		// Concept ids filtering should be done on attribute values for dot notation ECL query
 		// Fetch source concept ids
 		if (getSubExpressionConstraint().isWildcard()) {
 			throw new UnsupportedOperationException("Dotted expression using wildcard focus concept is not supported.");
 		}
-		List<Long> conceptIds = ConceptSelectorHelper.select((SExpressionConstraint) getSubExpressionConstraint(), branchCriteria, stated, null, null, eclContentService).getContent();
+		List<Long> conceptIds = ConceptSelectorHelper.select((SExpressionConstraint) getSubExpressionConstraint(), branchCriteria, stated,
+				null, null, eclContentService, triedCache).getContent();
 
 		// Iteratively traverse attributes
 		for (SubExpressionConstraint dottedAttribute : dottedAttributes) {
 			SSubExpressionConstraint aDottedAttribute = (SSubExpressionConstraint) dottedAttribute;
-			Optional<Page<Long>> attributeTypeIdsOptional = aDottedAttribute.select(branchCriteria, stated, null, null, eclContentService);
+			Optional<Page<Long>> attributeTypeIdsOptional = aDottedAttribute.select(branchCriteria, stated, null, null, eclContentService, false);
 			List<Long> attributeTypeIds = attributeTypeIdsOptional.map(Slice::getContent).orElse(null);
 			// XXX Note that this content is not paginated
 			conceptIds = eclContentService.findRelationshipDestinationIds(conceptIds, attributeTypeIds, branchCriteria, stated);
@@ -81,7 +84,7 @@ public class SDottedExpressionConstraint extends DottedExpressionConstraint impl
 
 	@Override
 	public Optional<Page<Long>> select(RefinementBuilder refinementBuilder) {
-		return select(refinementBuilder.getBranchCriteria(), refinementBuilder.isStated(), null, null, refinementBuilder.getEclContentService());
+		return select(refinementBuilder.getBranchCriteria(), refinementBuilder.isStated(), null, null, refinementBuilder.getEclContentService(), false);
 	}
 
 	@Override
@@ -98,8 +101,8 @@ public class SDottedExpressionConstraint extends DottedExpressionConstraint impl
 	}
 
 	@Override
-	public void addCriteria(RefinementBuilder refinementBuilder, Consumer<List<Long>> filteredOrSupplementedContentCallback) {
-		((SSubExpressionConstraint)subExpressionConstraint).addCriteria(refinementBuilder, (ids) -> {});
+	public void addCriteria(RefinementBuilder refinementBuilder, Consumer<List<Long>> filteredOrSupplementedContentCallback, boolean triedCache) {
+		((SSubExpressionConstraint)subExpressionConstraint).addCriteria(refinementBuilder, (ids) -> {}, triedCache);
 	}
 
 	@Override

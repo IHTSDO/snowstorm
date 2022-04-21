@@ -289,12 +289,22 @@ class ECLQueryServiceFilterTest {
 	}
 
 	@Test
-	public void testActiveFilter() {
+	public void testMemberActiveFilter() {
 		assertEquals(newHashSet("100001", "100002", "200001", "200002"), select("^ 816080008"));
 		assertEquals(newHashSet("100001", "100002"), select("^ 816080008 {{ C active = 1 }}"));
 		assertEquals(newHashSet("100001", "100002"), select("^ 816080008 {{ C active = true }}"));
 		assertEquals(newHashSet("200001", "200002"), select("^ 816080008 {{ C active = 0 }}"));
 		assertEquals(newHashSet("200001", "200002"), select("^ 816080008 {{ C active = false }}"));
+	}
+
+	@Test
+	public void testMemberFieldFilter() {
+		assertEquals(newHashSet("427603009"), select("^ 447562003 |ICD-10 complex map reference set|  {{ M mapTarget = \"J45.9\" }}"));
+		assertEquals(newHashSet("427603009", "708094006"), select("^ 447562003 |ICD-10 complex map reference set|  {{ M mapTarget = \"J45\" }}"));
+		assertEquals(newHashSet(), select("^ 447562003 |ICD-10 complex map reference set| {{ M mapTarget = wild:\"J45\" }}"));
+		assertEquals(newHashSet("427603009"), select("^ 447562003 |ICD-10 complex map reference set|  {{ M mapGroup = #2, mapPriority = #1, mapTarget = \"J45.9\" }}"));
+		assertEquals(newHashSet("427603009"), select("^ 447562003 |ICD-10 complex map reference set|  {{ M mapGroup = #2, mapPriority = #1 }}"));
+		assertEquals(newHashSet("708094006"), select("^ 447562003 |ICD-10 complex map reference set|  {{ M mapGroup = #1, mapPriority = #1 }}"));
 	}
 
 	@Test

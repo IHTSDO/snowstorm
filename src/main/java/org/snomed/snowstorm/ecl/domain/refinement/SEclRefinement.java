@@ -20,7 +20,7 @@ import static org.springframework.util.CollectionUtils.isEmpty;
 public class SEclRefinement extends EclRefinement implements SRefinement {
 
 	@Override
-	public void addCriteria(RefinementBuilder refinementBuilder, Consumer<List<Long>> filteredOrSupplementedContentCallback) {
+	public void addCriteria(RefinementBuilder refinementBuilder, Consumer<List<Long>> filteredOrSupplementedContentCallback, boolean triedCache) {
 		addCriteria(refinementBuilder);
 	}
 

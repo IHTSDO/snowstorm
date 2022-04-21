@@ -31,7 +31,7 @@ public class SEclAttribute extends EclAttribute implements SRefinement {
 	private RefinementBuilder refinementBuilder;
 
 	@Override
-	public void addCriteria(RefinementBuilder refinementBuilder, Consumer<List<Long>> filteredOrSupplementedContentCallback) {
+	public void addCriteria(RefinementBuilder refinementBuilder, Consumer<List<Long>> filteredOrSupplementedContentCallback, boolean triedCache) {
 		addCriteria(refinementBuilder);
 	}
 

@@ -114,7 +114,7 @@ public class ECLQueryService {
 			} else {
 				// Select 1
 				// When is pageRequest null?
-				pageOptional = expressionConstraint.select(branchCriteria, stated, null, queryPageRequest, eclContentService);
+				pageOptional = expressionConstraint.select(branchCriteria, stated, null, queryPageRequest, eclContentService, true);
 				if (pageOptional.isPresent()) {
 					// Cache results
 					final Page<Long> page = pageOptional.get();
@@ -133,7 +133,7 @@ public class ECLQueryService {
 			}
 		} else {
 			// Select 2
-			pageOptional = expressionConstraint.select(branchCriteria, stated, conceptIdFilter, pageRequest, eclContentService);
+			pageOptional = expressionConstraint.select(branchCriteria, stated, conceptIdFilter, pageRequest, eclContentService, true);
 			if (pageOptional.isPresent()) {
 				eclSlowQueryTimer.checkpoint(String.format("ecl:'%s', with %s results in this page, cache not enabled.", ecl, pageOptional.get().getNumberOfElements()));
 			}
