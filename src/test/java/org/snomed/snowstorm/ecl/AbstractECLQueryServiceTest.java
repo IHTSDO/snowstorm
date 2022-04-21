@@ -289,8 +289,8 @@ abstract class AbstractECLQueryServiceTest {
 	void attributeGroups() {
 		String eclWithoutGrouping =
 				"<404684003 |Clinical finding| :\n" +
-						"	363698007 |Finding site| = <<39057004 |Pulmonary valve structure|,\n" +
-						"	116676008 |Associated morphology| = <<415582006 |Stenosis|" +
+						"	363698007 |Finding site| = <<39057004 |Pulmonary valve structure| , \n" +
+						"	116676008 |Associated morphology| = <<415582006 |Stenosis|," +
 						"	363698007 |Finding site| = <<53085002 |Right ventricular structure|,\n" +
 						"	116676008 |Associated morphology| = <<56246009 |Hypertrophy|";
 		String eclWithGrouping =
