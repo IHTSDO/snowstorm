@@ -1,8 +1,8 @@
 package org.snomed.snowstorm.rest;
 
 import io.kaicode.rest.util.branchpathrewrite.BranchPathUriUtil;
-import io.swagger.annotations.Api;
-import io.swagger.annotations.ApiOperation;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.snomed.snowstorm.config.Config;
 import org.snomed.snowstorm.core.data.domain.ConceptMini;
 import org.snomed.snowstorm.core.data.services.ServiceException;
@@ -17,16 +17,16 @@ import java.util.Set;
 import static org.snomed.snowstorm.rest.ControllerHelper.parseAcceptLanguageHeaderWithDefaultFallback;
 
 @RestController
-@Api(tags = "MRCM", description = "-")
+@Tag(name = "MRCM", description = "-")
 @RequestMapping(produces = "application/json")
 public class MRCMController {
 
 	@Autowired
 	private MRCMService mrcmService;
 
-	@ApiOperation(value = "Retrieve MRCM domain attributes applicable for the given stated parents.",
-			notes = "The parentIds must be the set ids of stated parents. If creating post-coordinated expressions be sure to set the content type to POSTCOORDINATED.")
-	@RequestMapping(value = "/mrcm/{branch}/domain-attributes", method = RequestMethod.GET)
+	@Operation(summary = "Retrieve MRCM domain attributes applicable for the given stated parents.",
+			description = "The parentIds must be the set ids of stated parents. If creating post-coordinated expressions be sure to set the content type to POSTCOORDINATED.")
+	@GetMapping(value = "/mrcm/{branch}/domain-attributes")
 	public ItemsPage<ConceptMini> retrieveDomainAttributes(
 			@PathVariable String branch,
 			@RequestParam(required = false) Set<Long> parentIds,
@@ -38,8 +38,8 @@ public class MRCMController {
 		return new ItemsPage<>(mrcmService.retrieveDomainAttributeConceptMinis(contentType, proximalPrimitiveModeling, parentIds, branch, parseAcceptLanguageHeaderWithDefaultFallback(acceptLanguageHeader)));
 	}
 
-	@ApiOperation("Retrieve valid values for the given attribute and term prefix.")
-	@RequestMapping(value = "/mrcm/{branch}/attribute-values/{attributeId}", method = RequestMethod.GET)
+	@Operation(summary = "Retrieve valid values for the given attribute and term prefix.")
+	@GetMapping(value = "/mrcm/{branch}/attribute-values/{attributeId}")
 	public ItemsPage<ConceptMini> retrieveAttributeValues(
 			@PathVariable String branch,
 			@RequestParam(required = false, defaultValue = "NEW_PRECOORDINATED") ContentType contentType,
@@ -51,8 +51,8 @@ public class MRCMController {
 		return new ItemsPage<>(mrcmService.retrieveAttributeValues(contentType, attributeId, termPrefix, branch, parseAcceptLanguageHeaderWithDefaultFallback(acceptLanguageHeader)));
 	}
 
-	@ApiOperation("Retrieve all active concept model attributes in a hierarchical structure.")
-	@RequestMapping(value = "/mrcm/{branch}/concept-model-attribute-hierarchy", method = RequestMethod.GET)
+	@Operation(summary = "Retrieve all active concept model attributes in a hierarchical structure.")
+	@GetMapping(value = "/mrcm/{branch}/concept-model-attribute-hierarchy")
 	public ConceptMini retrieveConceptModelAttributeHierarchy(
 			@PathVariable String branch,
 			@RequestHeader(value = "Accept-Language", defaultValue = Config.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) {

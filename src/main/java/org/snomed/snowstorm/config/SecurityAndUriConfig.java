@@ -6,14 +6,22 @@ import com.fasterxml.jackson.databind.SerializationFeature;
 import com.google.common.collect.Lists;
 import io.kaicode.elasticvc.domain.Branch;
 import io.kaicode.rest.util.branchpathrewrite.BranchPathUriRewriteFilter;
+import io.swagger.v3.oas.models.ExternalDocumentation;
+import io.swagger.v3.oas.models.OpenAPI;
+import io.swagger.v3.oas.models.info.Contact;
+import io.swagger.v3.oas.models.info.Info;
+import io.swagger.v3.oas.models.info.License;
 import org.ihtsdo.drools.domain.Component;
 import org.ihtsdo.drools.response.InvalidContent;
 import org.ihtsdo.sso.integration.RequestHeaderAuthenticationDecorator;
 import org.snomed.snowstorm.core.data.domain.CodeSystemVersion;
 import org.snomed.snowstorm.core.data.domain.classification.Classification;
+import org.snomed.snowstorm.rest.ReadOnlyApi;
+import org.snomed.snowstorm.rest.ReadOnlyApiWhenEnabled;
 import org.snomed.snowstorm.rest.config.*;
 import org.snomed.snowstorm.rest.pojo.BranchPojo;
 import org.snomed.snowstorm.rest.security.RequestHeaderAuthenticationDecoratorWithRequiredRole;
+import org.springdoc.core.GroupedOpenApi;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.info.BuildProperties;
@@ -30,19 +38,10 @@ import org.springframework.security.config.annotation.web.configuration.WebSecur
 import org.springframework.security.config.annotation.web.configurers.ExpressionUrlAuthorizationConfigurer;
 import org.springframework.security.web.firewall.DefaultHttpFirewall;
 import org.springframework.security.web.firewall.HttpFirewall;
-import org.springframework.web.bind.annotation.RequestMethod;
-import springfox.documentation.builders.RequestHandlerSelectors;
-import springfox.documentation.service.ApiInfo;
-import springfox.documentation.service.Contact;
-import springfox.documentation.spi.DocumentationType;
-import springfox.documentation.spring.web.plugins.ApiSelectorBuilder;
-import springfox.documentation.spring.web.plugins.Docket;
+import org.springframework.web.bind.annotation.GetMapping;
 
 import java.util.Collections;
 import java.util.List;
-import java.util.Set;
-
-import static springfox.documentation.builders.PathSelectors.regex;
 
 @Configuration
 @EnableWebSecurity
@@ -179,77 +178,42 @@ public class SecurityAndUriConfig extends WebSecurityConfigurerAdapter {
 	}
 
 
+	@Bean
+	public OpenAPI apiInfo() {
+		final String version = buildProperties != null ? buildProperties.getVersion() : "DEV";
+		return new OpenAPI()
+				.info(new Info().title("Snowstorm")
+						.description("SNOMED CT Terminology Server REST API")
+						.version(version)
+						.contact(new Contact().name("SNOMED International").url("https://www.snomed.org"))
+						.license(new License().name("Apache 2.0").url("http://www.apache.org/licenses/LICENSE-2.0")))
+				.externalDocs(new ExternalDocumentation().description("See more about Snowstorm in GitHub").url("https://github.com/IHTSDO/snowstorm"));
+	}
 
 	@Bean
-	// Swagger config
-	@SuppressWarnings("unchecked")
-	public Docket api() {
-		Docket docket = new Docket(DocumentationType.SWAGGER_2);
-        final String version = buildProperties != null ? buildProperties.getVersion() : "DEV";
-        docket.apiInfo(new ApiInfo("Snowstorm", "SNOMED CT Terminology Server REST API", version, null,
-				new Contact("SNOMED International", "https://github.com/IHTSDO/snowstorm", null), "Apache 2.0",
-		        "http://www.apache.org/licenses/LICENSE-2.0", Collections.emptyList()));
-		ApiSelectorBuilder apiSelectorBuilder = docket.select();
-
+	public GroupedOpenApi apiDocs() {
+		GroupedOpenApi.Builder apiBuilder = GroupedOpenApi.builder()
+				.group("snowstorm")
+				.packagesToScan("org.snomed.snowstorm.rest");
 		if (restApiReadOnly) {
-			// Read-only mode
-			List<String> alwaysAllowReadOnlyPostEndpointPrefixes = alwaysAllowReadOnlyPostEndpointPrefixes();
-			List<String> alwaysAllowReadOnlyPostEndpoints = alwaysAllowReadOnlyPostEndpoints();
-			List<String> whenEnabledAllowReadOnlyPostEndpoints = whenEnabledAllowReadOnlyPostEndpoints();
-
-			apiSelectorBuilder
-					.apis(requestHandler -> {
-						// Hide POST/PUT/PATCH/DELETE
-						if (requestHandler != null) {
-							// Allow FHIR endpoints with GET method (even if endpoint has POST too)
-							Set<String> patterns = requestHandler.getPatternsCondition().getPatterns();
-								if (patterns.stream()
-									.anyMatch(pattern -> alwaysAllowReadOnlyPostEndpointPrefixes
-											.stream()
-											.anyMatch(pattern::startsWith))
-									&& requestHandler.supportedMethods().contains(RequestMethod.GET)) {
-								return true;
-							}
-							if (patterns.stream().
-											anyMatch(pattern -> alwaysAllowReadOnlyPostEndpoints
-													.stream()
-													.anyMatch(pattern::equals))) {
-								return true;
-							}
-							if (restApiAllowReadOnlyPostEndpoints) {
-								// Allow specific endpoints with POST method
-								if (patterns.stream().
-												anyMatch(pattern -> whenEnabledAllowReadOnlyPostEndpoints
-														.stream()
-														.anyMatch(pattern::equals))
-										&& requestHandler.supportedMethods().contains(RequestMethod.POST)) {
-									return true;
-								}
-							}
-							Set<RequestMethod> methods = requestHandler.supportedMethods();
-							return !methods.contains(RequestMethod.POST) && !methods.contains(RequestMethod.PUT)
-									&& !methods.contains(RequestMethod.PATCH) && !methods.contains(RequestMethod.DELETE);
-						}
-						return false;
-					})
-					// Also hide endpoints related to authoring
-					.paths(regex("/merge.*").negate())
-					.paths(regex("/review.*").negate())
-					.paths(regex(".*/classification.*").negate())
-					.paths(regex("/exports.*").negate())
-					.paths(regex("/imports.*").negate());
-		} else {
-			// Not read-only mode, allow everything!
-			apiSelectorBuilder
-					.apis(RequestHandlerSelectors.any());
+			// Also hide endpoints related to authoring
+			apiBuilder.pathsToExclude("/merge.*", "/review.*", ".*/classification.*", "/exports.*", "/imports.*");
+			apiBuilder.addOpenApiMethodFilter(method -> (method.isAnnotationPresent(GetMapping.class)
+					|| method.isAnnotationPresent(ReadOnlyApi.class)
+					|| (restApiAllowReadOnlyPostEndpoints && method.isAnnotationPresent(ReadOnlyApiWhenEnabled.class))));
 		}
-
 		// Don't show the error or root endpoints in swagger
-		apiSelectorBuilder
-				.paths(regex("/error").negate())
-				.paths(regex("/").negate());
+		apiBuilder.pathsToExclude("/error", "/");
+		return apiBuilder.build();
+	}
 
-		return apiSelectorBuilder.build();
+
+	@Bean
+	public GroupedOpenApi springActuatorApi() {
+		return GroupedOpenApi.builder().group("actuator")
+				.packagesToScan("org.springframework.boot.actuate")
+				.pathsToMatch("/actuator/**")
+				.build();
 	}
 
 	@Bean
@@ -264,7 +228,7 @@ public class SecurityAndUriConfig extends WebSecurityConfigurerAdapter {
 	public FilterRegistrationBean<RequestHeaderAuthenticationDecoratorWithRequiredRole> getRequiredRoleFilter(@Value("${ims-security.required-role}") String requiredRole) {
 		FilterRegistrationBean<RequestHeaderAuthenticationDecoratorWithRequiredRole> filterRegistrationBean = new FilterRegistrationBean<>(
 				new RequestHeaderAuthenticationDecoratorWithRequiredRole(requiredRole)
-						.addExcludedPath("/webjars/springfox-swagger-ui")
+						.addExcludedPath("swagger-ui/index.html")
 		);
 		filterRegistrationBean.setOrder(2);
 		return filterRegistrationBean;

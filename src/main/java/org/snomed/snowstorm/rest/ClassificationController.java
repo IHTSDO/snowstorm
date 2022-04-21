@@ -4,8 +4,8 @@ import com.fasterxml.jackson.annotation.JsonView;
 import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.domain.Branch;
 import io.kaicode.rest.util.branchpathrewrite.BranchPathUriUtil;
-import io.swagger.annotations.Api;
-import io.swagger.annotations.ApiOperation;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.snomed.otf.owltoolkit.service.SnomedReasonerService;
 import org.snomed.snowstorm.config.Config;
 import org.snomed.snowstorm.core.data.domain.ConceptView;
@@ -25,7 +25,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.util.UriComponentsBuilder;
 
 @RestController
-@Api(tags = "Classification", description = "-")
+@Tag(name = "Classification", description = "-")
 @RequestMapping(value = "/{branch}/classifications", produces = "application/json")
 public class ClassificationController {
 
@@ -35,20 +35,20 @@ public class ClassificationController {
 	@Autowired
 	private BranchService branchService;
 
-	@ApiOperation("Retrieve classifications on a branch")
-	@RequestMapping(method = RequestMethod.GET)
+	@Operation(summary = "Retrieve classifications on a branch")
+	@GetMapping
 	public ItemsPage<Classification> findClassifications(@PathVariable String branch) {
 		return new ItemsPage<>(classificationService.findClassifications(BranchPathUriUtil.decodePath(branch)));
 	}
 
-	@ApiOperation("Retrieve a classification on a branch")
-	@RequestMapping(value = "/{classificationId}", method = RequestMethod.GET)
+	@Operation(summary = "Retrieve a classification on a branch")
+	@GetMapping(value = "/{classificationId}")
 	public Classification findClassification(@PathVariable String branch, @PathVariable String classificationId) {
 		return classificationService.findClassification(BranchPathUriUtil.decodePath(branch), classificationId);
 	}
 
-	@ApiOperation("Retrieve relationship changes made by a classification run on a branch")
-	@RequestMapping(value = "/{classificationId}/relationship-changes", method = RequestMethod.GET, produces = {"application/json", "text/csv"})
+	@Operation(summary = "Retrieve relationship changes made by a classification run on a branch")
+	@GetMapping(value = "/{classificationId}/relationship-changes", produces = {"application/json", "text/csv"})
 	public ItemsPage<RelationshipChange> getRelationshipChanges(
 			@PathVariable String branch,
 			@PathVariable String classificationId,
@@ -70,8 +70,8 @@ public class ClassificationController {
 		}
 	}
 
-	@ApiOperation("Retrieve a preview of a concept with classification changes applied")
-	@RequestMapping(value = "/{classificationId}/concept-preview/{conceptId}", method = RequestMethod.GET)
+	@Operation(summary = "Retrieve a preview of a concept with classification changes applied")
+	@GetMapping(value = "/{classificationId}/concept-preview/{conceptId}")
 	@JsonView(value = View.Component.class)
 	public ConceptView getConceptPreview(
 			@PathVariable String branch,
@@ -82,8 +82,8 @@ public class ClassificationController {
 		return classificationService.getConceptPreview(BranchPathUriUtil.decodePath(branch), classificationId, conceptId, ControllerHelper.parseAcceptLanguageHeaderWithDefaultFallback(acceptLanguageHeader));
 	}
 
-	@ApiOperation("Retrieve equivalent concepts from a classification run on a branch")
-	@RequestMapping(value = "/{classificationId}/equivalent-concepts", method = RequestMethod.GET)
+	@Operation(summary = "Retrieve equivalent concepts from a classification run on a branch")
+	@GetMapping(value = "/{classificationId}/equivalent-concepts")
 	public ItemsPage<EquivalentConceptsResponse> getEquivalentConcepts(
 			@PathVariable String branch,
 			@PathVariable String classificationId,
@@ -95,8 +95,8 @@ public class ClassificationController {
 				ControllerHelper.parseAcceptLanguageHeaderWithDefaultFallback(acceptLanguageHeader), ControllerHelper.getPageRequest(offset, limit)));
 	}
 
-	@ApiOperation("Create a classification on a branch")
-	@RequestMapping(method = RequestMethod.POST)
+	@Operation(summary = "Create a classification on a branch")
+	@PostMapping
 	public ResponseEntity createClassification(@PathVariable String branch,
 			@RequestParam(required = false, defaultValue = SnomedReasonerService.ELK_REASONER_FACTORY) String reasonerId,
 			UriComponentsBuilder uriComponentsBuilder) throws ServiceException {
@@ -108,12 +108,12 @@ public class ClassificationController {
 				.buildAndExpand(branchObject.getPath(), classification.getId()).toUri()).build();
 	}
 
-	@ApiOperation(value = "Update a classification on a branch.",
-	notes = "Update the specified classification run by changing its state property. Saving the results is an async operation due to " +
+	@Operation(summary = "Update a classification on a branch.",
+	description = "Update the specified classification run by changing its state property. Saving the results is an async operation due to " +
 			"the possible high number of changes. It is advised to fetch the state of the classification run until the state changes " +
 			"to 'SAVED' or 'SAVE_FAILED'.\n" +
 			"Currently only the state can be changed from 'COMPLETED' to 'SAVED'.")
-	@RequestMapping(value = "/{classificationId}", method = RequestMethod.PUT)
+	@PutMapping(value = "/{classificationId}")
 	@PreAuthorize("hasPermission('AUTHOR', #branch)")
 	public void updateClassification(@PathVariable String branch, @PathVariable String classificationId, @RequestBody ClassificationUpdateRequest updateRequest) {
 		if (updateRequest.getStatus() != ClassificationStatus.SAVED) {
