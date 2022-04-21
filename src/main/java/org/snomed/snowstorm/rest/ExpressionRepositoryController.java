@@ -1,8 +1,8 @@
 package org.snomed.snowstorm.rest;
 
 import io.kaicode.rest.util.branchpathrewrite.BranchPathUriUtil;
-import io.swagger.annotations.Api;
-import io.swagger.annotations.ApiOperation;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.snomed.snowstorm.core.data.services.ServiceException;
 import org.snomed.snowstorm.core.data.services.postcoordination.ExpressionRepositoryService;
 import org.snomed.snowstorm.core.data.services.postcoordination.PostCoordinatedExpression;
@@ -12,15 +12,15 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
-@Api(tags = "Postcoordination", description = "-")
+@Tag(name = "Postcoordination", description = "-")
 @RequestMapping(produces = "application/json")
 public class ExpressionRepositoryController {
 
 	@Autowired
 	private ExpressionRepositoryService expressionRepository;
 
-	@ApiOperation(value = "Retrieve all postcoordinated expressions", hidden = true)
-	@RequestMapping(value = "/{branch}/expressions", method = RequestMethod.GET)
+	@Operation(summary = "Retrieve all postcoordinated expressions", hidden = true)
+	@GetMapping(value = "/{branch}/expressions")
 	public ItemsPage<PostCoordinatedExpression> retrieveAllExpressions(
 			@PathVariable String branch,
 			@RequestParam(required = false, defaultValue = "0") int offset,
@@ -30,18 +30,17 @@ public class ExpressionRepositoryController {
 		return new ItemsPage<>(expressionRepository.findAll(branch, ControllerHelper.getPageRequest(offset, limit)));
 	}
 
-	@ApiOperation(value = "Create an expression in the repository", hidden = true)
-	@RequestMapping(value = "/{branch}/expressions", method = RequestMethod.PUT)
+	@Operation(summary = "Create an expression in the repository", hidden = true)
+	@PutMapping(value = "/{branch}/expressions")
 	public PostCoordinatedExpression createExpression(@PathVariable String branch, @RequestBody CreatePostCoordinatedExpressionRequest request) throws ServiceException {
 		branch = BranchPathUriUtil.decodePath(branch);
 		return expressionRepository.createExpression(branch, request.getCloseToUserForm(), request.getModuleId());
 	}
 
-	@ApiOperation(
-	        value = "Validate and transform a postcoordinated expression.",
-            notes = "<b>Work In Progress</b>. This endpoint can be used for testing the validation of a postcoordinated expression, stated in close to user form, and " +
+	@Operation(summary = "Validate and transform a postcoordinated expression.",
+            description = "<b>Work In Progress</b>. This endpoint can be used for testing the validation of a postcoordinated expression, stated in close to user form, and " +
                     "any transformation to the classifiable form as required.")
-	@RequestMapping(value = "/{branch}/expressions/transform", method = RequestMethod.POST)
+	@PostMapping(value = "/{branch}/expressions/transform")
 	public PostCoordinatedExpression transformExpression(@PathVariable String branch, @RequestBody CreatePostCoordinatedExpressionRequest request) throws ServiceException {
 		branch = BranchPathUriUtil.decodePath(branch);
 		return expressionRepository.parseValidateAndTransformExpression(branch, request.getCloseToUserForm());

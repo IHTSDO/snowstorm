@@ -4,9 +4,9 @@ import com.fasterxml.jackson.annotation.JsonView;
 import io.kaicode.elasticvc.api.BranchCriteria;
 import io.kaicode.elasticvc.api.VersionControlHelper;
 import io.kaicode.rest.util.branchpathrewrite.BranchPathUriUtil;
-import io.swagger.annotations.Api;
-import io.swagger.annotations.ApiOperation;
-import io.swagger.annotations.ApiParam;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.apache.commons.lang3.SerializationUtils;
 import org.elasticsearch.common.util.set.Sets;
 import org.snomed.snowstorm.config.Config;
@@ -18,7 +18,10 @@ import org.snomed.snowstorm.core.data.services.ConceptService;
 import org.snomed.snowstorm.core.data.services.DescriptionService;
 import org.snomed.snowstorm.core.data.services.ReferenceSetMemberService;
 import org.snomed.snowstorm.core.data.services.identifier.IdentifierService;
-import org.snomed.snowstorm.core.data.services.pojo.*;
+import org.snomed.snowstorm.core.data.services.pojo.AsyncRefsetMemberChangeBatch;
+import org.snomed.snowstorm.core.data.services.pojo.MemberSearchRequest;
+import org.snomed.snowstorm.core.data.services.pojo.PageWithBucketAggregations;
+import org.snomed.snowstorm.core.data.services.pojo.RefSetMemberPageWithBucketAggregations;
 import org.snomed.snowstorm.core.pojo.LanguageDialect;
 import org.snomed.snowstorm.core.util.TimerUtil;
 import org.snomed.snowstorm.rest.pojo.ItemsPage;
@@ -39,7 +42,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 @RestController
-@Api(tags = "Refset Members", description = "-")
+@Tag(name = "Refset Members", description = "-")
 @RequestMapping(produces = "application/json")
 public class ReferenceSetMemberController {
 
@@ -57,15 +60,15 @@ public class ReferenceSetMemberController {
 	@Autowired
 	private VersionControlHelper versionControlHelper;
 
-	@ApiOperation("Search for reference set ids.")
-	@RequestMapping(value = "/browser/{branch}/members", method = RequestMethod.GET)
+	@Operation(description = "Search for reference set ids.")
+	@GetMapping(value = "/browser/{branch}/members")
 	public RefSetMemberPageWithBucketAggregations<ReferenceSetMember> findBrowserReferenceSetMembersWithAggregations(
 			@PathVariable String branch,
-			@ApiParam("A reference set identifier or ECL expression can be used to limit the reference sets searched. Example: <723564002")
+			@Parameter(description = "A reference set identifier or ECL expression can be used to limit the reference sets searched. Example: <723564002")
 			@RequestParam(required = false) String referenceSet,
-			@ApiParam("A concept identifier or ECL expression can be used to limit the modules searched. Example: <900000000000445007")
+			@Parameter(description = "A concept identifier or ECL expression can be used to limit the modules searched. Example: <900000000000445007")
 			@RequestParam(required = false) String module,
-			@ApiParam(value = "Set of referencedComponentId ids to limit search")
+			@Parameter(description = "Set of referencedComponentId ids to limit search")
 			@RequestParam(required = false) Set<String> referencedComponentId, //Ideally this would be plural, but that would break backwards compatibility
 			@RequestParam(required = false) Boolean active,
 			@RequestParam(defaultValue = "0") int offset,
@@ -121,24 +124,24 @@ public class ReferenceSetMemberController {
 		return pageWithBucketAggregations;
 	}
 
-	@ApiOperation("Search for reference set members.")
-	@RequestMapping(value = "/{branch}/members", method = RequestMethod.GET)
+	@Operation(summary = "Search for reference set members.")
+	@GetMapping(value = "/{branch}/members")
 	@JsonView(value = View.Component.class)
 	public ItemsPage<ReferenceSetMember> findRefsetMembers(@PathVariable String branch,
-			@ApiParam("A reference set identifier or ECL expression can be used to limit the reference sets searched. Example: <723564002")
+			@Parameter(description = "A reference set identifier or ECL expression can be used to limit the reference sets searched. Example: <723564002")
 			@RequestParam(required = false) String referenceSet,
-			@ApiParam("A concept identifier or ECL expression can be used to limit the modules searched. Example: <900000000000445007")
+			@Parameter(description = "A concept identifier or ECL expression can be used to limit the modules searched. Example: <900000000000445007")
 			@RequestParam(required = false) String module,
-			@ApiParam(value = "Set of referencedComponentId ids to limit search")
+			@Parameter(description = "Set of referencedComponentId ids to limit search")
 			@RequestParam(required = false) Set<String> referencedComponentId, //Ideally this would be plural, but that would break backwards compatibility
 			@RequestParam(required = false) Boolean active,
 			@RequestParam(required = false) Boolean isNullEffectiveTime,
-			@ApiParam(value = "Set of target component ids to limit search")
+			@Parameter(description = "Set of target component ids to limit search")
 			@RequestParam(required = false) Set<String> targetComponent,
 			@RequestParam(required = false) String mapTarget,
-			@ApiParam("Search by concept identifiers within an owlExpression.")
+			@Parameter(description = "Search by concept identifiers within an owlExpression.")
 			@RequestParam(name = "owlExpression.conceptId", required = false) String owlExpressionConceptId,
-			@ApiParam("Return axiom members with a GCI owlExpression.")
+			@Parameter(description = "Return axiom members with a GCI owlExpression.")
 			@RequestParam(name = "owlExpression.gci", required = false) Boolean owlExpressionGCI,
 			@RequestParam(defaultValue = "0") int offset,
 			@RequestParam(defaultValue = "50") int limit,
@@ -166,8 +169,8 @@ public class ReferenceSetMemberController {
 		return new ItemsPage<>(members);
 	}
 	
-	@ApiOperation("Search for reference set members using bulk filters")
-	@RequestMapping(value = "/{branch}/members/search", method = RequestMethod.POST)
+	@Operation(summary = "Search for reference set members using bulk filters")
+	@PostMapping(value = "/{branch}/members/search")
 	@JsonView(value = View.Component.class)
 	public ItemsPage<ReferenceSetMember> findRefsetMembers(@PathVariable String branch,
 			@RequestBody MemberSearchRequest memberSearchRequest,
@@ -214,7 +217,7 @@ public class ReferenceSetMemberController {
 	}
 
 
-	@RequestMapping(value = "/{branch}/members/{uuid}", method = RequestMethod.GET)
+	@GetMapping(value = "/{branch}/members/{uuid}")
 	@JsonView(value = View.Component.class)
 	public ReferenceSetMember fetchMember(@PathVariable String branch,
 			@PathVariable String uuid,
@@ -227,9 +230,9 @@ public class ReferenceSetMemberController {
 		return member;
 	}
 
-	@ApiOperation(value = "Create a reference set member.",
-			notes = "If the 'moduleId' is not set the '" + Config.DEFAULT_MODULE_ID_KEY + "' will be used from branch metadata (resolved recursively).")
-	@RequestMapping(value = "/{branch}/members", method = RequestMethod.POST)
+	@Operation(summary = "Create a reference set member.",
+			description = "If the 'moduleId' is not set the '" + Config.DEFAULT_MODULE_ID_KEY + "' will be used from branch metadata (resolved recursively).")
+	@PostMapping(value = "/{branch}/members")
 	@PreAuthorize("hasPermission('AUTHOR', #branch)")
 	@JsonView(value = View.Component.class)
 	public ResponseEntity<ReferenceSetMemberView> createMember(@PathVariable String branch, @RequestBody @Valid ReferenceSetMemberView member) {
@@ -244,11 +247,11 @@ public class ReferenceSetMemberController {
 		return new ResponseEntity<>(createdMember, ControllerHelper.getCreatedLocationHeaders(createdMember.getId()), HttpStatus.OK);
 	}
 
-	@ApiOperation(value = "Start a bulk reference set member create/update job.",
-			notes = "Reference set members can be created or updated using this endpoint. " +
+	@Operation(summary = "Start a bulk reference set member create/update job.",
+			description = "Reference set members can be created or updated using this endpoint. " +
 					"Use the location header in the response to check the job status. " +
 					"If the 'moduleId' is not set the '" + Config.DEFAULT_MODULE_ID_KEY + "' will be used from branch metadata (resolved recursively).")
-	@RequestMapping(value = "/{branch}/members/bulk", method = RequestMethod.POST)
+	@PostMapping(value = "/{branch}/members/bulk")
 	@PreAuthorize("hasPermission('AUTHOR', #branch)")
 	@JsonView(value = View.Component.class)
 	public ResponseEntity<Void> createUpdateMembersBulkChange(@PathVariable String branch, @RequestBody @Valid List<ReferenceSetMemberView> members,
@@ -268,15 +271,15 @@ public class ReferenceSetMemberController {
 		return ControllerHelper.getCreatedResponse(batchId);
 	}
 
-	@ApiOperation("Fetch the status of a bulk reference set member create/update job.")
+	@Operation(summary = "Fetch the status of a bulk reference set member create/update job.")
 	@GetMapping(value = "/{branch}/members/bulk/{bulkChangeId}")
 	@PreAuthorize("hasPermission('AUTHOR', #branch)")
 	public AsyncRefsetMemberChangeBatch getMemberBulkChange(@PathVariable String branch, @PathVariable String bulkChangeId) {
 		return ControllerHelper.throwIfNotFound("Bulk Change", memberService.getBatchChange(bulkChangeId));
 	}
 
-	@ApiOperation("Update a reference set member.")
-	@RequestMapping(value = "/{branch}/members/{uuid}", method = RequestMethod.PUT)
+	@Operation(summary = "Update a reference set member.")
+	@PutMapping(value = "/{branch}/members/{uuid}")
 	@PreAuthorize("hasPermission('AUTHOR', #branch)")
 	@JsonView(value = View.Component.class)
 	public ReferenceSetMemberView updateMember(@PathVariable String branch,
@@ -292,29 +295,29 @@ public class ReferenceSetMemberController {
 		return memberService.updateMember(branch, toUpdate);
 	}
 
-	@ApiOperation("Delete a reference set member.")
-	@RequestMapping(value = "/{branch}/members/{uuid}", method = RequestMethod.DELETE)
+	@Operation(summary = "Delete a reference set member.")
+	@DeleteMapping(value = "/{branch}/members/{uuid}")
 	@PreAuthorize("hasPermission('AUTHOR', #branch)")
 	@JsonView(value = View.Component.class)
 	@ResponseStatus(HttpStatus.NO_CONTENT)
 	public void deleteMember(
 			@PathVariable String branch,
 			@PathVariable String uuid,
-			@ApiParam("Force the deletion of a released member.")
+			@Parameter(description = "Force the deletion of a released member.")
 			@RequestParam(defaultValue = "false") boolean force) {
 
 		memberService.deleteMember(BranchPathUriUtil.decodePath(branch), uuid, force);
 	}
 
-	@ApiOperation("Batch delete reference set members.")
-	@RequestMapping(value = "/{branch}/members", method = RequestMethod.DELETE)
+	@Operation(summary = "Batch delete reference set members.")
+	@DeleteMapping(value = "/{branch}/members")
 	@PreAuthorize("hasPermission('AUTHOR', #branch)")
 	@JsonView(value = View.Component.class)
 	@ResponseStatus(HttpStatus.NO_CONTENT)
 	public void deleteMembers(
 			@PathVariable String branch,
 			@RequestBody MemberIdsPojo memberIdsPojo,
-			@ApiParam("Force the deletion of released members.")
+			@Parameter(description = "Force the deletion of released members.")
 			@RequestParam(defaultValue = "false") boolean force) {
 
 		memberService.deleteMembers(BranchPathUriUtil.decodePath(branch), memberIdsPojo.getMemberIds(), force);

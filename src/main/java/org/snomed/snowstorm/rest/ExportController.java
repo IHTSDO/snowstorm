@@ -1,10 +1,10 @@
 package org.snomed.snowstorm.rest;
 
+import com.fasterxml.jackson.annotation.JsonView;
 import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.domain.Branch;
-import io.swagger.annotations.Api;
-import io.swagger.annotations.ApiOperation;
-
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.drools.core.util.StringUtils;
 import org.snomed.snowstorm.core.data.domain.ReferenceSetMember;
 import org.snomed.snowstorm.core.data.domain.jobs.ExportConfiguration;
@@ -17,8 +17,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import com.fasterxml.jackson.annotation.JsonView;
-
 import javax.servlet.http.HttpServletResponse;
 import javax.validation.Valid;
 import java.io.IOException;
@@ -27,7 +25,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 @RestController
-@Api(tags = "Export", description = "RF2")
+@Tag(name = "Export", description = "RF2")
 @RequestMapping(value = "/exports", produces = "application/json")
 public class ExportController {
 
@@ -40,25 +38,25 @@ public class ExportController {
 	@Autowired
 	private ModuleDependencyService moduleDependencyService;
 
-	@ApiOperation(value = "Create an export job.",
-			notes = "Create a job to export an RF2 archive. " +
+	@Operation(summary = "Create an export job.",
+			description = "Create a job to export an RF2 archive. " +
 					"The 'location' response header contain the URL, including the identifier, of the new resource.")
-	@RequestMapping(method = RequestMethod.POST)
+	@PostMapping
 	public ResponseEntity<Void> createExportJob(@Valid @RequestBody ExportRequestView exportConfiguration) {
 		String id = exportService.createJob(exportConfiguration);
 		return ControllerHelper.getCreatedResponse(id);
 	}
 
-	@ApiOperation(value = "Retrieve an export job.")
-	@RequestMapping(value = "/{exportId}", method = RequestMethod.GET)
+	@Operation(summary = "Retrieve an export job.")
+	@GetMapping(value = "/{exportId}")
 	public ExportConfiguration getExportJob(@PathVariable String exportId) {
 		return exportService.getExportJobOrThrow(exportId);
 	}
 
-	@ApiOperation(value = "Download the RF2 archive from an export job.",
-			notes = "NOT SUPPORTED IN SWAGGER UI. Instead open the URL in a new browser tab or make a GET request another way. " +
+	@Operation(summary = "Download the RF2 archive from an export job.",
+			description = "NOT SUPPORTED IN SWAGGER UI. Instead open the URL in a new browser tab or make a GET request another way. " +
 					"This endpoint can only be called once per exportId.")
-	@RequestMapping(value = "/{exportId}/archive", method = RequestMethod.GET, produces="application/zip")
+	@GetMapping(value = "/{exportId}/archive", produces="application/zip")
 	public void downloadRf2Archive(@PathVariable String exportId, HttpServletResponse response) throws IOException {
 		ExportConfiguration exportConfiguration = exportService.getExportJobOrThrow(exportId);
 
@@ -67,8 +65,8 @@ public class ExportController {
 		exportService.exportRF2Archive(exportConfiguration, response.getOutputStream());
 	}
 	
-	@ApiOperation(value = "View a preview of the module dependency refset that would be generated for export")
-	@RequestMapping(value = "/module-dependency-preview", method = RequestMethod.GET)
+	@Operation(summary = "View a preview of the module dependency refset that would be generated for export")
+	@GetMapping(value = "/module-dependency-preview")
 	@JsonView(value = View.Component.class)
 	public List<ReferenceSetMember> generateModuleDependencyPreview (
 			@RequestParam String branchPath,
