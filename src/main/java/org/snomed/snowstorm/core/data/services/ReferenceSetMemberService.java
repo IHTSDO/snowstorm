@@ -436,7 +436,7 @@ public class ReferenceSetMemberService extends ComponentService {
 		return doSaveBatchComponents(members, commit, ReferenceSetMember.Fields.MEMBER_ID, memberRepository);
 	}
 
-	public Set<Long> findConceptsInReferenceSet(String referenceSetId, List<MemberFilterConstraint> memberFilterConstraints, BranchCriteria branchCriteria) {
+	public Set<Long> findConceptsInReferenceSet(Collection<Long> referenceSetIds, List<MemberFilterConstraint> memberFilterConstraints, BranchCriteria branchCriteria) {
 		// Build query
 
 		BoolQueryBuilder memberQuery = boolQuery().must(branchCriteria.getEntityBranchCriteria(ReferenceSetMember.class));
@@ -489,8 +489,8 @@ public class ReferenceSetMemberService extends ComponentService {
 				.must(termQuery(SnomedComponent.Fields.ACTIVE, true))
 				.must(regexpQuery(ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID, ".*0."));// Matches the concept partition identifier
 		// Allow searching across all refsets
-		if (referenceSetId != null) {
-			memberQuery.must(termQuery(ReferenceSetMember.Fields.REFSET_ID, referenceSetId));
+		if (referenceSetIds != null) {
+			memberQuery.must(termsQuery(ReferenceSetMember.Fields.REFSET_ID, referenceSetIds));
 		}
 
 		// Build search query

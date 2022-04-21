@@ -19,7 +19,7 @@ public class SEclAttributeGroup extends EclAttributeGroup implements SRefinement
 	}
 
 	@Override
-	public void addCriteria(RefinementBuilder refinementBuilder, Consumer<List<Long>> filteredOrSupplementedContentCallback) {
+	public void addCriteria(RefinementBuilder refinementBuilder, Consumer<List<Long>> filteredOrSupplementedContentCallback, boolean triedCache) {
 		addCriteria(refinementBuilder);
 	}
 

@@ -24,6 +24,7 @@ public class ECLQueryServiceFilterTestConfig extends TestConfig {
 
 	private static final String MODULE_A = "25000001";
 	public static final String IPS_REFSET = "816080008";
+	public static final String ICD_MAP_REFSET = "447562003";
 
 	@Autowired
 	private BranchService branchService;
@@ -74,6 +75,12 @@ public class ECLQueryServiceFilterTestConfig extends TestConfig {
 				.addRelationship(ISA, DISORDER));
 		// IPS refset
 		allConcepts.add(new Concept(IPS_REFSET).addRelationship(new Relationship(ISA, SNOMEDCT_ROOT)));
+
+		// ICD Map and member concepts
+		allConcepts.add(new Concept(ICD_MAP_REFSET).addRelationship(new Relationship(ISA, SNOMEDCT_ROOT)));
+		allConcepts.add(new Concept("427603009").addRelationship(new Relationship(ISA, SNOMEDCT_ROOT)));
+		allConcepts.add(new Concept("708094006").addRelationship(new Relationship(ISA, SNOMEDCT_ROOT)));
+
 		// Two inactive concepts
 		allConcepts.add(new Concept("200001").setActive(false).addRelationship(new Relationship(ISA, SNOMEDCT_ROOT)));
 		allConcepts.add(new Concept("200002").setActive(false).addRelationship(new Relationship(ISA, SNOMEDCT_ROOT)));
@@ -88,6 +95,18 @@ public class ECLQueryServiceFilterTestConfig extends TestConfig {
 						.setAdditionalField(ReferenceSetMember.AssociationFields.TARGET_COMP_ID, "100001"),
 				new ReferenceSetMember(CORE_MODULE, REFSET_SIMILAR_TO_ASSOCIATION, "200002")
 						.setAdditionalField(ReferenceSetMember.AssociationFields.TARGET_COMP_ID, "100001")
+		));
+
+		// ICD-10 complex map
+		memberService.createMembers(MAIN, Set.of(
+				new ReferenceSetMember(CORE_MODULE, ICD_MAP_REFSET, "427603009")
+						.setAdditionalField(ReferenceSetMember.AssociationFields.MAP_TARGET, "J45.9")
+						.setAdditionalField("mapGroup", "2")
+						.setAdditionalField("mapPriority", "1"),
+				new ReferenceSetMember(CORE_MODULE, ICD_MAP_REFSET, "708094006")
+						.setAdditionalField(ReferenceSetMember.AssociationFields.MAP_TARGET, "J45.8")
+						.setAdditionalField("mapGroup", "1")
+						.setAdditionalField("mapPriority", "1")
 		));
 	}
 

@@ -94,8 +94,8 @@ public class ECLContentService {
 		return elasticsearchTemplate.searchForStream(searchQuery, QueryConcept.class);
 	}
 
-	public Set<Long> findConceptIdsInReferenceSet(String referenceSetId, List<MemberFilterConstraint> memberFilterConstraints, BranchCriteria branchCriteria) {
-		return memberService.findConceptsInReferenceSet(referenceSetId, memberFilterConstraints, branchCriteria);
+	public Set<Long> findConceptIdsInReferenceSet(Collection<Long> referenceSetIds, List<MemberFilterConstraint> memberFilterConstraints, BranchCriteria branchCriteria) {
+		return memberService.findConceptsInReferenceSet(referenceSetIds, memberFilterConstraints, branchCriteria);
 	}
 
 	public List<Long> findRelationshipDestinationIds(Collection<Long> sourceConceptIds, List<Long> attributeTypeIds, BranchCriteria branchCriteria, boolean stated) {
@@ -239,7 +239,7 @@ public class ECLContentService {
 				if (!subExpressionConstraint.isWildcard()) {
 					// TODO: Ensure caching
 					List<Long> concepts = ConceptSelectorHelper.select(
-							(SSubExpressionConstraint) subExpressionConstraint, branchCriteria, stated, null, null, this).getContent();
+							(SSubExpressionConstraint) subExpressionConstraint, branchCriteria, stated, null, null, this, false).getContent();
 					values = concepts.stream().map(Object::toString).collect(Collectors.toSet());
 				}
 			} else {

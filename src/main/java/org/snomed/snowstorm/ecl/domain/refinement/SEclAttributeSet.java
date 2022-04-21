@@ -22,7 +22,7 @@ import static org.springframework.util.CollectionUtils.isEmpty;
 public class SEclAttributeSet extends EclAttributeSet implements SRefinement {
 
 	@Override
-	public void addCriteria(RefinementBuilder refinementBuilder, Consumer<List<Long>> filteredOrSupplementedContentCallback) {
+	public void addCriteria(RefinementBuilder refinementBuilder, Consumer<List<Long>> filteredOrSupplementedContentCallback, boolean triedCache) {
 		addCriteria(refinementBuilder);
 	}
 

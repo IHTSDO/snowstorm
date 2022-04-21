@@ -31,9 +31,9 @@ public class SRefinedExpressionConstraint extends RefinedExpressionConstraint im
 
 	@Override
 	public Optional<Page<Long>> select(BranchCriteria branchCriteria, boolean stated, Collection<Long> conceptIdFilter,
-			PageRequest pageRequest, ECLContentService eclContentService) {
+			PageRequest pageRequest, ECLContentService eclContentService, boolean triedCache) {
 
-		return Optional.of(ConceptSelectorHelper.select(this, branchCriteria, stated, conceptIdFilter, pageRequest, eclContentService));
+		return Optional.of(ConceptSelectorHelper.select(this, branchCriteria, stated, conceptIdFilter, pageRequest, eclContentService, triedCache));
 	}
 
 	@Override
@@ -50,8 +50,10 @@ public class SRefinedExpressionConstraint extends RefinedExpressionConstraint im
 	}
 
 	@Override
-	public void addCriteria(RefinementBuilder refinementBuilder, Consumer<List<Long>> filteredOrSupplementedContentCallback) {
-		((SSubExpressionConstraint)subexpressionConstraint).addCriteria(refinementBuilder, (ids) -> {});
+	public void addCriteria(RefinementBuilder refinementBuilder, Consumer<List<Long>> filteredOrSupplementedContentCallback, boolean triedCache) {
+		triedCache = false;// The subExpressionConstraint has not been through the cache
+
+		((SSubExpressionConstraint)subexpressionConstraint).addCriteria(refinementBuilder, (ids) -> {}, triedCache);
 		((SEclRefinement)eclRefinement).addCriteria(refinementBuilder);
 
 		if (refinementBuilder.isInclusionFilterRequired()) {

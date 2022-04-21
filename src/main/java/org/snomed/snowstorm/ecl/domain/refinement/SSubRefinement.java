@@ -12,7 +12,7 @@ import java.util.function.Consumer;
 public class SSubRefinement extends SubRefinement implements SRefinement {
 
 	@Override
-	public void addCriteria(RefinementBuilder refinementBuilder, Consumer<List<Long>> filteredOrSupplementedContentCallback) {
+	public void addCriteria(RefinementBuilder refinementBuilder, Consumer<List<Long>> filteredOrSupplementedContentCallback, boolean triedCache) {
 		addCriteria(refinementBuilder);
 	}
 

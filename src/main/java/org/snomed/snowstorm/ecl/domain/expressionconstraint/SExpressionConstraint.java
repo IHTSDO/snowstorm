@@ -13,7 +13,7 @@ import java.util.Optional;
 public interface SExpressionConstraint extends SRefinement {
 
 	Optional<Page<Long>> select(BranchCriteria branchCriteria, boolean stated, Collection<Long> conceptIdFilter,
-			PageRequest pageRequest, ECLContentService eclContentService);
+			PageRequest pageRequest, ECLContentService eclContentService, boolean triedCache);
 
 	Optional<Page<Long>> select(RefinementBuilder refinementBuilder);
 

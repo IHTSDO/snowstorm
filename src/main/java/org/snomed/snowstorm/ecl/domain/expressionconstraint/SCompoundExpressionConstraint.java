@@ -30,9 +30,9 @@ public class SCompoundExpressionConstraint extends CompoundExpressionConstraint 
 
 	@Override
 	public Optional<Page<Long>> select(BranchCriteria branchCriteria, boolean stated, Collection<Long> conceptIdFilter,
-			PageRequest pageRequest, ECLContentService eclContentService) {
+			PageRequest pageRequest, ECLContentService eclContentService, boolean triedCache) {
 
-		return Optional.of(ConceptSelectorHelper.select(this, branchCriteria, stated, conceptIdFilter, pageRequest, eclContentService));
+		return Optional.of(ConceptSelectorHelper.select(this, branchCriteria, stated, conceptIdFilter, pageRequest, eclContentService, triedCache));
 	}
 
 	@Override
@@ -63,7 +63,9 @@ public class SCompoundExpressionConstraint extends CompoundExpressionConstraint 
 	}
 
 	@Override
-	public void addCriteria(RefinementBuilder refinementBuilder, Consumer<List<Long>> filteredOrSupplementedContentCallback) {
+	public void addCriteria(RefinementBuilder refinementBuilder, Consumer<List<Long>> filteredOrSupplementedContentCallback, boolean triedCache) {
+		triedCache = false;// None of the compound constraints have been through caching
+
 		if (conjunctionExpressionConstraints != null) {
 			if (anyWithFiltersOrSupplements(conjunctionExpressionConstraints)) {
 				// Prefetch all
@@ -81,7 +83,7 @@ public class SCompoundExpressionConstraint extends CompoundExpressionConstraint 
 
 			} else {
 				for (SubExpressionConstraint conjunctionExpressionConstraint : conjunctionExpressionConstraints) {
-					((SSubExpressionConstraint) conjunctionExpressionConstraint).addCriteria(refinementBuilder, (ids) -> {});
+					((SSubExpressionConstraint) conjunctionExpressionConstraint).addCriteria(refinementBuilder, (ids) -> {}, triedCache);
 				}
 			}
 		} else if (disjunctionExpressionConstraints != null) {
@@ -104,7 +106,7 @@ public class SCompoundExpressionConstraint extends CompoundExpressionConstraint 
 				for (SubExpressionConstraint disjunctionExpressionConstraint : disjunctionExpressionConstraints) {
 					BoolQueryBuilder shouldQuery = boolQuery();
 					shouldQueries.should(shouldQuery);
-					((SSubExpressionConstraint) disjunctionExpressionConstraint).addCriteria(new SubRefinementBuilder(refinementBuilder, shouldQuery), (ids) -> {});
+					((SSubExpressionConstraint) disjunctionExpressionConstraint).addCriteria(new SubRefinementBuilder(refinementBuilder, shouldQuery), (ids) -> {}, triedCache);
 				}
 			}
 		} else {
@@ -117,10 +119,10 @@ public class SCompoundExpressionConstraint extends CompoundExpressionConstraint 
 				filteredOrSupplementedContentCallback.accept(ids);
 
 			} else {
-				first.addCriteria(refinementBuilder, (ids) -> {});
+				first.addCriteria(refinementBuilder, (ids) -> {}, triedCache);
 				BoolQueryBuilder mustNotQuery = boolQuery();
 				refinementBuilder.getQuery().mustNot(mustNotQuery);
-				second.addCriteria(new SubRefinementBuilder(refinementBuilder, mustNotQuery), (ids) -> {});
+				second.addCriteria(new SubRefinementBuilder(refinementBuilder, mustNotQuery), (ids) -> {}, triedCache);
 			}
 		}
 	}
