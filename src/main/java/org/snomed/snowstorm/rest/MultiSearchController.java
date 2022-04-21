@@ -1,9 +1,9 @@
 package org.snomed.snowstorm.rest;
 
 import com.fasterxml.jackson.annotation.JsonView;
-import io.swagger.annotations.Api;
-import io.swagger.annotations.ApiOperation;
-import io.swagger.annotations.ApiParam;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.snomed.snowstorm.config.Config;
 import org.snomed.snowstorm.core.data.domain.Concept;
 import org.snomed.snowstorm.core.data.domain.ConceptMini;
@@ -28,7 +28,7 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 @RestController
-@Api(tags = "MultiSearch", description = "-")
+@Tag(name = "MultiSearch", description = "-")
 @RequestMapping(produces = "application/json")
 public class MultiSearchController {
 
@@ -42,20 +42,20 @@ public class MultiSearchController {
 		ALL_PUBLISHED_CONTENT
 	}
 
-	@ApiOperation("Search descriptions across multiple Code Systems.")
-	@RequestMapping(value = "multisearch/descriptions", method = RequestMethod.GET)
+	@Operation(description = "Search descriptions across multiple Code Systems.")
+	@GetMapping(value = "multisearch/descriptions")
 	@JsonView(value = View.Component.class)
 	public ItemsPage<BrowserDescriptionSearchResult> findDescriptions(
 			@RequestParam String term,// Required!
 			@RequestParam(required = false) Boolean active,
 			@RequestParam(required = false) Collection<String> module,
 
-			@ApiParam(value = "Set of two character language codes to match. " +
+			@Parameter(description = "Set of two character language codes to match. " +
 					"The English language code 'en' will not be added automatically, in contrast to the Accept-Language header which always includes it. " +
 					"Accept-Language header still controls result FSN and PT language selection.")
 			@RequestParam(required = false) Set<String> language,
 
-			@ApiParam(value = "Set of description types to include. Pick descendants of '900000000000446008 | Description type (core metadata concept) |'.")
+			@Parameter(name = "Set of description types to include. Pick descendants of '900000000000446008 | Description type (core metadata concept) |'.")
 			@RequestParam(required = false) Set<Long> type,
 
 			@RequestParam(required = false) Boolean conceptActive,
@@ -104,20 +104,20 @@ public class MultiSearchController {
 		return new ItemsPage<>(new PageImpl<>(results, pageRequest, descriptions.getTotalElements()));
 	}
 	
-	@ApiOperation("Search descriptions across multiple Code Systems returning reference set membership bucket.")
-	@RequestMapping(value = "multisearch/descriptions/referencesets", method = RequestMethod.GET)
+	@Operation(summary = "Search descriptions across multiple Code Systems returning reference set membership bucket.")
+	@GetMapping(value = "multisearch/descriptions/referencesets")
 	@JsonView(value = View.Component.class)
 	public Page<BrowserDescriptionSearchResult> findDescriptionsReferenceSets(
 			@RequestParam String term,// Required!
 			@RequestParam(required = false) Boolean active,
 			@RequestParam(required = false) Collection<String> module,
 
-			@ApiParam(value = "Set of two character language codes to match. " +
+			@Parameter(description = "Set of two character language codes to match. " +
 					"The English language code 'en' will not be added automatically, in contrast to the Accept-Language header which always includes it. " +
 					"Accept-Language header still controls result FSN and PT language selection.")
 			@RequestParam(required = false) Set<String> language,
 
-			@ApiParam(value = "Set of description types to include. Pick descendants of '900000000000446008 | Description type (core metadata concept) |'.")
+			@Parameter(description = "Set of description types to include. Pick descendants of '900000000000446008 | Description type (core metadata concept) |'.")
 			@RequestParam(required = false) Set<Long> type,
 
 			@RequestParam(required = false) Boolean conceptActive,
@@ -163,8 +163,8 @@ public class MultiSearchController {
 		return pageWithBucketAggregations;
 	}
 	
-	@ApiOperation("Search concepts across multiple Code Systems.")
-	@RequestMapping(value = "multisearch/concepts", method = RequestMethod.GET)
+	@Operation(summary = "Search concepts across multiple Code Systems.")
+	@GetMapping(value = "multisearch/concepts")
 	@JsonView(value = View.Component.class)
 	public ItemsPage<ConceptMini> findConcepts(
 			@RequestParam(required = false) Set<String> conceptIds,

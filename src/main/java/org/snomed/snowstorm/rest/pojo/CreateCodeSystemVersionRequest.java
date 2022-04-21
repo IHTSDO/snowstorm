@@ -1,13 +1,13 @@
 package org.snomed.snowstorm.rest.pojo;
 
-import io.swagger.annotations.ApiModelProperty;
+import io.swagger.v3.oas.annotations.media.Schema;
 
 public class CreateCodeSystemVersionRequest {
 
 	private Integer effectiveDate;
 	private String description;
 
-	@ApiModelProperty(value = "false")
+	@Schema(defaultValue = "false")
 	private boolean internalRelease;
 
 	public CreateCodeSystemVersionRequest() {

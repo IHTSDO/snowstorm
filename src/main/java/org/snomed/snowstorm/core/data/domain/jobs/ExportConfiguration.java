@@ -1,6 +1,6 @@
 package org.snomed.snowstorm.core.data.domain.jobs;
 
-import io.swagger.annotations.ApiModelProperty;
+import io.swagger.v3.oas.annotations.media.Schema;
 import org.snomed.snowstorm.core.rf2.RF2Type;
 import org.springframework.data.elasticsearch.annotations.Document;
 
@@ -20,32 +20,32 @@ public class ExportConfiguration {
 	private String branchPath;
 
 	@NotNull
-	@ApiModelProperty(value = "DELTA")
+	@Schema(defaultValue = "DELTA")
 	private RF2Type type;
 
 	@Pattern(regexp = "[0-9]{8}")
 	private String filenameEffectiveDate;
 
-	@ApiModelProperty(value = "false")
+	@Schema(defaultValue = "false")
 	private boolean conceptsAndRelationshipsOnly;
 
-	@ApiModelProperty(value = "false")
+	@Schema(defaultValue = "false")
 	private boolean unpromotedChangesOnly;
 
-	@ApiModelProperty(value = "false")
+	@Schema(defaultValue = "false")
 	private boolean legacyZipNaming;
 
-	@ApiModelProperty(notes = "Format: yyyymmdd. Add a transient effectiveTime to rows of content which are not yet versioned.")
+	@Schema(description = "Format: yyyymmdd. Add a transient effectiveTime to rows of content which are not yet versioned.")
 	@Pattern(regexp = "[0-9]{8}")
 	private String transientEffectiveTime;
 
-	@ApiModelProperty(notes = "Format: yyyymmdd. Can be used to produce a delta after content is versioned by filtering a SNAPSHOT export by effectiveTime.")
+	@Schema(description = "Format: yyyymmdd. Can be used to produce a delta after content is versioned by filtering a SNAPSHOT export by effectiveTime.")
 	@Pattern(regexp = "[0-9]{8}")
 	private String startEffectiveTime;
 
 	private Set<String> moduleIds;
 
-	@ApiModelProperty(notes = "If refsetIds are included, this indicates that the export will be a refset-only export.")
+	@Schema(description = "If refsetIds are included, this indicates that the export will be a refset-only export.")
 	private Set<String> refsetIds;
 
 	public ExportConfiguration() {
