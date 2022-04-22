@@ -34,6 +34,8 @@ import org.snomed.snowstorm.core.data.services.pojo.PageWithBucketAggregationsFa
 import org.snomed.snowstorm.core.util.PageHelper;
 import org.snomed.snowstorm.ecl.ECLContentService;
 import org.snomed.snowstorm.ecl.ECLQueryService;
+import org.snomed.snowstorm.ecl.domain.RefinementBuilder;
+import org.snomed.snowstorm.ecl.domain.expressionconstraint.SSubExpressionConstraint;
 import org.snomed.snowstorm.rest.converter.SearchAfterHelper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
@@ -436,19 +438,24 @@ public class ReferenceSetMemberService extends ComponentService {
 		return doSaveBatchComponents(members, commit, ReferenceSetMember.Fields.MEMBER_ID, memberRepository);
 	}
 
-	public Set<Long> findConceptsInReferenceSet(Collection<Long> referenceSetIds, List<MemberFilterConstraint> memberFilterConstraints, BranchCriteria branchCriteria) {
+	public Set<Long> findConceptsInReferenceSet(Collection<Long> referenceSetIds, List<MemberFilterConstraint> memberFilterConstraints, RefinementBuilder refinementBuilder) {
 		// Build query
 
+		BranchCriteria branchCriteria = refinementBuilder.getBranchCriteria();
 		BoolQueryBuilder memberQuery = boolQuery().must(branchCriteria.getEntityBranchCriteria(ReferenceSetMember.class));
 
 		if (memberFilterConstraints != null) {
 			for (MemberFilterConstraint memberFilterConstraint : memberFilterConstraints) {
 				for (MemberFieldFilter fieldFilter : orEmpty(memberFilterConstraint.getMemberFieldFilters())) {
 					String fieldName = fieldFilter.getFieldName();
-					fieldName = "additionalFields." + fieldName + ".keyword";
+					fieldName = fieldName.equals(ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID) ?
+							fieldName : "additionalFields." + fieldName + ".keyword";
 
 					if (fieldFilter.getExpressionComparisonOperator() != null) {
-						// TODO
+						SSubExpressionConstraint subExpressionConstraint = (SSubExpressionConstraint) fieldFilter.getSubExpressionConstraint();
+						List<Long> conceptIds = refinementBuilder.getEclContentService()
+								.fetchAllIdsWithCaching(subExpressionConstraint, branchCriteria, refinementBuilder.isStated());
+						memberQuery.filter(termsQuery(fieldName, conceptIds));
 					} else if (fieldFilter.getNumericComparisonOperator() != null) {
 						NumericComparisonOperator operator = fieldFilter.getNumericComparisonOperator();
 						if (operator == NumericComparisonOperator.EQUAL) {

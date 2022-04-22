@@ -16,6 +16,7 @@ import org.snomed.snowstorm.core.data.services.QueryService;
 import org.snomed.snowstorm.core.data.services.ReferenceSetMemberService;
 import org.snomed.snowstorm.core.data.services.RelationshipService;
 import org.snomed.snowstorm.core.util.PageHelper;
+import org.snomed.snowstorm.ecl.domain.RefinementBuilder;
 import org.snomed.snowstorm.ecl.domain.expressionconstraint.SExpressionConstraint;
 import org.snomed.snowstorm.ecl.domain.expressionconstraint.SSubExpressionConstraint;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -94,8 +95,8 @@ public class ECLContentService {
 		return elasticsearchTemplate.searchForStream(searchQuery, QueryConcept.class);
 	}
 
-	public Set<Long> findConceptIdsInReferenceSet(Collection<Long> referenceSetIds, List<MemberFilterConstraint> memberFilterConstraints, BranchCriteria branchCriteria) {
-		return memberService.findConceptsInReferenceSet(referenceSetIds, memberFilterConstraints, branchCriteria);
+	public Set<Long> findConceptIdsInReferenceSet(Collection<Long> referenceSetIds, List<MemberFilterConstraint> memberFilterConstraints, RefinementBuilder refinementBuilder) {
+		return memberService.findConceptsInReferenceSet(referenceSetIds, memberFilterConstraints, refinementBuilder);
 	}
 
 	public List<Long> findRelationshipDestinationIds(Collection<Long> sourceConceptIds, List<Long> attributeTypeIds, BranchCriteria branchCriteria, boolean stated) {
