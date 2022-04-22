@@ -5,7 +5,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import org.snomed.langauges.ecl.ECLQueryBuilder;
 import org.snomed.langauges.ecl.domain.expressionconstraint.ExpressionConstraint;
+import org.snomed.langauges.ecl.domain.filter.MemberFilterConstraint;
 import org.snomed.snowstorm.ecl.SECLObjectFactory;
+import org.snomed.snowstorm.ecl.domain.expressionconstraint.SSubExpressionConstraint;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -204,6 +206,15 @@ class ECLModelDeserializerServiceTest {
 
 		// Member filters
 		assertConversionTest("^ 447562003 |ICD-10 complex map reference set| {{ M mapTarget = \"J45.9\" }}");
+		assertConversionTest("^ 447562003 |ICD-10 complex map reference set| {{ M active = true }}");
+		assertConversionTest("^ 447562003 |ICD-10 complex map reference set| {{ M active = false }}");
+
+		final SSubExpressionConstraint eclModel = (SSubExpressionConstraint) eclQueryBuilder.createQuery("^ 447562003 |ICD-10 complex map reference set| {{ M active = false }}");
+		MemberFilterConstraint memberFilterConstraint = eclModel.getMemberFilterConstraints().get(0);
+		assertNull(memberFilterConstraint.getMemberFieldFilters());
+		assertNotNull(memberFilterConstraint.getActiveFilters());
+		assertEquals(1, memberFilterConstraint.getActiveFilters().size());
+		assertFalse(memberFilterConstraint.getActiveFilters().get(0).isActive());
 
 		// History supplement filters
 		assertConversionTest("195967001 |Asthma| {{ + HISTORY-MIN }}");
