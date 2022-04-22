@@ -17,6 +17,7 @@ import it.unimi.dsi.fastutil.longs.LongSet;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.index.query.RegexpQueryBuilder;
+import org.elasticsearch.index.query.TermsQueryBuilder;
 import org.elasticsearch.search.aggregations.AggregationBuilders;
 import org.elasticsearch.search.sort.FieldSortBuilder;
 import org.slf4j.Logger;
@@ -438,11 +439,12 @@ public class ReferenceSetMemberService extends ComponentService {
 		return doSaveBatchComponents(members, commit, ReferenceSetMember.Fields.MEMBER_ID, memberRepository);
 	}
 
-	public Set<Long> findConceptsInReferenceSet(Collection<Long> referenceSetIds, List<MemberFilterConstraint> memberFilterConstraints, RefinementBuilder refinementBuilder) {
-		// Build query
+	public Set<Long> findConceptsInReferenceSet(Collection<Long> referenceSetIds, List<MemberFilterConstraint> memberFilterConstraints, RefinementBuilder refinementBuilder,
+			BoolQueryBuilder masterMemberQuery) {
 
 		BranchCriteria branchCriteria = refinementBuilder.getBranchCriteria();
 		BoolQueryBuilder memberQuery = boolQuery().must(branchCriteria.getEntityBranchCriteria(ReferenceSetMember.class));
+		memberQuery.must(masterMemberQuery);
 
 		if (memberFilterConstraints != null) {
 			for (MemberFilterConstraint memberFilterConstraint : memberFilterConstraints) {
@@ -455,7 +457,12 @@ public class ReferenceSetMemberService extends ComponentService {
 						SSubExpressionConstraint subExpressionConstraint = (SSubExpressionConstraint) fieldFilter.getSubExpressionConstraint();
 						List<Long> conceptIds = refinementBuilder.getEclContentService()
 								.fetchAllIdsWithCaching(subExpressionConstraint, branchCriteria, refinementBuilder.isStated());
-						memberQuery.filter(termsQuery(fieldName, conceptIds));
+						TermsQueryBuilder termsQuery = termsQuery(fieldName, conceptIds);
+						if (fieldFilter.getExpressionComparisonOperator().equals("=")) {
+							memberQuery.filter(termsQuery);
+						} else {
+							memberQuery.filter(boolQuery().mustNot(termsQuery));
+						}
 					} else if (fieldFilter.getNumericComparisonOperator() != null) {
 						NumericComparisonOperator operator = fieldFilter.getNumericComparisonOperator();
 						if (operator == NumericComparisonOperator.EQUAL) {
@@ -473,7 +480,7 @@ public class ReferenceSetMemberService extends ComponentService {
 							if (searchTerm.getType() == SearchType.WILDCARD) {
 								// There will only be one term for wildcard
 								String regex = searchTerm.getTerm().replace("*", ".*");
-								query = regexpQuery(fieldName + ".keyword", regex);
+								query = regexpQuery(fieldName, regex);
 							} else {
 								// Prefix query
 								query = wildcardQuery(fieldName, searchTerm.getTerm() + "*");
@@ -491,10 +498,6 @@ public class ReferenceSetMemberService extends ComponentService {
 			}
 		}
 
-
-		memberQuery
-				.must(termQuery(SnomedComponent.Fields.ACTIVE, true))
-				.must(regexpQuery(ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID, ".*0."));// Matches the concept partition identifier
 		// Allow searching across all refsets
 		if (referenceSetIds != null) {
 			memberQuery.must(termsQuery(ReferenceSetMember.Fields.REFSET_ID, referenceSetIds));

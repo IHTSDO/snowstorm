@@ -22,6 +22,8 @@ import static org.snomed.snowstorm.core.data.domain.Concepts.*;
 
 public class ECLQueryServiceFilterTestConfig extends TestConfig {
 
+	private static final String DEF_STATUS = "900000000000444006";
+	private static final String MODULE = "900000000000443000";
 	private static final String MODULE_A = "25000001";
 	public static final String IPS_REFSET = "816080008";
 	public static final String ICD_MAP_REFSET = "447562003";
@@ -52,7 +54,11 @@ public class ECLQueryServiceFilterTestConfig extends TestConfig {
 		List<Concept> allConcepts = new ArrayList<>();
 
 		allConcepts.add(new Concept(DISORDER).addDescription(new Description("Disease(disorder)")).addRelationship(new Relationship(ISA, SNOMEDCT_ROOT)));
-		allConcepts.addAll(newMetadataConcepts(CORE_MODULE, MODULE_A, PRIMITIVE, DEFINED, PREFERRED, ACCEPTABLE, FSN, SYNONYM, TEXT_DEFINITION, "46011000052107"));
+		allConcepts.addAll(newMetadataConcepts(DEF_STATUS, MODULE, PREFERRED, ACCEPTABLE, FSN, SYNONYM, TEXT_DEFINITION, "46011000052107"));
+		allConcepts.add(new Concept(CORE_MODULE).addRelationship(new Relationship(ISA, MODULE)));
+		allConcepts.add(new Concept(MODULE_A).addRelationship(new Relationship(ISA, MODULE)));
+		allConcepts.add(new Concept(PRIMITIVE).addRelationship(new Relationship(ISA, DEF_STATUS)));
+		allConcepts.add(new Concept(DEFINED).addRelationship(new Relationship(ISA, DEF_STATUS)));
 		allConcepts.add(new Concept(REFSET_HISTORICAL_ASSOCIATION).addRelationship(new Relationship(ISA, SNOMEDCT_ROOT)));
 		allConcepts.add(new Concept(REFSET_SAME_AS_ASSOCIATION).addRelationship(new Relationship(ISA, REFSET_HISTORICAL_ASSOCIATION)));
 		allConcepts.add(new Concept(REFSET_SIMILAR_TO_ASSOCIATION).addRelationship(new Relationship(ISA, REFSET_HISTORICAL_ASSOCIATION)));
@@ -80,6 +86,7 @@ public class ECLQueryServiceFilterTestConfig extends TestConfig {
 		allConcepts.add(new Concept(ICD_MAP_REFSET).addRelationship(new Relationship(ISA, SNOMEDCT_ROOT)));
 		allConcepts.add(new Concept("427603009").addRelationship(new Relationship(ISA, SNOMEDCT_ROOT)));
 		allConcepts.add(new Concept("708094006").addRelationship(new Relationship(ISA, SNOMEDCT_ROOT)));
+		allConcepts.add(new Concept("698940002").addRelationship(new Relationship(ISA, SNOMEDCT_ROOT)));
 
 		// Two inactive concepts
 		allConcepts.add(new Concept("200001").setActive(false).addRelationship(new Relationship(ISA, SNOMEDCT_ROOT)));
@@ -98,6 +105,13 @@ public class ECLQueryServiceFilterTestConfig extends TestConfig {
 		));
 
 		// ICD-10 complex map
+		ReferenceSetMember inactiveMember = new ReferenceSetMember(CORE_MODULE, ICD_MAP_REFSET, "698940002")
+				.setAdditionalField(ReferenceSetMember.AssociationFields.MAP_TARGET, "M14.59")
+				.setAdditionalField("mapGroup", "1")
+				.setAdditionalField("mapPriority", "2");
+		inactiveMember.setReleased(true);
+		inactiveMember.setReleaseHash("");
+		inactiveMember.setActive(false);
 		memberService.createMembers(MAIN, Set.of(
 				new ReferenceSetMember(CORE_MODULE, ICD_MAP_REFSET, "427603009")
 						.setAdditionalField(ReferenceSetMember.AssociationFields.MAP_TARGET, "J45.9")
@@ -106,7 +120,8 @@ public class ECLQueryServiceFilterTestConfig extends TestConfig {
 				new ReferenceSetMember(CORE_MODULE, ICD_MAP_REFSET, "708094006")
 						.setAdditionalField(ReferenceSetMember.AssociationFields.MAP_TARGET, "J45.8")
 						.setAdditionalField("mapGroup", "1")
-						.setAdditionalField("mapPriority", "1")
+						.setAdditionalField("mapPriority", "1"),
+				inactiveMember
 		));
 	}
 

@@ -52,12 +52,6 @@ public class ConceptSelectorHelper {
 		PrefetchResult prefetchResult = new PrefetchResult();
 		sExpressionConstraint.addCriteria(refinementBuilder, prefetchResult::set, triedCache);
 
-		// TODO: Member Filtering
-		// List<MemberFilterConstraint> memberFilterConstraints = null;
-		// if (sExpressionConstraint instanceof SubExpressionConstraint) {
-		// memberFilterConstraints = subExpressionConstraint.getMemberFilterConstraints();
-		// }
-
 		if (prefetchResult.isSet()) {
 			return getPage(pageRequest, prefetchResult.getIds());
 		} else {

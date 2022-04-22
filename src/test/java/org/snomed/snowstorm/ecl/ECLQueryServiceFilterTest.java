@@ -299,13 +299,15 @@ class ECLQueryServiceFilterTest {
 
 	@Test
 	public void testMemberFieldFilter() {
-		assertEquals(newHashSet("427603009"), select("^ 447562003 |ICD-10 complex map reference set|  {{ M mapTarget = \"J45.9\" }}"));
-		assertEquals(newHashSet("427603009", "708094006"), select("^ 447562003 |ICD-10 complex map reference set|  {{ M mapTarget = \"J45\" }}"));
+		assertEquals(newHashSet("427603009"), select("^ 447562003 |ICD-10 complex map reference set| {{ M mapTarget = \"J45.9\" }}"));
+		assertEquals(newHashSet("427603009", "708094006"), select("^ 447562003 |ICD-10 complex map reference set| {{ M mapTarget = \"J45\" }}"));
 		assertEquals(newHashSet(), select("^ 447562003 |ICD-10 complex map reference set| {{ M mapTarget = wild:\"J45\" }}"));
-		assertEquals(newHashSet("427603009"), select("^ 447562003 |ICD-10 complex map reference set|  {{ M mapGroup = #2, mapPriority = #1, mapTarget = \"J45.9\" }}"));
-		assertEquals(newHashSet("427603009"), select("^ 447562003 |ICD-10 complex map reference set|  {{ M mapGroup = #2, mapPriority = #1 }}"));
-		assertEquals(newHashSet("708094006"), select("^ 447562003 |ICD-10 complex map reference set|  {{ M mapGroup = #1, mapPriority = #1 }}"));
-		assertEquals(newHashSet("427603009"), select("^ 447562003 |ICD-10 complex map reference set|  {{ M referencedComponentId = 427603009 }}"));
+		assertEquals(newHashSet("427603009", "708094006"), select("^ 447562003 |ICD-10 complex map reference set| {{ M mapTarget = wild:\"J45*\" }}"));
+		assertEquals(newHashSet("427603009"), select("^ 447562003 |ICD-10 complex map reference set| {{ M mapGroup = #2, mapPriority = #1, mapTarget = \"J45.9\" }}"));
+		assertEquals(newHashSet("427603009"), select("^ 447562003 |ICD-10 complex map reference set| {{ M mapGroup = #2, mapPriority = #1 }}"));
+		assertEquals(newHashSet("708094006"), select("^ 447562003 |ICD-10 complex map reference set| {{ M mapGroup = #1, mapPriority = #1 }}"));
+		assertEquals(newHashSet("427603009", "708094006"), select("^ 447562003 |ICD-10 complex map reference set| {{ M active = 1 }}"));
+		assertEquals(newHashSet("698940002"), select("^ 447562003 |ICD-10 complex map reference set| {{ M active = false }}"));
 	}
 
 	@Test

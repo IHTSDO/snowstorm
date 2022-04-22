@@ -96,7 +96,25 @@ public class ECLContentService {
 	}
 
 	public Set<Long> findConceptIdsInReferenceSet(Collection<Long> referenceSetIds, List<MemberFilterConstraint> memberFilterConstraints, RefinementBuilder refinementBuilder) {
-		return memberService.findConceptsInReferenceSet(referenceSetIds, memberFilterConstraints, refinementBuilder);
+
+		BranchCriteria branchCriteria = refinementBuilder.getBranchCriteria();
+		boolean stated = refinementBuilder.isStated();
+
+		BoolQueryBuilder masterMemberQuery = boolQuery();
+
+		for (MemberFilterConstraint memberFilterConstraint : orEmpty(memberFilterConstraints)) {
+
+			// Module filter
+			applyFieldFilters(memberFilterConstraint.getModuleFilters(), masterMemberQuery, branchCriteria, stated, "<<900000000000443000 |Module (core metadata concept)|");
+
+			// Effective time filters
+			applyEffectiveTimeFilters(memberFilterConstraint.getEffectiveTimeFilters(), masterMemberQuery);
+
+			// Active filters
+			applyActiveFilters(memberFilterConstraint.getActiveFilters(), masterMemberQuery);
+		}
+
+		return memberService.findConceptsInReferenceSet(referenceSetIds, memberFilterConstraints, refinementBuilder, masterMemberQuery);
 	}
 
 	public List<Long> findRelationshipDestinationIds(Collection<Long> sourceConceptIds, List<Long> attributeTypeIds, BranchCriteria branchCriteria, boolean stated) {
@@ -180,13 +198,13 @@ public class ECLContentService {
 			BoolQueryBuilder conceptFilterQuery = boolQuery();
 
 			// Active filter
-			applyActiveFilters(orEmpty(conceptFilter.getActiveFilters()), conceptFilterQuery);
+			applyActiveFilters(conceptFilter.getActiveFilters(), conceptFilterQuery);
 
 			// Definition status filter
-			applyFieldFilters(conceptFilter.getDefinitionStatusFilters(), conceptFilterQuery, branchCriteria, stated);
+			applyFieldFilters(conceptFilter.getDefinitionStatusFilters(), conceptFilterQuery, branchCriteria, stated, "<<900000000000444006 |Definition status (core metadata concept)|");
 
 			// Module filter
-			applyFieldFilters(conceptFilter.getModuleFilters(), conceptFilterQuery, branchCriteria, stated);
+			applyFieldFilters(conceptFilter.getModuleFilters(), conceptFilterQuery, branchCriteria, stated, "<<900000000000443000 |Module (core metadata concept)|");
 
 			// EffectiveTimeFilter
 			applyEffectiveTimeFilters(conceptFilter.getEffectiveTimeFilters(), conceptFilterQuery);
@@ -208,20 +226,17 @@ public class ECLContentService {
 	}
 
 	public SortedMap<Long, Long> applyDescriptionFilter(Collection<Long> conceptIds, DescriptionFilterConstraint descriptionFilter, BranchCriteria branchCriteria, boolean stated) {
-		List<FieldFilter> moduleFilters = orEmpty(descriptionFilter.getModuleFilters());
-		List<EffectiveTimeFilter> effectiveTimeFilters = orEmpty(descriptionFilter.getEffectiveTimeFilters());
-		List<ActiveFilter> activeFilters = orEmpty(descriptionFilter.getActiveFilters());
 
 		BoolQueryBuilder masterDescriptionQuery = boolQuery();
 
 		// Module filter
-		applyFieldFilters(moduleFilters, masterDescriptionQuery, branchCriteria, stated);
+		applyFieldFilters(descriptionFilter.getModuleFilters(), masterDescriptionQuery, branchCriteria, stated, "<<900000000000443000 |Module (core metadata concept)|");
 
 		// Effective time filters
-		applyEffectiveTimeFilters(effectiveTimeFilters, masterDescriptionQuery);
+		applyEffectiveTimeFilters(descriptionFilter.getEffectiveTimeFilters(), masterDescriptionQuery);
 
 		// Active filters
-		applyActiveFilters(activeFilters, masterDescriptionQuery);
+		applyActiveFilters(descriptionFilter.getActiveFilters(), masterDescriptionQuery);
 
 		List<TermFilter> termFilters = orEmpty(descriptionFilter.getTermFilters());
 		List<LanguageFilter> languageFilters = orEmpty(descriptionFilter.getLanguageFilters());
@@ -232,15 +247,19 @@ public class ECLContentService {
 				branchCriteria, eclQueryService, masterDescriptionQuery);
 	}
 
-	private void applyFieldFilters(List<FieldFilter> fieldFilters, BoolQueryBuilder filterQuery, BranchCriteria branchCriteria, boolean stated) {
+	private void applyFieldFilters(List<FieldFilter> fieldFilters, BoolQueryBuilder filterQuery, BranchCriteria branchCriteria, boolean stated, String eclContentFilter) {
 		for (FieldFilter fieldFilter : orEmpty(fieldFilters)) {
 			Set<String> values = null;
 			SubExpressionConstraint subExpressionConstraint = fieldFilter.getSubExpressionConstraint();
 			if (subExpressionConstraint != null) {
-				if (!subExpressionConstraint.isWildcard()) {
-					// TODO: Ensure caching
+				SSubExpressionConstraint sSubExpressionConstraint = (SSubExpressionConstraint) subExpressionConstraint;
+				if (!sSubExpressionConstraint.isUnconstrained()) {
+					SExpressionConstraint expressionConstraint = sSubExpressionConstraint;
+					if (eclContentFilter != null) {
+						expressionConstraint = (SExpressionConstraint) eclQueryService.createQuery(String.format("(%s) AND (%s)", expressionConstraint.toEclString(), eclContentFilter));
+					}
 					List<Long> concepts = ConceptSelectorHelper.select(
-							(SSubExpressionConstraint) subExpressionConstraint, branchCriteria, stated, null, null, this, false).getContent();
+							expressionConstraint, branchCriteria, stated, null, null, this, false).getContent();
 					values = concepts.stream().map(Object::toString).collect(Collectors.toSet());
 				}
 			} else {
@@ -261,6 +280,7 @@ public class ECLContentService {
 	}
 
 	private void applyActiveFilters(List<ActiveFilter> activeFilters, BoolQueryBuilder componentFilterQuery) {
+		activeFilters = orEmpty(activeFilters);
 		if (activeFilters.isEmpty()) {
 			componentFilterQuery.must(termQuery(SnomedComponent.Fields.ACTIVE, true));
 		} else {
