@@ -247,7 +247,7 @@ public class SSubExpressionConstraint extends SubExpressionConstraint implements
 		} else if (operator == Operator.memberOf) {
 			// Member of wildcard (any reference set)
 			Set<Long> conceptIdsInReferenceSet = refinementBuilder.getEclContentService()
-					.findConceptIdsInReferenceSet(null, getMemberFilterConstraints(), refinementBuilder.getBranchCriteria());
+					.findConceptIdsInReferenceSet(null, getMemberFilterConstraints(), refinementBuilder);
 			query.must(termsQuery(QueryConcept.Fields.CONCEPT_ID, conceptIdsInReferenceSet));
 			return conceptIdsInReferenceSet;
 		} else if (operator == Operator.descendantof || operator == Operator.childof) {
@@ -330,7 +330,7 @@ public class SSubExpressionConstraint extends SubExpressionConstraint implements
 				break;
 			case memberOf:
 				// ^
-				Set<Long> conceptIdsInReferenceSet = conceptSelector.findConceptIdsInReferenceSet(conceptIds, getMemberFilterConstraints(), branchCriteria);
+				Set<Long> conceptIdsInReferenceSet = conceptSelector.findConceptIdsInReferenceSet(conceptIds, getMemberFilterConstraints(), refinementBuilder);
 				query.filter(termsQuery(QueryConcept.Fields.CONCEPT_ID, conceptIdsInReferenceSet));
 				return conceptIdsInReferenceSet;
 		}
