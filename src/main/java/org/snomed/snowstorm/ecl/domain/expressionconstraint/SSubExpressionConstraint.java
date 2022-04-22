@@ -18,10 +18,7 @@ import org.snomed.snowstorm.ecl.ECLContentService;
 import org.snomed.snowstorm.ecl.deserializer.ECLModelDeserializer;
 import org.snomed.snowstorm.ecl.domain.RefinementBuilder;
 import org.snomed.snowstorm.ecl.domain.SubRefinementBuilder;
-import org.snomed.snowstorm.ecl.domain.filter.SConceptFilterConstraint;
-import org.snomed.snowstorm.ecl.domain.filter.SDescriptionFilterConstraint;
-import org.snomed.snowstorm.ecl.domain.filter.SHistorySupplement;
-import org.snomed.snowstorm.ecl.domain.filter.SMemberFilterConstraint;
+import org.snomed.snowstorm.ecl.domain.filter.*;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 
@@ -117,6 +114,17 @@ public class SSubExpressionConstraint extends SubExpressionConstraint implements
 						}
 					}
 				}
+			}
+		}
+		if (memberFilterConstraints != null) {
+			for (MemberFilterConstraint memberFilterConstraint : memberFilterConstraints) {
+				for (MemberFieldFilter memberFieldFilter : orEmpty(memberFilterConstraint.getMemberFieldFilters())) {
+					if (memberFieldFilter.getExpressionComparisonOperator() != null) {
+						SSubExpressionConstraint subExpressionConstraint = (SSubExpressionConstraint) memberFieldFilter.getSubExpressionConstraint();
+						conceptIds.addAll(subExpressionConstraint.getConceptIds());
+					}
+				}
+				collectConceptIds(conceptIds, orEmpty(memberFilterConstraint.getModuleFilters()));
 			}
 		}
 		return conceptIds;
