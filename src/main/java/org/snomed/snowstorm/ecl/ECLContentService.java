@@ -358,7 +358,7 @@ public class ECLContentService {
 		SExpressionConstraint expressionConstraint = null;
 		if (historySupplement.getHistorySubset() != null) {
 			expressionConstraint = (SExpressionConstraint) historySupplement.getHistorySubset();
-		} else if (historySupplement.getHistoryProfile() == HistoryProfile.MAX) {
+		} else if (historySupplement.getHistoryProfile() == null || historySupplement.getHistoryProfile() == HistoryProfile.MAX) {
 			expressionConstraint = historyMaxECL;
 		}
 		if (expressionConstraint != null) {

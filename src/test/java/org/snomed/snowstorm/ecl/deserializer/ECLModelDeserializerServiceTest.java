@@ -218,6 +218,9 @@ class ECLModelDeserializerServiceTest {
 
 		// History supplement filters
 		assertConversionTest("195967001 |Asthma| {{ + HISTORY-MIN }}");
+		assertConversionTest("195967001 |Asthma| {{ + HISTORY-MOD }}");
+		assertConversionTest("195967001 |Asthma| {{ + HISTORY-MAX }}");
+		assertConversionTest("195967001 |Asthma| {{ + HISTORY }}");
 	}
 
 	private void assertConversionTest(String inputEcl) throws JsonProcessingException {
