@@ -11,7 +11,7 @@ public class SHistorySupplement extends HistorySupplement {
 			buffer.append(" (");
 			buffer.append(((SExpressionConstraint)getHistorySubset()).toEclString());
 			buffer.append(")");
-		} else {
+		} else if (getHistoryProfile() != null) {
 			buffer.append("-").append(getHistoryProfile());
 		}
 

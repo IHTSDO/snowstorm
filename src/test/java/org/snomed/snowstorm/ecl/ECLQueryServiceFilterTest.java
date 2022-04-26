@@ -319,6 +319,7 @@ class ECLQueryServiceFilterTest {
 		assertEquals(newHashSet("100001", "200001"), select("100001 {{ + HISTORY-MIN }}"));
 		assertEquals(newHashSet("100001", "200001"), select("( 100001 {{ + HISTORY-MIN }} )"));
 		assertEquals(newHashSet("100001", "200001", "200002"), select("100001 {{ + HISTORY-MAX }}"));
+		assertEquals(newHashSet("100001", "200001", "200002"), select("100001 {{ + HISTORY }}"));
 	}
 
 	protected Set<String> select(String ecl) {
