@@ -83,7 +83,7 @@ public class ECLQueryService {
 		// Changing something like "(id) AND (<<id OR >>id)"  to  "(id AND <<id) OR (id AND >>id)" will run in a fraction of the time because there will be no large fetches
 
 		TimerUtil eclSlowQueryTimer = getEclSlowQueryTimer();
-		String ecl = expressionConstraint.toString();
+		String ecl = expressionConstraint.toEclString();
 		String path = branchCriteria.getBranchPath();
 
 		logger.info("ECL on path {}, \"{}\"", path, expressionConstraint.toEclString());

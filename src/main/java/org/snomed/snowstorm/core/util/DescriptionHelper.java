@@ -1,11 +1,13 @@
 package org.snomed.snowstorm.core.util;
 
+import org.apache.commons.lang3.CharSet;
 import org.apache.lucene.analysis.miscellaneous.ASCIIFoldingFilter;
 import org.snomed.snowstorm.core.data.domain.Concepts;
 import org.snomed.snowstorm.core.data.domain.Description;
 import org.snomed.snowstorm.core.pojo.LanguageDialect;
 import org.snomed.snowstorm.core.pojo.TermLangPojo;
 
+import java.nio.charset.StandardCharsets;
 import java.util.*;
 
 public class DescriptionHelper {
@@ -97,4 +99,20 @@ public class DescriptionHelper {
 		return new String(charsFolded, 0, charsFoldedOffset);
 	}
 
+	public static String wildcardToCaseInsensitiveRegex(String term) {
+		StringBuilder builder = new StringBuilder();
+		for (char c : term.toCharArray()) {
+			String s = String.valueOf(c);
+			if (!s.toLowerCase().equals(s) || !s.toUpperCase().equals(s)) {
+				// char is case-sensitive
+				builder.append("[")
+						.append(s.toLowerCase())
+						.append(s.toUpperCase())
+						.append("]");
+			} else {
+				builder.append(s);
+			}
+		}
+		return builder.toString().replace("*", ".*");
+	}
 }

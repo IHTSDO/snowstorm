@@ -872,14 +872,18 @@ public class DescriptionService extends ComponentService {
 				// e.g. 'Clin Fin' converts to 'clin* fin*' and matches 'Clinical Finding'
 				// Put search term through character folding for each requested language
 				BoolQueryBuilder foldedTermsQuery = boolQuery();
+				Set<BoolQueryBuilder> uniqueTermQueries = new HashSet<>();
 				for (String languageFoldingStrategy : languageFoldingStrategies) {
 					BoolQueryBuilder termQuery = getTermQuery(term, searchMode, charactersNotFoldedSets, languageFoldingStrategy);
-					foldedTermsQuery.should(termQuery);// Logical OR
+					uniqueTermQueries.add(termQuery);
+				}
+				for (BoolQueryBuilder uniqueTermQuery : uniqueTermQueries) {
+					foldedTermsQuery.should(uniqueTermQuery);// Logical OR
 				}
 				termFilter.must(foldedTermsQuery);
 
 				if (SearchMode.WILDCARD == searchMode) {
-					String replace = term.replace("*", ".*");
+					String replace = DescriptionHelper.wildcardToCaseInsensitiveRegex(term);
 					termFilter.must(regexpQuery(Description.Fields.TERM, replace));
 				} else if (containingNonAlphanumeric(term)) {
 					// Apply second constraint against non-folded term
@@ -904,7 +908,11 @@ public class DescriptionService extends ComponentService {
 		if (SearchMode.WHOLE_WORD == searchMode) {
 			termQuery.filter(matchQuery(Description.Fields.TERM_FOLDED, foldedSearchTerm).operator(Operator.AND));
 		} else if (SearchMode.WILDCARD == searchMode) {
-			termQuery.filter(wildcardQuery(Description.Fields.TERM_FOLDED, foldedSearchTerm));
+			for (String part : foldedSearchTerm.split(" ")) {
+				if (!part.isEmpty() && !part.equals("*")) {
+					termQuery.filter(wildcardQuery(Description.Fields.TERM_FOLDED, part));
+				}
+			}
 		} else {
 			termQuery.filter(simpleQueryStringQuery(constructSimpleQueryString(foldedSearchTerm))
 							.field(Description.Fields.TERM_FOLDED).defaultOperator(Operator.AND));

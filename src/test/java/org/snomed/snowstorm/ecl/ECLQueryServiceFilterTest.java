@@ -59,6 +59,7 @@ class ECLQueryServiceFilterTest {
 		assertEquals(newHashSet("100001"), select(ecl));
 
 		assertEquals(newHashSet("100001"), select("* {{ D term = \"heart ath\" }}"));
+		assertEquals(newHashSet("100002"), select("* {{ D term = \"Heart\", term = wild:\"* dis*\" }}"));
 
 		ecl = "< 64572001 |Disease|  {{ D term != \"heart ath\"}}";
 		assertEquals(newHashSet("100002", "100003"), select(ecl));
