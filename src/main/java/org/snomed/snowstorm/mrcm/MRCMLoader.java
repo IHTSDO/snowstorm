@@ -6,6 +6,7 @@ import io.kaicode.elasticvc.api.VersionControlHelper;
 import io.kaicode.elasticvc.domain.Commit;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.snomed.langauges.ecl.ECLException;
 import org.snomed.langauges.ecl.ECLQueryBuilder;
 import org.snomed.langauges.ecl.domain.expressionconstraint.ExpressionConstraint;
 import org.snomed.langauges.ecl.domain.expressionconstraint.RefinedExpressionConstraint;
@@ -26,6 +27,8 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import static io.kaicode.elasticvc.api.ComponentService.LARGE_PAGE;
 
@@ -99,7 +102,7 @@ public class MRCMLoader implements CommitListener {
 
     private List<Domain> getDomains(final String branchPath,
                                     final BranchCriteria branchCriteria,
-                                    final TimerUtil timer) {
+                                    final TimerUtil timer) throws ServiceException {
         List<ReferenceSetMember> domainMembers = memberService.findMembers(branchPath, branchCriteria,
                 new MemberSearchRequest().referenceSet(Concepts.REFSET_MRCM_DOMAIN_INTERNATIONAL), LARGE_PAGE).getContent();
 
@@ -186,24 +189,42 @@ public class MRCMLoader implements CommitListener {
         return attributeRanges;
     }
 
-    private Constraint getConstraint(ReferenceSetMember mrcmMember, String fieldName) {
+    private Constraint getConstraint(ReferenceSetMember mrcmMember, String fieldName) throws ServiceException {
         String constraint = mrcmMember.getAdditionalField(fieldName);
         if (constraint == null || constraint.isEmpty()) {
             LOGGER.warn("No constraint found for '{}' in member {}.", fieldName, mrcmMember.getMemberId());
             return null;
         }
-        ExpressionConstraint ecl = eclQueryBuilder.createQuery(constraint);
-        if (ecl instanceof SubExpressionConstraint) {
-            SubExpressionConstraint sub = (SubExpressionConstraint) ecl;
-            return new Constraint(constraint, sub.getConceptId(), sub.getOperator());
-        } else if (ecl instanceof RefinedExpressionConstraint) {
-            RefinedExpressionConstraint refined = (RefinedExpressionConstraint) ecl;
-            SubExpressionConstraint sub = refined.getSubexpressionConstraint();
-            return new Constraint(constraint, sub.getConceptId(), sub.getOperator());
-        } else {
-            LOGGER.error("Unable to process MRCM constraint '{}' in member {}.", constraint, mrcmMember.getMemberId());
+        try {
+            String simplifiedConstraint = extractInitialSimpleConstraint(constraint);
+            ExpressionConstraint ecl = eclQueryBuilder.createQuery(simplifiedConstraint);
+            if (ecl instanceof SubExpressionConstraint) {
+                SubExpressionConstraint sub = (SubExpressionConstraint) ecl;
+                return new Constraint(constraint, sub.getConceptId(), sub.getOperator());
+            } else if (ecl instanceof RefinedExpressionConstraint) {
+                RefinedExpressionConstraint refined = (RefinedExpressionConstraint) ecl;
+                SubExpressionConstraint sub = refined.getSubexpressionConstraint();
+                return new Constraint(constraint, sub.getConceptId(), sub.getOperator());
+            } else {
+                LOGGER.error("Unable to process MRCM constraint '{}' in member {}.", constraint, mrcmMember.getMemberId());
+            }
+        } catch (ECLException e) {
+            throw new ServiceException(String.format("Error parsing ECL in field %s of MRCM member %s, ECL: %s", fieldName, mrcmMember.getMemberId(), constraint), e);
         }
         return null;
+    }
+
+    /**
+     * Returns the very first part of the constraint should be an operator and a single focus concept.
+     */
+    private String extractInitialSimpleConstraint(String expressionTemplate) {
+        String simplifiedConstraint = "*";
+        Pattern pattern = Pattern.compile("^([^0-9]*[0-9]+).*");
+        Matcher matcher = pattern.matcher(expressionTemplate);
+        if (matcher.matches()) {
+            simplifiedConstraint = matcher.group(1);
+        }
+        return simplifiedConstraint;
     }
 
     private ConcreteValue.DataType getConcreteValueDataType(String rangeConstraint) {
