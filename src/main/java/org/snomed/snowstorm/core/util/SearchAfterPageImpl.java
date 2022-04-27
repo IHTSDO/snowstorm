@@ -9,7 +9,7 @@ import java.util.List;
 public class SearchAfterPageImpl<T> extends PageImpl<T> implements SearchAfterPage<T> {
 	private static final long serialVersionUID = -281372840330069871L;
 
-	private String searchAfter;
+	private final String searchAfter;
 
 	public SearchAfterPageImpl(List<T> content, Pageable pageable, long total, Object[] searchAfterArray) {
 		super(content, pageable, total);

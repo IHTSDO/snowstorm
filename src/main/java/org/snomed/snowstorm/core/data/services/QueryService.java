@@ -19,19 +19,18 @@ import org.snomed.snowstorm.core.util.SearchAfterPage;
 import org.snomed.snowstorm.core.util.StreamUtil;
 import org.snomed.snowstorm.core.util.TimerUtil;
 import org.snomed.snowstorm.ecl.ECLQueryService;
+import org.snomed.snowstorm.ecl.domain.expressionconstraint.SExpressionConstraint;
+import org.snomed.snowstorm.ecl.domain.expressionconstraint.SSubExpressionConstraint;
 import org.snomed.snowstorm.rest.converter.SearchAfterHelper;
 import org.springframework.beans.BeansException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationContextAware;
-import org.springframework.context.annotation.Lazy;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
-import org.springframework.data.elasticsearch.core.ElasticsearchRestTemplate;
-import org.springframework.data.elasticsearch.core.SearchHit;
-import org.springframework.data.elasticsearch.core.SearchHits;
-import org.springframework.data.elasticsearch.core.SearchHitsIterator;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.elasticsearch.core.*;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQuery;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
 import org.springframework.stereotype.Service;
@@ -80,8 +79,59 @@ public class QueryService implements ApplicationContextAware {
 	}
 
 	public Page<ConceptMini> search(ConceptQueryBuilder conceptQuery, String branchPath, PageRequest pageRequest) {
+
 		BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(branchPath);
-		Optional<SearchAfterPage<Long>> conceptIdPageOptional = doSearchForIds(conceptQuery, branchPath, branchCriteria, pageRequest);
+
+		String ecl = conceptQuery.getEcl();
+		if (ecl != null) {
+			SExpressionConstraint expressionConstraint = (SExpressionConstraint) eclQueryService.createQuery(ecl);
+			if (ECLQueryService.isMemberFieldsSearch(expressionConstraint)) {
+				pageRequest = updatePageRequestSort(pageRequest, Sort.sort(ReferenceSetMember.class).by(ReferenceSetMember::getMemberId).descending());
+				SearchAfterPage<ReferenceSetMember> members = eclQueryService.findReferenceSetMembersWithSpecificFields(ecl, conceptQuery.stated, branchCriteria, pageRequest);
+				SSubExpressionConstraint subExpressionConstraint = (SSubExpressionConstraint) expressionConstraint;
+				List<String> memberFieldsToReturn = subExpressionConstraint.getMemberFieldsToReturn();
+
+				List<ConceptMini> minis = new ArrayList<>();
+				if (memberFieldsToReturn != null) {
+					for (ReferenceSetMember member : members) {
+						ConceptMini mini = new ConceptMini();
+						mini.setActive(member.isActive());
+						Map<String, Object> fields = new LinkedHashMap<>();
+						for (String fieldName : memberFieldsToReturn) {
+							if (fieldName.equals(ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID)) {
+								fields.put(fieldName, member.getReferencedComponentId());
+							} else {
+								fields.put(fieldName, member.getAdditionalField(fieldName));
+							}
+						}
+						fields.put("fields", memberFieldsToReturn);
+						mini.setExtraFields(fields);
+						minis.add(mini);
+					}
+				} else {
+					List<String> fieldNames = new ArrayList<>();
+					Set<String> allFieldNames = new HashSet<>();
+					for (ReferenceSetMember member : members) {
+						ConceptMini mini = new ConceptMini();
+						mini.setActive(member.isActive());
+						Map<String, Object> fields = new LinkedHashMap<>();
+						fields.put("fields", fieldNames);// Same list for all minis
+						allFieldNames.addAll(member.getAdditionalFields().keySet().stream().sorted().collect(Collectors.toList()));
+						fields.put(ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID, member.getReferencedComponentId());
+						fields.putAll(member.getAdditionalFields());
+						mini.setExtraFields(fields);
+						minis.add(mini);
+					}
+					fieldNames.addAll(allFieldNames);
+					fieldNames.sort(null);
+					fieldNames.add(0, ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID);
+				}
+
+				return PageHelper.toSearchAfterPage(minis, members);
+			}
+		}
+
+		Optional<SearchAfterPage<Long>> conceptIdPageOptional = doSearchForIds(conceptQuery, branchCriteria, pageRequest);
 
 		if (conceptIdPageOptional.isPresent()) {
 			SearchAfterPage<Long> conceptIdPage = conceptIdPageOptional.get();
@@ -95,13 +145,21 @@ public class QueryService implements ApplicationContextAware {
 		}
 	}
 
-	public SearchAfterPage<Long> searchForIds(ConceptQueryBuilder conceptQuery, String branchPath, PageRequest pageRequest) {
-		BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(branchPath);
-		return searchForIds(conceptQuery, branchPath, branchCriteria, pageRequest);
+	private PageRequest updatePageRequestSort(PageRequest pageRequest, Sort newSort) {
+		if (pageRequest instanceof SearchAfterPageRequest) {
+			SearchAfterPageRequest searchAfterPageRequest = (SearchAfterPageRequest) pageRequest;
+			return SearchAfterPageRequest.of(searchAfterPageRequest.getSearchAfter(), searchAfterPageRequest.getPageSize(), newSort);
+		}
+		return PageRequest.of(pageRequest.getPageNumber(), pageRequest.getPageSize(), newSort);
 	}
 
-	public SearchAfterPage<Long> searchForIds(ConceptQueryBuilder conceptQuery, String branchPath, BranchCriteria branchCriteria, PageRequest pageRequest) {
-		Optional<SearchAfterPage<Long>> conceptIdPageOptional = doSearchForIds(conceptQuery, branchPath, branchCriteria, pageRequest);
+	public SearchAfterPage<Long> searchForIds(ConceptQueryBuilder conceptQuery, String branchPath, PageRequest pageRequest) {
+		BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(branchPath);
+		return searchForIds(conceptQuery, branchCriteria, pageRequest);
+	}
+
+	public SearchAfterPage<Long> searchForIds(ConceptQueryBuilder conceptQuery, BranchCriteria branchCriteria, PageRequest pageRequest) {
+		Optional<SearchAfterPage<Long>> conceptIdPageOptional = doSearchForIds(conceptQuery, branchCriteria, pageRequest);
 		return conceptIdPageOptional.orElseGet(() -> {
 			// No ids - return page of all concept ids
 			NativeSearchQuery query = new NativeSearchQueryBuilder()
@@ -114,7 +172,7 @@ public class QueryService implements ApplicationContextAware {
 		});
 	}
 
-	private Optional<SearchAfterPage<Long>> doSearchForIds(ConceptQueryBuilder conceptQuery, String branchPath, BranchCriteria branchCriteria, PageRequest pageRequest) {
+	private Optional<SearchAfterPage<Long>> doSearchForIds(ConceptQueryBuilder conceptQuery, BranchCriteria branchCriteria, PageRequest pageRequest) {
 
 		// Validate Lexical criteria
 		DescriptionCriteria descriptionCriteria = conceptQuery.getDescriptionCriteria();
@@ -137,7 +195,7 @@ public class QueryService implements ApplicationContextAware {
 
 			if (conceptQuery.getEcl() != null) {
 				// ECL search
-				conceptIdPage = doEclSearchAndConceptPropertyFilters(conceptQuery, branchPath, pageRequest, branchCriteria);
+				conceptIdPage = doEclSearchAndConceptPropertyFilters(conceptQuery, pageRequest, branchCriteria);
 			} else {
 				// Concept id search
 				BoolQueryBuilder conceptBoolQuery = getSearchByConceptIdQuery(conceptQuery, branchCriteria);
@@ -172,7 +230,7 @@ public class QueryService implements ApplicationContextAware {
 			// ECL, QueryConcept and Concept searches are filtered by the conceptIds gathered from the lexical search
 			List<Long> allFilteredLogicalMatches;
 			if (conceptQuery.getEcl() != null) {
-				List<Long> eclMatches = doEclSearch(conceptQuery, branchPath, branchCriteria, allConceptIdsSortedByTermOrder);
+				List<Long> eclMatches = doEclSearch(conceptQuery, branchCriteria, allConceptIdsSortedByTermOrder);
 				allFilteredLogicalMatches = applyConceptPropertyFilters(eclMatches, conceptQuery, branchCriteria, new LongArrayList());
 			} else {
 				allFilteredLogicalMatches = new LongArrayList();
@@ -260,7 +318,7 @@ public class QueryService implements ApplicationContextAware {
 		return filteredConceptIds;
 	}
 
-	private SearchAfterPage<Long> doEclSearchAndConceptPropertyFilters(ConceptQueryBuilder conceptQuery, String branchPath, PageRequest pageRequest, BranchCriteria branchCriteria) {
+	private SearchAfterPage<Long> doEclSearchAndConceptPropertyFilters(ConceptQueryBuilder conceptQuery, PageRequest pageRequest, BranchCriteria branchCriteria) {
 		String ecl = conceptQuery.getEcl();
 		logger.debug("ECL Search {}", ecl);
 		Collection<Long> conceptIdFilter = null;
@@ -268,19 +326,19 @@ public class QueryService implements ApplicationContextAware {
 			conceptIdFilter = conceptQuery.conceptIds.stream().map(Long::valueOf).collect(Collectors.toSet());
 		}
 		if (conceptQuery.hasPropertyFilter()) {
-			Page<Long> allConceptIds = eclQueryService.selectConceptIds(ecl, branchCriteria, branchPath, conceptQuery.isStated(), conceptIdFilter, null);
+			Page<Long> allConceptIds = eclQueryService.selectConceptIds(ecl, branchCriteria, conceptQuery.isStated(), conceptIdFilter, null);
 			List<Long> filteredConceptIds = applyConceptPropertyFilters(allConceptIds.getContent(), conceptQuery, branchCriteria, new LongArrayList());
 			return PageHelper.fullListToPage(filteredConceptIds, pageRequest, CONCEPT_ID_SEARCH_AFTER_EXTRACTOR);
 		} else {
-			Page<Long> conceptIds = eclQueryService.selectConceptIds(ecl, branchCriteria, branchPath, conceptQuery.isStated(), conceptIdFilter, pageRequest);
+			Page<Long> conceptIds = eclQueryService.selectConceptIds(ecl, branchCriteria, conceptQuery.isStated(), conceptIdFilter, pageRequest);
 			return PageHelper.toSearchAfterPage(conceptIds, CONCEPT_ID_SEARCH_AFTER_EXTRACTOR);
 		}
 	}
 
-	private List<Long> doEclSearch(ConceptQueryBuilder conceptQuery, String branchPath, BranchCriteria branchCriteria, Collection<Long> conceptIdFilter) {
+	private List<Long> doEclSearch(ConceptQueryBuilder conceptQuery, BranchCriteria branchCriteria, Collection<Long> conceptIdFilter) {
 		String ecl = conceptQuery.getEcl();
 		logger.debug("ECL Search {}", ecl);
-		return eclQueryService.selectConceptIds(ecl, branchCriteria, branchPath, conceptQuery.isStated(), conceptIdFilter).getContent();
+		return eclQueryService.selectConceptIds(ecl, branchCriteria, conceptQuery.isStated(), conceptIdFilter).getContent();
 	}
 
 	private List<ConceptMini> sortConceptMinisByTermOrder(List<Long> termConceptIds, Map<String, ConceptMini> conceptMiniMap) {
@@ -421,13 +479,13 @@ public class QueryService implements ApplicationContextAware {
 		}
 	}
 
-	public void joinDescendantCountAndLeafFlag(Collection<ConceptMini> concepts, Relationship.CharacteristicType form, String branchPath, BranchCriteria branchCriteria) {
+	public void joinDescendantCountAndLeafFlag(Collection<ConceptMini> concepts, Relationship.CharacteristicType form, BranchCriteria branchCriteria) {
 		if (concepts.isEmpty()) {
 			return;
 		}
 
 		for (ConceptMini concept : concepts) {
-			SearchAfterPage<Long> page = searchForIds(createQueryBuilder(form).ecl("<" + concept.getId()), branchPath, branchCriteria, PAGE_OF_ONE);
+			SearchAfterPage<Long> page = searchForIds(createQueryBuilder(form).ecl("<" + concept.getId()), branchCriteria, PAGE_OF_ONE);
 			concept.setDescendantCount(page.getTotalElements());
 			concept.setLeaf(form, page.getTotalElements() == 0);
 		}
@@ -439,7 +497,7 @@ public class QueryService implements ApplicationContextAware {
 		}
 		BranchCriteria branchCriteria = conceptService.getBranchCriteria(branchTimepoint);
 		ConceptMini mini = new ConceptMini(concept, languageDialects);
-		joinDescendantCountAndLeafFlag(Collections.singleton(mini), form, branchTimepoint.getBranchPath(), branchCriteria);
+		joinDescendantCountAndLeafFlag(Collections.singleton(mini), form, branchCriteria);
 		concept.setDescendantCount(mini.getDescendantCount());
 	}
 
@@ -480,7 +538,7 @@ public class QueryService implements ApplicationContextAware {
 			this.ecl = ecl;
 			return this;
 		}
-		
+
 		public ConceptQueryBuilder effectiveTime(Integer effectiveTime) {
 			this.effectiveTime = effectiveTime;
 			return this;

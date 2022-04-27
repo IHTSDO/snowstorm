@@ -186,6 +186,11 @@ public class ConceptMini implements Serializable {
 		descendantCount++;
 	}
 
+	@JsonIgnore
+	public Object getExtraField(String fieldName) {
+		return extraFields != null ? extraFields.get(fieldName) : null;
+	}
+
 	@JsonView(value = View.Component.class)
 	public Long getDescendantCount() {
 		return descendantCount;

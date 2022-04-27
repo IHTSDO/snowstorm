@@ -3,16 +3,10 @@ package org.snomed.snowstorm.ecl;
 import com.google.common.collect.Sets;
 import io.kaicode.elasticvc.api.BranchCriteria;
 import io.kaicode.elasticvc.api.VersionControlHelper;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
 import org.snomed.snowstorm.core.data.services.ConceptService;
-import org.snomed.snowstorm.core.data.services.ReferenceSetMemberService;
-import org.snomed.snowstorm.core.data.services.ServiceException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.PageRequest;
-import org.springframework.test.context.ContextConfiguration;
-import org.springframework.test.context.junit.jupiter.SpringExtension;
 
 import java.util.Collection;
 import java.util.HashSet;
@@ -513,6 +507,6 @@ abstract class AbstractECLQueryServiceTest {
 	}
 
 	protected Collection<Long> selectConceptIds(String ecl, PageRequest pageRequest) {
-		return eclQueryService.selectConceptIds(ecl, branchCriteria, MAIN, INFERRED, pageRequest).getContent();
+		return eclQueryService.selectConceptIds(ecl, branchCriteria, INFERRED, pageRequest).getContent();
 	}
 }

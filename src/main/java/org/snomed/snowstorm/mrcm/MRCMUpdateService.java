@@ -274,6 +274,6 @@ public class MRCMUpdateService extends ComponentService implements CommitListene
 	}
 
 	private List<Long> getDataAttributes(BranchCriteria branchCriteria, String branchPath) {
-		return eclQueryService.selectConceptIds("<<" + Concepts.CONCEPT_MODEL_DATA_ATTRIBUTE, branchCriteria, branchPath, true, LARGE_PAGE).getContent();
+		return eclQueryService.selectConceptIds("<<" + Concepts.CONCEPT_MODEL_DATA_ATTRIBUTE, branchCriteria, true, LARGE_PAGE).getContent();
 	}
 }

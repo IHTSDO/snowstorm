@@ -144,9 +144,6 @@ public class SSubExpressionConstraint extends SubExpressionConstraint implements
 
 	@Override
 	public void setNestedExpressionConstraint(ExpressionConstraint nestedExpressionConstraint) {
-		if (nestedExpressionConstraint != null && operator == Operator.memberOf) {
-			throw new UnsupportedOperationException("MemberOf nested expression constraint is not supported.");
-		}
 		super.setNestedExpressionConstraint(nestedExpressionConstraint);
 	}
 

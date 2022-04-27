@@ -521,7 +521,7 @@ public class ConceptController {
 			queryService.joinIsLeafFlag(children, form, branchCriteria, branch);
 			timer.checkpoint("Join leaf flag");
 		} else {
-			queryService.joinDescendantCountAndLeafFlag(children, form, branch, branchCriteria);
+			queryService.joinDescendantCountAndLeafFlag(children, form, branchCriteria);
 			timer.checkpoint("Join descendant count and leaf flag");
 		}
 		return children;
@@ -542,7 +542,7 @@ public class ConceptController {
 
 		if (includeDescendantCount) {
 			BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(branch);
-			queryService.joinDescendantCountAndLeafFlag(parents, form, branch, branchCriteria);
+			queryService.joinDescendantCountAndLeafFlag(parents, form, branchCriteria);
 		}
 		return parents;
 	}
@@ -581,16 +581,15 @@ public class ConceptController {
 		return new ExpressionStringPojo(expression.toString(includeTerms));
 	}
 
-
 	private PageRequest getPageRequestWithSort(int offset, int size, String searchAfter, Sort sort) {
 		ControllerHelper.validatePageSize(offset, size);
-		PageRequest pageRequest;
 		if (!Strings.isNullOrEmpty(searchAfter)) {
-			pageRequest = SearchAfterPageRequest.of(SearchAfterHelper.fromSearchAfterToken(searchAfter), size, sort);
-		} else {
-			pageRequest = ControllerHelper.getPageRequest(offset, size, sort);
+			Object[] searchAfterToken = SearchAfterHelper.fromSearchAfterToken(searchAfter);
+			if (searchAfterToken != null) {
+				return SearchAfterPageRequest.of(searchAfterToken, size, sort);
+			}
 		}
-		return pageRequest;
+		return ControllerHelper.getPageRequest(offset, size, sort);
 	}
 
 	private void joinDescriptorMembersHeader(Concept concept, String branch, HttpHeaders createdLocationHeaders) {

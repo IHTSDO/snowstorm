@@ -105,14 +105,20 @@ public abstract class AbstractFHIRTest {
 	void finalTearDown() throws InterruptedException {
 		if (testClassesRun >= TOTAL_TEST_CLASSES) {
 			logger.warn("Digging up the Potatoes - if tests have not completed, increment TOTAL_TEST_CLASSES");
-			branchService.deleteAll();
-			conceptService.deleteAll();
-			codeSystemService.deleteAll();
+			doTearDown();
 		}
 	}
 
+	private void doTearDown() throws InterruptedException {
+		branchService.deleteAll();
+		conceptService.deleteAll();
+		codeSystemService.deleteAll();
+	}
+
 	@BeforeAll
-	void setup() throws ServiceException {
+	void setup() throws ServiceException, InterruptedException {
+		doTearDown();// Make sure clean before we start
+
 		testClassesRun++;
 		if (setupComplete) {
 			return;

@@ -174,7 +174,7 @@ public class ECLPreprocessingService implements CommitListener {
 	private void cacheConcreteConceptIds(final String branch) {
 		BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(branch);
 		Page<Long> conceptIds = eclQueryService.selectConceptIds(RETURN_ALL_CONCRETE_ATTRIBUTES_ECL_QUERY,
-				branchCriteria, branch, false, null, PageRequest.of(0, 100), true);
+				branchCriteria, false, null, PageRequest.of(0, 100), true);
 		CACHED_CONCRETE_CONCEPT_IDS.put(branch, conceptIds.stream().map(Object::toString).collect(Collectors.toList()));
 	}
 }

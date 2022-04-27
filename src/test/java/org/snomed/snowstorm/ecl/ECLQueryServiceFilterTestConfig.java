@@ -59,7 +59,8 @@ public class ECLQueryServiceFilterTestConfig extends TestConfig {
 		allConcepts.add(new Concept(MODULE_A).addRelationship(new Relationship(ISA, MODULE)));
 		allConcepts.add(new Concept(PRIMITIVE).addRelationship(new Relationship(ISA, DEF_STATUS)));
 		allConcepts.add(new Concept(DEFINED).addRelationship(new Relationship(ISA, DEF_STATUS)));
-		allConcepts.add(new Concept(REFSET_HISTORICAL_ASSOCIATION).addRelationship(new Relationship(ISA, SNOMEDCT_ROOT)));
+		allConcepts.add(new Concept(REFSET).addRelationship(new Relationship(ISA, SNOMEDCT_ROOT)));
+		allConcepts.add(new Concept(REFSET_HISTORICAL_ASSOCIATION).addRelationship(new Relationship(ISA, REFSET)));
 		allConcepts.add(new Concept(REFSET_SAME_AS_ASSOCIATION).addRelationship(new Relationship(ISA, REFSET_HISTORICAL_ASSOCIATION)));
 		allConcepts.add(new Concept(REFSET_SIMILAR_TO_ASSOCIATION).addRelationship(new Relationship(ISA, REFSET_HISTORICAL_ASSOCIATION)));
 		createConceptsAndVersionCodeSystem(allConcepts, 20200131);
@@ -101,7 +102,9 @@ public class ECLQueryServiceFilterTestConfig extends TestConfig {
 				new ReferenceSetMember(CORE_MODULE, REFSET_SAME_AS_ASSOCIATION, "200001")
 						.setAdditionalField(ReferenceSetMember.AssociationFields.TARGET_COMP_ID, "100001"),
 				new ReferenceSetMember(CORE_MODULE, REFSET_SIMILAR_TO_ASSOCIATION, "200002")
-						.setAdditionalField(ReferenceSetMember.AssociationFields.TARGET_COMP_ID, "100001")
+						.setAdditionalField(ReferenceSetMember.AssociationFields.TARGET_COMP_ID, "100001"),
+				new ReferenceSetMember(CORE_MODULE, REFSET_SIMILAR_TO_ASSOCIATION, "200002")// Concept 200002 is a member twice
+						.setAdditionalField(ReferenceSetMember.AssociationFields.TARGET_COMP_ID, "100002")
 		));
 
 		// ICD-10 complex map
