@@ -16,12 +16,15 @@ import org.snomed.snowstorm.core.data.services.QueryService;
 import org.snomed.snowstorm.core.data.services.ReferenceSetMemberService;
 import org.snomed.snowstorm.core.data.services.RelationshipService;
 import org.snomed.snowstorm.core.util.PageHelper;
+import org.snomed.snowstorm.core.util.SearchAfterPage;
+import org.snomed.snowstorm.core.util.SearchAfterPageImpl;
 import org.snomed.snowstorm.ecl.domain.RefinementBuilder;
 import org.snomed.snowstorm.ecl.domain.expressionconstraint.SExpressionConstraint;
 import org.snomed.snowstorm.ecl.domain.expressionconstraint.SSubExpressionConstraint;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.elasticsearch.core.ElasticsearchRestTemplate;
 import org.springframework.data.elasticsearch.core.SearchHits;
@@ -95,12 +98,39 @@ public class ECLContentService {
 		return elasticsearchTemplate.searchForStream(searchQuery, QueryConcept.class);
 	}
 
+	public SearchAfterPage<ReferenceSetMember> findReferenceSetMembers(Collection<Long> refsets, List<MemberFilterConstraint> memberFilterConstraints,
+			List<String> memberFieldsToReturn, Collection<Long> conceptIdFilter, boolean stated, BranchCriteria branchCriteria, PageRequest pageRequest,
+			ECLContentService eclContentService) {
+
+		BoolQueryBuilder masterMemberQuery = buildECLMemberQuery(memberFilterConstraints, stated, branchCriteria);
+		SearchAfterPageImpl<ReferenceSetMember> emptyPage = new SearchAfterPageImpl<>(Collections.emptyList(), pageRequest, 0, new Object[]{});
+
+		if (conceptIdFilter != null) {
+			if (conceptIdFilter.isEmpty()) {
+				// No rows can match
+				return emptyPage;
+			}
+			masterMemberQuery.filter(termsQuery(ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID, conceptIdFilter));
+		}
+
+		if (refsets != null) {
+			if (refsets.isEmpty()) {
+				// No rows can match
+				return emptyPage;
+			}
+			masterMemberQuery.filter(termsQuery(ReferenceSetMember.Fields.REFSET_ID, refsets));
+		}
+
+		return memberService.findMembersForECLResponse(masterMemberQuery, memberFilterConstraints, memberFieldsToReturn, stated, branchCriteria, pageRequest, eclContentService);
+	}
+
 	public Set<Long> findConceptIdsInReferenceSet(Collection<Long> referenceSetIds, List<MemberFilterConstraint> memberFilterConstraints, RefinementBuilder refinementBuilder) {
+		BoolQueryBuilder masterMemberQuery = buildECLMemberQuery(memberFilterConstraints, refinementBuilder.isStated(), refinementBuilder.getBranchCriteria());
+		return memberService.findConceptsInReferenceSet(referenceSetIds, memberFilterConstraints, refinementBuilder, masterMemberQuery);
+	}
 
-		BranchCriteria branchCriteria = refinementBuilder.getBranchCriteria();
-		boolean stated = refinementBuilder.isStated();
-
-		BoolQueryBuilder masterMemberQuery = boolQuery();
+	private BoolQueryBuilder buildECLMemberQuery(List<MemberFilterConstraint> memberFilterConstraints, boolean stated, BranchCriteria branchCriteria) {
+		BoolQueryBuilder masterMemberQuery = branchCriteria.getEntityBranchCriteria(ReferenceSetMember.class);
 
 		for (MemberFilterConstraint memberFilterConstraint : orEmpty(memberFilterConstraints)) {
 
@@ -113,8 +143,10 @@ public class ECLContentService {
 			// Active filters
 			applyActiveFilters(memberFilterConstraint.getActiveFilters(), masterMemberQuery);
 		}
-
-		return memberService.findConceptsInReferenceSet(referenceSetIds, memberFilterConstraints, refinementBuilder, masterMemberQuery);
+		if (memberFilterConstraints == null) {
+			applyActiveFilters(null, masterMemberQuery);// Apply active defaults
+		}
+		return masterMemberQuery;
 	}
 
 	public List<Long> findRelationshipDestinationIds(Collection<Long> sourceConceptIds, List<Long> attributeTypeIds, BranchCriteria branchCriteria, boolean stated) {

@@ -15,7 +15,6 @@ import org.hl7.fhir.r4.model.ValueSet.ConceptSetFilterComponent;
 import org.hl7.fhir.r4.model.ValueSet.FilterOperator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.snomed.snowstorm.config.Config;
 import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.services.CodeSystemService;
 import org.snomed.snowstorm.core.data.services.ConceptService;
@@ -41,11 +40,9 @@ import org.springframework.stereotype.Component;
 import javax.servlet.http.HttpServletRequest;
 import java.text.ParseException;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 
-import static org.snomed.snowstorm.config.Config.DEFAULT_LANGUAGE_CODE;
 import static org.snomed.snowstorm.config.Config.DEFAULT_LANGUAGE_DIALECTS;
 
 @Component
@@ -476,7 +473,7 @@ public class FHIRHelper implements FHIRConstants {
 			} else {
 				currPageCount++;
 			}
-			page = queryService.searchForIds(conceptQuery, branchPath, branchCriteria, currPageReq);
+			page = queryService.searchForIds(conceptQuery, branchCriteria, currPageReq);
 			//Check we're not asking for a page number larger than we have available results - otherwise we'd loop unnecessarily
 			if (totalRequested > page.getTotalElements()) {
 				throw new IllegalArgumentException("Offset requested " + pageRequest.getOffset() + " exceeds total elements available " + page.getTotalElements());

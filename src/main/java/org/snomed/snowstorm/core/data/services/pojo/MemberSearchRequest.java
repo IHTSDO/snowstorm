@@ -1,5 +1,6 @@
 package org.snomed.snowstorm.core.data.services.pojo;
 
+import java.io.Serializable;
 import java.util.*;
 
 public class MemberSearchRequest {
@@ -8,7 +9,7 @@ public class MemberSearchRequest {
 	private Boolean isNullEffectiveTime;
 	private String referenceSet;
 	private String module;
-	private Set<String> referencedComponentIds;
+	private Collection<? extends Serializable> referencedComponentIds;
 	private String owlExpressionConceptId;
 	private Boolean owlExpressionGCI;
 	private final Map<String, String> additionalFields;
@@ -55,12 +56,12 @@ public class MemberSearchRequest {
 	/**
 	 * @param referencedComponentIds Filter by the referencedComponentId field.
 	 */
-	public MemberSearchRequest referencedComponentIds(Set<String> referencedComponentIds) {
+	public MemberSearchRequest referencedComponentIds(Collection<? extends Serializable> referencedComponentIds) {
 		this.referencedComponentIds = referencedComponentIds;
 		return this;
 	}
 
-	public Set<String> getReferencedComponentIds() {
+	public Collection<? extends Serializable> getReferencedComponentIds() {
 		return referencedComponentIds;
 	}
 

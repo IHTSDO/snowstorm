@@ -5,7 +5,9 @@ import io.kaicode.elasticvc.api.VersionControlHelper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.snomed.snowstorm.core.data.domain.ConceptMini;
 import org.snomed.snowstorm.core.data.domain.ReferenceSetMember;
+import org.snomed.snowstorm.core.data.services.QueryService;
 import org.snomed.snowstorm.core.data.services.ReferenceSetMemberService;
 import org.snomed.snowstorm.core.data.services.pojo.MemberSearchRequest;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -15,12 +17,10 @@ import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
 
-import java.util.Collection;
-import java.util.Collections;
-import java.util.HashSet;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 
+import static com.google.common.collect.Lists.newArrayList;
 import static com.google.common.collect.Sets.newHashSet;
 import static io.kaicode.elasticvc.domain.Branch.MAIN;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -35,6 +35,9 @@ class ECLQueryServiceFilterTest {
 	private ECLQueryService eclQueryService;
 
 	@Autowired
+	private QueryService queryService;
+
+	@Autowired
 	private VersionControlHelper versionControlHelper;
 
 	@Autowired
@@ -43,10 +46,12 @@ class ECLQueryServiceFilterTest {
 	protected Collection<String> allConceptIds = new HashSet<>();
 	protected BranchCriteria branchCriteria;
 
+	private static final PageRequest PAGE_REQUEST = PageRequest.of(0, 10000);
+
 	@BeforeEach
 	void setup() {
 		branchCriteria = versionControlHelper.getBranchCriteria(MAIN);
-		allConceptIds = eclQueryService.selectConceptIds("*", branchCriteria, MAIN, false, PageRequest.of(0, 1000))
+		allConceptIds = eclQueryService.selectConceptIds("*", branchCriteria, false, PAGE_REQUEST)
 				.getContent().stream().map(Object::toString).collect(Collectors.toSet());
 	}
 
@@ -312,6 +317,12 @@ class ECLQueryServiceFilterTest {
 	}
 
 	@Test
+	public void testMemberSelectFields() {
+		assertEquals(newArrayList("200001", "200002"), selectList("^ (< 900000000000522004 |historical association|)"));
+		assertEquals(newArrayList("200001", "200002", "200002"), selectList("^ [referencedComponentId] (< 900000000000522004 |historical association|)"));
+	}
+
+	@Test
 	public void historySupplement() {
 		Page<ReferenceSetMember> members = memberService.findMembers(MAIN, new MemberSearchRequest().referenceSet(REFSET_SAME_AS_ASSOCIATION), PageRequest.of(0, 10));
 		for (ReferenceSetMember member : members) {
@@ -324,8 +335,16 @@ class ECLQueryServiceFilterTest {
 	}
 
 	protected Set<String> select(String ecl) {
-		return eclQueryService.selectConceptIds(ecl, branchCriteria, MAIN, false, PageRequest.of(0, 10000))
-				.getContent().stream().map(Object::toString).collect(Collectors.toSet());
+		return queryService.eclSearch(ecl, false, MAIN, PAGE_REQUEST)
+				.getContent().stream().map(ConceptMini::getConceptId).collect(Collectors.toSet());
+	}
+
+	protected List<String> selectList(String ecl) {
+		Page<ConceptMini> conceptMinis = queryService.eclSearch(ecl, false, MAIN, PAGE_REQUEST);
+		return conceptMinis
+				.getContent().stream().map(mini -> mini.getConceptId() != null ? mini.getConceptId() :
+						(String) mini.getExtraField(ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID))
+				.sorted().collect(Collectors.toList());
 	}
 
 }

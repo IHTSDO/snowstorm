@@ -9,9 +9,14 @@ import org.slf4j.LoggerFactory;
 import org.snomed.langauges.ecl.ECLException;
 import org.snomed.langauges.ecl.ECLQueryBuilder;
 import org.snomed.langauges.ecl.domain.expressionconstraint.ExpressionConstraint;
+import org.snomed.langauges.ecl.domain.refinement.Operator;
 import org.snomed.snowstorm.core.data.domain.QueryConcept;
+import org.snomed.snowstorm.core.data.domain.ReferenceSetMember;
+import org.snomed.snowstorm.core.data.services.RuntimeServiceException;
+import org.snomed.snowstorm.core.util.SearchAfterPage;
 import org.snomed.snowstorm.core.util.TimerUtil;
 import org.snomed.snowstorm.ecl.domain.expressionconstraint.SExpressionConstraint;
+import org.snomed.snowstorm.ecl.domain.expressionconstraint.SSubExpressionConstraint;
 import org.snomed.snowstorm.ecl.validation.ECLPreprocessingService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -20,10 +25,13 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.LongPredicate;
 import java.util.stream.Collectors;
+
+import static java.lang.Long.parseLong;
 
 /**
  * Highest level service for executing ECL.
@@ -54,26 +62,68 @@ public class ECLQueryService {
 		resultsCache = new ECLResultsCache();
 	}
 
-	public Page<Long> selectConceptIds(String ecl, BranchCriteria branchCriteria, String path, boolean stated, PageRequest pageRequest) throws ECLException {
-		return selectConceptIds(ecl, branchCriteria, path, stated, null, pageRequest);
+	public Page<Long> selectConceptIds(String ecl, BranchCriteria branchCriteria, boolean stated, PageRequest pageRequest) throws ECLException {
+		return selectConceptIds(ecl, branchCriteria, stated, null, pageRequest);
 	}
 
-	public Page<Long> selectConceptIds(String ecl, BranchCriteria branchCriteria, String path, boolean stated, Collection<Long> conceptIdFilter) throws ECLException {
-		return selectConceptIds(ecl, branchCriteria, path, stated, conceptIdFilter, null);
+	public Page<Long> selectConceptIds(String ecl, BranchCriteria branchCriteria, boolean stated, Collection<Long> conceptIdFilter) throws ECLException {
+		return selectConceptIds(ecl, branchCriteria, stated, conceptIdFilter, null);
 	}
 
-	public Page<Long> selectConceptIds(String ecl, BranchCriteria branchCriteria, String path, boolean stated, Collection<Long> conceptIdFilter,
+	public Page<Long> selectConceptIds(String ecl, BranchCriteria branchCriteria, boolean stated, Collection<Long> conceptIdFilter,
 			PageRequest pageRequest) throws ECLException {
-		return selectConceptIds(ecl, branchCriteria, path, stated, conceptIdFilter, pageRequest, false);
+		return selectConceptIds(ecl, branchCriteria, stated, conceptIdFilter, pageRequest, false);
 	}
 
-	public Page<Long> selectConceptIds(String ecl, BranchCriteria branchCriteria, String path, boolean stated, Collection<Long> conceptIdFilter,
+	public Page<Long> selectConceptIds(String ecl, BranchCriteria branchCriteria, boolean stated, Collection<Long> conceptIdFilter,
 			PageRequest pageRequest, boolean skipEclPreprocessing) throws ECLException {
+
 		SExpressionConstraint expressionConstraint = (SExpressionConstraint) eclQueryBuilder.createQuery(ecl);
+
+		if (isMemberFieldsSearch(expressionConstraint)) {
+			throw new RuntimeServiceException("ECL requesting specific refset member fields, can not return concept ids.");
+		}
 		if (!skipEclPreprocessing) {
-			expressionConstraint = eclPreprocessingService.replaceIncorrectConcreteAttributeValue(expressionConstraint, path);
+			expressionConstraint = eclPreprocessingService.replaceIncorrectConcreteAttributeValue(expressionConstraint, branchCriteria.getBranchPath());
 		}
 		return doSelectConceptIds(expressionConstraint, branchCriteria, stated, conceptIdFilter, pageRequest);
+	}
+
+	public static boolean isMemberFieldsSearch(SExpressionConstraint expressionConstraint) {
+		if (expressionConstraint instanceof SSubExpressionConstraint) {
+			SSubExpressionConstraint constraint = (SSubExpressionConstraint) expressionConstraint;
+			return constraint.getOperator() == Operator.memberOf && (constraint.isReturnAllMemberFields() || constraint.getMemberFieldsToReturn() != null);
+		}
+		return false;
+	}
+
+	public SearchAfterPage<ReferenceSetMember> findReferenceSetMembersWithSpecificFields(String memberECLWithSpecificFields, boolean stated, BranchCriteria branchCriteria, PageRequest pageRequest) {
+		SExpressionConstraint query = (SExpressionConstraint) eclQueryBuilder.createQuery(memberECLWithSpecificFields);
+		SSubExpressionConstraint constraint = (SSubExpressionConstraint) eclPreprocessingService.replaceIncorrectConcreteAttributeValue(query, branchCriteria.getBranchPath());
+
+		List<Long> conceptIdFilter = null;
+		if (constraint.getHistorySupplement() != null) {
+			throw new IllegalArgumentException("History supplement can not be used when returning specific fields of a reference set member.");
+		} else if (constraint.getConceptFilterConstraints() != null || constraint.getDescriptionFilterConstraints() != null) {
+			// Run standard ECL first, then select member rows
+			conceptIdFilter = doSelectConceptIds(constraint, branchCriteria, stated, null, null).getContent();
+		}
+		// Select member rows, apply member filters (maybe for the second time but that's okay)
+		List<String> memberFieldsToReturn = constraint.getMemberFieldsToReturn();
+		Collection<Long> refsets = null;
+		if (!constraint.isWildcard()) {
+			if (constraint.getConceptId() != null) {
+				refsets = Collections.singleton(parseLong(constraint.getConceptId()));
+			} else {
+				SExpressionConstraint nestedExpressionConstraint = (SExpressionConstraint) constraint.getNestedExpressionConstraint();
+				SExpressionConstraint constrainedRefsetSelector = (SExpressionConstraint) eclQueryBuilder.createQuery(
+						String.format("<< 900000000000455006 |Reference set (foundation metadata concept)| AND (%s)", nestedExpressionConstraint.toEclString()));
+				refsets = doSelectConceptIds(constrainedRefsetSelector, branchCriteria, stated, null, null).getContent();
+			}
+		}
+
+		return eclContentService.findReferenceSetMembers(refsets, constraint.getMemberFilterConstraints(), memberFieldsToReturn, conceptIdFilter,
+				stated, branchCriteria, pageRequest, eclContentService);
 	}
 
 	public Page<Long> doSelectConceptIds(SExpressionConstraint expressionConstraint, BranchCriteria branchCriteria, boolean stated, Collection<Long> conceptIdFilter,

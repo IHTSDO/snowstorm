@@ -70,7 +70,7 @@ public class ContentReportService {
 
 		// Gather ids of concepts with historical associations
 		List<Long> conceptsWithAssociations = new LongArrayList();
-		List<Long> allHistoricalAssociations = eclQueryService.selectConceptIds("<" + Concepts.REFSET_HISTORICAL_ASSOCIATION, branchCriteria, branchPath, true, LARGE_PAGE).getContent();
+		List<Long> allHistoricalAssociations = eclQueryService.selectConceptIds("<" + Concepts.REFSET_HISTORICAL_ASSOCIATION, branchCriteria, true, LARGE_PAGE).getContent();
 		for (List<Long> batch : Iterables.partition(conceptIds, CLAUSE_LIMIT)) {
 			try (SearchHitsIterator<ReferenceSetMember> memberStream = elasticsearchOperations.searchForStream(new NativeSearchQueryBuilder()
 					.withQuery(boolQuery()

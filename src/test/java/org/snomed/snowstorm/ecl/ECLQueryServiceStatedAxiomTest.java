@@ -30,7 +30,7 @@ class ECLQueryServiceStatedAxiomTest extends AbstractECLQueryServiceTest {
 	@BeforeEach
 	void setup() {
 		branchCriteria = versionControlHelper.getBranchCriteria(MAIN);
-		allConceptIds = eclQueryService.selectConceptIds("*", branchCriteria, MAIN, true, PageRequest.of(0, 1000))
+		allConceptIds = eclQueryService.selectConceptIds("*", branchCriteria, true, PageRequest.of(0, 1000))
 				.getContent().stream().map(Object::toString).collect(Collectors.toSet());
 	}
 
@@ -94,7 +94,7 @@ class ECLQueryServiceStatedAxiomTest extends AbstractECLQueryServiceTest {
 
 	protected Collection<Long> selectConceptIds(String ecl, PageRequest pageRequest) {
 		boolean stated = true;
-		return eclQueryService.selectConceptIds(ecl, branchCriteria, MAIN, stated, pageRequest).getContent();
+		return eclQueryService.selectConceptIds(ecl, branchCriteria, stated, pageRequest).getContent();
 	}
 
 }

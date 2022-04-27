@@ -39,7 +39,7 @@ public class DisposableQueryService {
 
     public Page<Long> searchForIds(QueryService.ConceptQueryBuilder queryBuilder) {
         if (!searchCache.containsKey(queryBuilder)) {
-            SearchAfterPage<Long> ids = queryService.searchForIds(queryBuilder, branchPath, branchCriteria, LARGE_PAGE);
+            SearchAfterPage<Long> ids = queryService.searchForIds(queryBuilder, branchCriteria, LARGE_PAGE);
             searchCache.put(queryBuilder, ids);
         }
         return searchCache.get(queryBuilder);
@@ -51,7 +51,7 @@ public class DisposableQueryService {
 
     public boolean isAnyResults(QueryService.ConceptQueryBuilder queryBuilder) {
         if (!anyResultsCache.containsKey(queryBuilder)) {
-            SearchAfterPage<Long> page = queryService.searchForIds(queryBuilder, branchPath, branchCriteria, PageRequest.of(0, 1));
+            SearchAfterPage<Long> page = queryService.searchForIds(queryBuilder, branchCriteria, PageRequest.of(0, 1));
             anyResultsCache.put(queryBuilder, !page.isEmpty());
         }
         return anyResultsCache.get(queryBuilder);
