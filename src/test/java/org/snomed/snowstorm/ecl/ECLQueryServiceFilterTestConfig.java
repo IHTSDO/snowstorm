@@ -67,6 +67,8 @@ public class ECLQueryServiceFilterTestConfig extends TestConfig {
 
 		allConcepts.add(new Concept("100001").addDescription(new Description("Athlete's heart (disorder)"))
 				.addRelationship(ISA, DISORDER));
+		allConcepts.add(new Concept("698271000").addDescription(new Description("Cardiac channelopathy"))
+				.addRelationship(ISA, DISORDER));
 		allConcepts.add(new Concept("100002")
 				.addDescription(new Description( "Heart disease (disorder)").setLanguageCode("en").setType("FSN")
 						.addLanguageRefsetMember(US_EN_LANG_REFSET, PREFERRED)

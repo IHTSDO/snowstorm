@@ -112,7 +112,7 @@ public class DescriptionService extends ComponentService {
 		BoolQueryBuilder query = boolQuery().must(branchCriteria.getEntityBranchCriteria(Description.class))
 				.must(termsQuery("descriptionId", descriptionId));
 		List<Description> descriptions = elasticsearchTemplate.search(
-				new NativeSearchQueryBuilder().withQuery(query).build(), Description.class)
+						new NativeSearchQueryBuilder().withQuery(query).build(), Description.class)
 				.get().map(SearchHit::getContent).collect(Collectors.toList());
 		if (descriptions.size() > 1) {
 			String message = String.format("More than one description found for id %s on branch %s.", descriptionId, path);
@@ -310,8 +310,8 @@ public class DescriptionService extends ComponentService {
 		Map<String, Description> descriptionIdMap = new HashMap<>();
 		for (List<String> conceptIds : Iterables.partition(allConceptIds, CLAUSE_LIMIT)) {
 			queryBuilder.withQuery(boolQuery()
-					.must(branchCriteria.getEntityBranchCriteria(Description.class))
-					.must(termsQuery("conceptId", conceptIds)))
+							.must(branchCriteria.getEntityBranchCriteria(Description.class))
+							.must(termsQuery("conceptId", conceptIds)))
 					.withPageable(LARGE_PAGE);
 			try (final SearchHitsIterator<Description> descriptions = elasticsearchTemplate.searchForStream(queryBuilder.build(), Description.class)) {
 				descriptions.forEachRemaining(hit -> {
@@ -411,9 +411,9 @@ public class DescriptionService extends ComponentService {
 		final NativeSearchQueryBuilder queryBuilder = new NativeSearchQueryBuilder();
 		for (List<String> componentIdsSegment : Iterables.partition(componentIds, CLAUSE_LIMIT)) {
 			queryBuilder.withQuery(boolQuery()
-					.must(branchCriteria.getEntityBranchCriteria(ReferenceSetMember.class))
-					.must(termsQuery("refsetId", Concepts.inactivationAndAssociationRefsets))
-					.must(termsQuery("referencedComponentId", componentIdsSegment)))
+							.must(branchCriteria.getEntityBranchCriteria(ReferenceSetMember.class))
+							.must(termsQuery("refsetId", Concepts.inactivationAndAssociationRefsets))
+							.must(termsQuery("referencedComponentId", componentIdsSegment)))
 					.withPageable(LARGE_PAGE);
 			// Join Members
 			try (final SearchHitsIterator<ReferenceSetMember> members = elasticsearchTemplate.searchForStream(queryBuilder.build(), ReferenceSetMember.class)) {
@@ -460,9 +460,9 @@ public class DescriptionService extends ComponentService {
 		for (List<String> conceptIds : Iterables.partition(allConceptIds, CLAUSE_LIMIT)) {
 
 			queryBuilder.withQuery(boolQuery()
-					.must(branchCriteria.getEntityBranchCriteria(ReferenceSetMember.class))
-					.must(termsQuery(ACCEPTABILITY_ID_FIELD_PATH, Concepts.PREFERRED, Concepts.ACCEPTABLE))
-					.must(termsQuery("conceptId", conceptIds)))
+							.must(branchCriteria.getEntityBranchCriteria(ReferenceSetMember.class))
+							.must(termsQuery(ACCEPTABILITY_ID_FIELD_PATH, Concepts.PREFERRED, Concepts.ACCEPTABLE))
+							.must(termsQuery("conceptId", conceptIds)))
 					.withPageable(LARGE_PAGE);
 			// Join Lang Refset Members
 			try (final SearchHitsIterator<ReferenceSetMember> langRefsetMembers = elasticsearchTemplate.searchForStream(queryBuilder.build(), ReferenceSetMember.class)) {
@@ -548,7 +548,7 @@ public class DescriptionService extends ComponentService {
 
 		if (!descriptionToConceptMap.isEmpty() && !dialectFilters.isEmpty()) {
 			for (DialectFilter dialectFilter : dialectFilters) {
-				BoolQueryBuilder masterLangRefsetQuery = boolQuery();
+				BoolQueryBuilder masterLangRefsetQuery = branchCriteria.getEntityBranchCriteria(ReferenceSetMember.class);
 				masterLangRefsetQuery.must(termQuery(SnomedComponent.Fields.ACTIVE, true));
 				masterLangRefsetQuery.filter(termsQuery(ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID, descriptionToConceptMap.keySet()));
 
@@ -719,9 +719,9 @@ public class DescriptionService extends ComponentService {
 					BoolQueryBuilder shouldClause = boolQuery();
 					if (!CollectionUtils.isEmpty(disjunctionCriteria.getPreferred())) {
 						disjunctionCriteria.getPreferred().forEach(refsetId -> {
-								shouldClause.should(boolQuery()
-										.must(termQuery(REFSET_ID, refsetId))
-										.must(termQuery(ACCEPTABILITY_ID_FIELD_PATH, Concepts.PREFERRED)));
+							shouldClause.should(boolQuery()
+									.must(termQuery(REFSET_ID, refsetId))
+									.must(termQuery(ACCEPTABILITY_ID_FIELD_PATH, Concepts.PREFERRED)));
 						});
 					}
 					if (!CollectionUtils.isEmpty(acceptableIn)) {
@@ -908,14 +908,14 @@ public class DescriptionService extends ComponentService {
 		if (SearchMode.WHOLE_WORD == searchMode) {
 			termQuery.filter(matchQuery(Description.Fields.TERM_FOLDED, foldedSearchTerm).operator(Operator.AND));
 		} else if (SearchMode.WILDCARD == searchMode) {
-			for (String part : foldedSearchTerm.split(" ")) {
+			for (String part : foldedSearchTerm.replaceAll("(.)\\*(.)", "$1* *$2").split(" ")) {
 				if (!part.isEmpty() && !part.equals("*")) {
 					termQuery.filter(wildcardQuery(Description.Fields.TERM_FOLDED, part));
 				}
 			}
 		} else {
 			termQuery.filter(simpleQueryStringQuery(constructSimpleQueryString(foldedSearchTerm))
-							.field(Description.Fields.TERM_FOLDED).defaultOperator(Operator.AND));
+					.field(Description.Fields.TERM_FOLDED).defaultOperator(Operator.AND));
 		}
 		return termQuery;
 	}
