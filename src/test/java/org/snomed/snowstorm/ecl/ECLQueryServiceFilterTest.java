@@ -63,19 +63,20 @@ class ECLQueryServiceFilterTest {
 		ecl = "( < 64572001 |Disease|  {{ term = \"heart ath\"}} )";
 		assertEquals(newHashSet("100001"), select(ecl));
 
+		ecl = "( < 64572001 |Disease|  {{ term = \"heart ath\", dialect = en-nz }} )";
+		assertEquals(newHashSet(), select(ecl));
+
 		assertEquals(newHashSet("100001"), select("* {{ D term = \"heart ath\" }}"));
 		assertEquals(newHashSet("100002"), select("* {{ D term = \"Heart\", term = wild:\"* dis*\" }}"));
 
 		ecl = "< 64572001 |Disease|  {{ D term != \"heart ath\"}}";
-		assertEquals(newHashSet("100002", "100003"), select(ecl));
+		assertEquals(newHashSet("100002", "100003", "698271000"), select(ecl));
 
 		ecl = "< 64572001 |Disease| minus ( < 64572001 |Disease| {{ D term != \"heart ath\"}} )";
 		assertEquals(newHashSet("100001"), select(ecl));
 
 		ecl = "< 64572001 |Disease| minus < 64572001 |Disease| {{ D term != \"heart ath\"}}";
 		assertEquals(newHashSet("100001"), select(ecl));
-		// TODO: this ECL adds the wrong filter to the compound expression constraint RefinementBuilder - it excludes all
-		// descendants of Disease rather than just those without the heart term
 
 		ecl = "< 64572001 |Disease|  {{ D term = \"ath heart\"}}";
 		assertEquals(newHashSet("100001"), select(ecl));
@@ -95,13 +96,16 @@ class ECLQueryServiceFilterTest {
 		ecl = "< 64572001 |Disease|  {{ term = \"heart\"}} {{ term = wild:\"disea*\"}}";// Should not match because wildcard is a whole term match
 		assertEquals(newHashSet(), select(ecl));
 
-		// search term set
+		// search term set, any one of the terms
 		ecl = "< 64572001 |Disease|  {{ term = (\"heart\" \"card\")}}";
-		assertEquals(newHashSet("100001", "100002", "100003"), select(ecl));
+		assertEquals(newHashSet("100001", "100002", "100003", "698271000"), select(ecl));
 
-		// mixed type in term set
+		// mixed type in term set, any one of the terms
 		ecl = "< 64572001 |Disease|  {{ term = ( match:\"heart\" wild:\"Card*\")}}";
-		assertEquals(newHashSet("100001", "100002", "100003"), select(ecl));
+		assertEquals(newHashSet("100001", "100002", "100003", "698271000"), select(ecl));
+
+		ecl = "< 64572001 |Disease| {{ term = wild:\"card*pathy\"}}";
+		assertEquals(newHashSet("698271000"), select(ecl));
 	}
 
 	@Test
@@ -265,10 +269,10 @@ class ECLQueryServiceFilterTest {
 
 	@Test
 	public void testDefinitionStatusFilter() {
-		assertEquals(newHashSet("100001", "100002"), select("< 64572001 |Disease| {{ C definitionStatus = primitive }}"));
-		assertEquals(newHashSet("100001", "100002"), select("< 64572001 |Disease| {{ C definitionStatus != defined }}"));
-		assertEquals(newHashSet("100001", "100002"), select("< 64572001 |Disease| {{ C definitionStatusId = 900000000000074008 |Primitive| }}"));
-		assertEquals(newHashSet("100001", "100002"), select("< 64572001 |Disease| {{ C definitionStatusId = << 900000000000074008 |Primitive| }}"));
+		assertEquals(newHashSet("100001", "100002", "698271000"), select("< 64572001 |Disease| {{ C definitionStatus = primitive }}"));
+		assertEquals(newHashSet("100001", "100002", "698271000"), select("< 64572001 |Disease| {{ C definitionStatus != defined }}"));
+		assertEquals(newHashSet("100001", "100002", "698271000"), select("< 64572001 |Disease| {{ C definitionStatusId = 900000000000074008 |Primitive| }}"));
+		assertEquals(newHashSet("100001", "100002", "698271000"), select("< 64572001 |Disease| {{ C definitionStatusId = << 900000000000074008 |Primitive| }}"));
 		assertEquals(newHashSet("100003"), select("< 64572001 |Disease| {{ C definitionStatus = defined }}"));
 		assertEquals(newHashSet("100003"), select("< 64572001 |Disease| {{ C definitionStatus != primitive }}"));
 		assertEquals(newHashSet("100003"), select("< 64572001 |Disease| {{ C definitionStatusId = 900000000000073002 |Defined| }}"));
@@ -277,8 +281,8 @@ class ECLQueryServiceFilterTest {
 
 	@Test
 	public void testModuleFilter() {
-		assertEquals(newHashSet("100001", "100002"), select("< 64572001 |Disease| {{ C moduleId = 900000000000207008 }}"));
-		assertEquals(newHashSet("100001", "100002"), select("< 64572001 |Disease| {{ C moduleId = << 900000000000207008 }}"));
+		assertEquals(newHashSet("100001", "100002", "698271000"), select("< 64572001 |Disease| {{ C moduleId = 900000000000207008 }}"));
+		assertEquals(newHashSet("100001", "100002", "698271000"), select("< 64572001 |Disease| {{ C moduleId = << 900000000000207008 }}"));
 		assertEquals(newHashSet(), select("< 64572001 |Disease| {{ C moduleId = < 900000000000207008 }}"));
 		assertEquals(newHashSet("100003"), select("< 64572001 |Disease| {{ C moduleId = 25000001 }}"));
 		assertEquals(newHashSet("100003"), select("< 64572001 |Disease| {{ C moduleId = << 25000001 }}"));
@@ -288,10 +292,10 @@ class ECLQueryServiceFilterTest {
 	@Test
 	public void testEffectiveTimeFilter() {
 		assertEquals(newHashSet("64572001"), select("<< 64572001 |Disease| {{ C effectiveTime = \"20200131\" }}"));
-		assertEquals(newHashSet("100001", "100002", "100003"), select("<< 64572001 |Disease| {{ C effectiveTime != \"20200131\" }}"));
-		assertEquals(newHashSet("100001", "100002", "100003"), select("<< 64572001 |Disease| {{ C effectiveTime > \"20200131\" }}"));
+		assertEquals(newHashSet("100001", "100002", "100003", "698271000"), select("<< 64572001 |Disease| {{ C effectiveTime != \"20200131\" }}"));
+		assertEquals(newHashSet("100001", "100002", "100003", "698271000"), select("<< 64572001 |Disease| {{ C effectiveTime > \"20200131\" }}"));
 		assertEquals(newHashSet("100003"), select("<< 64572001 |Disease| {{ C effectiveTime > \"20200131\" }} {{ C effectiveTime = \"20220131\" }}"));
-		assertEquals(newHashSet("100001", "100002"), select("<< 64572001 |Disease| {{ C effectiveTime > \"20200131\" }} {{ C effectiveTime < \"20220131\" }}"));
+		assertEquals(newHashSet("100001", "100002", "698271000"), select("<< 64572001 |Disease| {{ C effectiveTime > \"20200131\" }} {{ C effectiveTime < \"20220131\" }}"));
 	}
 
 	@Test
