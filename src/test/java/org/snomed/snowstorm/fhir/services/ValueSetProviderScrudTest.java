@@ -1,20 +1,27 @@
 package org.snomed.snowstorm.fhir.services;
 
-import org.hl7.fhir.r4.model.*;
-import org.junit.jupiter.api.Test;
-import org.springframework.http.*;
-
 import ca.uhn.fhir.parser.DataFormatException;
 import ca.uhn.fhir.rest.api.MethodOutcome;
-
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNull;
+import org.hl7.fhir.r4.model.Bundle;
+import org.hl7.fhir.r4.model.OperationOutcome;
+import org.hl7.fhir.r4.model.ResourceType;
+import org.hl7.fhir.r4.model.ValueSet;
+import org.junit.jupiter.api.Test;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 
 import java.io.InputStream;
 
+import static org.junit.jupiter.api.Assertions.*;
+
 class ValueSetProviderScrudTest extends AbstractFHIRTest {
-	
+
+	private final Logger logger = LoggerFactory.getLogger(getClass());
+
 	@Test
 	void testValueSetCrudOperations() throws Exception {
 		String testURL = "http://some.test";
@@ -32,7 +39,9 @@ class ValueSetProviderScrudTest extends AbstractFHIRTest {
 		try {
 			OperationOutcome oo = fhirJsonParser.parseResource(OperationOutcome.class, response2.getBody());
 			throw new Exception ("Unexpected outcome: " + oo.toString());
-		} catch (DataFormatException e) {}
+		} catch (DataFormatException e) {
+			// pass
+		}
 		ValueSet savedVS = fhirJsonParser.parseResource(ValueSet.class, response2.getBody());
 		
 		//Also check that attempting to recover a nonsense id gives us an HTTP 404 Not Found

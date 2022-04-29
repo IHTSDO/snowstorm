@@ -28,7 +28,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 @ExtendWith(SpringExtension.class)
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, classes = TestConfig.class)
-@ActiveProfiles("secure-test")
+@ActiveProfiles(profiles = {"test", "secure-test"})
 public abstract class AbstractControllerSecurityTest extends AbstractTest {
 
 	@LocalServerPort

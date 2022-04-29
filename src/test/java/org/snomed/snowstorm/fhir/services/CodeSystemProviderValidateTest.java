@@ -1,11 +1,11 @@
 package org.snomed.snowstorm.fhir.services;
 
-import org.hl7.fhir.r4.model.*;
+import org.hl7.fhir.r4.model.Parameters;
 import org.junit.jupiter.api.Test;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNull;
 
+import static org.hibernate.validator.internal.util.Contracts.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 
 class CodeSystemProviderValidateTest extends AbstractFHIRTest {
 	

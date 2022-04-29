@@ -1,11 +1,11 @@
 package org.snomed.snowstorm.fhir.services;
 
-import org.hl7.fhir.r4.model.*;
+import org.hl7.fhir.r4.model.Parameters;
 import org.junit.jupiter.api.Test;
 import org.snomed.snowstorm.core.data.domain.Concepts;
 import org.snomed.snowstorm.fhir.config.FHIRConstants;
 
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 class CodeSystemProviderSubsumesTest extends AbstractFHIRTest {
 	
