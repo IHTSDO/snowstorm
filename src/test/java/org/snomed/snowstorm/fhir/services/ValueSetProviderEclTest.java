@@ -12,7 +12,7 @@ import org.springframework.http.ResponseEntity;
 
 import java.io.InputStream;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 
 class ValueSetProviderEclTest extends AbstractFHIRTest {
 	
@@ -122,7 +122,7 @@ class ValueSetProviderEclTest extends AbstractFHIRTest {
 		url = "http://localhost:" + port + "/fhir/ValueSet/$expand?url=http://snomed.info/sct/1234?fhir_vs=refset";
 		v = getValueSet(url);
 		//2 x Language Refsets + OWLAxiom Refset + ModuleDependencyRefset created during versioning.
-		assertEquals("Four reference sets in the latest release branch.", 4, v.getExpansion().getTotal());
+		assertEquals(4, v.getExpansion().getTotal(), "Four reference sets in the latest release branch.");
 		
 		// ?fhir_vs=isa/<root concept> -> all concepts under root plus self
 		url = "http://localhost:" + port + "/fhir/ValueSet/$expand?url=http://snomed.info/sct/1234?fhir_vs=isa/" + Concepts.SNOMEDCT_ROOT;
