@@ -607,16 +607,15 @@ public class ConceptUpdateHelper extends ComponentService {
 			if (newComponent.isComponentChanged(existingComponent) && (defaultModuleId != null && !defaultModuleId.equals(Concepts.CORE_MODULE))) {
 				newComponent.setModuleId(defaultModuleId);
 			}
+
+			// Update effective time
 			newComponent.updateEffectiveTime();
 
-			// Trying Concept module in attempt to restore effective time for the case
-			// where content has changed and then been reverted.
-			if (newComponent.getEffectiveTime() == null && shouldRestoreDefaultModuleId(defaultModuleId, existingComponent, newComponent)) {
-				logger.trace("Setting module of {} to be same as Concept.", newComponent.getId());
+			// Try to restore effective time
+			if (defaultModuleId != null && newComponent.getEffectiveTime() == null) {
 				newComponent.setModuleId(newConcept.getModuleId());
 				newComponent.updateEffectiveTime();
 				if (newComponent.getEffectiveTime() == null) {
-					logger.trace("Setting module of {} to be same as branch default.", newComponent.getId());
 					newComponent.setModuleId(defaultModuleId);
 					newComponent.updateEffectiveTime();
 				}
