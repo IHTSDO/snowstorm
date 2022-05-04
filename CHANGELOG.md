@@ -3,6 +3,28 @@ All notable changes to this project will be documented in this file.
 
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 7.8.0 Release (May 2022)
+Maintenance release with bug fixes and improvements.
+
+### Fixes
+  - Fix 379 Set default Language Reference Set for a given language
+  - Fix 388 Update security-configuration.md documentation
+
+### Improvements
+  - FRI-424 Simplify `new-authoring-cycle` endpoint by removing redundant request parameters
+  - FRI-410 Add support for circular dependencies and empty modules in MDRS generation
+  - MAINT-1918 Fix export of ICD-10 to appear in ExtendedMap instead of ComplexMap 
+  - FRI-210 Improve concept merge screen to preserve International changes after Extension upgrade
+  - MAINT-1911 Add Description inactivation reason "GRAMMATICAL_DESCRIPTION_ERROR"
+  - MAINT-1828 Update version of snomed-owl-toolkit to 3.0.7
+  - MAINT-1841 Set transient stated Relationships to have same moduleId as parent axiom
+  - FRI-404 Only return versions of a CodeSystem when the date of release is after the current date
+  - FRI-414 Return metadata related to the Descriptor Reference Set when saving/updating a Concept
+  - MAINT-1902 Retain Admin user groups after restarting service
+  - MAINT-1807 Make Relationships move module when inactivated in an Extension  
+  - FRI-370 Add endpoint for retrieving all semantic tags
+  - MAINT-1003 Reuse existing inactivation/association ReferenceSetMembers when updating metadata
+
 ## 7.7.0 Release (Feb 2022)
 
 ### Breaking
