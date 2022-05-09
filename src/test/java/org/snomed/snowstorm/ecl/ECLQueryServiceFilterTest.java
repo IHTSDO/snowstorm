@@ -2,6 +2,7 @@ package org.snomed.snowstorm.ecl;
 
 import io.kaicode.elasticvc.api.BranchCriteria;
 import io.kaicode.elasticvc.api.VersionControlHelper;
+import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -305,6 +306,12 @@ class ECLQueryServiceFilterTest {
 		assertEquals(newHashSet("100001", "100002"), select("^ 816080008 {{ C active = true }}"));
 		assertEquals(newHashSet("200001", "200002"), select("^ 816080008 {{ C active = 0 }}"));
 		assertEquals(newHashSet("200001", "200002"), select("^ 816080008 {{ C active = false }}"));
+
+		String ecl = "^ 816080008";
+		assertEquals(newHashSet("100001", "100002"), select(queryService.createQueryBuilder(false)
+				.ecl(ecl)
+				.activeFilter(true)
+		));
 	}
 
 	@Test
@@ -349,6 +356,11 @@ class ECLQueryServiceFilterTest {
 				.getContent().stream().map(mini -> mini.getConceptId() != null ? mini.getConceptId() :
 						(String) mini.getExtraField(ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID))
 				.sorted().collect(Collectors.toList());
+	}
+
+	@NotNull
+	private Set<String> select(QueryService.ConceptQueryBuilder queryBuilder) {
+		return queryService.search(queryBuilder, MAIN, PAGE_REQUEST).getContent().stream().map(ConceptMini::getConceptId).collect(Collectors.toSet());
 	}
 
 }

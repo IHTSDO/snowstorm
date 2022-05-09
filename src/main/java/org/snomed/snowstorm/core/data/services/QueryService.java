@@ -84,6 +84,13 @@ public class QueryService implements ApplicationContextAware {
 
 		String ecl = conceptQuery.getEcl();
 		if (ecl != null) {
+
+			// Add concept query params to ECL
+			if (conceptQuery.activeFilter != null) {
+				ecl = String.format("(%s) {{ C active = %s }}", ecl, conceptQuery.activeFilter ? "true" : "false");
+				conceptQuery.ecl = ecl;
+			}
+
 			SExpressionConstraint expressionConstraint = (SExpressionConstraint) eclQueryService.createQuery(ecl);
 			if (ECLQueryService.isMemberFieldsSearch(expressionConstraint)) {
 				pageRequest = updatePageRequestSort(pageRequest, Sort.sort(ReferenceSetMember.class).by(ReferenceSetMember::getMemberId).descending());
@@ -649,6 +656,9 @@ public class QueryService implements ApplicationContextAware {
 		}
 		
 		public void applyConceptClauses(BoolQueryBuilder conceptClauses) {
+			if (activeFilter != null) {
+				conceptClauses.must(termQuery(Concept.Fields.ACTIVE, activeFilter));
+			}
 			if (definitionStatusFilter != null) {
 				conceptClauses.must(termQuery(Concept.Fields.DEFINITION_STATUS_ID, definitionStatusFilter));
 			}
