@@ -43,7 +43,8 @@ class ValueSetProviderScrudTest extends AbstractFHIRTest {
 			// pass
 		}
 		ValueSet savedVS = fhirJsonParser.parseResource(ValueSet.class, response2.getBody());
-		
+
+		assertEquals("1", savedVS.getVersion());
 		//Also check that attempting to recover a nonsense id gives us an HTTP 404 Not Found
 		response2 = restTemplate.getForEntity(baseUrl + "/foo", String.class);
 		assertEquals(HttpStatus.NOT_FOUND, response2.getStatusCode());
