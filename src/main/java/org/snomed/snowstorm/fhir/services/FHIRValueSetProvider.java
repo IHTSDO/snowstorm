@@ -95,19 +95,24 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 	public MethodOutcome createValueset(@IdParam IdType id, @ResourceParam ValueSet vs) throws FHIROperationException {
 		MethodOutcome outcome = new MethodOutcome();
 		validateId(id, vs);
-		
-		//Attempt to expand the valueset in lieu of full validation
-		if (vs != null && vs.getCompose() != null && !vs.getCompose().isEmpty()) {
+
+		// Attempt to expand an intensional valueset, in lieu of full validation
+		if (vs.getCompose() != null && !vs.getCompose().isEmpty()) {
 			obtainConsistentCodeSystemVersionFromCompose(vs.getCompose(), new BranchPath("MAIN"));
 			covertComposeToEcl(vs.getCompose());
 		}
-		
-		ValueSetWrapper savedVs = valuesetRepository.save(new ValueSetWrapper(id, vs));
-		int version = 1;
-		if (id.hasVersionIdPart()) {
-			version += id.getVersionIdPartAsLong().intValue();
+
+		// Populate version
+		if (vs.getVersion() == null || vs.getVersion().isEmpty()) {
+			if (id.getVersionIdPart() != null && !id.getVersionIdPart().isEmpty()) {
+				vs.setVersion(id.getVersionIdPart());
+			} else {
+				vs.setVersion("1");
+			}
 		}
-		outcome.setId(new IdType("ValueSet", savedVs.getId(), Long.toString(version)));
+
+		ValueSetWrapper savedVs = valuesetRepository.save(new ValueSetWrapper(id, vs));
+		outcome.setId(new IdType("ValueSet", savedVs.getId(), vs.getVersion()));
 		return outcome;
 	}
 
