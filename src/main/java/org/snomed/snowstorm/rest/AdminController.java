@@ -12,6 +12,7 @@ import org.snomed.snowstorm.fix.ContentFixType;
 import org.snomed.snowstorm.fix.TechnicalFixService;
 import org.snomed.snowstorm.fix.TechnicalFixType;
 import org.snomed.snowstorm.mrcm.MRCMUpdateService;
+import org.snomed.snowstorm.rest.pojo.ResponseMessage;
 import org.snomed.snowstorm.rest.pojo.UpdatedDocumentCount;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -257,11 +258,17 @@ public class AdminController {
 		contentFixService.runContentFix(BranchPathUriUtil.decodePath(branch), contentFixType, conceptIds);
 	}
 
+	@Operation(summary = "Apply a technical fix.", description =
+			"Fix type 'CREATE_EMPTY_2000_VERSION' creates a blank version of the root code system with effective time 20000101 which is marked as an internal release. " +
+			"This can be used as the dependantVersionEffectiveTime when creating code systems for loading subontologies. " +
+			"Fix type 'REDUNDANT_VERSIONS_REPLACED_MEMBERS' can be used to remove redundant entries in the versions-replaced map " +
+			"for reference set members. Redundant entries are sometimes created when a reference set member is replaced on a child branch and then the content change is reverted.")
 	@PostMapping(value = "/{branch}/actions/technical-fix")
 	@PreAuthorize("hasPermission('ADMIN', #branch)")
 	@ResponseBody
-	public String runTechnicalFix(@PathVariable String branch, @RequestParam TechnicalFixType technicalFixType) {
-		return technicalFixService.runTechnicalFix(technicalFixType, BranchPathUriUtil.decodePath(branch));
+	public ResponseMessage runTechnicalFix(@PathVariable String branch, @RequestParam TechnicalFixType technicalFixType) {
+		String message = technicalFixService.runTechnicalFix(technicalFixType, BranchPathUriUtil.decodePath(branch));
+		return new ResponseMessage(message);
 	}
 
 	@GetMapping(value = "/cache/ecl/stats")
