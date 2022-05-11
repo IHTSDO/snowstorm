@@ -108,25 +108,6 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants 
 			new AbstractMap.SimpleEntry<>("-version", Comparator.comparing(CodeSystem::getVersion, nullSafeStringComparator).reversed())
 		);
 
-	public static void main(String[] args) {
-		List<A> as = new ArrayList<>();
-		as.add(new A("A"));
-		as.add(new A(null));
-		as.sort(Comparator.comparing(A::getTitle, Comparator.nullsFirst(Comparator.naturalOrder())));
-//		as.sort(Comparator.comparing(A::getTitle));
-	}
-	private static final class A {
-		String title;
-
-		public A(String title) {
-			this.title = title;
-		}
-
-		public String getTitle() {
-			return title;
-		}
-	}
-
 	//See https://www.hl7.org/fhir/valueset.html#search
 	@Search
 	public List<CodeSystem> findCodeSystems(
