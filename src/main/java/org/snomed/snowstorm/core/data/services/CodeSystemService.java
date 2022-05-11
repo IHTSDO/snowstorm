@@ -249,6 +249,33 @@ public class CodeSystemService {
 		return version;
 	}
 
+	/**
+	 * Create an empty code system version on the root code system.
+	 * This can be used as the dependant version when hosting one or many subontologies in Snowstorm.
+	 * See https://github.com/IHTSDO/snomed-subontology-extraction
+	 */
+	public String createEmpty2000Version() {
+		// Get the version of MAIN created when Snowstorm first started, before the first import commit.
+		Branch branchVersion = branchService.findFirstVersionOrThrow(MAIN);
+
+		int effectiveDate = 20000101;
+
+		CodeSystemVersion codeSystemVersion = versionRepository.findOneByShortNameAndEffectiveDate(SNOMEDCT, effectiveDate);
+		if (codeSystemVersion != null) {
+			logger.warn("Aborting Code System Version creation. This version already exists.");
+			throw new IllegalStateException("Aborting Code System Version creation. This version already exists.");
+		}
+
+		// Create version branch
+		String releaseBranchPath = getReleaseBranchPath(MAIN, effectiveDate);
+		branchService.createAtBaseTimepoint(releaseBranchPath, branchVersion.getBase());
+
+		versionRepository.save(new CodeSystemVersion(SNOMEDCT, new Date(), MAIN, effectiveDate, getHyphenatedVersionString(effectiveDate),
+				"Empty version.", true));
+
+		return String.format("Version %s of the root code system created.", effectiveDate);
+	}
+
 	@PreAuthorize("hasPermission('ADMIN', #codeSystemVersion.branchPath) || hasPermission('RELEASE_ADMIN', 'global') || hasPermission('RELEASE_MANAGER', 'global')")
 	public synchronized CodeSystemVersion updateCodeSystemVersionPackage(CodeSystemVersion codeSystemVersion, String releasePackage) {
 		String shortName = codeSystemVersion.getShortName();
