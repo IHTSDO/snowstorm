@@ -443,6 +443,7 @@ class ConceptControllerTest extends AbstractTest {
 		assertEquals(2L, page.getTotal());
 		assertEquals(1, page.getItems().size());
 		String conceptIdFromFirstPage = page.getItems().iterator().next().getConceptId();
+		assertEquals("404684003", conceptIdFromFirstPage);
 		String searchAfterFromFirstPage = page.getSearchAfter();
 		assertNotNull(searchAfterFromFirstPage);
 
@@ -455,6 +456,7 @@ class ConceptControllerTest extends AbstractTest {
 		assertNotNull(page);
 		assertEquals(1, page.getItems().size());
 		String conceptIdFromSecondPage = page.getItems().iterator().next().getConceptId();
+		assertEquals("257751006", conceptIdFromSecondPage);
 		assertNotEquals(conceptIdFromFirstPage, conceptIdFromSecondPage);
 	}
 

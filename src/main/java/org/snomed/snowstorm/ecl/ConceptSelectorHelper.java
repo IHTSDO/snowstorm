@@ -12,9 +12,11 @@ import org.elasticsearch.search.sort.SortBuilders;
 import org.elasticsearch.search.sort.SortOrder;
 import org.snomed.snowstorm.core.data.domain.Concept;
 import org.snomed.snowstorm.core.data.domain.QueryConcept;
+import org.snomed.snowstorm.core.util.PageHelper;
 import org.snomed.snowstorm.ecl.domain.RefinementBuilder;
 import org.snomed.snowstorm.ecl.domain.RefinementBuilderImpl;
 import org.snomed.snowstorm.ecl.domain.expressionconstraint.SExpressionConstraint;
+import org.snomed.snowstorm.rest.converter.SearchAfterHelper;
 import org.springframework.data.domain.*;
 import org.springframework.data.elasticsearch.core.SearchAfterPageRequest;
 import org.springframework.data.elasticsearch.core.SearchHitsIterator;
@@ -32,6 +34,9 @@ public class ConceptSelectorHelper {
 	// Used to force no match
 	public static final String MISSING = "missing";
 	public static final Long MISSING_LONG = 111L;
+
+	private static final Function<Long, Object[]> CONCEPT_ID_SEARCH_AFTER_EXTRACTOR =
+			conceptId -> conceptId == null ? null : SearchAfterHelper.convertToTokenAndBack(new Object[]{conceptId});
 
 	private ConceptSelectorHelper() {
 	}
@@ -159,16 +164,10 @@ public class ConceptSelectorHelper {
 		}
 	}
 
-	public static PageImpl<Long> getPage(PageRequest pageRequest, List<Long> ids) {
+	public static Page<Long> getPage(PageRequest pageRequest, List<Long> ids) {
 		int total = ids.size();
 		if (pageRequest != null) {
-			int fromIndex = (int) pageRequest.getOffset();
-			int toIndex = fromIndex + (pageRequest.getPageSize());
-			if (toIndex > total) {
-				toIndex = total;
-			}
-			return ids.isEmpty() || fromIndex >= total ? new PageImpl<>(Collections.emptyList(), pageRequest, total)
-					: new PageImpl<>(ids.subList(fromIndex, toIndex), pageRequest, total);
+			return PageHelper.fullListToPage(ids, pageRequest, CONCEPT_ID_SEARCH_AFTER_EXTRACTOR);
 		} else {
 			return ids.isEmpty() ? new PageImpl<>(Collections.emptyList(), Pageable.unpaged(), total) : new PageImpl<>(ids, PageRequest.of(0, total), total);
 		}
