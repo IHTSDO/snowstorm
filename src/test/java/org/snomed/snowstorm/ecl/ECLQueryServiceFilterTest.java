@@ -325,6 +325,9 @@ class ECLQueryServiceFilterTest {
 		assertEquals(newHashSet("708094006"), select("^ 447562003 |ICD-10 complex map reference set| {{ M mapGroup = #1, mapPriority = #1 }}"));
 		assertEquals(newHashSet("427603009", "708094006"), select("^ 447562003 |ICD-10 complex map reference set| {{ M active = 1 }}"));
 		assertEquals(newHashSet("698940002"), select("^ 447562003 |ICD-10 complex map reference set| {{ M active = false }}"));
+
+		// Find referencedComponentId of refset members that refer to inactive or missing concepts.
+		assertEquals(newArrayList("101010101001"), selectList("^ [referencedComponentId] 447562003 |ICD-10 complex map reference set| {{ M referencedComponentId != * {{ C active = true }} }}"));
 	}
 
 	@Test

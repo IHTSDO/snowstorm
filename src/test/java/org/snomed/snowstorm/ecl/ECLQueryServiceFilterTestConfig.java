@@ -126,6 +126,11 @@ public class ECLQueryServiceFilterTestConfig extends TestConfig {
 						.setAdditionalField(ReferenceSetMember.AssociationFields.MAP_TARGET, "J45.8")
 						.setAdditionalField("mapGroup", "1")
 						.setAdditionalField("mapPriority", "1"),
+				// Member with missing concept
+				new ReferenceSetMember(CORE_MODULE, ICD_MAP_REFSET, "101010101001")
+						.setAdditionalField(ReferenceSetMember.AssociationFields.MAP_TARGET, "X")
+						.setAdditionalField("mapGroup", "1")
+						.setAdditionalField("mapPriority", "1"),
 				inactiveMember
 		));
 	}
