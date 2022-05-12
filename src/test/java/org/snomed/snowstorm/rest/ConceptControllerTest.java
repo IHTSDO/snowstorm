@@ -13,6 +13,7 @@ import org.snomed.snowstorm.TestConfig;
 import org.snomed.snowstorm.config.Config;
 import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.services.*;
+import org.snomed.snowstorm.core.data.services.pojo.AsyncConceptChangeBatch;
 import org.snomed.snowstorm.core.data.services.pojo.ConceptHistory;
 import org.snomed.snowstorm.core.data.services.pojo.RefSetMemberPageWithBucketAggregations;
 import org.snomed.snowstorm.core.pojo.BranchTimepoint;
@@ -339,6 +340,35 @@ class ConceptControllerTest extends AbstractTest {
 				HttpMethod.PUT, new HttpEntity<>(ConceptControllerTestConstants.CONCEPT_WITH_VALIDATION_WARNINGS_ONLY, httpHeaders), String.class).toString();
 		assertTrue(responseEntity.contains("200"));
 		assertTrue(responseEntity.contains("Test resources were not available so assertions like case significance and US specific terms checks will not have run."));
+	}
+
+	@Test
+	void testBulkUpdateConcept() throws ServiceException {
+		HttpHeaders httpHeaders = new HttpHeaders();
+		httpHeaders.setContentType(MediaType.APPLICATION_JSON);
+		conceptService.create(new Concept("99970008"), "MAIN");
+		ResponseEntity<String> response = restTemplate.exchange(
+				UriComponentsBuilder.fromUriString("http://localhost:" + port + "/browser/MAIN/concepts/bulk").build().toUri(),
+				HttpMethod.POST, new HttpEntity<>("[" + ConceptControllerTestConstants.CONCEPT_WITH_VALIDATION_WARNINGS_ONLY + "]", httpHeaders), String.class);
+		assertTrue(response.getStatusCode().is2xxSuccessful());
+
+		ControllerTestHelper.waitForStatus(response, AsyncConceptChangeBatch.Status.COMPLETED.name(), AsyncConceptChangeBatch.Status.FAILED.name(),
+				httpHeaders, restTemplate);
+	}
+
+	@Test
+	void testBulkUpdateConceptUsingMissingBranch() throws ServiceException {
+		HttpHeaders httpHeaders = new HttpHeaders();
+		httpHeaders.setContentType(MediaType.APPLICATION_JSON);
+		conceptService.create(new Concept("99970008"), "MAIN");
+		ResponseEntity<String> response = restTemplate.exchange(
+				UriComponentsBuilder.fromUriString("http://localhost:" + port + "/browser/MAIN/MISSING/concepts/bulk").build().toUri(),
+				HttpMethod.POST, new HttpEntity<>("[" + ConceptControllerTestConstants.CONCEPT_WITH_VALIDATION_WARNINGS_ONLY + "]", httpHeaders), String.class);
+		assertTrue(response.getStatusCode().is2xxSuccessful());
+
+		// Expect failed status
+		ControllerTestHelper.waitForStatus(response, AsyncConceptChangeBatch.Status.FAILED.name(), AsyncConceptChangeBatch.Status.COMPLETED.name(),
+				httpHeaders, restTemplate);
 	}
 
 	@Test
