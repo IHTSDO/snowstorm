@@ -21,6 +21,7 @@ import java.nio.file.Files;
 
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.snomed.snowstorm.rest.ControllerTestHelper.waitForStatus;
 
 class ImportControllerTest extends AbstractControllerSecurityTest {
 
@@ -37,7 +38,7 @@ class ImportControllerTest extends AbstractControllerSecurityTest {
 
 		RequestEntity<Object> request = new RequestEntity<>(importCreationRequest, null, HttpMethod.POST, URI.create(url + "/imports/start-local-file-import"));
 		ResponseEntity<String> response = testStatusCode(HttpStatus.CREATED, authorHeaders, request);
-		waitForStatus(response, ImportJob.ImportStatus.COMPLETED.name(), ImportJob.ImportStatus.FAILED.name(), authorHeaders);
+		waitForStatus(response, ImportJob.ImportStatus.COMPLETED.name(), ImportJob.ImportStatus.FAILED.name(), authorHeaders, restTemplate);
 		// Check local file still exists
 		assertTrue(Files.exists(rf2Archive.toPath()));
 		rf2Archive.delete();
@@ -63,7 +64,7 @@ class ImportControllerTest extends AbstractControllerSecurityTest {
 		RequestEntity<Object> requestEntity = new RequestEntity<>(body, HttpMethod.POST, URI.create(location + "/archive"));
 		testStatusCode(HttpStatus.OK, authorHeaders, requestEntity);
 
-		waitForStatus(response, ImportJob.ImportStatus.COMPLETED.name(), ImportJob.ImportStatus.FAILED.name(), authorHeaders);
+		waitForStatus(response, ImportJob.ImportStatus.COMPLETED.name(), ImportJob.ImportStatus.FAILED.name(), authorHeaders, restTemplate);
 		rf2Archive.delete();
 	}
 

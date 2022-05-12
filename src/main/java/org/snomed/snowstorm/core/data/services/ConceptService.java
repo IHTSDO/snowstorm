@@ -599,7 +599,7 @@ public class ConceptService extends ComponentService {
 			PersistedComponents persistedComponents = createUpdate(concepts, path);
 			batchConceptChange.setConceptIds(StreamSupport.stream(persistedComponents.getPersistedConcepts().spliterator(), false).map(Concept::getConceptIdAsLong).collect(Collectors.toList()));
 			batchConceptChange.setStatus(AsyncConceptChangeBatch.Status.COMPLETED);
-		} catch (IllegalArgumentException | IllegalStateException | ServiceException e) {
+		} catch (IllegalArgumentException | IllegalStateException | ServiceException | ElasticVCRuntimeException e) {
 			batchConceptChange.setStatus(AsyncConceptChangeBatch.Status.FAILED);
 			batchConceptChange.setMessage(e.getMessage());
 			logger.error("Batch concept change failed, id:{}, branch:{}", batchConceptChange.getId(), path, e);
