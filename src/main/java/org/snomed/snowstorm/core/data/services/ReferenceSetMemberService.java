@@ -4,10 +4,7 @@ import com.google.common.base.Strings;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.Iterables;
-import io.kaicode.elasticvc.api.BranchCriteria;
-import io.kaicode.elasticvc.api.BranchService;
-import io.kaicode.elasticvc.api.ComponentService;
-import io.kaicode.elasticvc.api.VersionControlHelper;
+import io.kaicode.elasticvc.api.*;
 import io.kaicode.elasticvc.domain.Commit;
 import io.kaicode.elasticvc.domain.Metadata;
 import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
@@ -366,7 +363,7 @@ public class ReferenceSetMemberService extends ComponentService {
 			changeBatch.setMemberIds(StreamSupport.stream(savedMembers.spliterator(), false).map(ReferenceSetMember::getMemberId).collect(Collectors.toList()));
 			changeBatch.setStatus(AsyncRefsetMemberChangeBatch.Status.COMPLETED);
 
-		} catch (IllegalArgumentException | IllegalStateException e) {
+		} catch (IllegalArgumentException | IllegalStateException | ElasticVCRuntimeException e) {
 			changeBatch.setStatus(AsyncRefsetMemberChangeBatch.Status.FAILED);
 			changeBatch.setMessage(e.getMessage());
 			logger.error("Batch member change failed, id:{}, branch:{}", changeBatch.getId(), branch, e);

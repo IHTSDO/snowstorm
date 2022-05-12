@@ -28,7 +28,7 @@ class ImportControllerTest extends AbstractControllerSecurityTest {
 
 		RequestEntity<Object> request = new RequestEntity<>(importCreationRequest, null, HttpMethod.POST, URI.create(url + "/imports/start-local-file-import"));
 		ResponseEntity<String> response = testStatusCode(HttpStatus.CREATED, authorHeaders, request);
-		waitForStatus(response, ImportJob.ImportStatus.COMPLETED.name(), ImportJob.ImportStatus.FAILED.name(), authorHeaders);
+		ControllerTestHelper.waitForStatus(response, ImportJob.ImportStatus.COMPLETED.name(), ImportJob.ImportStatus.FAILED.name(), authorHeaders, restTemplate);
 	}
 
 }
