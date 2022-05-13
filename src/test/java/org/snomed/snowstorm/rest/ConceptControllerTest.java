@@ -365,24 +365,28 @@ class ConceptControllerTest extends AbstractTest {
 
 		// Fetch first page
 		ResponseEntity<ItemsPagePojo<ConceptMini>> responseEntity = this.restTemplate.exchange("http://localhost:" + port + "/MAIN/concepts?activeFilter=true&statedEcl=<138875005&limit=1",
-				HttpMethod.GET, new HttpEntity<>(null), new ParameterizedTypeReference<ItemsPagePojo<ConceptMini>>() {});
+				HttpMethod.GET, new HttpEntity<>(null), new ParameterizedTypeReference<>() {
+				});
 		assertEquals(200, responseEntity.getStatusCode().value());
 		ItemsPagePojo<ConceptMini> page = responseEntity.getBody();
 		assertNotNull(page);
 		assertEquals(2L, page.getTotal());
 		assertEquals(1, page.getItems().size());
 		String conceptIdFromFirstPage = page.getItems().iterator().next().getConceptId();
+		assertEquals("404684003", conceptIdFromFirstPage);
 		String searchAfterFromFirstPage = page.getSearchAfter();
 		assertNotNull(searchAfterFromFirstPage);
 
 		// Fetch second page
 		responseEntity = this.restTemplate.exchange("http://localhost:" + port + "/MAIN/concepts?activeFilter=true&statedEcl=<138875005&limit=1&searchAfter=" + searchAfterFromFirstPage,
-				HttpMethod.GET, new HttpEntity<>(null), new ParameterizedTypeReference<ItemsPagePojo<ConceptMini>>() {});
+				HttpMethod.GET, new HttpEntity<>(null), new ParameterizedTypeReference<>() {
+				});
 		assertEquals(200, responseEntity.getStatusCode().value());
 		page = responseEntity.getBody();
 		assertNotNull(page);
 		assertEquals(1, page.getItems().size());
 		String conceptIdFromSecondPage = page.getItems().iterator().next().getConceptId();
+		assertEquals("257751006", conceptIdFromSecondPage);
 		assertNotEquals(conceptIdFromFirstPage, conceptIdFromSecondPage);
 	}
 
