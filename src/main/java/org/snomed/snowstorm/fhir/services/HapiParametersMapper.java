@@ -10,10 +10,12 @@ import org.snomed.snowstorm.fhir.config.FHIRConstants;
 import org.snomed.snowstorm.fhir.domain.FHIRCodeSystemVersion;
 import org.snomed.snowstorm.fhir.domain.FHIRConcept;
 import org.snomed.snowstorm.fhir.domain.FHIRDesignation;
+import org.snomed.snowstorm.fhir.domain.FHIRProperty;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 public class HapiParametersMapper implements FHIRConstants {
@@ -85,8 +87,12 @@ public class HapiParametersMapper implements FHIRConstants {
 		parameters.addParameter("version", codeSystemVersion.getVersion());
 		parameters.addParameter("display", concept.getDisplay());
 
-		for (String parent : concept.getParents()) {
-			parameters.addParameter(createProperty(PARENT, parent, true));
+		for (Map.Entry<String, List<FHIRProperty>> property : concept.getProperties().entrySet()) {
+			for (FHIRProperty propertyValue : property.getValue()) {
+				Parameters.ParametersParameterComponent param = parameters.addParameter().setName(PROPERTY);
+				param.addPart().setName(CODE).setValue(new CodeType(propertyValue.getCode()));
+				param.addPart().setName(VALUE).setValue(new Coding(concept.getCodeSystemVersion(), propertyValue.getValue(), propertyValue.getDescription()));
+			}
 		}
 
 		for (FHIRDesignation designation : concept.getDesignations()) {
