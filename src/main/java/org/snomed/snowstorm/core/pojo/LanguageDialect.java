@@ -48,8 +48,8 @@ public class LanguageDialect implements Serializable {
 		List<String> languageCodes = new ArrayList<>();
 		if (languageDialects != null) {
 			for (LanguageDialect languageDialect : languageDialects) {
-				if (StringUtils.isEmpty(languageDialect.getLanguageCode())) {
-					languageCodes.add(languageDialect.languageCode);
+				if (!StringUtils.isEmpty(languageDialect.getLanguageCode())) {
+					languageCodes.add(languageDialect.getLanguageCode());
 				}
 			}
 		}

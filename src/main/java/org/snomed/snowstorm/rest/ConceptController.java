@@ -90,6 +90,9 @@ public class ConceptController {
 	@Autowired
 	private ReferenceSetMemberService referenceSetMemberService;
 
+	@Autowired
+	private BranchMetadataHelper branchMetadataHelper;
+
 	@Value("${snowstorm.rest-api.allowUnlimitedConceptPagination:false}")
 	private boolean allowUnlimitedConceptPagination;
 
@@ -579,6 +582,46 @@ public class ConceptController {
 				BranchPathUriUtil.decodePath(branch), statedView);
 
 		return new ExpressionStringPojo(expression.toString(includeTerms));
+	}
+	
+	@PostMapping(value = "/{branch}/concepts/donate")
+	@PreAuthorize("hasPermission('AUTHOR', #branch)")
+	@JsonView(value = View.Component.class)
+	public Collection<ConceptMini> donateConcepts(
+			@ApiParam(value = "Destination branch where the concepts are copied to.")
+			@PathVariable String branch,
+			@ApiParam(value = "Source branch where the concepts are selected from.")
+			@RequestParam String sourceBranch,
+			@ApiParam(value = "ECL expression for selecting concepts to copy between the branches.")
+			@RequestParam String ecl,
+			@ApiParam(value = "Include dependant components. Defaults to false.")
+			@RequestParam(required = false, defaultValue = "false") boolean includeDependencies) throws ServiceException {
+		String sourceBranchPath = BranchPathUriUtil.decodePath(sourceBranch);
+		String destinationBranchPath = BranchPathUriUtil.decodePath(branch);
+
+		String sourceModuleId = branchMetadataHelper.getModuleId(sourceBranchPath);
+		if (branchMetadataHelper.getModuleId(destinationBranchPath).equals(sourceModuleId)) {
+			throw new ServiceException("Cannot donate concepts from " + sourceBranchPath + " to " + destinationBranchPath + " as they are from the same module: " + sourceModuleId);
+		}
+
+		final List<LanguageDialect> languageDialects = List.of(new LanguageDialect(Config.DEFAULT_LANGUAGE_CODE, Long.parseLong(Concepts.US_EN_LANG_REFSET)));
+
+		// Get concepts
+		QueryService.ConceptQueryBuilder queryBuilder = queryService.createQueryBuilder(true)
+				.ecl(ecl)
+				.module(Long.parseLong(sourceModuleId))
+				.activeFilter(true)
+				.isReleased(true)
+				.resultLanguageDialects(languageDialects);
+
+		List<ConceptMini> conceptsFound = queryService.search(queryBuilder, sourceBranchPath, LARGE_PAGE).getContent();
+		List<ConceptMini> conceptsDonated = new ArrayList<>();
+
+		for (ConceptMini concept : conceptsFound) {
+			ConceptMini conceptDonated = conceptService.donateConcept(concept, sourceBranchPath, destinationBranchPath, languageDialects, includeDependencies);
+			conceptsDonated.add(conceptDonated);
+		}
+		return conceptsDonated;
 	}
 
 	private PageRequest getPageRequestWithSort(int offset, int size, String searchAfter, Sort sort) {

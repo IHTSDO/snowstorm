@@ -2,10 +2,14 @@ package org.snomed.snowstorm.core.data.services;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.kaicode.elasticvc.api.BranchService;
+import io.kaicode.elasticvc.domain.Branch;
 import io.kaicode.elasticvc.domain.Commit;
 import io.kaicode.elasticvc.domain.Metadata;
+import org.elasticsearch.common.Strings;
 import org.ihtsdo.sso.integration.SecurityUtil;
 import org.snomed.snowstorm.config.Config;
+import org.snomed.snowstorm.core.data.domain.Concepts;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -31,6 +35,9 @@ public class BranchMetadataHelper {
 
 	@Autowired
 	private ObjectMapper objectMapper;
+
+	@Autowired
+	private BranchService branchService;
 
 	private static final String OBJECT_PREFIX = "{object}|";
 	private final SimpleDateFormat lockMetadataDateFormat = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'");
@@ -101,6 +108,13 @@ public class BranchMetadataHelper {
 		} catch (JsonProcessingException e) {
 			throw new RuntimeServiceException("Failed to serialise branch lock metadata", e);
 		}
+	}
+
+	public String getModuleId(String branchPath) {
+		Branch branch = branchService.findBranchOrThrow(branchPath, true);
+		final boolean isExtension = (branch.getMetadata() != null && !Strings.isEmpty(branch.getMetadata().getString(BranchMetadataKeys.DEPENDENCY_PACKAGE)));
+
+		return isExtension ? branch.getMetadata().getString(BranchMetadataKeys.DEFAULT_MODULE_ID) : Concepts.CORE_MODULE;
 	}
 
 }
