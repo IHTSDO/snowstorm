@@ -24,6 +24,7 @@ import org.snomed.snowstorm.core.pojo.LanguageDialect;
 import org.snomed.snowstorm.core.util.SearchAfterPage;
 import org.snomed.snowstorm.fhir.config.FHIRConstants;
 import org.snomed.snowstorm.fhir.domain.BranchPath;
+import org.snomed.snowstorm.fhir.pojo.CodeSystemVersionPojo;
 import org.snomed.snowstorm.rest.ControllerHelper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
@@ -77,6 +78,10 @@ public class FHIRHelper implements FHIRConstants {
 	public static final String UNVERSIONED_STR = "UNVERSIONED";
 	public static final int UNVERSIONED = -1;
 	public static final int MAX_RETURN_COUNT = 10000;
+
+	public static boolean isSnomedUri(String uri) {
+		return uri.startsWith(SNOMED_URI) || uri.startsWith(SNOMED_URI_UNVERSIONED);
+	}
 
 	public static Integer getSnomedVersion(String versionStr) throws FHIROperationException {
 		if (versionStr.contains(UNVERSIONED_STR) || versionStr.startsWith(SNOMED_URI_UNVERSIONED)) {
@@ -225,7 +230,7 @@ public class FHIRHelper implements FHIRConstants {
 				eclBuilder.append(convertOperationToECL(filter.getOp()));
 				eclBuilder.append(filter.getValue());
 			} else if (filter.getProperty().equals("constraint")) {
-				if (filter.getOp().toCode() != "=") {
+				if (!filter.getOp().toCode().equals("=")) {
 					throw new FHIROperationException(IssueType.NOTSUPPORTED, "ValueSet compose filter 'constaint' operation - only '=' currently implemented");
 				}
 				eclBuilder.append(filter.getValue());
