@@ -30,11 +30,11 @@ public class FHIRConceptService {
 		}
 		List<TermConcept> allConcepts = new ArrayList<>(termCodeSystemVersion.getConcepts());
 
-		List<TermConcept> children = new ArrayList<>();
+		List<TermConcept> gatheredChildren = new ArrayList<>();
 		for (TermConcept concept : allConcepts) {
-			addChildren(concept, children);
+			gatherChildCodes(concept, gatheredChildren);
 		}
-		allConcepts.addAll(children);
+		allConcepts.addAll(gatheredChildren);
 
 		Set<String> props = new HashSet<>();
 		logger.info("Saving {} '{}' fhir concepts.", allConcepts.size(), codeSystemVersion.getIdAndVersion());
@@ -68,10 +68,10 @@ public class FHIRConceptService {
 		System.out.println();
 	}
 
-	private void addChildren(TermConcept concept, List<TermConcept> allConcepts) {
+	private void gatherChildCodes(TermConcept concept, List<TermConcept> allConcepts) {
 		allConcepts.addAll(concept.getChildCodes());
 		for (TermConcept childCode : concept.getChildCodes()) {
-			addChildren(childCode, allConcepts);
+			gatherChildCodes(childCode, allConcepts);
 		}
 	}
 

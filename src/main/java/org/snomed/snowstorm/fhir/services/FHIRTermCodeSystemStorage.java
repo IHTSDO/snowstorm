@@ -14,11 +14,15 @@ import org.hl7.fhir.r4.model.CodeSystem;
 import org.hl7.fhir.r4.model.ConceptMap;
 import org.hl7.fhir.r4.model.IdType;
 import org.hl7.fhir.r4.model.ValueSet;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.fhir.domain.FHIRCodeSystemVersion;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+
+import static org.snomed.snowstorm.core.util.CollectionUtils.orEmpty;
 
 @Service
 public class FHIRTermCodeSystemStorage implements ITermCodeSystemStorageSvc {
@@ -28,6 +32,11 @@ public class FHIRTermCodeSystemStorage implements ITermCodeSystemStorageSvc {
 
 	@Autowired
 	private FHIRConceptService fhirConceptService;
+
+	@Autowired
+	private FHIRValueSetProvider valueSetProvider;
+
+	private final Logger logger = LoggerFactory.getLogger(getClass());
 
 	@Override
 	public void deleteCodeSystem(TermCodeSystem termCodeSystem) {
@@ -47,11 +56,20 @@ public class FHIRTermCodeSystemStorage implements ITermCodeSystemStorageSvc {
 	}
 
 	@Override
-	public IIdType storeNewCodeSystemVersion(CodeSystem codeSystem, TermCodeSystemVersion termCodeSystemVersion, RequestDetails requestDetails, List<ValueSet> list, List<ConceptMap> list1) {
-		System.out.println();
+	public IIdType storeNewCodeSystemVersion(CodeSystem codeSystem, TermCodeSystemVersion termCodeSystemVersion, RequestDetails requestDetails,
+			List<ValueSet> valueSets, List<ConceptMap> conceptMaps) {
 
 		FHIRCodeSystemVersion codeSystemVersion = fhirCodeSystemService.save(codeSystem);
 		fhirConceptService.save(termCodeSystemVersion, codeSystemVersion);
+
+		for (ValueSet valueSet : orEmpty(valueSets)) {
+			try {
+				logger.info("Saving ValueSet {}", valueSet.getIdElement());
+				valueSetProvider.createValueset(valueSet.getIdElement(), valueSet);
+			} catch (FHIROperationException e) {
+				logger.error("Failed to store value set {}", valueSet.getIdElement(), e);
+			}
+		}
 
 		return new IdType("CodeSystem", codeSystemVersion.getId(), codeSystemVersion.getVersion());
 	}

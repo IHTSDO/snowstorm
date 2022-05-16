@@ -28,6 +28,7 @@ import org.snomed.snowstorm.fhir.config.FHIRConstants;
 import org.snomed.snowstorm.fhir.domain.BranchPath;
 import org.snomed.snowstorm.fhir.domain.SearchFilter;
 import org.snomed.snowstorm.fhir.domain.ValueSetWrapper;
+import org.snomed.snowstorm.fhir.pojo.CodeSystemVersionPojo;
 import org.snomed.snowstorm.fhir.pojo.ValueSetExpansionParameters;
 import org.snomed.snowstorm.fhir.repositories.FHIRValuesetRepository;
 import org.snomed.snowstorm.rest.ControllerHelper;
@@ -96,10 +97,12 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 		MethodOutcome outcome = new MethodOutcome();
 		validateId(id, vs);
 
-		// Attempt to expand an intensional valueset, in lieu of full validation
 		if (vs.getCompose() != null && !vs.getCompose().isEmpty()) {
-			obtainConsistentCodeSystemVersionFromCompose(vs.getCompose(), new BranchPath("MAIN"));
-			covertComposeToEcl(vs.getCompose());
+			getCodeSystemVersionFromComposeAndValidateConsistency(vs.getCompose());
+			if (FHIRHelper.isSnomedUri(vs.getUrl())) {
+				// Validate expand params for SNOMED CT code systems
+				covertComposeToEcl(vs.getCompose());
+			}
 		}
 
 		// Populate version
@@ -174,6 +177,11 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 		return StreamSupport.stream(valuesetRepository.findAll().spliterator(), false)
 				.map(ValueSetWrapper::getValueSet)
 				.filter(vs -> vsFilter.apply(vs, queryService, fhirHelper))
+				.peek(vs -> {
+					// Remove expansion and compose elements from ValueSet search/listing
+					vs.setExpansion(null);
+					vs.setCompose(null);
+				})
 				.collect(Collectors.toList());
 	}
 
@@ -503,10 +511,14 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 	 */
 	private Page<ConceptMini> doExplicitExpansion(ValueSet vs, Boolean active, String filter,
 			BranchPath branchPath, List<LanguageDialect> designations, PageRequest pageRequest, boolean branchPathForced) throws FHIROperationException {
+
 		Page<ConceptMini> conceptMiniPage = new PageImpl<>(new ArrayList<>());
 		if (vs != null && vs.getCompose() != null && !vs.getCompose().isEmpty()) {
 			if (!branchPathForced) {
-				branchPath.set(obtainConsistentCodeSystemVersionFromCompose(vs.getCompose(), branchPath));
+				CodeSystemVersionPojo codeSystemVersion = getCodeSystemVersionFromComposeAndValidateConsistency(vs.getCompose());
+				if (codeSystemVersion != null) {
+					branchPath.set(fhirHelper.getBranchPathFromURI(codeSystemVersion.toSnomedUri()));
+				}
 			}
 			ValueSetComposeComponent compose = vs.getCompose();
 			Set<String> conceptIds = new HashSet<>();
@@ -575,45 +587,38 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 		.anyMatch(ld -> ld.getLanguageCode().equals(displayLanguage));
 	}
 
-	private BranchPath obtainConsistentCodeSystemVersionFromCompose(ValueSetComposeComponent compose, BranchPath branchPath) throws FHIROperationException {
-		String system = null;
-		String version = null;
-		
-		//Check all include and exclude elements to ensure they have a consistent snomed URI
+	private CodeSystemVersionPojo getCodeSystemVersionFromComposeAndValidateConsistency(ValueSetComposeComponent compose) throws FHIROperationException {
+		// Check that a maximum of one system and version is used within include and exclude elements
 		List<ConceptSetComponent> allIncludeExcludes = new ArrayList<>(compose.getInclude());
 		allIncludeExcludes.addAll(compose.getExclude());
-		for (ConceptSetComponent thisIncludeExclude : allIncludeExcludes) {
-			if (thisIncludeExclude.getSystem() != null && !thisIncludeExclude.getSystem().contains(SNOMED_URI)) {
-				throw new FHIROperationException (IssueType.NOTSUPPORTED , "Server currently limited to compose elements using SNOMED CT code system");
-			}
-			if (thisIncludeExclude.getSystem() != null && system == null) {
-				system = thisIncludeExclude.getSystem();
-			}
-			if (thisIncludeExclude.getVersion() != null && version == null) {
-				version = thisIncludeExclude.getVersion();
-			}
-			if (system != null && thisIncludeExclude.getSystem() != null && !system.equals(thisIncludeExclude.getSystem())) {
-				String msg = "Server currently requires consistency in ValueSet compose element code systems.";
-				msg += " Encoundered both '" + system + "' and '" + thisIncludeExclude.getSystem() + "'."; 
-				throw new FHIROperationException (IssueType.NOTSUPPORTED , msg);
-			}
-			if (version != null && thisIncludeExclude.getVersion() != null && !version.equals(thisIncludeExclude.getVersion())) {
-				throw new FHIROperationException (IssueType.NOTSUPPORTED , "Server currently requires consistency in ValueSet compose element code system versions");
-			}
+
+		Set<String> systems = allIncludeExcludes.stream()
+				.map(ConceptSetComponent::getSystem)
+				.filter(Objects::nonNull)
+				.collect(Collectors.toSet());
+		Set<String> versions = allIncludeExcludes.stream()
+				.map(ConceptSetComponent::getVersion)
+				.filter(Objects::nonNull)
+				.collect(Collectors.toSet());
+
+		if (systems.size() > 1) {
+			throw new FHIROperationException(IssueType.NOTSUPPORTED, String.format("Server does not permit mixture of systems within ValueSet compose elements. Found %s.",
+					systems));
 		}
-		
-		StringType codeSystemVersionUri;
-		if (version == null) {
-			if (system == null) {
-				return branchPath;
-			} else {
-				codeSystemVersionUri = new StringType(system);
-			}
+		if (versions.size() > 1) {
+			throw new FHIROperationException(IssueType.NOTSUPPORTED, String.format("Server does not permit mixture of versions within ValueSet compose elements. Found %s.",
+					versions));
+		}
+
+		if (systems.isEmpty()) {
+			return null;
 		} else {
-			codeSystemVersionUri = new StringType(version);
+			String system = systems.iterator().next();
+			if (!versions.isEmpty()) {
+				return new CodeSystemVersionPojo(system, versions.iterator().next());
+			}
+			return new CodeSystemVersionPojo(system);
 		}
-		
-		return fhirHelper.getBranchPathFromURI(codeSystemVersionUri);
 	}
 	
 	
