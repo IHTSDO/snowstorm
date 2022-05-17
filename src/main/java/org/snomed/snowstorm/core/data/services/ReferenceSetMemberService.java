@@ -34,6 +34,7 @@ import org.snomed.snowstorm.core.util.PageHelper;
 import org.snomed.snowstorm.ecl.ECLQueryService;
 import org.snomed.snowstorm.rest.converter.SearchAfterHelper;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
@@ -100,6 +101,9 @@ public class ReferenceSetMemberService extends ComponentService {
 
 	@Autowired
 	private ECLQueryService eclQueryService;
+
+	@Value("${types.branch}")
+	private String refsetsBranchPath;
 
 	private final Cache<String, AsyncRefsetMemberChangeBatch> batchChanges = CacheBuilder.newBuilder().expireAfterWrite(2, TimeUnit.HOURS).build();
 
@@ -466,10 +470,11 @@ public class ReferenceSetMemberService extends ComponentService {
 	}
 
 	private void setupTypes(Set<ReferenceSetType> referenceSetTypes) {
-		String path = MAIN;
-		if (!branchService.exists(path)) {
-			sBranchService.create(path);
+		String path = refsetsBranchPath.toUpperCase();
+		if (!branchService.exists(MAIN)) {
+			sBranchService.create(MAIN);
 		}
+		logger.info("Reference set types are configured against branch: '{}'.", path);
 		List<ReferenceSetType> existingTypes = findConfiguredReferenceSetTypes(path);
 		Set<ReferenceSetType> typesToRemove = new HashSet<>(existingTypes);
 		typesToRemove.removeAll(referenceSetTypes);
