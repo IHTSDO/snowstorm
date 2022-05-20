@@ -66,7 +66,7 @@ public class MemberSearchRequest {
 	}
 
 	/**
-	 * @param targetComponentId  Filter by the targetComponentId field. Not all reference set types have this field.
+	 * @param targetComponentIds Filter by the targetComponentId field. Not all reference set types have this field.
 	 */
 	public MemberSearchRequest targetComponentIds(Set<String> targetComponentIds) {
 		if (targetComponentIds == null) {
