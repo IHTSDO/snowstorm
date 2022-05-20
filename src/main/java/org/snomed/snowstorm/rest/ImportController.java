@@ -82,9 +82,13 @@ public class ImportController {
 		String id = importService.createJob(importConfiguration);
 
 		try {
-			importService.importArchiveAsync(id, importRequest.getBranchPath(), new FileInputStream(localFile));
-		} catch (FileNotFoundException e) {
-			handleFileNotFound(filePath, localFile);
+			try (FileInputStream localFileInputStream = new FileInputStream(localFile)) {
+				importService.importArchiveAsync(id, importRequest.getBranchPath(), localFileInputStream);
+			} catch (FileNotFoundException e) {
+				handleFileNotFound(filePath, localFile);
+			}
+		} catch (IOException e) {
+			logger.warn("Failed to close file handle to local file {}", localFile.getAbsolutePath(), e);
 		}
 
 		return ControllerHelper.getCreatedResponse(id, "/start-local-file-import");
