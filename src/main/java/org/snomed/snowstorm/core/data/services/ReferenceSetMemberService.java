@@ -102,8 +102,8 @@ public class ReferenceSetMemberService extends ComponentService {
 	@Autowired
 	private ECLQueryService eclQueryService;
 
-	@Value("${refsets.branch:MAIN}")
-		private String refsetsBranchPath;
+	@Value("${refset-types.initial-branch:MAIN}")
+	private String refsetsBranchPath;
 
 	private final Cache<String, AsyncRefsetMemberChangeBatch> batchChanges = CacheBuilder.newBuilder().expireAfterWrite(2, TimeUnit.HOURS).build();
 
@@ -470,7 +470,7 @@ public class ReferenceSetMemberService extends ComponentService {
 	}
 
 	private void setupTypes(Set<ReferenceSetType> referenceSetTypes) {
-		String path = refsetsBranchPath.toUpperCase();
+		String path = refsetsBranchPath;
 		if (!branchService.exists(MAIN)) {
 			sBranchService.create(MAIN);
 		}
