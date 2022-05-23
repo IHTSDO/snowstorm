@@ -92,6 +92,10 @@ public class ConceptService extends ComponentService {
 	private DescriptionService descriptionService;
 
 	@Autowired
+	@Lazy
+	private ReferenceSetMemberService referenceSetMemberService;
+
+	@Autowired
 	private AxiomConversionService axiomConversionService;
 
 	@Autowired
@@ -804,5 +808,107 @@ public class ConceptService extends ComponentService {
 		if (active != null) {
 			conceptQuery.must(termsQuery(SnomedComponent.Fields.ACTIVE, active));
 		}
+	}
+
+	public ConceptMini donateConcept(ConceptMini concept, String sourceBranchPath, String destinationBranchPath, List<LanguageDialect> languageDialects, boolean includeDependencies) throws ServiceException {
+		String sourceModuleId = branchMetadataHelper.getModuleId(sourceBranchPath);
+		String destinationModuleId = branchMetadataHelper.getModuleId(destinationBranchPath);
+
+		List<ReferenceSetMember> referenceSetMembers = new ArrayList<>();
+
+		// Get axioms
+		List<ReferenceSetMember> axiomMembers = referenceSetMemberService.findMembers(
+				sourceBranchPath,
+				new MemberSearchRequest()
+						.active(true)
+						.isNullEffectiveTime(false)
+						.referenceSet(Concepts.OWL_AXIOM_REFERENCE_SET)
+						.referencedComponentId(concept.getConceptId()), LARGE_PAGE).getContent();
+
+		// Check that the target concept exists on the destination branch
+		for (ReferenceSetMember axiomMember : axiomMembers) {
+			try {
+				SAxiomRepresentation axiomRepresentation = axiomConversionService.convertAxiomMemberToAxiomRepresentation(axiomMember);
+				if (axiomRepresentation != null) {
+					Set<Relationship> relationships = axiomRepresentation.getLeftHandSideNamedConcept() != null
+							? axiomRepresentation.getRightHandSideRelationships()
+							: axiomRepresentation.getLeftHandSideRelationships();
+
+					for (Relationship relationship : relationships) {
+						if (relationship.isConcrete()) {
+							continue;
+						}
+						String targetConceptId = relationship.getDestinationId();
+						Concept targetConcept = find(targetConceptId, sourceBranchPath);
+						if (targetConcept == null) {
+							throw new ServiceException("Axiom " + axiomMember.getId() + ": target concept " + targetConceptId + " does not exist on path " + sourceBranchPath);
+						}
+						if (includeDependencies && targetConcept.getModuleId().equals(sourceModuleId)) {
+							donateConcept(new ConceptMini(targetConcept, languageDialects), sourceBranchPath, destinationBranchPath, languageDialects, true);
+						} else if (!exists(targetConceptId, destinationBranchPath)) {
+							throw new ServiceException("Axiom " + axiomMember.getId() + ": target concept " + targetConceptId + " does not exist on path " + destinationBranchPath);
+						}
+					}
+				}
+			} catch (ConversionException e) {
+				throw new ServiceException("Failed to deserialise axiom " + axiomMember.getId(), e);
+			}
+			referenceSetMembers.add(axiomMember);
+		}
+
+		// Create concept
+		Concept conceptVersion = new Concept(concept.getConceptId(), null, concept.getActive(), destinationModuleId, concept.getDefinitionStatus());
+
+		// Add descriptions
+		concept.getActiveDescriptions().stream()
+				.filter(description ->
+						description.isReleased() &&
+								description.getAcceptabilityMap().containsKey(Concepts.US_EN_LANG_REFSET) &&
+								description.getAcceptabilityMap().get(Concepts.US_EN_LANG_REFSET).equals(Concepts.PREFERRED_CONSTANT))
+				.forEach(description -> {
+					conceptVersion.addDescription(new Description(
+							description.getDescriptionId(),
+							null,
+							description.isActive(),
+							destinationModuleId,
+							description.getConceptId(),
+							description.getLanguageCode(),
+							description.getTypeId(),
+							description.getTerm(),
+							description.getCaseSignificanceId()));
+
+					// Collect reference set members
+					referenceSetMembers.addAll(description.getLangRefsetMembers().stream()
+							.filter(langRefsetMember ->
+									langRefsetMember.isActive() &&
+											langRefsetMember.isReleased() &&
+											langRefsetMember.getRefsetId().equals(Concepts.US_EN_LANG_REFSET))
+							.collect(Collectors.toList()));
+				});
+
+		Concept conceptCreated = create(conceptVersion, destinationBranchPath);
+
+		// Create reference set members
+		if (!referenceSetMembers.isEmpty()) {
+			Set<ReferenceSetMember> referenceSetMembersToCreate = referenceSetMembers.stream()
+					.map(referenceSetMember -> {
+						ReferenceSetMember referenceSetMemberVersion = new ReferenceSetMember(
+								referenceSetMember.getMemberId(),
+								null,
+								referenceSetMember.isActive(),
+								destinationModuleId,
+								referenceSetMember.getRefsetId(),
+								referenceSetMember.getReferencedComponentId());
+
+						referenceSetMemberVersion.setAdditionalFields(referenceSetMember.getAdditionalFields());
+
+						return referenceSetMemberVersion;
+					})
+					.collect(Collectors.toSet());
+
+			referenceSetMemberService.createMembers(destinationBranchPath, referenceSetMembersToCreate);
+		}
+
+		return new ConceptMini(conceptCreated, languageDialects);
 	}
 }
