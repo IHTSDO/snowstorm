@@ -24,6 +24,8 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 
 @RestController
 @Api(tags = "Import", description = "RF2")
@@ -81,15 +83,7 @@ public class ImportController {
 
 		String id = importService.createJob(importConfiguration);
 
-		try {
-			try (FileInputStream localFileInputStream = new FileInputStream(localFile)) {
-				importService.importArchiveAsync(id, importRequest.getBranchPath(), localFileInputStream);
-			} catch (FileNotFoundException e) {
-				handleFileNotFound(filePath, localFile);
-			}
-		} catch (IOException e) {
-			logger.warn("Failed to close file handle to local file {}", localFile.getAbsolutePath(), e);
-		}
+		importService.importArchiveAsync(id, importRequest.getBranchPath(), localFile);
 
 		return ControllerHelper.getCreatedResponse(id, "/start-local-file-import");
 	}
@@ -134,11 +128,25 @@ public class ImportController {
 	@RequestMapping(value = "/{importId}/archive", method = RequestMethod.POST, consumes = "multipart/form-data")
 	public void uploadImportRf2Archive(@PathVariable String importId, @RequestParam MultipartFile file) {
 		ImportJob importJob = importService.getImportJobOrThrow(importId);
+		File tempFile = null;
 		try {
-			importService.importArchiveAsync(importId, importJob.getBranchPath(), file.getInputStream());
+			// Copy upload stream to temp file before calling async service method
+			tempFile = createTempFile(importId).toFile();
+			file.transferTo(tempFile);
+			importService.importArchiveAsync(importId, importJob.getBranchPath(), tempFile);
 		} catch (IOException e) {
 			throw new IllegalArgumentException("Failed to open uploaded archive file.");
+		} finally {
+			if (tempFile != null) {
+				if (!tempFile.delete()) {
+					logger.warn("Failed to delete temp import file {}", tempFile.getAbsolutePath());
+				}
+			}
 		}
+	}
+
+	private Path createTempFile(String importId) throws IOException {
+		return Files.createTempFile(importId, "-import.zip");
 	}
 
 }

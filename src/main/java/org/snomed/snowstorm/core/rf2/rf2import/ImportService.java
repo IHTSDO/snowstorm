@@ -19,14 +19,14 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.web.bind.annotation.PathVariable;
 
+import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.*;
 import java.util.concurrent.ExecutorService;
 
-import static org.snomed.snowstorm.core.data.services.BranchMetadataHelper.AUTHOR_FLAGS_METADATA_KEY;
-import static org.snomed.snowstorm.core.data.services.BranchMetadataHelper.INTERNAL_METADATA_KEY;
-import static org.snomed.snowstorm.core.data.services.BranchMetadataHelper.IMPORTING_CODE_SYSTEM_VERSION;
+import static org.snomed.snowstorm.core.data.services.BranchMetadataHelper.*;
 import static org.snomed.snowstorm.core.rf2.RF2Type.FULL;
 
 @Service
@@ -253,22 +253,17 @@ public class ImportService {
 	}
 
 	@PreAuthorize("hasPermission('AUTHOR', #branchPath)")
-	public void importArchiveAsync(String importId, @SuppressWarnings("unused") String branchPath, InputStream releaseFileStream) {
+	public void importArchiveAsync(String importId, @SuppressWarnings("unused") String branchPath, File tempFile) {
 		final SecurityContext securityContext = SecurityContextHolder.getContext();
 		executorService.submit(() -> {
 			SecurityContextHolder.setContext(securityContext);
-			try {
+			try (FileInputStream releaseFileStream = new FileInputStream(tempFile)) {
 				importArchive(importId, releaseFileStream);
 			} catch (ReleaseImportException e) {
 				// Swallow exception - already logged and this is an async method
-			} finally {
-				if (releaseFileStream != null) {
-					try {
-						releaseFileStream.close();
-					} catch (IOException e) {
-						logger.info("Failed to close input stream for import {}", importId);
-					}
-				}
+			} catch (IOException e) {
+				logger.error("Import failed. Error reading stream for temp file {}", tempFile.getAbsolutePath(), e);
+				getJob(importId).setStatus(ImportJob.ImportStatus.FAILED);
 			}
 		});
 	}
