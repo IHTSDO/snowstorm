@@ -1220,7 +1220,7 @@ class ConceptControllerTest extends AbstractTest {
 
 		String ecl = "100001 | Milk (food) |";
 
-		ResponseEntity<String> responseEntity = donateConcepts(ecl, sourceBranch, destinationBranch, true);
+		ResponseEntity<String> responseEntity = donateConcepts(ecl, sourceBranch, destinationBranch, false);
 		assertTrue(responseEntity.getStatusCode().equals(HttpStatus.OK));
 
 		Concept concept = conceptService.find("100001", destinationBranch);
@@ -1340,6 +1340,9 @@ class ConceptControllerTest extends AbstractTest {
 						.setTypeId(Concepts.TEXT_DEFINITION)
 						.addLanguageRefsetMember(Concepts.US_EN_LANG_REFSET, Concepts.PREFERRED));
 
+		Set<Relationship> relationships = new HashSet<>();
+		relationships.add(new Relationship(ISA, "257751006"));
+
 		if (isDependantConcept) {
 			// Create a dependant concept in the same module
 			conceptService.create(new Concept("100000", "11000172109")
@@ -1347,13 +1350,15 @@ class ConceptControllerTest extends AbstractTest {
 							.setTypeId(Concepts.FSN)
 							.addLanguageRefsetMember(Concepts.US_EN_LANG_REFSET, Concepts.PREFERRED))
 					.addAxiom(new Relationship(ISA, "257751006")), branchPath);
-
-			concept.addAxiom(new Relationship(ISA, "100000"));
-		} else if (isConcreteValue) {
-			concept.addAxiom(new Relationship(ISA, "257751006"), Relationship.newConcrete("1142139005", ConcreteValue.newInteger("#1")));
-		} else {
-			concept.addAxiom(new Relationship(ISA, "257751006"));
+			// Add a relationship
+			relationships.add(new Relationship(ISA, "100000"));
 		}
+		if (isConcreteValue) {
+			// Add a concrete value relationship
+			relationships.add(Relationship.newConcrete("1142139005", ConcreteValue.newInteger("#1")));
+		}
+
+		concept.addAxiom(relationships.stream().toArray(Relationship[]::new));
 		conceptService.create(concept, branchPath);
 	}
 

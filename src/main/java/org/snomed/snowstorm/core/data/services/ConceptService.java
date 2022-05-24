@@ -15,6 +15,7 @@ import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.otf.owltoolkit.conversion.ConversionException;
+import org.snomed.snowstorm.config.Config;
 import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.repositories.*;
 import org.snomed.snowstorm.core.data.services.identifier.IdentifierService;
@@ -113,6 +114,9 @@ public class ConceptService extends ComponentService {
 
 	@Autowired
 	private RelationshipService relationshipService;
+
+	@Autowired
+	private QueryService queryService;
 
 	private final Cache<String, AsyncConceptChangeBatch> batchConceptChanges;
 
@@ -810,10 +814,46 @@ public class ConceptService extends ComponentService {
 		}
 	}
 
-	public ConceptMini donateConcept(ConceptMini concept, String sourceBranchPath, String destinationBranchPath, List<LanguageDialect> languageDialects, boolean includeDependencies) throws ServiceException {
-		String sourceModuleId = branchMetadataHelper.getModuleId(sourceBranchPath);
-		String destinationModuleId = branchMetadataHelper.getModuleId(destinationBranchPath);
+	public List<ConceptMini> donateConcepts(String ecl, String sourceBranchPath, String destinationBranchPath, boolean includeDependencies) throws ServiceException {
+		final Branch sourceBranch = branchService.findBranchOrThrow(sourceBranchPath, true);
+		final Branch destinationBranch = branchService.findBranchOrThrow(destinationBranchPath, true);
 
+		if (getDefaultModuleId(sourceBranch).equals(getDefaultModuleId(destinationBranch))) {
+			throw new ServiceException("Cannot donate concepts from " + sourceBranchPath + " to " + destinationBranchPath + " as they are from the same module: " + getDefaultModuleId(sourceBranch));
+		}
+
+		final List<LanguageDialect> languageDialects = List.of(new LanguageDialect(Config.DEFAULT_LANGUAGE_CODE, Long.parseLong(Concepts.US_EN_LANG_REFSET)));
+
+		logger.info("Searching concepts to donate from {} to {} using ECL expression: '{}' (includeDependencies = '{}')", sourceBranchPath, destinationBranchPath, ecl, includeDependencies);
+		QueryService.ConceptQueryBuilder queryBuilder = queryService.createQueryBuilder(true)
+				.ecl(ecl)
+				.module(Long.parseLong(getDefaultModuleId(sourceBranch)))
+				.activeFilter(true)
+				.isReleased(true)
+				.resultLanguageDialects(languageDialects);
+
+		List<ConceptMini> conceptsFound = queryService.search(queryBuilder, sourceBranchPath, LARGE_PAGE).getContent();
+		logger.info("{} concept(s) found on branch {}", conceptsFound.size(), sourceBranchPath);
+
+		List<ConceptMini> conceptsDonated = new ArrayList<>();
+
+		for (ConceptMini concept : conceptsFound) {
+			conceptsDonated.addAll(donateConcept(concept, sourceBranchPath, destinationBranchPath, languageDialects, includeDependencies));
+		}
+
+		logger.info("{} concept(s) donated from {} to {}", conceptsDonated.size(), sourceBranchPath, destinationBranchPath);
+		return conceptsDonated;
+	}
+
+	private String getDefaultModuleId(Branch branch) {
+		return branch.getMetadata().containsKey(BranchMetadataKeys.DEFAULT_MODULE_ID) ? branch.getMetadata().getString(BranchMetadataKeys.DEFAULT_MODULE_ID) : Concepts.CORE_MODULE;
+	}
+
+	private List<ConceptMini> donateConcept(ConceptMini concept, String sourceBranchPath, String destinationBranchPath, List<LanguageDialect> languageDialects, boolean includeDependencies) throws ServiceException {
+		String sourceModuleId = getDefaultModuleId(branchService.findBranchOrThrow(sourceBranchPath, true));
+		String destinationModuleId = getDefaultModuleId(branchService.findBranchOrThrow(destinationBranchPath, true));
+
+		List<ConceptMini> concepts = new ArrayList<>();
 		List<ReferenceSetMember> referenceSetMembers = new ArrayList<>();
 
 		// Get axioms
@@ -844,7 +884,8 @@ public class ConceptService extends ComponentService {
 							throw new ServiceException("Axiom " + axiomMember.getId() + ": target concept " + targetConceptId + " does not exist on path " + sourceBranchPath);
 						}
 						if (includeDependencies && targetConcept.getModuleId().equals(sourceModuleId)) {
-							donateConcept(new ConceptMini(targetConcept, languageDialects), sourceBranchPath, destinationBranchPath, languageDialects, true);
+							logger.info("Dependant concept {} found on {}", targetConceptId, sourceBranchPath);
+							concepts.addAll(donateConcept(new ConceptMini(targetConcept, languageDialects), sourceBranchPath, destinationBranchPath, languageDialects, true));
 						} else if (!exists(targetConceptId, destinationBranchPath)) {
 							throw new ServiceException("Axiom " + axiomMember.getId() + ": target concept " + targetConceptId + " does not exist on path " + destinationBranchPath);
 						}
@@ -909,6 +950,8 @@ public class ConceptService extends ComponentService {
 			referenceSetMemberService.createMembers(destinationBranchPath, referenceSetMembersToCreate);
 		}
 
-		return new ConceptMini(conceptCreated, languageDialects);
+		logger.info("Concept {} donated from {} to {}", conceptCreated.getConceptId(), sourceBranchPath, destinationBranchPath);
+		concepts.add(new ConceptMini(conceptCreated, languageDialects));
+		return concepts;
 	}
 }

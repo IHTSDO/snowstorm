@@ -90,9 +90,6 @@ public class ConceptController {
 	@Autowired
 	private ReferenceSetMemberService referenceSetMemberService;
 
-	@Autowired
-	private BranchMetadataHelper branchMetadataHelper;
-
 	@Value("${snowstorm.rest-api.allowUnlimitedConceptPagination:false}")
 	private boolean allowUnlimitedConceptPagination;
 
@@ -598,30 +595,7 @@ public class ConceptController {
 			@RequestParam(required = false, defaultValue = "false") boolean includeDependencies) throws ServiceException {
 		String sourceBranchPath = BranchPathUriUtil.decodePath(sourceBranch);
 		String destinationBranchPath = BranchPathUriUtil.decodePath(branch);
-
-		String sourceModuleId = branchMetadataHelper.getModuleId(sourceBranchPath);
-		if (branchMetadataHelper.getModuleId(destinationBranchPath).equals(sourceModuleId)) {
-			throw new ServiceException("Cannot donate concepts from " + sourceBranchPath + " to " + destinationBranchPath + " as they are from the same module: " + sourceModuleId);
-		}
-
-		final List<LanguageDialect> languageDialects = List.of(new LanguageDialect(Config.DEFAULT_LANGUAGE_CODE, Long.parseLong(Concepts.US_EN_LANG_REFSET)));
-
-		// Get concepts
-		QueryService.ConceptQueryBuilder queryBuilder = queryService.createQueryBuilder(true)
-				.ecl(ecl)
-				.module(Long.parseLong(sourceModuleId))
-				.activeFilter(true)
-				.isReleased(true)
-				.resultLanguageDialects(languageDialects);
-
-		List<ConceptMini> conceptsFound = queryService.search(queryBuilder, sourceBranchPath, LARGE_PAGE).getContent();
-		List<ConceptMini> conceptsDonated = new ArrayList<>();
-
-		for (ConceptMini concept : conceptsFound) {
-			ConceptMini conceptDonated = conceptService.donateConcept(concept, sourceBranchPath, destinationBranchPath, languageDialects, includeDependencies);
-			conceptsDonated.add(conceptDonated);
-		}
-		return conceptsDonated;
+		return conceptService.donateConcepts(ecl, sourceBranchPath, destinationBranchPath, includeDependencies);
 	}
 
 	private PageRequest getPageRequestWithSort(int offset, int size, String searchAfter, Sort sort) {
