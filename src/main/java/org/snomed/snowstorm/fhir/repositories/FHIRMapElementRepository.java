@@ -7,4 +7,6 @@ import java.util.List;
 
 public interface FHIRMapElementRepository extends ElasticsearchRepository<FHIRMapElement, String> {
 
+	List<FHIRMapElement> findAllByGroupId(String groupId);
+
 }
