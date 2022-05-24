@@ -110,7 +110,7 @@ class ValueSetProviderEclTest extends AbstractFHIRTest {
 	}
 	
 	@Test
-	void testImplcitValueSets() throws FHIROperationException {
+	void testImplicitValueSets() throws FHIROperationException {
 		
 		// ?fhir_vs -> all concepts
 		// expect 13 Total - 10 on MAIN + 3 in the sample module + 1 Root concept
