@@ -67,6 +67,8 @@ public class FHIRTermCodeSystemStorage implements ITermCodeSystemStorageSvc {
 		FHIRCodeSystemVersion codeSystemVersion = fhirCodeSystemService.save(codeSystem);
 		fhirConceptService.save(termCodeSystemVersion, codeSystemVersion);
 
+		logger.info("{} ValueSets found", valueSets.size());
+
 		// TODO: Remove limit
 		if (valueSets.size() > 10) {
 			valueSets = valueSets.subList(0, 9);

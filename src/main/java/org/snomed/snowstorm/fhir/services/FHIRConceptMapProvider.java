@@ -55,6 +55,35 @@ public class FHIRConceptMapProvider implements IResourceProvider, FHIRConstants 
 	private BiMap<String, String> knownUriMap;
 	String[] validMapTargets;
 	String[] validMapSources;
+
+	//See https://www.hl7.org/fhir/valueset.html#search
+	@Search
+	public List<ConceptMap> findConceptMaps(
+			HttpServletRequest theRequest,
+			HttpServletResponse theResponse) {
+
+		PageRequest pageRequest = PageRequest.of(0, 100);
+		Page<FHIRConceptMap> page = conceptMapRepository.findAll(pageRequest);
+
+		List<ConceptMap> collect = page.getContent().stream().map(FHIRConceptMap::getHapi).collect(Collectors.toList());
+		return collect;
+	}
+
+	@Read
+	public ConceptMap getConceptMap(@IdParam IdType id) {
+		String idPart = id.getIdPart();
+		Optional<FHIRConceptMap> conceptMap = conceptMapRepository.findById(idPart);
+		if (conceptMap.isPresent()) {
+			FHIRConceptMap map = conceptMap.get();
+			for (FHIRConceptMapGroup group : orEmpty(map.getGroup())) {
+				List<FHIRMapElement> elements = mapElementRepository.findAllByGroupId(group.getGroupId());
+				group.setElement(elements);
+			}
+			return map.getHapi();
+		}
+		return null;
+	}
+
 	@Operation(name="$translate", idempotent=true)
 	public Parameters translate(
 			HttpServletRequest request,
