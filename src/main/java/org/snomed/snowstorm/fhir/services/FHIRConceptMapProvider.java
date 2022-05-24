@@ -58,9 +58,7 @@ public class FHIRConceptMapProvider implements IResourceProvider, FHIRConstants 
 		validate("Source", source.asStringValue(), Validation.STARTS_WITH, getValidMapSources(), true);
 		validate("Target", target.asStringValue(), Validation.EQUALS, getValidMapTargets(), true);
 		fhirHelper.notSupported("version", version);
-		normaliseURIs(source, target, ICD10, ICD10_URI);
-		normaliseURIs(source, target, ICDO, ICDO_URI);
-		
+
 		if (!source.asStringValue().startsWith(SNOMED_URI) && source.asStringValue().equals(target.asStringValue())) {
 			throw new FHIROperationException (null, "Source and target cannot be the same: '" + source.asStringValue() + "'");
 		}
@@ -117,17 +115,6 @@ public class FHIRConceptMapProvider implements IResourceProvider, FHIRConstants 
 
 	}
 	
-	private void normaliseURIs(UriType source, UriType target, String shortName, String uri) {
-		//Allow shortNames to be input, but swap with the real URI
-		if (target.asStringValue().equals(shortName)) {
-			target = new UriType(uri);
-		}
-		if (source.asStringValue().equals(shortName) ) {
-			source = new UriType(uri);
-		}
-		
-	}
-
 	private String[] getValidMapTargets() {
 		if (validMapTargets == null) {
 			validMapTargets = new String[6];
