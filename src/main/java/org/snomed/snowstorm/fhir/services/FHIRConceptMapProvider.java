@@ -1,47 +1,54 @@
 package org.snomed.snowstorm.fhir.services;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-
+import ca.uhn.fhir.rest.annotation.Operation;
+import ca.uhn.fhir.rest.annotation.OperationParam;
+import ca.uhn.fhir.rest.server.IResourceProvider;
+import com.google.common.collect.BiMap;
+import com.google.common.collect.ImmutableBiMap;
+import org.hl7.fhir.instance.model.api.IBaseResource;
 import org.hl7.fhir.r4.model.*;
 import org.hl7.fhir.r4.model.OperationOutcome.IssueType;
-import org.hl7.fhir.instance.model.api.IBaseResource;
 import org.snomed.snowstorm.core.data.domain.ReferenceSetMember;
 import org.snomed.snowstorm.core.data.services.ReferenceSetMemberService;
 import org.snomed.snowstorm.core.data.services.pojo.MemberSearchRequest;
 import org.snomed.snowstorm.fhir.config.FHIRConstants;
 import org.snomed.snowstorm.fhir.domain.BranchPath;
+import org.snomed.snowstorm.fhir.domain.FHIRConceptMap;
+import org.snomed.snowstorm.fhir.domain.FHIRConceptMapGroup;
+import org.snomed.snowstorm.fhir.repositories.FHIRConceptMapRepository;
+import org.snomed.snowstorm.fhir.repositories.FHIRMapElementRepository;
 import org.snomed.snowstorm.rest.ControllerHelper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.stereotype.Component;
 
-import com.google.common.collect.BiMap;
-import com.google.common.collect.ImmutableBiMap;
-
-import ca.uhn.fhir.rest.annotation.Operation;
-import ca.uhn.fhir.rest.annotation.OperationParam;
-import ca.uhn.fhir.rest.server.IResourceProvider;
-import io.kaicode.rest.util.branchpathrewrite.BranchPathUriUtil;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
 
 @Component
 public class FHIRConceptMapProvider implements IResourceProvider, FHIRConstants {
-	
+
 	@Autowired
+	// For maps within SNOMED CT releases
 	private ReferenceSetMemberService memberService;
-	
+
+	@Autowired
+	private FHIRConceptMapRepository conceptMapRepository;
+
+	@Autowired
+	private FHIRMapElementRepository mapElementRepository;
+
 	@Autowired
 	private HapiParametersMapper mapper;
 	
 	@Autowired
 	private FHIRHelper fhirHelper;
 	
-	private static int DEFAULT_PAGESIZE = 1000;
+	private static final int DEFAULT_PAGESIZE = 1000;
 	
 	private BiMap<String, String> knownUriMap;
 	String[] validMapTargets;
 	String[] validMapSources;
-	
 	@Operation(name="$translate", idempotent=true)
 	public Parameters translate(
 			HttpServletRequest request,
@@ -116,16 +123,26 @@ public class FHIRConceptMapProvider implements IResourceProvider, FHIRConstants 
 		return mapper.mapToFHIR(members.getContent(), target, knownUriMap);
 
 	}
-	
+
 	private void normaliseURIs(UriType source, UriType target, String shortName, String uri) {
 		//Allow shortNames to be input, but swap with the real URI
 		if (target.asStringValue().equals(shortName)) {
 			target = new UriType(uri);
 		}
-		if (source.asStringValue().equals(shortName) ) {
+		if (source.asStringValue().equals(shortName)) {
 			source = new UriType(uri);
 		}
-		
+
+	}
+
+	public void createMap(FHIRConceptMap conceptMap) {
+		// TODO: Delete existing map?
+		// Save concept map and groups
+		conceptMapRepository.save(conceptMap);
+		for (FHIRConceptMapGroup mapGroup : conceptMap.getGroup()) {
+			// Save elements within each group
+			mapElementRepository.saveAll(mapGroup.getElement());
+		}
 	}
 
 	private String[] getValidMapTargets() {
@@ -197,5 +214,10 @@ public class FHIRConceptMapProvider implements IResourceProvider, FHIRConstants 
 	@Override
 	public Class<? extends IBaseResource> getResourceType() {
 		return ConceptMap.class;
+	}
+
+	public void deleteAll() {
+		conceptMapRepository.deleteAll();
+		mapElementRepository.deleteAll();
 	}
 }

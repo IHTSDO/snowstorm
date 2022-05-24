@@ -17,6 +17,8 @@ import org.hl7.fhir.r4.model.ValueSet;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.fhir.domain.FHIRCodeSystemVersion;
+import org.snomed.snowstorm.fhir.domain.FHIRConceptMap;
+import org.snomed.snowstorm.fhir.repositories.FHIRConceptMapRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -35,6 +37,9 @@ public class FHIRTermCodeSystemStorage implements ITermCodeSystemStorageSvc {
 
 	@Autowired
 	private FHIRValueSetProvider valueSetProvider;
+
+	@Autowired
+	private FHIRConceptMapProvider fhirConceptMapProvider;
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
@@ -62,6 +67,12 @@ public class FHIRTermCodeSystemStorage implements ITermCodeSystemStorageSvc {
 		FHIRCodeSystemVersion codeSystemVersion = fhirCodeSystemService.save(codeSystem);
 		fhirConceptService.save(termCodeSystemVersion, codeSystemVersion);
 
+		// TODO: Remove limit
+		if (valueSets.size() > 10) {
+			valueSets = valueSets.subList(0, 9);
+			logger.info("saving {} value sets", valueSets.size());
+		}
+
 		for (ValueSet valueSet : orEmpty(valueSets)) {
 			try {
 				logger.info("Saving ValueSet {}", valueSet.getIdElement());
@@ -69,6 +80,13 @@ public class FHIRTermCodeSystemStorage implements ITermCodeSystemStorageSvc {
 			} catch (FHIROperationException e) {
 				logger.error("Failed to store value set {}", valueSet.getIdElement(), e);
 			}
+		}
+
+		conceptMaps = orEmpty(conceptMaps);
+		logger.info("{} ConceptMaps found", conceptMaps.size());
+		for (ConceptMap conceptMap : orEmpty(conceptMaps)) {
+			FHIRConceptMap map = new FHIRConceptMap(conceptMap);
+			fhirConceptMapProvider.createMap(map);
 		}
 
 		return new IdType("CodeSystem", codeSystemVersion.getId(), codeSystemVersion.getVersion());
