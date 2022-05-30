@@ -308,6 +308,9 @@ public class CodeSystemService {
 			// Lookup latest version with an effective date equal or less than today
 			codeSystem.setLatestVersion(findLatestVisibleVersion(codeSystem.getShortName()));
 
+			// Set default module to help FHIR API
+			codeSystem.setDefaultModuleId(codeSystemConfigurationService.getDefaultModuleId(codeSystem.getShortName()));
+
 			// Pull from cache
 			Pair<Date, CodeSystem> dateCodeSystemPair = contentInformationCache.get(branchPath);
 			if (dateCodeSystemPair != null) {
