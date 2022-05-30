@@ -34,6 +34,7 @@ public interface FHIRConstants {
 	String SNOMED_INTERNATIONAL = "SNOMED International";
 	String SNOMED_URI = "http://snomed.info/sct";
 	String SNOMED_URI_UNVERSIONED = "http://snomed.info/xsct";
+	String UNVERSIONED = "UNVERSIONED";
 	String VERSION = "/version/";
 	String SNOMED_URI_DEFAULT_MODULE = "http://snomed.info/sct/900000000000207008";
 	String ICD10 = "ICD-10";
@@ -41,6 +42,7 @@ public interface FHIRConstants {
 	String ICDO = "ICD-O";
 	String ICDO_URI = "http://hl7.org/fhir/sid/icd-o";
 	String MAP_INDICATOR = "?fhir_cm=";
+	String SNOMED_CT = "SNOMED_CT";
 	//String SNOMED_CONCEPTMAP = SNOMED_URI + MAP_INDICATOR;
 	
 	enum Validation { EQUALS, STARTS_WITH }
