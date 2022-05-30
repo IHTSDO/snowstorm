@@ -26,9 +26,10 @@ import org.snomed.snowstorm.core.data.services.pojo.PageWithBucketAggregations;
 import org.snomed.snowstorm.core.pojo.LanguageDialect;
 import org.snomed.snowstorm.fhir.config.FHIRConstants;
 import org.snomed.snowstorm.fhir.domain.BranchPath;
+import org.snomed.snowstorm.fhir.domain.FHIRCodeSystemVersion;
 import org.snomed.snowstorm.fhir.domain.SearchFilter;
 import org.snomed.snowstorm.fhir.domain.ValueSetWrapper;
-import org.snomed.snowstorm.fhir.pojo.CodeSystemVersionPojo;
+import org.snomed.snowstorm.fhir.pojo.FHIRCodeSystemVersionParams;
 import org.snomed.snowstorm.fhir.pojo.ValueSetExpansionParameters;
 import org.snomed.snowstorm.fhir.repositories.FHIRValuesetRepository;
 import org.snomed.snowstorm.rest.ControllerHelper;
@@ -75,6 +76,9 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 	
 	@Autowired
 	private FHIRHelper fhirHelper;
+
+	@Autowired
+	private FHIRCodeSystemService codeSystemService;
 	
 	public static int DEFAULT_PAGESIZE = 1000;
 	
@@ -294,6 +298,7 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 			@OperationParam(name="abstract") BooleanType abstractBool,
 			@OperationParam(name="context") String context,
 			@OperationParam(name="displayLanguage") String displayLanguage) throws FHIROperationException {
+		FHIRCodeSystemVersionParams codeSystemParams = fhirHelper.getCodeSystemVersionParams(null, url, version, coding);
 		List<LanguageDialect> languageDialects = fhirHelper.getLanguageDialects(null, request.getHeader(ACCEPT_LANGUAGE_HEADER));
 		return validateCode(id, url, codeSystem, code, display, version, date, coding, codeableConcept, context, abstractBool, displayLanguage, languageDialects);
 	}
@@ -321,10 +326,11 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 			StringType version, DateTimeType date, Coding coding, Coding codeableConcept, String context, 
 			BooleanType abstractBool, String displayLanguage, 
 			List<LanguageDialect> languageDialects) throws FHIROperationException {
+
 		String url = urlType == null ? null : urlType.primitiveValue();
-		doParameterValidation (url, codeSystem, code, coding, codeableConcept, context, display, date, version, abstractBool);
+		doParameterValidation(url, codeSystem, code, coding, codeableConcept, context, display, date, version, abstractBool);
 		//Can we get a codeSystem from the URL?
-		if (url != null && url.startsWith(SNOMED_URI) && 
+		if (url != null && url.startsWith(SNOMED_URI) &&
 				url.indexOf("?") > SNOMED_URI.length()) {
 			if (codeSystem != null) {
 				throw new FHIROperationException (IssueType.INVARIANT, "Cannot handle CodeSystem defined via both url and codeSystem parameter");
@@ -334,16 +340,20 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 		
 		if (version != null) {
 			if (codeSystem == null) {
-				codeSystem = new StringType(SNOMED_URI + "/version/" + version.toString());
+				codeSystem = new StringType(SNOMED_URI + "/version/" + version);
 			} else {
-				fhirHelper.append(codeSystem, "/version/" + version.toString());
+				fhirHelper.append(codeSystem, "/version/" + version);
 			}
 		}
+
+		FHIRCodeSystemVersion codeSystemVersion = codeSystemService.findCodeSystemVersionOrThrow(new FHIRCodeSystemVersionParams(codeSystem != null ? codeSystem.toString() : null,
+				version != null ? version.toString() : null));
+
 		//From either a saved VS instance or some implcit url, can we recover some ECL?
-		String ecl = getECL(id, url == null? null : url);
+		String ecl = getECL(id, url);
 		if (ecl != null) { 
 			String conceptId = fhirHelper.recoverCode(code, coding);
-			BranchPath branchPath = fhirHelper.getBranchPathFromURI(codeSystem);
+			String branchPath = codeSystemVersion.getSnomedBranch();
 			//Construct ECL to find the intersection of these two sets
 			String intersectionEcl = conceptId + " AND (" + ecl + ")";
 			Page<ConceptMini> result = fhirHelper.eclSearch(intersectionEcl, null, null, languageDialects, branchPath, FHIRHelper.SINGLE_ITEM_PAGE);
@@ -352,8 +362,8 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 				if (!concept.getConceptId().equals(conceptId)) {
 					throw new FHIROperationException (IssueType.PROCESSING, "ECL recovered an unexpected concept id (" + concept.getConceptId() + ") using " + intersectionEcl);
 				}
-				Concept fullConcept = conceptService.find(conceptId, languageDialects, branchPath.toString());
-				return paramMapper.mapToFHIR(fullConcept, display);
+				Concept fullConcept = conceptService.find(conceptId, languageDialects, branchPath);
+				return paramMapper.mapToFHIRValidateDisplayTerm(fullConcept, display, codeSystemVersion);
 			} else {
 				//Now it might be that in this case we do not have this ValueSet loaded at all - or it's been 
 				//defined or the substrate has changed such that it has no members.   MAINT-1261 refers
@@ -361,11 +371,11 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 				if (result.getContent().size() == 0) {
 					throw new FHIROperationException (IssueType.PROCESSING, "Concept not found and additionally the Valueset contains no members when expanded against the specified substrate. Check any relevant reference set is actually loaded.  ECL = " + ecl + ", branch path = " + branchPath);
 				}
-				return paramMapper.conceptNotFound();
+				return paramMapper.conceptNotFound(conceptId, codeSystemVersion, "The code was not found in the specified value set.");
 			}
 		} else {
 			//TODO We have some sort of enumerated valueset saved, we need to just search through the members
-			throw new FHIROperationException (IssueType.NOTSUPPORTED, "Validating code against enumerated ValueSets has still to be implemented");
+			throw new FHIROperationException(IssueType.NOTSUPPORTED, "Validating code against enumerated ValueSets has still to be implemented.");
 		}
 	}
 	
@@ -483,13 +493,10 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 		valueSet.getExpansion().setOffset((int)pageRequest.getOffset());
 		return valueSet;
 	}
-	
-	
 
 	/**
 	 * An implicit ValueSet is one that hasn't been saved on the server, but is being 
 	 * defined at expansion time by use of a URL containing a definition of the content
-	 * @param branchPathForced 
 	 */
 	private Page<ConceptMini> doImplcitExpansion(int cutPoint, String url, Boolean active, String filter,
 			BranchPath branchPath, List<LanguageDialect> designations, PageRequest pageRequest, boolean branchPathForced) throws FHIROperationException {
@@ -498,7 +505,7 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 			return findAllRefsets(branchPath, pageRequest);
 		} else {
 			String ecl = determineEcl(url, true);
-			Page<ConceptMini> conceptMiniPage = fhirHelper.eclSearch(ecl, active, filter, designations, branchPath, pageRequest);
+			Page<ConceptMini> conceptMiniPage = fhirHelper.eclSearch(ecl, active, filter, designations, branchPath.toString(), pageRequest);
 			logger.info("Recovered: {}/{} concepts from branch: {} with ecl: '{}'", conceptMiniPage.getContent().size(), conceptMiniPage.getTotalElements(), branchPath, ecl);
 			return conceptMiniPage;
 		}
@@ -515,7 +522,7 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 		Page<ConceptMini> conceptMiniPage = new PageImpl<>(new ArrayList<>());
 		if (vs != null && vs.getCompose() != null && !vs.getCompose().isEmpty()) {
 			if (!branchPathForced) {
-				CodeSystemVersionPojo codeSystemVersion = getCodeSystemVersionFromComposeAndValidateConsistency(vs.getCompose());
+				FHIRCodeSystemVersionParams codeSystemVersion = getCodeSystemVersionFromComposeAndValidateConsistency(vs.getCompose());
 				if (codeSystemVersion != null) {
 					branchPath.set(fhirHelper.getBranchPathFromURI(codeSystemVersion.toSnomedUri()));
 				}
@@ -560,7 +567,7 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 			logger.info("Recovered {} Concepts from branch {} with Compose.", fromService.size(), branch);
 
 			String ecl = filterECL.toString();
-			Page<ConceptMini> page = fhirHelper.eclSearch(ecl, active, filter, designations, branchPath, pageRequest);
+			Page<ConceptMini> page = fhirHelper.eclSearch(ecl, active, filter, designations, branchPath.toString(), pageRequest);
 			Collection<ConceptMini> fromECL = page.getContent();
 			logger.info("Recovered {} Concepts from branch {} with ECL {}.", page.getTotalElements(), branch, filterECL);
 
@@ -568,7 +575,7 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 			conceptMinis.addAll(fromService);
 			conceptMinis.addAll(fromECL);
 			long totalCount = fromService.size() + page.getTotalElements(); 
-			conceptMiniPage = new PageImpl<ConceptMini>(conceptMinis, page.getPageable(), totalCount);
+			conceptMiniPage = new PageImpl<>(conceptMinis, page.getPageable(), totalCount);
 			logger.info("Collectively recovered {} Concepts from branch {}.", conceptMiniPage.getTotalElements(), branch);
 		} else {
 			String msg = "Compose element(s) or 'url' parameter is expected to be present for an expansion, containing eg http://snomed.info/sct?fhir_vs=ecl/ or http://snomed.info/sct/45991000052106?fhir_vs=ecl/ ";
@@ -587,7 +594,7 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 		.anyMatch(ld -> ld.getLanguageCode().equals(displayLanguage));
 	}
 
-	private CodeSystemVersionPojo getCodeSystemVersionFromComposeAndValidateConsistency(ValueSetComposeComponent compose) throws FHIROperationException {
+	private FHIRCodeSystemVersionParams getCodeSystemVersionFromComposeAndValidateConsistency(ValueSetComposeComponent compose) throws FHIROperationException {
 		// Check that a maximum of one system and version is used within include and exclude elements
 		List<ConceptSetComponent> allIncludeExcludes = new ArrayList<>(compose.getInclude());
 		allIncludeExcludes.addAll(compose.getExclude());
@@ -615,9 +622,9 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 		} else {
 			String system = systems.iterator().next();
 			if (!versions.isEmpty()) {
-				return new CodeSystemVersionPojo(system, versions.iterator().next());
+				return new FHIRCodeSystemVersionParams(system, versions.iterator().next());
 			}
-			return new CodeSystemVersionPojo(system);
+			return new FHIRCodeSystemVersionParams(system);
 		}
 	}
 	

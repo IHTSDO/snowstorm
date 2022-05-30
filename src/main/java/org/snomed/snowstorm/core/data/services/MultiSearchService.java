@@ -108,11 +108,12 @@ public class MultiSearchService implements CommitListener {
 						.withPageable(PageRequest.of(0, 1))
 						.addAggregation(AggregationBuilders.terms("membership").field(ReferenceSetMember.Fields.REFSET_ID).size(AGGREGATION_SEARCH_SIZE))
 						.build(), ReferenceSetMember.class);
-		allAggregations.add(membershipResults.getAggregations().get("membership"));
-		
-		PageWithBucketAggregations<Description> page = PageWithBucketAggregationsFactory.createPage(searchHits, new Aggregations(allAggregations), pageRequest);
-		
-		return page;
+		Aggregations aggregations = membershipResults.getAggregations();
+		if (aggregations != null) {
+			allAggregations.add(aggregations.get("membership"));
+		}
+
+		return PageWithBucketAggregationsFactory.createPage(searchHits, new Aggregations(allAggregations), pageRequest);
 	}
 	
 	private SearchHits<Description> findDescriptionsHelper(DescriptionCriteria criteria, PageRequest pageRequest) {
@@ -149,9 +150,8 @@ public class MultiSearchService implements CommitListener {
 		NativeSearchQuery query = queryBuilder.build();
 		query.setTrackTotalHits(true);
 		DescriptionService.addTermSort(query);
-		SearchHits<Description> searchHits = elasticsearchTemplate.search(query, Description.class);
-		
-		return searchHits;
+
+		return elasticsearchTemplate.search(query, Description.class);
 	}
 
 
@@ -235,18 +235,27 @@ public class MultiSearchService implements CommitListener {
 			getAllPublishedVersionBranchPaths();
 		}
 		//If we don't find a published version, return the branch we were given
-		return publishedBranches.containsKey(branch) ? publishedBranches.get(branch) : branch;
+		return publishedBranches.getOrDefault(branch, branch);
 	}
-	
+
 	public Set<CodeSystemVersion> getAllPublishedVersions() {
 		Set<CodeSystemVersion> codeSystemVersions = new HashSet<>();
 		for (CodeSystem codeSystem : codeSystemService.findAll()) {
 			List<CodeSystemVersion> thisCodeSystemVersions = codeSystemService.findAllVersions(codeSystem.getShortName(), true, false);
-			thisCodeSystemVersions.stream()
-				.forEach(csv -> csv.setCodeSystem(codeSystem));
+			thisCodeSystemVersions.forEach(csv -> csv.setCodeSystem(codeSystem));
 			codeSystemVersions.addAll(thisCodeSystemVersions);
 		}
 		return codeSystemVersions;
+	}
+
+	public CodeSystemVersion getNearestPublishedVersion(String branchPath) {
+		CodeSystem closestCodeSystem = codeSystemService.findClosestCodeSystemUsingAnyBranch(branchPath, true);
+		CodeSystemVersion latestVisibleVersion = codeSystemService.findLatestVisibleVersion(closestCodeSystem.getShortName());
+		if (latestVisibleVersion == null) {
+			return null;
+		}
+		latestVisibleVersion.setCodeSystem(closestCodeSystem);
+		return latestVisibleVersion;
 	}
 
 	public Page<Concept> findConcepts(ConceptCriteria criteria, PageRequest pageRequest) {
@@ -260,7 +269,7 @@ public class MultiSearchService implements CommitListener {
 		//Populate the published version path back in
 		List<Concept> concepts = searchHits.get()
 				.map(SearchHit::getContent)
-				.map(c -> { c.setPath(getPublishedVersionOfBranch(c.getPath())) ; return c; })
+				.peek(c -> c.setPath(getPublishedVersionOfBranch(c.getPath())))
 				.collect(Collectors.toList());
 		return new PageImpl<>(concepts, pageRequest, searchHits.getTotalHits());
 	}

@@ -26,14 +26,16 @@ public class HapiParametersMapper implements FHIRConstants {
 	@Autowired
 	private FHIRHelper fhirHelper;
 	
-	public Parameters mapToFHIR(Concept concept, String display) {
+	public Parameters mapToFHIRValidateDisplayTerm(Concept concept, String display, FHIRCodeSystemVersion codeSystemVersion) {
 		Parameters parameters = getStandardParameters();
 		if (display == null) {
 			parameters.addParameter("result", true);
 		} else {
-			validateTerm(concept, display.toLowerCase(), parameters);
+			boolean valid = validateTerm(concept, display.toLowerCase(), parameters);
+			parameters.addParameter("result", valid);
 		}
 		parameters.addParameter("display", concept.getPt().getTerm());
+		addSystemAndVersion(parameters, codeSystemVersion);
 		return parameters;
 	}
 	
@@ -43,36 +45,38 @@ public class HapiParametersMapper implements FHIRConstants {
 		return parameters;
 	}
 	
-	private void validateTerm(Concept c, String display, Parameters parameters) {
+	private boolean validateTerm(Concept c, String display, Parameters parameters) {
 		//Did we get it right first time?
 		if (c.getPt().getTerm().toLowerCase().equals(display)) {
-			parameters.addParameter("result", true);
-			return;
+			return true;
 		} else {
 			//TODO Implement case sensitivity checking relative to what is specified for the description
 			for (Description d : c.getActiveDescriptions()) {
 				if (d.getTerm().toLowerCase().equals(display)) {
-					parameters.addParameter("result", true);
-					parameters.addParameter("message", "Display term is acceptable, but not the preferred synonym in the language/dialect specified");
-					return;
+					parameters.addParameter("message", "Display term is acceptable, but not the preferred synonym in the language/dialect specified.");
+					return true;
 				}
 			}
 		}
-		parameters.addParameter("result", false);
-		parameters.addParameter("message", "Concept identifier exists, but the display term is not recognised");
-		
+		parameters.addParameter("message", "Code exists, but the display term is not recognised.");
+		return false;
 	}
 
-	public Parameters conceptNotFound() {
+	public Parameters conceptNotFound(String code, FHIRCodeSystemVersion codeSystemVersion, String message) {
 		Parameters parameters = getStandardParameters();
 		parameters.addParameter("result", false);
+		parameters.addParameter("code", code);
+		addSystemAndVersion(parameters, codeSystemVersion);
+		parameters.addParameter("message", message);
 		return parameters;
 	}
 
-	public Parameters mapToFHIR(StringType codeSystem, Concept concept, Collection<Long> childIds, Set<FhirSctProperty> properties, List<LanguageDialect> designations) {
+	public Parameters mapToFHIR(FHIRCodeSystemVersion codeSystem, Concept concept, Collection<Long> childIds, Set<FhirSctProperty> properties, List<LanguageDialect> designations) {
 		Parameters parameters = getStandardParameters();
-		parameters.addParameter("version", codeSystem.toString());
+		parameters.addParameter("code", concept.getConceptId());
 		parameters.addParameter("display", fhirHelper.getPreferredTerm(concept, designations));
+		parameters.addParameter("name", codeSystem.getName());
+		addSystemAndVersion(parameters, codeSystem);
 		parameters.addParameter("active", concept.isActive());
 		addProperties(parameters, concept, properties);
 		addDesignations(parameters, concept);
@@ -81,9 +85,15 @@ public class HapiParametersMapper implements FHIRConstants {
 		return parameters;
 	}
 
+	private void addSystemAndVersion(Parameters parameters, FHIRCodeSystemVersion codeSystem) {
+		parameters.addParameter("system", codeSystem.getUrl());
+		parameters.addParameter("version", codeSystem.getVersion());
+	}
+
 	public Parameters mapToFHIR(FHIRCodeSystemVersion codeSystemVersion, FHIRConcept concept) {
 		Parameters parameters = new Parameters();
 		parameters.addParameter("name", codeSystemVersion.getTitle());
+		parameters.addParameter("system", codeSystemVersion.getUrl());
 		parameters.addParameter("version", codeSystemVersion.getVersion());
 		parameters.addParameter("display", concept.getDisplay());
 
@@ -117,20 +127,20 @@ public class HapiParametersMapper implements FHIRConstants {
 		boolean success = members.size() > 0;
 		p.addParameter("result", success);
 		boolean reverseLookup = requestedTargetSystem.asStringValue().equals(SNOMED_URI);
-		
+
 		if (success) {
 			Parameters.ParametersParameterComponent matches = p.addParameter().setName("match");
 			for (ReferenceSetMember member : members) {
-				
+
 				//Do we know about this reference set?
 				String refsetId = member.getRefsetId();
 				String actualTargetSystem = null;
-				
+
 				//Don't do lookup if we're already doing a reverse lookup
 				if (!reverseLookup) {
 					actualTargetSystem = knownUriMap.inverse().get(refsetId);
 				}
-				
+
 				//If not, then give an indication of the refset being returned
 				if (actualTargetSystem == null) {
 					//targetSystem = new UriType(SNOMED_URI + "?fhir_vs=ecl/^" + refsetId);
@@ -160,6 +170,18 @@ public class HapiParametersMapper implements FHIRConstants {
 		return p;
 	}
 
+	public Parameters validateCodeResponse(FHIRConcept concept, boolean displayValidOrNull, FHIRCodeSystemVersion codeSystemVersion) {
+		Parameters parameters = new Parameters();
+		parameters.addParameter("result", displayValidOrNull);
+		parameters.addParameter("code", concept.getCode());
+		addSystemAndVersion(parameters, codeSystemVersion);
+		if (!displayValidOrNull) {
+			parameters.addParameter("message", "The code exists but the display is not valid.");
+		}
+		parameters.addParameter("display", concept.getDisplay());
+		return parameters;
+	}
+
 	// TODO: Work out what we should be including here
 	private Parameters getStandardParameters() {
 		Parameters parameters = new Parameters();
@@ -187,7 +209,7 @@ public class HapiParametersMapper implements FHIRConstants {
 				};
 				// Add type, this is sometimes but not always redundant to designation.use!
 				// TODO: currently it is truly redundant but as there are more alternatives for designation.use, e.g. "consumer", this is/will be needed here
-				ducExt.addExtension("type", new Coding(SNOMED_URI, d.getTypeId(), FHIRHelper.translateDescType(d.getTypeId())));		
+				ducExt.addExtension("type", new Coding(SNOMED_URI, d.getTypeId(), FHIRHelper.translateDescType(d.getTypeId())));
 
 				designation.addExtension(ducExt);
 			});
@@ -203,22 +225,22 @@ public class HapiParametersMapper implements FHIRConstants {
 		Boolean sufficientlyDefined = c.getDefinitionStatusId().equals(Concepts.DEFINED);
 		parameters.addParameter(createProperty(EFFECTIVE_TIME, c.getEffectiveTime(), false))
 			.addParameter(createProperty(MODULE_ID, c.getModuleId(), true));
-		
+
 		boolean allProperties = properties.contains(FhirSctProperty.ALL_PROPERTIES);
-	
+
 		if (allProperties || properties.contains(FhirSctProperty.INACTVE)) {
 			parameters.addParameter(createProperty(FhirSctProperty.INACTVE.toStringType(), !c.isActive(), false));
 		}
-		
+
 		if (allProperties || properties.contains(FhirSctProperty.SUFFICIENTLY_DEFINED)) {
 			parameters.addParameter(createProperty(FhirSctProperty.SUFFICIENTLY_DEFINED.toStringType(), sufficientlyDefined, false));
 		}
-		
+
 		if (allProperties || properties.contains(FhirSctProperty.NORMAL_FORM_TERSE)) {
 			Expression expression = expressionService.getExpression(c, false);
 			parameters.addParameter(createProperty(FhirSctProperty.NORMAL_FORM_TERSE.toStringType(), expression.toString(false), false));
 		}
-		
+
 		if (allProperties || properties.contains(FhirSctProperty.NORMAL_FORM)) {
 			Expression expression = expressionService.getExpression(c, false);
 			parameters.addParameter(createProperty(FhirSctProperty.NORMAL_FORM.toStringType(), expression.toString(true), false));
@@ -231,7 +253,7 @@ public class HapiParametersMapper implements FHIRConstants {
 			p.addParameter(createProperty(PARENT, thisParentRel.getDestinationId(), true));
 		}
 	}
-	
+
 	private void addChildren(Parameters p, Collection<Long> childIds) {
 		for (Long childId : childIds) {
 			p.addParameter(createProperty(CHILD, childId.toString(), true));

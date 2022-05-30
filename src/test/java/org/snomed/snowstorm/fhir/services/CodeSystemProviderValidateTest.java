@@ -6,6 +6,7 @@ import org.junit.jupiter.api.Test;
 import static org.hibernate.validator.internal.util.Contracts.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.snomed.snowstorm.fhir.config.FHIRConstants.SNOMED_URI;
 
 class CodeSystemProviderValidateTest extends AbstractFHIRTest {
 	
@@ -13,7 +14,7 @@ class CodeSystemProviderValidateTest extends AbstractFHIRTest {
 	void testValidateCode() throws FHIROperationException {
 		String version = "version=http://snomed.info/sct/1234";
 		//Test recovery using code with version
-		String url = "http://localhost:" + port + "/fhir/CodeSystem/$validate-code?" + version + "&code=" + sampleSCTID;
+		String url = "http://localhost:" + port + "/fhir/CodeSystem/$validate-code?url=" + SNOMED_URI + "&" + version + "&code=" + sampleSCTID;
 		Parameters p = getParameters(url);
 		String result = toString(getProperty(p, "result"));
 		assertEquals("true", result);
@@ -25,7 +26,7 @@ class CodeSystemProviderValidateTest extends AbstractFHIRTest {
 		assertEquals("true", result);
 		
 		//Known not present
-		url = "http://localhost:" + port + "/fhir/CodeSystem/$validate-code?" + version + "&code=1234501";
+		url = "http://localhost:" + port + "/fhir/CodeSystem/$validate-code?url=" + SNOMED_URI + "&" + version + "&code=1234501";
 		p = getParameters(url);
 		result = toString(getProperty(p, "result"));
 		assertEquals("false", result);
@@ -60,7 +61,7 @@ class CodeSystemProviderValidateTest extends AbstractFHIRTest {
 	void testValidateUnpublishedCode() throws FHIROperationException {
 		String version = "version=http://snomed.info/xsct/" + sampleModuleId;
 		//Test recovery using code with version with "unpublished" indicator
-		String url = "http://localhost:" + port + "/fhir/CodeSystem/$validate-code?" + version + "&code=" + sampleSCTID;
+		String url = "http://localhost:" + port + "/fhir/CodeSystem/$validate-code?url=" + SNOMED_URI + "&" + version + "&code=" + sampleSCTID;
 		Parameters p = getParameters(url);
 		String result = toString(getProperty(p, "result"));
 		assertEquals("true", result);

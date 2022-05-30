@@ -56,7 +56,7 @@ class CodeSystemProviderLookupTest extends AbstractFHIRTest {
 	@Test
 	void testSingleUnpublishedConceptRecovery() throws FHIROperationException {
 		String version = "version=http://snomed.info/xsct/" + sampleModuleId;
-		String url = "http://localhost:" + port + "/fhir/CodeSystem/$lookup?system=http://snomed.info/sct&code=" + sampleSCTID + "&" + version;
+		String url = "http://localhost:" + port + "/fhir/CodeSystem/$lookup?system=http://snomed.info/xsct&code=" + sampleSCTID + "&" + version;
 		Parameters p = getParameters(url);
 		assertNotNull(p);
 	}

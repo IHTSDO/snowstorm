@@ -64,6 +64,9 @@ public class CodeSystem implements CodeSystemCreate {
 	private String latestDailyBuild;
 
 	@Transient
+	private String defaultModuleId;
+
+	@Transient
 	private Integer dependantVersionEffectiveTime;
 
 	@Transient
@@ -180,6 +183,15 @@ public class CodeSystem implements CodeSystemCreate {
 
 	public void setLatestDailyBuild(String latestDailyBuild) {
 		this.latestDailyBuild = latestDailyBuild;
+	}
+
+	@JsonIgnore
+	public String getDefaultModuleId() {
+		return defaultModuleId;
+	}
+
+	public void setDefaultModuleId(String defaultModuleId) {
+		this.defaultModuleId = defaultModuleId;
 	}
 
 	public Integer getDependantVersionEffectiveTime() {

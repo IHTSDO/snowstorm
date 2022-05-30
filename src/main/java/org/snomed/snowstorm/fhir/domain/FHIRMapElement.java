@@ -18,6 +18,7 @@ public class FHIRMapElement {
 	@Id
 	private String id;
 
+	@Field(type = FieldType.Keyword)
 	private String groupId;
 
 	@Field(type = FieldType.Keyword)

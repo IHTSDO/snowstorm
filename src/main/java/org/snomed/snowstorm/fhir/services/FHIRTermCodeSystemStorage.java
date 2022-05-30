@@ -18,7 +18,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.fhir.domain.FHIRCodeSystemVersion;
 import org.snomed.snowstorm.fhir.domain.FHIRConceptMap;
-import org.snomed.snowstorm.fhir.repositories.FHIRConceptMapRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -64,7 +63,12 @@ public class FHIRTermCodeSystemStorage implements ITermCodeSystemStorageSvc {
 	public IIdType storeNewCodeSystemVersion(CodeSystem codeSystem, TermCodeSystemVersion termCodeSystemVersion, RequestDetails requestDetails,
 			List<ValueSet> valueSets, List<ConceptMap> conceptMaps) {
 
-		FHIRCodeSystemVersion codeSystemVersion = fhirCodeSystemService.save(codeSystem);
+		FHIRCodeSystemVersion codeSystemVersion;
+		try {
+			codeSystemVersion = fhirCodeSystemService.save(codeSystem);
+		} catch (FHIROperationException e) {
+			throw new RuntimeException(e);
+		}
 		fhirConceptService.save(termCodeSystemVersion, codeSystemVersion);
 
 		logger.info("{} ValueSets found", valueSets.size());
