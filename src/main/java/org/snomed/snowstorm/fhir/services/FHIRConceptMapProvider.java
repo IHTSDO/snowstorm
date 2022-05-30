@@ -59,8 +59,10 @@ public class FHIRConceptMapProvider implements IResourceProvider, FHIRConstants 
 		PageRequest pageRequest = PageRequest.of(0, 100);
 		Page<FHIRConceptMap> page = conceptMapRepository.findAll(pageRequest);
 
-		List<ConceptMap> collect = page.getContent().stream().map(FHIRConceptMap::getHapi).collect(Collectors.toList());
-		return collect;
+		return page.getContent().stream()
+				.map(FHIRConceptMap::getHapi)
+				.peek(map -> map.setGroup(null))// Clear groups for display listing
+				.collect(Collectors.toList());
 	}
 
 	@Read
