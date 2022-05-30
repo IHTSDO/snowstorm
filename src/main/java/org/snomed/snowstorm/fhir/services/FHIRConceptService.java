@@ -45,6 +45,10 @@ public class FHIRConceptService {
 		}
 		Float percentToLog = null;
 		int saved = 0;
+
+		// TODO: Remove limit
+		allConcepts = allConcepts.subList(0, SAVE_BATCH_SIZE);
+
 		for (List<TermConcept> conceptsBatch : Iterables.partition(allConcepts, SAVE_BATCH_SIZE)) {
 			List<FHIRConcept> batch = new ArrayList<>();
 			for (TermConcept termConcept : conceptsBatch) {
@@ -75,8 +79,7 @@ public class FHIRConceptService {
 		}
 	}
 
-	public FHIRConcept findConcept(String system, String code) {
-//		return conceptRepository.findFirstByCode(code);
-		return conceptRepository.findFirstByCodeSystemVersionAndCode(system, code);
+	public FHIRConcept findConcept(FHIRCodeSystemVersion systemVersion, String code) {
+		return conceptRepository.findFirstByCodeSystemVersionAndCode(systemVersion.getIdAndVersion(), code);
 	}
 }
