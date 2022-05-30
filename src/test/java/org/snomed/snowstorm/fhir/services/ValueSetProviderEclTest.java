@@ -122,7 +122,7 @@ class ValueSetProviderEclTest extends AbstractFHIRTest {
 		url = "http://localhost:" + port + "/fhir/ValueSet/$expand?url=http://snomed.info/sct/1234?fhir_vs=refset";
 		v = getValueSet(url);
 		//2 x Language Refsets + OWLAxiom Refset + ModuleDependencyRefset created during versioning.
-		assertEquals(4, v.getExpansion().getTotal(), "Four reference sets in the latest release branch.");
+		assertEquals(3, v.getExpansion().getTotal(), "Four reference sets in the latest release branch.");
 		
 		// ?fhir_vs=isa/<root concept> -> all concepts under root plus self
 		url = "http://localhost:" + port + "/fhir/ValueSet/$expand?url=http://snomed.info/sct/1234?fhir_vs=isa/" + Concepts.SNOMEDCT_ROOT;
