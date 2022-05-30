@@ -61,6 +61,10 @@ public class CodeSystemService {
 	public static final String MAIN = "MAIN";
 	private static final Pattern VERSION_BRANCH_NAME_PATTERN = Pattern.compile("[0-9]{4}-[0-9]{2}-[0-9]{2}");
 
+
+	@Value("${code-systems.version.visible.after.published.date}")
+	private Set<String> codeSystemsWithVersionVisibleAfterPublishedDate;
+
 	@Autowired
 	private CodeSystemRepository repository;
 
@@ -487,7 +491,7 @@ public class CodeSystemService {
 		}
 		int todaysEffectiveTime = DateUtil.getTodaysEffectiveTime();
 		return content.stream()
-				.filter(version -> includeFutureVersions || version.getEffectiveDate() < todaysEffectiveTime)
+				.filter(version -> includeFutureVersions || codeSystemsWithVersionVisibleAfterPublishedDate.contains(shortName) ? version.getEffectiveDate() < todaysEffectiveTime : version.getEffectiveDate() <= todaysEffectiveTime)
 				.filter(version -> includeInternalReleases || !version.isInternalRelease())
 				.collect(Collectors.toList());
 	}
