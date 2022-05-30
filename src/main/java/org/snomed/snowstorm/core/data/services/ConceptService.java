@@ -829,7 +829,7 @@ public class ConceptService extends ComponentService {
 				.ecl(ecl)
 				.module(Long.parseLong(getDefaultModuleId(sourceBranch)))
 				.activeFilter(true)
-				.isReleased(true)
+				.isNullEffectiveTime(false)
 				.resultLanguageDialects(languageDialects);
 
 		List<ConceptMini> conceptsFound = queryService.search(queryBuilder, sourceBranchPath, LARGE_PAGE).getContent();
@@ -885,6 +885,9 @@ public class ConceptService extends ComponentService {
 						}
 						if (includeDependencies && targetConcept.getModuleId().equals(sourceModuleId)) {
 							logger.info("Dependant concept {} found on {}", targetConceptId, sourceBranchPath);
+							if (!targetConcept.isActive() || targetConcept.getEffectiveTime() == null) {
+								throw new ServiceException("Axiom " + axiomMember.getId() + ": target concept " + targetConceptId + " is inactive or modified on path " + sourceBranchPath);
+							}
 							concepts.addAll(donateConcept(new ConceptMini(targetConcept, languageDialects), sourceBranchPath, destinationBranchPath, languageDialects, true));
 						} else if (!exists(targetConceptId, destinationBranchPath)) {
 							throw new ServiceException("Axiom " + axiomMember.getId() + ": target concept " + targetConceptId + " does not exist on path " + destinationBranchPath);
@@ -903,7 +906,7 @@ public class ConceptService extends ComponentService {
 		// Add descriptions
 		concept.getActiveDescriptions().stream()
 				.filter(description ->
-						description.isReleased() &&
+						description.getEffectiveTime() != null &&
 								description.getAcceptabilityMap().containsKey(Concepts.US_EN_LANG_REFSET) &&
 								description.getAcceptabilityMap().get(Concepts.US_EN_LANG_REFSET).equals(Concepts.PREFERRED_CONSTANT))
 				.forEach(description -> {
@@ -922,7 +925,7 @@ public class ConceptService extends ComponentService {
 					referenceSetMembers.addAll(description.getLangRefsetMembers().stream()
 							.filter(langRefsetMember ->
 									langRefsetMember.isActive() &&
-											langRefsetMember.isReleased() &&
+											langRefsetMember.getEffectiveTime() != null &&
 											langRefsetMember.getRefsetId().equals(Concepts.US_EN_LANG_REFSET))
 							.collect(Collectors.toList()));
 				});

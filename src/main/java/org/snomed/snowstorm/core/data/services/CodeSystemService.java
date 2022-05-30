@@ -478,6 +478,18 @@ public class CodeSystemService {
 		return null;
 	}
 
+	public CodeSystemVersion findVersion(String branchPath) {
+		String codeSystemPath = PathUtil.getParentPath(branchPath);
+		if (codeSystemPath == null) {
+			return null;
+		}
+		Optional<CodeSystem> codeSystem = findByBranchPath(codeSystemPath);
+		if (codeSystem.isEmpty()) {
+			return null;
+		}
+		return findVersion(codeSystem.get().getShortName(), branchPath.substring(codeSystemPath.length() + 1));
+	}
+
 	public List<CodeSystemVersion> findAllVersions(String shortName, boolean includeFutureVersions, boolean includeInternalReleases) {
 		return findAllVersions(shortName, true, includeFutureVersions, includeInternalReleases);
 	}

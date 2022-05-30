@@ -1106,7 +1106,7 @@ class ConceptControllerTest extends AbstractTest {
 	}
 
 	@Test
-	void testDonateConcepts() throws ServiceException {
+	void testDonateConcepts_SourceBranchNotAVersionBranch() throws ServiceException {
 		String sourceBranch = "MAIN/SNOMEDCT-BE";
 		String destinationBranch = "MAIN/A1";
 
@@ -1125,6 +1125,30 @@ class ConceptControllerTest extends AbstractTest {
 		String ecl = "100001 | Milk (food) |";
 
 		ResponseEntity<String> responseEntity = donateConcepts(ecl, sourceBranch, destinationBranch, false);
+		assertFalse(responseEntity.getStatusCode().equals(HttpStatus.OK));
+		assertTrue(responseEntity.getBody().contains("Source branch must be a version branch."));
+	}
+
+	@Test
+	void testDonateConcepts() throws ServiceException {
+		String sourceBranch = "MAIN/SNOMEDCT-BE";
+		String destinationBranch = "MAIN/A1";
+
+		// Create extension code system SNOMEDCT-BE
+		CodeSystem extension = createSourceCodeSystem("SNOMEDCT-BE", sourceBranch);
+
+		// Create a concept to copy on MAIN/SNOMEDCT-BE
+		givenConceptExists("100001", sourceBranch, false, false);
+
+		// Version extension
+		codeSystemService.createVersion(extension, 20220228, "February 2022");
+
+		// Create a task under MAIN
+		branchService.create(destinationBranch);
+
+		String ecl = "100001 | Milk (food) |";
+
+		ResponseEntity<String> responseEntity = donateConcepts(ecl, codeSystemService.findVersion("SNOMEDCT-BE", 20220228).getBranchPath(), destinationBranch, false);
 		assertTrue(responseEntity.getStatusCode().equals(HttpStatus.OK));
 
 		Concept concept = conceptService.find("100001", destinationBranch);
@@ -1163,7 +1187,7 @@ class ConceptControllerTest extends AbstractTest {
 
 		String ecl = "100001 | Milk (food) |";
 
-		ResponseEntity<String> responseEntity = donateConcepts(ecl, sourceBranch, destinationBranch, true);
+		ResponseEntity<String> responseEntity = donateConcepts(ecl, codeSystemService.findVersion("SNOMEDCT-BE", 20220228).getBranchPath(), destinationBranch, true);
 		assertTrue(responseEntity.getStatusCode().equals(HttpStatus.OK));
 
 		// Concept defined in ECL
@@ -1220,7 +1244,7 @@ class ConceptControllerTest extends AbstractTest {
 
 		String ecl = "100001 | Milk (food) |";
 
-		ResponseEntity<String> responseEntity = donateConcepts(ecl, sourceBranch, destinationBranch, false);
+		ResponseEntity<String> responseEntity = donateConcepts(ecl, codeSystemService.findVersion("SNOMEDCT-BE", 20220228).getBranchPath(), destinationBranch, false);
 		assertTrue(responseEntity.getStatusCode().equals(HttpStatus.OK));
 
 		Concept concept = conceptService.find("100001", destinationBranch);

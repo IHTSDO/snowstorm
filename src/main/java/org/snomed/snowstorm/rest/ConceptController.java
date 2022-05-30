@@ -90,6 +90,9 @@ public class ConceptController {
 	@Autowired
 	private ReferenceSetMemberService referenceSetMemberService;
 
+	@Autowired
+	private CodeSystemService codeSystemService;
+
 	@Value("${snowstorm.rest-api.allowUnlimitedConceptPagination:false}")
 	private boolean allowUnlimitedConceptPagination;
 
@@ -594,6 +597,9 @@ public class ConceptController {
 			@ApiParam(value = "Include dependant components. Defaults to false.")
 			@RequestParam(required = false, defaultValue = "false") boolean includeDependencies) throws ServiceException {
 		String sourceBranchPath = BranchPathUriUtil.decodePath(sourceBranch);
+		if (codeSystemService.findVersion(sourceBranchPath) == null) {
+			throw new ServiceException("Source branch must be a version branch.");
+		}
 		String destinationBranchPath = BranchPathUriUtil.decodePath(branch);
 		return conceptService.donateConcepts(ecl, sourceBranchPath, destinationBranchPath, includeDependencies);
 	}
