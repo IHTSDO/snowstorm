@@ -124,7 +124,6 @@ public abstract class AbstractTest {
 
 	@JmsListener(destination = "${jms.queue.prefix}.traceability")
 	void messageConsumer(Activity activity) {
-		System.out.println("Got activity " + activity.getBranchPath());
 		traceabilityActivitiesLogged.push(activity);
 	}
 

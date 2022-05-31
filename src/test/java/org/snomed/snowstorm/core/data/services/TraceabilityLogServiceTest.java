@@ -248,6 +248,61 @@ class TraceabilityLogServiceTest extends AbstractTest {
 		assertEquals("MAIN", activity.getSourceBranch());
 	}
 
+
+	@Test
+	void rebaseWithChangesFromParent() throws InterruptedException, ServiceException {
+		// Create a concept on MAIN
+		Concept concept = conceptService.create(new Concept().addFSN("New concept").addRelationship(ISA, Concepts.CLINICAL_FINDING), MAIN);
+
+		// Versioning
+		CodeSystem codeSystem = codeSystemService.createCodeSystem(new CodeSystem("SNOMEDCT", MAIN));
+		codeSystemService.createVersion(codeSystem, 20220131, "");
+		clearActivities();
+
+		// Make inactivation on A and B for the same relationship
+		branchService.create("MAIN/A");
+		branchService.create("MAIN/B");
+		concept = conceptService.find(concept.getId(), "MAIN/A");
+		Relationship relationship = concept.getRelationships().iterator().next();
+		relationship.setActive(false);
+		conceptService.update(concept, "MAIN/A");
+		conceptService.update(concept, "MAIN/B");
+
+		// Promote A to MAIN and version
+		branchMergeService.mergeBranchSync("MAIN/A", "MAIN", Collections.emptyList());
+		codeSystemService.createVersion(codeSystem, 20220331, "");
+		concept = conceptService.find(concept.getId(), "MAIN");
+		relationship = concept.getRelationship(relationship.getRelationshipId());
+		clearActivities();
+
+		// Before rebase on B
+		concept = conceptService.find(concept.getId(), "MAIN/B");
+		relationship = concept.getRelationship(relationship.getRelationshipId());
+		String internalIdOnB = relationship.getInternalId();
+
+		// Rebase B with MAIN
+		branchMergeService.mergeBranchSync("MAIN", "MAIN/B", Collections.emptyList());
+
+		// Relationship should have effective time after rebase
+		concept = conceptService.find(concept.getId(), "MAIN/B");
+		relationship = concept.getRelationship(relationship.getRelationshipId());
+		assertNotNull(relationship.getEffectiveTimeI());
+
+		Activity activity = getTraceabilityActivity();
+		assertEquals(REBASE, activity.getActivityType());
+		assertNotNull(activity.getChanges());
+		assertFalse(activity.getChanges().isEmpty());
+		Activity.ConceptActivity conceptActivity = activity.getChanges().iterator().next();
+		assertEquals(concept.getId(), conceptActivity.getConceptId());
+		conceptActivity.getComponentChanges().forEach(System.out::println);
+		assertEquals(1, conceptActivity.getComponentChanges().size());
+		Activity.ComponentChange componentChange = conceptActivity.getComponentChanges().iterator().next();
+		assertEquals(Activity.ComponentType.RELATIONSHIP, componentChange.getComponentType());
+		assertEquals(relationship.getId(), componentChange.getComponentId());
+		assertEquals(Activity.ChangeType.INACTIVATE, componentChange.getChangeType());
+		assertFalse(componentChange.isEffectiveTimeNull());
+	}
+
 	@Test
 	void promoteRebase() throws ServiceException, InterruptedException {
 		branchService.create("MAIN/A");
@@ -310,7 +365,12 @@ class TraceabilityLogServiceTest extends AbstractTest {
 		assertEquals("MAIN/B", rebaseActivity.getBranchPath());
 		assertEquals("MAIN", rebaseActivity.getSourceBranch());
 		final Collection<Activity.ConceptActivity> changes = rebaseActivity.getChanges();
-		assertEquals(0, changes.size());
+		assertEquals(1, changes.size());
+		Activity.ConceptActivity conceptActivity = changes.iterator().next();
+		Activity.ComponentChange componentChange = conceptActivity.getComponentChanges().iterator().next();
+		assertEquals(Activity.ComponentType.DESCRIPTION, componentChange.getComponentType());
+		assertEquals(description.getId(), componentChange.getComponentId());
+		assertEquals(Activity.ChangeType.UPDATE, componentChange.getChangeType());
 	}
 
 	@Test
@@ -443,7 +503,7 @@ class TraceabilityLogServiceTest extends AbstractTest {
 	}
 
 	@Test
-	void testRebaseVersionedRelationshipWithChangesUpdatedByOtherProject() throws Exception {
+	void testRebaseWithChangesUpdatedByOtherProject() throws Exception {
 		// Create a concept with relationships and version in MAIN
 		conceptService.create(new Concept(ISA).setDefinitionStatusId(PRIMITIVE).addFSN("Is a (attribute)"), "MAIN");
 		final String disease = "10000001";
@@ -463,9 +523,9 @@ class TraceabilityLogServiceTest extends AbstractTest {
 		assertTrue(relationship.isReleased());
 		assertEquals("20220131", relationship.getEffectiveTime());
 
-		final String relationshipId = concept.getRelationships().iterator().next().getRelationshipId();
+		final String relationshipId = relationship.getRelationshipId();
 
-		// Create project A and inactivate the relationship created
+		// Create project A and inactivate the relationship created above
 		Branch projectA = branchService.create("MAIN/A");
 		concept = conceptService.find(conceptId, projectA.getPath());
 		assertEquals("20220131", concept.getEffectiveTime());
@@ -486,6 +546,7 @@ class TraceabilityLogServiceTest extends AbstractTest {
 		concept = conceptService.find(conceptId, projectB.getPath());
 		concept.getRelationship(relationshipId).setActive(false);
 		conceptService.update(concept, projectB.getPath());
+
 		// Promote project B to MAIN
 		branchMergeService.mergeBranchSync(projectB.getPath(), "MAIN", Collections.singleton(conceptService.find(conceptId, projectB.getPath())));
 
@@ -493,6 +554,7 @@ class TraceabilityLogServiceTest extends AbstractTest {
 		// Inferred relationship changes don't trigger merge review see details in mergeBranchSync() method
 		// The version on project A is ended and the version from MAIN is chosen by default
 		branchMergeService.mergeBranchSync("MAIN", projectA.getPath(), Collections.emptyList());
+
 		// Check the effectiveTimeNull is set to true in saved relationship after rebase
 		concept = conceptService.find(conceptId, projectA.getPath());
 		assertEquals("20220131", concept.getEffectiveTime());
@@ -502,7 +564,15 @@ class TraceabilityLogServiceTest extends AbstractTest {
 		assertEquals(REBASE, rebaseActivity.getActivityType());
 		assertEquals("MAIN/A", rebaseActivity.getBranchPath());
 		assertEquals("MAIN", rebaseActivity.getSourceBranch());
-		assertTrue(rebaseActivity.getChanges().isEmpty());
+		assertFalse(rebaseActivity.getChanges().isEmpty());
+		final Collection<Activity.ConceptActivity> changes = rebaseActivity.getChanges();
+		assertFalse(changes.isEmpty());
+		Activity.ConceptActivity conceptActivity = changes.iterator().next();
+		assertEquals(conceptId, conceptActivity.getConceptId());
+		Activity.ComponentChange componentChange = conceptActivity.getComponentChanges().iterator().next();
+		assertEquals(relationshipId, componentChange.getComponentId());
+		assertEquals(Activity.ChangeType.INACTIVATE, componentChange.getChangeType());
+		assertTrue(componentChange.isEffectiveTimeNull());
 	}
 
 	private String toString(Set<Activity.ComponentChange> componentChanges) {

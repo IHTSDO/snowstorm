@@ -1,6 +1,8 @@
 package org.snomed.snowstorm.core.data.services.traceability;
 
 import io.kaicode.elasticvc.api.BranchCriteria;
+import io.kaicode.elasticvc.api.PathUtil;
+import io.kaicode.elasticvc.api.VersionControlHelper;
 import io.kaicode.elasticvc.domain.Commit;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.search.sort.SortBuilders;
@@ -14,6 +16,7 @@ import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilde
 import org.springframework.stereotype.Service;
 
 import java.util.*;
+import java.util.stream.Collectors;
 
 import static io.kaicode.elasticvc.api.VersionControlHelper.LARGE_PAGE;
 import static org.elasticsearch.index.query.QueryBuilders.*;
@@ -23,6 +26,9 @@ public class TraceabilityLogServiceHelper {
 
 	@Autowired
 	private ElasticsearchRestTemplate elasticsearchTemplate;
+
+	@Autowired
+	private VersionControlHelper versionControlHelper;
 
 	public <T extends SnomedComponent<T>> Iterable<T> loadChangesAndDeletionsWithinOpenCommitOnly(Class<T> clazz, BranchCriteria changesAndDeletionsWithinOpenCommitCriteria,
 			String branchPath, Commit commit) {
@@ -99,7 +105,33 @@ public class TraceabilityLogServiceHelper {
 
 		// Remove changes replaced to skip traceability logging.
 		components.removeAll(changesReplaced);
+
+		// Add parent version in traceability to override changes made before rebase.
+		List<T> result = getParentVersionOfComponents(clazz, branchPath, changesReplaced);
+		if (!result.isEmpty()) {
+			result.addAll(components);
+			return result;
+		}
 		return components;
 	}
 
+	private <T extends SnomedComponent<T>> List<T> getParentVersionOfComponents(Class<T> clazz, String branchPath, List<T> changesReplaced) {
+		List<T> parentComponents = new ArrayList<>();
+		if (!changesReplaced.isEmpty()) {
+			List<String> componentIdsReplaced = changesReplaced.stream().map(SnomedComponent::getId).collect(Collectors.toList());
+			String idField;
+			try {
+				idField = clazz.getConstructor().newInstance().getIdField();
+			} catch (ReflectiveOperationException e) {
+				throw new RuntimeException(String.format("Failed to resolve id field of snomed component %s.", clazz), e);
+			}
+			BranchCriteria parentBranchCriteria = versionControlHelper.getBranchCriteria(PathUtil.getParentPath(branchPath));
+			NativeSearchQuery query = new NativeSearchQueryBuilder()
+					.withQuery(parentBranchCriteria.getEntityBranchCriteria(clazz).must(termsQuery(idField, componentIdsReplaced)))
+					.withPageable(LARGE_PAGE)
+					.build();
+			elasticsearchTemplate.search(query, clazz).forEach(hit -> parentComponents.add(hit.getContent()));
+		}
+		return parentComponents;
+	}
 }
