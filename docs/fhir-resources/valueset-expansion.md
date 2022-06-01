@@ -95,4 +95,29 @@ curl --request POST 'http://localhost:8080/fhir/ValueSet/$expand' \
     ]
 }'
 ```
+
+#### Expansion with compose which includes one or more other ValueSets
+
+```
+curl --request POST 'http://localhost:8080/fhir/ValueSet/$expand' \
+--header 'Content-Type: application/json' \
+--data-raw '{
+    "resourceType": "Parameters",
+    "parameter": [
+        {
+            "name": "valueSet",
+            "resource": {
+            	"resourceType": "ValueSet",
+                "compose": {
+                    "include": [
+                        {
+                             "valueSet": "http://snomed.info/sct?fhir_vs=ecl/<410607006"
+                        }
+                    ]
+                }
+            }
+        }
+    ]
+}'
+```
 Note that the curl --location flag will cause a POST body to be removed if a 302 redirect is encountered, such as happens when an http call is redirected to https.
