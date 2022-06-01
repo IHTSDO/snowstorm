@@ -261,7 +261,9 @@ public class ReferenceSetMemberService extends ComponentService {
 			final Metadata metadata = branchService.findBranchOrThrow(commit.getBranch().getPath(), true).getMetadata();
 			String defaultModuleId = metadata.getString(Config.DEFAULT_MODULE_ID_KEY);
 			members.forEach(member -> {
-				member.setMemberId(UUID.randomUUID().toString());
+				if (member.getMemberId() == null) {
+					member.setMemberId(UUID.randomUUID().toString());
+				}
 				if (member.getModuleId() == null) {
 					member.setModuleId(defaultModuleId);
 				}
