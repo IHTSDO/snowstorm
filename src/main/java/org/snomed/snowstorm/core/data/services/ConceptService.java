@@ -919,7 +919,8 @@ public class ConceptService extends ComponentService {
 							description.getLanguageCode(),
 							description.getTypeId(),
 							description.getTerm(),
-							description.getCaseSignificanceId()));
+							description.getCaseSignificanceId())
+							.addAcceptability(Concepts.GB_EN_LANG_REFSET, Concepts.PREFERRED_CONSTANT));
 
 					// Collect reference set members
 					referenceSetMembers.addAll(description.getLangRefsetMembers().stream()
