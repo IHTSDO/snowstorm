@@ -7,6 +7,8 @@ import ca.uhn.fhir.rest.param.QuantityParam;
 import ca.uhn.fhir.rest.param.StringParam;
 import ca.uhn.fhir.rest.param.TokenParam;
 import ca.uhn.fhir.rest.server.IResourceProvider;
+
+import org.drools.core.util.StringUtils;
 import org.hl7.fhir.instance.model.api.IBaseResource;
 import org.hl7.fhir.r4.model.*;
 import org.hl7.fhir.r4.model.OperationOutcome.IssueType;
@@ -35,6 +37,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Component;
 import org.springframework.web.bind.annotation.RequestMethod;
 
@@ -460,7 +463,7 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 					branchPath.set(fhirHelper.getBranchPathFromURI(codeSystemVersionUri));
 				}
 			}
-			conceptMiniPage = doImplcitExpansion(cutPoint, url, active, filter, branchPath, designations, pageRequest, branchPathForced);
+			conceptMiniPage = doImplcitExpansion(url, active, filter, branchPath, designations, pageRequest, branchPathForced);
 		}
 		
 		//We will always need the PT, so recover further details
@@ -478,7 +481,7 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 	 * defined at expansion time by use of a URL containing a definition of the content
 	 * @param branchPathForced 
 	 */
-	private Page<ConceptMini> doImplcitExpansion(int cutPoint, String url, Boolean active, String filter,
+	private Page<ConceptMini> doImplcitExpansion(String url, Boolean active, String filter,
 			BranchPath branchPath, List<LanguageDialect> designations, PageRequest pageRequest, boolean branchPathForced) throws FHIROperationException {
 		//Are we looking for all known refsets?  Special case.
 		if (url.endsWith("?fhir_vs=refset")) {
@@ -499,6 +502,7 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 	private Page<ConceptMini> doExplicitExpansion(ValueSet vs, Boolean active, String filter,
 			BranchPath branchPath, List<LanguageDialect> designations, PageRequest pageRequest, boolean branchPathForced) throws FHIROperationException {
 		Page<ConceptMini> conceptMiniPage = new PageImpl<>(new ArrayList<>());
+		List<ConceptMini> conceptMinis = new ArrayList<>();
 		if (vs != null && vs.getCompose() != null && !vs.getCompose().isEmpty()) {
 			if (!branchPathForced) {
 				branchPath.set(obtainConsistentCodeSystemVersionFromCompose(vs.getCompose(), branchPath));
@@ -507,6 +511,7 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 			Set<String> conceptIds = new HashSet<>();
 			StringBuilder filterECL = new StringBuilder();
 			boolean firstItem = true;
+			long vsIncludedCount = 0;
 			for (ConceptSetComponent include : compose.getInclude()) {
 				conceptIds.addAll(
 						include
@@ -515,6 +520,20 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 								.map(ValueSet.ConceptReferenceComponent::getCode)
 								.collect(Collectors.toSet())
 				);
+				//If we have valueset elements defined, then we can recover those as complete VS expansions to add
+				//This causes all sorts of problems for paging.  So really we need to keep a running count of each valueset's total elements
+				//and then work out which page is going to be requested.  Eg if we have 100 elements in 10 pages of 10 for the first ValueSet
+				//and we request page 11, then we're actually asking for page 1 of the 2nd ValueSet!
+				//Lots TODO there.
+				if (include.getValueSet() != null) {
+					for (CanonicalType vsIncluded : include.getValueSet()) {
+						String url = vsIncluded.asStringValue();
+						Page<ConceptMini> vsIncludedPage = doImplcitExpansion(url, active, filter,
+								branchPath, designations, pageRequest, branchPathForced);
+						conceptMinis.addAll(vsIncludedPage.toList());
+						vsIncludedCount += vsIncludedPage.getTotalElements();
+					}
+				}
 				filterECL.append(fhirHelper.convertFilterToECL(include, firstItem));
 				if (firstItem) {
 					firstItem = false;
@@ -536,22 +555,28 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 					firstItem = false;
 				}
 			}
-
 			String branch = branchPath.toString();
-			
+			logger.info("Recovered {} Concepts from branch {} with VS inclusion.", conceptMinis.size(), branch);
 			Collection<ConceptMini> fromService = conceptService.findConceptMinis(branch, conceptIds, designations).getResultsMap().values();
 			logger.info("Recovered {} Concepts from branch {} with Compose.", fromService.size(), branch);
-
-			String ecl = filterECL.toString();
-			Page<ConceptMini> page = fhirHelper.eclSearch(ecl, active, filter, designations, branchPath, pageRequest);
-			Collection<ConceptMini> fromECL = page.getContent();
-			logger.info("Recovered {} Concepts from branch {} with ECL {}.", page.getTotalElements(), branch, filterECL);
-
-			List<ConceptMini> conceptMinis = new ArrayList<>();
 			conceptMinis.addAll(fromService);
-			conceptMinis.addAll(fromECL);
-			long totalCount = fromService.size() + page.getTotalElements(); 
-			conceptMiniPage = new PageImpl<ConceptMini>(conceptMinis, page.getPageable(), totalCount);
+			
+			String ecl = filterECL.toString();
+			long recoveredFromECL = 0;
+			Page<ConceptMini> page;
+			if (!StringUtils.isEmpty(ecl)) {
+				page = fhirHelper.eclSearch(ecl, active, filter, designations, branchPath, pageRequest);
+				Collection<ConceptMini> fromECL = page.getContent();
+				logger.info("Recovered {} Concepts from branch {} with ECL {}.", page.getTotalElements(), branch, filterECL);
+				conceptMinis.addAll(fromECL);
+				recoveredFromECL = page.getTotalElements();
+			} else {
+				logger.debug("No ECL directly recovered from Compose Element");
+			}
+			
+			long totalCount = fromService.size() + recoveredFromECL + vsIncludedCount;
+			Pageable pageable = PageRequest.of(pageRequest.getPageNumber(), pageRequest.getPageSize());
+			conceptMiniPage = new PageImpl<ConceptMini>(conceptMinis, pageable, totalCount);
 			logger.info("Collectively recovered {} Concepts from branch {}.", conceptMiniPage.getTotalElements(), branch);
 		} else {
 			String msg = "Compose element(s) or 'url' parameter is expected to be present for an expansion, containing eg http://snomed.info/sct?fhir_vs=ecl/ or http://snomed.info/sct/45991000052106?fhir_vs=ecl/ ";
@@ -563,11 +588,6 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 			}
 		}
 		return conceptMiniPage;
-	}
-
-	private boolean contains(List<LanguageDialect> languageDialects, String displayLanguage) {
-		return languageDialects.stream()
-		.anyMatch(ld -> ld.getLanguageCode().equals(displayLanguage));
 	}
 
 	private BranchPath obtainConsistentCodeSystemVersionFromCompose(ValueSetComposeComponent compose, BranchPath branchPath) throws FHIROperationException {
@@ -597,11 +617,11 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 			}
 		}
 		
-		StringType codeSystemVersionUri;
+		StringType codeSystemVersionUri = new StringType("http://snomed.info/sct");
 		if (version == null) {
-			if (system == null) {
+			if (system == null && !branchPath.isEmpty()) {
 				return branchPath;
-			} else {
+			} else if (system != null){
 				codeSystemVersionUri = new StringType(system);
 			}
 		} else {
