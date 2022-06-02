@@ -901,7 +901,7 @@ public class ConceptService extends ComponentService {
 		}
 
 		// Create concept
-		Concept conceptVersion = new Concept(concept.getConceptId(), null, concept.getActive(), destinationModuleId, concept.getDefinitionStatus());
+		Concept conceptVersion = new Concept(concept.getConceptId(), null, concept.getActive(), destinationModuleId, Concepts.definitionStatusNames.inverse().get(concept.getDefinitionStatus()));
 
 		// Add descriptions
 		concept.getActiveDescriptions().stream()
