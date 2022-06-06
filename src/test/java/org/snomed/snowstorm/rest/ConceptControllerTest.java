@@ -1156,9 +1156,9 @@ class ConceptControllerTest extends AbstractTest {
 		assertEquals(CORE_MODULE, concept.getModuleId());
 
 		List<Description> descriptions = concept.getActiveDescriptions();
-		assertEquals(2, descriptions.size());
+		assertEquals(3, descriptions.size());
 		descriptions.forEach(description -> {
-			assertDescription(description, destinationBranch, CORE_MODULE, US_EN_LANG_REFSET);
+			assertDescription(description, destinationBranch, CORE_MODULE);
 		});
 
 		List<ReferenceSetMember> axioms = referenceSetMemberService.findMembers(destinationBranch, concept.getConceptId(), ComponentService.LARGE_PAGE).getContent();
@@ -1196,9 +1196,9 @@ class ConceptControllerTest extends AbstractTest {
 		assertEquals(CORE_MODULE, concept.getModuleId());
 
 		List<Description> descriptions = concept.getActiveDescriptions();
-		assertEquals(2, descriptions.size());
+		assertEquals(3, descriptions.size());
 		descriptions.forEach(description -> {
-			assertDescription(description, destinationBranch, CORE_MODULE, US_EN_LANG_REFSET);
+			assertDescription(description, destinationBranch, CORE_MODULE);
 		});
 
 		List<ReferenceSetMember> axioms = referenceSetMemberService.findMembers(destinationBranch, concept.getConceptId(), ComponentService.LARGE_PAGE).getContent();
@@ -1215,7 +1215,7 @@ class ConceptControllerTest extends AbstractTest {
 		descriptions = concept.getActiveDescriptions();
 		assertEquals(1, descriptions.size());
 		descriptions.forEach(description -> {
-			assertDescription(description, destinationBranch, CORE_MODULE, US_EN_LANG_REFSET);
+			assertDescription(description, destinationBranch, CORE_MODULE);
 		});
 
 		axioms = referenceSetMemberService.findMembers(destinationBranch, concept.getConceptId(), ComponentService.LARGE_PAGE).getContent();
@@ -1252,9 +1252,9 @@ class ConceptControllerTest extends AbstractTest {
 		assertEquals(CORE_MODULE, concept.getModuleId());
 
 		List<Description> descriptions = concept.getActiveDescriptions();
-		assertEquals(2, descriptions.size());
+		assertEquals(3, descriptions.size());
 		descriptions.forEach(description -> {
-			assertDescription(description, destinationBranch, CORE_MODULE, US_EN_LANG_REFSET);
+			assertDescription(description, destinationBranch, CORE_MODULE);
 		});
 
 		List<ReferenceSetMember> axioms = referenceSetMemberService.findMembers(destinationBranch, concept.getConceptId(), ComponentService.LARGE_PAGE).getContent();
@@ -1360,6 +1360,9 @@ class ConceptControllerTest extends AbstractTest {
 				.addDescription(new Description("Milk")
 						.setTypeId(Concepts.SYNONYM)
 						.addLanguageRefsetMember(Concepts.US_EN_LANG_REFSET, Concepts.ACCEPTABLE))
+				.addDescription(new Description("Lait")
+						.setTypeId(Concepts.SYNONYM)
+						.addLanguageRefsetMember("21000172104", Concepts.PREFERRED))
 				.addDescription(new Description("Full-fat cow milk, ultra pasteurised, 3.5% fat")
 						.setTypeId(Concepts.TEXT_DEFINITION)
 						.addLanguageRefsetMember(Concepts.US_EN_LANG_REFSET, Concepts.PREFERRED));
@@ -1417,16 +1420,29 @@ class ConceptControllerTest extends AbstractTest {
 		void insert() throws Exception;
 	}
 
-	private void assertDescription(Description description, String branchPath, String expectedModuleId, String expectedRefsetId) {
+	private void assertDescription(Description description, String branchPath, String expectedModuleId) {
 		assertNull(description.getEffectiveTimeI());
 		assertEquals(expectedModuleId, description.getModuleId());
-		assertEquals(PREFERRED_CONSTANT, description.getAcceptabilityMap().get(expectedRefsetId));
+
+		Map<String, String> acceptabilityMap = description.getAcceptabilityMap();
+
+		acceptabilityMap.forEach((referenceSetId, acceptability) -> {
+			assertThat(referenceSetId.equals(US_EN_LANG_REFSET) || referenceSetId.equals(GB_EN_LANG_REFSET));
+			assertThat(acceptability.equals(PREFERRED_CONSTANT) || acceptability.equals(ACCEPTABLE_CONSTANT));
+		});
 
 		List<ReferenceSetMember> langRefsetMembers = referenceSetMemberService.findMembers(branchPath, description.getDescriptionId(), ComponentService.LARGE_PAGE).getContent();
-		assertEquals(1, langRefsetMembers.size());
+		if (acceptabilityMap.get(US_EN_LANG_REFSET).equals(PREFERRED_CONSTANT)) {
+			assertEquals(2, langRefsetMembers.size());
+			assertTrue(acceptabilityMap.containsKey(GB_EN_LANG_REFSET));
+		} else {
+			assertEquals(1, langRefsetMembers.size());
+		}
 
 		langRefsetMembers.forEach(langRefsetMember -> {
-			assertRefsetMember(langRefsetMember, expectedModuleId, expectedRefsetId);
+			String refsetId = langRefsetMember.getRefsetId();
+			assertThat(refsetId.equals(US_EN_LANG_REFSET) || refsetId.equals(GB_EN_LANG_REFSET));
+			assertRefsetMember(langRefsetMember, expectedModuleId, refsetId);
 		});
 	}
 
