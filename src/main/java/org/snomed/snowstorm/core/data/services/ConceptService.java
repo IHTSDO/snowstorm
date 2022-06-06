@@ -907,20 +907,24 @@ public class ConceptService extends ComponentService {
 		concept.getActiveDescriptions().stream()
 				.filter(description ->
 						description.getEffectiveTime() != null &&
-								description.getAcceptabilityMap().containsKey(Concepts.US_EN_LANG_REFSET) &&
-								description.getAcceptabilityMap().get(Concepts.US_EN_LANG_REFSET).equals(Concepts.PREFERRED_CONSTANT))
+						description.getAcceptabilityMap().containsKey(Concepts.US_EN_LANG_REFSET) &&
+						(description.getAcceptabilityMap().get(Concepts.US_EN_LANG_REFSET).equals(Concepts.PREFERRED_CONSTANT) ||
+						description.getAcceptabilityMap().get(Concepts.US_EN_LANG_REFSET).equals(Concepts.ACCEPTABLE_CONSTANT)))
 				.forEach(description -> {
-					conceptVersion.addDescription(new Description(
-							description.getDescriptionId(),
-							null,
-							description.isActive(),
-							destinationModuleId,
-							description.getConceptId(),
-							description.getLanguageCode(),
-							description.getTypeId(),
-							description.getTerm(),
-							description.getCaseSignificanceId())
-							.addAcceptability(Concepts.GB_EN_LANG_REFSET, Concepts.PREFERRED_CONSTANT));
+					Description newDesc = new Description(
+						description.getDescriptionId(),
+						null,
+						description.isActive(),
+						destinationModuleId,
+						description.getConceptId(),
+						description.getLanguageCode(),
+						description.getTypeId(),
+						description.getTerm(),
+						description.getCaseSignificanceId());
+					if (description.getAcceptabilityMap().get(Concepts.US_EN_LANG_REFSET).equals(Concepts.PREFERRED_CONSTANT)) {
+						newDesc.addAcceptability(Concepts.GB_EN_LANG_REFSET, Concepts.PREFERRED_CONSTANT);
+					}
+					conceptVersion.addDescription(newDesc);
 
 					// Collect reference set members
 					referenceSetMembers.addAll(description.getLangRefsetMembers().stream()
