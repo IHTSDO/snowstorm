@@ -1436,7 +1436,7 @@ class ConceptControllerTest extends AbstractTest {
 			assertEquals(2, langRefsetMembers.size());
 			assertTrue(acceptabilityMap.containsKey(GB_EN_LANG_REFSET));
 		} else {
-			assertEquals(1, langRefsetMembers.size());
+			assertEquals(2, langRefsetMembers.size());
 		}
 
 		langRefsetMembers.forEach(langRefsetMember -> {

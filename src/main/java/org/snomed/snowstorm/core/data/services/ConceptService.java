@@ -920,10 +920,8 @@ public class ConceptService extends ComponentService {
 						description.getLanguageCode(),
 						description.getTypeId(),
 						description.getTerm(),
-						description.getCaseSignificanceId());
-					if (description.getAcceptabilityMap().get(Concepts.US_EN_LANG_REFSET).equals(Concepts.PREFERRED_CONSTANT)) {
-						newDesc.addAcceptability(Concepts.GB_EN_LANG_REFSET, Concepts.PREFERRED_CONSTANT);
-					}
+						description.getCaseSignificanceId())
+						.addAcceptability(Concepts.GB_EN_LANG_REFSET, description.getAcceptabilityMap().get(Concepts.US_EN_LANG_REFSET));
 					conceptVersion.addDescription(newDesc);
 
 					// Collect reference set members
