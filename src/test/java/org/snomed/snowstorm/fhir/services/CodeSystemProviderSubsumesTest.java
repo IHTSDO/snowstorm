@@ -6,6 +6,7 @@ import org.snomed.snowstorm.core.data.domain.Concepts;
 import org.snomed.snowstorm.fhir.config.FHIRConstants;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.fail;
 import static org.snomed.snowstorm.fhir.config.FHIRConstants.SNOMED_URI;
 
 class CodeSystemProviderSubsumesTest extends AbstractFHIRTest {
@@ -28,10 +29,13 @@ class CodeSystemProviderSubsumesTest extends AbstractFHIRTest {
 		assertEquals("subsumed-by", result);
 		
 		//Alternative URLs using coding saying the same thing
-		url = "http://localhost:" + port + "/fhir/CodeSystem/$subsumes?version=" + version + "&codingA=" + SNOMED_URI + "|" + Concepts.SNOMEDCT_ROOT +"&codingB=" + SNOMED_URI + "|"  + sampleSCTID;
-		p = getParameters(url);
-		result = toString(getProperty(p, "outcome"));
-		assertEquals("subsumes", result);
+		try {
+			url = "http://localhost:" + port + "/fhir/CodeSystem/$subsumes?version=" + version + "&codingA=" + SNOMED_URI + "|" + Concepts.SNOMEDCT_ROOT + "&codingB=" + SNOMED_URI + "|" + sampleSCTID;
+			getParameters(url);
+			fail("Id or system must be provided for the subsumes operation. A system from coding is not acceptable here.");
+		} catch (FHIROperationException e) {
+			// pass
+		}
 	}
 	
 }

@@ -3,10 +3,12 @@ package org.snomed.snowstorm.fhir.services;
 import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.rest.param.StringParam;
 import ca.uhn.fhir.rest.param.TokenParam;
+import ca.uhn.fhir.rest.server.exceptions.BaseServerResponseException;
 import io.kaicode.elasticvc.api.BranchCriteria;
 import io.kaicode.elasticvc.api.VersionControlHelper;
 import io.kaicode.rest.util.branchpathrewrite.BranchPathUriUtil;
 import org.apache.commons.lang3.StringUtils;
+import org.hl7.fhir.instance.model.api.IBaseOperationOutcome;
 import org.hl7.fhir.r4.model.CodeSystem;
 import org.hl7.fhir.r4.model.*;
 import org.hl7.fhir.r4.model.OperationOutcome.IssueType;
@@ -24,6 +26,7 @@ import org.snomed.snowstorm.core.pojo.LanguageDialect;
 import org.snomed.snowstorm.core.util.SearchAfterPage;
 import org.snomed.snowstorm.fhir.config.FHIRConstants;
 import org.snomed.snowstorm.fhir.domain.BranchPath;
+import org.snomed.snowstorm.fhir.domain.FHIRCodeSystemVersion;
 import org.snomed.snowstorm.fhir.pojo.FHIRCodeSystemVersionParams;
 import org.snomed.snowstorm.rest.ControllerHelper;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -85,7 +88,7 @@ public class FHIRHelper implements FHIRConstants {
 	public static final int MAX_RETURN_COUNT = 10000;
 
 	public static boolean isSnomedUri(String uri) {
-		return uri.startsWith(SNOMED_URI) || uri.startsWith(SNOMED_URI_UNVERSIONED);
+		return uri != null && (uri.startsWith(SNOMED_URI) || uri.startsWith(SNOMED_URI_UNVERSIONED));
 	}
 
 	public static boolean isSnomedSystem(String uri) {
@@ -113,6 +116,22 @@ public class FHIRHelper implements FHIRConstants {
 			case Concepts.TEXT_DEFINITION : return "Text definition";
 		}
 		return null;
+	}
+
+	public static void throwException(String message, IssueType issueType, int theStatusCode) {
+		OperationOutcome outcome = new OperationOutcome();
+		OperationOutcome.OperationOutcomeIssueComponent component = new OperationOutcome.OperationOutcomeIssueComponent();
+		component.setSeverity(OperationOutcome.IssueSeverity.ERROR);
+		component.setCode(issueType);
+		component.setDiagnostics(message);
+		outcome.addIssue(component);
+		throw new SnowstormFHIRServerResponseException(theStatusCode, message, outcome);
+	}
+
+	public static class SnowstormFHIRServerResponseException extends BaseServerResponseException {
+		public SnowstormFHIRServerResponseException(int theStatusCode, String theMessage, IBaseOperationOutcome theBaseOperationOutcome) {
+			super(theStatusCode, theMessage, theBaseOperationOutcome);
+		}
 	}
 
 	String getSnomedEditionModule(StringType versionStr) {
@@ -331,8 +350,14 @@ public class FHIRHelper implements FHIRConstants {
 	}
 
 	public void requireOneOf(String param1Name, Object param1, String param2Name, Object param2) throws FHIROperationException {
+		requireOneOf(param1Name, param1, param2Name, param2, "One of '%s' or '%s' parameters must be supplied.");
+	}
+
+	public void requireOneOf(String param1Name, Object param1, String param2Name, Object param2, String message) throws FHIROperationException {
 		if (param1 == null && param2 == null) {
-			throw new FHIROperationException(IssueType.INVARIANT, format("One of '%s' or '%s' parameters must be supplied.", param1Name, param2Name));
+			throw new FHIROperationException(IssueType.INVARIANT, format(message, param1Name, param2Name));
+		} else {
+			mutuallyExclusive(param1Name, param1, param2Name, param2);
 		}
 	}
 
@@ -361,7 +386,7 @@ public class FHIRHelper implements FHIRConstants {
 			throw new FHIROperationException(IssueType.INVARIANT, format("Parameter '%s' must be supplied", param1Name));
 		}
 	}
-	
+
 	public void notSupported(String paramName, Object obj) throws FHIROperationException {
 		notSupported(paramName, obj, null);
 	}
@@ -370,6 +395,15 @@ public class FHIRHelper implements FHIRConstants {
 		if (obj != null) {
 			throw new FHIROperationException(IssueType.NOTSUPPORTED, format("Input parameter '%s' is not currently supported%s", paramName,
 					(context == null ? "." : format(" in the context of a %s.", context))));
+		}
+	}
+
+	public void notSupportedSubsumesAcrossCodeSystemVersions(FHIRCodeSystemVersion codeSystemVersion, Coding coding) throws FHIROperationException {
+		if (coding != null) {
+			if ((coding.getSystem() != null && !coding.getSystem().equals(codeSystemVersion.getUrl())) ||
+					(coding.getVersion() != null && coding.getVersion().equals(codeSystemVersion.getVersion()))) {
+				throw new FHIROperationException(IssueType.NOTSUPPORTED, "This server does not support subsumes with different code systems in system and coding parameters.");
+			}
 		}
 	}
 
@@ -404,11 +438,8 @@ public class FHIRHelper implements FHIRConstants {
 		} else if (coding != null) {
 			codeSystemUrl = coding.getSystem();
 		}
-		if (codeSystemUrl == null) {
+		if (codeSystemUrl == null && systemId == null) {
 			throw new FHIROperationException(IssueType.CONFLICT, "Code system not defined in any parameter.");
-		} else if (isSnomedUri(codeSystemUrl) && !isSnomedSystem(codeSystemUrl)) {
-			throw new FHIROperationException(IssueType.CONFLICT, "When using SNOMED CT the system must be '" + SNOMED_URI + "'. " +
-					"Use the version parameter to specify the edition, and optionally the version, following the SNOMED CT URI Specification.");
 		}
 
 		String version = null;
@@ -477,7 +508,7 @@ public class FHIRHelper implements FHIRConstants {
 				.resultLanguageDialects(languageDialects)
 				.activeFilter(active);
 		String branchPathStr = BranchPathUriUtil.decodePath(branchPath);
-		
+
 		//Are we going to exceed the elasticsearch limits for pageSize/offset?
 		if (pageRequest.getPageNumber() * pageRequest.getPageSize() >= MAX_RETURN_COUNT) {
 			return scrollForward(queryBuilder, branchPathStr, pageRequest, languageDialects);
@@ -558,7 +589,7 @@ public class FHIRHelper implements FHIRConstants {
 		}
 		return false;
 	}
-	
+
 	public boolean hasIdentifier(CodeSystem cs, StringParam identifier) {
 		if (cs.getIdentifier() != null && !cs.getIdentifier().isEmpty()) {
 			for (Identifier i : cs.getIdentifier()) {
@@ -569,7 +600,7 @@ public class FHIRHelper implements FHIRConstants {
 		}
 		return false;
 	}
-	
+
 	public boolean objectMatches(Object obj, StringParam searchTerm) {
 		if (searchTerm == null) {
 			return true;

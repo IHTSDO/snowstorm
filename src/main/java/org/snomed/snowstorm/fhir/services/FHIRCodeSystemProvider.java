@@ -17,21 +17,16 @@ import org.hl7.fhir.instance.model.api.IPrimitiveType;
 import org.hl7.fhir.r4.model.*;
 import org.hl7.fhir.r4.model.OperationOutcome.IssueType;
 import org.snomed.snowstorm.core.data.domain.Concept;
-import org.snomed.snowstorm.core.data.domain.ConceptMini;
-import org.snomed.snowstorm.core.data.services.ConceptService;
 import org.snomed.snowstorm.core.data.services.MultiSearchService;
 import org.snomed.snowstorm.core.data.services.NotFoundException;
-import org.snomed.snowstorm.core.data.services.QueryService;
 import org.snomed.snowstorm.core.pojo.LanguageDialect;
 import org.snomed.snowstorm.fhir.config.FHIRConstants;
-import org.snomed.snowstorm.fhir.domain.BranchPath;
 import org.snomed.snowstorm.fhir.domain.FHIRCodeSystemVersion;
 import org.snomed.snowstorm.fhir.domain.FHIRConcept;
 import org.snomed.snowstorm.fhir.domain.SearchFilter;
 import org.snomed.snowstorm.fhir.pojo.ConceptAndSystemResult;
 import org.snomed.snowstorm.fhir.pojo.FHIRCodeSystemVersionParams;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.domain.Page;
 import org.springframework.stereotype.Component;
 
 import javax.servlet.http.HttpServletRequest;
@@ -52,13 +47,10 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants 
 	private static final String PARAM_FILE = "file";
 
 	@Autowired
-	private ConceptService conceptService;
-
-	@Autowired
 	private MultiSearchService snomedMultiSearchService;
 
 	@Autowired
-	private QueryService queryService;
+	private FHIRGraphService graphService;
 
 	@Autowired
 	private HapiParametersMapper pMapper;
@@ -251,9 +243,9 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants 
 				throw new FHIROperationException(IssueType.NOTFOUND, format("Code '%s' not found.", code));// TODO: Return system
 			}
 
-			Page<Long> childIds = queryService.searchForIds(queryService.createQueryBuilder(false).ecl("<!" + code), codeSystemVersion.getSnomedBranch(), LARGE_PAGE);
+			List<String> childIds = graphService.findChildren(code, codeSystemVersion, LARGE_PAGE);
 			Set<FhirSctProperty> properties = FhirSctProperty.parse(propertiesType);
-			return pMapper.mapToFHIR(codeSystemVersion, concept, childIds.getContent(), properties, designations);
+			return pMapper.mapToFHIR(codeSystemVersion, concept, childIds, properties, designations);
 		} else {
 			FHIRCodeSystemVersion fhirCodeSystemVersion = fhirCodeSystemService.findCodeSystemVersionOrThrow(codeSystemParams);
 			FHIRConcept concept = fhirConceptService.findConcept(fhirCodeSystemVersion, code);
@@ -354,11 +346,8 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants 
 			@OperationParam(name="codingA") Coding codingA,
 			@OperationParam(name="codingB") Coding codingB)
 			throws FHIROperationException {
-		fhirHelper.notSupported("system", system, "CodeSystem where instance id is already specified in URL");
-		fhirHelper.notSupported("version", version, "CodeSystem where instance id is already specified in URL");
-			doSubsumptionParameterValidation(codeA, codeB, system, version, codingA, codingB);
-		StringType systemURI = new StringType(getCodeSystem(id).getUrl());
-		return subsumes(request, response, codeA, codeB, systemURI, version, codingA, codingB);
+
+		return subsumes(id, system, version, codeA, codeB, codingA, codingB);
 	}
 
 	@Operation(name="$subsumes", idempotent=true)
@@ -372,10 +361,8 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants 
 			@OperationParam(name="codingA") Coding codingA,
 			@OperationParam(name="codingB") Coding codingB)
 			throws FHIROperationException {
-		doSubsumptionParameterValidation(codeA, codeB, system, version, codingA, codingB);
-		Coding commonCoding = validateCodings(codingA, codingB);
-		FHIRCodeSystemVersionParams codeSystemVersion = fhirHelper.getCodeSystemVersionParams(system, version, commonCoding);
-		return subsumes(request, response, codeA, codeB, system, version, codingA, codingB);
+
+		return subsumes(null, system, version, codeA, codeB, codingA, codingB);
 	}
 
 	@Operation(name="$upload-external-code-system")
@@ -399,73 +386,36 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants 
 		return uploaderProvider.uploadSnapshot(theServletRequest, theCodeSystemUrl, theFiles, theRequestDetails);
 	}
 
-	private Parameters subsumes(
-			HttpServletRequest request,
-			HttpServletResponse response,
-			CodeType codeA,
-			CodeType codeB,
-			StringType system,
-			StringType version,
-			Coding codingA,
-			Coding codingB)
-			throws FHIROperationException {
-		String conceptAId = fhirHelper.recoverCode(codeA, codingA);
-		String conceptBId = fhirHelper.recoverCode(codeB, codingB);
-		if (conceptAId.equals(conceptBId)) {
-			return pMapper.singleOutValue("outcome", "equivalent");
-		}
-		//Test for A subsumes B, then B subsumes A
-		String eclAsubsumesB = conceptAId + " AND > " + conceptBId;
-		String eclBsubsumesA = conceptBId + " AND > " + conceptAId;
-		BranchPath branchPath = fhirHelper.getBranchPathFromURI(system);
-		if (matchesConcept(eclAsubsumesB, branchPath)) {
-			return pMapper.singleOutValue("outcome", "subsumes");
-		} else if (matchesConcept(eclBsubsumesA, branchPath)) {
-			return pMapper.singleOutValue("outcome", "subsumed-by");
-		}
-		//TODO First check for the concept in all known codesystemversions
-		//Secondly, should we return an Outcome object if the concept is not found?
-		ensureConceptExists(conceptAId, branchPath);
-		ensureConceptExists(conceptBId, branchPath);
-		return pMapper.singleOutValue("outcome", "not-subsumed");
-	}
-	
-	private void ensureConceptExists(String sctId, BranchPath branchPath) {
-		if (!matchesConcept(sctId, branchPath)) {
-			throw new NotFoundException(sctId + " not found in " + branchPath); 
-		}
-	}
+	private Parameters subsumes(IdType id, StringType system, StringType version, CodeType codeAParam, CodeType codeBParam, Coding codingA, Coding codingB) throws FHIROperationException {
+		// "The system parameter is required unless the operation is invoked on an instance of a code system resource." (https://www.hl7.org/fhir/codesystem-operation-subsumes.html)
+		fhirHelper.requireOneOf("id", id, "system", system, "One of '%s' or '%s' parameters must be supplied for the $subsumes operation.");
 
-	private void doSubsumptionParameterValidation(CodeType codeA, CodeType codeB, StringType system, StringType version,
-			Coding codingA, Coding codingB) throws FHIROperationException {
-		fhirHelper.mutuallyExclusive("codeA", codeA, "codingA", codingA);
-		fhirHelper.mutuallyExclusive("codeB", codeB, "codingB", codingB);
-		fhirHelper.mutuallyExclusive("codingA", codingA, "system", system);
-		fhirHelper.mutuallyRequired("codeA", codeA, "codeB", codeB);
-		fhirHelper.mutuallyRequired("codingA", codingA, "codingB", codingB);
-		fhirHelper.mutuallyRequired("system", system, "codeA", codeA);
-	}
+		FHIRCodeSystemVersionParams codeSystemParams = fhirHelper.getCodeSystemVersionParams(id, system, version, null);
+		// Pick a code system version. A specific version of SNOMED is selected. If a version is given in the version or coding params that will be used.
+		FHIRCodeSystemVersion codeSystemVersion = fhirCodeSystemService.findCodeSystemVersionOrThrow(codeSystemParams);// Performs any id / system-version crosscheck
 
-	private Coding validateCodings(Coding codingA, Coding codingB) throws FHIROperationException {
-		//Return whatever coding has a system, but if they both have one, ensure it's the same
-		if (codingA == null && codingB == null ) {
-			return null;
-		} else if (codingA != null && codingB != null && codingB.getSystem() == null) {
-			return codingA;
-		} else if (codingB != null && codingA != null && codingA.getSystem() == null) {
-			return codingB;
-		} else if (codingA != null && codingB != null && !codingA.getSystem().equals(codingB.getSystem())) {
-			throw new FHIROperationException(IssueType.CONFLICT, "CodeSystem defined in codingA must match that in codingB");
+		fhirHelper.requireOneOf("codeA", codeAParam, "codingA", codingA);
+		fhirHelper.requireOneOf("codeB", codeBParam, "codingB", codingB);
+
+		// Validate that codings are null or match given system
+		fhirHelper.notSupportedSubsumesAcrossCodeSystemVersions(codeSystemVersion, codingA);
+		fhirHelper.notSupportedSubsumesAcrossCodeSystemVersions(codeSystemVersion, codingB);
+
+		String codeA = fhirHelper.recoverCode(codeAParam, codingA);
+		String codeB = fhirHelper.recoverCode(codeBParam, codingB);
+		if (codeA.equals(codeB) && fhirCodeSystemService.conceptExistsOrThrow(codeA, codeSystemVersion)) {
+			return pMapper.singleOutValue("outcome", "equivalent", codeSystemVersion);
 		}
-		//Here both are present and they're the same system, so return either
-		return codingA;
-	}
 
-	private boolean matchesConcept(String ecl, BranchPath branchPath) {
-		//We don't care about language, use defaults
-		Page<ConceptMini> result = fhirHelper.eclSearch(ecl, (Boolean)null, 
-				(String)null, defaultLanguages, branchPath.toString(), FHIRHelper.SINGLE_ITEM_PAGE);
-		return (result != null && result.hasContent() && result.getContent().size() == 1);
+		// Test for A subsumes B, then B subsumes A
+		if (graphService.subsumes(codeA, codeB, codeSystemVersion)) {
+			return pMapper.singleOutValue("outcome", "subsumes", codeSystemVersion);
+		} else if (graphService.subsumes(codeB, codeA, codeSystemVersion)) {
+			return pMapper.singleOutValue("outcome", "subsumed-by", codeSystemVersion);
+		}
+		fhirCodeSystemService.conceptExistsOrThrow(codeA, codeSystemVersion);
+		fhirCodeSystemService.conceptExistsOrThrow(codeB, codeSystemVersion);
+		return pMapper.singleOutValue("outcome", "not-subsumed", codeSystemVersion);
 	}
 
 	@Override
