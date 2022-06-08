@@ -12,7 +12,7 @@ import org.springframework.data.elasticsearch.annotations.FieldType;
 import java.util.*;
 
 @Document(indexName = "fhir-concept")
-public class FHIRConcept {
+public class FHIRConcept implements FHIRGraphNode {
 
 	@Id
 	// Internal ID
@@ -29,6 +29,9 @@ public class FHIRConcept {
 	@Field(type = FieldType.Keyword)
 	private Set<String> parents;
 
+	@Field(type = FieldType.Keyword)
+	private Set<String> ancestors;
+
 	private List<FHIRDesignation> designations;
 
 	private Map<String, List<FHIRProperty>> properties;
@@ -36,7 +39,7 @@ public class FHIRConcept {
 	public FHIRConcept() {
 	}
 
-	public FHIRConcept(TermConcept termConcept, FHIRCodeSystemVersion codeSystemVersion) {
+	public FHIRConcept(TermConcept termConcept, FHIRCodeSystemVersion codeSystemVersion, Set<String> transitiveClosure) {
 		this.codeSystemVersion = codeSystemVersion.getIdAndVersion();
 
 		code = termConcept.getCode();
@@ -57,6 +60,13 @@ public class FHIRConcept {
 		for (TermConceptParentChildLink parent : termConcept.getParents()) {
 			parents.add(parent.getParent().getCode());
 		}
+
+		this.ancestors = transitiveClosure;
+	}
+
+	@Override
+	public String getCodeField() {
+		return "code";
 	}
 
 	public String getId() {
@@ -97,6 +107,14 @@ public class FHIRConcept {
 
 	public void setParents(Set<String> parents) {
 		this.parents = parents;
+	}
+
+	public Set<String> getAncestors() {
+		return ancestors;
+	}
+
+	public void setAncestors(Set<String> ancestors) {
+		this.ancestors = ancestors;
 	}
 
 	public List<FHIRDesignation> getDesignations() {
