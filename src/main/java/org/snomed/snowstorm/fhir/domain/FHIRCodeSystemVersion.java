@@ -157,6 +157,10 @@ public class FHIRCodeSystemVersion {
 		return id + ((version == null || version.isEmpty()) ? "" : "_" + version);
 	}
 
+	public boolean isSnomed() {
+		return snomedBranch != null;
+	}
+
 	public String getId() {
 		return id;
 	}
@@ -252,5 +256,10 @@ public class FHIRCodeSystemVersion {
 
 	public void setSnomedBranch(String snomedBranch) {
 		this.snomedBranch = snomedBranch;
+	}
+
+	@Override
+	public String toString() {
+		return getId();
 	}
 }

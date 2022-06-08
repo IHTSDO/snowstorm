@@ -6,14 +6,14 @@ public class FHIROperationException extends Exception {
 
 	private static final long serialVersionUID = 1L;
 	
-	IssueType issueType;
+	private final IssueType issueType;
 	
-	public FHIROperationException (IssueType issueType, String message) {
+	public FHIROperationException(IssueType issueType, String message) {
 		super(message);
 		this.issueType = issueType;
 	}
 	
-	public FHIROperationException (IssueType issueType, String message, Exception e) {
+	public FHIROperationException(IssueType issueType, String message, Exception e) {
 		super(message, e);
 		this.issueType = issueType;
 	}
