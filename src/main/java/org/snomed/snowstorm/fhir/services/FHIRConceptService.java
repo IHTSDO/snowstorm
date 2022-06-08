@@ -12,7 +12,10 @@ import org.snomed.snowstorm.fhir.repositories.FHIRConceptRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 
 @Service
 public class FHIRConceptService {
@@ -28,13 +31,25 @@ public class FHIRConceptService {
 		if (termCodeSystemVersion.getConcepts().isEmpty()) {
 			return;
 		}
-		List<TermConcept> allConcepts = new ArrayList<>(termCodeSystemVersion.getConcepts());
+		Set<TermConcept> allConcepts = new HashSet<>(termCodeSystemVersion.getConcepts());
 
-		List<TermConcept> gatheredChildren = new ArrayList<>();
+		// Some code systems only return the top level concepts with getConcepts()
+		// Need to traverse down to gather ancestors for a full list of concepts to save.
+		Set<TermConcept> gatheredChildren = new HashSet<>();
 		for (TermConcept concept : allConcepts) {
 			gatherChildCodes(concept, gatheredChildren);
 		}
 		allConcepts.addAll(gatheredChildren);
+
+		FHIRGraphBuilder graphBuilder = new FHIRGraphBuilder();
+		if ("is-a".equals(codeSystemVersion.getHierarchyMeaning())) {
+			// Record transitive closure of concepts for subsumption testing
+			for (TermConcept concept : allConcepts) {
+				for (TermConcept childCode : concept.getChildCodes()) {
+					graphBuilder.addParent(childCode.getCode(), concept.getCode());
+				}
+			}
+		}
 
 		Set<String> props = new HashSet<>();
 		logger.info("Saving {} '{}' fhir concepts.", allConcepts.size(), codeSystemVersion.getIdAndVersion());
@@ -46,16 +61,13 @@ public class FHIRConceptService {
 		Float percentToLog = null;
 		int saved = 0;
 
-		// TODO: Remove limit
-		allConcepts = allConcepts.subList(0, SAVE_BATCH_SIZE);
-
 		for (List<TermConcept> conceptsBatch : Iterables.partition(allConcepts, SAVE_BATCH_SIZE)) {
 			List<FHIRConcept> batch = new ArrayList<>();
 			for (TermConcept termConcept : conceptsBatch) {
 				for (TermConceptProperty property : termConcept.getProperties()) {
 					props.add(property.getKey());
 				}
-				batch.add(new FHIRConcept(termConcept, codeSystemVersion));
+				batch.add(new FHIRConcept(termConcept, codeSystemVersion, graphBuilder.getTransitiveClosure(termConcept.getCode())));
 				saved++;
 				if (saved % tenPercent == 0f) {
 					percentToLog = (saved / allSize) * 100;
@@ -72,7 +84,7 @@ public class FHIRConceptService {
 		System.out.println();
 	}
 
-	private void gatherChildCodes(TermConcept concept, List<TermConcept> allConcepts) {
+	private void gatherChildCodes(TermConcept concept, Set<TermConcept> allConcepts) {
 		allConcepts.addAll(concept.getChildCodes());
 		for (TermConcept childCode : concept.getChildCodes()) {
 			gatherChildCodes(childCode, allConcepts);

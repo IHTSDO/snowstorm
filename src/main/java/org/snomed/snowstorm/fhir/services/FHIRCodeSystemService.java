@@ -9,7 +9,6 @@ import org.snomed.snowstorm.core.data.domain.Concept;
 import org.snomed.snowstorm.core.data.services.CodeSystemService;
 import org.snomed.snowstorm.core.data.services.ConceptService;
 import org.snomed.snowstorm.core.data.services.MultiSearchService;
-import org.snomed.snowstorm.core.data.services.NotFoundException;
 import org.snomed.snowstorm.core.data.services.pojo.ConceptCriteria;
 import org.snomed.snowstorm.core.pojo.LanguageDialect;
 import org.snomed.snowstorm.fhir.domain.FHIRCodeSystemVersion;
@@ -18,7 +17,6 @@ import org.snomed.snowstorm.fhir.pojo.FHIRCodeSystemVersionParams;
 import org.snomed.snowstorm.fhir.repositories.FHIRCodeSystemRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.PageRequest;
-import org.springframework.data.util.Pair;
 import org.springframework.stereotype.Service;
 
 import java.util.Collections;
@@ -36,10 +34,13 @@ public class FHIRCodeSystemService {
 	private FHIRCodeSystemRepository codeSystemRepository;
 
 	@Autowired
+	private FHIRConceptService conceptService;
+
+	@Autowired
 	private CodeSystemService snomedCodeSystemService;
 
 	@Autowired
-	private ConceptService conceptService;
+	private ConceptService snomedConceptService;
 
 	@Autowired
 	private MultiSearchService snomedMultiSearchService;
@@ -66,21 +67,41 @@ public class FHIRCodeSystemService {
 		if (codeSystemVersion == null) {
 			throw new FHIROperationException(OperationOutcome.IssueType.NOTFOUND, format("Code system not found for parameters %s.", systemVersionParams));
 		}
+
+		if (systemVersionParams.getId() != null) {
+			// Crosscheck version found by id against any other system params
+			String requestedCodeSystemUrl = systemVersionParams.getCodeSystem();
+			if (requestedCodeSystemUrl != null && !requestedCodeSystemUrl.equals(codeSystemVersion.getUrl())) {
+				FHIRHelper.throwException(String.format("The requested system URL '%s' does not match the URL '%s' of the code system found using identifier '%s'.",
+						requestedCodeSystemUrl, codeSystemVersion.getUrl(), codeSystemVersion.getId()), OperationOutcome.IssueType.INVALID, 400);
+			}
+			String requestedVersion = systemVersionParams.getVersion();
+			if (requestedVersion != null && !requestedVersion.isEmpty() && !requestedVersion.equals(codeSystemVersion.getVersion())) {
+				FHIRHelper.throwException(String.format("The requested version '%s' does not match the version '%s' of the code system found using identifier '%s'.",
+						requestedVersion, codeSystemVersion.getVersion(), codeSystemVersion.getId()), OperationOutcome.IssueType.INVALID, 400);
+			}
+		}
+
 		return codeSystemVersion;
 	}
 
-	public FHIRCodeSystemVersion findCodeSystemVersion(FHIRCodeSystemVersionParams systemVersionParams) {
-		// TODO: use version in param
+	public FHIRCodeSystemVersion findCodeSystemVersion(FHIRCodeSystemVersionParams systemVersionParams) throws FHIROperationException {
 		FHIRCodeSystemVersion version;
-		String id = systemVersionParams.getId();
-		String versionParam = systemVersionParams.getVersion();
-		if (id != null) {
-			version = codeSystemRepository.findById(id).orElse(null);
-		} else if (versionParam != null) {
-			version = codeSystemRepository.findByUrlAndVersion(systemVersionParams.getCodeSystem(), versionParam);
+
+		if (systemVersionParams.isSnomed()) {
+			version = getSnomedVersion(systemVersionParams);
 		} else {
-			version = codeSystemRepository.findFirstByUrlOrderByVersionDesc(systemVersionParams.getCodeSystem());
+			String id = systemVersionParams.getId();
+			String versionParam = systemVersionParams.getVersion();
+			if (id != null) {// ID is unique, version not needed
+				version = codeSystemRepository.findById(id).orElse(null);
+			} else if (versionParam != null) {
+				version = codeSystemRepository.findByUrlAndVersion(systemVersionParams.getCodeSystem(), versionParam);
+			} else {
+				version = codeSystemRepository.findFirstByUrlOrderByVersionDesc(systemVersionParams.getCodeSystem());
+			}
 		}
+
 		unwrap(version);
 		return version;
 	}
@@ -97,6 +118,9 @@ public class FHIRCodeSystemService {
 		} else {
 			// Use root code system
 			snomedCodeSystem = snomedCodeSystemService.find(CodeSystemService.SNOMEDCT);
+		}
+		if (snomedCodeSystem == null) {
+			FHIRHelper.throwException("Requested code system not found.", OperationOutcome.IssueType.INVALID, 400);
 		}
 		if (codeSystemVersion.isUnversionedSnomed()) {
 			// Use working branch
@@ -151,7 +175,7 @@ public class FHIRCodeSystemService {
 		if (codeSystemParams.isUnspecifiedReleasedSnomed()) {
 			// Multi-search is expensive, so we'll try on default branch first
 			codeSystemVersion = getSnomedVersion(codeSystemParams);
-			concept = conceptService.find(code, languageDialects, codeSystemVersion.getSnomedBranch());
+			concept = snomedConceptService.find(code, languageDialects, codeSystemVersion.getSnomedBranch());
 			if (concept == null) {
 				// Multi-search
 				ConceptCriteria criteria = new ConceptCriteria().conceptIds(Collections.singleton(code));
@@ -163,14 +187,29 @@ public class FHIRCodeSystemService {
 					if (systemVersion != null) {
 						codeSystemVersion = new FHIRCodeSystemVersion(systemVersion);
 						// Load whole concept for this code
-						concept = conceptService.find(code, languageDialects, codeSystemVersion.getSnomedBranch());
+						concept = snomedConceptService.find(code, languageDialects, codeSystemVersion.getSnomedBranch());
 					}
 				}
 			}
 		} else {
 			codeSystemVersion = getSnomedVersion(codeSystemParams);
-			concept = conceptService.find(code, languageDialects, codeSystemVersion.getSnomedBranch());
+			concept = snomedConceptService.find(code, languageDialects, codeSystemVersion.getSnomedBranch());
 		}
 		return new ConceptAndSystemResult(concept, codeSystemVersion);
+	}
+
+	public boolean conceptExistsOrThrow(String code, FHIRCodeSystemVersion codeSystemVersion) throws FHIROperationException {
+		if (codeSystemVersion.isSnomed()) {
+			if (!snomedConceptService.exists(code, codeSystemVersion.getSnomedBranch())) {
+				throwCodeNotFound(code, codeSystemVersion);
+			}
+		} else if (conceptService.findConcept(codeSystemVersion, code) == null) {
+			throwCodeNotFound(code, codeSystemVersion);
+		}
+		return true;
+	}
+
+	private void throwCodeNotFound(String code, FHIRCodeSystemVersion codeSystemVersion) {
+		FHIRHelper.throwException(String.format("Code '%s' was not found in code system '%s'.", code, codeSystemVersion), OperationOutcome.IssueType.INVALID, 400);
 	}
 }

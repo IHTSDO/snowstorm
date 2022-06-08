@@ -40,8 +40,14 @@ public class HapiParametersMapper implements FHIRConstants {
 	}
 	
 	public Parameters singleOutValue(String key, String value) {
-		Parameters parameters = getStandardParameters();
+		Parameters parameters = new Parameters();
 		parameters.addParameter(key, value);
+		return parameters;
+	}
+
+	public Parameters singleOutValue(String key, String value, FHIRCodeSystemVersion codeSystemVersion) {
+		Parameters parameters = singleOutValue(key, value);
+		addSystemAndVersion(parameters, codeSystemVersion);
 		return parameters;
 	}
 	
@@ -67,11 +73,14 @@ public class HapiParametersMapper implements FHIRConstants {
 		parameters.addParameter("result", false);
 		parameters.addParameter("code", code);
 		addSystemAndVersion(parameters, codeSystemVersion);
+
 		parameters.addParameter("message", message);
 		return parameters;
 	}
 
-	public Parameters mapToFHIR(FHIRCodeSystemVersion codeSystem, Concept concept, Collection<Long> childIds, Set<FhirSctProperty> properties, List<LanguageDialect> designations) {
+	public Parameters mapToFHIR(FHIRCodeSystemVersion codeSystem, Concept concept, Collection<String> childIds,
+			Set<FhirSctProperty> properties, List<LanguageDialect> designations) {
+
 		Parameters parameters = getStandardParameters();
 		parameters.addParameter("code", concept.getConceptId());
 		parameters.addParameter("display", fhirHelper.getPreferredTerm(concept, designations));
@@ -254,9 +263,9 @@ public class HapiParametersMapper implements FHIRConstants {
 		}
 	}
 
-	private void addChildren(Parameters p, Collection<Long> childIds) {
-		for (Long childId : childIds) {
-			p.addParameter(createProperty(CHILD, childId.toString(), true));
+	private void addChildren(Parameters p, Collection<String> childIds) {
+		for (String childId : childIds) {
+			p.addParameter(createProperty(CHILD, childId, true));
 		}
 	}
 

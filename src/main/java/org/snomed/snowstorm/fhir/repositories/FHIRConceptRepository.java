@@ -8,5 +8,4 @@ public interface FHIRConceptRepository extends ElasticsearchRepository<FHIRConce
 
 	FHIRConcept findFirstByCodeSystemVersionAndCode(String codeSystemVersion, String code);
 
-	FHIRConcept findFirstByCode(String code);
 }

@@ -36,7 +36,7 @@ public class TestConfig extends Config {
 	private static final String ELASTIC_SEARCH_SERVER_VERSION = "7.10.0";
 
 	// set it to true to use local instance instead of test container
-	static final boolean useLocalElasticsearch = false;
+	static final boolean useLocalElasticsearch = true;
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(TestConfig.class);
 
