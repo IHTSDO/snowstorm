@@ -3,6 +3,7 @@ package org.snomed.snowstorm.core.data.domain;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import io.kaicode.elasticvc.domain.DomainEntity;
 import org.apache.commons.lang3.math.NumberUtils;
+import org.snomed.snowstorm.fhir.domain.FHIRGraphNode;
 import org.springframework.data.annotation.Transient;
 import org.springframework.data.elasticsearch.annotations.Document;
 import org.springframework.data.elasticsearch.annotations.Field;
@@ -15,7 +16,7 @@ import java.util.stream.Collectors;
  * Represents an active concept with fields to assist logical searching.
  */
 @Document(indexName = "semantic")
-public class QueryConcept extends DomainEntity<QueryConcept> {
+public class QueryConcept extends DomainEntity<QueryConcept> implements FHIRGraphNode {
 
 	public static final String ATTR_TYPE_WILDCARD = "all";
 
@@ -182,6 +183,16 @@ public class QueryConcept extends DomainEntity<QueryConcept> {
 
 	public Long getConceptIdL() {
 		return conceptIdL;
+	}
+
+	@Override
+	public String getCode() {
+		return conceptIdL.toString();
+	}
+
+	@Override
+	public String getCodeField() {
+		return Fields.CONCEPT_ID;
 	}
 
 	public Set<Long> getParents() {
