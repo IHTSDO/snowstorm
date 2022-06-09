@@ -253,7 +253,7 @@ public class ImportService {
 	}
 
 	@PreAuthorize("hasPermission('AUTHOR', #branchPath)")
-	public void importArchiveAsync(String importId, @SuppressWarnings("unused") String branchPath, File tempFile) {
+	public void importArchiveAsync(String importId, @SuppressWarnings("unused") String branchPath, File tempFile, boolean deleteFileAfterImport) {
 		final SecurityContext securityContext = SecurityContextHolder.getContext();
 		executorService.submit(() -> {
 			SecurityContextHolder.setContext(securityContext);
@@ -264,6 +264,12 @@ public class ImportService {
 			} catch (IOException e) {
 				logger.error("Import failed. Error reading stream for temp file {}", tempFile.getAbsolutePath(), e);
 				getJob(importId).setStatus(ImportJob.ImportStatus.FAILED);
+			} finally {
+			if (deleteFileAfterImport && tempFile != null) {
+				if (!tempFile.delete()) {
+					logger.warn("Failed to delete temp import file {}", tempFile.getAbsolutePath());
+				}
+			}
 			}
 		});
 	}

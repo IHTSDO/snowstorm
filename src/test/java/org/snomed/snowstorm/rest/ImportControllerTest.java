@@ -7,13 +7,17 @@ import org.snomed.snowstorm.core.rf2.rf2import.ImportJob;
 import org.snomed.snowstorm.rest.pojo.ImportCreationRequest;
 import org.snomed.snowstorm.rest.pojo.LocalFileImportCreationRequest;
 import org.springframework.core.io.FileSystemResource;
-import org.springframework.http.*;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.RequestEntity;
+import org.springframework.http.ResponseEntity;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 
 import java.io.File;
 import java.io.IOException;
 import java.net.URI;
+import java.nio.file.Files;
 
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -34,6 +38,9 @@ class ImportControllerTest extends AbstractControllerSecurityTest {
 		RequestEntity<Object> request = new RequestEntity<>(importCreationRequest, null, HttpMethod.POST, URI.create(url + "/imports/start-local-file-import"));
 		ResponseEntity<String> response = testStatusCode(HttpStatus.CREATED, authorHeaders, request);
 		waitForStatus(response, ImportJob.ImportStatus.COMPLETED.name(), ImportJob.ImportStatus.FAILED.name(), authorHeaders);
+		// Check local file still exists
+		assertTrue(Files.exists(rf2Archive.toPath()));
+		rf2Archive.delete();
 	}
 
 	@Test
@@ -57,6 +64,7 @@ class ImportControllerTest extends AbstractControllerSecurityTest {
 		testStatusCode(HttpStatus.OK, authorHeaders, requestEntity);
 
 		waitForStatus(response, ImportJob.ImportStatus.COMPLETED.name(), ImportJob.ImportStatus.FAILED.name(), authorHeaders);
+		rf2Archive.delete();
 	}
 
 }

@@ -21,8 +21,6 @@ import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -83,7 +81,7 @@ public class ImportController {
 
 		String id = importService.createJob(importConfiguration);
 
-		importService.importArchiveAsync(id, importRequest.getBranchPath(), localFile);
+		importService.importArchiveAsync(id, importRequest.getBranchPath(), localFile, false);
 
 		return ControllerHelper.getCreatedResponse(id, "/start-local-file-import");
 	}
@@ -128,20 +126,13 @@ public class ImportController {
 	@RequestMapping(value = "/{importId}/archive", method = RequestMethod.POST, consumes = "multipart/form-data")
 	public void uploadImportRf2Archive(@PathVariable String importId, @RequestParam MultipartFile file) {
 		ImportJob importJob = importService.getImportJobOrThrow(importId);
-		File tempFile = null;
 		try {
 			// Copy upload stream to temp file before calling async service method
-			tempFile = createTempFile(importId).toFile();
+			File tempFile = createTempFile(importId).toFile();
 			file.transferTo(tempFile);
-			importService.importArchiveAsync(importId, importJob.getBranchPath(), tempFile);
+			importService.importArchiveAsync(importId, importJob.getBranchPath(), tempFile, true);
 		} catch (IOException e) {
 			throw new IllegalArgumentException("Failed to open uploaded archive file.");
-		} finally {
-			if (tempFile != null) {
-				if (!tempFile.delete()) {
-					logger.warn("Failed to delete temp import file {}", tempFile.getAbsolutePath());
-				}
-			}
 		}
 	}
 
