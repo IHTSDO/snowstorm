@@ -1,5 +1,6 @@
 package org.snomed.snowstorm.core.data.services;
 
+import org.apache.commons.lang3.mutable.MutableBoolean;
 import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.services.WebRouterConfigurationService.WebRoute;
 import org.snomed.snowstorm.core.data.services.identifier.VerhoeffCheck;
@@ -44,16 +45,17 @@ public class WebRoutingService {
 		CodeSystemVersion version = determineVersion(uriParts);
 		
 		//If we managed to determine how to route this request, is this concept on our server?
-		Concept concept = findConcept(uriParts, version);
+		MutableBoolean versionConceptFound = new MutableBoolean();
+		Concept concept = findConcept(uriParts, version, versionConceptFound);
 		
-		return populateWebRouteTemplate(concept, uriParts, webRoute);
+		return populateWebRouteTemplate(concept, uriParts, webRoute, version, versionConceptFound);
 	}
 	
-	private String populateWebRouteTemplate(Concept concept, UriParts uriParts, WebRoute webRoute) {
+	private String populateWebRouteTemplate(Concept concept, UriParts uriParts, WebRoute webRoute, CodeSystemVersion version, MutableBoolean versionConceptFound) {
 		//If we tried a local lookup and can't find the concept then try to redirect according to the 
 		//namespace, or fall-back
 		if (concept == null && (webRoute == null || webRoute.isDefaultRoute()) && uriParts.nameSpace != null) {
-			return populateWebRouteTemplate(null, uriParts, webRoutes.getFallbackRoute());
+			return populateWebRouteTemplate(null, uriParts, webRoutes.getFallbackRoute(), version, versionConceptFound);
 		}
 
 		if (webRoute == null) {
@@ -65,7 +67,12 @@ public class WebRoutingService {
 			if (concept == null) {
 				throw new IllegalArgumentException("URI Redirection needed to find a BRANCH, but no concept was found");
 			}
-			template = template.replace("{BRANCH}", concept.getPath());
+
+			if (Boolean.TRUE.equals(versionConceptFound.getValue())) {
+				template = template.replace("{BRANCH}", version.getBranchPath());
+			} else {
+				template = template.replace("{BRANCH}", concept.getPath());
+			}
 		}
 		
 		if (template.contains("{SCTID}")) {
@@ -116,13 +123,14 @@ public class WebRoutingService {
 		}
 	}
 
-	private Concept findConcept(UriParts uriParts, CodeSystemVersion version) {
+	private Concept findConcept(UriParts uriParts, CodeSystemVersion version, MutableBoolean versionedConceptFound) {
 		//Multisearch is expensive, so we'll try on default branch for the specified module/version first
 		Concept concept = null;
 		
 		if (version != null) {
 			concept = conceptService.find(uriParts.sctId, null, version.getBranchPath());
 			if (concept != null) {
+				versionedConceptFound.setTrue();
 				//Ensure we're redirecting to a published version 
 				concept.setPath(multiSearchService.getPublishedVersionOfBranch(concept.getPath()));
 			}
