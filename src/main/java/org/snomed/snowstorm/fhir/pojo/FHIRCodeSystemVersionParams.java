@@ -18,11 +18,6 @@ public class FHIRCodeSystemVersionParams {
 		this.codeSystem = codeSystem;
 	}
 
-	public FHIRCodeSystemVersionParams(String codeSystem, String version) {
-		this.codeSystem = codeSystem;
-		this.version = version;
-	}
-
 	public boolean isSnomed() {
 		return FHIRHelper.isSnomedUri(codeSystem) || (id != null && id.startsWith(SCT_ID_PREFIX));
 	}
@@ -35,7 +30,7 @@ public class FHIRCodeSystemVersionParams {
 		if (codeSystem == null || !isSnomed()) {
 			return null;
 		}
-		return new StringType(codeSystem + (version != null ? ( "/version/" + version ) : ""));
+		return new StringType(codeSystem + (snomedModule != null ? ( "/" + snomedModule ) : "") + (version != null ? ( "/version/" + version ) : ""));
 	}
 
 	public boolean isUnspecifiedReleasedSnomed() {
@@ -72,7 +67,7 @@ public class FHIRCodeSystemVersionParams {
 
 	@Override
 	public String toString() {
-		return "CodeSystemParams{" +
+		return "CodeSystemVersionParams{" +
 				"id='" + id + '\'' +
 				", system='" + codeSystem + '\'' +
 				", version='" + version + '\'' +

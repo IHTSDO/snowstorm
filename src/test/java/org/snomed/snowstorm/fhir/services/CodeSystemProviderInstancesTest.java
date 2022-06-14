@@ -16,7 +16,7 @@ class CodeSystemProviderInstancesTest extends AbstractFHIRTest {
 	void testCodeSystemRecovery() throws FHIROperationException {
 		String url = "http://localhost:" + port + "/fhir/CodeSystem";
 		ResponseEntity<String> response = this.restTemplate.exchange(url, HttpMethod.GET, defaultRequestEntity, String.class);
-		checkForError(response);
+		expectResponse(response, 200);
 		Bundle bundle = fhirJsonParser.parseResource(Bundle.class, response.getBody());
 		assertNotNull(bundle.getEntry());
 		assertEquals(2, bundle.getEntry().size());
@@ -30,7 +30,7 @@ class CodeSystemProviderInstancesTest extends AbstractFHIRTest {
 	void testCodeSystemRecoverySorted() throws FHIROperationException {
 		String url = "http://localhost:" + port + "/fhir/CodeSystem?_sort=title,-date";
 		ResponseEntity<String> response = this.restTemplate.exchange(url, HttpMethod.GET, defaultRequestEntity, String.class);
-		checkForError(response);
+		expectResponse(response, 200);
 		Bundle bundle = fhirJsonParser.parseResource(Bundle.class, response.getBody());
 		assertNotNull(bundle.getEntry());
 		assertEquals(2, bundle.getEntry().size());
@@ -41,10 +41,10 @@ class CodeSystemProviderInstancesTest extends AbstractFHIRTest {
 	}
 	
 	@Test
-	void testCodeSystemRecoverySortedExpectedFail() throws FHIROperationException {
+	void testCodeSystemRecoverySortedExpectedFail() {
 		String url = "http://localhost:" + port + "/fhir/CodeSystem?_sort=foo,-bar";
 		ResponseEntity<String> response = this.restTemplate.exchange(url, HttpMethod.GET, defaultRequestEntity, String.class);
-		checkForExpectedError(response);
+		expectResponse(response, 400);
 	}
 	
 }

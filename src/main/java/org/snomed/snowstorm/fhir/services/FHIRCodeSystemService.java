@@ -24,6 +24,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static java.lang.String.format;
+import static org.snomed.snowstorm.fhir.services.FHIRHelper.exception;
 
 @Service
 public class FHIRCodeSystemService {
@@ -72,12 +73,12 @@ public class FHIRCodeSystemService {
 			// Crosscheck version found by id against any other system params
 			String requestedCodeSystemUrl = systemVersionParams.getCodeSystem();
 			if (requestedCodeSystemUrl != null && !requestedCodeSystemUrl.equals(codeSystemVersion.getUrl())) {
-				FHIRHelper.throwException(String.format("The requested system URL '%s' does not match the URL '%s' of the code system found using identifier '%s'.",
+				throw exception(String.format("The requested system URL '%s' does not match the URL '%s' of the code system found using identifier '%s'.",
 						requestedCodeSystemUrl, codeSystemVersion.getUrl(), codeSystemVersion.getId()), OperationOutcome.IssueType.INVALID, 400);
 			}
 			String requestedVersion = systemVersionParams.getVersion();
 			if (requestedVersion != null && !requestedVersion.isEmpty() && !requestedVersion.equals(codeSystemVersion.getVersion())) {
-				FHIRHelper.throwException(String.format("The requested version '%s' does not match the version '%s' of the code system found using identifier '%s'.",
+				throw exception(String.format("The requested version '%s' does not match the version '%s' of the code system found using identifier '%s'.",
 						requestedVersion, codeSystemVersion.getVersion(), codeSystemVersion.getId()), OperationOutcome.IssueType.INVALID, 400);
 			}
 		}
@@ -120,7 +121,7 @@ public class FHIRCodeSystemService {
 			snomedCodeSystem = snomedCodeSystemService.find(CodeSystemService.SNOMEDCT);
 		}
 		if (snomedCodeSystem == null) {
-			FHIRHelper.throwException("Requested code system not found.", OperationOutcome.IssueType.INVALID, 400);
+			throw exception("Requested code system not found.", OperationOutcome.IssueType.INVALID, 400);
 		}
 		if (codeSystemVersion.isUnversionedSnomed()) {
 			// Use working branch
@@ -140,7 +141,7 @@ public class FHIRCodeSystemService {
 				snomedVersion = snomedCodeSystemService.findVersion(shortName, Integer.parseInt(version));
 			}
 			if (snomedVersion == null) {
-				throw new FHIROperationException(OperationOutcome.IssueType.NOTFOUND, "Code system not found.");
+				throw exception("Code system not found.", OperationOutcome.IssueType.NOTFOUND, 404);
 			}
 			snomedVersion.setCodeSystem(snomedCodeSystem);
 			return new FHIRCodeSystemVersion(snomedVersion);
@@ -210,6 +211,6 @@ public class FHIRCodeSystemService {
 	}
 
 	private void throwCodeNotFound(String code, FHIRCodeSystemVersion codeSystemVersion) {
-		FHIRHelper.throwException(String.format("Code '%s' was not found in code system '%s'.", code, codeSystemVersion), OperationOutcome.IssueType.INVALID, 400);
+		throw exception(String.format("Code '%s' was not found in code system '%s'.", code, codeSystemVersion), OperationOutcome.IssueType.INVALID, 400);
 	}
 }

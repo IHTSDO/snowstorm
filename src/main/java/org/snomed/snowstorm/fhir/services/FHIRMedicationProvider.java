@@ -37,7 +37,7 @@ public class FHIRMedicationProvider implements IResourceProvider, FHIRConstants 
 		Concept concept = ControllerHelper.throwIfNotFound("Concept", conceptService.find(id.getIdPart(), languageDialects, "MAIN"));
 		medication.setId(id);
 		TermLangPojo fsn = concept.getFsn(languageDialects);
-		CodeableConcept code = new CodeableConcept(new Coding(FHIRConstants.SNOMED_URI, concept.getId(), fsn.getTerm()));
+		CodeableConcept code = new CodeableConcept(new Coding(SNOMED_URI, concept.getId(), fsn.getTerm()));
 		medication.setCode(code);
 		Set<Integer> groups = new HashSet<>();
 		List<Relationship> rels = concept.getRelationships(true, null, null, Concepts.INFERRED_RELATIONSHIP);
@@ -48,7 +48,7 @@ public class FHIRMedicationProvider implements IResourceProvider, FHIRConstants 
 				Substance substance = new Substance();
 				substance.setId("#" + r.getDestinationId());
 				CodeableConcept substanceCode = new CodeableConcept();
-				Coding coding = new Coding(FHIRConstants.SNOMED_URI, r.getDestinationId(), r.getTargetFsn());
+				Coding coding = new Coding(SNOMED_URI, r.getDestinationId(), r.getTargetFsn());
 				substanceCode.addCoding(coding);
 				substance.setCode(substanceCode);
 				medication.addContained(substance);
@@ -57,7 +57,7 @@ public class FHIRMedicationProvider implements IResourceProvider, FHIRConstants 
 			//Pull out Dose Form
 			if (r.getTypeId().equals("411116001")) {
 				CodeableConcept formCode = new CodeableConcept();
-				Coding coding = new Coding(FHIRConstants.SNOMED_URI, r.getDestinationId(), r.getTargetFsn());
+				Coding coding = new Coding(SNOMED_URI, r.getDestinationId(), r.getTargetFsn());
 				formCode.addCoding(coding);
 				medication.setForm(formCode);
 			}

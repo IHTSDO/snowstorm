@@ -57,13 +57,13 @@ public class FHIRTestConfig extends TestConfig {
 		CodeSystem codeSystem = new CodeSystem("SNOMEDCT", MAIN);
 
 		codeSystemService.createCodeSystem(codeSystem);
-		codeSystemService.createVersion(codeSystem, Integer.parseInt(sampleVersion), "");
+		String versionBranch = codeSystemService.createVersion(codeSystem, 20190131, "");
 
 		//Now create a new branch to hold a new edition
-		String releaseBranch = MAIN + "/" + sampleVersion;
+		String releaseBranch = MAIN + "/" + versionBranch;
 		String branchWK = releaseBranch + "/SNOMEDCT-WK";
-		branchService.create(releaseBranch);
-		branchService.create(branchWK);
+		CodeSystem codeSystemWK = new CodeSystem("SNOMEDCT-WK", branchWK);
+		codeSystemService.createCodeSystem(codeSystemWK);
 
 		//And tell the configuration about that new module
 		CodeSystemConfiguration config = new CodeSystemConfiguration("SNOMEDCT-WK", "SNOMEDCT-WK", sampleModuleId, null, null);
@@ -78,9 +78,7 @@ public class FHIRTestConfig extends TestConfig {
 		createRangeConstraint(branchWK, STRENGTH_NUMERATOR, "dec(>#0..)");
 		createDummyData(13, concepts, true);
 		conceptService.batchCreate(concepts, branchWK);
-		CodeSystem codeSystemWK = new CodeSystem("SNOMEDCT-WK", branchWK);
-		codeSystemService.createCodeSystem(codeSystemWK);
-		codeSystemService.createVersion(codeSystemWK, 20190731, "Unit Test Version");
+		codeSystemService.createVersion(codeSystemWK, sampleVersion, "Unit Test Version");
 
 		assertNotNull(codeSystemService.findByDefaultModule(sampleModuleId));
 
