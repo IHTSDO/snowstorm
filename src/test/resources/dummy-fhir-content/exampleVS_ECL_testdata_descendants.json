@@ -10,10 +10,11 @@
   "compose": {
     "include": [
       {
-        "system": "http://snomed.info/sct/1234",
+        "system": "http://snomed.info/sct",
+        "version": "http://snomed.info/sct/1234",
         "filter": [
           {
-            "property": "concept",
+            "property": "constraint",
             "op": "=",
             "value": "<< 138875005"
           }

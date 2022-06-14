@@ -1,29 +1,19 @@
 package org.snomed.snowstorm.fhir.services;
 
-import org.hl7.fhir.r4.model.BooleanType;
-import org.hl7.fhir.r4.model.IdType;
-import org.hl7.fhir.r4.model.OperationOutcome;
-import org.hl7.fhir.r4.model.StringType;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
-import org.mockito.Mockito;
-import org.mockito.junit.MockitoJUnitRunner;
-import org.springframework.web.bind.annotation.RequestMethod;
+import ca.uhn.fhir.rest.api.MethodOutcome;
+import org.hl7.fhir.r4.model.*;
+import org.junit.jupiter.api.Test;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 
-import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.util.Collections;
 
-@RunWith(MockitoJUnitRunner.class)
-public class FHIRValueSetProviderTest {
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
-	@InjectMocks
-	private final FHIRValueSetProvider fhirValueSetProvider = new FHIRValueSetProvider();
-
-	@Mock
-	private FHIRHelper fhirHelper;
+public class FHIRValueSetProviderTest extends AbstractFHIRTest {
 
 	private static final String VALUE_SET_EXPANSION_POST_BODY_WITH_VERSION = "{\n" +
 			"    \"resourceType\": \"Parameters\",\n" +
@@ -35,7 +25,7 @@ public class FHIRValueSetProviderTest {
 			"                \"compose\": {\n" +
 			"                    \"include\": [\n" +
 			"                        {\n" +
-			"                            \"valueSet\": \"http://snomed.info/sct?fhir_vs=ecl/^ 32570581000036105 : << 263502005 = << 90734009%7CChronic%7C\" \n" +
+			"                            \"valueSet\": \"http://snomed.info/sct?fhir_vs=ecl/32570581000036105\" \n" +
 			"                        }\n" +
 			"                    ]\n" +
 			"                }\n" +
@@ -60,53 +50,11 @@ public class FHIRValueSetProviderTest {
 			"    ]\n" +
 			"}";
 
-	@Test(expected = FHIROperationException.class)
-	public void testExpandInstanceThrowsFHIROperationExceptionIfVersionUsedWhilePerformingPOSTOperation() throws FHIROperationException {
-		Mockito.doThrow(new FHIROperationException(OperationOutcome.IssueType.NOTSUPPORTED, "Input parameter 'version' is not currently " +
-				"supported in the context of a ValueSet $expand operation. Use system-version or force-system-version parameters instead."))
-				.when(fhirHelper).notSupported(Mockito.anyString(), Mockito.any(), Mockito.anyString());
-		fhirValueSetProvider.expandInstance(IdType.newRandomUuid(),
-				getHttpServletRequestWithRequestMethodPOST(),
-				Mockito.mock(HttpServletResponse.class),
-				VALUE_SET_EXPANSION_POST_BODY_WITH_VERSION,
-				"",
-				"",
-				new BooleanType(),
-				new BooleanType(),
-				Collections.emptyList(),
-				"",
-				"",
-				"",
-				new StringType(),
-				new StringType(),
-				new StringType());
+	@Test
+	public void testExpandThrowsFHIROperationExceptionIfVersionUsedWhilePerformingPOSTOperation() {
+		HttpEntity<String> request = new HttpEntity<>(VALUE_SET_EXPANSION_POST_BODY_WITH_VERSION, headers);
+		ResponseEntity<MethodOutcome> response = restTemplate.exchange(baseUrl + "/ValueSet/$expand", HttpMethod.POST, request, MethodOutcome.class);
+		assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
 	}
 
-	@Test(expected = FHIROperationException.class)
-	public void testExpandTypeThrowsFHIROperationExceptionIfVersionUsedWhilePerformingPOSTOperation() throws FHIROperationException {
-		Mockito.doThrow(new FHIROperationException(OperationOutcome.IssueType.NOTSUPPORTED, "Input parameter 'version' is not currently " +
-				"supported in the context of a ValueSet $expand operation. Use system-version or force-system-version parameters instead."))
-				.when(fhirHelper).notSupported(Mockito.anyString(), Mockito.any(), Mockito.anyString());
-		fhirValueSetProvider.expandInstance(IdType.newRandomUuid(),
-				getHttpServletRequestWithRequestMethodPOST(),
-				Mockito.mock(HttpServletResponse.class),
-				VALUE_SET_EXPANSION_POST_BODY_WITH_VERSION,
-				"",
-				"",
-				new BooleanType(),
-				new BooleanType(),
-				Collections.emptyList(),
-				"",
-				"",
-				"",
-				new StringType(),
-				new StringType(),
-				new StringType());
-	}
-
-	private HttpServletRequest getHttpServletRequestWithRequestMethodPOST() {
-		final HttpServletRequest httpServletRequest = Mockito.mock(HttpServletRequest.class);
-		Mockito.when(httpServletRequest.getMethod()).thenReturn(RequestMethod.POST.name());
-		return httpServletRequest;
-	}
 }

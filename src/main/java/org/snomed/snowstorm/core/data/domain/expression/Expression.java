@@ -8,8 +8,8 @@ import java.util.stream.Collectors;
 
 public class Expression {
 
-	private List<ConceptMicro> focusConcepts;
-	private List<ExpressionAttribute> attributes;
+	private final List<ConceptMicro> focusConcepts;
+	private final List<ExpressionAttribute> attributes;
 	final Map<Integer, ExpressionGroup> groupMap;
 	
 	public Expression() {
@@ -62,7 +62,7 @@ public class Expression {
 	}
 
 	public String toString(boolean includeTerms) {
-		StringBuffer sb = new StringBuffer();
+		StringBuilder sb = new StringBuilder();
 		
 		//First focus concepts
 		sb.append(focusConcepts.stream()
@@ -90,7 +90,5 @@ public class Expression {
 		
 		return sb.toString();
 	}
-	
 
-	
 }
