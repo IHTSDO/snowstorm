@@ -4,9 +4,6 @@ import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.rest.param.StringParam;
 import ca.uhn.fhir.rest.param.TokenParam;
 import ca.uhn.fhir.rest.server.exceptions.BaseServerResponseException;
-import io.kaicode.elasticvc.api.BranchCriteria;
-import io.kaicode.elasticvc.api.VersionControlHelper;
-import io.kaicode.rest.util.branchpathrewrite.BranchPathUriUtil;
 import org.apache.commons.lang3.StringUtils;
 import org.hl7.fhir.instance.model.api.IBaseOperationOutcome;
 import org.hl7.fhir.r4.model.CodeSystem;
@@ -15,11 +12,10 @@ import org.hl7.fhir.r4.model.OperationOutcome.IssueType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.core.data.domain.*;
-import org.snomed.snowstorm.core.data.services.*;
-import org.snomed.snowstorm.core.data.services.QueryService.ConceptQueryBuilder;
-import org.snomed.snowstorm.core.data.services.pojo.ResultMapPage;
+import org.snomed.snowstorm.core.data.services.CodeSystemService;
+import org.snomed.snowstorm.core.data.services.DialectConfigurationService;
+import org.snomed.snowstorm.core.data.services.NotFoundException;
 import org.snomed.snowstorm.core.pojo.LanguageDialect;
-import org.snomed.snowstorm.core.util.SearchAfterPage;
 import org.snomed.snowstorm.fhir.config.FHIRConstants;
 import org.snomed.snowstorm.fhir.domain.BranchPath;
 import org.snomed.snowstorm.fhir.domain.FHIRCodeSystemVersion;
@@ -27,11 +23,7 @@ import org.snomed.snowstorm.fhir.pojo.CanonicalUri;
 import org.snomed.snowstorm.fhir.pojo.FHIRCodeSystemVersionParams;
 import org.snomed.snowstorm.rest.ControllerHelper;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageImpl;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
-import org.springframework.data.elasticsearch.core.SearchAfterPageRequest;
 import org.springframework.stereotype.Component;
 
 import java.text.ParseException;
@@ -48,6 +40,7 @@ import static org.snomed.snowstorm.config.Config.DEFAULT_LANGUAGE_DIALECTS;
 
 @Component
 public class FHIRHelper implements FHIRConstants {
+
 	private static final Pattern SNOMED_URI_MODULE_PATTERN = Pattern.compile("http://snomed.info/x?sct/(\\d+)");
 	private static final Pattern SNOMED_URI_MODULE_AND_VERSION_PATTERN = Pattern.compile("http://snomed.info/x?sct/(\\d+)/version/([\\d]{8})");
 	private static final Pattern SCT_ID_PATTERN = Pattern.compile("sct_(\\d)+_(\\d){8}");
@@ -60,18 +53,6 @@ public class FHIRHelper implements FHIRConstants {
 	@Autowired
 	private DialectConfigurationService dialectService;
 
-	@Autowired
-	private FHIRValueSetProvider vsService;
-	
-	@Autowired
-	private VersionControlHelper versionControlHelper;
-	
-	@Autowired
-	private QueryService queryService;
-	
-	@Autowired
-	private ConceptService conceptService;
-
 	private FhirContext fhirContext;
 
 	public static final Sort DEFAULT_SORT = Sort.sort(QueryConcept.class).by(QueryConcept::getConceptIdL).descending();
@@ -79,14 +60,8 @@ public class FHIRHelper implements FHIRConstants {
 	
 	private static final Logger logger = LoggerFactory.getLogger(FHIRHelper.class);
 
-	public static final int MAX_RETURN_COUNT = 10000;
-
 	public static boolean isSnomedUri(String uri) {
 		return uri != null && (uri.startsWith(SNOMED_URI) || uri.startsWith(SNOMED_URI_UNVERSIONED));
-	}
-
-	public static boolean isSnomedSystem(String uri) {
-		return uri.equals(SNOMED_URI) || uri.equals(SNOMED_URI_UNVERSIONED);
 	}
 
 	public static Integer getSnomedVersion(String versionStr) throws FHIROperationException {
@@ -141,6 +116,16 @@ public class FHIRHelper implements FHIRConstants {
 	public static List<String> findParameterStringListOrNull(List<Parameters.ParametersParameterComponent> parametersParameterComponents, String name) {
 		return parametersParameterComponents.stream().filter(parametersParameterComponent -> parametersParameterComponent.getName().equals(name)).findFirst()
 				.map(param -> (List<String>) param.getValue()).orElse(null);
+	}
+
+	public static String getDisplayLanguage(String displayLanguageParam, String acceptHeader) {
+		if (displayLanguageParam != null) {
+			return displayLanguageParam;
+		}
+		if (acceptHeader != null) {
+			return acceptHeader;
+		}
+		return "en";
 	}
 
 	public static class SnowstormFHIRServerResponseException extends BaseServerResponseException {
@@ -287,23 +272,6 @@ public class FHIRHelper implements FHIRConstants {
 		includeDesignations = Objects.requireNonNullElseGet(includeDesignationsType, () -> designationsStr != null);
 		return includeDesignations;
 	}
-
-	public String getFirstLanguageSpecified(List<LanguageDialect> languageDialects) {
-		for (LanguageDialect dialect : languageDialects) {
-			if (dialect.getLanguageCode() != null) {
-				return dialect.getLanguageCode();
-			}
-		}
-		return null;
-	}
-
-//	public boolean expansionContainsCode(ValueSet vs, String code) throws FHIROperationException {
-//		String vsEcl = vsService.covertComposeToEcl(vs.getCompose());
-//		String filteredEcl = code + " AND (" + vsEcl + ")";
-//		BranchPath branchPath = getBranchPathFromURI(null);
-//		Page<ConceptMini> concepts = eclSearch(filteredEcl, true, null, null, branchPath.toString(), SINGLE_ITEM_PAGE);
-//		return concepts.getSize() > 0;
-//	}
 
 	public void append(StringType str, String appendMe) {
 		str.setValueAsString(str + appendMe);
@@ -464,65 +432,6 @@ public class FHIRHelper implements FHIRConstants {
 		return codeSystemParams;
 	}
 
-	public Page<ConceptMini> eclSearch(String ecl, Boolean active, String termFilter, List<LanguageDialect> languageDialects, String branchPath, PageRequest pageRequest) {
-		ConceptQueryBuilder queryBuilder = queryService.createQueryBuilder(false);// Inferred view only for FHIR
-		queryBuilder.ecl(ecl)
-				.descriptionCriteria(descriptionCriteria -> descriptionCriteria
-						.term(termFilter)
-						.searchLanguageCodes(LanguageDialect.toLanguageCodes(languageDialects)))
-				.resultLanguageDialects(languageDialects)
-				.activeFilter(active);
-		String branchPathStr = BranchPathUriUtil.decodePath(branchPath);
-
-		//Are we going to exceed the elasticsearch limits for pageSize/offset?
-		if (pageRequest.getPageNumber() * pageRequest.getPageSize() >= MAX_RETURN_COUNT) {
-			return scrollForward(queryBuilder, branchPathStr, pageRequest, languageDialects);
-		} else {
-			return queryService.search(queryBuilder, branchPathStr, pageRequest);
-		}
-	}
-
-	private Page<ConceptMini> scrollForward(ConceptQueryBuilder conceptQuery, String branchPath,
-			PageRequest pageRequest, List<LanguageDialect> languageDialects) {
-		//What's the last page we can safely recover to scroll forward from there?
-		int lastSafePage = (MAX_RETURN_COUNT / pageRequest.getPageSize()) -1;
-		long totalRequested = ((long)pageRequest.getPageSize()) * pageRequest.getPageNumber();
-		PageRequest currPageReq = PageRequest.of(lastSafePage, pageRequest.getPageSize(), DEFAULT_SORT);
-		int currPageCount = lastSafePage;
-		BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(branchPath);
-		SearchAfterPage<Long> page = null;
-		int scrollFowardPageCount = pageRequest.getPageNumber() - currPageCount;
-		logger.debug("Scrolling forward {} pages", scrollFowardPageCount);
-		while (currPageCount <= pageRequest.getPageNumber()) {
-			//Can I warp towards the final page using a larger page size?
-			//Need to start from a page with a searchAfter, check page not null
-			if (currPageCount < pageRequest.getPageNumber() - 1 && page != null) {
-				int scrollFowardSize = (pageRequest.getPageNumber() - currPageCount) * pageRequest.getPageSize();
-				int maxPageSize = Math.min(scrollFowardSize, MAX_RETURN_COUNT);
-				//May need to be one page back from this so we leave our last page for the next loop
-				maxPageSize -= maxPageSize == MAX_RETURN_COUNT ? 0 : pageRequest.getPageSize();
-				//How far are we warping?
-				currPageCount += maxPageSize / pageRequest.getPageSize();
-				currPageReq = SearchAfterPageRequest.of(page.getSearchAfter(), maxPageSize, DEFAULT_SORT);
-			} else {
-				currPageCount++;
-			}
-			page = queryService.searchForIds(conceptQuery, branchCriteria, currPageReq);
-			//Check we're not asking for a page number larger than we have available results - otherwise we'd loop unnecessarily
-			if (totalRequested > page.getTotalElements()) {
-				throw new IllegalArgumentException(format("Offset requested %s exceeds total elements available %s.", pageRequest.getOffset(), page.getTotalElements()));
-			}
-			currPageReq = SearchAfterPageRequest.of(page.getSearchAfter(), pageRequest.getPageSize(), DEFAULT_SORT);
-		}
-		if (page != null) {
-			//Now we've got the right page, recover ConceptMinis for these Ids
-			ResultMapPage<String, ConceptMini> conceptMinis = conceptService.findConceptMinis(branchCriteria, page.getContent(), languageDialects);
-			return new PageImpl<>(new ArrayList<>(conceptMinis.getResultsMap().values()), pageRequest, page.getTotalElements());
-		} else {
-			return Page.empty();
-		}
-	}
-
 	public boolean hasUsageContext(MetadataResource r, TokenParam context) {
 		if (r.getUseContext() != null && !r.getUseContext().isEmpty()) {
 			return r.getUseContext().stream()
@@ -629,16 +538,6 @@ public class FHIRHelper implements FHIRConstants {
 		}
 
 		return c.getCode().equals(string);
-	}
-
-	public static void validateEffectiveTime(String input) throws FHIROperationException {
-		if (!StringUtils.isEmpty(input)) {
-			try {
-				sdf.parse(input.trim());
-			} catch (ParseException e) {
-				throw new FHIROperationException(IssueType.VALUE, format("Version is expected to be in format YYYYMMDD only. Instead received: %s", input));
-			}
-		}
 	}
 
 	public void setFhirContext(FhirContext fhirContext) {

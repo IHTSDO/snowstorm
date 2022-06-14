@@ -97,13 +97,12 @@ public class FHIRValueSetService {
 		return valueSetRepository.save(new FHIRValueSet(valueSet));
 	}
 
-	public ValueSet expand(final ValueSetExpansionParameters params, String acceptLanguageHeader) throws FHIROperationException {
+	public ValueSet expand(final ValueSetExpansionParameters params, String displayLanguage) throws FHIROperationException {
 		// Lots of not supported parameters
 		notSupported("valueSetVersion", params.getValueSetVersion());
 		notSupported("context", params.getContext());
 		notSupported("contextDirection", params.getContextDirection());
 		notSupported("date", params.getDate());
-		notSupported("includeDesignations", params.getIncludeDesignations());
 		notSupported("designation", params.getDesignations());
 		notSupported("excludeNested", params.getExcludeNested());
 		notSupported("excludeNotForUI", params.getExcludeNotForUI());
@@ -188,6 +187,7 @@ public class FHIRValueSetService {
 
 		Page<FHIRConcept> conceptsPage;
 		String copyright = null;
+		boolean includeDesignations = TRUE.equals(params.getIncludeDesignations());
 		if (inclusionExclusionConstraints.keySet().iterator().next().isSnomed()) {// If one is SNOMED then they will all be
 			// SNOMED CT Expansion
 			copyright = SNOMED_VALUESET_COPYRIGHT;
@@ -199,7 +199,7 @@ public class FHIRValueSetService {
 
 
 			FHIRCodeSystemVersion codeSystemVersion = inclusionExclusionConstraints.keySet().iterator().next();
-			List<LanguageDialect> languageDialects = ControllerHelper.parseAcceptLanguageHeader(acceptLanguageHeader);
+			List<LanguageDialect> languageDialects = ControllerHelper.parseAcceptLanguageHeader(displayLanguage);
 
 			// Constraints:
 			// - Elasticsearch prevents us from requesting results beyond the first 10K
@@ -267,7 +267,7 @@ public class FHIRValueSetService {
 
 			List<FHIRConcept> conceptsOnRequestedPage = conceptsToLoad.isEmpty() ? Collections.emptyList() :
 					snomedConceptService.findConceptMinis(codeSystemVersion.getSnomedBranch(), conceptsToLoad, languageDialects)
-							.getResultsMap().values().stream().map(snomedConceptMini -> new FHIRConcept(snomedConceptMini, codeSystemVersion)).collect(Collectors.toList());
+							.getResultsMap().values().stream().map(snomedConceptMini -> new FHIRConcept(snomedConceptMini, codeSystemVersion, includeDesignations)).collect(Collectors.toList());
 
 			conceptsPage = new PageImpl<>(conceptsOnRequestedPage, pageRequest, totalResults);
 		} else {
@@ -302,12 +302,24 @@ public class FHIRValueSetService {
 		codeSystemVersionsForExpansion.values().forEach(codeSystemVersion ->
 				expansion.addParameter(new ValueSet.ValueSetExpansionParameterComponent(new StringType("version"))
 						.setValue(new CanonicalType(codeSystemVersion.getCanonical()))));
-		expansion.setContains(conceptsPage.stream().map(concept ->
-			new ValueSet.ValueSetExpansionContainsComponent()
-					.setSystem(idAndVersionToUrl.get(concept.getCodeSystemVersion()))
-					.setCode(concept.getCode())
-					.setInactiveElement(concept.isActive() ? null : new BooleanType(false))
-					.setDisplay(concept.getDisplay()))
+		expansion.addParameter(new ValueSet.ValueSetExpansionParameterComponent(new StringType("displayLanguage")).setValue(new StringType(displayLanguage)));
+		expansion.setContains(conceptsPage.stream().map(concept -> {
+					ValueSet.ValueSetExpansionContainsComponent component = new ValueSet.ValueSetExpansionContainsComponent()
+							.setSystem(idAndVersionToUrl.get(concept.getCodeSystemVersion()))
+							.setCode(concept.getCode())
+							.setInactiveElement(concept.isActive() ? null : new BooleanType(false))
+							.setDisplay(concept.getDisplay());
+					if (includeDesignations) {
+						for (FHIRDesignation designation : concept.getDesignations()) {
+							ValueSet.ConceptReferenceDesignationComponent designationComponent = new ValueSet.ConceptReferenceDesignationComponent();
+							designationComponent.setLanguage(designation.getLanguage());
+							designationComponent.setUse(designation.getUseCoding());
+							designationComponent.setValue(designation.getValue());
+							component.addDesignation(designationComponent);
+						}
+					}
+					return component;
+		})
 				.collect(Collectors.toList()));
 		expansion.setOffset(conceptsPage.getNumber() * conceptsPage.getSize());
 		expansion.setTotal((int) conceptsPage.getTotalElements());
@@ -322,9 +334,6 @@ public class FHIRValueSetService {
 		}
 
 		return hapiValueSet;
-
-//		boolean includeDesignations = fhirHelper.setLanguageOptions(designations, params.getDesignations(),
-//				params.getDisplayLanguage(), params.getIncludeDesignationsType(), acceptLanguageHeader);
 	}
 
 	private String inclusionExclusionClausesToEcl(Pair<Set<ConceptConstraint>, Set<ConceptConstraint>> inclusionExclusionClauses) {
