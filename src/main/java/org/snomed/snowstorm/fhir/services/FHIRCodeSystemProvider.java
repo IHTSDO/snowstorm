@@ -39,6 +39,7 @@ import java.util.stream.StreamSupport;
 import static io.kaicode.elasticvc.api.ComponentService.LARGE_PAGE;
 import static java.lang.String.format;
 import static org.snomed.snowstorm.config.Config.DEFAULT_LANGUAGE_DIALECTS;
+import static org.snomed.snowstorm.fhir.services.FHIRHelper.*;
 
 @Component
 public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants {
@@ -150,7 +151,7 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants 
 		
 		for (String sortField : sortOn) {
 			if (!comparatorMap.containsKey(sortField)) {
-				throw new FHIROperationException(IssueType.PROCESSING, sortField + " is not supported as a field to sort on.");
+				throw exception(sortField + " is not supported as a field to sort on.", IssueType.INVALID, 400);
 			}
 		}
 
@@ -199,8 +200,8 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants 
 			@OperationParam(name="displayLanguage") String displayLanguage,
 			@OperationParam(name="property") List<CodeType> propertiesType ) throws FHIROperationException {
 
-		fhirHelper.mutuallyExclusive("code", code, "coding", coding);
-		fhirHelper.notSupported("date", date);
+		mutuallyExclusive("code", code, "coding", coding);
+		notSupported("date", date);
 		FHIRCodeSystemVersionParams codeSystemVersion = fhirHelper.getCodeSystemVersionParams(system, version, coding);
 		return lookup(codeSystemVersion, fhirHelper.recoverCode(code, coding), displayLanguage, request.getHeader(ACCEPT_LANGUAGE_HEADER), propertiesType);
 	}
@@ -218,10 +219,10 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants 
 			@OperationParam(name="displayLanguage") String displayLanguage,
 			@OperationParam(name="property") List<CodeType> propertiesType ) throws FHIROperationException {
 
-		fhirHelper.mutuallyExclusive("code", code, "coding", coding);
-		fhirHelper.notSupported("date", date);
-		fhirHelper.notSupported("system", system, "CodeSystem where instance id is already specified in URL");
-		fhirHelper.notSupported("version", version, "CodeSystem where instance id is already specified in URL");
+		mutuallyExclusive("code", code, "coding", coding);
+		notSupported("date", date);
+		notSupported("system", system, " when id is already specified in the URL.");
+		notSupported("version", version, " when id is already specified in the URL.");
 		FHIRCodeSystemVersionParams codeSystemVersion = fhirHelper.getCodeSystemVersionParams(id, system, version, coding);
 		return lookup(codeSystemVersion, fhirHelper.recoverCode(code, coding), displayLanguage, request.getHeader(ACCEPT_LANGUAGE_HEADER), propertiesType);
 	}
@@ -269,12 +270,12 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants 
 			@OperationParam(name="coding") Coding coding,
 			@OperationParam(name="displayLanguage") String displayLanguage) throws FHIROperationException {
 
-		fhirHelper.notSupported("codeSystem", codeSystem);
-		fhirHelper.notSupported("date", date);
-		fhirHelper.notSupported("displayLanguage", displayLanguage);
-		fhirHelper.mutuallyExclusive("code", code, "coding", coding);
-		fhirHelper.mutuallyRequired("display", display, "code", code, "coding", coding);
-		FHIRCodeSystemVersionParams codeSystemParams = fhirHelper.getCodeSystemVersionParams(null, url, version, coding);
+		notSupported("codeSystem", codeSystem);
+		notSupported("date", date);
+		notSupported("displayLanguage", displayLanguage);
+		mutuallyExclusive("code", code, "coding", coding);
+		mutuallyRequired("display", display, "code", code, "coding", coding);
+		FHIRCodeSystemVersionParams codeSystemParams = getCodeSystemVersionParams(null, url, version, coding);
 		return validateCode(codeSystemParams, fhirHelper.recoverCode(code, coding), display, request.getHeader(ACCEPT_LANGUAGE_HEADER));
 	}
 	
@@ -292,11 +293,11 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants 
 			@OperationParam(name="coding") Coding coding,
 			@OperationParam(name="displayLanguage") String displayLanguage) throws FHIROperationException {
 
-		fhirHelper.notSupported("codeSystem", codeSystem);
-		fhirHelper.notSupported("date", date);
-		fhirHelper.notSupported("displayLanguage", displayLanguage);
-		fhirHelper.mutuallyExclusive("code", code, "coding", coding);
-		fhirHelper.mutuallyRequired("display", display, "code", code, "coding", coding);
+		notSupported("codeSystem", codeSystem);
+		notSupported("date", date);
+		notSupported("displayLanguage", displayLanguage);
+		mutuallyExclusive("code", code, "coding", coding);
+		mutuallyRequired("display", display, "code", code, "coding", coding);
 		FHIRCodeSystemVersionParams codeSystemParams = fhirHelper.getCodeSystemVersionParams(id, url, version, coding);
 		return validateCode(codeSystemParams, fhirHelper.recoverCode(code, coding), display, request.getHeader(ACCEPT_LANGUAGE_HEADER));
 	}
@@ -388,14 +389,16 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants 
 
 	private Parameters subsumes(IdType id, StringType system, StringType version, CodeType codeAParam, CodeType codeBParam, Coding codingA, Coding codingB) throws FHIROperationException {
 		// "The system parameter is required unless the operation is invoked on an instance of a code system resource." (https://www.hl7.org/fhir/codesystem-operation-subsumes.html)
-		fhirHelper.requireOneOf("id", id, "system", system, "One of '%s' or '%s' parameters must be supplied for the $subsumes operation.");
+		if (id == null && system == null) {
+			throw exception("One of id or system parameters must be supplied for the $subsumes operation.", IssueType.INVALID, 400);
+		}
 
-		FHIRCodeSystemVersionParams codeSystemParams = fhirHelper.getCodeSystemVersionParams(id, system, version, null);
+		FHIRCodeSystemVersionParams codeSystemParams = getCodeSystemVersionParams(id, system, version, null);
 		// Pick a code system version. A specific version of SNOMED is selected. If a version is given in the version or coding params that will be used.
 		FHIRCodeSystemVersion codeSystemVersion = fhirCodeSystemService.findCodeSystemVersionOrThrow(codeSystemParams);// Performs any id / system-version crosscheck
 
-		fhirHelper.requireOneOf("codeA", codeAParam, "codingA", codingA);
-		fhirHelper.requireOneOf("codeB", codeBParam, "codingB", codingB);
+		requireExactlyOneOf("codeA", codeAParam, "codingA", codingA);
+		requireExactlyOneOf("codeB", codeBParam, "codingB", codingB);
 
 		// Validate that codings are null or match given system
 		fhirHelper.notSupportedSubsumesAcrossCodeSystemVersions(codeSystemVersion, codingA);

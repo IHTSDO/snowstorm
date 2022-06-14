@@ -206,6 +206,7 @@ public class QueryService implements ApplicationContextAware {
 			} else {
 				// Concept id search
 				BoolQueryBuilder conceptBoolQuery = getSearchByConceptIdQuery(conceptQuery, branchCriteria);
+				pageRequest = updatePageRequestSort(pageRequest, Sort.sort(Concept.class).by(Concept::getConceptId).descending());
 				NativeSearchQuery query = new NativeSearchQueryBuilder()
 						.withQuery(conceptBoolQuery)
 						.withFields(Concept.Fields.CONCEPT_ID)
@@ -654,7 +655,7 @@ public class QueryService implements ApplicationContextAware {
 		public Boolean isReleased() {
 			return isReleased;
 		}
-		
+
 		public void applyConceptClauses(BoolQueryBuilder conceptClauses) {
 			if (activeFilter != null) {
 				conceptClauses.must(termQuery(Concept.Fields.ACTIVE, activeFilter));

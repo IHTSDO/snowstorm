@@ -62,7 +62,7 @@ public class FHIRGraphService {
 			return new GraphCriteria(QueryConcept.class, criteria, page);
 		} else {
 			BoolQueryBuilder criteria = boolQuery();
-			criteria.must(termQuery("codeSystemVersion", codeSystemVersion.getIdAndVersion()));
+			criteria.must(termQuery("codeSystemVersion", codeSystemVersion.getId()));
 			return new GraphCriteria(FHIRConcept.class, criteria, page);
 		}
 	}

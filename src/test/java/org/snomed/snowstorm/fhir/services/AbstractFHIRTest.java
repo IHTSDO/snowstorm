@@ -2,9 +2,12 @@ package org.snomed.snowstorm.fhir.services;
 
 import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.parser.IParser;
+import ca.uhn.fhir.rest.api.MethodOutcome;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.Sets;
 import org.hl7.fhir.r4.model.*;
+import org.hl7.fhir.r4.model.OperationOutcome;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -20,12 +23,14 @@ import org.springframework.security.web.authentication.preauth.PreAuthenticatedA
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
 
-import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+
+import static java.lang.String.format;
+import static org.junit.jupiter.api.Assertions.*;
 
 @ExtendWith(SpringExtension.class)
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, classes = FHIRTestConfig.class)
@@ -44,16 +49,14 @@ public class AbstractFHIRTest {
 	protected static final String sampleSCTID = "257751006";
 	protected static final String sampleInactiveSCTID = "60363000";
 	protected static final String sampleModuleId = "1234";
-	protected static final String sampleVersion = "20190731";
+	protected static final int sampleVersion = 20190731;
 	protected static final String STRENGTH_NUMERATOR = "1142135004";
 
 	protected String baseUrl;
-	protected  HttpHeaders headers;
+	protected HttpHeaders headers;
 
 	protected IParser fhirJsonParser;
 	protected HttpEntity<String> defaultRequestEntity;
-
-	protected ObjectMapper mapper = new ObjectMapper();
 
 	@BeforeEach
 	public void setup() {
@@ -65,7 +68,7 @@ public class AbstractFHIRTest {
 			SecurityContextHolder.clearContext();
 		}
 
-		baseUrl = "http://localhost:" + port + "/fhir/ValueSet";
+		baseUrl = "http://localhost:" + port + "/fhir";
 		headers = new HttpHeaders();
 		headers.setContentType(new MediaType("application", "fhir+json", StandardCharsets.UTF_8));
 		headers.setAccept(Collections.singletonList(MediaType.APPLICATION_JSON));
@@ -77,48 +80,28 @@ public class AbstractFHIRTest {
 		defaultRequestEntity = new HttpEntity<>(headers);
 	}
 
-	protected void checkForExpectedError(ResponseEntity<String> response) throws FHIROperationException {
-		String body = response.getBody();
-		boolean expectedErrorEncountered = false;
-		if (!HttpStatus.OK.equals(response.getStatusCode())) {
-			if (body.contains("\"status\":5") ||
-					body.contains("\"status\":4") ||
-					body.contains("\"status\":3")) {
-				expectedErrorEncountered = true;
-			} else if (body.contains("\"resourceType\":\"OperationOutcome\"")) {
-				expectedErrorEncountered = true;
-			}
-		}
-
-		if (!expectedErrorEncountered) {
-			throw new FHIROperationException(OperationOutcome.IssueType.EXCEPTION, "Expected error was NOT encountered");
-		}
+	protected void expectResponse(ResponseEntity<String> response, int expectedStatusCode) {
+		expectResponse(response, expectedStatusCode, null);
 	}
 
-	protected void checkForError(ResponseEntity<String> response) throws FHIROperationException {
+	protected void expectResponse(ResponseEntity<String> response, int expectedStatusCode, String expectBodyContains) {
 		String body = response.getBody();
-		try {
-			if (!HttpStatus.OK.equals(response.getStatusCode())) {
-				if (body.contains("\"status\":5") ||
-						body.contains("\"status\":4") ||
-						body.contains("\"status\":3")) {
-					ErrorResponse error = mapper.readValue(body, ErrorResponse.class);
-					throw new FHIROperationException(OperationOutcome.IssueType.EXCEPTION, error.getMessage());
-				} else if (body.contains("\"resourceType\":\"OperationOutcome\"")) {
-					//OperationOutcome outcome = fhirJsonParser.parseResource(OperationOutcome.class, body);
-					//TODO Find or write pretty print to give structured output of OperationOutcome
-					throw new FHIROperationException(OperationOutcome.IssueType.EXCEPTION, body);
-				}
-			}
-		} catch (IOException e) {
-			throw new FHIROperationException(OperationOutcome.IssueType.EXCEPTION, body);
+		assertEquals(expectedStatusCode, response.getStatusCodeValue(), () -> format("Expected status code '%s' but was '%s', body: '%s'",
+				expectedStatusCode, response.getStatusCode(), body));
+		if (expectBodyContains != null) {
+			assertNotNull(body);
+			assertTrue(body.contains(expectBodyContains), () -> format("Expected body to contain '%s' but was '%s'", expectBodyContains, body));
 		}
 	}
 
 	protected Parameters getParameters(String url) throws FHIROperationException {
+		return getParameters(url, 200, null);
+	}
+
+	protected Parameters getParameters(String url, int statusCode, String expectBodyContains) {
 		ResponseEntity<String> response = this.restTemplate.exchange(url, HttpMethod.GET, defaultRequestEntity, String.class);
-		checkForError(response);
-		return fhirJsonParser.parseResource(Parameters.class, response.getBody());
+		expectResponse(response, statusCode, expectBodyContains);
+		return statusCode == 200 ? fhirJsonParser.parseResource(Parameters.class, response.getBody()) : null;
 	}
 
 	protected Type getProperty(Parameters params, String propertyName) {
@@ -174,6 +157,24 @@ public class AbstractFHIRTest {
 			sb.append("\n").append(toString(part, indent + "  "));
 		}
 		return sb.toString();
+	}
+
+	void storeVs(String id, String vsJson) {
+		HttpEntity<String> request = new HttpEntity<>(vsJson, headers);
+		ResponseEntity<MethodOutcome> response = restTemplate.exchange(baseUrl + "/ValueSet/" + id, HttpMethod.PUT, request, MethodOutcome.class);
+		assertEquals(HttpStatus.OK, response.getStatusCode());
+		MethodOutcome outcome = response.getBody();
+		assertNull(outcome);
+	}
+
+	void deleteVs(String id) {
+		HttpEntity<String> request = new HttpEntity<>(null, headers);
+		String valueSetUrl = baseUrl + "/ValueSet/" + id;
+		ResponseEntity<MethodOutcome> response = restTemplate.exchange(valueSetUrl, HttpMethod.DELETE, request, MethodOutcome.class);
+		assertEquals(HttpStatus.NO_CONTENT, response.getStatusCode());
+
+		// Assert it's no longer there
+		assertEquals(HttpStatus.NOT_FOUND, restTemplate.getForEntity(valueSetUrl, String.class).getStatusCode());
 	}
 
 	private void populatePropertyMap(Map<String, Type> propertyMap, List<Parameters.ParametersParameterComponent> parts) {
