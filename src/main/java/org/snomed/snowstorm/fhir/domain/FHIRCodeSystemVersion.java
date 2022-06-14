@@ -9,7 +9,6 @@ import org.joda.time.format.DateTimeFormatter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.core.data.domain.CodeSystemVersion;
-import org.snomed.snowstorm.fhir.config.FHIRConstants;
 import org.snomed.snowstorm.fhir.services.FHIRCodeSystemService;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.annotation.Transient;
@@ -128,7 +127,7 @@ public class FHIRCodeSystemVersion {
 			url = SNOMED_URI_UNVERSIONED;
 			String moduleId = snomedCodeSystem.getDefaultModuleId();
 			id = FHIRCodeSystemService.SCT_ID_PREFIX + moduleId + UNVERSIONED;
-			version = SNOMED_URI_UNVERSIONED + "/" + moduleId + VERSION + UNVERSIONED;
+			version = SNOMED_URI_UNVERSIONED + "/" + moduleId;
 			snomedBranch = snomedCodeSystem.getBranchPath();
 		}
 	}
@@ -153,12 +152,16 @@ public class FHIRCodeSystemVersion {
 		return codeSystem;
 	}
 
-	public String getIdAndVersion() {
-		return id + ((version == null || version.isEmpty()) ? "" : "_" + version);
-	}
-
 	public boolean isSnomed() {
 		return snomedBranch != null;
+	}
+
+	public boolean isSnomedUnversioned() {
+		return SNOMED_URI_UNVERSIONED.equals(url);
+	}
+
+	public String getCanonical() {
+		return url + "|" + version;
 	}
 
 	public String getId() {

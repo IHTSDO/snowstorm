@@ -10,7 +10,6 @@ public interface FHIRConstants {
 	//Constant words and phrases 
 	StringType CHILD = new StringType("child");
 	String CODE = "code";
-	String COPYRIGHT = "© Copyright YEAR International Health Terminology Standards Development Organisation, all rights reserved.";
 	String DESIGNATION = "designation";
 	StringType DISPLAY = new StringType("display");
 	StringType EFFECTIVE_TIME = new StringType("effectiveTime");
@@ -35,6 +34,7 @@ public interface FHIRConstants {
 	String SNOMED_URI = "http://snomed.info/sct";
 	String SNOMED_URI_UNVERSIONED = "http://snomed.info/xsct";
 	String UNVERSIONED = "UNVERSIONED";
+	int UNVERSIONED_SCT_VERSION = -1;
 	String VERSION = "/version/";
 	String SNOMED_URI_DEFAULT_MODULE = "http://snomed.info/sct/900000000000207008";
 	String ICD10 = "ICD-10";
@@ -44,7 +44,12 @@ public interface FHIRConstants {
 	String MAP_INDICATOR = "?fhir_cm=";
 	String SNOMED_CT = "SNOMED_CT";
 	//String SNOMED_CONCEPTMAP = SNOMED_URI + MAP_INDICATOR;
-	
+
+	// Copied from https://www.hl7.org/fhir/snomedct.html
+	String SNOMED_VALUESET_COPYRIGHT = "This value set includes content from SNOMED CT, which is copyright © 2002+ International Health Terminology Standards Development " +
+			"Organisation (SNOMED International), and distributed by agreement between SNOMED International and HL7. Implementer use of SNOMED CT is not covered by this " +
+			"agreement.";
+
 	enum Validation { EQUALS, STARTS_WITH }
 	
 	String MAIN = "MAIN";

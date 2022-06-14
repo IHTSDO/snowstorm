@@ -4,6 +4,8 @@ import ca.uhn.fhir.jpa.entity.TermConcept;
 import ca.uhn.fhir.jpa.entity.TermConceptDesignation;
 import ca.uhn.fhir.jpa.entity.TermConceptParentChildLink;
 import ca.uhn.fhir.jpa.entity.TermConceptProperty;
+import org.snomed.snowstorm.core.data.domain.ConceptMini;
+import org.snomed.snowstorm.core.pojo.TermLangPojo;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.elasticsearch.annotations.Document;
 import org.springframework.data.elasticsearch.annotations.Field;
@@ -14,6 +16,14 @@ import java.util.*;
 @Document(indexName = "fhir-concept")
 public class FHIRConcept implements FHIRGraphNode {
 
+	public interface Fields {
+
+		String CODE_SYSTEM_VERSION = "codeSystemVersion";
+		String CODE = "code";
+		String DISPLAY = "display";
+		String PARENTS = "parents";
+		String ANCESTORS = "ancestors";
+	}
 	@Id
 	// Internal ID
 	private String id;
@@ -26,6 +36,8 @@ public class FHIRConcept implements FHIRGraphNode {
 
 	private String display;
 
+	private final boolean active;
+
 	@Field(type = FieldType.Keyword)
 	private Set<String> parents;
 
@@ -37,13 +49,15 @@ public class FHIRConcept implements FHIRGraphNode {
 	private Map<String, List<FHIRProperty>> properties;
 
 	public FHIRConcept() {
+		active = true;
 	}
 
 	public FHIRConcept(TermConcept termConcept, FHIRCodeSystemVersion codeSystemVersion, Set<String> transitiveClosure) {
-		this.codeSystemVersion = codeSystemVersion.getIdAndVersion();
+		this.codeSystemVersion = codeSystemVersion.getId();
 
 		code = termConcept.getCode();
 		display = termConcept.getDisplay();
+		active = true;
 
 		designations = new ArrayList<>();
 		for (TermConceptDesignation designation : termConcept.getDesignations()) {
@@ -62,6 +76,14 @@ public class FHIRConcept implements FHIRGraphNode {
 		}
 
 		this.ancestors = transitiveClosure;
+	}
+
+	public FHIRConcept(ConceptMini snomedConceptMini, FHIRCodeSystemVersion codeSystemVersion) {
+		this.codeSystemVersion = codeSystemVersion.getId();
+		code = snomedConceptMini.getConceptId();
+		TermLangPojo pt = snomedConceptMini.getPt();
+		display = pt != null ? pt.getTerm() : snomedConceptMini.getFsnTerm();
+		active = !Boolean.FALSE.equals(snomedConceptMini.getActive());
 	}
 
 	@Override
@@ -99,6 +121,10 @@ public class FHIRConcept implements FHIRGraphNode {
 
 	public void setDisplay(String display) {
 		this.display = display;
+	}
+
+	public boolean isActive() {
+		return active;
 	}
 
 	public Set<String> getParents() {
