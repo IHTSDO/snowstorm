@@ -35,7 +35,7 @@ public class FHIRTermCodeSystemStorage implements ITermCodeSystemStorageSvc {
 	private FHIRConceptService fhirConceptService;
 
 	@Autowired
-	private FHIRValueSetProvider valueSetProvider;
+	private FHIRValueSetService fhirValueSetService;
 
 	@Autowired
 	private FHIRConceptMapProvider fhirConceptMapProvider;
@@ -69,28 +69,15 @@ public class FHIRTermCodeSystemStorage implements ITermCodeSystemStorageSvc {
 		} catch (FHIROperationException e) {
 			throw new RuntimeException(e);
 		}
-		fhirConceptService.save(termCodeSystemVersion, codeSystemVersion);
+		fhirConceptService.saveAllConceptsOfCodeSystemVersion(termCodeSystemVersion, codeSystemVersion);
 
+		valueSets = orEmpty(valueSets);
 		logger.info("{} ValueSets found", valueSets.size());
-
-		// TODO: Remove limit
-		if (valueSets.size() > 10) {
-			valueSets = valueSets.subList(0, 9);
-			logger.info("saving {} value sets", valueSets.size());
-		}
-
-		for (ValueSet valueSet : orEmpty(valueSets)) {
-			try {
-				logger.info("Saving ValueSet {}", valueSet.getIdElement());
-				valueSetProvider.createValueset(valueSet.getIdElement(), valueSet);
-			} catch (FHIROperationException e) {
-				logger.error("Failed to store value set {}", valueSet.getIdElement(), e);
-			}
-		}
+		fhirValueSetService.saveAllValueSetsOfCodeSystemVersion(valueSets);
 
 		conceptMaps = orEmpty(conceptMaps);
 		logger.info("{} ConceptMaps found", conceptMaps.size());
-		for (ConceptMap conceptMap : orEmpty(conceptMaps)) {
+		for (ConceptMap conceptMap : conceptMaps) {
 			FHIRConceptMap map = new FHIRConceptMap(conceptMap);
 			fhirConceptMapProvider.createMap(map);
 		}

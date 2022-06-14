@@ -61,7 +61,7 @@ class CodeSystemProviderValidateTest extends AbstractFHIRTest {
 	void testValidateUnpublishedCode() throws FHIROperationException {
 		String version = "version=http://snomed.info/xsct/" + sampleModuleId;
 		//Test recovery using code with version with "unpublished" indicator
-		String url = "http://localhost:" + port + "/fhir/CodeSystem/$validate-code?url=" + SNOMED_URI + "&" + version + "&code=" + sampleSCTID;
+		String url = "http://localhost:" + port + "/fhir/CodeSystem/$validate-code?url=" + "http://snomed.info/xsct" + "&" + version + "&code=" + sampleSCTID;
 		Parameters p = getParameters(url);
 		String result = toString(getProperty(p, "result"));
 		assertEquals("true", result);
