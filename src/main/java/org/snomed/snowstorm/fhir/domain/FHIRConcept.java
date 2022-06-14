@@ -5,13 +5,18 @@ import ca.uhn.fhir.jpa.entity.TermConceptDesignation;
 import ca.uhn.fhir.jpa.entity.TermConceptParentChildLink;
 import ca.uhn.fhir.jpa.entity.TermConceptProperty;
 import org.snomed.snowstorm.core.data.domain.ConceptMini;
+import org.snomed.snowstorm.core.data.domain.Description;
+import org.snomed.snowstorm.core.pojo.LanguageDialect;
 import org.snomed.snowstorm.core.pojo.TermLangPojo;
+import org.snomed.snowstorm.fhir.config.FHIRConstants;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.elasticsearch.annotations.Document;
 import org.springframework.data.elasticsearch.annotations.Field;
 import org.springframework.data.elasticsearch.annotations.FieldType;
 
 import java.util.*;
+
+import static org.snomed.snowstorm.fhir.config.FHIRConstants.SNOMED_URI;
 
 @Document(indexName = "fhir-concept")
 public class FHIRConcept implements FHIRGraphNode {
@@ -78,12 +83,35 @@ public class FHIRConcept implements FHIRGraphNode {
 		this.ancestors = transitiveClosure;
 	}
 
-	public FHIRConcept(ConceptMini snomedConceptMini, FHIRCodeSystemVersion codeSystemVersion) {
+	public FHIRConcept(ConceptMini snomedConceptMini, FHIRCodeSystemVersion codeSystemVersion, boolean includeDesignations) {
 		this.codeSystemVersion = codeSystemVersion.getId();
 		code = snomedConceptMini.getConceptId();
-		TermLangPojo pt = snomedConceptMini.getPt();
-		display = pt != null ? pt.getTerm() : snomedConceptMini.getFsnTerm();
+		TermLangPojo displayTerm = snomedConceptMini.getPt();
+		if (displayTerm == null) {
+			displayTerm = snomedConceptMini.getFsn();
+			if (displayTerm == null) {
+				displayTerm = new TermLangPojo(code, "en");
+			}
+		}
+		display = displayTerm.getTerm();
 		active = !Boolean.FALSE.equals(snomedConceptMini.getActive());
+		if (includeDesignations) {
+			designations = new ArrayList<>();
+			// Add display
+			designations.add(new FHIRDesignation(displayTerm.getLang(), FHIRConstants.HL7_DESIGNATION_USAGE, FHIRConstants.DISPLAY, displayTerm.getTerm()));
+
+			// Add other descriptions with acceptability, and then any others without 'use'.
+			List<Description> activeDescriptions = new ArrayList<>(snomedConceptMini.getActiveDescriptions());
+			List<LanguageDialect> requestedLanguageDialects = snomedConceptMini.getRequestedLanguageDialects();
+			activeDescriptions.sort(Comparator.comparing(Description::getType).thenComparing(description -> !description.hasAcceptability(requestedLanguageDialects)));
+			for (Description description : activeDescriptions) {
+				FHIRDesignation designation = new FHIRDesignation(description.getLanguageCode(), description.getTerm());
+				if (description.hasAcceptability(requestedLanguageDialects)) {
+					designation.setUse(SNOMED_URI, description.getTypeId());
+				}
+				designations.add(designation);
+			}
+		}
 	}
 
 	@Override
