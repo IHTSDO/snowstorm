@@ -165,7 +165,7 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 					includeDesignationsType, designations, includeDefinition, activeType, excludeNested, excludeNotForUI, excludePostCoordinated, displayLanguage,
 					excludeSystem, systemVersion, checkSystemVersion, forceSystemVersion, version);
 		}
-		return valueSetService.expand(params, request.getHeader(ACCEPT_LANGUAGE_HEADER));
+		return valueSetService.expand(params, FHIRHelper.getDisplayLanguage(params.getDisplayLanguage(), request.getHeader(ACCEPT_LANGUAGE_HEADER)));
 	}
 
 	@Operation(name = "$expand", idempotent = true)
@@ -206,7 +206,7 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 					excludeSystem, systemVersion, checkSystemVersion, forceSystemVersion, version);
 		}
 
-		return valueSetService.expand(params, request.getHeader(ACCEPT_LANGUAGE_HEADER));
+		return valueSetService.expand(params, FHIRHelper.getDisplayLanguage(params.getDisplayLanguage(), request.getHeader(ACCEPT_LANGUAGE_HEADER)));
 	}
 
 	@Operation(name="$validate-code", idempotent=true)

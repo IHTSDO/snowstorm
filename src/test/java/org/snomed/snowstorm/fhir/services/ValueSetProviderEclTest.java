@@ -1,5 +1,6 @@
 package org.snomed.snowstorm.fhir.services;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import org.hl7.fhir.r4.model.ValueSet;
 import org.junit.jupiter.api.Test;
 import org.snomed.snowstorm.core.data.domain.Concepts;
@@ -7,9 +8,9 @@ import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
 
 import java.io.InputStream;
+import java.util.List;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.*;
 
 class ValueSetProviderEclTest extends AbstractFHIRTest {
 	
@@ -46,15 +47,15 @@ class ValueSetProviderEclTest extends AbstractFHIRTest {
 		assertEquals(1,v.getExpansion().getContains().size());
 	}
 	
-//	@Test
-//	void testECLRecovery_Descriptions() {
-//		String url = baseUrl + "/ValueSet/$expand?url=http://snomed.info/sct/1234?fhir_vs=ecl/" + sampleSCTID +"&includeDesignations=true&_format=json";
-//		ValueSet v = getValueSet(url);
-//		assertEquals(1,v.getExpansion().getContains().size());
-//		assertFalse(v.getExpansion().getContains().get(0).getDesignation().isEmpty());
-//		assertTrue(v.getExpansion().getContains().get(0).getDesignation().get(0).getValue().contains("potato"));
-//	}
-//
+	@Test
+	void testECLRecovery_Descriptions() {
+		String url = baseUrl + "/ValueSet/$expand?url=http://snomed.info/sct/1234?fhir_vs=ecl/" + sampleSCTID +"&includeDesignations=true&_format=json";
+		ValueSet v = getValueSet(url);
+		assertEquals(1, v.getExpansion().getContains().size());
+		assertFalse(v.getExpansion().getContains().get(0).getDesignation().isEmpty());
+		assertTrue(v.getExpansion().getContains().get(0).getDesignation().get(0).getValue().contains("potato"));
+	}
+
 	@Test
 	void testECLWithFilter() {
 		//Expecting 0 results when filter is applied
@@ -136,6 +137,7 @@ class ValueSetProviderEclTest extends AbstractFHIRTest {
 	private ValueSet getValueSet(String url, int expectedStatusCode, String expectBodyContains) {
 		ResponseEntity<String> response = this.restTemplate.exchange(url, HttpMethod.GET, defaultRequestEntity, String.class);
 		expectResponse(response, expectedStatusCode, expectBodyContains);
+		System.out.println(response.getBody());
 		return expectedStatusCode == 200 ? fhirJsonParser.parseResource(ValueSet.class, response.getBody()) : null;
 	}
 	
@@ -169,17 +171,28 @@ class ValueSetProviderEclTest extends AbstractFHIRTest {
 		assertEquals(14,v.getExpansion().getContains().size());
 	}
 
-//	@Test TODO Support includeDesignations
-//	void testECLWithDesignationUseContextExpansion() {
-//		String url = baseUrl + "/ValueSet/$expand?url=http://snomed.info/sct/1234?fhir_vs=ecl/" + sampleSCTID +"&includeDesignations=true&_format=json";
-//		ValueSet v = getValueSet(url);
-//		assertEquals(1,v.getExpansion().getContains().size());
-//		assertFalse(v.getExpansion().getContains().get(0).getDesignation().isEmpty());
-//		assertNotNull(v.getExpansion().getContains().get(0).getDesignation().get(0).getExtensionByUrl("http://snomed.info/fhir/StructureDefinition/designation-use-context"));
-//		assertNotNull(v.getExpansion().getContains().get(0).getDesignation().get(0).getExtensionByUrl("http://snomed.info/fhir/StructureDefinition/designation-use-context").getExtensionByUrl("context"));
-//		assertNotNull(v.getExpansion().getContains().get(0).getDesignation().get(0).getExtensionByUrl("http://snomed.info/fhir/StructureDefinition/designation-use-context").getExtensionByUrl("role"));
-//		assertNotNull(v.getExpansion().getContains().get(0).getDesignation().get(0).getExtensionByUrl("http://snomed.info/fhir/StructureDefinition/designation-use-context").getExtensionByUrl("type"));
-//	}
-	
+	@Test
+	void testECLWithDesignationUseContextExpansion() throws JsonProcessingException {
+		String url = baseUrl + "/ValueSet/$expand?url=http://snomed.info/sct?fhir_vs=ecl/257751006&includeDesignations=true&_format=json";
+		ValueSet valueSet = getValueSet(url);
+		assertEquals(1, valueSet.getExpansion().getContains().size());
+		List<ValueSet.ConceptReferenceDesignationComponent> designations = valueSet.getExpansion().getContains().get(0).getDesignation();
+		assertEquals(3, designations.size());
+		assertDesignation("Baked potato 1", "en", "http://terminology.hl7.org/CodeSystem/designation-usage", "display",
+				designations.get(0));
+		assertDesignation("Baked potato 1 (Substance)", "en", "http://snomed.info/sct", "900000000000003001",
+				designations.get(1));
+		assertDesignation("Baked potato 1", "en", "http://snomed.info/sct", "900000000000013009",
+				designations.get(2));
+	}
+
+	private void assertDesignation(String expectedValue, String expectedLang, String expectedUseSystem, String expectedUseCode, ValueSet.ConceptReferenceDesignationComponent designationComponent) {
+		assertEquals(expectedValue, designationComponent.getValue());
+		assertEquals(expectedLang, designationComponent.getLanguage());
+		if (expectedUseSystem != null) {
+			assertEquals(expectedUseSystem, designationComponent.getUse().getSystem());
+			assertEquals(expectedUseCode, designationComponent.getUse().getCode());
+		}
+	}
 
 }
