@@ -47,7 +47,7 @@ public class FHIRTestConfig extends TestConfig {
 		List<Concept> concepts = new ArrayList<>();
 		concepts.add(new Concept(Concepts.SNOMEDCT_ROOT));
 		for (int x=1; x<=10; x++) {
-			createDummyData(x, concepts, false);
+			createDummyConcepts(x, concepts, false);
 		}
 		branchService.create(MAIN);
 		concepts.add(new Concept(sampleInactiveSCTID).setActive(false));
@@ -72,11 +72,11 @@ public class FHIRTestConfig extends TestConfig {
 		concepts.clear();
 		//The new module will inherit the 10 concepts from MAIN.  Add two new unqique to MAIN/SNOMEDCT-WK
 		for (int x=11; x<=12; x++) {
-			createDummyData(x, concepts, false);
+			createDummyConcepts(x, concepts, false);
 		}
 		// add MRCM constraint for concrete attribute
 		createRangeConstraint(branchWK, STRENGTH_NUMERATOR, "dec(>#0..)");
-		createDummyData(13, concepts, true);
+		createDummyConcepts(13, concepts, true);
 		conceptService.batchCreate(concepts, branchWK);
 		codeSystemService.createVersion(codeSystemWK, sampleVersion, "Unit Test Version");
 
@@ -96,12 +96,9 @@ public class FHIRTestConfig extends TestConfig {
 		codeSystemService.deleteAll();
 	}
 
-	private void createDummyData(int sequence, List<Concept> concepts, boolean concrete) throws ServiceException {
-		// Create dummy concept with descriptions and relationships
-		Relationship infParentRel = new Relationship(Concepts.ISA, Concepts.SNOMEDCT_ROOT);
-		infParentRel.setCharacteristicType("INFERRED_RELATIONSHIP");
+	private void createDummyConcepts(int sequence, List<Concept> concepts, boolean concrete) {
+		// Create dummy concept with descriptions and relationship
 		Concept concept = new Concept("25775" + sequence + "006")
-						.addRelationship(infParentRel)
 						.addRelationship(new Relationship(Concepts.ISA, Concepts.SNOMEDCT_ROOT))
 						.addDescription(new Description("Baked potato " + sequence + " (Substance)")
 								.setTypeId(Concepts.FSN)

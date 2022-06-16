@@ -3,6 +3,7 @@ package org.snomed.snowstorm.fhir.pojo;
 import org.hl7.fhir.r4.model.StringType;
 import org.snomed.snowstorm.fhir.services.FHIRHelper;
 
+import static java.lang.String.format;
 import static org.snomed.snowstorm.fhir.config.FHIRConstants.SNOMED_URI;
 import static org.snomed.snowstorm.fhir.config.FHIRConstants.SNOMED_URI_UNVERSIONED;
 import static org.snomed.snowstorm.fhir.services.FHIRCodeSystemService.SCT_ID_PREFIX;
@@ -72,5 +73,16 @@ public class FHIRCodeSystemVersionParams {
 				", system='" + codeSystem + '\'' +
 				", version='" + version + '\'' +
 				'}';
+	}
+
+	public String toDiagnosticString() {
+		if (id != null) {
+			return format("(ID:'%s')", id);
+		} else if (isSnomed()) {
+			return format("(%s)", toSnomedUri());
+		} else if (version != null) {
+			return format("(URL:'%s', Version:'%s')", codeSystem, version);
+		}
+		return format("(URL:'%s')", codeSystem);
 	}
 }

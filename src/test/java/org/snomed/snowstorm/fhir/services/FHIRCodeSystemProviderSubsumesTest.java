@@ -8,7 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.snomed.snowstorm.fhir.config.FHIRConstants.SNOMED_URI;
 
-class CodeSystemProviderSubsumesTest extends AbstractFHIRTest {
+class FHIRCodeSystemProviderSubsumesTest extends AbstractFHIRTest {
 	
 	@Test
 	void testSubsumption() throws FHIROperationException {
