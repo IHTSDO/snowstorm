@@ -93,7 +93,7 @@ public class FHIRMedicationProvider implements IResourceProvider, FHIRConstants 
 			medication.addIngredient(i);
 		}
 		if (medication.getIngredient().size() == 0) {
-			throw new FHIROperationException(IssueType.CODEINVALID, "the concept does not have properties mapped to FHIR Medication Resource.");
+			throw new FHIROperationException("the concept does not have properties mapped to FHIR Medication Resource.", IssueType.CODEINVALID, 400);
 		} else {
 			// Generate Narrative TODO: implement automatic generation with context
 			Narrative narrative = new Narrative();

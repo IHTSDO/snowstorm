@@ -8,11 +8,11 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.snomed.snowstorm.fhir.config.FHIRConstants.SNOMED_URI;
 
-class CodeSystemProviderValidateTest extends AbstractFHIRTest {
+class FHIRCodeSystemProviderValidateTest extends AbstractFHIRTest {
 	
 	@Test
 	void testValidateCode() throws FHIROperationException {
-		String version = "version=http://snomed.info/sct/1234";
+		String version = "version=http://snomed.info/sct/1234000008";
 		//Test recovery using code with version
 		String url = "http://localhost:" + port + "/fhir/CodeSystem/$validate-code?url=" + SNOMED_URI + "&" + version + "&code=" + sampleSCTID;
 		Parameters p = getParameters(url);
@@ -26,7 +26,7 @@ class CodeSystemProviderValidateTest extends AbstractFHIRTest {
 		assertEquals("true", result);
 		
 		//Known not present
-		url = "http://localhost:" + port + "/fhir/CodeSystem/$validate-code?url=" + SNOMED_URI + "&" + version + "&code=1234501";
+		url = "http://localhost:" + port + "/fhir/CodeSystem/$validate-code?url=" + SNOMED_URI + "&" + version + "&code=1234000008501";
 		p = getParameters(url);
 		result = toString(getProperty(p, "result"));
 		assertEquals("false", result);

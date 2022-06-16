@@ -11,7 +11,6 @@ import org.hl7.fhir.instance.model.api.IBaseResource;
 import org.hl7.fhir.r4.model.*;
 import org.hl7.fhir.r4.model.OperationOutcome.IssueType;
 import org.snomed.snowstorm.core.data.services.QueryService;
-import org.snomed.snowstorm.core.pojo.LanguageDialect;
 import org.snomed.snowstorm.fhir.config.FHIRConstants;
 import org.snomed.snowstorm.fhir.domain.FHIRValueSet;
 import org.snomed.snowstorm.fhir.domain.SearchFilter;
@@ -66,7 +65,7 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 		try {
 			return createValueSet(id, vs);
 		} catch (Exception e) {
-			throw new FHIROperationException(IssueType.EXCEPTION, "Failed to update/create valueset '" + vs.getId() + "'", e);
+			throw new FHIROperationException("Failed to update/create valueset '" + vs.getId() + "'", IssueType.EXCEPTION, 400, e);
 		}
 	}
 
@@ -214,57 +213,60 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 			@IdParam IdType id,
 			HttpServletRequest request,
 			HttpServletResponse response,
-			@OperationParam(name="url") UriType url,
-			@OperationParam(name="codeSystem") StringType codeSystem,
-			@OperationParam(name="code") CodeType code,
-			@OperationParam(name="codeableConcept") Coding codeableConcept,
-			@OperationParam(name="coding") Coding coding,
+			@OperationParam(name="url") String url,
+			@OperationParam(name="context") String context,
+			@OperationParam(name="valueSet") ValueSet valueSet,
+			@OperationParam(name="valueSetVersion") String valueSetVersion,
+			@OperationParam(name="code") String code,
+			@OperationParam(name="system") String system,
+			@OperationParam(name="systemVersion") String systemVersion,
 			@OperationParam(name="display") String display,
-			@OperationParam(name="version") StringType version,
+			@OperationParam(name="coding") Coding coding,
+			@OperationParam(name="codeableConcept") CodeableConcept codeableConcept,
 			@OperationParam(name="date") DateTimeType date,
 			@OperationParam(name="abstract") BooleanType abstractBool,
-			@OperationParam(name="context") String context,
-			@OperationParam(name="displayLanguage") String displayLanguage) throws FHIROperationException {
+			@OperationParam(name="displayLanguage") String displayLanguage,
+			@OperationParam(name="system-version") String incorrectParamSystemVersion) throws FHIROperationException {
 
-		List<LanguageDialect> languageDialects = fhirHelper.getLanguageDialects(null, request.getHeader(ACCEPT_LANGUAGE_HEADER));
-		return validateCode(id, url, codeSystem, code, display, version, date, coding, codeableConcept, context, abstractBool, displayLanguage, languageDialects);
+		validateCodeParamHints(incorrectParamSystemVersion);
+		return valueSetService.validateCode(id.getIdPart(), url, context, valueSet, valueSetVersion, code, system, systemVersion, display, coding, codeableConcept, date, abstractBool,
+				FHIRHelper.getDisplayLanguage(displayLanguage, request.getHeader(ACCEPT_LANGUAGE_HEADER)));
 	}
 
 	@Operation(name="$validate-code", idempotent=true)
 	public Parameters validateCodeImplicit(
 			HttpServletRequest request,
 			HttpServletResponse response,
-			@OperationParam(name="url") UriType url,
-			@OperationParam(name="codeSystem") StringType codeSystem,
-			@OperationParam(name="code") CodeType code,
-			@OperationParam(name="codeableConcept") Coding codeableConcept,
-			@OperationParam(name="coding") Coding coding,
+			@OperationParam(name="url") String url,
+			@OperationParam(name="context") String context,
+			@OperationParam(name="valueSet") ValueSet valueSet,
+			@OperationParam(name="valueSetVersion") String valueSetVersion,
+			@OperationParam(name="code") String code,
+			@OperationParam(name="system") String system,
+			@OperationParam(name="systemVersion") String systemVersion,
 			@OperationParam(name="display") String display,
-			@OperationParam(name="version") StringType version,
+			@OperationParam(name="coding") Coding coding,
+			@OperationParam(name="codeableConcept") CodeableConcept codeableConcept,
 			@OperationParam(name="date") DateTimeType date,
 			@OperationParam(name="abstract") BooleanType abstractBool,
-			@OperationParam(name="context") String context,
-			@OperationParam(name="displayLanguage") String displayLanguage) throws FHIROperationException {
+			@OperationParam(name="displayLanguage") String displayLanguage,
+			@OperationParam(name="system-version") String incorrectParamSystemVersion) throws FHIROperationException {
 
-		List<LanguageDialect> languageDialects = fhirHelper.getLanguageDialects(null, request.getHeader(ACCEPT_LANGUAGE_HEADER));
-		return validateCode(null, url, codeSystem, code, display, version, date, coding, codeableConcept, context, abstractBool, displayLanguage, languageDialects);
+		validateCodeParamHints(incorrectParamSystemVersion);
+		return valueSetService.validateCode(null, url, context, valueSet, valueSetVersion, code, system, systemVersion, display, coding, codeableConcept, date, abstractBool,
+				FHIRHelper.getDisplayLanguage(displayLanguage, request.getHeader(ACCEPT_LANGUAGE_HEADER)));
 	}
 
-	private Parameters validateCode(IdType id, UriType urlType, StringType codeSystem, CodeType code, String display,
-									StringType version, DateTimeType date, Coding coding, Coding codeableConcept, String context,
-									BooleanType abstractBool, String displayLanguage,
-									List<LanguageDialect> languageDialects) throws FHIROperationException {
-
-
-		return null;
+	private void validateCodeParamHints(String incorrectParamSystemVersion) {
+		FHIRHelper.parameterNamingHint("system-version", incorrectParamSystemVersion, "systemVersion");
 	}
 
 	private void validateId(IdType id, ValueSet vs) throws FHIROperationException {
 		if (vs == null || id == null) {
-			throw new FHIROperationException(IssueType.EXCEPTION, "Both ID and ValueSet object must be supplied");
+			throw new FHIROperationException("Both ID and ValueSet object must be supplied", IssueType.EXCEPTION, 400);
 		}
 		if (vs.getId() == null || !id.asStringValue().equals(vs.getId())) {
-			throw new FHIROperationException(IssueType.EXCEPTION, "ID in request must match that in ValueSet object");
+			throw new FHIROperationException("ID in request must match that in ValueSet object", IssueType.EXCEPTION, 400);
 		}
 	}
 

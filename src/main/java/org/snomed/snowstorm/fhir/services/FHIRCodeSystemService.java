@@ -53,8 +53,8 @@ public class FHIRCodeSystemService {
 
 		// Prevent saving SNOMED CT this way
 		if (fhirCodeSystemVersion.getId().startsWith(SCT_ID_PREFIX)) {
-			throw new FHIROperationException(OperationOutcome.IssueType.NOTSUPPORTED, format("Code System id prefix '%s' is reserved for SNOMED CT code system. " +
-					"Please save these via the native API RF2 import function.", SCT_ID_PREFIX));
+			throw new FHIROperationException(format("Code System id prefix '%s' is reserved for SNOMED CT code system. " +
+					"Please save these via the native API RF2 import function.", SCT_ID_PREFIX), OperationOutcome.IssueType.NOTSUPPORTED, 400);
 		}
 
 		wrap(fhirCodeSystemVersion);
@@ -66,7 +66,7 @@ public class FHIRCodeSystemService {
 	public FHIRCodeSystemVersion findCodeSystemVersionOrThrow(FHIRCodeSystemVersionParams systemVersionParams) throws FHIROperationException {
 		FHIRCodeSystemVersion codeSystemVersion = findCodeSystemVersion(systemVersionParams);
 		if (codeSystemVersion == null) {
-			throw new FHIROperationException(OperationOutcome.IssueType.NOTFOUND, format("Code system not found for parameters %s.", systemVersionParams));
+			throw new FHIROperationException(format("Code system not found for parameters %s.", systemVersionParams), OperationOutcome.IssueType.NOTFOUND, 400);
 		}
 
 		if (systemVersionParams.getId() != null) {
@@ -107,13 +107,13 @@ public class FHIRCodeSystemService {
 		return version;
 	}
 
-	public FHIRCodeSystemVersion getSnomedVersion(FHIRCodeSystemVersionParams codeSystemVersion) throws FHIROperationException {
-		if (!codeSystemVersion.isSnomed()) {
-			throw new FHIROperationException(OperationOutcome.IssueType.CONFLICT, "Failed to find SNOMED branch for non SCT code system.");
+	public FHIRCodeSystemVersion getSnomedVersion(FHIRCodeSystemVersionParams params) throws FHIROperationException {
+		if (!params.isSnomed()) {
+			throw new FHIROperationException("Failed to find SNOMED branch for non SCT code system.", OperationOutcome.IssueType.CONFLICT, 500);
 		}
 
 		org.snomed.snowstorm.core.data.domain.CodeSystem snomedCodeSystem;
-		String snomedModule = codeSystemVersion.getSnomedModule();
+		String snomedModule = params.getSnomedModule();
 		if (snomedModule != null) {
 			snomedCodeSystem = snomedCodeSystemService.findByDefaultModule(snomedModule);
 		} else {
@@ -121,14 +121,14 @@ public class FHIRCodeSystemService {
 			snomedCodeSystem = snomedCodeSystemService.find(CodeSystemService.SNOMEDCT);
 		}
 		if (snomedCodeSystem == null) {
-			throw exception("Requested code system not found.", OperationOutcome.IssueType.INVALID, 400);
+			throw exception(format("The requested CodeSystem %s was not found.", params.toDiagnosticString()), OperationOutcome.IssueType.NOTFOUND, 404);
 		}
-		if (codeSystemVersion.isUnversionedSnomed()) {
+		if (params.isUnversionedSnomed()) {
 			// Use working branch
 			return new FHIRCodeSystemVersion(snomedCodeSystem, true);
 		} else {
 			String shortName = snomedCodeSystem.getShortName();
-			String version = codeSystemVersion.getVersion();
+			String version = params.getVersion();
 			CodeSystemVersion snomedVersion;
 			if (version == null) {
 				// Use the latest published branch
@@ -137,11 +137,15 @@ public class FHIRCodeSystemService {
 					// Fall back to any imported version
 					snomedVersion = snomedCodeSystemService.findLatestImportedVersion(shortName);
 				}
+				if (snomedVersion == null) {
+					throw exception(format("The latest version of the requested CodeSystem %s was not found.", params.toDiagnosticString()),
+							OperationOutcome.IssueType.NOTFOUND, 404);
+				}
 			} else {
 				snomedVersion = snomedCodeSystemService.findVersion(shortName, Integer.parseInt(version));
-			}
-			if (snomedVersion == null) {
-				throw exception("Code system not found.", OperationOutcome.IssueType.NOTFOUND, 404);
+				if (snomedVersion == null) {
+					throw exception(format("The requested CodeSystem version %s was not found.", params.toDiagnosticString()), OperationOutcome.IssueType.NOTFOUND, 404);
+				}
 			}
 			snomedVersion.setCodeSystem(snomedCodeSystem);
 			return new FHIRCodeSystemVersion(snomedVersion);

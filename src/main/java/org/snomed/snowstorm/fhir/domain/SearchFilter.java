@@ -50,7 +50,7 @@ public class SearchFilter {
 
 	public SearchFilter withCode(String code) throws FHIROperationException {
 		if (code != null) {
-			throw new FHIROperationException(IssueType.TOOCOSTLY, "Server is unwilling to expand all known ValueSets to search for inclusion of any code");
+			throw new FHIROperationException("Server is unwilling to expand all known ValueSets to search for inclusion of any code", IssueType.TOOCOSTLY, 400);
 		}
 		return this;
 	}

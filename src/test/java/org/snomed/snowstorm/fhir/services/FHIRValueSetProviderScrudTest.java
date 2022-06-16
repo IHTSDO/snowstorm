@@ -20,7 +20,7 @@ import java.io.InputStream;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
-class ValueSetProviderScrudTest extends AbstractFHIRTest {
+class FHIRValueSetProviderScrudTest extends AbstractFHIRTest {
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 

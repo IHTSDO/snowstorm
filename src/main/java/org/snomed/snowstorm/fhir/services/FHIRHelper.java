@@ -26,7 +26,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Component;
 
-import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
@@ -74,7 +73,7 @@ public class FHIRHelper implements FHIRConstants {
 					? null
 					: Integer.parseInt(versionStr.substring(versionStr.indexOf(VERSION) + VERSION.length()));
 		} catch (NumberFormatException e) {
-			throw new FHIROperationException(IssueType.CONFLICT, "Version expected to be numeric in format YYYYMMDD.");
+			throw exception("Version expected to be numeric in format YYYYMMDD.", IssueType.CONFLICT, 400);
 		}
 	}
 
@@ -128,6 +127,13 @@ public class FHIRHelper implements FHIRConstants {
 		return "en";
 	}
 
+	public static void parameterNamingHint(String incorrectParamName, Object incorrectParamValue, String correctParamName) {
+		if (incorrectParamValue != null) {
+			throw exception(format("Parameter name '%s' is not applicable to this operation. Please use '%s' instead.", incorrectParamName, correctParamName),
+					IssueType.INVALID, 400);
+		}
+	}
+
 	public static class SnowstormFHIRServerResponseException extends BaseServerResponseException {
 		public SnowstormFHIRServerResponseException(int theStatusCode, String theMessage, IBaseOperationOutcome theBaseOperationOutcome) {
 			super(theStatusCode, theMessage, theBaseOperationOutcome);
@@ -165,7 +171,7 @@ public class FHIRHelper implements FHIRConstants {
 		org.snomed.snowstorm.core.data.domain.CodeSystem codeSystem = codeSystemService.findByDefaultModule(defaultModule);
 		if (codeSystem == null) {
 			String msg = format("No code system known with default module of %s.", defaultModule);
-			throw new FHIROperationException(IssueType.NOTFOUND, msg );
+			throw exception(msg, IssueType.NOTFOUND, 400);
 		}
 
 		CodeSystemVersion codeSystemVersion;
@@ -179,7 +185,7 @@ public class FHIRHelper implements FHIRConstants {
 				codeSystemVersion = codeSystemService.findVersion(shortName, version);
 				if (codeSystemVersion == null) {
 					String msg = format("No branch found for Code system %s with edition version %s.", shortName, version);
-					throw new FHIROperationException(IssueType.NOTFOUND, msg );
+					throw exception(msg, IssueType.NOTFOUND, 400);
 				}
 				branchPathStr = codeSystemVersion.getBranchPath();
 			}
@@ -190,7 +196,7 @@ public class FHIRHelper implements FHIRConstants {
 
 		if (branchPathStr == null) {
 			String msg = format("No branch found for Code system %s with default module %s.", shortName, defaultModule);
-			throw new FHIROperationException(IssueType.NOTFOUND, msg);
+			throw exception(msg, IssueType.NOTFOUND, 400);
 		}
 		return new BranchPath(branchPathStr);
 	}
@@ -209,8 +215,8 @@ public class FHIRHelper implements FHIRConstants {
 							// check for SNOMED URI, possibly an extension URI
 							// TODO: version support?
 							!tokenParts[0].matches(SNOMED_URI + "(/\\d*)?")) {
-						throw new FHIROperationException(IssueType.VALUE, "Malformed designation token '" + designation + "' expected format http://snomed.info/sct(/moduleId) " +
-								"PIPE langrefsetId.");
+						throw exception("Malformed designation token '" + designation + "' expected format http://snomed.info/sct(/moduleId) " +
+								"PIPE langrefsetId.", IssueType.VALUE, 400);
 					}
 					LanguageDialect languageDialect = new LanguageDialect(null, Long.parseLong(tokenParts[1]));
 					if (!languageDialects.contains(languageDialect)) {
@@ -279,35 +285,45 @@ public class FHIRHelper implements FHIRConstants {
 
 	public static void requireExactlyOneOf(String param1Name, Object param1, String param2Name, Object param2) throws FHIROperationException {
 		if (param1 == null && param2 == null) {
-			throw new FHIROperationException(IssueType.INVARIANT, format("One of '%s' or '%s' parameters must be supplied.", param1Name, param2Name));
+			throw exception(format("One of '%s' or '%s' parameters must be supplied.", param1Name, param2Name), IssueType.INVARIANT, 400);
 		} else {
 			mutuallyExclusive(param1Name, param1, param2Name, param2);
 		}
 	}
 
+	public static void requireExactlyOneOf(String param1Name, Object param1, String param2Name, Object param2, String param3Name, Object param3) throws FHIROperationException {
+		if (param1 == null && param2 == null && param3 == null) {
+			throw exception(format("One of '%s' or '%s' or '%s' parameters must be supplied.", param1Name, param2Name, param3Name), IssueType.INVARIANT, 400);
+		} else {
+			mutuallyExclusive(param1Name, param1, param2Name, param2);
+			mutuallyExclusive(param1Name, param1, param3Name, param3);
+			mutuallyExclusive(param2Name, param2, param3Name, param3);
+		}
+	}
+
 	public static void mutuallyExclusive(String param1Name, Object param1, String param2Name, Object param2) throws FHIROperationException {
 		if (param1 != null && param2 != null) {
-			throw new FHIROperationException(IssueType.INVARIANT, format("Use one of '%s' or '%s' parameters.", param1Name, param2Name));
+			throw exception(format("Use one of '%s' or '%s' parameters.", param1Name, param2Name), IssueType.INVARIANT, 400);
 		}
 	}
 
 	public static void mutuallyRequired(String param1Name, Object param1, String param2Name, Object param2) throws FHIROperationException {
 		if (param1 != null && param2 == null) {
-			throw new FHIROperationException(IssueType.INVARIANT, format("Input parameter '%s' can only be used in conjunction with parameter '%s'.",
-					param1Name, param2Name));
+			throw exception(format("Input parameter '%s' can only be used in conjunction with parameter '%s'.",
+					param1Name, param2Name), IssueType.INVARIANT, 400);
 		}
 	}
 
 	public static void mutuallyRequired(String param1Name, Object param1, String param2Name, Object param2, String param3Name, Object param3) throws FHIROperationException {
 		if (param1 != null && param2 == null && param3 == null) {
-			throw new FHIROperationException(IssueType.INVARIANT, format("Use of input parameter '%s' only allowed if '%s' or '%s' is also present.",
-					param1Name, param2Name, param3Name));
+			throw exception(format("Use of input parameter '%s' only allowed if '%s' or '%s' is also present.",
+					param1Name, param2Name, param3Name), IssueType.INVARIANT, 400);
 		}
 	}
 	
 	public static void required(String param1Name, Object param1) throws FHIROperationException {
 		if (param1 == null) {
-			throw new FHIROperationException(IssueType.INVARIANT, format("Parameter '%s' must be supplied", param1Name));
+			throw exception(format("Parameter '%s' must be supplied", param1Name), IssueType.INVARIANT, 400);
 		}
 	}
 
@@ -326,18 +342,18 @@ public class FHIRHelper implements FHIRConstants {
 		if (coding != null) {
 			if ((coding.getSystem() != null && !coding.getSystem().equals(codeSystemVersion.getUrl())) ||
 					(coding.getVersion() != null && coding.getVersion().equals(codeSystemVersion.getVersion()))) {
-				throw new FHIROperationException(IssueType.NOTSUPPORTED, "This server does not support subsumes with different code systems in system and coding parameters.");
+				throw exception("This server does not support subsumes using multiple code systems/versions.", IssueType.NOTSUPPORTED, 400);
 			}
 		}
 	}
 
 	public String recoverCode(CodeType code, Coding coding) throws FHIROperationException {
 		if (code == null && coding == null) {
-			throw new FHIROperationException(IssueType.INVARIANT, "Use either 'code' or 'coding' parameters, not both.");
+			throw exception("Use either 'code' or 'coding' parameters, not both.", IssueType.INVARIANT, 400);
 		} else if (code != null) {
 			if (code.getCode().contains("|")) {
-				throw new FHIROperationException(IssueType.NOTSUPPORTED, "The 'code' parameter cannot supply a codeSystem. " +
-						"Use 'coding' or provide CodeSystem in 'system' parameter.");
+				throw exception("The 'code' parameter cannot supply a codeSystem. " +
+						"Use 'coding' or provide CodeSystem in 'system' parameter.", IssueType.NOTSUPPORTED, 400);
 			}
 			return code.getCode();
 		}
@@ -355,10 +371,10 @@ public class FHIRHelper implements FHIRConstants {
 
 	public static FHIRCodeSystemVersionParams getCodeSystemVersionParams(String systemId, String codeSystemParam, String versionParam, Coding coding) throws FHIROperationException {
 		if (codeSystemParam != null && coding != null && coding.getSystem() != null && !codeSystemParam.equals(coding.getSystem())) {
-			throw new FHIROperationException(IssueType.CONFLICT, "Code system defined in system and coding do not match.");
+			throw exception("Code system defined in system and coding do not match.", IssueType.CONFLICT, 400);
 		}
 		if (versionParam != null && coding != null && coding.getVersion() != null && !versionParam.toString().equals(coding.getVersion())) {
-			throw new FHIROperationException(IssueType.CONFLICT, "Version defined in version and coding do not match.");
+			throw exception("Version defined in version and coding do not match.", IssueType.CONFLICT, 400);
 		}
 
 		String codeSystemUrl = null;
@@ -368,7 +384,7 @@ public class FHIRHelper implements FHIRConstants {
 			codeSystemUrl = coding.getSystem();
 		}
 		if (codeSystemUrl == null && systemId == null) {
-			throw new FHIROperationException(IssueType.CONFLICT, "Code system not defined in any parameter.");
+			throw exception("Code system not defined in any parameter.", IssueType.CONFLICT, 400);
 		}
 
 		String version = null;
@@ -392,14 +408,14 @@ public class FHIRHelper implements FHIRConstants {
 					codeSystemParams.setSnomedModule(matcher.group(1));
 				} else if ((matcher = SNOMED_URI_MODULE_AND_VERSION_PATTERN.matcher(versionWithoutParams)).matches()) {
 					if (codeSystemParams.isUnversionedSnomed()) {
-						throw new FHIROperationException(IssueType.CONFLICT, "A specific version can not be requested when using " +
-								"the '" + SNOMED_URI_UNVERSIONED + "' code system.");
+						throw exception("A specific version can not be requested when using " +
+								"the '" + SNOMED_URI_UNVERSIONED + "' code system.", IssueType.CONFLICT, 400);
 					}
 					codeSystemParams.setSnomedModule(matcher.group(1));
 					codeSystemParams.setVersion(matcher.group(2));
 				} else {
-					throw new FHIROperationException(IssueType.CONFLICT, format("The version parameter for the '" + SNOMED_URI + "' system must use the format " +
-							"'http://snomed.info/sct/[sctid]' or http://snomed.info/sct/[sctid]/version/[YYYYMMDD]. Version provided does not match: '%s'.", versionWithoutParams));
+					throw exception(format("The version parameter for the '" + SNOMED_URI + "' system must use the format " +
+							"'http://snomed.info/sct/[sctid]' or http://snomed.info/sct/[sctid]/version/[YYYYMMDD]. Version provided does not match: '%s'.", versionWithoutParams), IssueType.CONFLICT, 400);
 				}
 			} else {
 				// Take version param literally
@@ -410,16 +426,16 @@ public class FHIRHelper implements FHIRConstants {
 			if (codeSystemParams.isSnomed()) {
 				Matcher idMatcher = SCT_ID_PATTERN.matcher(systemId);
 				if (!idMatcher.matches()) {
-					throw new FHIROperationException(OperationOutcome.IssueType.CONFLICT, "SNOMED system and id specified but id does not match expected format " +
-							"sct_[moduleId]_[YYYYMMDD].");
+					throw exception("SNOMED system and id specified but id does not match expected format " +
+							"sct_[moduleId]_[YYYYMMDD].", OperationOutcome.IssueType.CONFLICT, 400);
 				}
 				String moduleFromId = idMatcher.group(1);
 				String versionFromId = idMatcher.group(2);
 				if (codeSystemParams.getSnomedModule() != null && !codeSystemParams.getSnomedModule().equals(moduleFromId)) {
-					throw new FHIROperationException(OperationOutcome.IssueType.CONFLICT, "SNOMED module in system id and uri do not match.");
+					throw exception("SNOMED module in system id and uri do not match.", OperationOutcome.IssueType.CONFLICT, 400);
 				}
 				if (codeSystemParams.getVersion() != null && !codeSystemParams.getVersion().equals(versionFromId)) {
-					throw new FHIROperationException(OperationOutcome.IssueType.CONFLICT, "SNOMED version in system id and uri do not match.");
+					throw exception("SNOMED version in system id and uri do not match.", OperationOutcome.IssueType.CONFLICT, 400);
 				}
 				// For SNOMED store the parsed module and version, not the id.
 				codeSystemParams.setSnomedModule(moduleFromId);

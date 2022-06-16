@@ -48,7 +48,7 @@ public class AbstractFHIRTest {
 
 	protected static final String sampleSCTID = "257751006";
 	protected static final String sampleInactiveSCTID = "60363000";
-	protected static final String sampleModuleId = "1234";
+	protected static final String sampleModuleId = "1234000008";
 	protected static final int sampleVersion = 20190731;
 	protected static final String STRENGTH_NUMERATOR = "1142135004";
 
@@ -62,7 +62,7 @@ public class AbstractFHIRTest {
 	public void setup() {
 		// Setup security
 		if (!rolesEnabled) {
-			PreAuthenticatedAuthenticationToken authentication = new PreAuthenticatedAuthenticationToken("test-admin", "1234", Sets.newHashSet(new SimpleGrantedAuthority("USER")));
+			PreAuthenticatedAuthenticationToken authentication = new PreAuthenticatedAuthenticationToken("test-admin", "1234000008", Sets.newHashSet(new SimpleGrantedAuthority("USER")));
 			SecurityContextHolder.setContext(new SecurityContextImpl(authentication));
 		} else {
 			SecurityContextHolder.clearContext();

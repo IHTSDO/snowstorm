@@ -12,7 +12,7 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-class ValueSetProviderEclTest extends AbstractFHIRTest {
+class FHIRValueSetProviderExpandEclTest extends AbstractFHIRTest {
 	
 	@Test
 	void testECLRecovery_DescOrSelf() {
@@ -42,14 +42,14 @@ class ValueSetProviderEclTest extends AbstractFHIRTest {
 
 	@Test
 	void testECLRecovery_Self() {
-		String url = baseUrl + "/ValueSet/$expand?url=http://snomed.info/sct/1234?fhir_vs=ecl/" + sampleSCTID +"&_format=json";
+		String url = baseUrl + "/ValueSet/$expand?url=http://snomed.info/sct/1234000008?fhir_vs=ecl/" + sampleSCTID +"&_format=json";
 		ValueSet v = getValueSet(url);
 		assertEquals(1,v.getExpansion().getContains().size());
 	}
 	
 	@Test
 	void testECLRecovery_Descriptions() {
-		String url = baseUrl + "/ValueSet/$expand?url=http://snomed.info/sct/1234?fhir_vs=ecl/" + sampleSCTID +"&includeDesignations=true&_format=json";
+		String url = baseUrl + "/ValueSet/$expand?url=http://snomed.info/sct/1234000008?fhir_vs=ecl/" + sampleSCTID +"&includeDesignations=true&_format=json";
 		ValueSet v = getValueSet(url);
 		assertEquals(1, v.getExpansion().getContains().size());
 		assertFalse(v.getExpansion().getContains().get(0).getDesignation().isEmpty());
@@ -59,7 +59,7 @@ class ValueSetProviderEclTest extends AbstractFHIRTest {
 	@Test
 	void testECLWithFilter() {
 		//Expecting 0 results when filter is applied
-		String url = baseUrl + "/ValueSet/$expand?url=http://snomed.info/sct/1234?fhir_vs=ecl/<<" + Concepts.SNOMEDCT_ROOT + "&filter=banana&_format=json";
+		String url = baseUrl + "/ValueSet/$expand?url=http://snomed.info/sct/1234000008?fhir_vs=ecl/<<" + Concepts.SNOMEDCT_ROOT + "&filter=banana&_format=json";
 		ValueSet v = getValueSet(url);
 		assertEquals(0,v.getExpansion().getContains().size());
 	}
@@ -67,7 +67,7 @@ class ValueSetProviderEclTest extends AbstractFHIRTest {
 	@Test
 	void testECLWithOffsetCount() {
 		//Asking for 5 at a time, expect 13 total - 10 on MAIN + 3 in the sample module 
-		String url = baseUrl + "/ValueSet/$expand?url=http://snomed.info/sct/1234?fhir_vs=ecl/<" + Concepts.SNOMEDCT_ROOT + "&offset=0&count=5&_format=json";
+		String url = baseUrl + "/ValueSet/$expand?url=http://snomed.info/sct/1234000008?fhir_vs=ecl/<" + Concepts.SNOMEDCT_ROOT + "&offset=0&count=5&_format=json";
 		ValueSet v = getValueSet(url);
 		assertEquals(5,v.getExpansion().getContains().size());
 		assertEquals(13,v.getExpansion().getTotal());
@@ -79,7 +79,7 @@ class ValueSetProviderEclTest extends AbstractFHIRTest {
 		assertEquals(10,v.getExpansion().getTotal());
 		
 		//With a total of 13 concepts and 5 per page, we expect our 3rd page to contain the last 3 concepts
-		url = baseUrl + "/ValueSet/$expand?url=http://snomed.info/sct/1234?fhir_vs=ecl/<" + Concepts.SNOMEDCT_ROOT + "&offset=10&count=5&_format=json";
+		url = baseUrl + "/ValueSet/$expand?url=http://snomed.info/sct/1234000008?fhir_vs=ecl/<" + Concepts.SNOMEDCT_ROOT + "&offset=10&count=5&_format=json";
 		v = getValueSet(url);
 		assertEquals(3,v.getExpansion().getContains().size());
 		assertEquals(13,v.getExpansion().getTotal());
@@ -88,7 +88,7 @@ class ValueSetProviderEclTest extends AbstractFHIRTest {
 	@Test
 	void testECLWithSpecificVersion() {
 		//Asking for 5 at a time, expect 13 Total - 10 on MAIN + 3 in the sample module + 1 Root concept
-		String url = baseUrl + "/ValueSet/$expand?system-version=http://snomed.info/sct|http://snomed.info/sct/1234/version/20190731&" +
+		String url = baseUrl + "/ValueSet/$expand?system-version=http://snomed.info/sct|http://snomed.info/sct/1234000008/version/20190731&" +
 				"url=http://snomed.info/sct/" + sampleModuleId + "?fhir_vs=ecl/<<" + Concepts.SNOMEDCT_ROOT + 
 				"&_format=json";
 		ValueSet v = getValueSet(url);
@@ -100,7 +100,7 @@ class ValueSetProviderEclTest extends AbstractFHIRTest {
 		String url = baseUrl + "/ValueSet/$expand?system-version=http://snomed.info/sct|http://snomed.info/sct/900000000000207008/version/19990731&" +
 				"url=http://snomed.info/sct?fhir_vs=ecl/<<" + Concepts.SNOMEDCT_ROOT +
 				"&_format=json";
-		getValueSet(url, 404, "Code system not found.");
+		getValueSet(url, 404, "The requested CodeSystem version (http://snomed.info/sct/900000000000207008/version/19990731) was not found.");
 	}
 	
 	@Test
@@ -108,18 +108,18 @@ class ValueSetProviderEclTest extends AbstractFHIRTest {
 		
 		// ?fhir_vs -> all concepts
 		// expect 13 Total - 10 on MAIN + 3 in the sample module + 1 Root concept
-		String url = baseUrl + "/ValueSet/$expand?url=http://snomed.info/sct/1234?fhir_vs";
+		String url = baseUrl + "/ValueSet/$expand?url=http://snomed.info/sct/1234000008?fhir_vs";
 		ValueSet v = getValueSet(url);
 		assertEquals(14,v.getExpansion().getTotal());
 		
 		// ?fhir_vs=refset -> all concepts representing refsets
-//		url = baseUrl + "/ValueSet/$expand?url=http://snomed.info/sct/1234?fhir_vs=refset";
+//		url = baseUrl + "/ValueSet/$expand?url=http://snomed.info/sct/1234000008?fhir_vs=refset";
 //		v = getValueSet(url);
 //		//Language Refsets + OWLAxiom Refset + ModuleDependencyRefset created during versioning.
 //		assertEquals(3, v.getExpansion().getTotal());
 		
 		// ?fhir_vs=isa/<root concept> -> all concepts under root plus self
-		url = baseUrl + "/ValueSet/$expand?url=http://snomed.info/sct/1234?fhir_vs=isa/" + Concepts.SNOMEDCT_ROOT;
+		url = baseUrl + "/ValueSet/$expand?url=http://snomed.info/sct/1234000008?fhir_vs=isa/" + Concepts.SNOMEDCT_ROOT;
 		v = getValueSet(url);
 		assertEquals(14,v.getExpansion().getTotal());
 		
@@ -164,7 +164,7 @@ class ValueSetProviderEclTest extends AbstractFHIRTest {
 	@Test
 	void testECLWithUnpublishedVersion() {
 		//Asking for 5 at a time, expect 13 Total - 10 on MAIN + 3 in the sample module + 1 Root concept
-		String url = baseUrl + "/ValueSet/$expand?system-version=http://snomed.info/xsct|http://snomed.info/xsct/1234&" +
+		String url = baseUrl + "/ValueSet/$expand?system-version=http://snomed.info/xsct|http://snomed.info/xsct/1234000008&" +
 				"url=http://snomed.info/sct/" + sampleModuleId + "?fhir_vs=ecl/<<" + Concepts.SNOMEDCT_ROOT + 
 				"&_format=json";
 		ValueSet v = getValueSet(url);
