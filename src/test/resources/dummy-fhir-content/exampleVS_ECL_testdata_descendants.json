@@ -11,7 +11,7 @@
     "include": [
       {
         "system": "http://snomed.info/sct",
-        "version": "http://snomed.info/sct/1234",
+        "version": "http://snomed.info/sct/1234000008",
         "filter": [
           {
             "property": "constraint",

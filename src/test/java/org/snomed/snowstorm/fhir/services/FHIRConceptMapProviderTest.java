@@ -8,7 +8,7 @@ import org.snomed.snowstorm.core.data.domain.Concepts;
 import static org.hibernate.validator.internal.util.Contracts.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-class ConceptMapProviderTest extends AbstractFHIRTest {
+class FHIRConceptMapProviderTest extends AbstractFHIRTest {
 	
 	@Test
 	void testHistoricAssociation() throws FHIROperationException {
