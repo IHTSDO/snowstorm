@@ -60,7 +60,7 @@ public class FHIRStructureDefinitionProvider implements IResourceProvider, FHIRC
 		try {
 			return createStructureDefinition(id, sd);
 		} catch (Exception e) {
-			throw new FHIROperationException(IssueType.EXCEPTION, "Failed to update/create structureDefinition '" + sd.getId(),e);
+			throw new FHIROperationException("Failed to update/create structureDefinition '" + sd.getId(), IssueType.EXCEPTION, 400, e);
 		}
 	}
 	
@@ -115,10 +115,10 @@ public class FHIRStructureDefinitionProvider implements IResourceProvider, FHIRC
 
 	private void validateId(IdType id, StructureDefinition sd) throws FHIROperationException {
 		if (sd == null || id == null) {
-			throw new FHIROperationException(IssueType.EXCEPTION, "Both ID and StructureDefinition object must be supplied");
+			throw new FHIROperationException("Both ID and StructureDefinition object must be supplied", IssueType.EXCEPTION, 400);
 		}
 		if (sd.getId() == null || !id.asStringValue().equals(sd.getId())) {
-			throw new FHIROperationException(IssueType.EXCEPTION, "ID in request must match that in StructureDefinition object");
+			throw new FHIROperationException("ID in request must match that in StructureDefinition object", IssueType.EXCEPTION, 400);
 		}
 	}
 	

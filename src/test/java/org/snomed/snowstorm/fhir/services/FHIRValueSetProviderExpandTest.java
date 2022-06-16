@@ -1,19 +1,16 @@
 package org.snomed.snowstorm.fhir.services;
 
 import ca.uhn.fhir.rest.api.MethodOutcome;
-import org.hl7.fhir.r4.model.*;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 
-import javax.servlet.http.HttpServletResponse;
-import java.util.Collections;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
-public class FHIRValueSetProviderTest extends AbstractFHIRTest {
+public class FHIRValueSetProviderExpandTest extends AbstractFHIRTest {
 
 	private static final String VALUE_SET_EXPANSION_POST_BODY_WITH_VERSION = "{\n" +
 			"    \"resourceType\": \"Parameters\",\n" +
