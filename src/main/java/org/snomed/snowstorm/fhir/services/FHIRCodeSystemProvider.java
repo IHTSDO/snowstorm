@@ -241,7 +241,7 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants 
 			Concept concept = conceptAndSystemResult.getConcept();
 			FHIRCodeSystemVersion codeSystemVersion = conceptAndSystemResult.getCodeSystemVersion();
 			if (concept == null) {
-				throw new FHIROperationException(IssueType.NOTFOUND, format("Code '%s' not found.", code));// TODO: Return system
+				throw new FHIROperationException(format("Code '%s' not found.", code), IssueType.NOTFOUND, 400);// TODO: Return system
 			}
 
 			List<String> childIds = graphService.findChildren(code, codeSystemVersion, LARGE_PAGE);
@@ -292,13 +292,7 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants 
 			@OperationParam(name="date") DateTimeType date,
 			@OperationParam(name="coding") Coding coding,
 			@OperationParam(name="displayLanguage") String displayLanguage) throws FHIROperationException {
-
-		notSupported("codeSystem", codeSystem);
-		notSupported("date", date);
-		notSupported("displayLanguage", displayLanguage);
-		mutuallyExclusive("code", code, "coding", coding);
-		mutuallyRequired("display", display, "code", code, "coding", coding);
-		FHIRCodeSystemVersionParams codeSystemParams = fhirHelper.getCodeSystemVersionParams(id, url, version, coding);
+		FHIRCodeSystemVersionParams codeSystemParams = getCodeSystemVersionParams(id, url, version, coding);
 		return validateCode(codeSystemParams, fhirHelper.recoverCode(code, coding), display, request.getHeader(ACCEPT_LANGUAGE_HEADER));
 	}
 	
@@ -375,8 +369,8 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants 
 	) throws FHIROperationException {
 
 		if (theCodeSystemUrl.getValueAsString().startsWith(ITermLoaderSvc.SCT_URI)) {
-			throw new FHIROperationException(IssueType.NOTSUPPORTED, "Uploading a SNOMED-CT code system using the FHIR API is not supported. " +
-					"Please use the Snowstorm native API to manage SNOMED-CT code systems.");
+			throw new FHIROperationException("Uploading a SNOMED-CT code system using the FHIR API is not supported. " +
+					"Please use the Snowstorm native API to manage SNOMED-CT code systems.", IssueType.NOTSUPPORTED, 400);
 		}
 
 		FhirContext fhirContext = fhirHelper.getFhirContext();
