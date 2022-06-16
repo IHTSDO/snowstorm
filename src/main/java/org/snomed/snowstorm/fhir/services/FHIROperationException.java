@@ -8,12 +8,12 @@ public class FHIROperationException extends Exception {
 	
 	private final IssueType issueType;
 	
-	public FHIROperationException(IssueType issueType, String message) {
+	public FHIROperationException(String message, IssueType issueType, int statusCode) {
 		super(message);
 		this.issueType = issueType;
 	}
 	
-	public FHIROperationException(IssueType issueType, String message, Exception e) {
+	public FHIROperationException(String message, IssueType issueType, int statusCode, Exception e) {
 		super(message, e);
 		this.issueType = issueType;
 	}

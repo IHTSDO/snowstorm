@@ -10,7 +10,7 @@ import org.springframework.http.ResponseEntity;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-class CodeSystemProviderInstancesTest extends AbstractFHIRTest {
+class FHIRCodeSystemProviderInstancesTest extends AbstractFHIRTest {
 
 	@Test
 	void testCodeSystemRecovery() throws FHIROperationException {

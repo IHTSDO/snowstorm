@@ -100,7 +100,7 @@ public class FHIRConceptMapProvider implements IResourceProvider, FHIRConstants 
 		normaliseURIs(source, target, ICDO, ICDO_URI);
 		
 		if (!source.asStringValue().startsWith(SNOMED_URI) && source.asStringValue().equals(target.asStringValue())) {
-			throw new FHIROperationException (null, "Source and target cannot be the same: '" + source.asStringValue() + "'");
+			throw new FHIROperationException ("Source and target cannot be the same: '" + source.asStringValue() + "'", null, 400);
 		}
 		
 		String refsetId = "";
@@ -108,7 +108,7 @@ public class FHIRConceptMapProvider implements IResourceProvider, FHIRConstants 
 			validate("Url", url, Validation.STARTS_WITH, new String[] {SNOMED_URI, SNOMED_URI_UNVERSIONED}, true);
 			int idx = url.indexOf(MAP_INDICATOR);
 			if (idx == NOT_SET) {
-				throw new FHIROperationException (IssueType.INCOMPLETE, "url parameter is expected to contain '"+ MAP_INDICATOR +"' indicating the refset sctid of the map to be used.");
+				throw new FHIROperationException ("url parameter is expected to contain '"+ MAP_INDICATOR +"' indicating the refset sctid of the map to be used.", IssueType.INCOMPLETE, 400);
 			}
 			refsetId = url.substring(idx + MAP_INDICATOR.length());
 		}
@@ -117,7 +117,7 @@ public class FHIRConceptMapProvider implements IResourceProvider, FHIRConstants 
 		if (!refsetId.isEmpty()) {
 			String expectedTargetSystem = knownUriMap.inverse().get(refsetId);
 			if (expectedTargetSystem != null && !target.equals(expectedTargetSystem)) {
-				throw new FHIROperationException (IssueType.CONFLICT, "Refset " + refsetId + " relates to target system '" + expectedTargetSystem + "' rather than '" + target + "'");
+				throw new FHIROperationException ("Refset " + refsetId + " relates to target system '" + expectedTargetSystem + "' rather than '" + target + "'", IssueType.CONFLICT, 400);
 			}
 		}
 		
@@ -140,7 +140,7 @@ public class FHIRConceptMapProvider implements IResourceProvider, FHIRConstants 
 			if (url == null) {
 				branchPath.set(MAIN);
 			} else {
-				throw new FHIROperationException (IssueType.INCOMPLETE, "url parameter is expected to contain a parameter indicating the refset id of the map to be used");
+				throw new FHIROperationException ("url parameter is expected to contain a parameter indicating the refset id of the map to be used", IssueType.INCOMPLETE, 400);
 			}
 		} else {
 			StringType codeSystemVersionUri = new StringType(url.substring(0, cutPoint));
@@ -213,12 +213,12 @@ public class FHIRConceptMapProvider implements IResourceProvider, FHIRConstants 
 		switch (mode) {
 			case EQUALS:
 				if (actual == null || !actual.equals(expected)) {
-					throw new FHIROperationException(null, fieldName + " must be exactly equal to '" + expected + "'.  Received '" + actual + "'.");
+					throw new FHIROperationException(fieldName + " must be exactly equal to '" + expected + "'.  Received '" + actual + "'.", null, 400);
 				}
 				break;
 			case STARTS_WITH:
 				if (actual == null || !actual.startsWith(expected)) {
-					throw new FHIROperationException(null, fieldName + " must start with '" + expected + "'.  Received '" + actual + "'.");
+					throw new FHIROperationException(fieldName + " must start with '" + expected + "'.  Received '" + actual + "'.", null, 400);
 				}
 				break;
 		}
@@ -238,7 +238,7 @@ public class FHIRConceptMapProvider implements IResourceProvider, FHIRConstants 
 			}
 		}
 		if (!matchFound) {
-			throw new FHIROperationException (null, fieldName + " expected to contain one of " + String.join(", ", permittedValues));
+			throw new FHIROperationException (fieldName + " expected to contain one of " + String.join(", ", permittedValues), null, 400);
 		}
 	}
 
