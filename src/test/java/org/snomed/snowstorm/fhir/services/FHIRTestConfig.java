@@ -53,6 +53,10 @@ public class FHIRTestConfig extends TestConfig {
 		concepts.add(new Concept(sampleInactiveSCTID).setActive(false));
 		conceptService.batchCreate(concepts, MAIN);
 
+		ReferenceSetMember member = new ReferenceSetMember(null, Concepts.REFSET_SAME_AS_ASSOCIATION, sampleSCTID);
+		member.setAdditionalField(ReferenceSetMember.AssociationFields.TARGET_COMP_ID, "88189002");
+		memberService.createMember(MAIN, member);
+
 		// Version content to fill effectiveTime fields
 		CodeSystem codeSystem = new CodeSystem("SNOMEDCT", MAIN);
 
@@ -81,10 +85,6 @@ public class FHIRTestConfig extends TestConfig {
 		codeSystemService.createVersion(codeSystemWK, sampleVersion, "Unit Test Version");
 
 		assertNotNull(codeSystemService.findByDefaultModule(sampleModuleId));
-
-		ReferenceSetMember member = new ReferenceSetMember(null, Concepts.REFSET_SAME_AS_ASSOCIATION, sampleSCTID);
-		member.setAdditionalField(ReferenceSetMember.AssociationFields.TARGET_COMP_ID, "88189002");
-		memberService.createMember(MAIN, member);
 
 		logger.info("FHIR test data setup complete");
 	}

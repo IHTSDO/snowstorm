@@ -6,6 +6,8 @@ import org.hl7.fhir.r4.model.Enumerations;
 import org.springframework.data.elasticsearch.annotations.Field;
 import org.springframework.data.elasticsearch.annotations.FieldType;
 
+import java.util.Objects;
+
 public class FHIRMapTarget {
 
 	@Field(type = FieldType.Keyword)
@@ -28,6 +30,12 @@ public class FHIRMapTarget {
 		display = hapiTarget.getDisplay();
 		equivalence = hapiTarget.getEquivalence() != null ? hapiTarget.getEquivalence().toCode() : null;
 		comment = hapiTarget.getComment();
+	}
+
+	public FHIRMapTarget(String code, String equivalence, String comment) {
+		this.code = code;
+		this.equivalence = equivalence;
+		this.comment = comment;
 	}
 
 	@JsonIgnore
@@ -72,5 +80,18 @@ public class FHIRMapTarget {
 
 	public void setComment(String comment) {
 		this.comment = comment;
+	}
+
+	@Override
+	public boolean equals(Object o) {
+		if (this == o) return true;
+		if (o == null || getClass() != o.getClass()) return false;
+		FHIRMapTarget that = (FHIRMapTarget) o;
+		return Objects.equals(code, that.code) && Objects.equals(equivalence, that.equivalence);
+	}
+
+	@Override
+	public int hashCode() {
+		return Objects.hash(code, equivalence);
 	}
 }
