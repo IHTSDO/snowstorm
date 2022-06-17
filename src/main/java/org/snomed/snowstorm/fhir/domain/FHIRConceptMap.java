@@ -1,13 +1,10 @@
 package org.snomed.snowstorm.fhir.domain;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
-import org.hl7.fhir.r4.model.ConceptMap;
-import org.hl7.fhir.r4.model.ContactDetail;
-import org.hl7.fhir.r4.model.Enumerations;
-import org.hl7.fhir.r4.model.Identifier;
+import org.hl7.fhir.r4.model.*;
 import org.snomed.snowstorm.fhir.domain.contact.FHIRContactDetail;
+import org.snomed.snowstorm.fhir.services.FHIRHelper;
 import org.springframework.data.annotation.Id;
-import org.springframework.data.annotation.Transient;
 import org.springframework.data.elasticsearch.annotations.Document;
 import org.springframework.data.elasticsearch.annotations.Field;
 import org.springframework.data.elasticsearch.annotations.FieldType;
@@ -15,11 +12,19 @@ import org.springframework.data.elasticsearch.annotations.FieldType;
 import java.util.ArrayList;
 import java.util.List;
 
+import static java.lang.String.format;
 import static org.snomed.snowstorm.core.util.CollectionUtils.orEmpty;
 
 @Document(indexName = "fhir-concept-map")
 public class FHIRConceptMap {
 
+	public interface Fields {
+		String URL = "url";
+		String SOURCE = "sourceUri";
+		String TARGET = "targetUri";
+		String GROUP_SOURCE = "group.source.keyword";
+		String GROUP_TARGET = "group.target.keyword";
+	}
 	@Id
 	private String id;
 
@@ -56,7 +61,22 @@ public class FHIRConceptMap {
 	@Field(type = FieldType.Text)
 	private String copyright;
 
+	@Field(type = FieldType.Keyword)
+	private String sourceUri;
+
+	@Field(type = FieldType.Keyword)
+	private String targetUri;
+
 	private List<FHIRConceptMapGroup> group;
+
+	@JsonIgnore
+	private boolean implicitSnomedMap;
+
+	@JsonIgnore
+	private String snomedRefsetId;
+
+	@JsonIgnore
+	private String snomedRefsetEquivalence;
 
 	public FHIRConceptMap() {
 		group = new ArrayList<>();
@@ -87,6 +107,16 @@ public class FHIRConceptMap {
 		description = hapiConceptMap.getDescription();
 		purpose = hapiConceptMap.getPurpose();
 		copyright = hapiConceptMap.getCopyright();
+		if (hapiConceptMap.hasSourceUriType()) {
+			sourceUri = hapiConceptMap.getSourceUriType().getValueAsString();
+		} else if (hapiConceptMap.hasSourceCanonicalType()) {
+			throw FHIRHelper.exception("CanonicalType is not supported for ConceptMap.source.", OperationOutcome.IssueType.NOTSUPPORTED, 400);
+		}
+		if (hapiConceptMap.hasTargetUriType()) {
+			targetUri = hapiConceptMap.getTargetUriType().getValueAsString();
+		} else if (hapiConceptMap.hasTargetCanonicalType()) {
+			throw FHIRHelper.exception("CanonicalType is not supported for ConceptMap.target.", OperationOutcome.IssueType.NOTSUPPORTED, 400);
+		}
 
 		for (ConceptMap.ConceptMapGroupComponent hapiGroup : hapiConceptMap.getGroup()) {
 			group.add(new FHIRConceptMapGroup(hapiGroup));
@@ -117,9 +147,24 @@ public class FHIRConceptMap {
 		map.setDescription(description);
 		map.setPurpose(purpose);
 		map.setCopyright(copyright);
+		if (sourceUri != null) {
+			map.setSource(new UriType(sourceUri));
+		}
+		if (targetUri != null) {
+			map.setTarget(new UriType(targetUri));
+		}
 		for (FHIRConceptMapGroup mapGroup : orEmpty(group)) {
 			map.addGroup(mapGroup.getHapi());
 		}
+
+		if (id != null && id.startsWith("snomed_implicit_map_")) {
+			Narrative text = new Narrative();
+			text.setStatus(Narrative.NarrativeStatus.GENERATED);
+			text.setDivAsString(format("This SNOMED CT Implicit Concept Map from %s to %s is generated using Reference Set %s.",
+					sourceUri, targetUri, id.replace("snomed_implicit_map_", "")));
+			map.setText(text);
+		}
+
 		return map;
 	}
 
@@ -227,6 +272,22 @@ public class FHIRConceptMap {
 		this.copyright = copyright;
 	}
 
+	public String getSourceUri() {
+		return sourceUri;
+	}
+
+	public void setSourceUri(String sourceUri) {
+		this.sourceUri = sourceUri;
+	}
+
+	public String getTargetUri() {
+		return targetUri;
+	}
+
+	public void setTargetUri(String targetUri) {
+		this.targetUri = targetUri;
+	}
+
 	public List<FHIRConceptMapGroup> getGroup() {
 		return group;
 	}
@@ -235,4 +296,27 @@ public class FHIRConceptMap {
 		this.group = group;
 	}
 
+	public boolean isImplicitSnomedMap() {
+		return implicitSnomedMap;
+	}
+
+	public void setImplicitSnomedMap(boolean implicitSnomedMap) {
+		this.implicitSnomedMap = implicitSnomedMap;
+	}
+
+	public String getSnomedRefsetId() {
+		return snomedRefsetId;
+	}
+
+	public void setSnomedRefsetId(String snomedRefsetId) {
+		this.snomedRefsetId = snomedRefsetId;
+	}
+
+	public String getSnomedRefsetEquivalence() {
+		return snomedRefsetEquivalence;
+	}
+
+	public void setSnomedRefsetEquivalence(String snomedRefsetEquivalence) {
+		this.snomedRefsetEquivalence = snomedRefsetEquivalence;
+	}
 }

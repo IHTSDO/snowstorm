@@ -38,7 +38,6 @@ import java.util.stream.StreamSupport;
 
 import static io.kaicode.elasticvc.api.ComponentService.LARGE_PAGE;
 import static java.lang.String.format;
-import static org.snomed.snowstorm.config.Config.DEFAULT_LANGUAGE_DIALECTS;
 import static org.snomed.snowstorm.fhir.services.FHIRHelper.*;
 
 @Component
@@ -68,13 +67,6 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants 
 	@Autowired
 	private FHIRConceptService fhirConceptService;
 
-	private final List<LanguageDialect> defaultLanguages;
-	
-	FHIRCodeSystemProvider() {
-		defaultLanguages = new ArrayList<>();
-		defaultLanguages.addAll(DEFAULT_LANGUAGE_DIALECTS);
-	}
-	
 	private static final String[] defaultSortOrder = new String[] { "title", "-date" };
 
 	private static final Comparator<String> nullSafeStringComparator = Comparator.nullsFirst(Comparator.naturalOrder());
@@ -223,7 +215,7 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants 
 		notSupported("date", date);
 		notSupported("system", system, " when id is already specified in the URL.");
 		notSupported("version", version, " when id is already specified in the URL.");
-		FHIRCodeSystemVersionParams codeSystemVersion = fhirHelper.getCodeSystemVersionParams(id, system, version, coding);
+		FHIRCodeSystemVersionParams codeSystemVersion = getCodeSystemVersionParams(id, system, version, coding);
 		return lookup(codeSystemVersion, fhirHelper.recoverCode(code, coding), displayLanguage, request.getHeader(ACCEPT_LANGUAGE_HEADER), propertiesType);
 	}
 	
@@ -241,7 +233,7 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants 
 			Concept concept = conceptAndSystemResult.getConcept();
 			FHIRCodeSystemVersion codeSystemVersion = conceptAndSystemResult.getCodeSystemVersion();
 			if (concept == null) {
-				throw new FHIROperationException(format("Code '%s' not found.", code), IssueType.NOTFOUND, 400);// TODO: Return system
+				throw exception(format("Code '%s' not found for system '%s'.", code, codeSystemVersion.getUrl()), IssueType.NOTFOUND, 404);
 			}
 
 			List<String> childIds = graphService.findChildren(code, codeSystemVersion, LARGE_PAGE);
@@ -251,7 +243,7 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants 
 			FHIRCodeSystemVersion fhirCodeSystemVersion = fhirCodeSystemService.findCodeSystemVersionOrThrow(codeSystemParams);
 			FHIRConcept concept = fhirConceptService.findConcept(fhirCodeSystemVersion, code);
 			if (concept == null) {
-				throw new NotFoundException(format("Concept %s not found for system %s.", code, fhirCodeSystemVersion.getUrl()));
+				throw exception(format("Code '%s' not found for system '%s'.", code, fhirCodeSystemVersion.getUrl()), IssueType.NOTFOUND, 404);
 			}
 			return pMapper.mapToFHIR(fhirCodeSystemVersion, concept);
 		}
