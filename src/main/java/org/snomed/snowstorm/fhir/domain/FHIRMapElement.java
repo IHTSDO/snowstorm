@@ -9,11 +9,17 @@ import org.springframework.data.elasticsearch.annotations.FieldType;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 import static org.snomed.snowstorm.core.util.CollectionUtils.orEmpty;
 
 @Document(indexName = "fhir-map-element")
 public class FHIRMapElement {
+
+	public interface Fields {
+		String GROUP_ID = "groupId";
+		String CODE = "code";
+	}
 
 	@Id
 	private String id;
@@ -73,8 +79,9 @@ public class FHIRMapElement {
 		return code;
 	}
 
-	public void setCode(String code) {
+	public FHIRMapElement setCode(String code) {
 		this.code = code;
+		return this;
 	}
 
 	public String getDisplay() {
@@ -89,7 +96,21 @@ public class FHIRMapElement {
 		return target;
 	}
 
-	public void setTarget(List<FHIRMapTarget> target) {
+	public FHIRMapElement setTarget(List<FHIRMapTarget> target) {
 		this.target = target;
+		return this;
+	}
+
+	@Override
+	public boolean equals(Object o) {
+		if (this == o) return true;
+		if (o == null || getClass() != o.getClass()) return false;
+		FHIRMapElement that = (FHIRMapElement) o;
+		return Objects.equals(groupId, that.groupId) && Objects.equals(code, that.code) && Objects.equals(target, that.target);
+	}
+
+	@Override
+	public int hashCode() {
+		return Objects.hash(groupId, code, target);
 	}
 }

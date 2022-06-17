@@ -1,6 +1,5 @@
 package org.snomed.snowstorm.fhir.services;
 
-import com.google.common.collect.BiMap;
 import org.hl7.fhir.r4.model.*;
 import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.domain.expression.Expression;
@@ -27,7 +26,7 @@ public class HapiParametersMapper implements FHIRConstants {
 	private FHIRHelper fhirHelper;
 	
 	public Parameters mapToFHIRValidateDisplayTerm(Concept concept, String display, FHIRCodeSystemVersion codeSystemVersion) {
-		Parameters parameters = getStandardParameters();
+		Parameters parameters = new Parameters();
 		if (display == null) {
 			parameters.addParameter("result", true);
 		} else {
@@ -69,7 +68,7 @@ public class HapiParametersMapper implements FHIRConstants {
 	}
 
 	public Parameters conceptNotFound(String code, FHIRCodeSystemVersion codeSystemVersion, String message) {
-		Parameters parameters = getStandardParameters();
+		Parameters parameters = new Parameters();
 		parameters.addParameter("result", false);
 		parameters.addParameter("code", code);
 		addSystemAndVersion(parameters, codeSystemVersion);
@@ -81,7 +80,7 @@ public class HapiParametersMapper implements FHIRConstants {
 	public Parameters mapToFHIR(FHIRCodeSystemVersion codeSystem, Concept concept, Collection<String> childIds,
 			Set<FhirSctProperty> properties, List<LanguageDialect> designations) {
 
-		Parameters parameters = getStandardParameters();
+		Parameters parameters = new Parameters();
 		parameters.addParameter("code", concept.getConceptId());
 		parameters.addParameter("display", fhirHelper.getPreferredTerm(concept, designations));
 		parameters.addParameter("name", codeSystem.getName());
@@ -130,55 +129,6 @@ public class HapiParametersMapper implements FHIRConstants {
 		return parameters;
 	}
 
-	public Parameters mapToFHIR(List<ReferenceSetMember> members, UriType requestedTargetSystem, BiMap<String, String> knownUriMap) {
-		UriType targetSystem;
-		Parameters p = getStandardParameters();
-		boolean success = members.size() > 0;
-		p.addParameter("result", success);
-		boolean reverseLookup = requestedTargetSystem.asStringValue().equals(SNOMED_URI);
-
-		if (success) {
-			Parameters.ParametersParameterComponent matches = p.addParameter().setName("match");
-			for (ReferenceSetMember member : members) {
-
-				//Do we know about this reference set?
-				String refsetId = member.getRefsetId();
-				String actualTargetSystem = null;
-
-				//Don't do lookup if we're already doing a reverse lookup
-				if (!reverseLookup) {
-					actualTargetSystem = knownUriMap.inverse().get(refsetId);
-				}
-
-				//If not, then give an indication of the refset being returned
-				if (actualTargetSystem == null) {
-					//targetSystem = new UriType(SNOMED_URI + "?fhir_vs=ecl/^" + refsetId);
-					targetSystem = new UriType(SNOMED_URI);
-				} else {
-					targetSystem = new UriType(actualTargetSystem);
-				}
-				if (reverseLookup) {
-					Coding coding = new Coding().setCode(member.getReferencedComponentId()).setSystemElement(targetSystem);
-					matches.addPart().setName("concept").setValue(coding);
-				} else {
-					String mapTarget = member.getAdditionalField(ReferenceSetMember.AssociationFields.TARGET_COMP_ID);
-					if (mapTarget == null) {
-						mapTarget = member.getAdditionalField(ReferenceSetMember.AssociationFields.MAP_TARGET);
-					}
-					//We might be looking up an attribute value refset for an inactivation indicator MAINT-1221
-					if (mapTarget == null) {
-						mapTarget = member.getAdditionalField("valueId");
-					}
-					if (mapTarget != null) {
-						Coding coding = new Coding().setCode(mapTarget).setSystemElement(targetSystem);
-						matches.addPart().setName("mapTarget").setValue(coding);
-					}
-				}
-			}
-		}
-		return p;
-	}
-
 	public Parameters validateCodeResponse(FHIRConcept concept, boolean displayValidOrNull, FHIRCodeSystemVersion codeSystemVersion) {
 		Parameters parameters = new Parameters();
 		parameters.addParameter("result", displayValidOrNull);
@@ -188,16 +138,6 @@ public class HapiParametersMapper implements FHIRConstants {
 			parameters.addParameter("message", "The code exists but the display is not valid.");
 		}
 		parameters.addParameter("display", concept.getDisplay());
-		return parameters;
-	}
-
-	// TODO: Work out what we should be including here
-	private Parameters getStandardParameters() {
-		Parameters parameters = new Parameters();
-		//String copyrightStr = COPYRIGHT.replace("YEAR", Integer.toString(Year.now().getValue()));
-		//parameters.addParameter().setCopyright(copyrightStr);
-		//parameters.addParameter().setName(source.getShortName());
-		//parameters.addParameter().setPublisher(SNOMED_INTERNATIONAL);
 		return parameters;
 	}
 

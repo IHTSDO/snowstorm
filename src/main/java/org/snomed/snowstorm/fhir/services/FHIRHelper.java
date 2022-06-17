@@ -63,6 +63,10 @@ public class FHIRHelper implements FHIRConstants {
 		return uri != null && (uri.startsWith(SNOMED_URI) || uri.startsWith(SNOMED_URI_UNVERSIONED));
 	}
 
+	public static Pattern getSnomedUriModuleAndVersionPattern() {
+		return SNOMED_URI_MODULE_AND_VERSION_PATTERN;
+	}
+
 	public static Integer getSnomedVersion(String versionStr) throws FHIROperationException {
 		if (versionStr.contains(UNVERSIONED) || versionStr.startsWith(SNOMED_URI_UNVERSIONED)) {
 			return UNVERSIONED_SCT_VERSION;
@@ -298,6 +302,22 @@ public class FHIRHelper implements FHIRConstants {
 			mutuallyExclusive(param1Name, param1, param2Name, param2);
 			mutuallyExclusive(param1Name, param1, param3Name, param3);
 			mutuallyExclusive(param2Name, param2, param3Name, param3);
+		}
+	}
+
+	public static void requireExactlyOneOf(String param1Name, Object param1, String param2Name, Object param2, String param3Name, Object param3,
+			String param4Name, Object param4) throws FHIROperationException {
+		if (param1 == null && param2 == null && param3 == null && param4 == null) {
+			throw exception(format("One of '%s' or '%s' or '%s' or '%s' parameters must be supplied.", param1Name, param2Name, param3Name, param4Name), IssueType.INVARIANT, 400);
+		} else {
+			mutuallyExclusive(param1Name, param1, param2Name, param2);
+			mutuallyExclusive(param1Name, param1, param3Name, param3);
+			mutuallyExclusive(param1Name, param1, param4Name, param4);
+
+			mutuallyExclusive(param2Name, param2, param3Name, param3);
+			mutuallyExclusive(param2Name, param2, param4Name, param4);
+
+			mutuallyExclusive(param3Name, param3, param4Name, param4);
 		}
 	}
 
