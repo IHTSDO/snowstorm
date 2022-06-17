@@ -209,6 +209,11 @@
 					<groupId>org.apache.lucene</groupId>
 					<artifactId>*</artifactId>
 				</exclusion>
+				<exclusion>
+					<!-- Not needed, was causing build failure "Could not find artifact". -->
+					<groupId>com.github.jsonld-java</groupId>
+					<artifactId>jsonld-java</artifactId>
+				</exclusion>
 			</exclusions>
 		</dependency>
 		<dependency>
