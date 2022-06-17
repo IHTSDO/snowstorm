@@ -18,34 +18,20 @@ import java.util.Map;
 
 public class HapiValueSetMapper implements FHIRConstants {
 	
-	public ValueSet mapToFHIR(ValueSet vs, List<ConceptMini> concepts, String url, Map<String, Concept> conceptDetails, List<LanguageDialect> designations, Boolean includeDesignations) {
-		if (vs == null) {
-			vs = getStandardValueSet(url);
-		}
-		addExpansion(vs, concepts, conceptDetails, designations, includeDesignations);
-		return vs;
-	}
-	
-	private ValueSet getStandardValueSet(String url) {
-		ValueSet v = new ValueSet();
-		v.setUrl(url);
-		return v;
-	}
-
 	private void addExpansion(ValueSet vs, List<ConceptMini> concepts, Map<String, Concept> conceptDetails, List<LanguageDialect> designations, Boolean includeDesignations) {
 		ValueSetExpansionComponent expansion = vs.getExpansion();  //Will autocreate
 		for (ConceptMini concept : concepts) {
 			ValueSetExpansionContainsComponent component = expansion.addContains()
 				.setCode(concept.getConceptId())
 				.setSystem(SNOMED_URI);
-			
+
 			if (conceptDetails != null && conceptDetails.containsKey(concept.getConceptId())) {
 				Concept c = conceptDetails.get(concept.getConceptId());
 				for (Description d : c.getActiveDescriptions()) {
 					if (includeDesignations && d.hasAcceptability(designations)) {
 						component.addDesignation(asDesignation(d));
 					}
-					
+
 					//Use the preferred term in the specified display language.
 					if (!designations.isEmpty() && d.hasAcceptability(Concepts.PREFERRED, designations.get(0)) &&
 							d.getTypeId().equals(Concepts.SYNONYM)) {
@@ -59,7 +45,6 @@ public class HapiValueSetMapper implements FHIRConstants {
 			}
 		}
 	}
-
 
 	private ConceptReferenceDesignationComponent asDesignation(Description d) {
 		ConceptReferenceDesignationComponent designation = new ConceptReferenceDesignationComponent();
