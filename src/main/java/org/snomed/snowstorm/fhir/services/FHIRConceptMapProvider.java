@@ -7,16 +7,16 @@ import com.google.common.collect.ImmutableBiMap;
 import org.hl7.fhir.instance.model.api.IBaseResource;
 import org.hl7.fhir.r4.model.*;
 import org.hl7.fhir.r4.model.OperationOutcome.IssueType;
-import org.snomed.snowstorm.core.data.domain.ReferenceSetMember;
 import org.snomed.snowstorm.core.data.services.ReferenceSetMemberService;
-import org.snomed.snowstorm.core.data.services.pojo.MemberSearchRequest;
+import org.snomed.snowstorm.core.pojo.LanguageDialect;
 import org.snomed.snowstorm.fhir.config.FHIRConstants;
-import org.snomed.snowstorm.fhir.domain.BranchPath;
 import org.snomed.snowstorm.fhir.domain.FHIRConceptMap;
 import org.snomed.snowstorm.fhir.domain.FHIRConceptMapGroup;
 import org.snomed.snowstorm.fhir.domain.FHIRMapElement;
-import org.snomed.snowstorm.fhir.repositories.FHIRMapElementRepository;
+import org.snomed.snowstorm.fhir.domain.FHIRMapTarget;
+import org.snomed.snowstorm.fhir.pojo.FHIRSnomedConceptMapConfig;
 import org.snomed.snowstorm.fhir.repositories.FHIRConceptMapRepository;
+import org.snomed.snowstorm.fhir.repositories.FHIRMapElementRepository;
 import org.snomed.snowstorm.rest.ControllerHelper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
@@ -25,18 +25,19 @@ import org.springframework.stereotype.Component;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
 import java.util.stream.Collectors;
 
+import static java.lang.String.format;
 import static org.snomed.snowstorm.core.util.CollectionUtils.orEmpty;
+import static org.snomed.snowstorm.fhir.services.FHIRConceptMapService.WHOLE_SYSTEM_VALUE_SET_URI_POSTFIX;
+import static org.snomed.snowstorm.fhir.services.FHIRHelper.*;
 
 @Component
 public class FHIRConceptMapProvider implements IResourceProvider, FHIRConstants {
 
 	@Autowired
-	// For maps within SNOMED CT releases
-	private ReferenceSetMemberService memberService;
+	private FHIRConceptMapService service;
 
 	@Autowired
 	private FHIRConceptMapRepository conceptMapRepository;
@@ -44,28 +45,17 @@ public class FHIRConceptMapProvider implements IResourceProvider, FHIRConstants 
 	@Autowired
 	private FHIRMapElementRepository mapElementRepository;
 
-	@Autowired
-	private HapiParametersMapper mapper;
-	
-	@Autowired
-	private FHIRHelper fhirHelper;
-	
-	private static final int DEFAULT_PAGESIZE = 1000;
-	
-	private BiMap<String, String> knownUriMap;
-	String[] validMapTargets;
-	String[] validMapSources;
-
-	//See https://www.hl7.org/fhir/valueset.html#search
+	//See https://www.hl7.org/fhir/conceptmap.html#search
 	@Search
 	public List<ConceptMap> findConceptMaps(
 			HttpServletRequest theRequest,
-			HttpServletResponse theResponse) {
+			HttpServletResponse theResponse,
+			@OptionalParam(name="url") String url) {
 
-		PageRequest pageRequest = PageRequest.of(0, 100);
-		Page<FHIRConceptMap> page = conceptMapRepository.findAll(pageRequest);
+		List<FHIRConceptMap> page = service.findAll();
 
-		return page.getContent().stream()
+		return page.stream()
+				.filter(map -> url == null || url.equals(map.getUrl()))
 				.map(FHIRConceptMap::getHapi)
 				.peek(map -> map.setGroup(null))// Clear groups for display listing
 				.collect(Collectors.toList());
@@ -91,72 +81,88 @@ public class FHIRConceptMapProvider implements IResourceProvider, FHIRConstants 
 			HttpServletRequest request,
 			HttpServletResponse response,
 			@OperationParam(name="url") String url,
-			@OperationParam(name="system") UriType system,
-			@OperationParam(name="code") CodeType code,
-			@OperationParam(name="version") StringType version,
-			@OperationParam(name="source") UriType source,
-			@OperationParam(name="target") UriType target) throws FHIROperationException {
-		fhirHelper.required("source", source);
-		fhirHelper.required("target", target);
-		validate("System", system.asStringValue(), Validation.EQUALS, getValidMapSources(), true);
-		validate("Source", source.asStringValue(), Validation.STARTS_WITH, getValidMapSources(), true);
-		validate("Target", target.asStringValue(), Validation.EQUALS, getValidMapTargets(), true);
-		fhirHelper.notSupported("version", version);
+			@OperationParam(name="conceptMap") ConceptMap conceptMap,
+			@OperationParam(name="conceptMapVersion") String conceptMapVersion,
+			@OperationParam(name="code") String code,
+			@OperationParam(name="system") String system,
+			@OperationParam(name="version") String version,
+			@OperationParam(name="source") String sourceValueSet,
+			@OperationParam(name="coding") Coding coding,
+			@OperationParam(name="codeableConcept") CodeableConcept codeableConcept,
+			@OperationParam(name="target") String targetValueSet,
+			@OperationParam(name="targetsystem") String targetSystem,
+			@OperationParam(name="reverse") BooleanType reverse) throws FHIROperationException {
 
-		if (!source.asStringValue().startsWith(SNOMED_URI) && source.asStringValue().equals(target.asStringValue())) {
-			throw new FHIROperationException ("Source and target cannot be the same: '" + source.asStringValue() + "'", null, 400);
-		}
-		
-		String refsetId = "";
-		if (url != null) {
-			validate("Url", url, Validation.STARTS_WITH, new String[] {SNOMED_URI, SNOMED_URI_UNVERSIONED}, true);
-			int idx = url.indexOf(MAP_INDICATOR);
-			if (idx == NOT_SET) {
-				throw new FHIROperationException ("url parameter is expected to contain '"+ MAP_INDICATOR +"' indicating the refset sctid of the map to be used.", IssueType.INCOMPLETE, 400);
-			}
-			refsetId = url.substring(idx + MAP_INDICATOR.length());
-		}
-		
-		//If a refset is specified does that match the target system?
-		if (!refsetId.isEmpty()) {
-			String expectedTargetSystem = knownUriMap.inverse().get(refsetId);
-			if (expectedTargetSystem != null && !target.equals(expectedTargetSystem)) {
-				throw new FHIROperationException ("Refset " + refsetId + " relates to target system '" + expectedTargetSystem + "' rather than '" + target + "'", IssueType.CONFLICT, 400);
-			}
-		}
-		
-		MemberSearchRequest memberSearchRequest = new MemberSearchRequest()
-				.referenceSet(refsetId)
-				.active(true);
-		
-		//Are we going from SNOMED to other, or other to SNOMED?
-		if (target.asStringValue().startsWith(SNOMED_URI) && !source.asStringValue().startsWith(SNOMED_URI)) {
-			memberSearchRequest.mapTarget(code.getCode());
-		} else {
-			memberSearchRequest.referencedComponentId(code.getCode());
-		}
-		
-		//The code system is the URL up to where the parameters start eg http://snomed.info/sct?fhir_cm=447562003
-		//These calls will also set the branchPath
-		BranchPath branchPath = new BranchPath();
-		int cutPoint = url == null ? -1 : url.indexOf("?");
-		if (cutPoint == NOT_SET) {
-			if (url == null) {
-				branchPath.set(MAIN);
+		notSupported("conceptMapVersion", conceptMapVersion);
+		List<LanguageDialect> languageDialects = ControllerHelper.parseAcceptLanguageHeader(request.getHeader(ACCEPT_LANGUAGE_HEADER));
+
+		// Get coding to translate
+		requireExactlyOneOf("code", code, "coding", coding, "codeableConcept", codeableConcept);
+		mutuallyRequired("code", code, "system", system);
+		if (coding == null) {
+			if (code != null) {
+				coding = new Coding(system, code, null).setVersion(version);
 			} else {
-				throw new FHIROperationException ("url parameter is expected to contain a parameter indicating the refset id of the map to be used", IssueType.INCOMPLETE, 400);
+				if (codeableConcept.getCoding().size() > 1) {
+					throw exception("Translation of CodeableConcept with multiple codes is not supported.", IssueType.NOTSUPPORTED, 400);
+				}
+				if (!codeableConcept.getCoding().isEmpty()) {
+					coding = codeableConcept.getCoding().get(0);
+				}
 			}
-		} else {
-			StringType codeSystemVersionUri = new StringType(url.substring(0, cutPoint));
-			branchPath.set(fhirHelper.getBranchPathFromURI(codeSystemVersionUri));
 		}
 
-		Page<ReferenceSetMember> members = memberService.findMembers(
-				branchPath.toString(),
-				memberSearchRequest,
-				ControllerHelper.getPageRequest(0, DEFAULT_PAGESIZE));
-		return mapper.mapToFHIR(members.getContent(), target, knownUriMap);
+		if (url != null && url.startsWith("http://snomed.info") && url.contains("sct/") && coding.getVersion() == null) {
+			coding.setVersion(url.substring(0, url.indexOf("?")));
+		}
 
+		// Get map
+		Collection<FHIRConceptMap> maps;
+		if (conceptMap != null) {
+			maps = Collections.singleton(new FHIRConceptMap(conceptMap));
+		} else {
+			maps = service.findMaps(url, coding, targetSystem, sourceValueSet, targetValueSet);
+		}
+		if (maps.isEmpty()) {
+			throw exception("No suitable map found.", IssueType.NOTFOUND, 404);
+		}
+
+		Map<FHIRConceptMap, Collection<FHIRMapElement>> mapElements = new HashMap<>();
+		for (FHIRConceptMap map : maps) {
+			Collection<FHIRMapElement> foundElements = service.findMapElements(map, coding, targetSystem, languageDialects);
+			if (!foundElements.isEmpty()) {
+				mapElements.put(map, foundElements);
+			}
+		}
+
+		Parameters parameters = new Parameters();
+		if (!mapElements.isEmpty()) {
+			parameters.addParameter("result", true);
+			for (Map.Entry<FHIRConceptMap, Collection<FHIRMapElement>> mapAndElements : mapElements.entrySet()) {
+				FHIRConceptMap map = mapAndElements.getKey();
+				for (FHIRMapElement mapElement : mapAndElements.getValue()) {
+					for (FHIRMapTarget mapTarget : mapElement.getTarget()) {
+						Parameters.ParametersParameterComponent matchParam = new Parameters.ParametersParameterComponent(new StringType("match"));
+						if (mapTarget.getEquivalence() != null) {
+							matchParam.addPart(new Parameters.ParametersParameterComponent(new StringType("equivalence"))
+									.setValue(new CodeType(mapTarget.getEquivalence())));
+
+						}
+						String elementTargetSystem = map.isImplicitSnomedMap() ? map.getTargetUri().replace(WHOLE_SYSTEM_VALUE_SET_URI_POSTFIX, "") : targetSystem;
+						matchParam.addPart(new Parameters.ParametersParameterComponent(new StringType("concept"))
+								.setValue(new Coding(elementTargetSystem, mapTarget.getCode(), mapTarget.getDisplay())));
+						matchParam.addPart(new Parameters.ParametersParameterComponent(new StringType("source"))
+								.setValue(new StringType(map.getUrl())));
+						parameters.addParameter(matchParam);
+					}
+				}
+			}
+
+			return parameters;
+		}
+		parameters.addParameter("result", false);
+		parameters.addParameter("message", format("No mapping found for code '%s', system '%s'.", coding.getCode(), coding.getSystem()));
+		return parameters;
 	}
 
 	public void createMap(FHIRConceptMap conceptMap) {
@@ -169,79 +175,9 @@ public class FHIRConceptMapProvider implements IResourceProvider, FHIRConstants 
 		}
 	}
 
-	private String[] getValidMapTargets() {
-		if (validMapTargets == null) {
-			validMapTargets = new String[6];
-			validMapTargets[0] = SNOMED_URI + "?fhir_vs";
-			validMapTargets[1] = ICD10;
-			validMapTargets[2] = ICD10_URI;
-			validMapTargets[3] = SNOMED_URI;
-			validMapTargets[4] = ICDO;
-			validMapTargets[5] = ICDO_URI;
-			
-			//This hardcoding will be replaced by machine readable Refset metadata
-			knownUriMap = new ImmutableBiMap.Builder<String, String>()
-			.put(ICD10_URI, "447562003")
-			.put(ICDO_URI, "446608001")
-			.put("CTV-3","900000000000497000")
-			.build();
-		}
-		return validMapTargets;
-	}
-	
-	private String[] getValidMapSources() {
-		if (validMapSources == null) {
-			validMapSources = new String[3];
-			validMapSources[0] = SNOMED_URI;
-			validMapSources[1] = ICD10;
-			validMapSources[2] = ICD10_URI;
-		}
-		return validMapSources;
-	}
-
-	private void validate(String fieldName, String actual, Validation mode, String expected, boolean mandatory) throws FHIROperationException {
-		if (!mandatory && actual == null) {
-			return;
-		}
-		switch (mode) {
-			case EQUALS:
-				if (actual == null || !actual.equals(expected)) {
-					throw new FHIROperationException(fieldName + " must be exactly equal to '" + expected + "'.  Received '" + actual + "'.", null, 400);
-				}
-				break;
-			case STARTS_WITH:
-				if (actual == null || !actual.startsWith(expected)) {
-					throw new FHIROperationException(fieldName + " must start with '" + expected + "'.  Received '" + actual + "'.", null, 400);
-				}
-				break;
-		}
-	}
-
-	private void validate(String fieldName, String actual, Validation mode, String[] permittedValues, boolean mandatory) throws FHIROperationException {
-		if (!mandatory && actual == null) {
-			return;
-		}
-		boolean matchFound = false;
-		for (String permitted : permittedValues) {
-			switch (mode) {
-				case EQUALS : if (actual != null && actual.equals(permitted)) matchFound = true;
-					break;
-				case STARTS_WITH : if (actual != null && actual.startsWith(permitted)) matchFound = true;
-					break;
-			}
-		}
-		if (!matchFound) {
-			throw new FHIROperationException (fieldName + " expected to contain one of " + String.join(", ", permittedValues), null, 400);
-		}
-	}
-
 	@Override
 	public Class<? extends IBaseResource> getResourceType() {
 		return ConceptMap.class;
 	}
 
-	public void deleteAll() {
-		conceptMapRepository.deleteAll();
-		mapElementRepository.deleteAll();
-	}
 }
