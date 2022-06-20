@@ -23,6 +23,8 @@ import ca.uhn.fhir.rest.param.StringParam;
 import ca.uhn.fhir.rest.param.TokenParam;
 import ca.uhn.fhir.rest.server.IResourceProvider;
 
+import static org.snomed.snowstorm.fhir.services.FHIRHelper.exception;
+
 @Component
 public class FHIRStructureDefinitionProvider implements IResourceProvider, FHIRConstants {
 	
@@ -35,14 +37,11 @@ public class FHIRStructureDefinitionProvider implements IResourceProvider, FHIRC
 	@Read
 	public StructureDefinition getStructureDefinition(@IdParam IdType id) {
 		Optional<StructureDefinitionWrapper> sdOpt = structureDefinitionRepository.findById(id.getIdPart());
-		if (sdOpt.isPresent()) {
-			return sdOpt.get().getStructureDefinition();
-		}
-		return null;
+		return sdOpt.map(StructureDefinitionWrapper::getStructureDefinition).orElse(null);
 	}
 	
 	@Create
-	public MethodOutcome createStructureDefinition(@IdParam IdType id, @ResourceParam StructureDefinition sd) throws FHIROperationException {
+	public MethodOutcome createStructureDefinition(@IdParam IdType id, @ResourceParam StructureDefinition sd) {
 		MethodOutcome outcome = new MethodOutcome();
 		validateId(id, sd);
 		
@@ -56,11 +55,11 @@ public class FHIRStructureDefinitionProvider implements IResourceProvider, FHIRC
 	}
 
 	@Update
-	public MethodOutcome updateStructureDefinition(@IdParam IdType id, @ResourceParam StructureDefinition sd) throws FHIROperationException {
+	public MethodOutcome updateStructureDefinition(@IdParam IdType id, @ResourceParam StructureDefinition sd) {
 		try {
 			return createStructureDefinition(id, sd);
-		} catch (Exception e) {
-			throw new FHIROperationException("Failed to update/create structureDefinition '" + sd.getId(), IssueType.EXCEPTION, 400, e);
+		} catch (SnowstormFHIRServerResponseException e) {
+			throw exception("Failed to update/create structureDefinition '" + sd.getId(), IssueType.EXCEPTION, 400, e);
 		}
 	}
 	
@@ -89,7 +88,7 @@ public class FHIRStructureDefinitionProvider implements IResourceProvider, FHIRC
 			@OptionalParam(name="status") String status,
 			@OptionalParam(name="title") StringParam title,
 			@OptionalParam(name="url") String url,
-			@OptionalParam(name="version") String version) throws FHIROperationException {
+			@OptionalParam(name="version") String version) {
 		SearchFilter sdFilter = new SearchFilter()
 									.withCode(code)
 									.withContext(context)
@@ -108,17 +107,17 @@ public class FHIRStructureDefinitionProvider implements IResourceProvider, FHIRC
 									.withUrl(url)
 									.withVersion(version);
 		return StreamSupport.stream(structureDefinitionRepository.findAll().spliterator(), false)
-				.map(sd -> sd.getStructureDefinition())
+				.map(StructureDefinitionWrapper::getStructureDefinition)
 				.filter(sd -> sdFilter.apply(sd, fhirHelper))
 				.collect(Collectors.toList());
 	}
 
-	private void validateId(IdType id, StructureDefinition sd) throws FHIROperationException {
+	private void validateId(IdType id, StructureDefinition sd) {
 		if (sd == null || id == null) {
-			throw new FHIROperationException("Both ID and StructureDefinition object must be supplied", IssueType.EXCEPTION, 400);
+			throw exception("Both ID and StructureDefinition object must be supplied", IssueType.EXCEPTION, 400);
 		}
 		if (sd.getId() == null || !id.asStringValue().equals(sd.getId())) {
-			throw new FHIROperationException("ID in request must match that in StructureDefinition object", IssueType.EXCEPTION, 400);
+			throw exception("ID in request must match that in StructureDefinition object", IssueType.EXCEPTION, 400);
 		}
 	}
 	

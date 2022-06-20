@@ -3,11 +3,8 @@ package org.snomed.snowstorm.fhir.services;
 import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.parser.IParser;
 import ca.uhn.fhir.rest.api.MethodOutcome;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.Sets;
 import org.hl7.fhir.r4.model.*;
-import org.hl7.fhir.r4.model.OperationOutcome;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -94,7 +91,7 @@ public class AbstractFHIRTest {
 		}
 	}
 
-	protected Parameters getParameters(String url) throws FHIROperationException {
+	protected Parameters getParameters(String url) {
 		return getParameters(url, 200, null);
 	}
 

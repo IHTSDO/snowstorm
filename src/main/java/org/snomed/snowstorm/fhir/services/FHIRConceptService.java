@@ -13,13 +13,15 @@ import org.snomed.snowstorm.fhir.repositories.FHIRConceptRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
 import org.springframework.data.elasticsearch.core.ElasticsearchRestTemplate;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQuery;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
 import org.springframework.stereotype.Service;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import static org.snomed.snowstorm.fhir.utils.FHIRPageHelper.toPage;
@@ -122,10 +124,6 @@ public class FHIRConceptService {
 
 	public FHIRConcept findConcept(FHIRCodeSystemVersion systemVersion, String code) {
 		return conceptRepository.findFirstByCodeSystemVersionAndCode(systemVersion.getId(), code);
-	}
-
-	public Page<FHIRConcept> findConcepts(FHIRCodeSystemVersion systemVersion, Collection<String> code, Pageable pageable) {
-		return conceptRepository.findByCodeSystemVersionAndCodeIn(systemVersion.getId(), code, pageable);
 	}
 
 	public Page<FHIRConcept> findConcepts(BoolQueryBuilder fhirConceptQuery, PageRequest pageRequest) {
