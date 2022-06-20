@@ -81,7 +81,7 @@ public abstract class AbstractTest {
 	private static final Stack<Activity> traceabilityActivitiesLogged = new Stack<>();
 
 	@BeforeEach
-	void before() {
+	void before() throws InterruptedException {
 		// Setup security
 		if (!rolesEnabled) {
 			PreAuthenticatedAuthenticationToken authentication = new PreAuthenticatedAuthenticationToken("test-admin", "1234", Sets.newHashSet(new SimpleGrantedAuthority("USER")));
@@ -89,12 +89,13 @@ public abstract class AbstractTest {
 		} else {
 			SecurityContextHolder.clearContext();
 		}
+		deleteAll();
 		branchService.create(MAIN);
 		clearActivities();
 	}
 
 	@AfterEach
-	void defaultTearDown() throws InterruptedException {
+	void deleteAll() throws InterruptedException {
 		branchService.deleteAll();
 		conceptService.deleteAll();
 		codeSystemService.deleteAll();

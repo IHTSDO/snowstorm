@@ -24,28 +24,11 @@ import static org.junit.Assert.assertEquals;
 import static org.snomed.snowstorm.TestConcepts.*;
 import static org.snomed.snowstorm.core.data.domain.Concepts.*;
 
-public class ECLQueryServiceStatedAxiomTestConfig extends TestConfig {
-
-	@Autowired
-	private BranchService branchService;
-
-	@Autowired
-	private ConceptService conceptService;
-
-	@Autowired
-	private ReferenceSetMemberService memberService;
-
-	@Autowired
-	private CodeSystemService codeSystemService;
-
-	@Autowired
-	private ClassificationService classificationService;
-
-	@Autowired
-	private PermissionService permissionService;
+public class ECLQueryServiceStatedAxiomTestConfig extends ECLQueryTestConfig {
 
 	@PostConstruct
-	public void beforeAll() throws ServiceException {
+	public void beforeAll() throws ServiceException , InterruptedException {
+		deleteAll();
 		List<Concept> allConcepts = new ArrayList<>();
 
 		allConcepts.add(new Concept(SNOMEDCT_ROOT));
@@ -187,15 +170,6 @@ public class ECLQueryServiceStatedAxiomTestConfig extends TestConfig {
 		ReferenceSetMember member = new ReferenceSetMember(moduleId, refsetId, conceptId);
 		member.setAdditionalField(ReferenceSetMember.OwlExpressionFields.OWL_EXPRESSION, axiomOwlExpression);
 		return member;
-	}
-
-	@PreDestroy
-	public void tearDown() throws InterruptedException {
-		branchService.deleteAll();
-		conceptService.deleteAll();
-		codeSystemService.deleteAll();
-		classificationService.deleteAll();
-		permissionService.deleteAll();
 	}
 
 }
