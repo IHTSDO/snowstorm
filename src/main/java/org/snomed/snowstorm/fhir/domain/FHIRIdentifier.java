@@ -1,7 +1,6 @@
 package org.snomed.snowstorm.fhir.domain;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
-import com.fasterxml.jackson.annotation.JsonView;
 import org.hl7.fhir.r4.model.Identifier;
 
 public class FHIRIdentifier {

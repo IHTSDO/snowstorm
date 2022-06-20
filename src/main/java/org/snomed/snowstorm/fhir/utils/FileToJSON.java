@@ -21,7 +21,7 @@ public class FileToJSON {
 		String vsName = args[0];
 		File file = new File (args[1]);
 		if (!file.isFile() ||!file.canRead()) {
-			throw new Exception ("Unable to read: " + file.toString());
+			throw new Exception ("Unable to read: " + file);
 		}
 		String description = args[2];
 		convertFileToJSON(vsName, file, description);

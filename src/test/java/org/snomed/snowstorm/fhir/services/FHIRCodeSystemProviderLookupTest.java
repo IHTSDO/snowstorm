@@ -8,14 +8,14 @@ import static org.junit.jupiter.api.Assertions.*;
 class FHIRCodeSystemProviderLookupTest extends AbstractFHIRTest {
 
 	@Test
-	void testSingleConceptRecovery() throws FHIROperationException {
+	void testSingleConceptRecovery() {
 		String url = "http://localhost:" + port + "/fhir/CodeSystem/$lookup?system=http://snomed.info/sct&code=" + sampleSCTID + "&_format=json";
 		Parameters p = getParameters(url);
 		assertNotNull(p);
 	}
 	
 	@Test
-	void testSinglePropertiesRecovery() throws FHIROperationException {
+	void testSinglePropertiesRecovery() {
 		String url = "http://localhost:" + port + "/fhir/CodeSystem/$lookup?system=http://snomed.info/sct&code=" + sampleSCTID + "&property=normalForm&_format=json";
 		Parameters p = getParameters(url);
 		/*for (ParametersParameterComponent parameter : p.getParameter()) {
@@ -26,7 +26,7 @@ class FHIRCodeSystemProviderLookupTest extends AbstractFHIRTest {
 	}
 
 	@Test
-	void testMultipleConceptPropertiesRecovery() throws FHIROperationException {
+	void testMultipleConceptPropertiesRecovery() {
 		String url = "http://localhost:" + port + "/fhir/CodeSystem/$lookup?system=http://snomed.info/sct&code=" + sampleSCTID + "&property=normalForm&property=sufficientlyDefined&_format=json";
 		Parameters p = getParameters(url);
 		
@@ -38,7 +38,7 @@ class FHIRCodeSystemProviderLookupTest extends AbstractFHIRTest {
 	}
 
 	@Test
-	void testParameterActiveWhenActive() throws FHIROperationException {
+	void testParameterActiveWhenActive() {
 		String url = "http://localhost:" + port + "/fhir/CodeSystem/$lookup?system=http://snomed.info/sct&code=" + sampleSCTID + "&property=normalForm&property=sufficientlyDefined&_format=json";
 		Parameters p = getParameters(url);
 		Boolean active = toBoolean(getProperty(p, "active"));
@@ -46,7 +46,7 @@ class FHIRCodeSystemProviderLookupTest extends AbstractFHIRTest {
 	}
 
 	@Test
-	void testParameterActiveWhenInactive() throws FHIROperationException {
+	void testParameterActiveWhenInactive() {
 		String url = "http://localhost:" + port + "/fhir/CodeSystem/$lookup?system=http://snomed.info/sct&code=" + sampleInactiveSCTID + "&property=normalForm&property=sufficientlyDefined&_format=json";
 		Parameters p = getParameters(url);
 		Boolean active = toBoolean(getProperty(p, "active"));
@@ -54,7 +54,7 @@ class FHIRCodeSystemProviderLookupTest extends AbstractFHIRTest {
 	}
 	
 	@Test
-	void testSingleUnpublishedConceptRecovery() throws FHIROperationException {
+	void testSingleUnpublishedConceptRecovery() {
 		String version = "version=http://snomed.info/xsct/" + sampleModuleId;
 		String url = "http://localhost:" + port + "/fhir/CodeSystem/$lookup?system=http://snomed.info/xsct&code=" + sampleSCTID + "&" + version;
 		Parameters p = getParameters(url);

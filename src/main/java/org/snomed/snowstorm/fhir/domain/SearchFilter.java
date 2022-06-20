@@ -1,16 +1,18 @@
 package org.snomed.snowstorm.fhir.domain;
 
-import org.hl7.fhir.r4.model.ValueSet;
+import ca.uhn.fhir.rest.param.QuantityParam;
+import ca.uhn.fhir.rest.param.StringParam;
+import ca.uhn.fhir.rest.param.TokenParam;
 import org.apache.commons.lang3.NotImplementedException;
 import org.hl7.fhir.r4.model.CodeSystem;
 import org.hl7.fhir.r4.model.Enumerations.PublicationStatus;
 import org.hl7.fhir.r4.model.OperationOutcome.IssueType;
 import org.hl7.fhir.r4.model.StructureDefinition;
+import org.hl7.fhir.r4.model.ValueSet;
 import org.snomed.snowstorm.core.data.services.QueryService;
 import org.snomed.snowstorm.fhir.services.FHIRHelper;
-import org.snomed.snowstorm.fhir.services.FHIROperationException;
 
-import ca.uhn.fhir.rest.param.*;
+import static org.snomed.snowstorm.fhir.services.FHIRHelper.exception;
 
 public class SearchFilter {
 
@@ -32,7 +34,7 @@ public class SearchFilter {
 	private String url;
 	private String version;
 
-	public SearchFilter withId(String id) throws FHIROperationException {
+	public SearchFilter withId(String id) {
 		if (id != null && !id.startsWith("ValueSet/")) {
 			id = "ValueSet/" + id;
 		}
@@ -48,9 +50,9 @@ public class SearchFilter {
 		return code;
 	}
 
-	public SearchFilter withCode(String code) throws FHIROperationException {
+	public SearchFilter withCode(String code) {
 		if (code != null) {
-			throw new FHIROperationException("Server is unwilling to expand all known ValueSets to search for inclusion of any code", IssueType.TOOCOSTLY, 400);
+			throw exception("Server is unwilling to expand all known ValueSets to search for inclusion of any code", IssueType.TOOCOSTLY, 400);
 		}
 		return this;
 	}
