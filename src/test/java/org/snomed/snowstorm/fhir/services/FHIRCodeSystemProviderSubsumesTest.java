@@ -5,13 +5,12 @@ import org.junit.jupiter.api.Test;
 import org.snomed.snowstorm.core.data.domain.Concepts;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.fail;
 import static org.snomed.snowstorm.fhir.config.FHIRConstants.SNOMED_URI;
 
 class FHIRCodeSystemProviderSubsumesTest extends AbstractFHIRTest {
 	
 	@Test
-	void testSubsumption() throws FHIROperationException {
+	void testSubsumption() {
 		String version = "http://snomed.info/sct" + "/" + sampleModuleId + "/version/" + sampleVersion;
 		
 		//Test subsumption using defaults

@@ -2,25 +2,19 @@ package org.snomed.snowstorm.fhir.services;
 
 import ca.uhn.fhir.rest.annotation.*;
 import ca.uhn.fhir.rest.server.IResourceProvider;
-import com.google.common.collect.BiMap;
-import com.google.common.collect.ImmutableBiMap;
 import org.hl7.fhir.instance.model.api.IBaseResource;
 import org.hl7.fhir.r4.model.*;
 import org.hl7.fhir.r4.model.OperationOutcome.IssueType;
-import org.snomed.snowstorm.core.data.services.ReferenceSetMemberService;
 import org.snomed.snowstorm.core.pojo.LanguageDialect;
 import org.snomed.snowstorm.fhir.config.FHIRConstants;
 import org.snomed.snowstorm.fhir.domain.FHIRConceptMap;
 import org.snomed.snowstorm.fhir.domain.FHIRConceptMapGroup;
 import org.snomed.snowstorm.fhir.domain.FHIRMapElement;
 import org.snomed.snowstorm.fhir.domain.FHIRMapTarget;
-import org.snomed.snowstorm.fhir.pojo.FHIRSnomedConceptMapConfig;
 import org.snomed.snowstorm.fhir.repositories.FHIRConceptMapRepository;
 import org.snomed.snowstorm.fhir.repositories.FHIRMapElementRepository;
 import org.snomed.snowstorm.rest.ControllerHelper;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Component;
 
 import javax.servlet.http.HttpServletRequest;
@@ -91,7 +85,7 @@ public class FHIRConceptMapProvider implements IResourceProvider, FHIRConstants 
 			@OperationParam(name="codeableConcept") CodeableConcept codeableConcept,
 			@OperationParam(name="target") String targetValueSet,
 			@OperationParam(name="targetsystem") String targetSystem,
-			@OperationParam(name="reverse") BooleanType reverse) throws FHIROperationException {
+			@OperationParam(name="reverse") BooleanType reverse) {
 
 		notSupported("conceptMapVersion", conceptMapVersion);
 		List<LanguageDialect> languageDialects = ControllerHelper.parseAcceptLanguageHeader(request.getHeader(ACCEPT_LANGUAGE_HEADER));
