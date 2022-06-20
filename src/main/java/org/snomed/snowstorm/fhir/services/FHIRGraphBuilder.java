@@ -33,7 +33,7 @@ public class FHIRGraphBuilder {
 		return node != null ? node.getTransitiveClosure() : null;
 	}
 
-	public class Node {
+	public static class Node {
 
 		private final String code;
 		private final Set<Node> parents;

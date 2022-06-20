@@ -61,7 +61,7 @@ class FHIRValueSetProviderHelper {
 			final StringType systemVersion,
 			final StringType checkSystemVersion,
 			final StringType forceSystemVersion,
-			final StringType version) throws FHIROperationException {
+			final StringType version) {
 
 		return new ValueSetExpansionParameters(
 				id != null ? id.getIdPart() : null,

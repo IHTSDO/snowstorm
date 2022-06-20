@@ -83,7 +83,7 @@ class FHIRValueSetProviderScrudTest extends AbstractFHIRTest {
 	}
 	
 	@Test
-	void testValueSetExpansion() throws FHIROperationException {
+	void testValueSetExpansion() {
 		ClassLoader classloader = Thread.currentThread().getContextClassLoader();
 		InputStream is = classloader.getResourceAsStream("dummy-fhir-content/exampleVS_ECL.json");
 		assertNotNull(is);
@@ -105,7 +105,7 @@ class FHIRValueSetProviderScrudTest extends AbstractFHIRTest {
 		}
 	}
 
-	private ValueSet getValueSet(String url) throws FHIROperationException {
+	private ValueSet getValueSet(String url) {
 		ResponseEntity<String> response = restTemplate.getForEntity(url, String.class);
 		expectResponse(response, 200);
 		return fhirJsonParser.parseResource(ValueSet.class, response.getBody());
@@ -137,7 +137,7 @@ class FHIRValueSetProviderScrudTest extends AbstractFHIRTest {
 		//We do not allow expanding all ValueSets to search for a concept - too costly
 		String url = baseUrl + "/ValueSet?code=foo";
 		ResponseEntity<String> response = restTemplate.exchange(url,HttpMethod.GET, null, String.class);
-		assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getStatusCode());
+		assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
 	}
 	
 }

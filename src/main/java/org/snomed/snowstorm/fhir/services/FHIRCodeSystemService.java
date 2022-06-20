@@ -48,12 +48,12 @@ public class FHIRCodeSystemService {
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
-	public FHIRCodeSystemVersion save(CodeSystem codeSystem) throws FHIROperationException {
+	public FHIRCodeSystemVersion save(CodeSystem codeSystem) {
 		FHIRCodeSystemVersion fhirCodeSystemVersion = new FHIRCodeSystemVersion(codeSystem);
 
 		// Prevent saving SNOMED CT this way
 		if (fhirCodeSystemVersion.getId().startsWith(SCT_ID_PREFIX)) {
-			throw new FHIROperationException(format("Code System id prefix '%s' is reserved for SNOMED CT code system. " +
+			throw exception(format("Code System id prefix '%s' is reserved for SNOMED CT code system. " +
 					"Please save these via the native API RF2 import function.", SCT_ID_PREFIX), OperationOutcome.IssueType.NOTSUPPORTED, 400);
 		}
 
@@ -63,10 +63,10 @@ public class FHIRCodeSystemService {
 		return fhirCodeSystemVersion;
 	}
 
-	public FHIRCodeSystemVersion findCodeSystemVersionOrThrow(FHIRCodeSystemVersionParams systemVersionParams) throws FHIROperationException {
+	public FHIRCodeSystemVersion findCodeSystemVersionOrThrow(FHIRCodeSystemVersionParams systemVersionParams) {
 		FHIRCodeSystemVersion codeSystemVersion = findCodeSystemVersion(systemVersionParams);
 		if (codeSystemVersion == null) {
-			throw new FHIROperationException(format("Code system not found for parameters %s.", systemVersionParams), OperationOutcome.IssueType.NOTFOUND, 400);
+			throw exception(format("Code system not found for parameters %s.", systemVersionParams), OperationOutcome.IssueType.NOTFOUND, 400);
 		}
 
 		if (systemVersionParams.getId() != null) {
@@ -86,7 +86,7 @@ public class FHIRCodeSystemService {
 		return codeSystemVersion;
 	}
 
-	public FHIRCodeSystemVersion findCodeSystemVersion(FHIRCodeSystemVersionParams systemVersionParams) throws FHIROperationException {
+	public FHIRCodeSystemVersion findCodeSystemVersion(FHIRCodeSystemVersionParams systemVersionParams) {
 		FHIRCodeSystemVersion version;
 
 		if (systemVersionParams.isSnomed()) {
@@ -107,9 +107,9 @@ public class FHIRCodeSystemService {
 		return version;
 	}
 
-	public FHIRCodeSystemVersion getSnomedVersion(FHIRCodeSystemVersionParams params) throws FHIROperationException {
+	public FHIRCodeSystemVersion getSnomedVersion(FHIRCodeSystemVersionParams params) {
 		if (!params.isSnomed()) {
-			throw new FHIROperationException("Failed to find SNOMED branch for non SCT code system.", OperationOutcome.IssueType.CONFLICT, 500);
+			throw exception("Failed to find SNOMED branch for non SCT code system.", OperationOutcome.IssueType.CONFLICT, 500);
 		}
 
 		org.snomed.snowstorm.core.data.domain.CodeSystem snomedCodeSystem;
@@ -172,8 +172,7 @@ public class FHIRCodeSystemService {
 		return codeSystemRepository.findById(id);
 	}
 
-	public ConceptAndSystemResult findSnomedConcept(String code, List<LanguageDialect> languageDialects, FHIRCodeSystemVersionParams codeSystemParams)
-			throws FHIROperationException {
+	public ConceptAndSystemResult findSnomedConcept(String code, List<LanguageDialect> languageDialects, FHIRCodeSystemVersionParams codeSystemParams) {
 
 		Concept concept;
 		FHIRCodeSystemVersion codeSystemVersion;
@@ -203,7 +202,7 @@ public class FHIRCodeSystemService {
 		return new ConceptAndSystemResult(concept, codeSystemVersion);
 	}
 
-	public boolean conceptExistsOrThrow(String code, FHIRCodeSystemVersion codeSystemVersion) throws FHIROperationException {
+	public boolean conceptExistsOrThrow(String code, FHIRCodeSystemVersion codeSystemVersion) {
 		if (codeSystemVersion.isSnomed()) {
 			if (!snomedConceptService.exists(code, codeSystemVersion.getSnomedBranch())) {
 				throwCodeNotFound(code, codeSystemVersion);

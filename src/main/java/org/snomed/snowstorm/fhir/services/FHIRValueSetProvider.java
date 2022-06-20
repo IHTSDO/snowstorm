@@ -28,6 +28,8 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
+import static org.snomed.snowstorm.fhir.services.FHIRHelper.exception;
+
 @Component
 public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 
@@ -52,7 +54,7 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 	}
 
 	@Create()
-	public MethodOutcome createValueSet(@IdParam IdType id, @ResourceParam ValueSet vs) throws FHIROperationException {
+	public MethodOutcome createValueSet(@IdParam IdType id, @ResourceParam ValueSet vs) {
 		MethodOutcome outcome = new MethodOutcome();
 		validateId(id, vs);
 
@@ -62,11 +64,11 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 	}
 
 	@Update
-	public MethodOutcome updateValueSet(@IdParam IdType id, @ResourceParam ValueSet vs) throws FHIROperationException {
+	public MethodOutcome updateValueSet(@IdParam IdType id, @ResourceParam ValueSet vs) {
 		try {
 			return createValueSet(id, vs);
-		} catch (Exception e) {
-			throw new FHIROperationException("Failed to update/create valueset '" + vs.getId() + "'", IssueType.EXCEPTION, 400, e);
+		} catch (SnowstormFHIRServerResponseException e) {
+			throw exception("Failed to update/create valueset '" + vs.getId() + "'", IssueType.EXCEPTION, 400, e);
 		}
 	}
 
@@ -96,7 +98,7 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 			@OptionalParam(name="status") String status,
 			@OptionalParam(name="title") StringParam title,
 			@OptionalParam(name="url") String url,
-			@OptionalParam(name="version") String version) throws FHIROperationException {
+			@OptionalParam(name="version") String version) {
 
 		SearchFilter vsFilter = new SearchFilter()
 				.withId(id)
@@ -154,7 +156,7 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 			@OperationParam(name="check-system-version") StringType checkSystemVersion,
 			@OperationParam(name="force-system-version") StringType forceSystemVersion,
 			@OperationParam(name="version") StringType version)// Invalid parameter
-			throws FHIROperationException {
+			{
 
 		ValueSetExpansionParameters params;
 		if (request.getMethod().equals(RequestMethod.POST.name())) {
@@ -194,7 +196,7 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 			@OperationParam(name="check-system-version") StringType checkSystemVersion,
 			@OperationParam(name="force-system-version") StringType forceSystemVersion,
 			@OperationParam(name="version") StringType version)// Invalid parameter
-			throws FHIROperationException {
+			{
 
 		ValueSetExpansionParameters params;
 		if (request.getMethod().equals(RequestMethod.POST.name())) {
@@ -227,7 +229,7 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 			@OperationParam(name="date") DateTimeType date,
 			@OperationParam(name="abstract") BooleanType abstractBool,
 			@OperationParam(name="displayLanguage") String displayLanguage,
-			@OperationParam(name="system-version") String incorrectParamSystemVersion) throws FHIROperationException {
+			@OperationParam(name="system-version") String incorrectParamSystemVersion) {
 
 		validateCodeParamHints(incorrectParamSystemVersion);
 		return valueSetService.validateCode(id.getIdPart(), url, context, valueSet, valueSetVersion, code, system, systemVersion, display, coding, codeableConcept, date, abstractBool,
@@ -251,7 +253,7 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 			@OperationParam(name="date") DateTimeType date,
 			@OperationParam(name="abstract") BooleanType abstractBool,
 			@OperationParam(name="displayLanguage") String displayLanguage,
-			@OperationParam(name="system-version") String incorrectParamSystemVersion) throws FHIROperationException {
+			@OperationParam(name="system-version") String incorrectParamSystemVersion) {
 
 		validateCodeParamHints(incorrectParamSystemVersion);
 		return valueSetService.validateCode(null, url, context, valueSet, valueSetVersion, code, system, systemVersion, display, coding, codeableConcept, date, abstractBool,
@@ -262,12 +264,12 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 		FHIRHelper.parameterNamingHint("system-version", incorrectParamSystemVersion, "systemVersion");
 	}
 
-	private void validateId(IdType id, ValueSet vs) throws FHIROperationException {
+	private void validateId(IdType id, ValueSet vs) {
 		if (vs == null || id == null) {
-			throw new FHIROperationException("Both ID and ValueSet object must be supplied", IssueType.EXCEPTION, 400);
+			throw exception("Both ID and ValueSet object must be supplied", IssueType.EXCEPTION, 400);
 		}
 		if (vs.getId() == null || !id.asStringValue().equals(vs.getId())) {
-			throw new FHIROperationException("ID in request must match that in ValueSet object", IssueType.EXCEPTION, 400);
+			throw exception("ID in request must match that in ValueSet object", IssueType.EXCEPTION, 400);
 		}
 	}
 

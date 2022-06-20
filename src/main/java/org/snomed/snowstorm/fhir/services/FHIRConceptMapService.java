@@ -51,9 +51,6 @@ public class FHIRConceptMapService {
 	@Autowired
 	private ConceptService snomedConceptService;
 
-	@Autowired
-	private FHIRHelper fhirHelper;
-
 	// Implicit ConceptMaps - format http://snomed.info/sct[/(module)[/version/(version)]]?fhir_cm=(sctid)
 	List<FHIRSnomedConceptMapConfig> snomedMaps = List.of(
 			// Associations
@@ -146,15 +143,7 @@ public class FHIRConceptMapService {
 		return maps;
 	}
 
-	@NotNull
-	private String ifSnomedSystemReturnValueSetUri(String snomedSystem) {
-		if (!FHIRHelper.isSnomedUri(snomedSystem)) {
-			return snomedSystem;
-		}
-		return SNOMED_URI + WHOLE_SYSTEM_VALUE_SET_URI_POSTFIX;
-	}
-
-	public Collection<FHIRMapElement> findMapElements(FHIRConceptMap map, Coding coding, String targetSystem, List<LanguageDialect> languageDialects) throws FHIROperationException {
+	public Collection<FHIRMapElement> findMapElements(FHIRConceptMap map, Coding coding, String targetSystem, List<LanguageDialect> languageDialects) {
 		if (map.isImplicitSnomedMap()) {
 			return generateImplicitSnomedMapElements(map, coding, languageDialects);
 		}
@@ -172,7 +161,7 @@ public class FHIRConceptMapService {
 		return searchForList(queryBuilder, FHIRMapElement.class);
 	}
 
-	private Collection<FHIRMapElement> generateImplicitSnomedMapElements(FHIRConceptMap map, Coding coding, List<LanguageDialect> languageDialects) throws FHIROperationException {
+	private Collection<FHIRMapElement> generateImplicitSnomedMapElements(FHIRConceptMap map, Coding coding, List<LanguageDialect> languageDialects) {
 		FHIRCodeSystemVersionParams versionParams = FHIRHelper.getCodeSystemVersionParams((IdType) null, null, null, coding);
 		FHIRCodeSystemVersion snomedVersion = fhirCodeSystemService.findCodeSystemVersionOrThrow(versionParams);
 

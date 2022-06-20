@@ -7,4 +7,8 @@ public class SnowstormFHIRServerResponseException extends BaseServerResponseExce
 	public SnowstormFHIRServerResponseException(int theStatusCode, String theMessage, IBaseOperationOutcome theBaseOperationOutcome) {
 		super(theStatusCode, theMessage, theBaseOperationOutcome);
 	}
+
+	public SnowstormFHIRServerResponseException(int theStatusCode, String theMessage, IBaseOperationOutcome theBaseOperationOutcome, Throwable e) {
+		super(theStatusCode, theMessage, e, theBaseOperationOutcome);
+	}
 }

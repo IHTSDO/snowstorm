@@ -11,7 +11,7 @@ import static org.snomed.snowstorm.fhir.config.FHIRConstants.SNOMED_URI;
 class FHIRCodeSystemProviderValidateTest extends AbstractFHIRTest {
 	
 	@Test
-	void testValidateCode() throws FHIROperationException {
+	void testValidateCode() {
 		String version = "version=http://snomed.info/sct/1234000008";
 		//Test recovery using code with version
 		String url = "http://localhost:" + port + "/fhir/CodeSystem/$validate-code?url=" + SNOMED_URI + "&" + version + "&code=" + sampleSCTID;
@@ -58,7 +58,7 @@ class FHIRCodeSystemProviderValidateTest extends AbstractFHIRTest {
 	}
 	
 	@Test
-	void testValidateUnpublishedCode() throws FHIROperationException {
+	void testValidateUnpublishedCode() {
 		String version = "version=http://snomed.info/xsct/" + sampleModuleId;
 		//Test recovery using code with version with "unpublished" indicator
 		String url = "http://localhost:" + port + "/fhir/CodeSystem/$validate-code?url=" + "http://snomed.info/xsct" + "&" + version + "&code=" + sampleSCTID;

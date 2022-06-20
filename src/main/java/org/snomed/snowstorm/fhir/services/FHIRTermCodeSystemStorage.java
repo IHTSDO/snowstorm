@@ -21,7 +21,6 @@ import org.snomed.snowstorm.fhir.domain.FHIRConceptMap;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
-import java.util.ArrayList;
 import java.util.List;
 
 import static org.snomed.snowstorm.core.util.CollectionUtils.orEmpty;
@@ -65,11 +64,7 @@ public class FHIRTermCodeSystemStorage implements ITermCodeSystemStorageSvc {
 			List<ValueSet> valueSets, List<ConceptMap> conceptMaps) {
 
 		FHIRCodeSystemVersion codeSystemVersion;
-		try {
-			codeSystemVersion = fhirCodeSystemService.save(codeSystem);
-		} catch (FHIROperationException e) {
-			throw new RuntimeException(e);
-		}
+		codeSystemVersion = fhirCodeSystemService.save(codeSystem);
 		fhirConceptService.saveAllConceptsOfCodeSystemVersion(termCodeSystemVersion, codeSystemVersion);
 
 		valueSets = orEmpty(valueSets);

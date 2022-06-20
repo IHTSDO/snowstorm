@@ -6,17 +6,23 @@ import ca.uhn.fhir.rest.server.IResourceProvider;
 import org.hl7.fhir.instance.model.api.IBaseResource;
 import org.hl7.fhir.r4.model.*;
 import org.hl7.fhir.r4.model.OperationOutcome.IssueType;
-import org.snomed.snowstorm.core.data.domain.*;
+import org.snomed.snowstorm.core.data.domain.Concept;
+import org.snomed.snowstorm.core.data.domain.Concepts;
+import org.snomed.snowstorm.core.data.domain.Relationship;
 import org.snomed.snowstorm.core.data.services.ConceptService;
-import org.snomed.snowstorm.core.pojo.*;
+import org.snomed.snowstorm.core.pojo.LanguageDialect;
+import org.snomed.snowstorm.core.pojo.TermLangPojo;
 import org.snomed.snowstorm.fhir.config.FHIRConstants;
 import org.snomed.snowstorm.rest.ControllerHelper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
-import java.util.*;
-
 import javax.servlet.http.HttpServletRequest;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+
+import static org.snomed.snowstorm.fhir.services.FHIRHelper.exception;
 
 @Component
 public class FHIRMedicationProvider implements IResourceProvider, FHIRConstants {
@@ -30,8 +36,7 @@ public class FHIRMedicationProvider implements IResourceProvider, FHIRConstants 
 	//TOODO Implement Find Resource taking filters for strength, ingredient and dose form
 	
 	@Read()
-	public Medication getMedication(HttpServletRequest request,
-									@IdParam IdType id) throws FHIROperationException {
+	public Medication getMedication(HttpServletRequest request, @IdParam IdType id) {
 		Medication medication = new Medication();
 		List<LanguageDialect> languageDialects = fhirHelper.getLanguageDialects(null, request.getHeader(ACCEPT_LANGUAGE_HEADER));
 		Concept concept = ControllerHelper.throwIfNotFound("Concept", conceptService.find(id.getIdPart(), languageDialects, "MAIN"));
@@ -93,7 +98,7 @@ public class FHIRMedicationProvider implements IResourceProvider, FHIRConstants 
 			medication.addIngredient(i);
 		}
 		if (medication.getIngredient().size() == 0) {
-			throw new FHIROperationException("the concept does not have properties mapped to FHIR Medication Resource.", IssueType.CODEINVALID, 400);
+			throw exception("the concept does not have properties mapped to FHIR Medication Resource.", IssueType.CODEINVALID, 400);
 		} else {
 			// Generate Narrative TODO: implement automatic generation with context
 			Narrative narrative = new Narrative();

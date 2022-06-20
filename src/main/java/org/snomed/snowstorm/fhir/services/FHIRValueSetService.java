@@ -96,13 +96,13 @@ public class FHIRValueSetService {
 			try {
 				logger.info("Saving ValueSet {}", valueSet.getIdElement());
 				createValueset(valueSet);
-			} catch (FHIROperationException | SnowstormFHIRServerResponseException e) {
+			} catch (SnowstormFHIRServerResponseException e) {
 				logger.error("Failed to store value set {}", valueSet.getIdElement(), e);
 			}
 		}
 	}
 
-	public FHIRValueSet createValueset(ValueSet valueSet) throws FHIROperationException {
+	public FHIRValueSet createValueset(ValueSet valueSet) {
 		// Expand to validate
 		ValueSet.ValueSetExpansionComponent originalExpansion = valueSet.getExpansion();
 		expand(new ValueSetExpansionParameters(valueSet, true), null);
@@ -112,7 +112,7 @@ public class FHIRValueSetService {
 		return valueSetRepository.save(new FHIRValueSet(valueSet));
 	}
 
-	public ValueSet expand(final ValueSetExpansionParameters params, String displayLanguage) throws FHIROperationException {
+	public ValueSet expand(final ValueSetExpansionParameters params, String displayLanguage) {
 		// Lots of not supported parameters
 		notSupported("valueSetVersion", params.getValueSetVersion());
 		notSupported("context", params.getContext());
@@ -342,7 +342,7 @@ public class FHIRValueSetService {
 	}
 
 	public Parameters validateCode(String id, String url, String context, ValueSet valueSet, String valueSetVersion, String code, String system, String systemVersion,
-			String display, Coding coding, CodeableConcept codeableConcept, DateTimeType date, BooleanType abstractBool, String displayLanguage) throws FHIROperationException {
+			String display, Coding coding, CodeableConcept codeableConcept, DateTimeType date, BooleanType abstractBool, String displayLanguage) {
 
 		notSupported("context", context);
 		notSupported("valueSetVersion", valueSetVersion);
@@ -481,7 +481,7 @@ public class FHIRValueSetService {
 	}
 
 	@Nullable
-	private ValueSet findOrInferValueSet(String id, String url, ValueSet hapiValueSet) throws FHIROperationException {
+	private ValueSet findOrInferValueSet(String id, String url, ValueSet hapiValueSet) {
 		mutuallyExclusive("id", id, "url", url);
 		mutuallyExclusive("id", id, "valueSet", hapiValueSet);
 		mutuallyExclusive("url", url, "valueSet", hapiValueSet);
@@ -689,7 +689,7 @@ public class FHIRValueSetService {
 		}
 	}
 
-	private ValueSet createImplicitValueSet(String url) throws FHIROperationException {
+	private ValueSet createImplicitValueSet(String url) {
 		FHIRValueSetCriteria includeCriteria = new FHIRValueSetCriteria();
 		includeCriteria.setSystem(url.startsWith(SNOMED_URI_UNVERSIONED) ? SNOMED_URI_UNVERSIONED : SNOMED_URI);
 		String urlWithoutParams = url.substring(0, url.indexOf("?"));
@@ -714,10 +714,10 @@ public class FHIRValueSetService {
 		return valueSet.getHapi();
 	}
 
-	/**
-	 * See https://www.hl7.org/fhir/snomedct.html#implicit
+	/*
+	 See https://www.hl7.org/fhir/snomedct.html#implicit
 	 */
-	private String determineEcl(String url) throws FHIROperationException {
+	private String determineEcl(String url) {
 		String ecl;
 		if (url.endsWith("?fhir_vs")) {
 			// Return all of SNOMED CT in this situation
@@ -732,7 +732,7 @@ public class FHIRValueSetService {
 			ecl = url.substring(url.indexOf(IMPLICIT_ECL) + IMPLICIT_ECL.length());
 			ecl = URLDecoder.decode(ecl, StandardCharsets.UTF_8);
 		} else {
-			throw new FHIROperationException("url is expected to include parameter with value: 'fhir_vs=ecl/'", OperationOutcome.IssueType.VALUE, 400);
+			throw exception("url is expected to include parameter with value: 'fhir_vs=ecl/'", OperationOutcome.IssueType.VALUE, 400);
 		}
 		return ecl;
 	}
@@ -778,7 +778,7 @@ public class FHIRValueSetService {
 	 * The FHIRCodeSystemVersions in the returned map are the versions that should actually be used, they reflect all the current constraints.
 	 */
 	private Map<CanonicalUri, FHIRCodeSystemVersion> resolveCodeSystemVersionsForExpansion(ValueSet.ValueSetComposeComponent compose,
-			Set<CanonicalUri> systemVersions, CanonicalUri checkSystemVersion, CanonicalUri forceSystemVersion, CanonicalUri excludeSystem) throws FHIROperationException {
+			Set<CanonicalUri> systemVersions, CanonicalUri checkSystemVersion, CanonicalUri forceSystemVersion, CanonicalUri excludeSystem) {
 
 		Map<CanonicalUri, FHIRCodeSystemVersion> composeSystemVersions = new HashMap<>();
 		// include
@@ -789,7 +789,7 @@ public class FHIRValueSetService {
 	}
 
 	private void resolveCodeSystemVersionForIncludeExclude(List<ValueSet.ConceptSetComponent> includeExclude, Set<CanonicalUri> systemVersions, CanonicalUri checkSystemVersion,
-			CanonicalUri forceSystemVersion, CanonicalUri excludeSystem, Map<CanonicalUri, FHIRCodeSystemVersion> composeSystemVersions) throws FHIROperationException {
+			CanonicalUri forceSystemVersion, CanonicalUri excludeSystem, Map<CanonicalUri, FHIRCodeSystemVersion> composeSystemVersions) {
 
 		for (ValueSet.ConceptSetComponent component : includeExclude) {
 			if (component.hasValueSet()) {

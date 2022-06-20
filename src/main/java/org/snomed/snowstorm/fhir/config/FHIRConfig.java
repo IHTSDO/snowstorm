@@ -1,12 +1,10 @@
 package org.snomed.snowstorm.fhir.config;
 
+import ca.uhn.fhir.rest.api.EncodingEnum;
 import org.snomed.snowstorm.fhir.services.HapiParametersMapper;
-import org.snomed.snowstorm.fhir.services.HapiValueSetMapper;
 import org.springframework.boot.web.servlet.ServletRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-
-import ca.uhn.fhir.rest.api.EncodingEnum;
 
 @Configuration
 public class FHIRConfig {
@@ -14,11 +12,6 @@ public class FHIRConfig {
 	@Bean
 	public HapiParametersMapper hapiParametersMapper() {
 		return new HapiParametersMapper();
-	}
-	
-	@Bean
-	public HapiValueSetMapper hapiValueSetMapper() {
-		return new HapiValueSetMapper();
 	}
 	
 	@Bean

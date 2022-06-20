@@ -87,7 +87,7 @@ public class FHIRConceptMapProvider implements IResourceProvider, FHIRConstants 
 			@OperationParam(name="codeableConcept") CodeableConcept codeableConcept,
 			@OperationParam(name="target") String targetValueSet,
 			@OperationParam(name="targetsystem") String targetSystem,
-			@OperationParam(name="reverse") BooleanType reverse) throws FHIROperationException {
+			@OperationParam(name="reverse") BooleanType reverse) {
 
 		notSupported("conceptMapVersion", conceptMapVersion);
 		List<LanguageDialect> languageDialects = ControllerHelper.parseAcceptLanguageHeader(request.getHeader(ACCEPT_LANGUAGE_HEADER));
