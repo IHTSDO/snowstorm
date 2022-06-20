@@ -21,6 +21,7 @@ import org.snomed.snowstorm.fhir.domain.FHIRConceptMap;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import static org.snomed.snowstorm.core.util.CollectionUtils.orEmpty;
@@ -78,8 +79,12 @@ public class FHIRTermCodeSystemStorage implements ITermCodeSystemStorageSvc {
 		conceptMaps = orEmpty(conceptMaps);
 		logger.info("{} ConceptMaps found", conceptMaps.size());
 		for (ConceptMap conceptMap : conceptMaps) {
-			FHIRConceptMap map = new FHIRConceptMap(conceptMap);
-			fhirConceptMapProvider.createMap(map);
+			try {
+				FHIRConceptMap map = new FHIRConceptMap(conceptMap);
+				fhirConceptMapProvider.createMap(map);
+			} catch (SnowstormFHIRServerResponseException e) {
+				logger.error("Failed to store ConceptMap {}", conceptMap.getIdElement(), e);
+			}
 		}
 
 		return new IdType("CodeSystem", codeSystemVersion.getId(), codeSystemVersion.getVersion());

@@ -3,9 +3,7 @@ package org.snomed.snowstorm.fhir.services;
 import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.rest.param.StringParam;
 import ca.uhn.fhir.rest.param.TokenParam;
-import ca.uhn.fhir.rest.server.exceptions.BaseServerResponseException;
 import org.apache.commons.lang3.StringUtils;
-import org.hl7.fhir.instance.model.api.IBaseOperationOutcome;
 import org.hl7.fhir.r4.model.CodeSystem;
 import org.hl7.fhir.r4.model.*;
 import org.hl7.fhir.r4.model.OperationOutcome.IssueType;
@@ -135,12 +133,6 @@ public class FHIRHelper implements FHIRConstants {
 		if (incorrectParamValue != null) {
 			throw exception(format("Parameter name '%s' is not applicable to this operation. Please use '%s' instead.", incorrectParamName, correctParamName),
 					IssueType.INVALID, 400);
-		}
-	}
-
-	public static class SnowstormFHIRServerResponseException extends BaseServerResponseException {
-		public SnowstormFHIRServerResponseException(int theStatusCode, String theMessage, IBaseOperationOutcome theBaseOperationOutcome) {
-			super(theStatusCode, theMessage, theBaseOperationOutcome);
 		}
 	}
 

@@ -84,7 +84,7 @@ public class FHIRValueSetService {
 			try {
 				logger.info("Saving ValueSet {}", valueSet.getIdElement());
 				createValueset(valueSet);
-			} catch (FHIROperationException e) {
+			} catch (FHIROperationException | SnowstormFHIRServerResponseException e) {
 				logger.error("Failed to store value set {}", valueSet.getIdElement(), e);
 			}
 		}
