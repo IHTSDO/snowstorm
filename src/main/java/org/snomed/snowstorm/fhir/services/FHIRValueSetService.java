@@ -23,11 +23,11 @@ import org.snomed.snowstorm.fhir.pojo.ValueSetExpansionParameters;
 import org.snomed.snowstorm.fhir.repositories.FHIRValueSetRepository;
 import org.snomed.snowstorm.rest.ControllerHelper;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageImpl;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Sort;
+import org.springframework.data.domain.*;
+import org.springframework.data.elasticsearch.core.ElasticsearchRestTemplate;
 import org.springframework.data.elasticsearch.core.SearchAfterPageRequest;
+import org.springframework.data.elasticsearch.core.query.NativeSearchQuery;
+import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
 import org.springframework.data.util.Pair;
 import org.springframework.stereotype.Service;
 
@@ -44,6 +44,7 @@ import static org.elasticsearch.index.query.QueryBuilders.*;
 import static org.snomed.snowstorm.core.data.services.ReferenceSetMemberService.AGGREGATION_MEMBER_COUNTS_BY_REFERENCE_SET;
 import static org.snomed.snowstorm.core.util.CollectionUtils.orEmpty;
 import static org.snomed.snowstorm.fhir.services.FHIRHelper.*;
+import static org.snomed.snowstorm.fhir.utils.FHIRPageHelper.toPage;
 
 @Service
 public class FHIRValueSetService {
@@ -71,9 +72,20 @@ public class FHIRValueSetService {
 	@Autowired
 	private ConceptService snomedConceptService;
 
+	@Autowired
+	private ElasticsearchRestTemplate elasticsearchTemplate;
+
 	private final Map<String, Set<String>> codeSystemVersionToRefsetsWithMembersCache = new HashMap<>();
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
+
+	public Page<FHIRValueSet> findAll(Pageable pageable) {
+		NativeSearchQuery searchQuery = new NativeSearchQueryBuilder()
+				.withPageable(pageable)
+				.build();
+		searchQuery.setTrackTotalHits(true);
+		return toPage(elasticsearchTemplate.search(searchQuery, FHIRValueSet.class), pageable);
+	}
 
 	public Optional<FHIRValueSet> findByUrl(String url) {
 		return valueSetRepository.findByUrl(url);
@@ -834,5 +846,4 @@ public class FHIRValueSetService {
 					url, valueSet.getUrl(), id), OperationOutcome.IssueType.INVALID, 400);
 		}
 	}
-
 }

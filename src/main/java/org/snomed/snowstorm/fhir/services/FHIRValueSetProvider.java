@@ -17,6 +17,7 @@ import org.snomed.snowstorm.fhir.domain.SearchFilter;
 import org.snomed.snowstorm.fhir.pojo.ValueSetExpansionParameters;
 import org.snomed.snowstorm.fhir.repositories.FHIRValueSetRepository;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Component;
 import org.springframework.web.bind.annotation.RequestMethod;
 
@@ -116,7 +117,7 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 				.withUrl(url)
 				.withVersion(version);
 
-		return StreamSupport.stream(valuesetRepository.findAll().spliterator(), false)
+		return StreamSupport.stream(valueSetService.findAll(PageRequest.of(0, DEFAULT_PAGESIZE)).spliterator(), false)
 				.map(FHIRValueSet::getHapi)
 				.filter(vs -> vsFilter.apply(vs, queryService, fhirHelper))
 				.peek(vs -> {
