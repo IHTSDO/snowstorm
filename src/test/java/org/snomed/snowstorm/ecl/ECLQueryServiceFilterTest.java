@@ -29,7 +29,6 @@ import static org.snomed.snowstorm.core.data.domain.Concepts.REFSET_SAME_AS_ASSO
 
 @ExtendWith(SpringExtension.class)
 @ContextConfiguration(classes = ECLQueryServiceFilterTestConfig.class)
-@DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 class ECLQueryServiceFilterTest {
 
 	@Autowired
