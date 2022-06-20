@@ -11,7 +11,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class FHIRConceptMapProviderTest extends AbstractFHIRTest {
 	
 	@Test
-	void testHistoricAssociation() throws FHIROperationException {
+	void testHistoricAssociation() {
 		// Use xsct to access daily build
 		String vs = "http://snomed.info/xsct?fhir_cm=" + Concepts.REFSET_SAME_AS_ASSOCIATION;
 		String url = "http://localhost:" + port + "/fhir/ConceptMap/$translate?code=" + sampleSCTID + "&system=http://snomed.info/xsct&url=" + vs;
