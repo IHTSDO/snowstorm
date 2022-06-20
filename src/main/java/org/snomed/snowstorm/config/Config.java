@@ -33,6 +33,7 @@ import org.snomed.snowstorm.core.data.services.traceability.TraceabilityLogServi
 import org.snomed.snowstorm.core.pojo.LanguageDialect;
 import org.snomed.snowstorm.ecl.SECLObjectFactory;
 import org.snomed.snowstorm.ecl.validation.ECLPreprocessingService;
+import org.snomed.snowstorm.fhir.config.FHIRConceptMapImplicitConfig;
 import org.snomed.snowstorm.mrcm.MRCMLoader;
 import org.snomed.snowstorm.mrcm.MRCMUpdateService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -248,6 +249,12 @@ public abstract class Config extends ElasticsearchConfig {
 		return new CodeSystemConfigurationService();
 	}
 	
+	@Bean
+	@ConfigurationProperties(prefix = "fhir.conceptmap")
+	public FHIRConceptMapImplicitConfig getFhirConceptMapImplicitConfig() {
+		return new FHIRConceptMapImplicitConfig();
+	}
+
 	@Bean
 	@ConfigurationProperties(prefix = "search.dialect")
 	public DialectConfigurationService getDialectConfigurationService() {

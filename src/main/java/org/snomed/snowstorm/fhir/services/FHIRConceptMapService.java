@@ -10,6 +10,7 @@ import org.snomed.snowstorm.core.data.services.ConceptService;
 import org.snomed.snowstorm.core.data.services.ReferenceSetMemberService;
 import org.snomed.snowstorm.core.data.services.pojo.MemberSearchRequest;
 import org.snomed.snowstorm.core.pojo.LanguageDialect;
+import org.snomed.snowstorm.fhir.config.FHIRConceptMapImplicitConfig;
 import org.snomed.snowstorm.fhir.domain.*;
 import org.snomed.snowstorm.fhir.pojo.FHIRCodeSystemVersionParams;
 import org.snomed.snowstorm.fhir.pojo.FHIRSnomedConceptMapConfig;
@@ -22,6 +23,7 @@ import org.springframework.data.elasticsearch.core.SearchHit;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
 import org.springframework.stereotype.Service;
 
+import javax.annotation.PostConstruct;
 import java.util.*;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
@@ -51,18 +53,16 @@ public class FHIRConceptMapService {
 	@Autowired
 	private ConceptService snomedConceptService;
 
+	@Autowired
+	private FHIRConceptMapImplicitConfig implicitMapConfig;
+
 	// Implicit ConceptMaps - format http://snomed.info/sct[/(module)[/version/(version)]]?fhir_cm=(sctid)
-	List<FHIRSnomedConceptMapConfig> snomedMaps = List.of(
-			// Associations
-			new FHIRSnomedConceptMapConfig("900000000000523009", "POSSIBLY EQUIVALENT TO", "http://snomed.info/sct", "http://snomed.info/sct", "inexact"),
-			new FHIRSnomedConceptMapConfig("900000000000526001", "REPLACED BY", "http://snomed.info/sct", "http://snomed.info/sct", "equivalent"),
-			new FHIRSnomedConceptMapConfig("900000000000527005", "SAME AS", "http://snomed.info/sct", "http://snomed.info/sct", "equal"),
-			new FHIRSnomedConceptMapConfig("900000000000530003", "ALTERNATIVE", "http://snomed.info/sct", "http://snomed.info/sct", "inexact"),
-			// Maps to other systems
-			new FHIRSnomedConceptMapConfig("447562003", "SNOMED CT to ICD-10 extended map", "http://snomed.info/sct", "http://hl7.org/fhir/sid/icd-10", null),
-			new FHIRSnomedConceptMapConfig("446608001", "SNOMED CT to ICD-O simple map", "http://snomed.info/sct", "http://hl7.org/fhir/sid/icd-o", null),
-			new FHIRSnomedConceptMapConfig("900000000000497000", "CTV3 to SNOMED CT simple map", "CTV-3", "http://snomed.info/sct", "equivalent")
-	);
+	private List<FHIRSnomedConceptMapConfig> snomedMaps;
+
+	@PostConstruct
+	public void init() {
+		snomedMaps = implicitMapConfig.getImplicitMaps();
+	}
 
 	public List<FHIRConceptMap> findAll() {
 		// Load first 1000 until we can figure out pagination
