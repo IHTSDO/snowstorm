@@ -3,6 +3,8 @@ package org.snomed.snowstorm.ecl;
 import com.google.common.collect.Sets;
 import io.kaicode.elasticvc.api.BranchService;
 import org.elasticsearch.search.sort.SortBuilders;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.TestConfig;
 import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.services.*;
@@ -25,31 +27,16 @@ import static org.snomed.snowstorm.TestConcepts.*;
 import static org.snomed.snowstorm.core.data.domain.Concepts.HEART_STRUCTURE;
 import static org.snomed.snowstorm.core.data.domain.Concepts.*;
 
-public class ECLQueryServiceTestConfig extends TestConfig {
-
-	@Autowired
-	private BranchService branchService;
-
-	@Autowired
-	private ConceptService conceptService;
-
-	@Autowired
-	private ReferenceSetMemberService memberService;
-
-	@Autowired
-	private CodeSystemService codeSystemService;
-
-	@Autowired
-	private ClassificationService classificationService;
-
-	@Autowired
-	private PermissionService permissionService;
+public class ECLQueryServiceTestConfig extends ECLQueryTestConfig {
 
 	@Autowired
 	private ElasticsearchRestTemplate elasticsearchTemplate;
 
 	@PostConstruct
-	public void beforeAll() throws ServiceException {
+	public void beforeAll() throws ServiceException , InterruptedException {
+
+		deleteAll();
+
 		List<Concept> allConcepts = new ArrayList<>();
 
 		allConcepts.add(new Concept(SNOMEDCT_ROOT));
@@ -154,15 +141,6 @@ public class ECLQueryServiceTestConfig extends TestConfig {
 								.withPageable(LARGE_PAGE).build(), QueryConcept.class)
 				.stream().map(SearchHit::getContent).collect(Collectors.toList());
 		assertEquals(34, queryConcepts.size());
-	}
-
-	@PreDestroy
-	public void tearDown() throws InterruptedException {
-		branchService.deleteAll();
-		conceptService.deleteAll();
-		codeSystemService.deleteAll();
-		classificationService.deleteAll();
-		permissionService.deleteAll();
 	}
 
 }

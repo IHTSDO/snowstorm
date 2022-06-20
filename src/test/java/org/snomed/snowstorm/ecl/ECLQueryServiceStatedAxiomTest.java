@@ -24,7 +24,6 @@ import static org.snomed.snowstorm.core.data.domain.Concepts.REFSET_MRCM_ATTRIBU
  */
 @ExtendWith(SpringExtension.class)
 @ContextConfiguration(classes = ECLQueryServiceStatedAxiomTestConfig.class)
-@DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 class ECLQueryServiceStatedAxiomTest extends AbstractECLQueryServiceTest {
 
 	@BeforeEach

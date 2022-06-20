@@ -11,7 +11,6 @@ import java.util.stream.Collectors;
 
 @ExtendWith(SpringExtension.class)
 @ContextConfiguration(classes = ECLQueryServiceTestConfig.class)
-@DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 public class ECLQueryServiceTest extends AbstractECLQueryServiceTest {
 
 	@BeforeEach
