@@ -96,7 +96,7 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants 
 	public List<CodeSystem> findCodeSystems(
 			RequestDetails theRequest, 
 			HttpServletResponse theResponse,
-			@OptionalParam(name="_id") String id,
+			@OptionalParam(name="id") String id,
 			@OptionalParam(name="code") String code,
 			@OptionalParam(name="context") TokenParam context,
 			@OptionalParam(name="context-quantity") QuantityParam contextQuantity,
@@ -111,7 +111,7 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants 
 			@OptionalParam(name="status") String status,
 			@OptionalParam(name="title") StringParam title,
 			@OptionalParam(name="url") String url,
-			@OptionalParam(name="version") String version) throws FHIROperationException {
+			@OptionalParam(name="version") String version) {
 
 		SearchFilter csFilter = new SearchFilter()
 									.withId(id)
@@ -190,7 +190,7 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants 
 			@OperationParam(name="coding") Coding coding,
 			@OperationParam(name="date") StringType date,
 			@OperationParam(name="displayLanguage") String displayLanguage,
-			@OperationParam(name="property") List<CodeType> propertiesType ) throws FHIROperationException {
+			@OperationParam(name="property") List<CodeType> propertiesType ) {
 
 		mutuallyExclusive("code", code, "coding", coding);
 		notSupported("date", date);
@@ -209,7 +209,7 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants 
 			@OperationParam(name="coding") Coding coding,
 			@OperationParam(name="date") StringType date,
 			@OperationParam(name="displayLanguage") String displayLanguage,
-			@OperationParam(name="property") List<CodeType> propertiesType ) throws FHIROperationException {
+			@OperationParam(name="property") List<CodeType> propertiesType ) {
 
 		mutuallyExclusive("code", code, "coding", coding);
 		notSupported("date", date);
@@ -224,7 +224,7 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants 
 			String code,
 			String displayLanguage,
 			String acceptLanguageHeader,
-			List<CodeType> propertiesType) throws FHIROperationException {
+			List<CodeType> propertiesType) {
 
 		List<LanguageDialect> designations = new ArrayList<>();
 		fhirHelper.setLanguageOptions(designations, displayLanguage, acceptLanguageHeader);
@@ -260,7 +260,7 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants 
 			@OperationParam(name="version") StringType version,
 			@OperationParam(name="date") DateTimeType date,
 			@OperationParam(name="coding") Coding coding,
-			@OperationParam(name="displayLanguage") String displayLanguage) throws FHIROperationException {
+			@OperationParam(name="displayLanguage") String displayLanguage) {
 
 		notSupported("codeSystem", codeSystem);
 		notSupported("date", date);
@@ -283,7 +283,7 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants 
 			@OperationParam(name="version") StringType version,
 			@OperationParam(name="date") DateTimeType date,
 			@OperationParam(name="coding") Coding coding,
-			@OperationParam(name="displayLanguage") String displayLanguage) throws FHIROperationException {
+			@OperationParam(name="displayLanguage") String displayLanguage) {
 		FHIRCodeSystemVersionParams codeSystemParams = getCodeSystemVersionParams(id, url, version, coding);
 		return validateCode(codeSystemParams, fhirHelper.recoverCode(code, coding), display, request.getHeader(ACCEPT_LANGUAGE_HEADER));
 	}
@@ -292,7 +292,7 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants 
 			FHIRCodeSystemVersionParams codeSystemParams,
 			String code,
 			String display,
-			String acceptLanguageHeader) throws FHIROperationException {
+			String acceptLanguageHeader) {
 
 		List<LanguageDialect> languageDialects = fhirHelper.getLanguageDialects(null, acceptLanguageHeader);
 		if (codeSystemParams.isSnomed()) {
@@ -331,8 +331,7 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants 
 			@OperationParam(name="system") StringType system,
 			@OperationParam(name="version") StringType version,
 			@OperationParam(name="codingA") Coding codingA,
-			@OperationParam(name="codingB") Coding codingB)
-			throws FHIROperationException {
+			@OperationParam(name="codingB") Coding codingB) {
 
 		return subsumes(id, system, version, codeA, codeB, codingA, codingB);
 	}
@@ -346,8 +345,7 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants 
 			@OperationParam(name="system") StringType system,
 			@OperationParam(name="version") StringType version,
 			@OperationParam(name="codingA") Coding codingA,
-			@OperationParam(name="codingB") Coding codingB)
-			throws FHIROperationException {
+			@OperationParam(name="codingB") Coding codingB) {
 
 		return subsumes(null, system, version, codeA, codeB, codingA, codingB);
 	}
@@ -357,11 +355,10 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants 
 			HttpServletRequest theServletRequest,
 			@OperationParam(name= PARAM_SYSTEM, min = 1, typeName = "uri") IPrimitiveType<String> theCodeSystemUrl,
 			@OperationParam(name= PARAM_FILE, min = 1, max = OperationParam.MAX_UNLIMITED, typeName = "attachment") List<ICompositeType> theFiles,
-			RequestDetails theRequestDetails
-	) throws FHIROperationException {
+			RequestDetails theRequestDetails) {
 
 		if (theCodeSystemUrl.getValueAsString().startsWith(ITermLoaderSvc.SCT_URI)) {
-			throw new FHIROperationException("Uploading a SNOMED-CT code system using the FHIR API is not supported. " +
+			throw exception("Uploading a SNOMED-CT code system using the FHIR API is not supported. " +
 					"Please use the Snowstorm native API to manage SNOMED-CT code systems.", IssueType.NOTSUPPORTED, 400);
 		}
 
@@ -373,7 +370,7 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants 
 		return uploaderProvider.uploadSnapshot(theServletRequest, theCodeSystemUrl, theFiles, theRequestDetails);
 	}
 
-	private Parameters subsumes(IdType id, StringType system, StringType version, CodeType codeAParam, CodeType codeBParam, Coding codingA, Coding codingB) throws FHIROperationException {
+	private Parameters subsumes(IdType id, StringType system, StringType version, CodeType codeAParam, CodeType codeBParam, Coding codingA, Coding codingB) {
 		// "The system parameter is required unless the operation is invoked on an instance of a code system resource." (https://www.hl7.org/fhir/codesystem-operation-subsumes.html)
 		if (id == null && system == null) {
 			throw exception("One of id or system parameters must be supplied for the $subsumes operation.", IssueType.INVALID, 400);
