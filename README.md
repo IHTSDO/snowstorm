@@ -28,6 +28,7 @@ The Authoring Platform is used for the maintenance of the International Edition 
   - [Getting Started (plain installation)](docs/getting-started.md)
   - [Configuration Guide](docs/configuration-guide.md)
     - [Security Configuration Guide](docs/security-configuration.md)
+    - [Nginx Setup (SSL)](docs/nginx-setup.md)
   - [Loading SNOMED](docs/loading-snomed.md)
   - [Loading & updating SNOMED CT with local Extensions or Editions](docs/updating-snomed-and-extensions.md)
   - [Extension Authoring](docs/extension-authoring.md)
