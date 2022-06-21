@@ -78,7 +78,6 @@ import static java.lang.Long.parseLong;
 				ElasticsearchDataAutoConfiguration.class,
 				ElasticsearchRestClientAutoConfiguration.class,
 				ContextStackAutoConfiguration.class,
-				WebMvcAutoConfiguration.class,
 				FlywayAutoConfiguration.class,
 				HibernateJpaAutoConfiguration.class,
 				DataSourceHealthContributorAutoConfiguration.class,
