@@ -1,5 +1,7 @@
 package org.snomed.snowstorm.fhir.services;
 
+import ca.uhn.fhir.jpa.entity.TermCodeSystemVersion;
+import ca.uhn.fhir.jpa.entity.TermConcept;
 import io.kaicode.elasticvc.api.BranchService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -38,6 +40,9 @@ public class FHIRTestConfig extends TestConfig {
 	@Autowired
 	protected CodeSystemConfigurationService codeSystemConfigurationService;
 
+	@Autowired
+	private FHIRTermCodeSystemStorage fhirTermCodeSystemStorage;
+
 	protected final String MAIN = "MAIN";
 
 	protected final Logger logger = LoggerFactory.getLogger(getClass());
@@ -53,9 +58,22 @@ public class FHIRTestConfig extends TestConfig {
 		concepts.add(new Concept(sampleInactiveSCTID).setActive(false));
 		conceptService.batchCreate(concepts, MAIN);
 
-		ReferenceSetMember member = new ReferenceSetMember(null, Concepts.REFSET_SAME_AS_ASSOCIATION, sampleSCTID);
-		member.setAdditionalField(ReferenceSetMember.AssociationFields.TARGET_COMP_ID, "88189002");
-		memberService.createMember(MAIN, member);
+		// Historical association
+		memberService.createMember(MAIN,
+				new ReferenceSetMember(null, Concepts.REFSET_SAME_AS_ASSOCIATION, sampleSCTID)
+						.setAdditionalField(ReferenceSetMember.AssociationFields.TARGET_COMP_ID, "88189002"));
+
+		// ICD-10 member
+		memberService.createMember(MAIN,
+				new ReferenceSetMember(null, "447562003", sampleSCTID)
+						.setAdditionalField(ReferenceSetMember.AssociationFields.MAP_TARGET, "A1.100"));
+
+		org.hl7.fhir.r4.model.CodeSystem icdCodeSystem = new org.hl7.fhir.r4.model.CodeSystem();
+		icdCodeSystem.setUrl("http://hl7.org/fhir/sid/icd-10");
+		icdCodeSystem.setTitle("ICD-10");
+		TermCodeSystemVersion termCodeSystemVersion = new TermCodeSystemVersion();
+		termCodeSystemVersion.getConcepts().add(new TermConcept().setCode("A1.100").setDisplay("The display"));
+		fhirTermCodeSystemStorage.storeNewCodeSystemVersion(icdCodeSystem, termCodeSystemVersion, null, null, null);
 
 		// Version content to fill effectiveTime fields
 		CodeSystem codeSystem = new CodeSystem("SNOMEDCT", MAIN);

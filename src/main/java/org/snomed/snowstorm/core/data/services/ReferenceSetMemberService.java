@@ -35,9 +35,12 @@ import org.snomed.snowstorm.ecl.ECLContentService;
 import org.snomed.snowstorm.ecl.ECLQueryService;
 import org.snomed.snowstorm.ecl.domain.RefinementBuilder;
 import org.snomed.snowstorm.ecl.domain.expressionconstraint.SSubExpressionConstraint;
+import org.snomed.snowstorm.fhir.pojo.FHIRSnomedConceptMapConfig;
+import org.snomed.snowstorm.fhir.services.FHIRConceptMapService;
 import org.snomed.snowstorm.rest.converter.SearchAfterHelper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
@@ -68,6 +71,7 @@ import static org.snomed.snowstorm.core.util.CollectionUtils.orEmpty;
 
 @Service
 public class ReferenceSetMemberService extends ComponentService {
+
 	private static final Function<ReferenceSetMember, Object[]> REFERENCE_SET_MEMBER_ID_SEARCH_AFTER_EXTRACTOR = referenceSetMember -> {
 		if (referenceSetMember == null) {
 			return null;
@@ -110,6 +114,11 @@ public class ReferenceSetMemberService extends ComponentService {
 	@Value("${refset-types.initial-branch}")
 	private String refsetsBranchPath;
 
+	@Autowired
+	@Lazy
+	// FHIR map service is used to pull terms from other code systems for display
+	private FHIRConceptMapService fhirConceptMapService;
+
 	private final Cache<String, AsyncRefsetMemberChangeBatch> batchChanges = CacheBuilder.newBuilder().expireAfterWrite(2, TimeUnit.HOURS).build();
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
@@ -141,8 +150,33 @@ public class ReferenceSetMemberService extends ComponentService {
 		query.setTrackTotalHits(true);
 		SearchHits<ReferenceSetMember> searchHits = elasticsearchTemplate.search(query, ReferenceSetMember.class);
 		PageImpl<ReferenceSetMember> referenceSetMembers = new PageImpl<>(searchHits.get().map(SearchHit::getContent).collect(Collectors.toList()), query.getPageable(), searchHits.getTotalHits());
-
+		if (searchRequest.isIncludeNonSnomedMapTerms()) {
+			joinMapTargetTerms(referenceSetMembers.getContent());
+		}
 		return PageHelper.toSearchAfterPage(referenceSetMembers, REFERENCE_SET_MEMBER_ID_SEARCH_AFTER_EXTRACTOR);
+	}
+
+	private void joinMapTargetTerms(List<ReferenceSetMember> referenceSetMembers) {
+		Set<String> refsetIds = referenceSetMembers.stream().map(ReferenceSetMember::getRefsetId).collect(Collectors.toSet());
+		Set<FHIRSnomedConceptMapConfig> maps = fhirConceptMapService.getConfiguredMapsWithNonSnomedTarget(refsetIds);
+
+		for (FHIRSnomedConceptMapConfig map : maps) {
+			String targetSystem = map.getTargetSystem();
+			Map<String, List<ReferenceSetMember>> codesToMembers = new HashMap<>();
+			referenceSetMembers.stream()
+					.filter(member -> member.getRefsetId().equals(map.getReferenceSetId()))
+					.forEach(member -> {
+						String targetCode = member.getAdditionalField(ReferenceSetMember.AssociationFields.MAP_TARGET);
+						if (targetCode != null) {
+							codesToMembers.computeIfAbsent(targetCode, key -> new ArrayList<>()).add(member);
+						}
+					});
+			Map<String, String> codeDisplayTerms = fhirConceptMapService.getCodeDisplayTerms(codesToMembers.keySet(), targetSystem);
+			for (Map.Entry<String, String> codeDisplay : codeDisplayTerms.entrySet()) {
+				String targetCode = codeDisplay.getKey();
+				codesToMembers.get(targetCode).forEach(member -> member.setTargetCoding(targetSystem, targetCode, codeDisplay.getValue()));
+			}
+		}
 	}
 
 	public Page<ReferenceSetMember> findMembers(String branch, BranchCriteria branchCriteria, MemberSearchRequest searchRequest, PageRequest pageRequest) {
