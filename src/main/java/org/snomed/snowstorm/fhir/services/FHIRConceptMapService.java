@@ -56,6 +56,9 @@ public class FHIRConceptMapService {
 	@Autowired
 	private FHIRConceptMapImplicitConfig implicitMapConfig;
 
+	@Autowired
+	private FHIRConceptService conceptService;
+
 	// Implicit ConceptMaps - format http://snomed.info/sct[/(module)[/version/(version)]]?fhir_cm=(sctid)
 	private List<FHIRSnomedConceptMapConfig> snomedMaps;
 
@@ -145,7 +148,7 @@ public class FHIRConceptMapService {
 
 	public Collection<FHIRMapElement> findMapElements(FHIRConceptMap map, Coding coding, String targetSystem, List<LanguageDialect> languageDialects) {
 		if (map.isImplicitSnomedMap()) {
-			return generateImplicitSnomedMapElements(map, coding, languageDialects);
+			return generateImplicitSnomedMapElements(map, coding, targetSystem, languageDialects);
 		}
 
 		List<FHIRConceptMapGroup> groups = map.getGroup().stream()
@@ -161,7 +164,7 @@ public class FHIRConceptMapService {
 		return searchForList(queryBuilder, FHIRMapElement.class);
 	}
 
-	private Collection<FHIRMapElement> generateImplicitSnomedMapElements(FHIRConceptMap map, Coding coding, List<LanguageDialect> languageDialects) {
+	private Collection<FHIRMapElement> generateImplicitSnomedMapElements(FHIRConceptMap map, Coding coding, String targetSystem, List<LanguageDialect> languageDialects) {
 		FHIRCodeSystemVersionParams versionParams = FHIRHelper.getCodeSystemVersionParams((IdType) null, null, null, coding);
 		FHIRCodeSystemVersion snomedVersion = fhirCodeSystemService.findCodeSystemVersionOrThrow(versionParams);
 
@@ -169,43 +172,94 @@ public class FHIRConceptMapService {
 
 		MemberSearchRequest memberSearchRequest = new MemberSearchRequest()
 				.referenceSet(map.getSnomedRefsetId());
-		if (map.getTargetUri().startsWith(SNOMED_URI) && !map.getSourceUri().startsWith(SNOMED_URI)) {
-			memberSearchRequest.mapTarget(coding.getCode());
+		boolean hasSnomedSource = FHIRHelper.isSnomedUri(map.getSourceUri());
+		boolean hasSnomedTarget = FHIRHelper.isSnomedUri(map.getTargetUri());
+		if (!hasSnomedSource) {
+			memberSearchRequest.additionalField(ReferenceSetMember.AssociationFields.MAP_TARGET, coding.getCode());
 		} else {
 			memberSearchRequest.referencedComponentId(coding.getCode());
 		}
 		Page<ReferenceSetMember> members = snomedRefsetMemberService.findMembers(snomedVersion.getSnomedBranch(), memberSearchRequest, PAGE_OF_ONE_THOUSAND);
+		System.out.println("members elements = " + members.getTotalElements());
 
-		// Collect map targets for filling PTs
-		Map<String, List<FHIRMapTarget>> conceptMapTargets = new HashMap<>();
+		// Collect map targets for filling terms
+		Map<String, List<FHIRMapTarget>> mapTargetsByCode = new HashMap<>();
 
 		List<FHIRMapElement> generatedElements = members.stream()
 				.map(referenceSetMember -> {
-					String targetCode = referenceSetMember.getAdditionalField(ReferenceSetMember.AssociationFields.TARGET_COMP_ID);
-					if (targetCode == null) {
-						targetCode = referenceSetMember.getAdditionalField(ReferenceSetMember.AssociationFields.MAP_TARGET);
-					}
-					if (targetCode == null) {
-						targetCode = referenceSetMember.getAdditionalField("valueId");
-					}
+					String targetCode = getTargetCode(hasSnomedSource, hasSnomedTarget, referenceSetMember);
+					if (targetCode == null) return null;
 					String equivalence = map.getSnomedRefsetEquivalence();
 					FHIRMapTarget mapTarget = new FHIRMapTarget(targetCode, equivalence, null);
-					conceptMapTargets.computeIfAbsent(targetCode, key -> new ArrayList<>()).add(mapTarget);
+					mapTargetsByCode.computeIfAbsent(targetCode, key -> new ArrayList<>()).add(mapTarget);
 					return new FHIRMapElement()
 							.setCode(coding.getCode())
 							.setTarget(Collections.singletonList(mapTarget));
 				})
+				.filter(Objects::nonNull)
 				.filter(element -> element.getTarget().get(0).getCode() != null)
 				.collect(Collectors.toList());
 
-		// Grap PTs
-		Map<String, ConceptMini> conceptMiniMap = snomedConceptService.findConceptMinis(snomedVersion.getSnomedBranch(), conceptMapTargets.keySet(), languageDialects)
-				.getResultsMap();
-		for (Map.Entry<String, ConceptMini> entry : conceptMiniMap.entrySet()) {
-			conceptMapTargets.get(entry.getKey()).forEach(mapTarget -> mapTarget.setDisplay(entry.getValue().getPt().getTerm()));
+		// Grab target display terms
+		if (!mapTargetsByCode.isEmpty()) {
+			if (hasSnomedTarget) {
+				Map<String, ConceptMini> conceptMiniMap = snomedConceptService.findConceptMinis(snomedVersion.getSnomedBranch(), mapTargetsByCode.keySet(), languageDialects)
+						.getResultsMap();
+				for (Map.Entry<String, ConceptMini> entry : conceptMiniMap.entrySet()) {
+					mapTargetsByCode.get(entry.getKey()).forEach(mapTarget -> mapTarget.setDisplay(entry.getValue().getPt().getTerm()));
+				}
+			} else {
+				Map<String, String> codeDisplayTerms = getCodeDisplayTerms(mapTargetsByCode.keySet(), targetSystem);
+				for (Map.Entry<String, String> entry : codeDisplayTerms.entrySet()) {
+					mapTargetsByCode.get(entry.getKey()).forEach(mapTarget -> mapTarget.setDisplay(entry.getValue()));
+				}
+			}
 		}
 
 		return generatedElements;
+	}
+
+	public Set<FHIRSnomedConceptMapConfig> getConfiguredMapsWithNonSnomedTarget(Set<String> refsetIds) {
+		return snomedMaps.stream()
+				.filter(map -> refsetIds.contains(map.getReferenceSetId()))
+				.filter(map -> !FHIRHelper.isSnomedUri(map.getTargetSystem()))
+				.collect(Collectors.toSet());
+	}
+
+	@NotNull
+	public Map<String, String> getCodeDisplayTerms(Set<String> codes, String systemUrl) {
+		if (codes == null || codes.isEmpty()) {
+			return Collections.emptyMap();
+		}
+		Map<String, String> codeDisplayTerms = new HashMap<>();
+		FHIRCodeSystemVersion targetCodeSystemLatestVersion = fhirCodeSystemService.findCodeSystemVersion(new FHIRCodeSystemVersionParams(systemUrl));
+		if (targetCodeSystemLatestVersion != null) {
+			Page<FHIRConcept> targetConcepts = conceptService.findConcepts(codes, targetCodeSystemLatestVersion, PageRequest.of(0, 1_000));
+			for (FHIRConcept targetConcept : targetConcepts.getContent()) {
+				codeDisplayTerms.put(targetConcept.getCode(), targetConcept.getDisplay());
+			}
+		}
+		return codeDisplayTerms;
+	}
+
+	private String getTargetCode(boolean hasSnomedSource, boolean hasSnomedTarget, ReferenceSetMember referenceSetMember) {
+		String targetCode;
+		if (hasSnomedTarget) {
+			if (hasSnomedSource) {
+				// Association refsets use targetComponentId
+				targetCode = referenceSetMember.getAdditionalField(ReferenceSetMember.AssociationFields.TARGET_COMP_ID);
+			} else {
+				targetCode = referenceSetMember.getReferencedComponentId();
+			}
+		} else {
+			// Target is non-snomed code system
+			targetCode = referenceSetMember.getAdditionalField(ReferenceSetMember.AssociationFields.MAP_TARGET);
+			if (targetCode == null) {
+				// Attribute value refsets use valueId
+				targetCode = referenceSetMember.getAdditionalField(ReferenceSetMember.AssociationFields.VALUE_ID);
+			}
+		}
+		return targetCode;
 	}
 
 	@NotNull
