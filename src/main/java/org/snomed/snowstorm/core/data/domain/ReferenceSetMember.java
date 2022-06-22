@@ -2,6 +2,7 @@ package org.snomed.snowstorm.core.data.domain;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonView;
+import org.snomed.snowstorm.core.pojo.Coding;
 import org.snomed.snowstorm.rest.View;
 import org.springframework.data.annotation.Transient;
 import org.springframework.data.elasticsearch.annotations.Document;
@@ -41,6 +42,7 @@ public class ReferenceSetMember extends SnomedComponent<ReferenceSetMember> impl
 	public interface AssociationFields {
 		String TARGET_COMP_ID = "targetComponentId";
 		String MAP_TARGET = "mapTarget";
+		String VALUE_ID = "valueId";
 	}
 
 	public interface LanguageFields {
@@ -88,6 +90,10 @@ public class ReferenceSetMember extends SnomedComponent<ReferenceSetMember> impl
 
 	@Transient
 	private SnomedComponent<?> referencedComponentSnomedComponent;
+
+	@Transient
+	@JsonView(value = View.Component.class)
+	private Coding mapTargetCoding;
 
 	public ReferenceSetMember() {
 		active = true;
@@ -161,6 +167,10 @@ public class ReferenceSetMember extends SnomedComponent<ReferenceSetMember> impl
 		this.referencedComponentSnomedComponent = referencedComponent;
 	}
 
+	public void setTargetCoding(String targetSystem, String targetCode, String display) {
+		mapTargetCoding = new Coding(targetSystem, targetCode, display);
+	}
+
 	@Override
 	@JsonIgnore
 	public String getId() {
@@ -207,6 +217,10 @@ public class ReferenceSetMember extends SnomedComponent<ReferenceSetMember> impl
 
 	public void setAdditionalFields(Map<String, String> additionalFields) {
 		this.additionalFields = additionalFields;
+	}
+
+	public Coding getMapTargetCoding() {
+		return mapTargetCoding;
 	}
 
 	@Override

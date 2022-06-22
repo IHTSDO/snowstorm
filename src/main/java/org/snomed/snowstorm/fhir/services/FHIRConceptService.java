@@ -13,6 +13,7 @@ import org.snomed.snowstorm.fhir.repositories.FHIRConceptRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.elasticsearch.core.ElasticsearchRestTemplate;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQuery;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
@@ -135,4 +136,7 @@ public class FHIRConceptService {
 		return toPage(elasticsearchTemplate.search(searchQuery, FHIRConcept.class), pageRequest);
 	}
 
+	public Page<FHIRConcept> findConcepts(Set<String> codes, FHIRCodeSystemVersion codeSystemVersion, Pageable pageable) {
+		return conceptRepository.findByCodeSystemVersionAndCodeIn(codeSystemVersion.getId(), codes, pageable);
+	}
 }

@@ -14,6 +14,7 @@ public class MemberSearchRequest {
 	private Boolean owlExpressionGCI;
 	private final Map<String, String> additionalFields;
 	private final Map<String, Set<String>> additionalFieldSets;
+	private boolean includeNonSnomedMapTerms;
 
 	public MemberSearchRequest() {
 		additionalFields = new HashMap<>();
@@ -156,5 +157,14 @@ public class MemberSearchRequest {
 	
 	public Boolean isNullEffectiveTime() {
 		return this.isNullEffectiveTime;
+	}
+
+	public MemberSearchRequest includeNonSnomedMapTerms(boolean includeNonSnomedMapTerms) {
+		this.includeNonSnomedMapTerms = includeNonSnomedMapTerms;
+		return this;
+	}
+
+	public boolean isIncludeNonSnomedMapTerms() {
+		return includeNonSnomedMapTerms;
 	}
 }
