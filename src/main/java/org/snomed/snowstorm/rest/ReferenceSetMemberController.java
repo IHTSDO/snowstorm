@@ -161,6 +161,7 @@ public class ReferenceSetMemberController {
 						.mapTarget(mapTarget)
 						.owlExpressionConceptId(owlExpressionConceptId)
 						.owlExpressionGCI(owlExpressionGCI)
+						.includeNonSnomedMapTerms(true)
 				,
 				ControllerHelper.getPageRequest(offset, limit, SORT_BY_MEMBER_ID_DESC, searchAfter)
 		);
