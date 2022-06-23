@@ -3,6 +3,10 @@ package org.snomed.snowstorm.ecl.domain.filter;
 import org.snomed.langauges.ecl.domain.filter.FieldFilter;
 
 public class SFieldFilter extends FieldFilter {
+
+	public SFieldFilter() {
+	}
+
 	public SFieldFilter(String fieldName, boolean equals) {
 		super(fieldName, equals);
 	}
