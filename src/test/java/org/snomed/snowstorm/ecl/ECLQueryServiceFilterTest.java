@@ -110,6 +110,13 @@ class ECLQueryServiceFilterTest {
 	}
 
 	@Test
+	// ISTO-42
+	void testNotOverEagerCaching() {
+		assertEquals(4, select("< 64572001 |Disease| {{ D active = 1 }}").size());
+		assertEquals(1, select("< 64572001 |Disease| {{ D active = 0 }}").size());
+	}
+
+	@Test
 	void testLanguageFilters() {
 		// sv language only
 		String ecl = "< 64572001 |Disease|  {{ term = \"hjärt\", language = sv }}";

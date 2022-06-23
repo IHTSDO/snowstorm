@@ -14,7 +14,7 @@ public class STermFilter extends TermFilter {
 	}
 
 	public void toString(StringBuffer buffer) {
-		buffer.append(" term ").append(getBooleanComparisonOperator()).append(" ");
+		buffer.append(" term ").append(getBooleanComparisonOperator());
 		ECLToStringUtil.toStringTypedSearchTerms(buffer, getTypedSearchTermSet());
 	}
 }
