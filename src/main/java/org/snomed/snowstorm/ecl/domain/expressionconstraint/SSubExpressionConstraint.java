@@ -357,6 +357,23 @@ public class SSubExpressionConstraint extends SubExpressionConstraint implements
 	public StringBuffer toString(StringBuffer buffer) {
 		if (operator != null) {
 			buffer.append(operator.getText()).append(" ");
+			if (operator == Operator.memberOf) {
+				boolean returnAllMemberFields = isReturnAllMemberFields();
+				List<String> memberFieldsToReturn = getMemberFieldsToReturn();
+				if (returnAllMemberFields) {
+					buffer.append("[*] ");
+				} else if (memberFieldsToReturn != null && !memberFieldsToReturn.isEmpty()) {
+					buffer.append("[");
+					int a = 0;
+					for (String field : memberFieldsToReturn) {
+						if (a++ > 0) {
+							buffer.append(", ");
+						}
+						buffer.append(field);
+					}
+					buffer.append("] ");
+				}
+			}
 		}
 		if (conceptId != null) {
 			buffer.append(conceptId);

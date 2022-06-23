@@ -20,14 +20,14 @@ public class SMemberFieldFilter extends MemberFieldFilter {
 		if (getExpressionComparisonOperator() != null) {
 			buffer.append(getExpressionComparisonOperator()).append(" ").append(((SSubExpressionConstraint)getSubExpressionConstraint()).toEclString());
 		} else if (getNumericComparisonOperator() != null) {
-			buffer.append(getNumericComparisonOperator()).append(" ").append(getNumericValue());
+			buffer.append(getNumericComparisonOperator()).append(" #").append(getNumericValue());
 		} else if (getStringComparisonOperator() != null) {
-			buffer.append(getStringComparisonOperator()).append(" ");
+			buffer.append(getStringComparisonOperator());
 			ECLToStringUtil.toStringTypedSearchTerms(buffer, getSearchTerms());
 		} else if (getBooleanComparisonOperator() != null) {
 			buffer.append(getBooleanComparisonOperator()).append(" ").append(getBooleanValue());
 		} else if (getTimeComparisonOperator() != null) {
-			buffer.append(getTimeComparisonOperator()).append(" ");
+			buffer.append(getTimeComparisonOperator());
 			ECLToStringUtil.toString(buffer, getTimeValues());
 		}
 	}
