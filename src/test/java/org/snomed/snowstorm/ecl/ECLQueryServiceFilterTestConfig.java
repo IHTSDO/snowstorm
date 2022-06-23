@@ -78,6 +78,9 @@ public class ECLQueryServiceFilterTestConfig extends TestConfig {
 						.addLanguageRefsetMember(GB_EN_LANG_REFSET, ACCEPTABLE))
 				.addDescription(new Description("hjärtsjukdom").setLanguageCode("sv").setType("SYNONYM")
 						.addLanguageRefsetMember("46011000052107", PREFERRED))
+				.addDescription(new Description("Heart_disease_inactive").setActive(false)
+						.addLanguageRefsetMember(US_EN_LANG_REFSET, PREFERRED)
+						.addLanguageRefsetMember(GB_EN_LANG_REFSET, ACCEPTABLE))
 				.addRelationship(ISA, DISORDER));
 		createConceptsAndVersionCodeSystem(allConcepts, 20210131);
 		allConcepts.add(new Concept("100003").setModuleId(MODULE_A).setDefinitionStatusId(DEFINED).addDescription(new Description( "Cardiac arrest (disorder)"))
