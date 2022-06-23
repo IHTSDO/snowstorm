@@ -7,7 +7,9 @@ import org.ihtsdo.sso.integration.SecurityUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.boot.web.client.RestTemplateBuilder;
+import org.springframework.context.event.EventListener;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -27,6 +29,7 @@ public class CommitServiceHookClient implements CommitListener {
 	private final String serviceUrl;
 	private final boolean failIfError;
 	private final boolean blockPromotion;
+	private boolean applicationReady = false;
 
 	public CommitServiceHookClient(@Value("${service-hook.commit.url}") String serviceUrl,
 								   @Value("${service-hook.commit.fail-if-error:true}") String failIfError,
@@ -61,6 +64,12 @@ public class CommitServiceHookClient implements CommitListener {
 	@Override
 	public void preCommitCompletion(Commit commit) throws IllegalStateException {
 		if (restTemplate == null) {
+			logger.info("restTemplate == null, pre-commit completion done.");
+			return;
+		}
+
+		if (!applicationReady) {
+			logger.info("Application still in startup, pre-commit completion done.");
 			return;
 		}
 
@@ -119,5 +128,11 @@ public class CommitServiceHookClient implements CommitListener {
 			}
 		}
 		return null;
+	}
+
+	@EventListener(ApplicationReadyEvent.class)
+	public void applicationIsReady() {
+		logger.info("ApplicationReadyEvent fired, startup complete");
+		applicationReady =true;
 	}
 }
