@@ -16,13 +16,6 @@ public class SDescriptionFilterConstraint extends DescriptionFilterConstraint {
 			((STermFilter) termFilter).toString(buffer);
 		}
 
-		for (DescriptionTypeFilter descriptionTypeFilter : orEmpty(getDescriptionTypeFilters())) {
-			if (f++ > 0) {
-				buffer.append(",");
-			}
-			((SDescriptionTypeFilter) descriptionTypeFilter).toString(buffer);
-		}
-
 		for (LanguageFilter languageFilter : orEmpty(getLanguageFilters())) {
 			if (f++ > 0) {
 				buffer.append(",");
@@ -30,11 +23,39 @@ public class SDescriptionFilterConstraint extends DescriptionFilterConstraint {
 			((SLanguageFilter) languageFilter).toString(buffer);
 		}
 
+		for (DescriptionTypeFilter descriptionTypeFilter : orEmpty(getDescriptionTypeFilters())) {
+			if (f++ > 0) {
+				buffer.append(",");
+			}
+			((SDescriptionTypeFilter) descriptionTypeFilter).toString(buffer);
+		}
+
 		for (DialectFilter dialectFilter : orEmpty(getDialectFilters())) {
 			if (f++ > 0) {
 				buffer.append(",");
 			}
 			((SDialectFilter) dialectFilter).toString(buffer);
+		}
+
+		for (FieldFilter moduleFilter : orEmpty(getModuleFilters())) {
+			if (f++ > 0) {
+				buffer.append(",");
+			}
+			((SFieldFilter) moduleFilter).toString(buffer);
+		}
+
+		for (EffectiveTimeFilter effectiveTimeFilter : orEmpty(getEffectiveTimeFilters())) {
+			if (f++ > 0) {
+				buffer.append(",");
+			}
+			((SEffectiveTimeFilter) effectiveTimeFilter).toString(buffer);
+		}
+
+		for (ActiveFilter activeFilter : orEmpty(getActiveFilters())) {
+			if (f++ > 0) {
+				buffer.append(",");
+			}
+			((SActiveFilter) activeFilter).toString(buffer);
 		}
 
 		buffer.append(" }}");

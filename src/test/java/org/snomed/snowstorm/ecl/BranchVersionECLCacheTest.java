@@ -15,4 +15,10 @@ class BranchVersionECLCacheTest {
 				">987840791000119102, >969688801000119108 |Wrong term here|"));
 	}
 
+	@Test
+	void testFilterActive() {
+		assertEquals("<< 195967001 {{ d active = 0 }}", BranchVersionECLCache.normaliseEclString("<< 195967001 |Asthma| {{ D active = 0 }}"));
+		assertEquals("<< 195967001 {{ d active = 1 }}", BranchVersionECLCache.normaliseEclString("<< 195967001 |Asthma| {{ D active = 1 }}"));
+	}
+
 }

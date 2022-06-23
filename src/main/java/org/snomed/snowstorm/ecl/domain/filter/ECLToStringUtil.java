@@ -22,23 +22,28 @@ public class ECLToStringUtil {
 
 	public static void toString(StringBuffer buffer, List<ConceptReference> conceptReferences) {
 		if (conceptReferences != null) {
+			buffer.append(" ");
 			if (conceptReferences.size() > 1) {
-				buffer.append(" (");
+				buffer.append("(");
 			}
+			int i = 0;
 			for (ConceptReference conceptReference : conceptReferences) {
-				buffer.append(" ");
+				if (i++ > 0) {
+					buffer.append(" ");
+				}
 				toString(buffer, conceptReference);
 			}
 			if (conceptReferences.size() > 1) {
-				buffer.append(" )");
+				buffer.append(")");
 			}
 		}
 	}
 
 	public static void toStringTypedSearchTerms(StringBuffer buffer, List<TypedSearchTerm> typedSearchTermSet) {
 		if (typedSearchTermSet != null) {
+			buffer.append(" ");
 			if (typedSearchTermSet.size() > 1) {
-				buffer.append(" (");
+				buffer.append("(");
 			}
 			boolean anyWildcards = typedSearchTermSet.stream().anyMatch(term -> term.getType() == SearchType.WILDCARD);
 			int i = 0;
@@ -50,13 +55,13 @@ public class ECLToStringUtil {
 					if (typedSearchTerm.getType() == SearchType.MATCH) {
 						buffer.append("match:");
 					} else {
-						buffer.append("wildcard:");
+						buffer.append("wild:");
 					}
 				}
 				buffer.append("\"").append(typedSearchTerm.getTerm()).append("\"");
 			}
 			if (typedSearchTermSet.size() > 1) {
-				buffer.append(" )");
+				buffer.append(")");
 			}
 		}
 	}
@@ -68,16 +73,21 @@ public class ECLToStringUtil {
 		}
 	}
 
-	public static void toString(StringBuffer buffer, Collection<Integer> values) {
-		if (values != null) {
-			if (values.size() > 1) {
-				buffer.append(" (");
+	public static void toString(StringBuffer buffer, Collection<Integer> effectiveTimeValues) {
+		if (effectiveTimeValues != null) {
+			buffer.append(" ");
+			if (effectiveTimeValues.size() > 1) {
+				buffer.append("(");
 			}
-			for (Integer value : values) {
-				buffer.append(" ").append(value);
+			int i = 0;
+			for (Integer value : effectiveTimeValues) {
+				if (i++ > 0) {
+					buffer.append(" ");
+				}
+				buffer.append("\"").append(value).append("\"");
 			}
-			if (values.size() > 1) {
-				buffer.append(" )");
+			if (effectiveTimeValues.size() > 1) {
+				buffer.append(")");
 			}
 		}
 	}
