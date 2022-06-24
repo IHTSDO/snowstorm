@@ -279,15 +279,22 @@ public class FHIRValueSetService {
 		for (FHIRCodeSystemVersion codeSystemVersion : inclusionExclusionConstraints.keySet()) {
 			BoolQueryBuilder versionQuery = boolQuery()
 					.must(termQuery(FHIRConcept.Fields.CODE_SYSTEM_VERSION, codeSystemVersion.getId()));
+			fhirConceptQuery.should(versionQuery);// Must match one of these
 
 			Pair<Set<ConceptConstraint>, Set<ConceptConstraint>> inclusionExclusionClauses = inclusionExclusionConstraints.get(codeSystemVersion);
+			BoolQueryBuilder disjunctionQueries = boolQuery();
+			if (!inclusionExclusionClauses.getFirst().isEmpty()) {
+				versionQuery.must(disjunctionQueries);// Concept must meet one of the conditions
+			}
 			for (ConceptConstraint inclusion : inclusionExclusionClauses.getFirst()) {
-				addQueryCriteria(inclusion, versionQuery, hapiValueSet);
+				BoolQueryBuilder disjunctionQuery = boolQuery();
+				disjunctionQueries.should(disjunctionQuery);// "disjunctionQueries" contains only "should" conditions, Elasticsearch forces at least one of them to match.
+				addQueryCriteria(inclusion, disjunctionQuery, hapiValueSet);
 			}
 			Set<ConceptConstraint> exclusionClauses = inclusionExclusionClauses.getSecond();
 			if (!exclusionClauses.isEmpty()) {
 				BoolQueryBuilder mustNotClauses = boolQuery();
-				versionQuery.mustNot(mustNotClauses);
+				versionQuery.mustNot(mustNotClauses);// All must-not conditions apply, at once.
 				for (ConceptConstraint exclusionClause : exclusionClauses) {
 					addQueryCriteria(exclusionClause, mustNotClauses, hapiValueSet);
 				}
