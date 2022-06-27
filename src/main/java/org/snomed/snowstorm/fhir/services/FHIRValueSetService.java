@@ -227,7 +227,7 @@ public class FHIRValueSetService {
 		} else {
 			// FHIR Concept Expansion (non-SNOMED)
 			pageRequest = PageRequest.of(pageRequest.getPageNumber(), pageRequest.getPageSize(), Sort.Direction.ASC, "code");
-			BoolQueryBuilder fhirConceptQuery = getFhirConceptQuery(inclusionExclusionConstraints, hapiValueSet);
+			BoolQueryBuilder fhirConceptQuery = getFhirConceptQuery(inclusionExclusionConstraints, hapiValueSet, filter);
 			conceptsPage = conceptService.findConcepts(fhirConceptQuery, pageRequest);
 		}
 
@@ -274,12 +274,14 @@ public class FHIRValueSetService {
 	}
 
 	@NotNull
-	private BoolQueryBuilder getFhirConceptQuery(Map<FHIRCodeSystemVersion, Pair<Set<ConceptConstraint>, Set<ConceptConstraint>>> inclusionExclusionConstraints, ValueSet hapiValueSet) {
-		BoolQueryBuilder fhirConceptQuery = boolQuery();
+	private BoolQueryBuilder getFhirConceptQuery(Map<FHIRCodeSystemVersion, Pair<Set<ConceptConstraint>, Set<ConceptConstraint>>> inclusionExclusionConstraints,
+			ValueSet hapiValueSet, String termFilter) {
+
+		BoolQueryBuilder versionQueries = boolQuery();
 		for (FHIRCodeSystemVersion codeSystemVersion : inclusionExclusionConstraints.keySet()) {
 			BoolQueryBuilder versionQuery = boolQuery()
 					.must(termQuery(FHIRConcept.Fields.CODE_SYSTEM_VERSION, codeSystemVersion.getId()));
-			fhirConceptQuery.should(versionQuery);// Must match one of these
+			versionQueries.should(versionQuery);// Must match one of these
 
 			Pair<Set<ConceptConstraint>, Set<ConceptConstraint>> inclusionExclusionClauses = inclusionExclusionConstraints.get(codeSystemVersion);
 			BoolQueryBuilder disjunctionQueries = boolQuery();
@@ -300,7 +302,11 @@ public class FHIRValueSetService {
 				}
 			}
 		}
-		return fhirConceptQuery;
+		BoolQueryBuilder masterQuery = boolQuery().must(versionQueries);
+		if (termFilter != null) {
+			masterQuery.must(prefixQuery(FHIRConcept.Fields.DISPLAY, termFilter.toLowerCase()));
+		}
+		return masterQuery;
 	}
 
 	@NotNull
@@ -544,7 +550,7 @@ public class FHIRValueSetService {
 		}
 
 		if (!codingFhirConstraints.isEmpty()) {
-			BoolQueryBuilder fhirConceptQuery = getFhirConceptQuery(inclusionExclusionConstraints, hapiValueSet);
+			BoolQueryBuilder fhirConceptQuery = getFhirConceptQuery(inclusionExclusionConstraints, hapiValueSet, null);
 			// Add criteria to select just this code
 			fhirConceptQuery.must(termQuery(FHIRConcept.Fields.CODE, coding.getCode()));
 			List<FHIRConcept> concepts = conceptService.findConcepts(fhirConceptQuery, PAGE_OF_ONE).getContent();
@@ -682,10 +688,10 @@ public class FHIRValueSetService {
 						inclusionConstraints.add(new ConceptConstraint().setParent(values));
 					} else if ("ancestor".equals(property)) {
 						inclusionConstraints.add(new ConceptConstraint().setAncestor(values));
+					} else {
+						throw exception(format("This server does not support ValueSet filter using LOINC property '%s'. " +
+								"Only parent and ancestor filters are supported for LOINC.", property), OperationOutcome.IssueType.NOTSUPPORTED, 400);
 					}
-					throw exception(format("This server does not support ValueSet filter using LOINC property '%s'. " +
-									"Only parent and ancestor filters are supported for LOINC.", property), OperationOutcome.IssueType.NOTSUPPORTED,	400);
-
 				} else if (codeSystemVersion.getUrl().startsWith("http://hl7.org/fhir/sid/icd-10")) {
 					// Spec says there are no filters for ICD-9 and 10.
 					throw exception("This server does not expect any ValueSet property filters for ICD-10.", OperationOutcome.IssueType.NOTSUPPORTED, 400);

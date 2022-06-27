@@ -75,8 +75,10 @@ public class FHIRHelper implements FHIRConstants {
 	}
 
 	public static String findParameterStringOrNull(final List<Parameters.ParametersParameterComponent> parametersParameterComponents, final String name) {
-		return parametersParameterComponents.stream().filter(parametersParameterComponent -> parametersParameterComponent.getName().equals(name)).findFirst()
-				.map(Objects::toString).orElse(null);
+		return parametersParameterComponents.stream()
+				.filter(parametersParameterComponent -> parametersParameterComponent.getName().equals(name))
+				.findFirst()
+				.map(param -> param.getValue().toString()).orElse(null);
 	}
 
 	public static CanonicalUri findParameterCanonicalOrNull(final List<Parameters.ParametersParameterComponent> parametersParameterComponents, final String name) {
