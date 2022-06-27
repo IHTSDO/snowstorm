@@ -226,7 +226,8 @@ public class FHIRValueSetService {
 			conceptsPage = new PageImpl<>(conceptsOnRequestedPage, pageRequest, totalResults);
 		} else {
 			// FHIR Concept Expansion (non-SNOMED)
-			pageRequest = PageRequest.of(pageRequest.getPageNumber(), pageRequest.getPageSize(), Sort.Direction.ASC, "code");
+			String sortField = filter != null ? "displayLen" : "code";
+			pageRequest = PageRequest.of(pageRequest.getPageNumber(), pageRequest.getPageSize(), Sort.Direction.ASC, sortField);
 			BoolQueryBuilder fhirConceptQuery = getFhirConceptQuery(inclusionExclusionConstraints, hapiValueSet, filter);
 			conceptsPage = conceptService.findConcepts(fhirConceptQuery, pageRequest);
 		}
