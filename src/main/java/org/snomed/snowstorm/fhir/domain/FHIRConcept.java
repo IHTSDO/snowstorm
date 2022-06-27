@@ -26,6 +26,7 @@ public class FHIRConcept implements FHIRGraphNode {
 		String CODE_SYSTEM_VERSION = "codeSystemVersion";
 		String CODE = "code";
 		String DISPLAY = "display";
+		String DISPLAY_LENGTH = "displayLen";
 		String PARENTS = "parents";
 		String ANCESTORS = "ancestors";
 	}
@@ -40,6 +41,9 @@ public class FHIRConcept implements FHIRGraphNode {
 	private String code;
 
 	private String display;
+
+	@Field(type = FieldType.Integer)
+	private Integer displayLen;
 
 	private final boolean active;
 
@@ -61,7 +65,7 @@ public class FHIRConcept implements FHIRGraphNode {
 		this.codeSystemVersion = codeSystemVersion.getId();
 
 		code = termConcept.getCode();
-		display = termConcept.getDisplay();
+		setDisplay(termConcept.getDisplay());
 		active = true;
 
 		designations = new ArrayList<>();
@@ -93,7 +97,7 @@ public class FHIRConcept implements FHIRGraphNode {
 				displayTerm = new TermLangPojo(code, "en");
 			}
 		}
-		display = displayTerm.getTerm();
+		setDisplay(displayTerm.getTerm());
 		active = !Boolean.FALSE.equals(snomedConceptMini.getActive());
 		if (includeDesignations) {
 			designations = new ArrayList<>();
@@ -149,6 +153,11 @@ public class FHIRConcept implements FHIRGraphNode {
 
 	public void setDisplay(String display) {
 		this.display = display;
+		this.displayLen = display != null ? display.length() : 0;
+	}
+
+	public Integer getDisplayLen() {
+		return displayLen;
 	}
 
 	public boolean isActive() {
