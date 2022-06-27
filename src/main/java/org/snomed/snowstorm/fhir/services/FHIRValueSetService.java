@@ -499,7 +499,6 @@ public class FHIRValueSetService {
 		mutuallyExclusive("id", id, "valueSet", hapiValueSet);
 		mutuallyExclusive("url", url, "valueSet", hapiValueSet);
 
-
 		if (id != null) {
 			Optional<FHIRValueSet> valueSetOptional = valueSetRepository.findById(id);
 			if (valueSetOptional.isEmpty()) {
@@ -510,8 +509,18 @@ public class FHIRValueSetService {
 
 			hapiValueSet = valueSet.getHapi();
 		} else if (FHIRHelper.isSnomedUri(url) && url.contains("?fhir_vs")) {
+			// Create snomed implicit value set
+			hapiValueSet = createSnomedImplicitValueSet(url);
+		} else if (url != null && url.endsWith("?fhir_vs")) {
 			// Create implicit value set
-			hapiValueSet = createImplicitValueSet(url);
+			FHIRValueSetCriteria includeCriteria = new FHIRValueSetCriteria();
+			includeCriteria.setSystem(url.replace("?fhir_vs", ""));
+			FHIRValueSetCompose compose = new FHIRValueSetCompose();
+			compose.addInclude(includeCriteria);
+			FHIRValueSet valueSet = new FHIRValueSet();
+			valueSet.setUrl(url);
+			valueSet.setCompose(compose);
+			hapiValueSet = valueSet.getHapi();
 		} else if (hapiValueSet == null) {
 			hapiValueSet = findByUrl(url).map(FHIRValueSet::getHapi).orElse(null);
 		}
@@ -702,7 +711,7 @@ public class FHIRValueSetService {
 		}
 	}
 
-	private ValueSet createImplicitValueSet(String url) {
+	private ValueSet createSnomedImplicitValueSet(String url) {
 		FHIRValueSetCriteria includeCriteria = new FHIRValueSetCriteria();
 		includeCriteria.setSystem(url.startsWith(SNOMED_URI_UNVERSIONED) ? SNOMED_URI_UNVERSIONED : SNOMED_URI);
 		String urlWithoutParams = url.substring(0, url.indexOf("?"));
