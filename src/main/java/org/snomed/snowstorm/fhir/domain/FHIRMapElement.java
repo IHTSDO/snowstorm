@@ -7,6 +7,7 @@ import org.springframework.data.elasticsearch.annotations.Document;
 import org.springframework.data.elasticsearch.annotations.Field;
 import org.springframework.data.elasticsearch.annotations.FieldType;
 
+import javax.persistence.Transient;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -34,6 +35,9 @@ public class FHIRMapElement {
 	private String display;
 
 	private List<FHIRMapTarget> target;
+
+	@Transient
+	private String message;
 
 	public FHIRMapElement() {
 	}
@@ -98,6 +102,16 @@ public class FHIRMapElement {
 
 	public FHIRMapElement setTarget(List<FHIRMapTarget> target) {
 		this.target = target;
+		return this;
+	}
+
+	@JsonIgnore
+	public String getMessage() {
+		return message;
+	}
+
+	public FHIRMapElement setMessage(String message) {
+		this.message = message;
 		return this;
 	}
 

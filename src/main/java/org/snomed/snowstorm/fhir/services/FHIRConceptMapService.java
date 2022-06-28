@@ -28,6 +28,7 @@ import java.util.*;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
+import static java.lang.String.format;
 import static org.elasticsearch.index.query.QueryBuilders.*;
 import static org.snomed.snowstorm.fhir.config.FHIRConstants.SNOMED_URI;
 
@@ -58,6 +59,9 @@ public class FHIRConceptMapService {
 
 	@Autowired
 	private FHIRConceptService conceptService;
+
+	@Autowired
+	private FHIRSnomedModelTermCache snomedModelTermCache;
 
 	// Implicit ConceptMaps - format http://snomed.info/sct[/(module)[/version/(version)]]?fhir_cm=(sctid)
 	private List<FHIRSnomedConceptMapConfig> snomedMaps;
@@ -192,9 +196,30 @@ public class FHIRConceptMapService {
 					String equivalence = map.getSnomedRefsetEquivalence();
 					FHIRMapTarget mapTarget = new FHIRMapTarget(targetCode, equivalence, null);
 					mapTargetsByCode.computeIfAbsent(targetCode, key -> new ArrayList<>()).add(mapTarget);
+					String message = null;
+					String mapGroup = referenceSetMember.getAdditionalField("mapGroup");
+					if (mapGroup != null) {
+						String mapPriority = referenceSetMember.getAdditionalField("mapPriority");
+						String mapRule = referenceSetMember.getAdditionalField("mapRule");
+						String mapAdvice = referenceSetMember.getAdditionalField("mapAdvice");
+						String correlationId = referenceSetMember.getAdditionalField("correlationId");
+						String correlationTerm = snomedModelTermCache.getSnomedTerm(correlationId, snomedVersion, languageDialects);
+						String mapCategoryId = referenceSetMember.getAdditionalField("mapCategoryId");
+						String mapCategoryMessage = "";
+
+						// mapCategoryId null for complex map, only used in extended map
+						if (mapCategoryId != null) {
+							String mapCategoryTerm = snomedModelTermCache.getSnomedTerm(mapCategoryId, snomedVersion, languageDialects);
+							mapCategoryMessage = format(", Map Category:'%s'", mapCategoryTerm);
+						}
+
+						message = format("Map Advice. Group:%s, Priority:%s, Rule:%s, Advice:'%s', Correlation: '%s'%s.",
+								mapGroup, mapPriority, mapRule, mapAdvice, correlationTerm, mapCategoryMessage);
+					}
 					return new FHIRMapElement()
 							.setCode(coding.getCode())
-							.setTarget(Collections.singletonList(mapTarget));
+							.setTarget(Collections.singletonList(mapTarget))
+							.setMessage(message);
 				})
 				.filter(Objects::nonNull)
 				.filter(element -> element.getTarget().get(0).getCode() != null)
