@@ -147,6 +147,9 @@ public class FHIRConceptMapProvider implements IResourceProvider, FHIRConstants 
 						String elementTargetSystem = map.isImplicitSnomedMap() ? map.getTargetUri().replace(WHOLE_SYSTEM_VALUE_SET_URI_POSTFIX, "") : targetSystem;
 						matchParam.addPart(new Parameters.ParametersParameterComponent(new StringType("concept"))
 								.setValue(new Coding(elementTargetSystem, mapTarget.getCode(), mapTarget.getDisplay())));
+						if (mapElement.getMessage() != null) {
+							parameters.addParameter("message", mapElement.getMessage());
+						}
 						matchParam.addPart(new Parameters.ParametersParameterComponent(new StringType("source"))
 								.setValue(new StringType(map.getUrl())));
 						parameters.addParameter(matchParam);
