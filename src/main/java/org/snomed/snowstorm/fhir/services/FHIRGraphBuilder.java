@@ -2,10 +2,9 @@ package org.snomed.snowstorm.fhir.services;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Set;
+
+import java.util.*;
+import java.util.stream.Collectors;
 
 public class FHIRGraphBuilder {
 
@@ -33,18 +32,35 @@ public class FHIRGraphBuilder {
 		return node != null ? node.getTransitiveClosure() : null;
 	}
 
+	public Collection<String> getNodeParents(String code) {
+		Node node = nodeLookup.get(code);
+		return node != null ? node.getParents().stream().map(Node::getCode).collect(Collectors.toList()) : Collections.emptyList();
+	}
+
+	public Collection<String> getNodeChildren(String code) {
+		Node node = nodeLookup.get(code);
+		return node != null ? node.getChildren().stream().map(Node::getCode).collect(Collectors.toList()) : Collections.emptyList();
+	}
+
 	public static class Node {
 
 		private final String code;
 		private final Set<Node> parents;
+		private final Set<Node> children;
 
 		public Node(String code) {
 			this.code = code;
 			parents = new HashSet<>();
+			children = new HashSet<>();
 		}
 
 		public void addParent(Node parentCode) {
 			parents.add(parentCode);
+			parentCode.addChild(this);
+		}
+
+		private void addChild(Node node) {
+			children.add(node);
 		}
 
 		public String getCode() {
@@ -62,6 +78,14 @@ public class FHIRGraphBuilder {
 				tc.add(parent.getCode());
 				parent.collectParents(tc);
 			}
+		}
+
+		public Set<Node> getParents() {
+			return parents;
+		}
+
+		public Set<Node> getChildren() {
+			return children;
 		}
 	}
 }

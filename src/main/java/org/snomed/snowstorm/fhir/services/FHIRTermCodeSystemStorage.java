@@ -16,6 +16,7 @@ import org.hl7.fhir.r4.model.IdType;
 import org.hl7.fhir.r4.model.ValueSet;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.snomed.snowstorm.fhir.config.FHIRConstants;
 import org.snomed.snowstorm.fhir.domain.FHIRCodeSystemVersion;
 import org.snomed.snowstorm.fhir.domain.FHIRConceptMap;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -64,6 +65,10 @@ public class FHIRTermCodeSystemStorage implements ITermCodeSystemStorageSvc {
 			List<ValueSet> valueSets, List<ConceptMap> conceptMaps) {
 
 		FHIRCodeSystemVersion codeSystemVersion;
+		codeSystem.setContent(CodeSystem.CodeSystemContentMode.COMPLETE);
+		if (codeSystem.getUrl().startsWith(FHIRConstants.ICD10_URI)) {
+			codeSystem.setHierarchyMeaning(CodeSystem.CodeSystemHierarchyMeaning.ISA);
+		}
 		codeSystemVersion = fhirCodeSystemService.save(codeSystem);
 		fhirConceptService.saveAllConceptsOfCodeSystemVersion(termCodeSystemVersion, codeSystemVersion);
 
