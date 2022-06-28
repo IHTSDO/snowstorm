@@ -1,14 +1,14 @@
 package org.snomed.snowstorm.core.util;
 
-import org.apache.commons.lang3.CharSet;
 import org.apache.lucene.analysis.miscellaneous.ASCIIFoldingFilter;
 import org.snomed.snowstorm.core.data.domain.Concepts;
 import org.snomed.snowstorm.core.data.domain.Description;
 import org.snomed.snowstorm.core.pojo.LanguageDialect;
 import org.snomed.snowstorm.core.pojo.TermLangPojo;
 
-import java.nio.charset.StandardCharsets;
-import java.util.*;
+import java.util.List;
+import java.util.Optional;
+import java.util.Set;
 
 public class DescriptionHelper {
 
