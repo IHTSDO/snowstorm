@@ -3,6 +3,7 @@ package org.snomed.snowstorm.fhir.services;
 import ca.uhn.fhir.jpa.entity.TermCodeSystemVersion;
 import ca.uhn.fhir.jpa.entity.TermConcept;
 import ca.uhn.fhir.jpa.entity.TermConceptProperty;
+import ca.uhn.fhir.jpa.entity.TermConceptPropertyTypeEnum;
 import com.google.common.collect.Iterables;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.slf4j.Logger;
@@ -19,10 +20,8 @@ import org.springframework.data.elasticsearch.core.query.NativeSearchQuery;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
 import org.springframework.stereotype.Service;
 
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import static org.snomed.snowstorm.fhir.utils.FHIRPageHelper.toPage;
@@ -81,6 +80,25 @@ public class FHIRConceptService {
 					graphBuilder.addParent(childCode.getCode(), concept.getCode());
 				}
 			}
+			// Add parent and child properties if missing
+			Map<String, String> conceptDisplayMap = allConcepts.stream().collect(Collectors.toMap(TermConcept::getCode, TermConcept::getDisplay));
+			for (TermConcept concept : allConcepts) {
+				Collection<TermConceptProperty> properties = concept.getProperties();
+				Collection<String> parents = graphBuilder.getNodeParents(concept.getCode());
+				if (properties.stream().noneMatch(prop -> "parent".equals(prop.getKey()))) {
+					for (String parent : parents) {
+						properties.add(new TermConceptProperty().setKey("parent")
+								.setType(TermConceptPropertyTypeEnum.CODING).setValue(parent).setDisplay(conceptDisplayMap.get(parent)));
+					}
+				}
+				Collection<String> children = graphBuilder.getNodeChildren(concept.getCode());
+				if (properties.stream().noneMatch(prop -> "child".equals(prop.getKey()))) {
+					for (String child : children) {
+						properties.add(new TermConceptProperty().setKey("child")
+								.setType(TermConceptPropertyTypeEnum.CODING).setValue(child).setDisplay(conceptDisplayMap.get(child)));
+					}
+				}
+			}
 		}
 
 		Set<String> props = new HashSet<>();
@@ -111,7 +129,7 @@ public class FHIRConceptService {
 				percentToLog = null;
 			}
 		}
-		System.out.println("All props");
+		System.out.print("All properties: ");
 		System.out.println(props);
 		System.out.println();
 	}
