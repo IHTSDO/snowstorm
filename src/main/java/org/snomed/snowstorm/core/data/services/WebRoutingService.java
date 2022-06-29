@@ -15,7 +15,8 @@ import java.util.*;
 
 @Service
 public class WebRoutingService {
-	
+
+	public static final String DAILYBUILD_NAMESPACE = "xsct";
 	public static String CANONICAL_URI_PREFIX = "http://snomed.info/";
 	
 	@Value("${uri.dereferencing.prefix}")
@@ -128,8 +129,12 @@ public class WebRoutingService {
 		Concept concept = null;
 		
 		if (version != null) {
-			concept = conceptService.find(uriParts.sctId, null, version.getBranchPath());
-			if (concept != null) {
+			if (DAILYBUILD_NAMESPACE.equals(uriParts.nameSpace)) {
+				concept = conceptService.find(uriParts.sctId, null, version.getParentBranchPath());
+			} else {
+				concept = conceptService.find(uriParts.sctId, null, version.getBranchPath());
+			}
+			if (concept != null && !DAILYBUILD_NAMESPACE.equals(uriParts.nameSpace)) {
 				versionedConceptFound.setTrue();
 				//Ensure we're redirecting to a published version 
 				concept.setPath(multiSearchService.getPublishedVersionOfBranch(concept.getPath()));
@@ -157,7 +162,7 @@ public class WebRoutingService {
 		String[] uriSplit = uriTrimmed.split("\\/");
 		if (uriSplit.length < 2) {
 			throw new IllegalArgumentException("Malformed URI: " + uri);
-		} else if (uriTrimmed.startsWith("sct/")) {
+		} else if (uriTrimmed.startsWith("sct/") || uriTrimmed.startsWith("xsct/")) {
 			parts.moduleId = uriSplit[1];
 			//If we just have the module id, look that up
 			parts.sctId = parts.moduleId;
@@ -198,9 +203,15 @@ public class WebRoutingService {
 				!VerhoeffCheck.validateLastChecksumDigit(parts.sctId)) {
 			throw new IllegalArgumentException("URI featured invalid SCTID: " + uri);
 		}
+
+		String specialNamespace = getNamespaceFromConfig(uriTrimmed.substring(0, uriTrimmed.indexOf("/")));
 		
-		parts.nameSpace = extractNamespace(parts.sctId);
+		parts.nameSpace = specialNamespace != null ? specialNamespace : extractNamespace(parts.sctId);
 		return parts;
+	}
+
+	private String getNamespaceFromConfig(String str) {
+		return webRoutes.getNamespaceMap().containsKey(str) ? webRoutes.getNamespaceMap().get(str) : null;
 	}
 
 	private class UriParts {
