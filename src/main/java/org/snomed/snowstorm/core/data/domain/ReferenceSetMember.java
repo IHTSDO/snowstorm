@@ -150,6 +150,14 @@ public class ReferenceSetMember extends SnomedComponent<ReferenceSetMember> impl
 		return this;
 	}
 
+	public String getMapGroup() {
+		return getAdditionalField("mapGroup");
+	}
+
+	public String getMapPriority() {
+		return getAdditionalField("mapPriority");
+	}
+
 	public void setReferencedComponentConceptMini(ConceptMini referencedComponentConceptMini) {
 		this.referencedComponentConceptMini = referencedComponentConceptMini;
 	}
