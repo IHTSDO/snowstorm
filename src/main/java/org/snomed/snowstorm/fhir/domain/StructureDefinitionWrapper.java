@@ -8,7 +8,7 @@ import org.springframework.data.annotation.Id;
 import org.springframework.data.annotation.PersistenceConstructor;
 import org.springframework.data.elasticsearch.annotations.Document;
 
-@Document(indexName = "structure-definition")
+@Document(indexName = "fhir-structure-definition")
 public class StructureDefinitionWrapper {
 	
 	private static IParser fhirJsonParser;
