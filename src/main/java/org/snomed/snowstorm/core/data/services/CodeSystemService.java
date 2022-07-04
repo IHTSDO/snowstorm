@@ -248,7 +248,7 @@ public class CodeSystemService {
 		return version;
 	}
 
-	@PreAuthorize("hasPermission('ADMIN', #codeSystemVersion.branchPath)")
+	@PreAuthorize("hasPermission('ADMIN', #codeSystemVersion.branchPath) || hasPermission('RELEASE_ADMIN', 'global') || hasPermission('RELEASE_MANAGER', 'global')")
 	public synchronized CodeSystemVersion updateCodeSystemVersionPackage(CodeSystemVersion codeSystemVersion, String releasePackage) {
 		String shortName = codeSystemVersion.getShortName();
 		Integer effectiveDate = codeSystemVersion.getEffectiveDate();
