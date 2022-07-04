@@ -29,6 +29,7 @@ import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 import static java.lang.String.format;
+import static java.util.Comparator.*;
 import static org.elasticsearch.index.query.QueryBuilders.*;
 import static org.snomed.snowstorm.fhir.config.FHIRConstants.SNOMED_URI;
 
@@ -189,7 +190,12 @@ public class FHIRConceptMapService {
 		// Collect map targets for filling terms
 		Map<String, List<FHIRMapTarget>> mapTargetsByCode = new HashMap<>();
 
+		Comparator<ReferenceSetMember> mapComparator =
+				nullsFirst(comparing(ReferenceSetMember::getMapGroup))
+						.thenComparing(ReferenceSetMember::getMapPriority, Comparator.nullsFirst(naturalOrder()));
+
 		List<FHIRMapElement> generatedElements = members.stream()
+				.sorted(mapComparator)
 				.map(referenceSetMember -> {
 					String targetCode = getTargetCode(hasSnomedSource, hasSnomedTarget, referenceSetMember);
 					if (targetCode == null) return null;
