@@ -2,8 +2,8 @@ package org.snomed.snowstorm.fhir.services;
 
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.hl7.fhir.r4.model.Coding;
+import org.hl7.fhir.r4.model.Enumerations;
 import org.hl7.fhir.r4.model.IdType;
-import org.jetbrains.annotations.NotNull;
 import org.snomed.snowstorm.core.data.domain.ConceptMini;
 import org.snomed.snowstorm.core.data.domain.ReferenceSetMember;
 import org.snomed.snowstorm.core.data.services.ConceptService;
@@ -24,6 +24,7 @@ import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilde
 import org.springframework.stereotype.Service;
 
 import javax.annotation.PostConstruct;
+import javax.validation.constraints.NotNull;
 import java.util.*;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
@@ -67,9 +68,13 @@ public class FHIRConceptMapService {
 	// Implicit ConceptMaps - format http://snomed.info/sct[/(module)[/version/(version)]]?fhir_cm=(sctid)
 	private List<FHIRSnomedConceptMapConfig> snomedMaps;
 
+	// Map of SNOMED CT map correlation concepts to FHIR equivalence codes - http://hl7.org/fhir/concept-map-equivalence
+	private Map<String, Enumerations.ConceptMapEquivalence> snomedCorrelationToFhirEquivalenceMap;
+
 	@PostConstruct
 	public void init() {
 		snomedMaps = implicitMapConfig.getImplicitMaps();
+		snomedCorrelationToFhirEquivalenceMap = implicitMapConfig.getSnomedCorrelationToFhirEquivalenceMap();
 	}
 
 	public List<FHIRConceptMap> findAll() {
@@ -209,7 +214,8 @@ public class FHIRConceptMapService {
 						String mapRule = referenceSetMember.getAdditionalField("mapRule");
 						String mapAdvice = referenceSetMember.getAdditionalField("mapAdvice");
 						String correlationId = referenceSetMember.getAdditionalField("correlationId");
-						String correlationTerm = snomedModelTermCache.getSnomedTerm(correlationId, snomedVersion, languageDialects);
+						Enumerations.ConceptMapEquivalence mapEquivalence = snomedCorrelationToFhirEquivalenceMap.get(correlationId);
+						mapTarget.setEquivalence(mapEquivalence != null ? mapEquivalence.toCode() : null);
 						String mapCategoryId = referenceSetMember.getAdditionalField("mapCategoryId");
 						String mapCategoryMessage = "";
 
@@ -219,8 +225,8 @@ public class FHIRConceptMapService {
 							mapCategoryMessage = format(", Map Category:'%s'", mapCategoryTerm);
 						}
 
-						message = format("Map Advice. Group:%s, Priority:%s, Rule:%s, Advice:'%s', Correlation: '%s'%s.",
-								mapGroup, mapPriority, mapRule, mapAdvice, correlationTerm, mapCategoryMessage);
+						message = format("Please observe the following map advice. Group:%s, Priority:%s, Rule:%s, Advice:'%s'%s.",
+								mapGroup, mapPriority, mapRule, mapAdvice, mapCategoryMessage);
 					}
 					return new FHIRMapElement()
 							.setCode(coding.getCode())
