@@ -8,6 +8,7 @@ import org.hl7.fhir.r4.model.CodeSystem;
 import org.hl7.fhir.r4.model.Enumerations.PublicationStatus;
 import org.hl7.fhir.r4.model.OperationOutcome.IssueType;
 import org.hl7.fhir.r4.model.StructureDefinition;
+import org.hl7.fhir.r4.model.UriType;
 import org.hl7.fhir.r4.model.ValueSet;
 import org.snomed.snowstorm.core.data.services.QueryService;
 import org.snomed.snowstorm.fhir.services.FHIRHelper;
@@ -195,6 +196,10 @@ public class SearchFilter {
 	public SearchFilter withUrl(String url) {
 		this.url = url;
 		return this;
+	}
+
+	public SearchFilter withUrl(UriType url) {
+		return withUrl(url != null ? url.getValueAsString() : null);
 	}
 
 	public String getVersion() {

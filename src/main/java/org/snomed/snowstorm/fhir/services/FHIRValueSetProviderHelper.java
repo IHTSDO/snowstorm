@@ -41,7 +41,7 @@ class FHIRValueSetProviderHelper {
 
 	static ValueSetExpansionParameters getValueSetExpansionParameters(
 			final IdType id,
-			final String url,
+			final UriType url,
 			final String valueSetVersion,
 			final String context,
 			final String contextDirection,
@@ -66,7 +66,7 @@ class FHIRValueSetProviderHelper {
 		return new ValueSetExpansionParameters(
 				id != null ? id.getIdPart() : null,
 				null,
-				url,
+				url != null ? url.getValueAsString() : null,
 				valueSetVersion,
 				context,
 				contextDirection,
