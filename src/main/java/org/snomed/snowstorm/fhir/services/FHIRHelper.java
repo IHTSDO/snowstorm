@@ -114,6 +114,10 @@ public class FHIRHelper implements FHIRConstants {
 		}
 	}
 
+	public static String toString(UriType url) {
+		return url != null ? url.getValueAsString() : null;
+	}
+
 	public List<LanguageDialect> getLanguageDialects(List<String> designations, String acceptLanguageHeader) {
 		// Use designations preferably, or fall back to language headers
 		final List<LanguageDialect> languageDialects = new ArrayList<>();
@@ -265,7 +269,7 @@ public class FHIRHelper implements FHIRConstants {
 		return coding.getCode();
 	}
 
-	public FHIRCodeSystemVersionParams getCodeSystemVersionParams(StringType codeSystemParam, StringType versionParam, Coding coding) {
+	public FHIRCodeSystemVersionParams getCodeSystemVersionParams(UriType codeSystemParam, StringType versionParam, Coding coding) {
 		return getCodeSystemVersionParams(null, codeSystemParam, versionParam, coding);
 	}
 
