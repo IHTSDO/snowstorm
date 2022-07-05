@@ -18,7 +18,6 @@ import org.hl7.fhir.r4.model.*;
 import org.hl7.fhir.r4.model.OperationOutcome.IssueType;
 import org.snomed.snowstorm.core.data.domain.Concept;
 import org.snomed.snowstorm.core.data.services.MultiSearchService;
-import org.snomed.snowstorm.core.data.services.NotFoundException;
 import org.snomed.snowstorm.core.pojo.LanguageDialect;
 import org.snomed.snowstorm.fhir.config.FHIRConstants;
 import org.snomed.snowstorm.fhir.domain.FHIRCodeSystemVersion;
@@ -164,20 +163,21 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants 
 	
 	@Read()
 	public CodeSystem getCodeSystem(@IdParam IdType id) {
-		Optional<FHIRCodeSystemVersion> fhirCodeSystem = fhirCodeSystemService.findById(id.getIdPart());
+		String idPart = id.getIdPart();
+		Optional<FHIRCodeSystemVersion> fhirCodeSystem = fhirCodeSystemService.findById(idPart);
 		if (fhirCodeSystem.isPresent()) {
 			return fhirCodeSystem.get().toHapiCodeSystem();
 		} else {
 			Optional<CodeSystem> snomedCodeSystem = snomedMultiSearchService.getAllPublishedVersions().stream()
 					.map(cv -> new FHIRCodeSystemVersion(cv).toHapiCodeSystem())
-					.filter(cs -> cs.getId().equals(id.getIdPart()))
+					.filter(cs -> cs.getId().equals(idPart))
 					.findAny();
 
 			if (snomedCodeSystem.isPresent()) {
 				return snomedCodeSystem.get();
 			}
 		}
-		throw new NotFoundException("Code System " + id + " not found"); 
+		throw FHIRHelper.exception("Code System " + idPart + " not found", IssueType.NOTFOUND, 404);
 	}
 
 	@Operation(name="$lookup", idempotent=true)
@@ -185,7 +185,7 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants 
 			HttpServletRequest request,
 			HttpServletResponse response,
 			@OperationParam(name="code") CodeType code,
-			@OperationParam(name="system") StringType system,
+			@OperationParam(name="system") UriType system,
 			@OperationParam(name="version") StringType version,
 			@OperationParam(name="coding") Coding coding,
 			@OperationParam(name="date") StringType date,
@@ -203,7 +203,7 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants 
 			@IdParam IdType id,
 			HttpServletRequest request,
 			HttpServletResponse response,
-			@OperationParam(name="system") StringType system,
+			@OperationParam(name="system") UriType system,
 			@OperationParam(name="version") StringType version,
 			@OperationParam(name="code") CodeType code,
 			@OperationParam(name="coding") Coding coding,
@@ -328,7 +328,7 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants 
 			HttpServletResponse response,
 			@OperationParam(name="codeA") CodeType codeA,
 			@OperationParam(name="codeB") CodeType codeB,
-			@OperationParam(name="system") StringType system,
+			@OperationParam(name="system") UriType system,
 			@OperationParam(name="version") StringType version,
 			@OperationParam(name="codingA") Coding codingA,
 			@OperationParam(name="codingB") Coding codingB) {
@@ -342,7 +342,7 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants 
 			HttpServletResponse response,
 			@OperationParam(name="codeA") CodeType codeA,
 			@OperationParam(name="codeB") CodeType codeB,
-			@OperationParam(name="system") StringType system,
+			@OperationParam(name="system") UriType system,
 			@OperationParam(name="version") StringType version,
 			@OperationParam(name="codingA") Coding codingA,
 			@OperationParam(name="codingB") Coding codingB) {
@@ -370,7 +370,7 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants 
 		return uploaderProvider.uploadSnapshot(theServletRequest, theCodeSystemUrl, theFiles, theRequestDetails);
 	}
 
-	private Parameters subsumes(IdType id, StringType system, StringType version, CodeType codeAParam, CodeType codeBParam, Coding codingA, Coding codingB) {
+	private Parameters subsumes(IdType id, UriType system, StringType version, CodeType codeAParam, CodeType codeBParam, Coding codingA, Coding codingB) {
 		// "The system parameter is required unless the operation is invoked on an instance of a code system resource." (https://www.hl7.org/fhir/codesystem-operation-subsumes.html)
 		if (id == null && system == null) {
 			throw exception("One of id or system parameters must be supplied for the $subsumes operation.", IssueType.INVALID, 400);
