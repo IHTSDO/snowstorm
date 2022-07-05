@@ -435,6 +435,7 @@ public class ConceptService extends ComponentService {
 					ConceptMini conceptMini = conceptMiniMap.get(concept.getConceptId());
 					conceptMini.setDefinitionStatusId(concept.getDefinitionStatusId());
 					conceptMini.setModuleId(concept.getModuleId());
+					conceptMini.setActive(concept.isActive());
 				});
 			}
 		}
