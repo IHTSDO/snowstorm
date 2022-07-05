@@ -68,6 +68,8 @@ public class CommitServiceHookClient implements CommitListener {
 			return;
 		}
 
+		// PIP-182. This class is used for communication with AAG (see configuration of serviceUrl)
+		// and commits are deferred until application startup has finished.
 		if (!applicationReady) {
 			logger.info("Application still in startup, pre-commit completion done.");
 			return;
