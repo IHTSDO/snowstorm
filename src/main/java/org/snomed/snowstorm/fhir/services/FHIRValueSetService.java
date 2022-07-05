@@ -355,7 +355,7 @@ public class FHIRValueSetService {
 		return inclusionExclusionConstraints;
 	}
 
-	public Parameters validateCode(String id, String url, String context, ValueSet valueSet, String valueSetVersion, String code, String system, String systemVersion,
+	public Parameters validateCode(String id, UriType url, UriType context, ValueSet valueSet, String valueSetVersion, String code, UriType system, String systemVersion,
 			String display, Coding coding, CodeableConcept codeableConcept, DateTimeType date, BooleanType abstractBool, String displayLanguage) {
 
 		notSupported("context", context);
@@ -368,7 +368,7 @@ public class FHIRValueSetService {
 		mutuallyRequired("display", display, "code", code, "coding", coding);
 
 		// Grab value set
-		ValueSet hapiValueSet = findOrInferValueSet(id, url, valueSet);
+		ValueSet hapiValueSet = findOrInferValueSet(id, FHIRHelper.toString(url), valueSet);
 		if (hapiValueSet == null) {
 			return null;
 		}
@@ -376,7 +376,7 @@ public class FHIRValueSetService {
 		// Get set of codings - one of which needs to be valid
 		Set<Coding> codings = new HashSet<>();
 		if (code != null) {
-			codings.add(new Coding(system, code, display).setVersion(systemVersion));
+			codings.add(new Coding(FHIRHelper.toString(system), code, display).setVersion(systemVersion));
 		} else if (coding != null) {
 			coding.setDisplay(display);
 			codings.add(coding);
