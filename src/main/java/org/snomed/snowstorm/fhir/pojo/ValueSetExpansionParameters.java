@@ -20,8 +20,8 @@ public final class ValueSetExpansionParameters {
 	private final String contextDirection;
 	private final String filter;
 	private final String date;
-	private final String offsetStr;
-	private final String countStr;
+	private final Integer offset;
+	private final Integer count;
 	private final Boolean includeDesignations;
 	private final List<String> designations;
 	private final Boolean includeDefinition;
@@ -43,7 +43,7 @@ public final class ValueSetExpansionParameters {
 	}
 
 	public ValueSetExpansionParameters(String id, ValueSet valueSet, String url, String valueSetVersion, String context, String contextDirection, String filter, String date,
-			String offsetStr, String countStr, Boolean includeDesignations, List<String> designations, Boolean includeDefinition, Boolean activeOnly,
+			Integer offset, Integer count, Boolean includeDesignations, List<String> designations, Boolean includeDefinition, Boolean activeOnly,
 			Boolean excludeNested, Boolean excludeNotForUI, Boolean excludePostCoordinated, String displayLanguage, CanonicalUri excludeSystem, CanonicalUri systemVersion,
 			CanonicalUri checkSystemVersion, CanonicalUri forceSystemVersion, String version) {
 
@@ -54,8 +54,8 @@ public final class ValueSetExpansionParameters {
 		this.contextDirection = contextDirection;
 		this.filter = filter;
 		this.date = date;
-		this.offsetStr = offsetStr;
-		this.countStr = countStr;
+		this.offset = offset;
+		this.count = count;
 		this.includeDesignations = includeDesignations;
 		this.designations = designations;
 		this.includeDefinition = includeDefinition;
@@ -73,8 +73,8 @@ public final class ValueSetExpansionParameters {
 	}
 
 	public PageRequest getPageRequest() {
-		int offset = (offsetStr == null || offsetStr.isEmpty()) ? 0 : Integer.parseInt(offsetStr);
-		int pageSize = (countStr == null || countStr.isEmpty()) ? FHIRValueSetProvider.DEFAULT_PAGESIZE : Integer.parseInt(countStr);
+		int offset = this.offset != null ? this.offset : 0;
+		int pageSize = this.count != null ? this.count : FHIRValueSetProvider.DEFAULT_PAGESIZE;
 		if (offset % pageSize != 0) {
 			throw FHIRHelper.exception(format("Parameter 'offset' '%s' must be a multiplication of 'count' (page size) '%s'.", offset, pageSize),
 					OperationOutcome.IssueType.INVALID, 400);
@@ -111,12 +111,12 @@ public final class ValueSetExpansionParameters {
 		return date;
 	}
 
-	public String getOffsetStr() {
-		return offsetStr;
+	public Integer getOffset() {
+		return offset;
 	}
 
-	public String getCountStr() {
-		return countStr;
+	public Integer getCount() {
+		return count;
 	}
 
 	public Boolean getIncludeDesignations() {
