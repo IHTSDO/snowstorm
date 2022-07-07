@@ -10,7 +10,6 @@ import org.hl7.fhir.r4.model.OperationOutcome.IssueType;
 import org.hl7.fhir.r4.model.StructureDefinition;
 import org.hl7.fhir.r4.model.UriType;
 import org.hl7.fhir.r4.model.ValueSet;
-import org.snomed.snowstorm.core.data.services.QueryService;
 import org.snomed.snowstorm.fhir.services.FHIRHelper;
 
 import static org.snomed.snowstorm.fhir.services.FHIRHelper.exception;
@@ -34,6 +33,26 @@ public class SearchFilter {
 	private StringParam title;
 	private String url;
 	private String version;
+
+	public boolean anySearchParams() {
+		return id != null ||
+				code != null ||
+				context != null ||
+				contextQuantity != null ||
+				contextType != null ||
+				date != null ||
+				description != null ||
+				expansion != null ||
+				identifier != null ||
+				jurisdiction != null ||
+				name != null ||
+				publisher != null ||
+				reference != null ||
+				status != null ||
+				title != null ||
+				url != null ||
+				version != null;
+	}
 
 	public SearchFilter withId(String id) {
 		if (id != null && !id.startsWith("ValueSet/")) {
@@ -211,7 +230,7 @@ public class SearchFilter {
 		return this;
 	}
 
-	public boolean apply(ValueSet vs, QueryService queryService, FHIRHelper fhirHelper) {
+	public boolean apply(ValueSet vs, FHIRHelper fhirHelper) {
 
 		if (getId() != null && !getId().equals(vs.getId())) {
 			return false;
