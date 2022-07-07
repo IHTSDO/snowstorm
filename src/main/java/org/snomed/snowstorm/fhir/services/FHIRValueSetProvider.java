@@ -17,6 +17,7 @@ import org.snomed.snowstorm.fhir.domain.SearchFilter;
 import org.snomed.snowstorm.fhir.pojo.ValueSetExpansionParameters;
 import org.snomed.snowstorm.fhir.repositories.FHIRValueSetRepository;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Component;
 import org.springframework.web.bind.annotation.RequestMethod;
@@ -26,6 +27,7 @@ import javax.servlet.http.HttpServletResponse;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
 import static org.snomed.snowstorm.fhir.services.FHIRHelper.exception;
@@ -56,8 +58,6 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 	@Create()
 	public MethodOutcome createValueSet(@IdParam IdType id, @ResourceParam ValueSet vs) {
 		MethodOutcome outcome = new MethodOutcome();
-		validateId(id, vs);
-
 		FHIRValueSet savedVs = valueSetService.createValueset(vs);
 		outcome.setId(new IdType("ValueSet", savedVs.getId(), vs.getVersion()));
 		return outcome;
@@ -73,8 +73,18 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 	}
 
 	@Delete
-	public void deleteValueSet(@IdParam IdType id) {
-		valuesetRepository.deleteById(id.getIdPart());
+	public void deleteValueSet(
+			@IdParam IdType id,
+			@OptionalParam(name="url") UriType url,
+			@OptionalParam(name="version") String version) {
+
+		if (id != null) {
+			valuesetRepository.deleteById(id.getIdPart());
+		} else {
+			FHIRHelper.required("url", url);
+			FHIRHelper.required("version", version);
+			valueSetService.find(url, version).ifPresent(vs -> valuesetRepository.deleteById(vs.getId()));
+		}
 	}
 
 	//See https://www.hl7.org/fhir/valueset.html#search
@@ -119,13 +129,24 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 				.withUrl(url)
 				.withVersion(version);
 
-		return StreamSupport.stream(valueSetService.findAll(PageRequest.of(0, DEFAULT_PAGESIZE)).spliterator(), false)
-				.map(FHIRValueSet::getHapi)
-				.filter(vs -> vsFilter.apply(vs, queryService, fhirHelper))
-				.peek(vs -> {
-					// Remove compose element from ValueSet search/listing
-					vs.setCompose(null);
-				})
+		Stream<ValueSet> stream;
+		if (url != null) {
+			stream = valuesetRepository.findAllByUrl(url.getValueAsString()).stream()
+					.map(FHIRValueSet::getHapi)
+					.filter(vs -> vsFilter.apply(vs, fhirHelper));
+
+		} else if (vsFilter.anySearchParams()) {
+			Page<FHIRValueSet> all = valueSetService.findAll(PageRequest.of(0, 10_000));
+			stream = StreamSupport.stream(all.spliterator(), false)
+					.map(FHIRValueSet::getHapi)
+					.filter(vs -> vsFilter.apply(vs, fhirHelper));
+
+		} else {
+			stream = valueSetService.findAll(PageRequest.of(0, 1_000)).stream()
+					.map(FHIRValueSet::getHapi);
+		}
+		return stream
+				.peek(vs -> vs.setCompose(null))// Remove compose element from ValueSet search/listing
 				.collect(Collectors.toList());
 	}
 
@@ -265,9 +286,6 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 	}
 
 	private void validateId(IdType id, ValueSet vs) {
-		if (vs == null || id == null) {
-			throw exception("Both ID and ValueSet object must be supplied", IssueType.EXCEPTION, 400);
-		}
 		if (vs.getId() == null || !id.asStringValue().equals(vs.getId())) {
 			throw exception("ID in request must match that in ValueSet object", IssueType.EXCEPTION, 400);
 		}
