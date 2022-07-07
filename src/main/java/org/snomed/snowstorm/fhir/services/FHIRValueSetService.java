@@ -683,6 +683,8 @@ public class FHIRValueSetService {
 								// Concept must represent a reference set which has members in this code system version.
 								// Lookup uses a cache.
 								inclusionConstraints.add(new ConceptConstraint(findAllRefsetsWithActiveMembers(codeSystemVersion)));
+							} else if (value != null) {
+								inclusionConstraints.add(new ConceptConstraint().setEcl(value));
 							} else {
 								throw exception("Value missing for SNOMED CT ValueSet 'expression' filter.", OperationOutcome.IssueType.INVALID, 400);
 							}
@@ -696,6 +698,12 @@ public class FHIRValueSetService {
 							}// else false, which has no effect.
 						} else {
 							throw exception(format("Unexpected operation '%s' for SNOMED CT ValueSet 'expressions' flag.", op.toCode()), OperationOutcome.IssueType.INVALID, 400);
+						}
+					} else if ("parent".equals(property)) {
+						if (op == ValueSet.FilterOperator.EQUAL) {
+							inclusionConstraints.add(new ConceptConstraint().setEcl("<! " + value));
+						} else {
+							throw exception(format("Unexpected operation '%s' for SNOMED CT ValueSet 'parent' filter.", op.toCode()), OperationOutcome.IssueType.INVALID, 400);
 						}
 					} else {
 						throw exception(format("Unexpected property '%s' for SNOMED CT ValueSet filter.", property), OperationOutcome.IssueType.INVALID, 400);
