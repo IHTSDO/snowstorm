@@ -228,9 +228,16 @@ public class FHIRValueSetService {
 				totalResults = (int) resultsPage.getTotalElements();
 			}
 
-			List<FHIRConcept> conceptsOnRequestedPage = conceptsToLoad.isEmpty() ? Collections.emptyList() :
-					snomedConceptService.findConceptMinis(codeSystemVersion.getSnomedBranch(), conceptsToLoad, languageDialects)
-							.getResultsMap().values().stream().map(snomedConceptMini -> new FHIRConcept(snomedConceptMini, codeSystemVersion, includeDesignations)).collect(Collectors.toList());
+			List<FHIRConcept> conceptsOnRequestedPage = new ArrayList<>();
+			if (!conceptsToLoad.isEmpty()) {
+				Map<String, ConceptMini> conceptMinis = snomedConceptService.findConceptMinis(codeSystemVersion.getSnomedBranch(), conceptsToLoad, languageDialects).getResultsMap();
+				for (Long conceptToLoad : conceptsToLoad) {
+					ConceptMini snomedConceptMini = conceptMinis.get(conceptToLoad.toString());
+					if (snomedConceptMini != null) {
+						conceptsOnRequestedPage.add(new FHIRConcept(snomedConceptMini, codeSystemVersion, includeDesignations));
+					}
+				}
+			}
 
 			conceptsPage = new PageImpl<>(conceptsOnRequestedPage, pageRequest, totalResults);
 		} else {
