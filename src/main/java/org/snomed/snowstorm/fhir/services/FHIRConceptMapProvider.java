@@ -76,7 +76,7 @@ public class FHIRConceptMapProvider implements IResourceProvider, FHIRConstants 
 	public Parameters translate(
 			HttpServletRequest request,
 			HttpServletResponse response,
-			@OperationParam(name="url") String url,
+			@OperationParam(name="url") UriType urlType,
 			@OperationParam(name="conceptMap") ConceptMap conceptMap,
 			@OperationParam(name="conceptMapVersion") String conceptMapVersion,
 			@OperationParam(name="code") String code,
@@ -89,6 +89,7 @@ public class FHIRConceptMapProvider implements IResourceProvider, FHIRConstants 
 			@OperationParam(name="targetsystem") String targetSystem,
 			@OperationParam(name="reverse") BooleanType reverse) {
 
+		String url = urlType != null ? urlType.getValueAsString() : null;
 		notSupported("conceptMapVersion", conceptMapVersion);
 		List<LanguageDialect> languageDialects = ControllerHelper.parseAcceptLanguageHeader(request.getHeader(ACCEPT_LANGUAGE_HEADER));
 

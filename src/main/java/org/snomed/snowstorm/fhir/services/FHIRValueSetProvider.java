@@ -141,8 +141,8 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 			@OperationParam(name="contextDirection") String contextDirection,
 			@OperationParam(name="filter") String filter,
 			@OperationParam(name="date") String date,
-			@OperationParam(name="offset") String offsetStr,
-			@OperationParam(name="count") String countStr,
+			@OperationParam(name="offset") IntegerType offset,
+			@OperationParam(name="count") IntegerType count,
 			@OperationParam(name="includeDesignations") BooleanType includeDesignationsType,
 			@OperationParam(name="designation") List<String> designations,
 			@OperationParam(name="includeDefinition") BooleanType includeDefinition,
@@ -163,7 +163,7 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 			// HAPI doesn't populate the OperationParam values for POST, we parse the body instead.
 			params = FHIRValueSetProviderHelper.getValueSetExpansionParameters(id, FhirContext.forR4().newJsonParser().parseResource(Parameters.class, rawBody).getParameter());
 		} else {
-			params = FHIRValueSetProviderHelper.getValueSetExpansionParameters(id, url, valueSetVersion, context, contextDirection, filter, date, offsetStr, countStr,
+			params = FHIRValueSetProviderHelper.getValueSetExpansionParameters(id, url, valueSetVersion, context, contextDirection, filter, date, offset, count,
 					includeDesignationsType, designations, includeDefinition, activeType, excludeNested, excludeNotForUI, excludePostCoordinated, displayLanguage,
 					excludeSystem, systemVersion, checkSystemVersion, forceSystemVersion, version);
 		}
@@ -181,8 +181,8 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 			@OperationParam(name="contextDirection") String contextDirection,
 			@OperationParam(name="filter") String filter,
 			@OperationParam(name="date") String date,
-			@OperationParam(name="offset") String offsetStr,
-			@OperationParam(name="count") String countStr,
+			@OperationParam(name="offset") IntegerType offset,
+			@OperationParam(name="count") IntegerType count,
 			@OperationParam(name="includeDesignations") BooleanType includeDesignationsType,
 			@OperationParam(name="designation") List<String> designations,
 			@OperationParam(name="includeDefinition") BooleanType includeDefinition,
@@ -203,7 +203,7 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 			// HAPI doesn't populate the OperationParam values for POST, we parse the body instead.
 			params = FHIRValueSetProviderHelper.getValueSetExpansionParameters(null, FhirContext.forR4().newJsonParser().parseResource(Parameters.class, rawBody).getParameter());
 		} else {
-			params = FHIRValueSetProviderHelper.getValueSetExpansionParameters(null, url, valueSetVersion, context, contextDirection, filter, date, offsetStr, countStr,
+			params = FHIRValueSetProviderHelper.getValueSetExpansionParameters(null, url, valueSetVersion, context, contextDirection, filter, date, offset, count,
 					includeDesignationsType, designations, includeDefinition, activeType, excludeNested, excludeNotForUI, excludePostCoordinated, displayLanguage,
 					excludeSystem, systemVersion, checkSystemVersion, forceSystemVersion, version);
 		}
