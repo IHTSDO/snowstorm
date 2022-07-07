@@ -91,6 +91,11 @@ public class FHIRHelper implements FHIRConstants {
 				.map(param -> ((BooleanType)param.getValue()).booleanValue()).orElse(null);
 	}
 
+	public static Integer findParameterIntOrNull(List<Parameters.ParametersParameterComponent> parametersParameterComponents, String name) {
+		return parametersParameterComponents.stream().filter(parametersParameterComponent -> parametersParameterComponent.getName().equals(name)).findFirst()
+				.map(param -> ((IntegerType)param.getValue()).getValue()).orElse(null);
+	}
+
 	@SuppressWarnings("unchecked")
 	public static List<String> findParameterStringListOrNull(List<Parameters.ParametersParameterComponent> parametersParameterComponents, String name) {
 		return parametersParameterComponents.stream().filter(parametersParameterComponent -> parametersParameterComponent.getName().equals(name)).findFirst()
@@ -232,7 +237,7 @@ public class FHIRHelper implements FHIRConstants {
 	
 	public static void required(String param1Name, Object param1) {
 		if (param1 == null) {
-			throw exception(format("Parameter '%s' must be supplied", param1Name), IssueType.INVARIANT, 400);
+			throw exception(format("Parameter '%s' must be supplied.", param1Name), IssueType.INVARIANT, 400);
 		}
 	}
 
