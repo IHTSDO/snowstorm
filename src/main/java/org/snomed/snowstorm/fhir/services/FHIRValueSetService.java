@@ -83,7 +83,6 @@ public class FHIRValueSetService {
 		NativeSearchQuery searchQuery = new NativeSearchQueryBuilder()
 				.withPageable(pageable)
 				.build();
-		searchQuery.setTrackTotalHits(true);
 		return toPage(elasticsearchTemplate.search(searchQuery, FHIRValueSet.class), pageable);
 	}
 
@@ -108,8 +107,18 @@ public class FHIRValueSetService {
 		expand(new ValueSetExpansionParameters(valueSet, true), null);
 		valueSet.setExpansion(originalExpansion);
 
+		// Delete existing ValueSets with the same URL and version (could be different ID)
+		valueSetRepository.findAllByUrl(valueSet.getUrl()).stream()
+				.filter(otherVs -> equalVersions(otherVs.getVersion(), valueSet.getVersion()))
+				.forEach(otherVs -> valueSetRepository.deleteById(otherVs.getId()));
+
 		// Save will replace any existing value set with the same id.
 		return valueSetRepository.save(new FHIRValueSet(valueSet));
+	}
+
+	private boolean equalVersions(String versionA, String versionB) {
+		return versionA == null && versionB == null
+				|| (versionA != null && versionA.equals(versionB));
 	}
 
 	public ValueSet expand(final ValueSetExpansionParameters params, String displayLanguage) {
@@ -262,6 +271,10 @@ public class FHIRValueSetService {
 		expansion.setOffset(conceptsPage.getNumber() * conceptsPage.getSize());
 		expansion.setTotal((int) conceptsPage.getTotalElements());
 		hapiValueSet.setExpansion(expansion);
+
+		if (hapiValueSet.getId() == null) {
+			hapiValueSet.setId(UUID.randomUUID().toString());
+		}
 
 		if (copyright != null) {
 			hapiValueSet.setCopyright(copyright);
@@ -868,5 +881,14 @@ public class FHIRValueSetService {
 			throw exception(format("The requested ValueSet URL '%s' does not match the URL '%s' of the ValueSet found using identifier '%s'.",
 					url, valueSet.getUrl(), id), OperationOutcome.IssueType.INVALID, 400);
 		}
+	}
+
+	public Optional<FHIRValueSet> find(UriType url, String version) {
+		for (FHIRValueSet valueSet : valueSetRepository.findAllByUrl(url.getValueAsString())) {
+			if (version.equals(valueSet.getVersion())) {
+				return Optional.of(valueSet);
+			}
+		}
+		return Optional.empty();
 	}
 }
