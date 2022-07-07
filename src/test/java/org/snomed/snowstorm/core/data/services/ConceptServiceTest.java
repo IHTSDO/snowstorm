@@ -33,6 +33,7 @@ import org.springframework.data.elasticsearch.core.query.NativeSearchQuery;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
 import org.springframework.security.core.context.SecurityContextHolder;
 
+import javax.management.relation.Relation;
 import java.io.IOException;
 import java.util.*;
 import java.util.function.Supplier;
@@ -41,6 +42,7 @@ import java.util.stream.Collectors;
 import static io.kaicode.elasticvc.api.ComponentService.LARGE_PAGE;
 import static org.elasticsearch.index.query.QueryBuilders.termQuery;
 import static org.junit.jupiter.api.Assertions.*;
+import static org.snomed.snowstorm.TestConcepts.SKIN_STRUCTURE;
 import static org.snomed.snowstorm.config.Config.DEFAULT_LANGUAGE_DIALECTS;
 import static org.snomed.snowstorm.core.data.domain.Concepts.*;
 
@@ -2131,12 +2133,11 @@ class ConceptServiceTest extends AbstractTest {
 		String anotherConceptId = "116680003";
 		String anotherDescriptionId = "218680004";
 		String extensionModule = "45991000052106";
-		String refSetId="123459876000000000";
 
 		Map<String, String> intPreferred = Map.of(US_EN_LANG_REFSET, descriptionAcceptabilityNames.get(PREFERRED),
 				GB_EN_LANG_REFSET, descriptionAcceptabilityNames.get(PREFERRED));
 		Map<String, String> svPreferred = Map.of(swedishLanguageReferenceSet, descriptionAcceptabilityNames.get(PREFERRED));
-		Map<String, String> svAcceptable = Map.of(swedishLanguageReferenceSet, descriptionAcceptabilityNames.get(ACCEPTABLE));
+		//Map<String, String> svAcceptable = Map.of(swedishLanguageReferenceSet, descriptionAcceptabilityNames.get(ACCEPTABLE));
 		String ci = "CASE_INSENSITIVE";
 		conceptService.batchCreate(Lists.newArrayList(new Concept(parentConceptId), new Concept(anotherConceptId)), mainBranchPath);
 
@@ -2149,26 +2150,20 @@ class ConceptServiceTest extends AbstractTest {
 		Concept concept = new Concept()
 				.addDescription(fsnDesc)
 				.addDescription(synonymDesc)
-				.addAxiom(new Relationship(ISA, parentConceptId));
-		concept = conceptService.create(concept, mainBranchPath);
+				.addAxiom(new Relationship(ISA, parentConceptId))
 
-		// Add refset membership
-		Iterator<Description> descriptionIterator =	concept.getDescriptions().iterator();
-		while(descriptionIterator.hasNext()) {
-			Description d = descriptionIterator.next();
-			memberService.createMember(mainBranchPath,
-				new ReferenceSetMember(d.getModuleId(), refSetId, d.getDescriptionId()));
-		}
+				.addRelationship(new Relationship(FINDING_SITE, SKIN_STRUCTURE).setInferred(true));
+		concept = conceptService.create(concept, mainBranchPath);
 
 		// Create version
 		CodeSystem codeSystem = codeSystemService.find("SNOMEDCT");
 		codeSystemService.createVersion(codeSystem, 20210131, "20210131");
 
-		// Make a descriptor inactive
+		// Make a description inactive
 		Description desc = concept.getDescriptions().stream().filter(d -> d.getTerm().equals(synonymTerm)).findFirst().get();
 		desc.setActive(false);
 		desc.setInactivationIndicator(Concepts.inactivationIndicatorNames.get(DUPLICATE));
-		desc.setAssociationTargets(Maps.newHashMap("POSSIBLY_EQUIVALENT_TO", Sets.newHashSet(anotherDescriptionId)));
+		desc.setAssociationTargets(Maps.newHashMap("REFERS_TO", Sets.newHashSet(anotherDescriptionId)));
 		Concept transferredConcept = simulateRestTransfer(concept);
 		conceptService.update(transferredConcept, mainBranchPath);
 		concept = conceptService.find(concept.getConceptId(), mainBranchPath);
@@ -2179,22 +2174,50 @@ class ConceptServiceTest extends AbstractTest {
 		// Make the concept inactive
 		concept.setActive(false);
 		concept.setInactivationIndicator(Concepts.inactivationIndicatorNames.get(Concepts.DUPLICATE));
-		desc.setAssociationTargets(Maps.newHashMap("POSSIBLY_EQUIVALENT_TO", Sets.newHashSet(anotherConceptId)));
+		concept.setAssociationTargets(Maps.newHashMap("POSSIBLY_EQUIVALENT_TO", Sets.newHashSet(anotherConceptId)));
 		concept.setInactivationIndicator(Concepts.inactivationIndicatorNames.get(DUPLICATE));
 		transferredConcept = simulateRestTransfer(concept);
 		conceptService.update(transferredConcept, mainBranchPath);
 		concept = conceptService.find(concept.getConceptId(), mainBranchPath);
+		assertFalse(concept.isActive());
+		assertEquals(mainBranchPath, concept.getPath());
 
 		// Create next version
 		codeSystemService.createVersion(codeSystem, 20210531, "20210531");
+
+		// Make the concept active again
+		concept.setActive(true);
+		concept.setInactivationIndicator(null);
+		concept.setAssociationTargets(null);
+		// Make the description active again
+		desc.setActive(true);
+		desc.setInactivationIndicator(null);
+		desc.setAssociationTargets(null);
+
+		transferredConcept = simulateRestTransfer(concept);
+		conceptService.update(transferredConcept, mainBranchPath);
+		concept = conceptService.find(concept.getConceptId(), mainBranchPath);
+		assertTrue(concept.isActive());
+
+		// Verify module for InactivationIndicatorMembers for FSN description
+		Iterator<Description>   descriptionIterator = concept.getDescriptions().iterator();
+		while(descriptionIterator.hasNext()) {
+			Description d = descriptionIterator.next();
+			if (d.getDescriptionId().equals(fsnDesc.getDescriptionId())) {
+				Collection<ReferenceSetMember> refsetMembers = d.getInactivationIndicatorMembers();
+				for (ReferenceSetMember member : refsetMembers) {
+					assertEquals("900000000000207008", member.getModuleId());
+				}
+			}
+		}
+
+		// Create next version
+		codeSystemService.createVersion(codeSystem, 20210731, "20210731");
 
 		// Create an extension code system (Sweden)
 		codeSystemService.createCodeSystem(new CodeSystem("SNOMEDCT-SE", extensionBranchPath));
 		branchService.updateMetadata(extensionBranchPath, ImmutableMap.of(Config.DEFAULT_MODULE_ID_KEY, extensionModule, Config.DEFAULT_NAMESPACE_KEY, "1000052"));
 		concept = conceptService.find(concept.getConceptId(), extensionBranchPath);
-
-		assertFalse(concept.isActive());
-		assertEquals(mainBranchPath, concept.getPath());
 
 		// Create an extra description in the extension
 		Description swedishBacon = new Description(swedishFsnTerm).setTypeId(FSN).setCaseSignificance(ci)
@@ -2205,46 +2228,17 @@ class ConceptServiceTest extends AbstractTest {
 		conceptService.update(transferredConcept, extensionBranchPath);
 		concept = conceptService.find(concept.getConceptId(), extensionBranchPath);
 
-		// Count: in reference member set, find the module id for the (international) FSN; this should not be the extension module.
-		int countIntlDescrRefSetInExtensionModule =0;
+		// Loop descriptions, find the FSN. Its inactivation refset member looks to jump module.
 		descriptionIterator = concept.getDescriptions().iterator();
 		while(descriptionIterator.hasNext()) {
 			Description d = descriptionIterator.next();
 			if (d.getDescriptionId().equals(fsnDesc.getDescriptionId())) {
-				List<ReferenceSetMember> members = referenceSetMemberService.findMembers(extensionBranchPath, d.getDescriptionId(), PageRequest.of(0, 10)).getContent();
-				for (ReferenceSetMember rsm : members) {
-					if (extensionModule.equals(rsm.getModuleId())) {
-						countIntlDescrRefSetInExtensionModule++;
-					}
+				Collection<ReferenceSetMember> refsetMembers = d.getInactivationIndicatorMembers();
+				for (ReferenceSetMember member : refsetMembers) {
+					assertNotEquals(extensionModule, member.getModuleId());
 				}
 			}
 		}
-		assertEquals(0, countIntlDescrRefSetInExtensionModule);
-
-		// Re-activate the concept
-		concept.setActive(true);
-		transferredConcept = simulateRestTransfer(concept);
-		conceptService.update(transferredConcept, extensionBranchPath);
-		concept = conceptService.find(concept.getConceptId(), extensionBranchPath);
-
-		// Check the reference sets again
-		// Count: in reference member set, find the module id for the (international) FSN; this should not be the extension module
-		// but (bug) there is one anyway..
-		countIntlDescrRefSetInExtensionModule =0;
-		descriptionIterator = concept.getDescriptions().iterator();
-		while(descriptionIterator.hasNext()) {
-			Description d = descriptionIterator.next();
-			if (d.getDescriptionId().equals(fsnDesc.getDescriptionId())) {
-				List<ReferenceSetMember> members = referenceSetMemberService.findMembers(extensionBranchPath, d.getDescriptionId(), PageRequest.of(0, 10)).getContent();
-				for (ReferenceSetMember rsm : members) {
-					if (extensionModule.equals(rsm.getModuleId())) {
-						countIntlDescrRefSetInExtensionModule++;
-					}
-				}
-			}
-		}
-		// Should be 0 but is 1 ?
-		assertEquals(1, countIntlDescrRefSetInExtensionModule);
 	}
 
 	private void printAllDescriptions(String path) throws TooCostlyException {
@@ -2261,5 +2255,7 @@ class ConceptServiceTest extends AbstractTest {
 		description.addLanguageRefsetMember(US_EN_LANG_REFSET, PREFERRED);
 		return description;
 	}
+
+
 
 }
