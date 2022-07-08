@@ -32,10 +32,10 @@ import org.springframework.data.domain.Page;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.converter.json.Jackson2ObjectMapperBuilder;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
-import org.springframework.security.config.annotation.web.builders.WebSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
-import org.springframework.security.config.annotation.web.configuration.WebSecurityConfigurerAdapter;
+import org.springframework.security.config.annotation.web.configuration.WebSecurityCustomizer;
 import org.springframework.security.config.annotation.web.configurers.ExpressionUrlAuthorizationConfigurer;
+import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.firewall.DefaultHttpFirewall;
 import org.springframework.security.web.firewall.HttpFirewall;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -45,7 +45,7 @@ import java.util.List;
 
 @Configuration
 @EnableWebSecurity
-public class SecurityAndUriConfig extends WebSecurityConfigurerAdapter {
+public class SecurityAndUriConfig {
 
 	@Value("${snowstorm.rest-api.readonly}")
 	private boolean restApiReadOnly;
@@ -127,12 +127,6 @@ public class SecurityAndUriConfig extends WebSecurityConfigurerAdapter {
 		return firewall;
 	}
 
-
-	@Override
-	public void configure(WebSecurity web) {
-		web.httpFirewall(allowUrlEncodedSlashHttpFirewall());
-	}
-
 	@Bean
 	public List<String> alwaysAllowReadOnlyPostEndpointPrefixes() {
 		return Collections.singletonList("/fhir");
@@ -148,8 +142,13 @@ public class SecurityAndUriConfig extends WebSecurityConfigurerAdapter {
 		return Collections.singletonList("/browser/{branch}/concepts/bulk-load");
 	}
 
-	@Override
-	protected void configure(HttpSecurity http) throws Exception {
+	@Bean
+	public WebSecurityCustomizer webSecurityCustomizer() {
+		return (web) -> web.httpFirewall(allowUrlEncodedSlashHttpFirewall());
+	}
+
+	@Bean
+	public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
 		http.csrf().disable();// lgtm [java/spring-disabled-csrf-protection]
 
 		if (restApiReadOnly) {
@@ -175,8 +174,8 @@ public class SecurityAndUriConfig extends WebSecurityConfigurerAdapter {
 					.authorizeRequests()
 					.anyRequest().permitAll();
 		}
+		return http.build();
 	}
-
 
 	@Bean
 	public OpenAPI apiInfo() {
