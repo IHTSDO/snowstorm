@@ -312,17 +312,19 @@ public class ConceptUpdateHelper extends ComponentService {
 		validatorService.validate(concepts);
 		for (Concept concept : concepts) {
 			for (Axiom gciAxiom : Optional.ofNullable(concept.getGciAxioms()).orElse(Collections.emptySet())) {
-				boolean parentFound = false;
-				boolean attributeFound = false;
-				for (Relationship relationship : gciAxiom.getRelationships()) {
-					if (Concepts.ISA.equals(relationship.getTypeId())) {
-						parentFound = true;
-					} else {
-						attributeFound = true;
+				if (gciAxiom.isActive()) {
+					boolean parentFound = false;
+					boolean attributeFound = false;
+					for (Relationship relationship : gciAxiom.getRelationships()) {
+						if (Concepts.ISA.equals(relationship.getTypeId())) {
+							parentFound = true;
+						} else {
+							attributeFound = true;
+						}
 					}
-				}
-				if (!parentFound || !attributeFound) {
-					throw new IllegalArgumentException("The relationships of a GCI axiom must include at least one parent and one attribute.");
+					if (!parentFound || !attributeFound) {
+						throw new IllegalArgumentException("The relationships of a GCI axiom must include at least one parent and one attribute.");
+					}
 				}
 			}
 		}
