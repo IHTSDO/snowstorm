@@ -181,7 +181,8 @@ public class FHIRConceptMapService {
 		map.setUrl(map.getUrl().replace(SNOMED_URI + "?", snomedVersion.getVersion() + "?"));
 
 		MemberSearchRequest memberSearchRequest = new MemberSearchRequest()
-				.referenceSet(map.getSnomedRefsetId());
+				.referenceSet(map.getSnomedRefsetId())
+				.active(true);
 		boolean hasSnomedSource = FHIRHelper.isSnomedUri(map.getSourceUri());
 		boolean hasSnomedTarget = FHIRHelper.isSnomedUri(map.getTargetUri());
 		if (!hasSnomedSource) {
@@ -196,7 +197,7 @@ public class FHIRConceptMapService {
 		Map<String, List<FHIRMapTarget>> mapTargetsByCode = new HashMap<>();
 
 		Comparator<ReferenceSetMember> mapComparator =
-				nullsFirst(comparing(ReferenceSetMember::getMapGroup))
+				comparing(ReferenceSetMember::getMapGroup, Comparator.nullsFirst(naturalOrder()))
 						.thenComparing(ReferenceSetMember::getMapPriority, Comparator.nullsFirst(naturalOrder()));
 
 		List<FHIRMapElement> generatedElements = members.stream()
