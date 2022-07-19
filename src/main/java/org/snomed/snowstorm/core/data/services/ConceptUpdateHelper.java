@@ -160,10 +160,10 @@ public class ConceptUpdateHelper extends ComponentService {
 				}
 
 				// Create or update concept inactivation indicator refset members based on the json inactivation map
-				updateInactivationIndicator(newVersionConcept, existingConcept, existingConceptFromParent, refsetMembersToPersist, Concepts.CONCEPT_INACTIVATION_INDICATOR_REFERENCE_SET, defaultModuleId);
+				updateInactivationIndicator(newVersionConcept, existingConcept, existingConceptFromParent, refsetMembersToPersist, Concepts.CONCEPT_INACTIVATION_INDICATOR_REFERENCE_SET, defaultModuleId, rebaseConflictSave);
 
 				// Create or update concept historical association refset members based on the json inactivation map
-				updateAssociations(newVersionConcept, existingConcept, existingConceptFromParent, refsetMembersToPersist, defaultModuleId);
+				updateAssociations(newVersionConcept, existingConcept, existingConceptFromParent, refsetMembersToPersist, defaultModuleId, rebaseConflictSave);
 
 				for (Description description : newVersionConcept.getDescriptions()) {
 					if (description.isActive()) {
@@ -195,10 +195,10 @@ public class ConceptUpdateHelper extends ComponentService {
 
 				// Description inactivation indicator changes
 				updateInactivationIndicator(description, existingDescription, existingDescriptionFromParent, refsetMembersToPersist,
-						Concepts.DESCRIPTION_INACTIVATION_INDICATOR_REFERENCE_SET, defaultModuleId);
+						Concepts.DESCRIPTION_INACTIVATION_INDICATOR_REFERENCE_SET, defaultModuleId, rebaseConflictSave);
 
 				// Description association changes
-				updateAssociations(description, existingDescription, existingDescriptionFromParent, refsetMembersToPersist, defaultModuleId);
+				updateAssociations(description, existingDescription, existingDescriptionFromParent, refsetMembersToPersist, defaultModuleId, rebaseConflictSave);
 
 				// Description acceptability / language reference set changes
 				Set<ReferenceSetMember> newMembers = new HashSet<>();
@@ -334,7 +334,7 @@ public class ConceptUpdateHelper extends ComponentService {
 			SnomedComponentWithAssociations existingComponentVersion,
 			SnomedComponentWithAssociations existingComponentVersionFromParent, 
 			List<ReferenceSetMember> refsetMembersToPersist,
-			String defaultModuleId) {
+			String defaultModuleId, boolean rebaseConflictSave) {
 
 		Map<String, Set<String>> newVersionAssociations = newComponentVersion.getAssociationTargets();
 		if (newVersionAssociations == null) {
@@ -351,7 +351,7 @@ public class ConceptUpdateHelper extends ComponentService {
 		}
 
 		List<ReferenceSetMember> activeSet = updateMetadataRefset(membersRequired, ReferenceSetMember.AssociationFields.TARGET_COMP_ID, existingComponentVersion, existingComponentVersionFromParent,
-				SnomedComponentWithAssociations::getAssociationTargetMembers, newComponentVersion.getId(), newComponentVersion.getModuleId(), defaultModuleId, refsetMembersToPersist);
+				SnomedComponentWithAssociations::getAssociationTargetMembers, newComponentVersion.getId(), newComponentVersion.getModuleId(), defaultModuleId, refsetMembersToPersist, rebaseConflictSave);
 		//I don't think this is quite right, I think we also want to add the inactive members that are being persisted
 		activeSet.forEach(newComponentVersion::addAssociationTargetMember);
 	}
@@ -361,7 +361,7 @@ public class ConceptUpdateHelper extends ComponentService {
 			SnomedComponentWithInactivationIndicator existingConceptFromParent,
 			Collection<ReferenceSetMember> refsetMembersToPersist,
 			String indicatorReferenceSet,
-			String defaultModuleId) {
+			String defaultModuleId, boolean rebaseConflictSave) {
 
 		String newIndicatorName = newComponent.getInactivationIndicator();
 		final String newIndicatorId = newIndicatorName != null ? inactivationIndicatorNames.inverse().get(newIndicatorName) : null;
@@ -373,12 +373,13 @@ public class ConceptUpdateHelper extends ComponentService {
 			membersRequired.put(indicatorReferenceSet, Sets.newHashSet(newIndicatorId));
 		}
 		List<ReferenceSetMember> memberToKeep = updateMetadataRefset(membersRequired, ReferenceSetMember.AttributeValueFields.VALUE_ID, existingComponent, existingConceptFromParent, SnomedComponentWithInactivationIndicator::getInactivationIndicatorMembers,
-				newComponent.getId(), newComponent.getModuleId(), defaultModuleId, refsetMembersToPersist);
+				newComponent.getId(), newComponent.getModuleId(), defaultModuleId, refsetMembersToPersist, rebaseConflictSave);
 		memberToKeep.forEach(newComponent::addInactivationIndicatorMember);
 	}
 
 	private <T> List<ReferenceSetMember> updateMetadataRefset(Map<String, Set<String>> membersRequired, String fieldName, T existingComponent, T existingConceptFromParent,
-				Function<T, Collection<ReferenceSetMember>> getter, String refComponent, String moduleId, String defaultModuleId, Collection<ReferenceSetMember> refsetMembersToPersist) {
+				Function<T, Collection<ReferenceSetMember>> getter, String refComponent, String moduleId, String defaultModuleId, Collection<ReferenceSetMember> refsetMembersToPersist,
+				boolean rebaseConflictSave) {
 
 		List<ReferenceSetMember> existingMembers = new ArrayList<>();
 		//We think this getter give us components from the parent branch if they don't exist on the current one 
@@ -392,11 +393,20 @@ public class ConceptUpdateHelper extends ComponentService {
 		//If we have exactly the same internal document object coming from the current branch as the parent (ie we're actually seeing the 
 		//parent object twice), then we can de-duplicate that now - there's no need to save something that is unchanged.
 		//That would just cause the module to jump (in an extension)
-		existingMembers = existingMembers.stream()
-				.sorted(Comparator.comparing(ReferenceSetMember::getInternalId))
-				.distinct()
-				.sorted(Comparator.comparing(ReferenceSetMember::getReleasedEffectiveTime, Comparator.nullsLast(Comparator.reverseOrder())).thenComparing(ReferenceSetMember::isActive))
-				.collect(Collectors.toList());
+		
+		//However, in a rebase we _will_ end up with duplicate refset members if we don't mark these duplicates,
+		//but I don't understand why - just doing what needs to be done to make the unit tests pass. :-(
+		if (rebaseConflictSave) {
+			existingMembers = existingMembers.stream()
+					.sorted(Comparator.comparing(ReferenceSetMember::getReleasedEffectiveTime, Comparator.nullsLast(Comparator.reverseOrder())).thenComparing(ReferenceSetMember::isActive))
+					.collect(Collectors.toList());
+		} else {
+			existingMembers = existingMembers.stream()
+					.sorted(Comparator.comparing(ReferenceSetMember::getInternalId))
+					.distinct()
+					.sorted(Comparator.comparing(ReferenceSetMember::getReleasedEffectiveTime, Comparator.nullsLast(Comparator.reverseOrder())).thenComparing(ReferenceSetMember::isActive))
+					.collect(Collectors.toList());
+		}
 		
 		final List<ReferenceSetMember> toKeep = new ArrayList<>();
 		final List<ReferenceSetMember> notNeeded = new ArrayList<>();
@@ -450,7 +460,7 @@ public class ConceptUpdateHelper extends ComponentService {
 				.filter(id -> !allIds.add(id))
 				.collect(Collectors.toSet());
 
-		//Members to keep will all be made active
+		//Members to keep will all be made active, if they're not already
 		for (ReferenceSetMember member : toKeep) {
 			if (!member.isActive() || duplicateIds.contains(member.getMemberId()) || member.isChanged()) {
 				member.setActive(true);
