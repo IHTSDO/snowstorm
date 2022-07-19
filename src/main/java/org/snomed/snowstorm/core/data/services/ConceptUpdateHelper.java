@@ -381,14 +381,23 @@ public class ConceptUpdateHelper extends ComponentService {
 				Function<T, Collection<ReferenceSetMember>> getter, String refComponent, String moduleId, String defaultModuleId, Collection<ReferenceSetMember> refsetMembersToPersist) {
 
 		List<ReferenceSetMember> existingMembers = new ArrayList<>();
+		//We think this getter give us components from the parent branch if they don't exist on the current one 
 		if (existingComponent != null) {
 			existingMembers.addAll(getter.apply(existingComponent));
 		}
 		if (existingConceptFromParent != null) {
 			existingMembers.addAll(getter.apply(existingConceptFromParent));
 		}
-		existingMembers.sort(Comparator.comparing(ReferenceSetMember::getReleasedEffectiveTime, Comparator.nullsLast(Comparator.reverseOrder())).thenComparing(ReferenceSetMember::isActive));
-
+		
+		//If we have exactly the same internal document object coming from the current branch as the parent (ie we're actually seeing the 
+		//parent object twice), then we can de-duplicate that now - there's no need to save something that is unchanged.
+		//That would just cause the module to jump (in an extension)
+		existingMembers = existingMembers.stream()
+				.sorted(Comparator.comparing(ReferenceSetMember::getInternalId))
+				.distinct()
+				.sorted(Comparator.comparing(ReferenceSetMember::getReleasedEffectiveTime, Comparator.nullsLast(Comparator.reverseOrder())).thenComparing(ReferenceSetMember::isActive))
+				.collect(Collectors.toList());
+		
 		final List<ReferenceSetMember> toKeep = new ArrayList<>();
 		final List<ReferenceSetMember> notNeeded = new ArrayList<>();
 
@@ -434,11 +443,14 @@ public class ConceptUpdateHelper extends ComponentService {
 		List<ReferenceSetMember> toPersist = new ArrayList<>();
 
 		Set<String> allIds = new HashSet<>();
+		//Get a list of components that exist both on the current branch AND the parent branch
+		//But they'll have different values because we de-duplicated them above
 		Set<String> duplicateIds = existingMembers.stream()
 				.map(ReferenceSetMember::getMemberId)
 				.filter(id -> !allIds.add(id))
 				.collect(Collectors.toSet());
 
+		//Members to keep will all be made active
 		for (ReferenceSetMember member : toKeep) {
 			if (!member.isActive() || duplicateIds.contains(member.getMemberId()) || member.isChanged()) {
 				member.setActive(true);
