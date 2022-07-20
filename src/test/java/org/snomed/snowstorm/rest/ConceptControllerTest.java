@@ -443,6 +443,36 @@ class ConceptControllerTest extends AbstractTest {
 		assertNotEquals(conceptIdFromFirstPage, conceptIdFromSecondPage);
 	}
 
+	@Test
+	void testCSVDownloadECLSearchAfter() throws ServiceException {
+		conceptService.create(new Concept(SNOMEDCT_ROOT), "MAIN");
+		conceptService.create(new Concept(Concepts.CLINICAL_FINDING).addAxiom(new Relationship(Concepts.ISA, SNOMEDCT_ROOT)), "MAIN");
+		assertEquals(3, conceptService.findAll("MAIN", PageRequest.of(1, 100)).getTotalElements());
+
+		// Fetch first page
+		HttpHeaders headers = new HttpHeaders();
+		headers.add("Accept", "text/csv");
+		String requestUrl = "/MAIN/concepts?activeFilter=true&statedEcl=<138875005&limit=1";
+		ResponseEntity<String> responseEntity = this.restTemplate.exchange("http://localhost:" + port + requestUrl,
+				HttpMethod.GET, new HttpEntity<>(headers), String.class);
+		assertEquals(200, responseEntity.getStatusCode().value());
+		List<String> searchAfterList = responseEntity.getHeaders().get("searchAfter");
+		assertNotNull(searchAfterList);
+		assertEquals(1, searchAfterList.size());
+		String searchAfterToken = searchAfterList.get(0);
+		assertFalse(searchAfterToken.isEmpty());
+
+		// Fetch second page
+		responseEntity = this.restTemplate.exchange("http://localhost:" + port + requestUrl + "&searchAfter=" + searchAfterToken,
+				HttpMethod.GET, new HttpEntity<>(headers), String.class);
+		assertEquals(200, responseEntity.getStatusCode().value());
+		searchAfterList = responseEntity.getHeaders().get("searchAfter");
+		assertNotNull(searchAfterList);
+		assertEquals(1, searchAfterList.size());
+		String secondSearchAfterToken = searchAfterList.get(0);
+		assertFalse(secondSearchAfterToken.isEmpty());
+		assertNotEquals(searchAfterToken, secondSearchAfterToken);
+	}
 
 	@Test
 	void testECLSearchAfterWithConceptIdsOnly() throws ServiceException {
