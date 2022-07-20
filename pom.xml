@@ -30,6 +30,7 @@
 
 		<spring-boot.version>${project.parent.version}</spring-boot.version>
 		<snomed-boot.version>4.0.0</snomed-boot.version>
+		<spring-cloud.version>2021.0.3</spring-cloud.version>
 
 		<!-- FHIR HAPI library -->
 		<hapi.version>4.2.0</hapi.version>
@@ -252,7 +253,32 @@
 			<version>1.17.3</version>
 			<scope>test</scope>
 		</dependency>
+
+		<!-- consul and vault -->
+		<dependency>
+			<groupId>org.springframework.cloud</groupId>
+			<artifactId>spring-cloud-starter-consul-discovery</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.cloud</groupId>
+			<artifactId>spring-cloud-starter-consul-config</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.cloud</groupId>
+			<artifactId>spring-cloud-starter-vault-config</artifactId>
+		</dependency>
 	</dependencies>
+	<dependencyManagement>
+		<dependencies>
+			<dependency>
+				<groupId>org.springframework.cloud</groupId>
+				<artifactId>spring-cloud-dependencies</artifactId>
+				<version>${spring-cloud.version}</version>
+				<type>pom</type>
+				<scope>import</scope>
+			</dependency>
+		</dependencies>
+	</dependencyManagement>
 	<build>
 		<plugins>
 			<plugin>
