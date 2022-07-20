@@ -36,7 +36,7 @@ public class SimpleAggregation implements Aggregation {
 	}
 
 	@Override
-	public Map<String, Object> getMetaData() {
+	public Map<String, Object> getMetadata() {
 		return null;
 	}
 
