@@ -54,8 +54,8 @@ public class RequestHeaderAuthenticationDecoratorWithRequiredRole extends OncePe
 			logger.info("User does not have permission. username:{} - roles:{}", SecurityUtil.getUsername(), roles);
 			accessDenied("The current user does not have permission to access this resource.", response);
 		} else {
-			// IMS not in use - just allow through
-			logger.info("Granting direct access to {}. Although IMS security is configured, no headers were provided.", request.getServletPath());
+			// IMS not in use - just allow through. Set to debug level because of continuous consul health checks on version endpoint.
+			logger.debug("Granting direct access to {}. Although IMS security is configured, no headers were provided.", request.getServletPath());
 			filterChain.doFilter(request, response);
 		}
 	}
