@@ -34,6 +34,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.elasticsearch.core.SearchAfterPageRequest;
+import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -97,7 +98,7 @@ public class ConceptController {
 	private boolean allowUnlimitedConceptPagination;
 
 	@GetMapping(value = "/{branch}/concepts", produces = {"application/json", "text/csv"})
-	public ItemsPage<?> findConcepts(
+	public HttpEntity<ItemsPage<?>> findConcepts(
 			@PathVariable String branch,
 			@RequestParam(required = false) Boolean activeFilter,
 			@RequestParam(required = false) String definitionStatusFilter,
@@ -191,9 +192,15 @@ public class ConceptController {
 			SearchAfterPage<Long> longsPage = queryService.searchForIds(queryBuilder, branch, pageRequest);
 			SearchAfterPageImpl<String> stringPage = new SearchAfterPageImpl<>(longsPage.stream().map(Object::toString).collect(Collectors.toList()),
 					longsPage.getPageable(), longsPage.getTotalElements(), longsPage.getSearchAfter());
-			return new ItemsPage<>(stringPage);
+			ItemsPage<String> resultsPage = new ItemsPage<>(stringPage);
+			return new HttpEntity<>(resultsPage, SearchAfterHelper.getSearchAfterHeader(longsPage.getSearchAfter()));
 		} else {
-			return new ItemsPage<>(queryService.search(queryBuilder, branch, pageRequest));
+			Page<ConceptMini> conceptMinis = queryService.search(queryBuilder, branch, pageRequest);
+			HttpHeaders headers = null;
+			if (conceptMinis instanceof SearchAfterPage) {
+				headers = SearchAfterHelper.getSearchAfterHeader(((SearchAfterPage<?>)conceptMinis).getSearchAfter());
+			}
+			return new HttpEntity<>(new ItemsPage<>(conceptMinis), headers);
 		}
 	}
 
@@ -211,7 +218,7 @@ public class ConceptController {
 	}
 
 	@PostMapping(value = "/{branch}/concepts/search", produces = {"application/json", "text/csv"})
-	public ItemsPage<?> search(
+	public HttpEntity<ItemsPage<?>> search(
 			@PathVariable String branch,
 			@RequestBody ConceptSearchRequest searchRequest,
 			@RequestHeader(value = "Accept-Language", defaultValue = Config.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) {
@@ -358,7 +365,7 @@ public class ConceptController {
 		}
 		searchRequest.setOffset(offset);
 		searchRequest.setLimit(limit);
-		return search(branch, searchRequest, acceptLanguageHeader);
+		return search(branch, searchRequest, acceptLanguageHeader).getBody();
 	}
 
 	@GetMapping(value = "/{branch}/concepts/{conceptId}/inbound-relationships")
