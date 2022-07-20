@@ -3,6 +3,7 @@ package org.snomed.snowstorm.rest.converter;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.springframework.http.HttpHeaders;
 import org.springframework.util.StringUtils;
 
 import java.io.IOException;
@@ -42,4 +43,9 @@ public class SearchAfterHelper {
 		return fromSearchAfterToken(toSearchAfterToken(value));
 	}
 
+	public static HttpHeaders getSearchAfterHeader(Object[] searchAfter) {
+		HttpHeaders headers = new HttpHeaders();
+		headers.add("searchAfter", toSearchAfterToken(searchAfter));
+		return headers;
+	}
 }
