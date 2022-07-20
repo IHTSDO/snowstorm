@@ -9,7 +9,7 @@ import javax.validation.constraints.Pattern;
 import java.util.Date;
 import java.util.Set;
 
-@Document(indexName = "export-config", type = "exportconfiguration")
+@Document(indexName = "export-config")
 public class ExportConfiguration {
 
 	private String id;

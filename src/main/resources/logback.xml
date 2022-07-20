@@ -19,4 +19,7 @@
 		<appender-ref ref="traceability-appender" />
 	</logger>
 
+	<logger name="org.springframework.data.elasticsearch.core.mapping.SimpleElasticsearchPersistentProperty" level="ERROR" />
+	<logger name="org.springframework.data.convert.CustomConversions" level="ERROR" />
+
 </configuration>
