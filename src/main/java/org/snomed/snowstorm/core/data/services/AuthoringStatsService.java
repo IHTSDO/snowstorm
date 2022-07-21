@@ -3,10 +3,8 @@ package org.snomed.snowstorm.core.data.services;
 import ch.qos.logback.classic.Level;
 import io.kaicode.elasticvc.api.BranchCriteria;
 import io.kaicode.elasticvc.api.VersionControlHelper;
-import io.kaicode.elasticvc.domain.DomainEntity;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
-
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.search.aggregations.AggregationBuilders;
 import org.elasticsearch.search.aggregations.bucket.terms.TermsAggregationBuilder;
@@ -42,7 +40,7 @@ public class AuthoringStatsService {
 	public static final String AGGREGATION_COUNTS_BY_MODULE = "countByModule";
 	public static final TermsAggregationBuilder MODULE_AGGREGATION = AggregationBuilders
 			.terms(AGGREGATION_COUNTS_BY_MODULE)
-			.field(SnomedComponent.Fields.MODULE_ID + ".keyword")
+			.field(SnomedComponent.Fields.MODULE_ID)
 			.size(AGGREGATION_SEARCH_SIZE);
 
 	@Autowired
