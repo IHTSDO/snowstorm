@@ -7,7 +7,7 @@
 
 	<groupId>org.snomed</groupId>
 	<artifactId>snowstorm</artifactId>
-	<version>7.10.0-SNAPSHOT</version>
+	<version>8.0.0-beta</version>
 	<parent>
 		<groupId>org.springframework.boot</groupId>
 		<artifactId>spring-boot-starter-parent</artifactId>
@@ -32,7 +32,7 @@
 		<snomed-boot.version>4.0.0</snomed-boot.version>
 
 		<!-- FHIR HAPI library -->
-		<hapi.version>5.6.3-si-SNAPSHOT</hapi.version>
+		<hapi.version>5.6.3-si</hapi.version>
 
 		<docker.image.prefix>snomedinternational</docker.image.prefix>
 		<slf4j.version>1.7.5</slf4j.version>
