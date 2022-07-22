@@ -32,7 +32,7 @@ public class SearchFilter {
 	private PublicationStatus status;
 	private StringParam title;
 	private String url;
-	private String version;
+	private StringParam version;
 
 	public boolean anySearchParams() {
 		return id != null ||
@@ -221,11 +221,11 @@ public class SearchFilter {
 		return withUrl(url != null ? url.getValueAsString() : null);
 	}
 
-	public String getVersion() {
+	public StringParam getVersion() {
 		return version;
 	}
 
-	public SearchFilter withVersion(String version) {
+	public SearchFilter withVersion(StringParam version) {
 		this.version = version;
 		return this;
 	}
@@ -272,7 +272,7 @@ public class SearchFilter {
 			return false;
 		}
 
-		if (getVersion() != null && !getVersion().equals(vs.getVersion())) {
+		if (!fhirHelper.stringMatches(vs.getVersion(), getVersion())) {
 			return false;
 		}
 
@@ -328,7 +328,7 @@ public class SearchFilter {
 			return false;
 		}
 
-		if (getVersion() != null && !getVersion().equals(cs.getVersion())) {
+		if (!fhirHelper.stringMatches(cs.getVersion(), getVersion())) {
 			return false;
 		}
 

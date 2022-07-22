@@ -110,7 +110,7 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants 
 			@OptionalParam(name="status") String status,
 			@OptionalParam(name="title") StringParam title,
 			@OptionalParam(name="url") String url,
-			@OptionalParam(name="version") String version) {
+			@OptionalParam(name="version") StringParam version) {
 
 		SearchFilter csFilter = new SearchFilter()
 									.withId(id)

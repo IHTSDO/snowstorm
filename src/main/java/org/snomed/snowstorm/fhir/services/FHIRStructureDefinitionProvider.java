@@ -88,7 +88,7 @@ public class FHIRStructureDefinitionProvider implements IResourceProvider, FHIRC
 			@OptionalParam(name="status") String status,
 			@OptionalParam(name="title") StringParam title,
 			@OptionalParam(name="url") String url,
-			@OptionalParam(name="version") String version) {
+			@OptionalParam(name="version") StringParam version) {
 		SearchFilter sdFilter = new SearchFilter()
 									.withCode(code)
 									.withContext(context)
