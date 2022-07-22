@@ -861,8 +861,16 @@ public class FHIRValueSetService {
 
 				// Apply system version if no version set and systems match
 				} else if (componentVersion == null) {
-					componentVersion = systemVersions.stream()
-							.filter(canonicalUri1 -> componentSystem.equals(canonicalUri1.getSystem())).findFirst().map(CanonicalUri::getVersion).orElse(null);
+					String componentSystemTmp = componentSystem;
+					CanonicalUri systemVersion = systemVersions.stream()
+							.filter(canonicalUri1 -> componentSystemTmp.equals(canonicalUri1.getSystem()) ||
+									(isSnomedUri(componentSystemTmp) && isSnomedUri(canonicalUri1.getSystem())))// Both SCT, may not be equal if one using xsct
+							.findFirst().orElse(null);
+					if (systemVersion != null) {
+						componentVersion = systemVersion.getVersion();
+						// Take system too, in case it's unversioned snomed (sctx)
+						componentSystem = systemVersion.getSystem();
+					}
 				}
 
 				FHIRCodeSystemVersion codeSystemVersion = codeSystemService.findCodeSystemVersionOrThrow(
