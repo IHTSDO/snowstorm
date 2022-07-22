@@ -108,7 +108,7 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 			@OptionalParam(name="status") String status,
 			@OptionalParam(name="title") StringParam title,
 			@OptionalParam(name="url") UriType url,
-			@OptionalParam(name="version") String version) {
+			@OptionalParam(name="version") StringParam version) {
 
 		SearchFilter vsFilter = new SearchFilter()
 				.withId(id)
