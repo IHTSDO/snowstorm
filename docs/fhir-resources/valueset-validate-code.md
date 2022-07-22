@@ -1,4 +1,4 @@
-## ValueSet validate-code
+## FHIR ValueSet Validate-Code
 
 #### Validate a code against a known ValueSet expansion
 http://localhost:8080/fhir/ValueSet/gps/$validate-code?coding=http://snomed.info/sct|840539006

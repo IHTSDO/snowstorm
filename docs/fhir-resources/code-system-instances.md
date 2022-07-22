@@ -1,15 +1,15 @@
-## CodeSystem Instances
+## FHIR CodeSystems
 
 #### List all available Code System instances (modules and versions)
 http://localhost:8080/fhir/CodeSystem
 
-#### Get detail on a particular Code System Instance
+#### Get Code System instance by id
 http://localhost:8080/fhir/CodeSystem/sct_900000000000207008_20200309
 
-#### Search for all CodeSystem instances with a particular version
-http://localhost:8080/fhir/CodeSystem?version=20190731
+#### Search for CodeSystems by version
+http://localhost:8080/fhir/CodeSystem?version:contains=20220131
 
-#### Search for all CodeSystem instances with particular text anywhere in the publisher field
+#### Search for CodeSystems by publisher
 http://localhost:8080/fhir/CodeSystem?publisher:contains=SNOMED
 
 ### CodeSystem Operations
