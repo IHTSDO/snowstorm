@@ -3,12 +3,32 @@
 [![Build Status](https://travis-ci.org/IHTSDO/snowstorm.svg?branch=master)](https://travis-ci.org/IHTSDO/snowstorm) [![Language grade: Java](https://img.shields.io/lgtm/grade/java/g/IHTSDO/snowstorm.svg?logo=lgtm&logoWidth=18)](https://lgtm.com/projects/g/IHTSDO/snowstorm/context:java) [![codecov](https://codecov.io/gh/IHTSDO/snowstorm/branch/master/graph/badge.svg)](https://codecov.io/gh/IHTSDO/snowstorm)
 [![Docker](https://img.shields.io/docker/pulls/snomedinternational/snowstorm)](https://hub.docker.com/r/snomedinternational/snowstorm)
 
-Snowstorm is a SNOMED CT terminology server built on top of Elasticsearch, with a focus on performance and enterprise scalability.
+Snowstorm is an open source terminology server with special support for SNOMED CT. It is built on top of Elasticsearch, with a focus on performance and enterprise scalability.
 
-## Project Status
+SNOMED International is not able to offer commercial support for this product. 
+Support is provided by the community via this repository.
 
-### Read-Only Use
-Snowstorm provides the terminology server API for the SNOMED International Browser including the International Edition and around fourteen national Extensions.
+### APIs
+Snowstorm has two APIs:
+- **HL7 FHIR API** :fire:
+  - Implements the Terminology Module
+  - Recommended for implementers
+  - Supports SNOMED CT, LOINC, ICD-10, ICD-10-CM and other code systems
+- Specialist **SNOMED CT API**
+  - Supports the management of SNOMED CT code systems
+  - Supports the SNOMED CT Browser
+  - Supports authoring SNOMED CT editions
+
+## Advice for Implementers
+SNOMED International recommends that implementers of SNOMED CT use a terminology service, such as Snowstorm, and a standard interface, such as the [HL7 FHIR API](http://hl7.org/fhir/).
+
+This approach allows loose coupling of applications as well as access to powerful terminology features.
+
+Snowstorm is a good choice for teams who are just getting started or who have terminology and technical support capability. [Other terminology servers](https://confluence.ihtsdotools.org/display/IMP/Terminology+Services) are available, some offer 
+commercial support.
+
+## SNOMED CT Browser Support
+Snowstorm provides the terminology server API for the SNOMED International Browser including the International Edition and around fourteen national Editions.
 
 Snowstorm can be used in local implementations to query SNOMED CT with the following features:
 - Hosting multiple extensions alongside the International Edition of SNOMED CT
@@ -17,10 +37,10 @@ Snowstorm can be used in local implementations to query SNOMED CT with the follo
 - Full history (depends on full RF2 import)
 - Read-only FHIR API :fire:
 
-### Authoring Use
+## Authoring Use
 Snowstorm also provides the terminology server API for the SNOMED International Authoring Platform.
 
-The Authoring Platform is used for the maintenance of the International Edition of SNOMED CT as well as nine national Extensions and several community content Extensions.
+The Authoring Platform is used for the maintenance of the International Edition of SNOMED CT as well as nine national Editions and several community content Extensions.
 
 ## Documentation
 
@@ -29,20 +49,23 @@ The Authoring Platform is used for the maintenance of the International Edition 
   - [Configuration Guide](docs/configuration-guide.md)
     - [Security Configuration Guide](docs/security-configuration.md)
     - [Nginx Setup (SSL)](docs/nginx-setup.md)
+  - [Docker Quickstart](docs/using-docker.md)
+  - [Elasticsearch Index Mapping Changes](docs/index-mapping-changes.md)
+- Loading SNOMED CT content
   - [Loading SNOMED](docs/loading-snomed.md)
   - [Loading & updating SNOMED CT with local Extensions or Editions](docs/updating-snomed-and-extensions.md)
+- Authoring SNOMED CT
   - [Extension Authoring](docs/extension-authoring.md)
-  - [Elasticsearch Index Mapping Changes](docs/index-mapping-changes.md)
-  - [Docker Quickstart](docs/using-docker.md)
-  - [Load Balancing](docs/load-balancing.md)
 - Use
-  - [Using the API](docs/using-the-api.md)
+  - [Using the FHIR API](docs/using-the-fhir-api.md)
+  - [Using the Specialist SNOMED API](docs/using-the-api.md)
     - [Code Systems & Branches](docs/code-systems-and-branches.md)
     - [Search Guide](docs/search.md)
     - [Language Specific Search Behaviour](docs/language-specific-search.md)
-  - [Using the FHIR API](docs/using-the-fhir-api.md)
+- Productionization
+  - [Load Balancing](docs/load-balancing.md)
 
-## Contributing :star:
+## Contributing
 
 We welcome questions, ideas, issues and code contributions to this project. 
 
