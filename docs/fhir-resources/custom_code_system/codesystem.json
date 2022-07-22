@@ -1,0 +1,11 @@
+{
+	"resourceType": "CodeSystem",
+	"url": "http://example.com/lab-codes",
+	"name": "Example Lab Codes",
+	"description": "A set of lab codes",
+	"status": "active",
+	"hierarchyMeaning": "is-a",
+	"publisher": "Example Organization",
+	"date": "2022-07-20",
+	"content": "not-present"
+}
