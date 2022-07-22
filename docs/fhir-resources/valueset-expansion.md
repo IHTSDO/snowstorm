@@ -1,7 +1,7 @@
-## ValueSet Expansion
+## FHIR ValueSet Expand
 
-### Implicit ValueSets (ie intensionally defined). 
-See  [https://www.hl7.org/fhir/snomedct.html#implicit]
+### Implicit ValueSets (ie intentionally defined). 
+See [HL7 FHIR Specification / SNOMED CT Implicit](https://www.hl7.org/fhir/snomedct.html#implicit)
 
 ## GET Method Request Example(s)
 

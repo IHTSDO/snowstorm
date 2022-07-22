@@ -1,4 +1,4 @@
-## ValueSet search, create, replace, update and delete
+## FHIR ValueSet search, create, replace, update and delete
 
 #### Upload or update a valueset json file:
 curl -i --request PUT "http://localhost:8080/fhir/ValueSet/address-use" \
