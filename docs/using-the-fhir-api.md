@@ -47,11 +47,9 @@ hapi-fhir-cli upload-terminology -d custom_code_system.zip -v r4 -t http://local
 ## Examples
 Use Postman to try out some of the FHIR API calls.
 
-[![Run in Postman](https://run.pstmn.io/button.svg)](https://app.getpostman.com/run-collection/46ece7cbc44cffed9f26)
+[![Run in Postman](https://run.pstmn.io/button.svg)](https://documenter.getpostman.com/view/1181409/UzXKVdhM)
 
-You can find a description of the capabilities here - https://documenter.getpostman.com/view/7704601/TzCTYk3R
-
-You can also find the HTTP requests in [the fhir-requests.http file](fhir-requests.http) in this repo.
+Some of the HTTP requests are in the [fhir-requests.http](fhir-requests.http) file.
 
 ## Testing
 
