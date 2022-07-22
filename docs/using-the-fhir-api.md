@@ -1,12 +1,51 @@
-# Working with the FHIR API
+# Snowstorm FHIR Terminology Server
+The Snowstorm HL7® FHIR® API implements the terminology module, version R4. The implementation makes use of the excellent open source HAPI-FHIR library. 
+All resources are persisted to Elasticsearch, a fast horizontally-scalable index.
 
-## Design Overview
+## Code Systems
+### SNOMED CT
+Snowstorm is a specialist SNOMED CT terminology server, and as such implements SNOMED CT specific functionality 
+including the SNOMED CT URI, filters, properties, implicit value sets, and implicit concept maps. 
 
-Snowstorms's FHIR capabilities are managed using the HAPI Server package, which brings a number of benefits such as automatic creation of the Capabilities resource. It also means that future releases of the FHIR Specification will not require code changes by SNOMED International as we'll be able migrate to the next version of HAPI.
+_Please Note: The native Snowstorm API must be used to create code systems and import content for SNOMED CT._ 
 
-## Documentation
+### LOINC
+The LOINC code system is supported. 
+A LOINC package can be imported using the [HAPI-FHIR CLI tool](https://hapifhir.io/hapi-fhir/docs/tools/hapi_fhir_cli.html) with the following command:
+```
+hapi-fhir-cli upload-terminology -d Loinc_2.72.zip -v r4 -t http://localhost:8080/fhir -u http://loinc.org
+```
 
-Unfortunately HAPI does not easily support a Swagger interface for testing, but if you are used to working with **[Postman](https://www.getpostman.com/downloads/)**, here is a Postman project to try out some of the FHIR API calls.
+### ICD-10 (International Version)
+The international version of ICD-10 is supported. This distribution uses the CLAML format. 
+An ICD-10 package can be imported using the [HAPI-FHIR CLI tool](https://hapifhir.io/hapi-fhir/docs/tools/hapi_fhir_cli.html) with the following command: 
+```
+hapi-fhir-cli upload-terminology -d icdClaML2019ens.zip -v r4 -t http://localhost:8080/fhir -u http://hl7.org/fhir/sid/icd-10
+```
+
+### ICD-10-CM (US Version)
+ICD-10-CM, the US version of ICD-10, is supported. This distribution uses a tabular xml format. 
+An ICD-10-CM package can be imported using the [HAPI-FHIR CLI tool](https://hapifhir.io/hapi-fhir/docs/tools/hapi_fhir_cli.html) with the following command:
+```
+hapi-fhir-cli upload-terminology -d icd10cm_tabular_2021.xml -v r4 -t http://localhost:8080/fhir -u http://hl7.org/fhir/sid/icd-10-cm
+```
+
+### Custom Code Systems
+Any other code system can be imported and used if it can be transformed into the custom code system format.
+This format allows code system properties and codes with a single display term, simple hierarchy and properties.
+
+The parents and children of codes will be listed during lookup and subsumption testing will work if the code system "hierarchyMeaning" has a value of "is-a" when imported.
+
+An example custom code system can be found under [docs/fhir-resources/custom_code_system](fhir-resources/custom_code_system). 
+
+A custom code system zip package can be imported using the [HAPI-FHIR CLI tool](https://hapifhir.io/hapi-fhir/docs/tools/hapi_fhir_cli.html). 
+Please assign a unique URL for the code system. Here is an example import command:
+```
+hapi-fhir-cli upload-terminology -d custom_code_system.zip -v r4 -t http://localhost:8080/fhir -u http://example.com/lab-codes
+```
+
+## Examples
+Use Postman to try out some of the FHIR API calls.
 
 [![Run in Postman](https://run.pstmn.io/button.svg)](https://app.getpostman.com/run-collection/46ece7cbc44cffed9f26)
 
