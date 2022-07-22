@@ -55,7 +55,7 @@ You can also find the HTTP requests in [the fhir-requests.http file](fhir-reques
 
 ## Testing
 
-In a default installation, the FHIR endpoints can be found at: http://localhost:8080/fhir  although there is no operation there, so you could try one of these calls:
+By default the base of the FHIR API is http://localhost:8080/fhir
 
 ### Server Capabilities
 http://localhost:8080/fhir/metadata
@@ -77,13 +77,13 @@ http://localhost:8080/fhir/metadata?mode=terminology
 
 #### [ValueSet search, create, replace, update and delete](fhir-resources/valueset-scrud.md)
 
-#### [ValueSet Expansion](fhir-resources/valueset-expansion.md)
+#### [ValueSet Expand](fhir-resources/valueset-expansion.md)
 
-#### [ValueSet Validate Code](fhir-resources/valueset-validate-code.md)
+#### [ValueSet Validate-Code](fhir-resources/valueset-validate-code.md)
 
 ### Concept Maps
 
-#### [ValueSet ConceptMap](fhir-resources/concept-map.md)
+#### [ConceptMap Translate](fhir-resources/concept-map.md)
 
 ------
 
@@ -91,5 +91,5 @@ http://localhost:8080/fhir/metadata?mode=terminology
 The API will return either JSON or XML depending on what's specified in the 'Accept' header.  Because most browsers specify both HTML and XML as acceptable, where HTML is detected, the server will assume a browser is being used and return JSON unless a format parameter is used.   It is no longer necessary to include &_format=json in URLs when testing via a browser.   When no 'Accept' header is specified, JSON will again be used by default.
 
 #### Notes on unversioned content
-The FHIR specification has no notion of working with unversioned, unpublished content as a content provider might wish to do during an authoring cycle.   As a 'straw man' solution for discussion, a magic string value of UNVERSIONED is being allowed, which will cause the request to look at the "daily build" branch, or whatever we think of as "MAIN" for that particular code system.   This will work for both CodeSystem $lookup and ValueSet $expand operations eg
-http://localhost:8080/fhir/ValueSet/$expand?url=http://snomed.info/sct/45991000052106/version/UNVERSIONED?fhir_vs=isa/27624003&designation=sv
+Unversioned SNOMED CT content that exists on the Snowstorm code system branch can be accessed using system `http://snomed.info/xsct`. For example:
+http://localhost:8080/fhir/ValueSet/$expand?url=http://snomed.info/sctx/45991000052106?fhir_vs=isa/27624003&designation=sv
