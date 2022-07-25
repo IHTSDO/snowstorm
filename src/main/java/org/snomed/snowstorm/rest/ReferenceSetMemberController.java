@@ -34,7 +34,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.util.UriComponentsBuilder;
 
 import javax.validation.Valid;
 import java.util.*;
@@ -254,8 +253,7 @@ public class ReferenceSetMemberController {
 	@PostMapping(value = "/{branch}/members/bulk")
 	@PreAuthorize("hasPermission('AUTHOR', #branch)")
 	@JsonView(value = View.Component.class)
-	public ResponseEntity<Void> createUpdateMembersBulkChange(@PathVariable String branch, @RequestBody @Valid List<ReferenceSetMemberView> members,
-			UriComponentsBuilder uriComponentsBuilder) {
+	public ResponseEntity<Void> createUpdateMembersBulkChange(@PathVariable String branch, @RequestBody @Valid List<ReferenceSetMemberView> members) {
 
 		branch = BranchPathUriUtil.decodePath(branch);
 		final List<ReferenceSetMember> refsetMembers = members.stream().map(ReferenceSetMember.class::cast).collect(Collectors.toList());

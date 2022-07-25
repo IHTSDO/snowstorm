@@ -41,7 +41,6 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.util.Assert;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.util.UriComponentsBuilder;
 
 import javax.validation.Valid;
 import java.util.*;
@@ -488,7 +487,7 @@ public class ConceptController {
 			description = "Concepts can be created or updated using this endpoint. Use the location header in the response to check the job status.")
 	@PostMapping(value = "/browser/{branch}/concepts/bulk")
 	@PreAuthorize("hasPermission('AUTHOR', #branch)")
-	public ResponseEntity<ResponseEntity.BodyBuilder> createUpdateConceptBulkChange(@PathVariable String branch, @RequestBody @Valid List<ConceptView> concepts, UriComponentsBuilder uriComponentsBuilder) {
+	public ResponseEntity<ResponseEntity.BodyBuilder> createUpdateConceptBulkChange(@PathVariable String branch, @RequestBody @Valid List<ConceptView> concepts) {
 		List<Concept> conceptList = new ArrayList<>();
 		concepts.forEach(conceptView -> conceptList.add((Concept) conceptView));
 		String batchId = conceptService.newCreateUpdateAsyncJob();
