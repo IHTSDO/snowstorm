@@ -22,7 +22,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.util.UriComponentsBuilder;
+
+import java.util.Objects;
 
 @RestController
 @Tag(name = "Classification", description = "-")
@@ -98,14 +99,12 @@ public class ClassificationController {
 	@Operation(summary = "Create a classification on a branch")
 	@PostMapping
 	public ResponseEntity createClassification(@PathVariable String branch,
-			@RequestParam(required = false, defaultValue = SnomedReasonerService.ELK_REASONER_FACTORY) String reasonerId,
-			UriComponentsBuilder uriComponentsBuilder) throws ServiceException {
+			@RequestParam(required = false, defaultValue = SnomedReasonerService.ELK_REASONER_FACTORY) String reasonerId) throws ServiceException {
 
 		branch = BranchPathUriUtil.decodePath(branch);
 		Branch branchObject = branchService.findBranchOrThrow(branch);
 		Classification classification = classificationService.createClassification(branchObject, reasonerId);
-		return ResponseEntity.created(uriComponentsBuilder.path("/{branch}/classifications/{classificationId}")
-				.buildAndExpand(branchObject.getPath(), classification.getId()).toUri()).build();
+		return ResponseEntity.created(Objects.requireNonNull(ControllerHelper.getCreatedResponse(classification.getId()).getHeaders().getLocation())).build();
 	}
 
 	@Operation(summary = "Update a classification on a branch.",
