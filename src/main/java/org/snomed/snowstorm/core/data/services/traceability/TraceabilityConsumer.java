@@ -40,11 +40,11 @@ public class TraceabilityConsumer {
 	 */
 	void sendInBatches(Activity activity) {
 		int changeListSize = activity.getChanges().size();
-		logger.info("Number of concept activities is {}. larger than max ({}).", changeListSize, maxConceptActiviesPerMessage );
+		logger.info("Number of changes (concept activities) is {} and is larger than max ({}).", changeListSize, maxConceptActiviesPerMessage );
 		int idx = 0;
 
 		while (idx <= activity.getChanges().size() -1 ) {
-			logger.info("Sending batch with start index {}.", idx);
+			logger.info("Sending Changes batch with start index {}.", idx);
 			List<Activity.ConceptActivity> changes = activity.getChanges().subList(idx, Math.min(idx + maxConceptActiviesPerMessage, changeListSize));
 			Activity activitySlice = new Activity(activity.getUserId(), activity.getBranchPath(),
 			activity.getCommitTimestamp(), activity.getSourceBranch(), activity.getActivityType(), false);
