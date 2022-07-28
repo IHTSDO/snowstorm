@@ -47,7 +47,7 @@ public class TraceabilityConsumer {
 			logger.info("Sending batch with start index {}.", idx);
 			List<Activity.ConceptActivity> changes = activity.getChanges().subList(idx, Math.min(idx + maxConceptActiviesPerMessage, changeListSize));
 			Activity activitySlice = new Activity(activity.getUserId(), activity.getBranchPath(),
-			activity.getCommitTimestamp(), activity.getSourceBranch(), activity.getActivityType());
+			activity.getCommitTimestamp(), activity.getSourceBranch(), activity.getActivityType(), false);
 			activitySlice.setChanges(changes);
 			jmsTemplate.convertAndSend(jmsQueuePrefix + ".traceability", activitySlice);
 			idx += maxConceptActiviesPerMessage;

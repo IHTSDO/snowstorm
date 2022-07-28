@@ -137,7 +137,7 @@ public class TraceabilityLogService implements CommitListener {
 			userId = Config.SYSTEM_USERNAME;
 		}
 
-		Activity activity = new Activity(userId, commit.getBranch().getPath(), commit.getTimepoint().getTime(), commit.getSourceBranchPath(), activityType);
+		Activity activity = new Activity(userId, commit.getBranch().getPath(), commit.getTimepoint().getTime(), commit.getSourceBranchPath(), activityType, true);
 
 		Map<Long, Activity.ConceptActivity> activityMap = new Long2ObjectArrayMap<>();
 		Map<Long, Long> componentToConceptIdMap = new Long2ObjectArrayMap<>();

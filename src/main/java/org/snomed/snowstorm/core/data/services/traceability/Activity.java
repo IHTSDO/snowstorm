@@ -15,15 +15,18 @@ public class Activity {
 	private Long commitTimestamp;
 	private List<ConceptActivity> changes;
 
+	private boolean changeListComplete = true;
+
 	public Activity() {
 	}
 
-	public Activity(String userId, String branchPath, long commitTimestamp, String sourceBranchPath, ActivityType activityType) {
+	public Activity(String userId, String branchPath, long commitTimestamp, String sourceBranchPath, ActivityType activityType, boolean changeListComplete) {
 		this.userId = userId;
 		this.branchPath = branchPath;
 		this.commitTimestamp = commitTimestamp;
 		this.sourceBranch = sourceBranchPath;
 		this.activityType = activityType;
+		this.changeListComplete = changeListComplete;
 		changes = new ArrayList<>();
 	}
 
@@ -47,6 +50,10 @@ public class Activity {
 
 	public ActivityType getActivityType() {
 		return activityType;
+	}
+
+	public boolean isChangeListComplete() {
+		return changeListComplete;
 	}
 
 	public String getSourceBranch() {
@@ -76,6 +83,7 @@ public class Activity {
 				", branchPath='" + branchPath + '\'' +
 				", commitTimestamp=" + commitTimestamp +
 				", changes=" + changes +
+				", changeListComplete=" + changeListComplete +
 				'}';
 	}
 
