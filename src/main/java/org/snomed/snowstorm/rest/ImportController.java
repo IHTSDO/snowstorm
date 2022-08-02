@@ -24,6 +24,7 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Set;
 
 @RestController
 @Tag(name = "Import", description = "RF2")
@@ -42,7 +43,8 @@ public class ImportController {
 	description = "Creates an import job ready for an archive to be uploaded. " +
 					CODE_SYSTEM_INTERNAL_RELEASE_FLAG_README +
 					"The 'location' response header contain the URL, including the identifier, of the new resource. " +
-					"Use the upload archive function next.")
+					"Use the upload archive function next. An optional list of module IDs can be provided like [\"731000124108\", \"900000000000012004\"] to " +
+					"import only those modules. Leave empty or omit argument for all modules." )
 	@PostMapping
 	@PreAuthorize("hasPermission('AUTHOR', #importRequest.branchPath)")
 	public ResponseEntity<Void> createImportJob(@RequestBody ImportCreationRequest importRequest) {
@@ -52,6 +54,9 @@ public class ImportController {
 		RF2ImportConfiguration importConfiguration = new RF2ImportConfiguration(importRequest.getType(), importRequest.getBranchPath());
 		importConfiguration.setCreateCodeSystemVersion(importRequest.getCreateCodeSystemVersion());
 		importConfiguration.setInternalRelease(importRequest.isInternalRelease());
+		if (importRequest.getFilterModuleIds() != null && !importRequest.getFilterModuleIds().isEmpty()) {
+			importConfiguration.setModuleIds(Set.copyOf(importRequest.getFilterModuleIds()));
+		}
 		String id = importService.createJob(importConfiguration);
 		return ControllerHelper.getCreatedResponse(id);
 	}
@@ -61,7 +66,9 @@ public class ImportController {
 					"PLEASE NOTE this is an asynchronous call, this function starts the import but does not wait for it to complete. " +
 					"The 'internalRelease' flag hides a version, by default, from the code system versions listing " +
 					"and prevents it being chosen as the code system 'latestRelease'. " +
-					"The 'location' header has the identifier of the new resource. Use this to check the status of the import until it is COMPLETED or FAILED.")
+					"The 'location' header has the identifier of the new resource. Use this to check the status of the import until it is COMPLETED or FAILED. " +
+					"An optional list of module IDs can be provided like [\"731000124108\", \"900000000000012004\"] to " +
+					"import only those modules. Leave empty or omit argument for all modules.")
 	@PostMapping(value = "start-local-file-import")
 	@PreAuthorize("hasPermission('AUTHOR', #importRequest.branchPath)")
 	public ResponseEntity<Void> createAndStartLocalFileImport(@RequestBody LocalFileImportCreationRequest importRequest) {
@@ -78,6 +85,9 @@ public class ImportController {
 		RF2ImportConfiguration importConfiguration = new RF2ImportConfiguration(importRequest.getType(), importRequest.getBranchPath());
 		importConfiguration.setCreateCodeSystemVersion(importRequest.getCreateCodeSystemVersion());
 		importConfiguration.setInternalRelease(importRequest.isInternalRelease());
+		if (importRequest.getFilterModuleIds() != null && !importRequest.getFilterModuleIds().isEmpty()) {
+			importConfiguration.setModuleIds(Set.copyOf(importRequest.getFilterModuleIds()));
+		}
 
 		String id = importService.createJob(importConfiguration);
 
