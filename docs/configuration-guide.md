@@ -24,7 +24,7 @@ snowstorm.rest-api.readonly=true
 ```
 Then start Snowstorm with an extra JVM parameter:
 ```bash
---spring.config.location=application-local.properties
+--spring.config.additional-location=application-local.properties
 ```
 
 ### Using command line arguments
