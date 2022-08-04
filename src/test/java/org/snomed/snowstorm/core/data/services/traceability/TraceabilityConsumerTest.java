@@ -5,15 +5,13 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
-import org.snomed.snowstorm.core.data.services.traceability.Activity;
-import org.snomed.snowstorm.core.data.services.traceability.TraceabilityConsumer;
+
 import org.springframework.jms.core.JmsTemplate;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.junit4.SpringRunner;
 import org.springframework.test.util.ReflectionTestUtils;
 
-import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
@@ -34,8 +32,8 @@ public class TraceabilityConsumerTest {
 
 	@Before
 	public void beforeTests() {
-		ReflectionTestUtils.setField(t, "jmsQueuePrefix", "DefaultQueue");
-		ReflectionTestUtils.setField(t, "maxConceptActiviesPerMessage", 5);
+		ReflectionTestUtils.setField(t, "jmsQueuePrefix", QUEUE);
+		ReflectionTestUtils.setField(t, "maxConceptActiviesPerMessage", MAX_CHANGES);
 	}
 
 	@Test
@@ -55,7 +53,7 @@ public class TraceabilityConsumerTest {
 	}
 
 	private Activity createActivity() {
-		return new Activity("user", "MAIN/BLA", 999999999999l, null, Activity.ActivityType.CONTENT_CHANGE, true);
+		return new Activity("user", "MAIN/BLA", 999999999999l, null, Activity.ActivityType.CONTENT_CHANGE);
 	}
 
 }
