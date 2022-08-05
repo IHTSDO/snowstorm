@@ -314,6 +314,9 @@ public class TraceabilityLogService implements CommitListener {
 				component.getId(),
 				type,
 				component.getEffectiveTime() == null);
+		if (component.getEnd() != null && !component.isDeleted()) {
+			componentChange.setSuperseded(true);
+		}
 		logger.debug("Component change {} for component {}", componentChange, component);
 		return componentChange;
 	}
