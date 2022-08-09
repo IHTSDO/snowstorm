@@ -49,7 +49,7 @@ public class RequiredRoleFilter extends OncePerRequestFilter {
 
 	@Override
 	protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {
-		LOGGER.info("RequiredRoleFilter: requiredRole: {}", requiredRole);
+		LOGGER.debug("RequiredRoleFilter: requiredRole: {}", requiredRole);
 		Authentication authentication = SecurityUtil.getAuthentication();
 
 		List<String> roles = authentication.getAuthorities().stream()
@@ -73,12 +73,12 @@ public class RequiredRoleFilter extends OncePerRequestFilter {
 			AntPathMatcher antPathMatcher = new AntPathMatcher();
 			for (String excludedUrlPattern : excludedUrlPatterns) {
 				if (antPathMatcher.match(excludedUrlPattern, requestURI)) {
-					LOGGER.info("RequiredRoleFilter: path {} is excluded", requestURI);
+					LOGGER.debug("RequiredRoleFilter: path {} is excluded", requestURI);
 					return true;
 				}
 			}
 		}
-		LOGGER.info("RequiredRoleFilter: path {} is not excluded", requestURI);
+		LOGGER.debug("RequiredRoleFilter: path {} is not excluded", requestURI);
 		return false;
 	}
 }
