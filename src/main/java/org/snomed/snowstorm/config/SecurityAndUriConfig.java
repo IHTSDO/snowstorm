@@ -20,7 +20,8 @@ import org.snomed.snowstorm.rest.ReadOnlyApi;
 import org.snomed.snowstorm.rest.ReadOnlyApiWhenEnabled;
 import org.snomed.snowstorm.rest.config.*;
 import org.snomed.snowstorm.rest.pojo.BranchPojo;
-import org.snomed.snowstorm.rest.security.RequestHeaderAuthenticationDecoratorWithRequiredRole;
+import org.snomed.snowstorm.rest.security.AccessDeniedExceptionHandler;
+import org.snomed.snowstorm.rest.security.RequiredRoleFilter;
 import org.springdoc.core.GroupedOpenApi;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -36,6 +37,7 @@ import org.springframework.security.config.annotation.web.configuration.EnableWe
 import org.springframework.security.config.annotation.web.configuration.WebSecurityCustomizer;
 import org.springframework.security.config.annotation.web.configurers.ExpressionUrlAuthorizationConfigurer;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.access.intercept.FilterSecurityInterceptor;
 import org.springframework.security.web.firewall.DefaultHttpFirewall;
 import org.springframework.security.web.firewall.HttpFirewall;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -56,11 +58,20 @@ public class SecurityAndUriConfig {
 	@Value("${ims-security.roles.enabled}")
 	private boolean rolesEnabled;
 
+	@Value("${ims-security.required-role}")
+	private String requiredRole;
+
 	@Value("${json.serialization.indent_output}")
 	private boolean jsonIndentOutput;
 
 	@Autowired(required = false)
 	private BuildProperties buildProperties;
+
+	private final String[] excludedUrlPatterns = {
+			"/version",
+			"/swagger-ui/**",
+			"/v3/api-docs/**"
+	};
 
 	@Bean
 	public ObjectMapper getGeneralMapper() {
@@ -156,10 +167,10 @@ public class SecurityAndUriConfig {
 
 			// Allow some explicitly defined endpoints
 			ExpressionUrlAuthorizationConfigurer<HttpSecurity>.ExpressionInterceptUrlRegistry authorizeRequests = http.authorizeRequests();
-			alwaysAllowReadOnlyPostEndpointPrefixes().forEach(prefix -> authorizeRequests.antMatchers(HttpMethod.POST, prefix + "/**").anonymous());
-			alwaysAllowReadOnlyPostEndpoints().forEach(path -> authorizeRequests.antMatchers(HttpMethod.POST, path).anonymous());
+			alwaysAllowReadOnlyPostEndpointPrefixes().forEach(prefix -> authorizeRequests.antMatchers(HttpMethod.POST, prefix + "/**").permitAll());
+			alwaysAllowReadOnlyPostEndpoints().forEach(path -> authorizeRequests.antMatchers(HttpMethod.POST, path).permitAll());
 			if (restApiAllowReadOnlyPostEndpoints) {
-				whenEnabledAllowReadOnlyPostEndpoints().forEach(endpoint -> authorizeRequests.antMatchers(HttpMethod.POST, endpoint.replace("{branch}", "**")).anonymous());
+				whenEnabledAllowReadOnlyPostEndpoints().forEach(endpoint -> authorizeRequests.antMatchers(HttpMethod.POST, endpoint.replace("{branch}", "**")).permitAll());
 			}
 
 			// Block all other POST/PUT/PATCH/DELETE
@@ -168,11 +179,16 @@ public class SecurityAndUriConfig {
 					.antMatchers(HttpMethod.PUT, "/**").denyAll()
 					.antMatchers(HttpMethod.PATCH, "/**").denyAll()
 					.antMatchers(HttpMethod.DELETE, "/**").denyAll()
-					.anyRequest().anonymous();
-		} else if (rolesEnabled) {
-			http
-					.authorizeRequests()
 					.anyRequest().permitAll();
+		} else if (rolesEnabled) {
+			http.addFilterBefore(new RequestHeaderAuthenticationDecorator(), FilterSecurityInterceptor.class);
+			http.addFilterAt(new RequiredRoleFilter(requiredRole, excludedUrlPatterns), FilterSecurityInterceptor.class);
+
+			http.authorizeRequests()
+					.antMatchers(excludedUrlPatterns).permitAll()
+					.anyRequest().authenticated()
+					.and().exceptionHandling().accessDeniedHandler(new AccessDeniedExceptionHandler())
+					.and().httpBasic();
 		}
 		return http.build();
 	}
@@ -206,31 +222,12 @@ public class SecurityAndUriConfig {
 		return apiBuilder.build();
 	}
 
-
 	@Bean
 	public GroupedOpenApi springActuatorApi() {
 		return GroupedOpenApi.builder().group("actuator")
 				.packagesToScan("org.springframework.boot.actuate")
 				.pathsToMatch("/actuator/**")
 				.build();
-	}
-
-	@Bean
-	public FilterRegistrationBean<RequestHeaderAuthenticationDecorator> getSingleSignOnFilter() {
-		FilterRegistrationBean<RequestHeaderAuthenticationDecorator> filterRegistrationBean = new FilterRegistrationBean<>(
-				new RequestHeaderAuthenticationDecorator());
-		filterRegistrationBean.setOrder(1);
-		return filterRegistrationBean;
-	}
-
-	@Bean
-	public FilterRegistrationBean<RequestHeaderAuthenticationDecoratorWithRequiredRole> getRequiredRoleFilter(@Value("${ims-security.required-role}") String requiredRole) {
-		FilterRegistrationBean<RequestHeaderAuthenticationDecoratorWithRequiredRole> filterRegistrationBean = new FilterRegistrationBean<>(
-				new RequestHeaderAuthenticationDecoratorWithRequiredRole(requiredRole)
-						.addExcludedPath("swagger-ui/index.html")
-		);
-		filterRegistrationBean.setOrder(2);
-		return filterRegistrationBean;
 	}
 
 }
