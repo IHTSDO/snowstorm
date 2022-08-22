@@ -57,10 +57,13 @@ public class Activity {
 		this.sourceBranch = sourceBranch;
 	}
 
-	public Collection<ConceptActivity> getChanges() {
+	public List<ConceptActivity> getChanges() {
 		return changes;
 	}
 
+	public void setChanges(List<ConceptActivity> changes) {
+		this.changes = changes;
+	}
 	@JsonIgnore
 	public Map<String, ConceptActivity> getChangesMap() {
 		return changes.stream().collect(Collectors.toMap(ConceptActivity::getConceptId, Function.identity()));
