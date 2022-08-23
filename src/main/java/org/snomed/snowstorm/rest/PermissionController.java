@@ -1,6 +1,7 @@
 package org.snomed.snowstorm.rest;
 
 import com.fasterxml.jackson.annotation.JsonView;
+import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.rest.util.branchpathrewrite.BranchPathUriUtil;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -17,6 +18,9 @@ import java.util.List;
 @Tag(name = "Admin - Permissions", description = "-")
 @RequestMapping(value = "/admin/permissions", produces = "application/json")
 public class PermissionController {
+
+	@Autowired
+	private BranchService branchService;
 
 	@Autowired
 	private PermissionService permissionService;
@@ -43,6 +47,7 @@ public class PermissionController {
 	@JsonView(value = View.Component.class)
 	public List<PermissionRecord> findForBranch(@PathVariable String branch) {
 		branch = BranchPathUriUtil.decodePath(branch);
+		verifyBranch(branch);
 		return permissionService.findByBranchPath(branch);
 	}
 
@@ -67,6 +72,7 @@ public class PermissionController {
 	@PreAuthorize("hasPermission('ADMIN', #branch)")
 	public void setBranchRoleGroups(@PathVariable String branch, @PathVariable String role, @RequestBody UserGroupsPojo userGroupsPojo) {
 		branch = BranchPathUriUtil.decodePath(branch);
+		verifyBranch(branch);
 		permissionService.setBranchRoleGroups(branch, role, userGroupsPojo.getUserGroups());
 	}
 
@@ -75,7 +81,23 @@ public class PermissionController {
 	@PreAuthorize("hasPermission('ADMIN', #branch)")
 	public void deleteBranchRole(@PathVariable String branch, @PathVariable String role) {
 		branch = BranchPathUriUtil.decodePath(branch);
+		verifyBranch(branch);
 		permissionService.deleteBranchRole(branch, role);
+	}
+
+	@Operation(summary = "Retrieve all permissions for a provided user group",
+			description = "List all permissions for a user group.")
+	@GetMapping(value = "/user-group/{userGroup}")
+	@PreAuthorize("hasPermission('ADMIN', 'global')")
+	@JsonView(value = View.Component.class)
+	public List<PermissionRecord> findUserGroupPermissions(@PathVariable String userGroup) {
+		return permissionService.findUserGroupPermissions(userGroup);
+	}
+
+	private void verifyBranch (String branch) {
+		if (branch !=null && !branchService.exists(branch)) {
+			throw new IllegalStateException("Branch '" + branch + "' does not exist.");
+		}
 	}
 
 }
