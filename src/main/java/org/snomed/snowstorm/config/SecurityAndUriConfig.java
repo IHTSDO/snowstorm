@@ -127,8 +127,8 @@ public class SecurityAndUriConfig {
 				"/mrcm/(.*)/concept-model-attribute-hierarchy",
 				"/admin/(.*)/actions/.*",
 				"/admin/permissions/(.*)/role/.*",
-				"/admin/permissions/(.*)"
-		));
+				"/admin/permissions/(((?!user-group).)(.*))"
+				));
 	}
 
 	@Bean
