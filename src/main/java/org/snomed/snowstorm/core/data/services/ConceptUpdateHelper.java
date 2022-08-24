@@ -431,7 +431,7 @@ public class ConceptUpdateHelper extends ComponentService {
 			//So we're safe to reuse anything we can 
 			for (Map.Entry<String, Set<String>> memberEntry : membersRequired.entrySet()) {
 				String refsetId = memberEntry.getKey();
-				Set<String> newValuesRequired = memberEntry.getValue();
+				Set<String> newValuesRequired = new HashSet<>(memberEntry.getValue());
 				for (String newValueRequired : newValuesRequired) {
 					for (ReferenceSetMember existingMember : existingMembers) {
 						//As long as we've not already reused this member!
