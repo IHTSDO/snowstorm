@@ -155,6 +155,7 @@ public class DescriptionController {
 	@GetMapping(value = "{branch}/descriptions")
 	@JsonView(value = View.Component.class)
 	public ItemsPage<Description> findDescriptions(@PathVariable String branch,
+			@RequestParam(required = false) @Parameter(description = "Set of description ids to match") Set<String> descriptionIds,
 			@RequestParam(required = false) @Parameter(description = "The concept id to match") String conceptId,
 			@RequestParam(required = false) @Parameter(description = "Set of concept ids to match") Set<String> conceptIds,
 			@RequestParam(defaultValue = "0") int offset, @RequestParam(defaultValue = "50") int limit) {
@@ -164,7 +165,7 @@ public class DescriptionController {
 		if(isNotBlank(conceptId)) {
 			conceptIds.add(conceptId);
 		}
-		return new ItemsPage<>(descriptionService.findDescriptions(branch, null, null, unmodifiableSet(conceptIds), ControllerHelper.getPageRequest(offset, limit)));
+		return new ItemsPage<>(descriptionService.findDescriptions(branch, null, descriptionIds, unmodifiableSet(conceptIds), ControllerHelper.getPageRequest(offset, limit)));
 	}
 
 	@GetMapping(value = "{branch}/descriptions/{descriptionId}")
