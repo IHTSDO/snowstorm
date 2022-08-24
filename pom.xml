@@ -2,11 +2,11 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
 	<modelVersion>4.0.0</modelVersion>
 
-	<name>Snowstorm</name>
-	<description>SNOMED CT Terminology Server Using Elasticsearch</description>
+	<name>Snowstorm X</name>
+	<description>Terminology Server using Elasticsearch with advanced SNOMED CT features</description>
 
 	<groupId>org.snomed</groupId>
-	<artifactId>snowstorm</artifactId>
+	<artifactId>snowstorm-x</artifactId>
 	<version>8.0.1-SNAPSHOT</version>
 	<parent>
 		<groupId>org.springframework.boot</groupId>
