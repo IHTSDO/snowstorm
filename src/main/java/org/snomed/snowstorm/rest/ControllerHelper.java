@@ -40,6 +40,7 @@ public class ControllerHelper {
 	private static final Pattern LANGUAGE_PATTERN = Pattern.compile("([a-z]{2})");
 	private static final Pattern LANGUAGE_AND_REFSET_PATTERN = Pattern.compile("([a-z]{2})-x-(" + IdentifierService.SCTID_PATTERN + ")");
 	private static final Pattern LANGUAGE_AND_DIALECT_PATTERN = Pattern.compile("([a-z]{2})-([a-z]{2})");
+	private static final Pattern LANGUAGE_AND_DIALECT_AND_CONTEXT_PATTERN = Pattern.compile("([a-z]{2})-([a-z]{2})-([a-z]+)");
 	private static final Pattern LANGUAGE_AND_DIALECT_AND_REFSET_PATTERN = Pattern.compile("([a-z]{2})-([a-z]{2,5})-x-(" + IdentifierService.SCTID_PATTERN + ")");
 	public static final String IS_A_REQUIRED_PARAMETER = " is a required parameter.";
 
@@ -184,7 +185,7 @@ public class ControllerHelper {
 			} else if ((matcher = LANGUAGE_AND_REFSET_PATTERN.matcher(value)).matches()) {
 				languageCode = matcher.group(1);
 				languageReferenceSet = parseLong(matcher.group(2));
-			} else if ((matcher = LANGUAGE_AND_DIALECT_PATTERN.matcher(value)).matches()) {
+			} else if ((matcher = LANGUAGE_AND_DIALECT_PATTERN.matcher(value)).matches() || (matcher = LANGUAGE_AND_DIALECT_AND_CONTEXT_PATTERN.matcher(value)).matches()) {
 				languageCode = matcher.group(1);
 				languageReferenceSet = DialectConfigurationService.instance().findRefsetForDialect(value); 
 			} else if ((matcher = LANGUAGE_AND_DIALECT_AND_REFSET_PATTERN.matcher(value)).matches()) {
