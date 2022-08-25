@@ -152,6 +152,10 @@ public class PermissionService {
 		setGlobalOrBranchRoleGroups(false, branch, role, Collections.emptySet());
 	}
 
+	public List<PermissionRecord> findUserGroupPermissions(String userGroup) {
+		return repository.findByUserGroups(userGroup, PAGE_REQUEST).getContent();
+	}
+
 	private void setGlobalOrBranchRoleGroups(boolean global, String branch, String role, Set<String> userGroups) {
 		if (!userGroups.isEmpty()) {
 			PermissionRecord permissionRecord = findByGlobalPathAndRole(global, branch, role).orElse(new PermissionRecord(role, branch));

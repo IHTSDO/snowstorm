@@ -2,7 +2,6 @@ package org.snomed.snowstorm.core.data.repositories;
 
 import org.snomed.snowstorm.core.data.domain.security.PermissionRecord;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.elasticsearch.repository.ElasticsearchRepository;
 
@@ -15,4 +14,7 @@ public interface PermissionRecordRepository extends ElasticsearchRepository<Perm
 	Page<PermissionRecord> findByGlobal(boolean global, Pageable pageable);
 
 	Optional<PermissionRecord> findByGlobalAndPathAndRole(boolean global, String branch, String role);
+
+	Page<PermissionRecord> findByUserGroups(String userGroup, Pageable pageable);
+
 }
