@@ -2,6 +2,7 @@ package org.snomed.snowstorm.validation.domain;
 
 import org.ihtsdo.drools.domain.OntologyAxiom;
 import org.snomed.snowstorm.core.data.domain.Concept;
+import org.snomed.snowstorm.core.data.domain.Concepts;
 
 import java.util.Collection;
 import java.util.Collections;
@@ -13,6 +14,7 @@ public class DroolsConcept implements org.ihtsdo.drools.domain.Concept {
 	private final Concept concept;
 	private final Set<DroolsDescription> descriptions;
 	private final Set<DroolsRelationship> relationships;
+	private final Set<DroolsOntologyAxiom> ontologyAxioms;
 
 	public DroolsConcept(Concept concept) {
 		this.concept = concept;
@@ -34,6 +36,7 @@ public class DroolsConcept implements org.ihtsdo.drools.domain.Concept {
 			});
 		}
 
+		ontologyAxioms = new HashSet<>();
 		if (concept.getClassAxioms() != null) {
 			concept.getClassAxioms().forEach(axiom -> {
 				axiom.getRelationships().forEach(r -> {
@@ -42,6 +45,7 @@ public class DroolsConcept implements org.ihtsdo.drools.domain.Concept {
 					r.setModuleId(axiom.getModuleId());
 					relationships.add(new DroolsRelationship(axiom.getAxiomId(), false, r));
 				});
+				ontologyAxioms.add(new DroolsOntologyAxiom(axiom.getId(), axiom.isActive(), Concepts.definitionStatusNames.get(Concepts.PRIMITIVE).equals(axiom.getDefinitionStatus()), conceptId, axiom.getModuleId()));
 			});
 		}
 		if (concept.getGciAxioms() != null) {
@@ -51,9 +55,9 @@ public class DroolsConcept implements org.ihtsdo.drools.domain.Concept {
 					r.setActive(axiom.isActive());
 					relationships.add(new DroolsRelationship(axiom.getAxiomId(), true, r));
 				});
+				ontologyAxioms.add(new DroolsOntologyAxiom(axiom.getId(), axiom.isActive(), Concepts.definitionStatusNames.get(Concepts.PRIMITIVE).equals(axiom.getDefinitionStatus()), conceptId, axiom.getModuleId()));
 			});
 		}
-		// TODO: Validate 'ontology axioms' when these are implemented. e.g. property chains.
 	}
 
 	@Override
@@ -73,7 +77,7 @@ public class DroolsConcept implements org.ihtsdo.drools.domain.Concept {
 
 	@Override
 	public Collection<? extends OntologyAxiom> getOntologyAxioms() {
-		return Collections.emptySet();
+		return ontologyAxioms;
 	}
 
 	@Override
