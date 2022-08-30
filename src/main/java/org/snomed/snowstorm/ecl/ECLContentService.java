@@ -325,7 +325,7 @@ public class ECLContentService {
 	private void applyEffectiveTimeFilters(List<EffectiveTimeFilter> effectiveTimeFilters, BoolQueryBuilder componentFilterQuery) {
 		for (EffectiveTimeFilter effectiveTimeFilter : orEmpty(effectiveTimeFilters)) {
 			NumericComparisonOperator operator = effectiveTimeFilter.getOperator();
-			Set<Integer> effectiveTimes = effectiveTimeFilter.getEffectiveTime();
+			List<Integer> effectiveTimes = effectiveTimeFilter.getEffectiveTime();
 			BoolQueryBuilder query = boolQuery();
 			String effectiveTimeField = SnomedComponent.Fields.EFFECTIVE_TIME;
 			addNumericConstraint(operator, effectiveTimeField, effectiveTimes, query);

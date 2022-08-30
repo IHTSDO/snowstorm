@@ -160,10 +160,10 @@ public class ConceptUpdateHelper extends ComponentService {
 				}
 
 				// Create or update concept inactivation indicator refset members based on the json inactivation map
-				updateInactivationIndicator(newVersionConcept, existingConcept, existingConceptFromParent, refsetMembersToPersist, Concepts.CONCEPT_INACTIVATION_INDICATOR_REFERENCE_SET, defaultModuleId);
+				updateInactivationIndicator(newVersionConcept, existingConcept, existingConceptFromParent, refsetMembersToPersist, Concepts.CONCEPT_INACTIVATION_INDICATOR_REFERENCE_SET, defaultModuleId, rebaseConflictSave);
 
 				// Create or update concept historical association refset members based on the json inactivation map
-				updateAssociations(newVersionConcept, existingConcept, existingConceptFromParent, refsetMembersToPersist, defaultModuleId);
+				updateAssociations(newVersionConcept, existingConcept, existingConceptFromParent, refsetMembersToPersist, defaultModuleId, rebaseConflictSave);
 
 				for (Description description : newVersionConcept.getDescriptions()) {
 					if (description.isActive()) {
@@ -195,10 +195,10 @@ public class ConceptUpdateHelper extends ComponentService {
 
 				// Description inactivation indicator changes
 				updateInactivationIndicator(description, existingDescription, existingDescriptionFromParent, refsetMembersToPersist,
-						Concepts.DESCRIPTION_INACTIVATION_INDICATOR_REFERENCE_SET, defaultModuleId);
+						Concepts.DESCRIPTION_INACTIVATION_INDICATOR_REFERENCE_SET, defaultModuleId, rebaseConflictSave);
 
 				// Description association changes
-				updateAssociations(description, existingDescription, existingDescriptionFromParent, refsetMembersToPersist, defaultModuleId);
+				updateAssociations(description, existingDescription, existingDescriptionFromParent, refsetMembersToPersist, defaultModuleId, rebaseConflictSave);
 
 				// Description acceptability / language reference set changes
 				Set<ReferenceSetMember> newMembers = new HashSet<>();
@@ -312,17 +312,19 @@ public class ConceptUpdateHelper extends ComponentService {
 		validatorService.validate(concepts);
 		for (Concept concept : concepts) {
 			for (Axiom gciAxiom : Optional.ofNullable(concept.getGciAxioms()).orElse(Collections.emptySet())) {
-				boolean parentFound = false;
-				boolean attributeFound = false;
-				for (Relationship relationship : gciAxiom.getRelationships()) {
-					if (Concepts.ISA.equals(relationship.getTypeId())) {
-						parentFound = true;
-					} else {
-						attributeFound = true;
+				if (gciAxiom.isActive()) {
+					boolean parentFound = false;
+					boolean attributeFound = false;
+					for (Relationship relationship : gciAxiom.getRelationships()) {
+						if (Concepts.ISA.equals(relationship.getTypeId())) {
+							parentFound = true;
+						} else {
+							attributeFound = true;
+						}
 					}
-				}
-				if (!parentFound || !attributeFound) {
-					throw new IllegalArgumentException("The relationships of a GCI axiom must include at least one parent and one attribute.");
+					if (!parentFound || !attributeFound) {
+						throw new IllegalArgumentException("The relationships of a GCI axiom must include at least one parent and one attribute.");
+					}
 				}
 			}
 		}
@@ -332,7 +334,7 @@ public class ConceptUpdateHelper extends ComponentService {
 			SnomedComponentWithAssociations existingComponentVersion,
 			SnomedComponentWithAssociations existingComponentVersionFromParent, 
 			List<ReferenceSetMember> refsetMembersToPersist,
-			String defaultModuleId) {
+			String defaultModuleId, boolean rebaseConflictSave) {
 
 		Map<String, Set<String>> newVersionAssociations = newComponentVersion.getAssociationTargets();
 		if (newVersionAssociations == null) {
@@ -349,7 +351,7 @@ public class ConceptUpdateHelper extends ComponentService {
 		}
 
 		List<ReferenceSetMember> activeSet = updateMetadataRefset(membersRequired, ReferenceSetMember.AssociationFields.TARGET_COMP_ID, existingComponentVersion, existingComponentVersionFromParent,
-				SnomedComponentWithAssociations::getAssociationTargetMembers, newComponentVersion.getId(), newComponentVersion.getModuleId(), defaultModuleId, refsetMembersToPersist);
+				SnomedComponentWithAssociations::getAssociationTargetMembers, newComponentVersion.getId(), newComponentVersion.getModuleId(), defaultModuleId, refsetMembersToPersist, rebaseConflictSave);
 		//I don't think this is quite right, I think we also want to add the inactive members that are being persisted
 		activeSet.forEach(newComponentVersion::addAssociationTargetMember);
 	}
@@ -359,7 +361,7 @@ public class ConceptUpdateHelper extends ComponentService {
 			SnomedComponentWithInactivationIndicator existingConceptFromParent,
 			Collection<ReferenceSetMember> refsetMembersToPersist,
 			String indicatorReferenceSet,
-			String defaultModuleId) {
+			String defaultModuleId, boolean rebaseConflictSave) {
 
 		String newIndicatorName = newComponent.getInactivationIndicator();
 		final String newIndicatorId = newIndicatorName != null ? inactivationIndicatorNames.inverse().get(newIndicatorName) : null;
@@ -371,22 +373,41 @@ public class ConceptUpdateHelper extends ComponentService {
 			membersRequired.put(indicatorReferenceSet, Sets.newHashSet(newIndicatorId));
 		}
 		List<ReferenceSetMember> memberToKeep = updateMetadataRefset(membersRequired, ReferenceSetMember.AttributeValueFields.VALUE_ID, existingComponent, existingConceptFromParent, SnomedComponentWithInactivationIndicator::getInactivationIndicatorMembers,
-				newComponent.getId(), newComponent.getModuleId(), defaultModuleId, refsetMembersToPersist);
+				newComponent.getId(), newComponent.getModuleId(), defaultModuleId, refsetMembersToPersist, rebaseConflictSave);
 		memberToKeep.forEach(newComponent::addInactivationIndicatorMember);
 	}
 
 	private <T> List<ReferenceSetMember> updateMetadataRefset(Map<String, Set<String>> membersRequired, String fieldName, T existingComponent, T existingConceptFromParent,
-				Function<T, Collection<ReferenceSetMember>> getter, String refComponent, String moduleId, String defaultModuleId, Collection<ReferenceSetMember> refsetMembersToPersist) {
+				Function<T, Collection<ReferenceSetMember>> getter, String refComponent, String moduleId, String defaultModuleId, Collection<ReferenceSetMember> refsetMembersToPersist,
+				boolean rebaseConflictSave) {
 
 		List<ReferenceSetMember> existingMembers = new ArrayList<>();
+		//We think this getter give us components from the parent branch if they don't exist on the current one 
 		if (existingComponent != null) {
 			existingMembers.addAll(getter.apply(existingComponent));
 		}
 		if (existingConceptFromParent != null) {
 			existingMembers.addAll(getter.apply(existingConceptFromParent));
 		}
-		existingMembers.sort(Comparator.comparing(ReferenceSetMember::getReleasedEffectiveTime, Comparator.nullsLast(Comparator.reverseOrder())).thenComparing(ReferenceSetMember::isActive));
-
+		
+		//If we have exactly the same internal document object coming from the current branch as the parent (ie we're actually seeing the 
+		//parent object twice), then we can de-duplicate that now - there's no need to save something that is unchanged.
+		//That would just cause the module to jump (in an extension)
+		
+		//However, in a rebase we _will_ end up with duplicate refset members if we don't mark these duplicates,
+		//but I don't understand why - just doing what needs to be done to make the unit tests pass. :-(
+		if (rebaseConflictSave) {
+			existingMembers = existingMembers.stream()
+					.sorted(Comparator.comparing(ReferenceSetMember::getReleasedEffectiveTime, Comparator.nullsLast(Comparator.reverseOrder())).thenComparing(ReferenceSetMember::isActive))
+					.collect(Collectors.toList());
+		} else {
+			existingMembers = existingMembers.stream()
+					.sorted(Comparator.comparing(ReferenceSetMember::getInternalId))
+					.distinct()
+					.sorted(Comparator.comparing(ReferenceSetMember::getReleasedEffectiveTime, Comparator.nullsLast(Comparator.reverseOrder())).thenComparing(ReferenceSetMember::isActive))
+					.collect(Collectors.toList());
+		}
+		
 		final List<ReferenceSetMember> toKeep = new ArrayList<>();
 		final List<ReferenceSetMember> notNeeded = new ArrayList<>();
 
@@ -410,7 +431,7 @@ public class ConceptUpdateHelper extends ComponentService {
 			//So we're safe to reuse anything we can 
 			for (Map.Entry<String, Set<String>> memberEntry : membersRequired.entrySet()) {
 				String refsetId = memberEntry.getKey();
-				Set<String> newValuesRequired = memberEntry.getValue();
+				Set<String> newValuesRequired = new HashSet<>(memberEntry.getValue());
 				for (String newValueRequired : newValuesRequired) {
 					for (ReferenceSetMember existingMember : existingMembers) {
 						//As long as we've not already reused this member!
@@ -432,11 +453,14 @@ public class ConceptUpdateHelper extends ComponentService {
 		List<ReferenceSetMember> toPersist = new ArrayList<>();
 
 		Set<String> allIds = new HashSet<>();
+		//Get a list of components that exist both on the current branch AND the parent branch
+		//But they'll have different values because we de-duplicated them above
 		Set<String> duplicateIds = existingMembers.stream()
 				.map(ReferenceSetMember::getMemberId)
 				.filter(id -> !allIds.add(id))
 				.collect(Collectors.toSet());
 
+		//Members to keep will all be made active, if they're not already
 		for (ReferenceSetMember member : toKeep) {
 			if (!member.isActive() || duplicateIds.contains(member.getMemberId()) || member.isChanged()) {
 				member.setActive(true);
@@ -598,28 +622,30 @@ public class ConceptUpdateHelper extends ComponentService {
 			if (existingComponent != null) {
 				newComponent.setCreating(false);// May have been set true earlier
 				newComponent.copyReleaseDetails(existingComponent, rebaseParentExistingComponentMap.get(newComponent.getId()));
-				newComponent.updateEffectiveTime();
 			} else {
 				newComponent.setCreating(true);
 				newComponent.clearReleaseDetails();
 			}
-			
-			
-			//Any change to a component in an extension needs to be done in the default module
-			if (newComponent.isComponentChanged(existingComponent) && (defaultModuleId != null &&
-					!defaultModuleId.equals(Concepts.CORE_MODULE))) {
+
+			// Any change to a component in an extension needs to be done in the default module
+			if (newComponent.isComponentChanged(existingComponent) && (defaultModuleId != null && !defaultModuleId.equals(Concepts.CORE_MODULE))) {
 				newComponent.setModuleId(defaultModuleId);
 			}
 
-			// Trying Concept module in attempt to restore effective time for the case
-			// where content has changed and then been reverted.
-			if (shouldRestoreDefaultModuleId(defaultModuleId, existingComponent, newComponent)) {
-				logger.trace("Setting module of {} to be same as Concept.", newComponent.getId());
+			// Update effective time
+			newComponent.updateEffectiveTime();
+
+			// Trying concept module in attempt to restore effective time
+			// for the case where content has changed and then been reverted.
+			if (defaultModuleId != null && newComponent.getEffectiveTime() == null) {
+				logger.trace("Setting module of {} to be same as concept: {}.", newComponent.getId(), newConcept.getModuleId());
 				newComponent.setModuleId(newConcept.getModuleId());
 				newComponent.updateEffectiveTime();
 				if (newComponent.getEffectiveTime() == null) {
-					logger.trace("Setting module of {} to be same as branch default.", newComponent.getId());
+					// If effective time is still null then revert the change of module back to the branch default
+					logger.trace("Setting module of {} to be same as branch default: {}.", newComponent.getId(), defaultModuleId);
 					newComponent.setModuleId(defaultModuleId);
+					newComponent.updateEffectiveTime();
 				}
 			}
 		}
@@ -652,55 +678,6 @@ public class ConceptUpdateHelper extends ComponentService {
 
 			}
 		});
-	}
-
-	private <C extends SnomedComponent<?>> boolean shouldRestoreDefaultModuleId(String defaultModuleId, C existingComponent, C newComponent) {
-		// Can't restore if nothing to restore to
-		if (defaultModuleId == null) {
-			return false;
-		}
-
-		// If modified anything other than Description, restore
-		if (!(existingComponent instanceof Description)) {
-			return true;
-		}
-
-		Description existingDescription = (Description) existingComponent;
-		Description newDescription = (Description) newComponent;
-
-		// Has the active state changed?
-		boolean existingActive = existingDescription.isActive();
-		boolean newActive = newDescription.isActive();
-		boolean differentActive = existingActive != newActive;
-		if (differentActive) {
-			return true;
-		}
-
-		// Has the term changed?
-		String existingTerm = existingDescription.getTerm();
-		String newTerm = newDescription.getTerm();
-		boolean differentTerm = existingTerm != null && !existingTerm.equals(newTerm);
-		if (differentTerm) {
-			return true;
-		}
-
-		// Has the type changed?
-		String existingType = existingDescription.getType();
-		String newType = newDescription.getType();
-		boolean differentType = existingType != null && !existingType.equals(newType);
-		if (differentType) {
-			return true;
-		}
-
-		// Has the case significance changed?
-		String existingCaseSignificance = existingDescription.getCaseSignificanceId();
-		String newCaseSignificance = newDescription.getCaseSignificanceId();
-		boolean differentCaseSignificance = existingCaseSignificance != null && !existingCaseSignificance.equals(newCaseSignificance);
-		if (differentCaseSignificance) {
-			return true;
-		}
-
-		return false;
 	}
 
 	@SuppressWarnings("unchecked")

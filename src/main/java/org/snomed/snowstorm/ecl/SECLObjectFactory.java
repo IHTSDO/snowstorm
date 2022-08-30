@@ -15,7 +15,7 @@ import org.snomed.snowstorm.ecl.domain.expressionconstraint.SSubExpressionConstr
 import org.snomed.snowstorm.ecl.domain.filter.*;
 import org.snomed.snowstorm.ecl.domain.refinement.*;
 
-import java.util.Set;
+import java.util.List;
 
 public class SECLObjectFactory extends ECLObjectFactory {
 
@@ -80,7 +80,7 @@ public class SECLObjectFactory extends ECLObjectFactory {
 	}
 
 	@Override
-	public EffectiveTimeFilter getEffectiveTimeFilter(NumericComparisonOperator operator, Set<Integer> effectiveTimes) {
+	public EffectiveTimeFilter getEffectiveTimeFilter(NumericComparisonOperator operator, List<Integer> effectiveTimes) {
 		return new SEffectiveTimeFilter(operator, effectiveTimes);
 	}
 

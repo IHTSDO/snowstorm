@@ -29,7 +29,7 @@ import java.util.Map;
 
 @ExtendWith(SpringExtension.class)
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, classes = FHIRTestConfig.class)
-@ActiveProfiles("test")
+@ActiveProfiles({"test", "fhir-test"})
 public class AbstractFHIRTest {
 
 	@LocalServerPort

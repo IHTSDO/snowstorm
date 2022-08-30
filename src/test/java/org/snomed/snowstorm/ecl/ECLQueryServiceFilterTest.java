@@ -29,7 +29,6 @@ import static org.snomed.snowstorm.core.data.domain.Concepts.REFSET_SAME_AS_ASSO
 
 @ExtendWith(SpringExtension.class)
 @ContextConfiguration(classes = ECLQueryServiceFilterTestConfig.class)
-@DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 class ECLQueryServiceFilterTest {
 
 	@Autowired
@@ -107,6 +106,13 @@ class ECLQueryServiceFilterTest {
 
 		ecl = "< 64572001 |Disease| {{ term = wild:\"card*pathy\"}}";
 		assertEquals(newHashSet("698271000"), select(ecl));
+	}
+
+	@Test
+	// ISTO-42
+	void testNotOverEagerCaching() {
+		assertEquals(4, select("< 64572001 |Disease| {{ D active = 1 }}").size());
+		assertEquals(1, select("< 64572001 |Disease| {{ D active = 0 }}").size());
 	}
 
 	@Test

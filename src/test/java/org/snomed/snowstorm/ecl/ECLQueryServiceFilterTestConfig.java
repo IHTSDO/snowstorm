@@ -20,7 +20,7 @@ import static io.kaicode.elasticvc.domain.Branch.MAIN;
 import static org.snomed.snowstorm.TestConcepts.DISORDER;
 import static org.snomed.snowstorm.core.data.domain.Concepts.*;
 
-public class ECLQueryServiceFilterTestConfig extends TestConfig {
+public class ECLQueryServiceFilterTestConfig extends ECLQueryTestConfig {
 
 	private static final String DEF_STATUS = "900000000000444006";
 	private static final String MODULE = "900000000000443000";
@@ -28,27 +28,9 @@ public class ECLQueryServiceFilterTestConfig extends TestConfig {
 	public static final String IPS_REFSET = "816080008";
 	public static final String ICD_MAP_REFSET = "447562003";
 
-	@Autowired
-	private BranchService branchService;
-
-	@Autowired
-	private ConceptService conceptService;
-
-	@Autowired
-	private ReferenceSetMemberService memberService;
-
-	@Autowired
-	private CodeSystemService codeSystemService;
-
-	@Autowired
-	private ClassificationService classificationService;
-
-	@Autowired
-	private PermissionService permissionService;
-
 	@PostConstruct
 	public void beforeAll() throws ServiceException, InterruptedException {
-		tearDown();
+		deleteAll();
 		branchService.create(MAIN);
 
 		List<Concept> allConcepts = new ArrayList<>();
@@ -78,6 +60,9 @@ public class ECLQueryServiceFilterTestConfig extends TestConfig {
 						.addLanguageRefsetMember(GB_EN_LANG_REFSET, ACCEPTABLE))
 				.addDescription(new Description("hjärtsjukdom").setLanguageCode("sv").setType("SYNONYM")
 						.addLanguageRefsetMember("46011000052107", PREFERRED))
+				.addDescription(new Description("Heart_disease_inactive").setActive(false)
+						.addLanguageRefsetMember(US_EN_LANG_REFSET, PREFERRED)
+						.addLanguageRefsetMember(GB_EN_LANG_REFSET, ACCEPTABLE))
 				.addRelationship(ISA, DISORDER));
 		createConceptsAndVersionCodeSystem(allConcepts, 20210131);
 		allConcepts.add(new Concept("100003").setModuleId(MODULE_A).setDefinitionStatusId(DEFINED).addDescription(new Description( "Cardiac arrest (disorder)"))
@@ -154,14 +139,4 @@ public class ECLQueryServiceFilterTestConfig extends TestConfig {
 	private List<Concept> newMetadataConcepts(String... conceptIds) {
 		return Arrays.stream(conceptIds).map(id -> new Concept(id).addRelationship(new Relationship(ISA, SNOMEDCT_ROOT))).collect(Collectors.toList());
 	}
-
-	@PreDestroy
-	public void tearDown() throws InterruptedException {
-		branchService.deleteAll();
-		conceptService.deleteAll();
-		codeSystemService.deleteAll();
-		classificationService.deleteAll();
-		permissionService.deleteAll();
-	}
-
 }

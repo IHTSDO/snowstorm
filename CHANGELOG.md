@@ -2,6 +2,24 @@
 All notable changes to this project will be documented in this file.
 
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+## 7.9.3 Release (June 2022)
+### Breaking
+  - ISTO-16 Add support for ECL 2.0.
+### Features
+  - MAINT-1644 Concepts donation via ECL.
+
+### Improvements
+  - MAINT-1960 Prevent SCTID cache setup for new partition/namespace if original request for identifiers fails.
+  - MAINT-1945 Updated logic of DescriptionDroolsValidationService when finding the parents that not containing a specific semantic tag.
+  - ISTO-32 Separate test indices for FHIR. This avoids branch already exists error when the FHIR test context does not tear down fast enough.
+  - FRI-460 Only returns versions of a code system when the date of release is after the current date.
+  - FRI-123 Add CommitServiceHookClient to ClassificationService
+
+### Fixes
+  - MAINT-1968 Fix code quality warnings and remove unused variables reported by LGTM.
+  - MAINT-1991 Delete temp file after RF2 import is done to avoid concurrency issue.
+  - FRI-444 Log components from the parent branch in traceability activities when changes on task are discarded during rebase.
+
 
 ## 7.8.0 Release (May 2022)
 Maintenance release with bug fixes and improvements.

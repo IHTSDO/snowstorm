@@ -24,6 +24,7 @@ import org.springframework.data.domain.PageRequest;
 
 import java.util.*;
 import java.util.function.Consumer;
+import java.util.stream.Collectors;
 
 import static com.google.common.collect.Sets.newHashSet;
 import static java.lang.Long.parseLong;
@@ -174,7 +175,7 @@ public class SSubExpressionConstraint extends SubExpressionConstraint implements
 			// Cache results before applying filters, apart from member queries with field filters.
 			Collection<Long> prefetchedConceptIds = null;
 			if (operator == Operator.memberOf && (memberFilterConstraints != null || triedCache)) {
-				// If there is a member filter constraint we can assume the reulsts set will be fairly small / not reusable.
+				// If there is a member filter constraint we can assume the results set will be fairly small / not reusable.
 				// If there are no filters this
 				// Fetch without cache.
 				prefetchedConceptIds = doAddCriteria(refinementBuilder, query);
@@ -190,7 +191,9 @@ public class SSubExpressionConstraint extends SubExpressionConstraint implements
 
 				// Apply filter constraints
 				if (getConceptFilterConstraints() != null) {
-					conceptIdSortedSet = new LongLinkedOpenHashSet(eclContentService.applyConceptFilters(getConceptFilterConstraints(), conceptIdSortedSet, branchCriteria, stated));
+					Set<Long> results = eclContentService.applyConceptFilters(getConceptFilterConstraints(), conceptIdSortedSet, branchCriteria, stated);
+					// Need to keep the original order
+					conceptIdSortedSet = new LongLinkedOpenHashSet(conceptIdSortedSet.stream().filter(c -> results.contains(c)).collect(Collectors.toList()));
 				}
 				if (getDescriptionFilterConstraints() != null) {
 					// For each filter constraint all sub-filters (term, language, etc) must apply.
@@ -354,6 +357,23 @@ public class SSubExpressionConstraint extends SubExpressionConstraint implements
 	public StringBuffer toString(StringBuffer buffer) {
 		if (operator != null) {
 			buffer.append(operator.getText()).append(" ");
+			if (operator == Operator.memberOf) {
+				boolean returnAllMemberFields = isReturnAllMemberFields();
+				List<String> memberFieldsToReturn = getMemberFieldsToReturn();
+				if (returnAllMemberFields) {
+					buffer.append("[*] ");
+				} else if (memberFieldsToReturn != null && !memberFieldsToReturn.isEmpty()) {
+					buffer.append("[");
+					int a = 0;
+					for (String field : memberFieldsToReturn) {
+						if (a++ > 0) {
+							buffer.append(", ");
+						}
+						buffer.append(field);
+					}
+					buffer.append("] ");
+				}
+			}
 		}
 		if (conceptId != null) {
 			buffer.append(conceptId);
@@ -370,7 +390,6 @@ public class SSubExpressionConstraint extends SubExpressionConstraint implements
 			buffer.append(" )");
 		}
 		for (ConceptFilterConstraint conceptFilterConstraint : orEmpty(conceptFilterConstraints)) {
-			System.out.println(conceptFilterConstraint.getClass().toString());
 			((SConceptFilterConstraint)conceptFilterConstraint).toString(buffer);
 		}
 		for (DescriptionFilterConstraint descriptionFilterConstraint : orEmpty(descriptionFilterConstraints)) {

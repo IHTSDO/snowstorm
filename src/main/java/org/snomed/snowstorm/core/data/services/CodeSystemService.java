@@ -61,6 +61,10 @@ public class CodeSystemService {
 	public static final String MAIN = "MAIN";
 	private static final Pattern VERSION_BRANCH_NAME_PATTERN = Pattern.compile("[0-9]{4}-[0-9]{2}-[0-9]{2}");
 
+
+	@Value("${code-systems.version.visible.after.published.date}")
+	private Set<String> codeSystemsWithVersionVisibleAfterPublishedDate;
+
 	@Autowired
 	private CodeSystemRepository repository;
 
@@ -244,7 +248,7 @@ public class CodeSystemService {
 		return version;
 	}
 
-	@PreAuthorize("hasPermission('ADMIN', #codeSystemVersion.branchPath)")
+	@PreAuthorize("hasPermission('ADMIN', #codeSystemVersion.branchPath) || hasPermission('RELEASE_ADMIN', 'global') || hasPermission('RELEASE_MANAGER', 'global')")
 	public synchronized CodeSystemVersion updateCodeSystemVersionPackage(CodeSystemVersion codeSystemVersion, String releasePackage) {
 		String shortName = codeSystemVersion.getShortName();
 		Integer effectiveDate = codeSystemVersion.getEffectiveDate();
@@ -474,6 +478,18 @@ public class CodeSystemService {
 		return null;
 	}
 
+	public CodeSystemVersion findVersion(String branchPath) {
+		String codeSystemPath = PathUtil.getParentPath(branchPath);
+		if (codeSystemPath == null) {
+			return null;
+		}
+		Optional<CodeSystem> codeSystem = findByBranchPath(codeSystemPath);
+		if (codeSystem.isEmpty()) {
+			return null;
+		}
+		return findVersion(codeSystem.get().getShortName(), branchPath.substring(codeSystemPath.length() + 1));
+	}
+
 	public List<CodeSystemVersion> findAllVersions(String shortName, boolean includeFutureVersions, boolean includeInternalReleases) {
 		return findAllVersions(shortName, true, includeFutureVersions, includeInternalReleases);
 	}
@@ -487,7 +503,7 @@ public class CodeSystemService {
 		}
 		int todaysEffectiveTime = DateUtil.getTodaysEffectiveTime();
 		return content.stream()
-				.filter(version -> includeFutureVersions || version.getEffectiveDate() < todaysEffectiveTime)
+				.filter(version -> includeFutureVersions || (codeSystemsWithVersionVisibleAfterPublishedDate.contains(shortName) ? version.getEffectiveDate() < todaysEffectiveTime : version.getEffectiveDate() <= todaysEffectiveTime))
 				.filter(version -> includeInternalReleases || !version.isInternalRelease())
 				.collect(Collectors.toList());
 	}

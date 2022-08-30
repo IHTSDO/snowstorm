@@ -1,7 +1,7 @@
 # Snowstorm Configuration Guide
 
 ## Overview
-Snowstorm uses the Spring Boot framework so this [general information about Spring Boot configuration](https://docs.spring.io/spring-boot/docs/2.0.1.RELEASE/reference/htmlsingle/#boot-features-external-config) is recommended.
+Snowstorm uses the Spring Boot framework so this [general information about Spring Boot configuration](https://docs.spring.io/spring-boot/docs/2.7.0.RELEASE/reference/htmlsingle/#boot-features-external-config) is recommended.
 
 See also: 
 - [Security Configuration Guide](security-configuration.md)
@@ -24,7 +24,7 @@ snowstorm.rest-api.readonly=true
 ```
 Then start Snowstorm with an extra JVM parameter:
 ```bash
---spring.config.location=application-local.properties
+--spring.config.additional-location=application-local.properties
 ```
 
 ### Using command line arguments

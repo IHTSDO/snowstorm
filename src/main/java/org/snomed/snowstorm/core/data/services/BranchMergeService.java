@@ -458,7 +458,6 @@ public class BranchMergeService {
 
 		// Hide duplicate components in extension module if extension components have the most recent released effective time
 		// End duplicate components in extension module if international components have the most recent released effective time
-		List<String> internalIdsToHide = new ArrayList<>();
 		for (List<String> duplicateIdsBatch : Iterables.partition(duplicateIds, 10_000)) {
 			// International versions
 			List<? extends SnomedComponent> intVersions = elasticsearchTemplate.search(new NativeSearchQueryBuilder()
@@ -492,7 +491,6 @@ public class BranchMergeService {
 				} else {
 					// Hide parent version
 					commit.addVersionsReplaced(Collections.singleton(intVersion.getInternalId()), clazz);
-					internalIdsToHide.add(intVersion.getInternalId());
 				}
 			}
 		}
