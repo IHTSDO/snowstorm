@@ -2,7 +2,7 @@ package org.snomed.snowstorm.fhir.config;
 
 import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.rest.api.EncodingEnum;
-import org.snomed.snowstorm.fhir.services.FHIRAddBundleServlet;
+import org.snomed.snowstorm.fhir.services.FHIRLoadPackageServlet;
 import org.snomed.snowstorm.fhir.services.HapiParametersMapper;
 import org.springframework.boot.web.servlet.ServletRegistrationBean;
 import org.springframework.context.annotation.Bean;
@@ -34,8 +34,8 @@ public class FHIRConfig {
 	}
 
 	@Bean
-	public ServletRegistrationBean<FHIRAddBundleServlet> addBundleServlet() throws IOException {
-		ServletRegistrationBean<FHIRAddBundleServlet> registrationBean = new ServletRegistrationBean<>(new FHIRAddBundleServlet(), "/fhir-admin/addBundle");
+	public ServletRegistrationBean<FHIRLoadPackageServlet> addBundleServlet() throws IOException {
+		ServletRegistrationBean<FHIRLoadPackageServlet> registrationBean = new ServletRegistrationBean<>(new FHIRLoadPackageServlet(), "/fhir-admin/load-package");
 		registrationBean.setMultipartConfig(
 				new MultipartConfigElement(Files.createTempDirectory("fhir-bundle-upload").toFile().getAbsolutePath(), MB_IN_BYTES * 200, MB_IN_BYTES * 200, 0));
 		return registrationBean;
