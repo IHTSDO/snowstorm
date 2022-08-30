@@ -29,7 +29,7 @@ import java.util.stream.Collectors;
 import static java.lang.String.format;
 
 @Service
-public class FHIRAddBundleService {
+public class FHIRLoadPackageService {
 
 	@Autowired
 	private ObjectMapper mapper;

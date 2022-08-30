@@ -3,7 +3,6 @@ package org.snomed.snowstorm.fhir.services;
 import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.parser.IParser;
 import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.tomcat.util.http.fileupload.util.Streams;
 import org.hl7.fhir.r4.model.OperationOutcome;
 import org.springframework.web.context.WebApplicationContext;
@@ -25,24 +24,21 @@ import java.util.HashSet;
 import java.util.Set;
 import java.util.UUID;
 
-public class FHIRAddBundleServlet extends HttpServlet {
+public class FHIRLoadPackageServlet extends HttpServlet {
 
 	private static final String MULTIPART_FORM_DATA = "multipart/form-data";
 	private static final TypeReference<Set<String>> STRING_SET_TYPE_REF = new TypeReference<>() {};
 
-	private FHIRAddBundleService service;
+	private FHIRLoadPackageService service;
 
 	private FhirContext fhirContext;
-
-	private ObjectMapper mapper;
 
 	@Override
 	public void init(ServletConfig config) throws ServletException {
 		final WebApplicationContext applicationContext =
 				WebApplicationContextUtils.getWebApplicationContext(config.getServletContext());
 
-		service = applicationContext.getBean(FHIRAddBundleService.class);
-		mapper = applicationContext.getBean(ObjectMapper.class);
+		service = applicationContext.getBean(FHIRLoadPackageService.class);
 		fhirContext = applicationContext.getBean(FhirContext.class);
 	}
 
