@@ -44,8 +44,25 @@ Please assign a unique URL for the code system. Here is an example import comman
 hapi-fhir-cli upload-terminology -d custom_code_system.zip -v r4 -t http://localhost:8080/fhir -u http://example.com/lab-codes
 ```
 
+## Loading FHIR Packages
+To load resources from a FHIR package first download the package from a package registry.
+For example:
+```
+npm --registry https://packages.simplifier.net pack hl7.terminology.r4@3.1.0
+```
+Then upload the package to Snowstorm including a list of resource urls to load:
+```
+curl --form file=@hl7.terminology.r4-3.1.0.tgz \
+  --form resourceUrls="http://terminology.hl7.org/CodeSystem/v3-ActPriority" \
+  --form resourceUrls="http://terminology.hl7.org/CodeSystem/appointment-cancellation-reason" \
+  http://localhost:8080/fhir-admin/load-package
+```
+All resources within a package can be loaded using `--form resourceUrls='*'`.
+
+Currently only CodeSystem type resources can be loaded via FHIR package.
+
 ## Examples
-Use Postman to try out some of the FHIR API calls.
+Use Postman to try out FHIR API calls.
 
 [![Run in Postman](https://run.pstmn.io/button.svg)](https://documenter.getpostman.com/view/1181409/UzXKVdhM)
 
