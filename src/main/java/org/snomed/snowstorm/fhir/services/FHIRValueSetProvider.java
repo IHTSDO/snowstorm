@@ -3,6 +3,7 @@ package org.snomed.snowstorm.fhir.services;
 import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.rest.annotation.*;
 import ca.uhn.fhir.rest.api.MethodOutcome;
+import ca.uhn.fhir.rest.api.server.RequestDetails;
 import ca.uhn.fhir.rest.param.QuantityParam;
 import ca.uhn.fhir.rest.param.StringParam;
 import ca.uhn.fhir.rest.param.TokenParam;
@@ -89,9 +90,7 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 
 	//See https://www.hl7.org/fhir/valueset.html#search
 	@Search
-	public List<ValueSet> findValueSets(
-			HttpServletRequest theRequest,
-			HttpServletResponse theResponse,
+	public Bundle findValueSets(
 			@OptionalParam(name="_id") String id,
 			@OptionalParam(name="code") String code,
 			@OptionalParam(name="context") TokenParam context,
@@ -108,7 +107,8 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 			@OptionalParam(name="status") String status,
 			@OptionalParam(name="title") StringParam title,
 			@OptionalParam(name="url") UriType url,
-			@OptionalParam(name="version") StringParam version) {
+			@OptionalParam(name="version") StringParam version,
+			RequestDetails requestDetails) {
 
 		SearchFilter vsFilter = new SearchFilter()
 				.withId(id)
@@ -129,25 +129,41 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 				.withUrl(url)
 				.withVersion(version);
 
+		Bundle bundle = new Bundle();
+		bundle.setType(Bundle.BundleType.SEARCHSET);
+
 		Stream<ValueSet> stream;
 		if (url != null) {
-			stream = valuesetRepository.findAllByUrl(url.getValueAsString()).stream()
+			List<FHIRValueSet> allByUrl = valuesetRepository.findAllByUrl(url.getValueAsString());
+			stream = allByUrl.stream()
 					.map(FHIRValueSet::getHapi)
 					.filter(vs -> vsFilter.apply(vs, fhirHelper));
+			bundle.setTotal(allByUrl.size());
 
 		} else if (vsFilter.anySearchParams()) {
 			Page<FHIRValueSet> all = valueSetService.findAll(PageRequest.of(0, 10_000));
 			stream = StreamSupport.stream(all.spliterator(), false)
 					.map(FHIRValueSet::getHapi)
 					.filter(vs -> vsFilter.apply(vs, fhirHelper));
+			bundle.setTotal((int) all.getTotalElements());
 
 		} else {
-			stream = valueSetService.findAll(PageRequest.of(0, 1_000)).stream()
+			Page<FHIRValueSet> all = valueSetService.findAll(PageRequest.of(0, 1_000));
+			stream = all.stream()
 					.map(FHIRValueSet::getHapi);
+			bundle.setTotal((int) all.getTotalElements());
 		}
-		return stream
-				.peek(vs -> vs.setCompose(null))// Remove compose element from ValueSet search/listing
-				.collect(Collectors.toList());
+		String fhirServerBase = requestDetails.getFhirServerBase();
+		bundle.setEntry(stream
+				.map(vs -> {
+					vs.setCompose(null);// Remove compose element from ValueSet search/listing
+					Bundle.BundleEntryComponent component = new Bundle.BundleEntryComponent();
+					component.setFullUrl(vs.getIdElement().withServerBase(fhirServerBase, "ValueSet").getValue());
+					component.setResource(vs);
+					return component;
+				})
+				.collect(Collectors.toList()));
+		return bundle;
 	}
 
 	@Operation(name = "$expand", idempotent = true)
