@@ -4,6 +4,7 @@ import ca.uhn.fhir.jpa.entity.TermConcept;
 import ca.uhn.fhir.jpa.entity.TermConceptDesignation;
 import ca.uhn.fhir.jpa.entity.TermConceptParentChildLink;
 import ca.uhn.fhir.jpa.entity.TermConceptProperty;
+import org.hl7.fhir.r4.model.CodeSystem;
 import org.snomed.snowstorm.core.data.domain.ConceptMini;
 import org.snomed.snowstorm.core.data.domain.Description;
 import org.snomed.snowstorm.core.pojo.LanguageDialect;
@@ -15,6 +16,7 @@ import org.springframework.data.elasticsearch.annotations.Field;
 import org.springframework.data.elasticsearch.annotations.FieldType;
 
 import java.util.*;
+import java.util.stream.Collectors;
 
 import static org.snomed.snowstorm.fhir.config.FHIRConstants.SNOMED_URI;
 
@@ -61,7 +63,7 @@ public class FHIRConcept implements FHIRGraphNode {
 		active = true;
 	}
 
-	public FHIRConcept(TermConcept termConcept, FHIRCodeSystemVersion codeSystemVersion, Set<String> transitiveClosure) {
+	public FHIRConcept(TermConcept termConcept, FHIRCodeSystemVersion codeSystemVersion) {
 		this.codeSystemVersion = codeSystemVersion.getId();
 
 		code = termConcept.getCode();
@@ -83,9 +85,33 @@ public class FHIRConcept implements FHIRGraphNode {
 		for (TermConceptParentChildLink parent : termConcept.getParents()) {
 			parents.add(parent.getParent().getCode());
 		}
-
-		this.ancestors = transitiveClosure;
+		// Ancestors will be set before save
 	}
+
+
+	public FHIRConcept(CodeSystem.ConceptDefinitionComponent definitionConcept, FHIRCodeSystemVersion codeSystemVersion) {
+		this.codeSystemVersion = codeSystemVersion.getId();
+
+		code = definitionConcept.getCode();
+		setDisplay(definitionConcept.getDisplay());
+
+		active = true;
+
+		designations = definitionConcept.getDesignation().stream()
+				.map(FHIRDesignation::new)
+				.collect(Collectors.toList());
+
+		properties = new HashMap<>();
+		parents = new HashSet<>();
+		for (CodeSystem.ConceptPropertyComponent propertyComponent : definitionConcept.getProperty()) {
+			properties.computeIfAbsent(propertyComponent.getCode(), k -> new ArrayList<>()).add(new FHIRProperty(propertyComponent));
+			if (propertyComponent.getCode().equals("parent")) {
+				parents.add(propertyComponent.hasValueCoding() ? propertyComponent.getValueCoding().getCode() : propertyComponent.getCode());
+			}
+		}
+		// Ancestors will be set before save
+	}
+
 
 	public FHIRConcept(ConceptMini snomedConceptMini, FHIRCodeSystemVersion codeSystemVersion, boolean includeDesignations) {
 		this.codeSystemVersion = codeSystemVersion.getId();

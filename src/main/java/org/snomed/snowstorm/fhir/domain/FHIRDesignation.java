@@ -1,6 +1,7 @@
 package org.snomed.snowstorm.fhir.domain;
 
 import ca.uhn.fhir.jpa.entity.TermConceptDesignation;
+import org.hl7.fhir.r4.model.CodeSystem;
 import org.hl7.fhir.r4.model.Coding;
 import org.snomed.snowstorm.core.data.domain.Description;
 
@@ -36,6 +37,16 @@ public class FHIRDesignation {
 	public FHIRDesignation(String language, String value) {
 		this.language = language;
 		this.value = value;
+	}
+
+	public FHIRDesignation(CodeSystem.ConceptDefinitionDesignationComponent designation) {
+		language = designation.getLanguage();
+		value = designation.getValue();
+		setUse(designation.getUse());
+	}
+
+	public void setUse(Coding useCoding) {
+		setUse(useCoding.getSystem(), useCoding.getCode());
 	}
 
 	public void setUse(String useSystem, String useCode) {
