@@ -38,8 +38,9 @@ public class FHIRCodeSystemVersionParams {
 		return id == null && codeSystem != null && codeSystem.equals(SNOMED_URI) && snomedModule == null;
 	}
 
-	public void setVersion(String version) {
+	public FHIRCodeSystemVersionParams setVersion(String version) {
 		this.version = version;
+		return this;
 	}
 
 	public String getCodeSystem() {
