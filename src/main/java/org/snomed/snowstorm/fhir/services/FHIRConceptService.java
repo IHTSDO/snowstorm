@@ -2,14 +2,14 @@ package org.snomed.snowstorm.fhir.services;
 
 import ca.uhn.fhir.jpa.entity.TermCodeSystemVersion;
 import ca.uhn.fhir.jpa.entity.TermConcept;
-import ca.uhn.fhir.jpa.entity.TermConceptProperty;
-import ca.uhn.fhir.jpa.entity.TermConceptPropertyTypeEnum;
 import com.google.common.collect.Iterables;
 import org.elasticsearch.index.query.BoolQueryBuilder;
+import org.hl7.fhir.r4.model.CodeSystem;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.fhir.domain.FHIRCodeSystemVersion;
 import org.snomed.snowstorm.fhir.domain.FHIRConcept;
+import org.snomed.snowstorm.fhir.domain.FHIRProperty;
 import org.snomed.snowstorm.fhir.repositories.FHIRConceptRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
@@ -21,7 +21,6 @@ import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilde
 import org.springframework.stereotype.Service;
 
 import java.util.*;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import static org.snomed.snowstorm.fhir.utils.FHIRPageHelper.toPage;
@@ -31,6 +30,8 @@ public class FHIRConceptService {
 
 	private static final int SAVE_BATCH_SIZE = 500;
 	private static final int DELETE_BATCH_SIZE = 1_000;
+	public static final String PARENT = "parent";
+	public static final String CHILD = "child";
 
 	@Autowired
 	private FHIRConceptRepository conceptRepository;
@@ -42,82 +43,79 @@ public class FHIRConceptService {
 
 	public void saveAllConceptsOfCodeSystemVersion(TermCodeSystemVersion termCodeSystemVersion, FHIRCodeSystemVersion codeSystemVersion) {
 
-		// First remove any existing codes for this code system version
-		String idAndVersion = codeSystemVersion.getId();
-		Page<FHIRConcept> existingConcepts = conceptRepository.findByCodeSystemVersion(idAndVersion, PageRequest.of(0, 1));
-		long totalExisting = existingConcepts.getTotalElements();
-		logger.info("Found {} existing concepts for this code system version {}", totalExisting, idAndVersion);
-		if (totalExisting > 0) {
-			logger.info("Deleting existing codes...");
-			// Deleting by query often seems to exceed the default 30 second query timeout so we will page through them...
-			Page<FHIRConcept> codesToDelete = conceptRepository.findByCodeSystemVersion(idAndVersion, PageRequest.of(0, DELETE_BATCH_SIZE));
-			while (!codesToDelete.isEmpty()) {
-				conceptRepository.deleteByCodeSystemVersionAndCodeIn(idAndVersion, codesToDelete.getContent().stream().map(FHIRConcept::getCode).collect(Collectors.toList()));
-				codesToDelete = conceptRepository.findByCodeSystemVersion(idAndVersion, PageRequest.of(0, DELETE_BATCH_SIZE));
-			}
-			System.out.println();
-			logger.info("Existing codes deleted");
-		}
-
-		if (termCodeSystemVersion.getConcepts().isEmpty()) {
-			return;
-		}
-		Set<TermConcept> allConcepts = new HashSet<>(termCodeSystemVersion.getConcepts());
-
 		// Some code systems only return the top level concepts with getConcepts()
 		// Need to traverse down to gather ancestors for a full list of concepts to save.
+		Set<TermConcept> allTermConcepts = new HashSet<>(termCodeSystemVersion.getConcepts());
 		Set<TermConcept> gatheredChildren = new HashSet<>();
-		for (TermConcept concept : allConcepts) {
+		for (TermConcept concept : allTermConcepts) {
 			gatherChildCodes(concept, gatheredChildren);
 		}
-		allConcepts.addAll(gatheredChildren);
+		allTermConcepts.addAll(gatheredChildren);
+
+		Collection<FHIRConcept> concepts = allTermConcepts.stream()
+				.map(termConcept -> new FHIRConcept(termConcept, codeSystemVersion))
+				.collect(Collectors.toList());
+
+		saveAllConceptsOfCodeSystemVersion(codeSystemVersion, codeSystemVersion.getId(), concepts);
+	}
+
+	public void saveAllConceptsOfCodeSystemVersion(List<CodeSystem.ConceptDefinitionComponent> definitionConcepts, FHIRCodeSystemVersion codeSystemVersion) {
+		List<FHIRConcept> concepts = definitionConcepts.stream()
+				.map(definitionConcept -> new FHIRConcept(definitionConcept, codeSystemVersion))
+				.collect(Collectors.toList());
+		saveAllConceptsOfCodeSystemVersion(codeSystemVersion, codeSystemVersion.getId(), concepts);
+	}
+
+	private void saveAllConceptsOfCodeSystemVersion(FHIRCodeSystemVersion codeSystemVersion, String idWithVersion, Collection<FHIRConcept> concepts) {
+		deleteExistingCodes(idWithVersion);
+
+		if (concepts.isEmpty()) {
+			return;
+		}
 
 		FHIRGraphBuilder graphBuilder = new FHIRGraphBuilder();
 		if ("is-a".equals(codeSystemVersion.getHierarchyMeaning())) {
 			// Record transitive closure of concepts for subsumption testing
-			for (TermConcept concept : allConcepts) {
-				for (TermConcept childCode : concept.getChildCodes()) {
-					graphBuilder.addParent(childCode.getCode(), concept.getCode());
+			for (FHIRConcept concept : concepts) {
+				for (String parentCode : concept.getParents()) {
+					graphBuilder.addParent(concept.getCode(), parentCode);
 				}
 			}
 			// Add parent and child properties if missing
-			Map<String, String> conceptDisplayMap = allConcepts.stream().collect(Collectors.toMap(TermConcept::getCode, TermConcept::getDisplay));
-			for (TermConcept concept : allConcepts) {
-				Collection<TermConceptProperty> properties = concept.getProperties();
+			Map<String, String> conceptDisplayMap = concepts.stream().collect(Collectors.toMap(FHIRConcept::getCode, FHIRConcept::getDisplay));
+			for (FHIRConcept concept : concepts) {
+				Map<String, List<FHIRProperty>> properties = concept.getProperties();
 				Collection<String> parents = graphBuilder.getNodeParents(concept.getCode());
-				if (properties.stream().noneMatch(prop -> "parent".equals(prop.getKey()))) {
-					for (String parent : parents) {
-						properties.add(new TermConceptProperty().setKey("parent")
-								.setType(TermConceptPropertyTypeEnum.CODING).setValue(parent).setDisplay(conceptDisplayMap.get(parent)));
-					}
+				if (!properties.containsKey(PARENT)) {
+					properties.put(PARENT, parents.stream().map(parent -> new FHIRProperty(PARENT, conceptDisplayMap.get(parent), parent, "CODING"))
+							.collect(Collectors.toList()));
 				}
 				Collection<String> children = graphBuilder.getNodeChildren(concept.getCode());
-				if (properties.stream().noneMatch(prop -> "child".equals(prop.getKey()))) {
-					for (String child : children) {
-						properties.add(new TermConceptProperty().setKey("child")
-								.setType(TermConceptPropertyTypeEnum.CODING).setValue(child).setDisplay(conceptDisplayMap.get(child)));
-					}
+				if (!properties.containsKey(CHILD)) {
+					properties.put(CHILD, children.stream().map(child -> new FHIRProperty(CHILD, conceptDisplayMap.get(child), child, "CODING"))
+							.collect(Collectors.toList()));
 				}
 			}
 		}
 
 		Set<String> props = new HashSet<>();
-		logger.info("Saving {} '{}' fhir concepts.", allConcepts.size(), idAndVersion);
-		float allSize = allConcepts.size();
-		int tenPercent = allConcepts.size() / 10;
+		logger.info("Saving {} '{}' fhir concepts.", concepts.size(), idWithVersion);
+		float allSize = concepts.size();
+		int tenPercent = concepts.size() / 10;
 		if (tenPercent == 0) {
 			tenPercent = 1;
 		}
 		Float percentToLog = null;
 		int saved = 0;
 
-		for (List<TermConcept> conceptsBatch : Iterables.partition(allConcepts, SAVE_BATCH_SIZE)) {
+		for (List<FHIRConcept> conceptsBatch : Iterables.partition(concepts, SAVE_BATCH_SIZE)) {
 			List<FHIRConcept> batch = new ArrayList<>();
-			for (TermConcept termConcept : conceptsBatch) {
-				for (TermConceptProperty property : termConcept.getProperties()) {
-					props.add(property.getKey());
+			for (FHIRConcept concept : conceptsBatch) {
+				if (concept.getProperties() != null) {
+					props.addAll(concept.getProperties().keySet());
 				}
-				batch.add(new FHIRConcept(termConcept, codeSystemVersion, graphBuilder.getTransitiveClosure(termConcept.getCode())));
+				concept.setAncestors(graphBuilder.getTransitiveClosure(concept.getCode()));
+				batch.add(concept);
 				saved++;
 				if (saved % tenPercent == 0f) {
 					percentToLog = (saved / allSize) * 100;
@@ -125,13 +123,30 @@ public class FHIRConceptService {
 			}
 			conceptRepository.saveAll(batch);
 			if (percentToLog != null) {
-				logger.info("Saved {}% of '{}' fhir concepts.", Math.round(percentToLog), idAndVersion);
+				logger.info("Saved {}% of '{}' fhir concepts.", Math.round(percentToLog), idWithVersion);
 				percentToLog = null;
 			}
 		}
 		System.out.print("All properties: ");
 		System.out.println(props);
 		System.out.println();
+	}
+
+	public void deleteExistingCodes(String idWithVersion) {
+		Page<FHIRConcept> existingConcepts = conceptRepository.findByCodeSystemVersion(idWithVersion, PageRequest.of(0, 1));
+		long totalExisting = existingConcepts.getTotalElements();
+		logger.info("Found {} existing concepts for this code system version {}", totalExisting, idWithVersion);
+		if (totalExisting > 0) {
+			logger.info("Deleting existing codes...");
+			// Deleting by query often seems to exceed the default 30 second query timeout so we will page through them...
+			Page<FHIRConcept> codesToDelete = conceptRepository.findByCodeSystemVersion(idWithVersion, PageRequest.of(0, DELETE_BATCH_SIZE));
+			while (!codesToDelete.isEmpty()) {
+				conceptRepository.deleteByCodeSystemVersionAndCodeIn(idWithVersion, codesToDelete.getContent().stream().map(FHIRConcept::getCode).collect(Collectors.toList()));
+				codesToDelete = conceptRepository.findByCodeSystemVersion(idWithVersion, PageRequest.of(0, DELETE_BATCH_SIZE));
+			}
+			System.out.println();
+			logger.info("Existing codes deleted");
+		}
 	}
 
 	private void gatherChildCodes(TermConcept concept, Set<TermConcept> allConcepts) {
