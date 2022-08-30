@@ -5,6 +5,7 @@ import ca.uhn.fhir.jpa.entity.TermConcept;
 import com.google.common.collect.Iterables;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.hl7.fhir.r4.model.CodeSystem;
+import org.hl7.fhir.r4.model.CodeType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.fhir.domain.FHIRCodeSystemVersion;
@@ -23,6 +24,7 @@ import org.springframework.stereotype.Service;
 import java.util.*;
 import java.util.stream.Collectors;
 
+import static org.snomed.snowstorm.core.util.CollectionUtils.orEmpty;
 import static org.snomed.snowstorm.fhir.utils.FHIRPageHelper.toPage;
 
 @Service
@@ -60,10 +62,25 @@ public class FHIRConceptService {
 	}
 
 	public void saveAllConceptsOfCodeSystemVersion(List<CodeSystem.ConceptDefinitionComponent> definitionConcepts, FHIRCodeSystemVersion codeSystemVersion) {
-		List<FHIRConcept> concepts = definitionConcepts.stream()
+
+		Set<CodeSystem.ConceptDefinitionComponent> allConcepts = new HashSet<>();
+		for (CodeSystem.ConceptDefinitionComponent concept : definitionConcepts) {
+			collectChildren(concept, allConcepts);
+		}
+
+		List<FHIRConcept> concepts = allConcepts.stream()
 				.map(definitionConcept -> new FHIRConcept(definitionConcept, codeSystemVersion))
 				.collect(Collectors.toList());
 		saveAllConceptsOfCodeSystemVersion(codeSystemVersion, codeSystemVersion.getId(), concepts);
+	}
+
+	private void collectChildren(CodeSystem.ConceptDefinitionComponent parent, Set<CodeSystem.ConceptDefinitionComponent> allConcepts) {
+		allConcepts.add(parent);
+		for (CodeSystem.ConceptDefinitionComponent child : orEmpty(parent.getConcept())) {
+			parent.addProperty(new CodeSystem.ConceptPropertyComponent(new CodeType("child"), new CodeType(child.getCode())));
+			child.addProperty(new CodeSystem.ConceptPropertyComponent(new CodeType("parent"), new CodeType(parent.getCode())));
+			collectChildren(child, allConcepts);
+		}
 	}
 
 	private void saveAllConceptsOfCodeSystemVersion(FHIRCodeSystemVersion codeSystemVersion, String idWithVersion, Collection<FHIRConcept> concepts) {
