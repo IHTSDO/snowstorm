@@ -172,6 +172,14 @@ public class FHIRCodeSystemService {
 		return codeSystemRepository.findById(id);
 	}
 
+	public void deleteCodeSystemVersion(String idWithVersion) {
+		Optional<FHIRCodeSystemVersion> version = codeSystemRepository.findById(idWithVersion);
+		if (version.isPresent()) {
+			conceptService.deleteExistingCodes(idWithVersion);
+			codeSystemRepository.deleteById(idWithVersion);
+		}
+	}
+
 	public ConceptAndSystemResult findSnomedConcept(String code, List<LanguageDialect> languageDialects, FHIRCodeSystemVersionParams codeSystemParams) {
 
 		Concept concept;
