@@ -180,6 +180,16 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants 
 		throw FHIRHelper.exception("Code System " + idPart + " not found", IssueType.NOTFOUND, 404);
 	}
 
+	@Delete
+	public void deleteCodeSystem(@IdParam IdType id) {
+		CodeSystem codeSystem = getCodeSystem(id);
+		if (FHIRHelper.isSnomedUri(codeSystem.getUrl())) {
+			throw FHIRHelper.exception("Please use the native API to maintain SNOMED CT code systems.",
+					IssueType.NOTSUPPORTED, 400);
+		}
+		fhirCodeSystemService.deleteCodeSystemVersion(id.getIdPart());
+	}
+
 	@Operation(name="$lookup", idempotent=true)
 	public Parameters lookupImplicit(
 			HttpServletRequest request,
