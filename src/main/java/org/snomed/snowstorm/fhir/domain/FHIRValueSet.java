@@ -101,9 +101,7 @@ public class FHIRValueSet {
 		valueSet.setVersion(version);
 		valueSet.setName(name);
 		valueSet.setTitle(title);
-		if (status != null) {
-			valueSet.setStatus(Enumerations.PublicationStatus.fromCode(status));
-		}
+		valueSet.setStatus(status != null ? Enumerations.PublicationStatus.fromCode(status) : Enumerations.PublicationStatus.UNKNOWN);
 		if (experimental != null) {
 			valueSet.setExperimental(experimental);
 		}
