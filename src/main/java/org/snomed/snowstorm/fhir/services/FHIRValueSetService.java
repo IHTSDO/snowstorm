@@ -544,6 +544,7 @@ public class FHIRValueSetService {
 			FHIRValueSet valueSet = new FHIRValueSet();
 			valueSet.setUrl(url);
 			valueSet.setCompose(compose);
+			valueSet.setStatus(Enumerations.PublicationStatus.ACTIVE.toCode());
 			hapiValueSet = valueSet.getHapi();
 		} else if (hapiValueSet == null) {
 			hapiValueSet = findByUrl(url).map(FHIRValueSet::getHapi).orElse(null);
@@ -765,6 +766,7 @@ public class FHIRValueSetService {
 		FHIRValueSet valueSet = new FHIRValueSet();
 		valueSet.setUrl(url);
 		valueSet.setCompose(compose);
+		valueSet.setStatus(Enumerations.PublicationStatus.ACTIVE.toCode());
 		return valueSet.getHapi();
 	}
 
