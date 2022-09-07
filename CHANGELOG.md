@@ -2,9 +2,38 @@
 All notable changes to this project will be documented in this file.
 
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+## 7.10.0 Release (September 2022)
+Maintenance release with integration support for [Consul](https://www.consul.io/) and [Vault](https://www.vaultproject.io/)
+### Features
+  - PIP-181 Add integration support for [Consul](https://www.consul.io/) and [Vault](https://www.vaultproject.io/). 
+    See [spring-cloud-consul](https://cloud.spring.io/spring-cloud-consul/reference/html/) and [spring-vault](https://cloud.spring.io/spring-cloud-vault/reference/html/) for more information about setups and configuration.
+  - BROWSE-427 Add support for resolution of version specific URIs.
+
+### Improvements
+ - General
+   - MAINT-1921 Upgrade Spring Boot to 2.7.0 and migrate swagger-ui to springdoc-openapi from SpringFox.
+   - PIP-182 Improve Snowstorm communication with `Authoring Acceptance Gateway` (AAG) service during start-up.
+   - FRI-475 Update security config to check roles required when `ims-security.roles.enabled` is true.
+ - Authoring 
+   - MAINT-1993 Update drools rules to check active GCIs only.
+   - MAINT-2032 Remove old redundant ECL parser generation files.
+   - BROWSE-506 Use correct branch in browser for version-relative URIs.
+   - FRI-474 Refactor traceability log service to handle superseded changes during rebase.
+   - FRI-471 Allow `ADMIN` and `MANAGER` roles to update code system versions.
+   - FRI-490 Extend import APIs to allow user to specify module ids.
+
+### Fixes
+  - ISTO-42 Fix ECL caching bug.
+  - MAINT-1743 Fix loss of effective time in components saved during rebase.
+  - MAINT-1999 Avoid persisting refset members unnecessarily when saving concepts.
+  - MAINT-2003 Correct default language refset configuration for `es`
+
+
+
 ## 7.9.3 Release (June 2022)
 ### Breaking
-  - ISTO-16 Add support for ECL 2.0.
+  - ISTO-16 Add support for ECL 2.0. Snowstorm now requires all ECL queries to be valid according to ECL 2.0 specification. 
+    See [SNOMED CT Expression Constraint Language](https://github.com/IHTSDO/snomed-expression-constraint-language) for more details about syntax and examples.
 ### Features
   - MAINT-1644 Concepts donation via ECL.
 

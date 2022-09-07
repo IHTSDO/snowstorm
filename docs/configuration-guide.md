@@ -3,6 +3,8 @@
 ## Overview
 Snowstorm uses the Spring Boot framework so this [general information about Spring Boot configuration](https://docs.spring.io/spring-boot/docs/2.7.0.RELEASE/reference/htmlsingle/#boot-features-external-config) is recommended.
 
+From 7.10.0 release onward, you can also use [Consul](https://www.consul.io/) and [Vault](https://www.vaultproject.io/) to store property values and secrets. See [spring-cloud-consul](https://cloud.spring.io/spring-cloud-consul/reference/html/) and [spring-vault](https://cloud.spring.io/spring-cloud-vault/reference/html/) for more information about setups and configuration.
+
 See also: 
 - [Security Configuration Guide](security-configuration.md)
 - [Language Specific Search Behaviour](language-specific-search.md)
