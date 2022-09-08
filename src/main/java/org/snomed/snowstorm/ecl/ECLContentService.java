@@ -215,12 +215,12 @@ public class ECLContentService {
 		}
 	}
 
-	public Set<Long> findParentIds(BranchCriteria branchCriteria, boolean stated, Set<Long> singleton) {
-		return queryService.findParentIds(branchCriteria, stated, singleton);
-	}
-
 	public Set<Long> findAncestorIdsAsUnion(BranchCriteria branchCriteria, boolean stated, Collection<Long> conceptIds) {
 		return queryService.findAncestorIdsAsUnion(branchCriteria, stated, conceptIds);
+	}
+
+	public Set<Long> findParentIdsAsUnion(BranchCriteria branchCriteria, boolean stated, Collection<Long> conceptIds) {
+		return queryService.findParentIdsAsUnion(branchCriteria, stated, conceptIds);
 	}
 
 	public Set<Long> applyConceptFilters(List<ConceptFilterConstraint> conceptFilters, Set<Long> conceptIdsToFilter, BranchCriteria branchCriteria, boolean stated) {

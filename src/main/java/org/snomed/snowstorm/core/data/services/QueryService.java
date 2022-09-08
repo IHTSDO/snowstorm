@@ -406,6 +406,24 @@ public class QueryService implements ApplicationContextAware {
 		return allAncestors;
 	}
 
+	public Set<Long> findParentIdsAsUnion(BranchCriteria branchCriteria, boolean stated, Collection<Long> conceptId) {
+		final NativeSearchQuery searchQuery = new NativeSearchQueryBuilder()
+				.withQuery(boolQuery()
+						.must(branchCriteria.getEntityBranchCriteria(QueryConcept.class))
+						.must(termsQuery(QueryConcept.Fields.CONCEPT_ID, conceptId))
+						.must(termQuery(QueryConcept.Fields.STATED, stated))
+				)
+				.withPageable(LARGE_PAGE)
+				.build();
+		final List<QueryConcept> concepts = elasticsearchTemplate.search(searchQuery, QueryConcept.class)
+				.stream().map(SearchHit::getContent).collect(Collectors.toList());
+		Set<Long> allParents = new HashSet<>();
+		for (QueryConcept concept : concepts) {
+			allParents.addAll(concept.getParents());
+		}
+		return allParents;
+	}
+
 	public Set<Long> findDescendantIdsAsUnion(BranchCriteria branchCriteria, boolean stated, Collection<Long> conceptIds) {
 		final NativeSearchQuery searchQuery = new NativeSearchQueryBuilder()
 				.withQuery(boolQuery()
