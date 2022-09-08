@@ -111,6 +111,22 @@ abstract class AbstractECLQueryServiceTest {
 		assertEquals(
 				Sets.newHashSet(CLINICAL_FINDING, BLEEDING),
 				strings(selectConceptIds(">>!" + BLEEDING)));
+
+		assertEquals(
+				Sets.newHashSet(CLINICAL_FINDING, BLEEDING),
+				strings(selectConceptIds(">!" + BLEEDING + " OR " + ">!" + BLEEDING_SKIN)));
+
+		assertEquals(
+				Sets.newHashSet(CLINICAL_FINDING, BLEEDING),
+				strings(selectConceptIds(">!(" + BLEEDING + " OR " + BLEEDING_SKIN + ")")));
+
+		assertEquals(
+				Sets.newHashSet(CLINICAL_FINDING, BLEEDING, BLEEDING_SKIN),
+				strings(selectConceptIds(">>!" + BLEEDING + " OR " + ">>!" + BLEEDING_SKIN)));
+
+		assertEquals(
+				Sets.newHashSet(CLINICAL_FINDING, BLEEDING, BLEEDING_SKIN),
+				strings(selectConceptIds(">>!(" + BLEEDING + " OR " + BLEEDING_SKIN + ")")));
 	}
 
 	@Test
