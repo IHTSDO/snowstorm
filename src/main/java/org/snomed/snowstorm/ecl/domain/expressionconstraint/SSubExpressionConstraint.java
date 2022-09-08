@@ -291,6 +291,10 @@ public class SSubExpressionConstraint extends SubExpressionConstraint implements
 								.should(termsQuery(QueryConcept.Fields.CONCEPT_ID, conceptIds))
 				);
 				break;
+			case descendantof:
+				// <
+				query.must(termsQuery(QueryConcept.Fields.ANCESTORS, conceptIds));
+				break;
 			case descendantorselfof:
 				// <<
 				query.must(
@@ -299,42 +303,29 @@ public class SSubExpressionConstraint extends SubExpressionConstraint implements
 								.should(termsQuery(QueryConcept.Fields.CONCEPT_ID, conceptIds))
 				);
 				break;
-			case descendantof:
-				// <
-				query.must(termsQuery(QueryConcept.Fields.ANCESTORS, conceptIds));
-				break;
 			case parentof:
 				// >!
-				for (Long conceptId : conceptIds) {
-					Set<Long> parents = conceptSelector.findParentIds(branchCriteria, stated, Collections.singleton(conceptId));
-					query.must(termsQuery(QueryConcept.Fields.CONCEPT_ID, parents));
-				}
+				query.must(termsQuery(QueryConcept.Fields.CONCEPT_ID, retrieveAllParents(conceptIds, branchCriteria, stated, conceptSelector)));
 				break;
 			case parentorselfof:
 				// >>!
-				BoolQueryBuilder parentsQuery = boolQuery();
-				for (Long conceptId : conceptIds) {
-					Set<Long> parents = conceptSelector.findParentIds(branchCriteria, stated, Collections.singleton(conceptId));
-					parentsQuery.must(termsQuery(QueryConcept.Fields.CONCEPT_ID, parents));
-				}
 				query.must(
 						boolQuery()
-								.should(parentsQuery)
-								.should(termsQuery(QueryConcept.Fields.CONCEPT_ID, conceptIds))
-				);
-				break;
-			case ancestororselfof:
-				Set<Long> allAncestors = retrieveAllAncestors(conceptIds, branchCriteria, stated, conceptSelector);
-				query.must(
-						boolQuery()
-								.should(termsQuery(QueryConcept.Fields.CONCEPT_ID, allAncestors))
+								.should(termsQuery(QueryConcept.Fields.CONCEPT_ID, retrieveAllParents(conceptIds, branchCriteria, stated, conceptSelector)))
 								.should(termsQuery(QueryConcept.Fields.CONCEPT_ID, conceptIds))
 				);
 				break;
 			case ancestorof:
-				// > x
-				Set<Long> allAncestors2 = retrieveAllAncestors(conceptIds, branchCriteria, stated, conceptSelector);
-				query.must(termsQuery(QueryConcept.Fields.CONCEPT_ID, allAncestors2));
+				// >
+				query.must(termsQuery(QueryConcept.Fields.CONCEPT_ID, retrieveAllAncestors(conceptIds, branchCriteria, stated, conceptSelector)));
+				break;
+			case ancestororselfof:
+				// >>
+				query.must(
+						boolQuery()
+								.should(termsQuery(QueryConcept.Fields.CONCEPT_ID, retrieveAllAncestors(conceptIds, branchCriteria, stated, conceptSelector)))
+								.should(termsQuery(QueryConcept.Fields.CONCEPT_ID, conceptIds))
+				);
 				break;
 			case memberOf:
 				// ^
@@ -347,6 +338,10 @@ public class SSubExpressionConstraint extends SubExpressionConstraint implements
 
 	private Set<Long> retrieveAllAncestors(Collection<Long> conceptIds, BranchCriteria branchCriteria, boolean stated, ECLContentService eclContentService) {
 		return eclContentService.findAncestorIdsAsUnion(branchCriteria, stated, conceptIds);
+	}
+
+	private Set<Long> retrieveAllParents(Collection<Long> conceptIds, BranchCriteria branchCriteria, boolean stated, ECLContentService eclContentService) {
+		return eclContentService.findParentIdsAsUnion(branchCriteria, stated, conceptIds);
 	}
 
 	@Override
