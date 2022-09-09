@@ -18,10 +18,10 @@ import org.snomed.snowstorm.core.util.PageHelper;
 import org.snomed.snowstorm.core.util.SearchAfterPage;
 import org.snomed.snowstorm.core.util.StreamUtil;
 import org.snomed.snowstorm.core.util.TimerUtil;
+import org.snomed.snowstorm.ecl.ConceptSelectorHelper;
 import org.snomed.snowstorm.ecl.ECLQueryService;
 import org.snomed.snowstorm.ecl.domain.expressionconstraint.SExpressionConstraint;
 import org.snomed.snowstorm.ecl.domain.expressionconstraint.SSubExpressionConstraint;
-import org.snomed.snowstorm.rest.converter.SearchAfterHelper;
 import org.springframework.beans.BeansException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationContext;
@@ -45,6 +45,7 @@ import static io.kaicode.elasticvc.api.ComponentService.CLAUSE_LIMIT;
 import static io.kaicode.elasticvc.api.ComponentService.LARGE_PAGE;
 import static org.elasticsearch.index.query.QueryBuilders.*;
 import static org.snomed.snowstorm.config.Config.DEFAULT_LANGUAGE_DIALECTS;
+import static org.snomed.snowstorm.ecl.ConceptSelectorHelper.CONCEPT_ID_SEARCH_AFTER_EXTRACTOR;
 import static org.snomed.snowstorm.ecl.ConceptSelectorHelper.getDefaultSortForConcept;
 
 /**
@@ -68,9 +69,6 @@ public class QueryService implements ApplicationContextAware {
 	private DescriptionService descriptionService;
 
 	private ConceptService conceptService;
-
-	private static final Function<Long, Object[]> CONCEPT_ID_SEARCH_AFTER_EXTRACTOR =
-			conceptId -> conceptId == null ? null : SearchAfterHelper.convertToTokenAndBack(new Object[]{conceptId});
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 

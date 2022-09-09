@@ -10,7 +10,6 @@ import org.snomed.snowstorm.ecl.ECLContentService;
 import org.snomed.snowstorm.ecl.deserializer.ECLModelDeserializer;
 import org.snomed.snowstorm.ecl.domain.RefinementBuilder;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Slice;
 
@@ -72,14 +71,7 @@ public class SDottedExpressionConstraint extends DottedExpressionConstraint impl
 		}
 
 		// Manually apply pagination
-		Optional<Page<Long>> pageResults;
-		if (pageRequest != null) {
-			List<Long> pageOfContent = PageHelper.subList(conceptIds, pageRequest.getPageNumber(), pageRequest.getPageSize());
-			pageResults = Optional.of(new PageImpl<>(pageOfContent, pageRequest, conceptIds.size()));
-		} else {
-			pageResults = Optional.of(new PageImpl<>(conceptIds));
-		}
-		return pageResults;
+		return Optional.of(PageHelper.fullListToPage(conceptIds, pageRequest, ConceptSelectorHelper.CONCEPT_ID_SEARCH_AFTER_EXTRACTOR));
 	}
 
 	@Override
