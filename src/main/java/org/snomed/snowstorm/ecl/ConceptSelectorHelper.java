@@ -35,7 +35,7 @@ public class ConceptSelectorHelper {
 	public static final String MISSING = "missing";
 	public static final Long MISSING_LONG = 111L;
 
-	private static final Function<Long, Object[]> CONCEPT_ID_SEARCH_AFTER_EXTRACTOR =
+	public static final Function<Long, Object[]> CONCEPT_ID_SEARCH_AFTER_EXTRACTOR =
 			conceptId -> conceptId == null ? null : SearchAfterHelper.convertToTokenAndBack(new Object[]{conceptId});
 
 	private ConceptSelectorHelper() {
