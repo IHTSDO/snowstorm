@@ -9,6 +9,8 @@ import com.google.common.collect.Sets;
 import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.api.ComponentService;
 import io.kaicode.elasticvc.domain.Branch;
+import io.kaicode.elasticvc.domain.Commit;
+import org.assertj.core.util.Maps;
 import org.elasticsearch.common.collect.MapBuilder;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -441,6 +443,44 @@ class ConceptServiceTest extends AbstractTest {
 		assertEquals("10000222", conceptService.find("100001", "MAIN/A/A2").getModuleId());
 	}
 
+
+	@Test
+	void testGetExistingConceptsForSaveDuringRebaseCommit() throws ServiceException {
+		conceptService.create(new Concept("100001"), "MAIN");
+		conceptService.create(new Concept("100002"), "MAIN");
+		conceptService.create(new Concept("100003"), "MAIN");
+
+		branchService.create("MAIN/A");
+		branchService.create("MAIN/A/A1");
+		branchService.create("MAIN/A/A2");
+
+		// Create a new version on MAIN/A/A1
+		conceptService.update(new Concept("100003", "10000111"), "MAIN/A/A1");
+
+		// Create a new version on MAIN/A/A2 and promote to project
+		conceptService.update(new Concept("100003", "10000222"), "MAIN/A/A2");
+		branchMergeService.mergeBranchSync("MAIN/A/A2", "MAIN/A", Arrays.asList(conceptService.find("100003", "MAIN/A/A2")));
+
+		final List<Long> conceptIds = Arrays.asList(100003L, 100001L, 100002L);
+		final Page<Concept> conceptsOnProject = conceptService.find(conceptIds, DEFAULT_LANGUAGE_DIALECTS, "MAIN/A", ServiceTestUtil.PAGE_REQUEST);
+		assertEquals(conceptIds.size(), conceptsOnProject.getTotalElements());
+		assertEquals(conceptIds.size(), conceptsOnProject.get().collect(Collectors.toSet()).size());
+
+		final Page<Concept> conceptsOnTaskA1 = conceptService.find(conceptIds, DEFAULT_LANGUAGE_DIALECTS, "MAIN/A/A1", ServiceTestUtil.PAGE_REQUEST);
+		assertEquals(conceptIds.size(), conceptsOnTaskA1.getTotalElements());
+		Collection<Concept> concepts = conceptsOnTaskA1.get().collect(Collectors.toSet());
+		assertEquals(conceptIds.size(), concepts.size());
+
+		// Rebase commit updates existing target branch(task A1) base timestamp to the latest source branch(project A) head timestamp
+		// Because of this when searching during rebase commit, there are multiple version of documents for concept 100003.
+		// One is from project (newly promoted from task A2) and the other is from task A1
+		// This can cause concepts to be missing due to a bug found in getExistingConceptsForSave method.
+		Commit commit = branchService.openRebaseCommit("MAIN/A/A1", "Rebase task A1 with project A");
+		Map<String, Concept> conceptMap = conceptService.getExistingConceptsForSave(concepts, commit);
+		assertEquals(conceptIds.size(), conceptMap.keySet().size());
+	}
+
+
 	@Test
 	void testSaveConceptWithDescription() throws ServiceException {
 		final Concept concept = new Concept("50960005", 20020131, true, "900000000000207008", "900000000000074008");
@@ -665,7 +705,7 @@ class ConceptServiceTest extends AbstractTest {
 	}
 	
 	@Test
-	void testConcepReactivationInExtension() throws ServiceException {
+	void testConceptReactivationInExtension() throws ServiceException {
 		String path = "MAIN";
 		String extensionModule = "45991000052106";
 		conceptService.batchCreate(Lists.newArrayList(new Concept("107658001"), new Concept("116680003")), path);
