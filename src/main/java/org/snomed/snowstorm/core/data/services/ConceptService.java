@@ -352,7 +352,7 @@ public class ConceptService extends ComponentService {
 		}
 	}
 
-	public Page<Concept> doFind(
+	private Page<Concept> doFind(
 			Collection<?> conceptIdsToFind,
 			List<LanguageDialect> languageDialects,
 			BranchCriteria branchCriteria,
@@ -367,21 +367,21 @@ public class ConceptService extends ComponentService {
 		NativeSearchQueryBuilder queryBuilder = new NativeSearchQueryBuilder();
 
 		Page<Concept> concepts;
-		if (conceptIdsToFind != null && !conceptIdsToFind.isEmpty()) {
-			List<Concept> allConcepts = new ArrayList<>();
-			long total = 0;
-			for (List<?> conceptIdsToFindSegment : Iterables.partition(conceptIdsToFind, CLAUSE_LIMIT)) {
-				queryBuilder
-						.withQuery(boolQuery()
-								.must(branchCriteria.getEntityBranchCriteria(Concept.class))
-								.must(termsQuery("conceptId", conceptIdsToFindSegment))
-						)
-						.withPageable(PageRequest.of(0, conceptIdsToFindSegment.size()));
-				SearchHits<Concept> searchHits = elasticsearchTemplate.search(queryBuilder.build(), Concept.class);
-				allConcepts.addAll(searchHits.stream().map(SearchHit::getContent).collect(Collectors.toList()));
-				total += searchHits.getTotalHits();
+		if (!isEmpty(conceptIdsToFind)) {
+			if (conceptIdsToFind.size() > LARGE_PAGE.getPageSize()) {
+				throw new TooCostlyException("Search concept ids over 10k is too costly.");
 			}
-			concepts = new PageImpl<>(allConcepts, pageRequest, total);
+			List<Concept> allConcepts = new ArrayList<>();
+			queryBuilder
+					.withQuery(boolQuery()
+							.must(branchCriteria.getEntityBranchCriteria(Concept.class))
+							.must(termsQuery(Concept.Fields.CONCEPT_ID, conceptIdsToFind)))
+					.withPageable(LARGE_PAGE);
+
+			try (final SearchHitsIterator<Concept> searchHits = elasticsearchTemplate.searchForStream(queryBuilder.build(), Concept.class)) {
+				searchHits.forEachRemaining(hit -> allConcepts.add(hit.getContent()));
+			}
+			concepts = new PageImpl<>(allConcepts, pageRequest, allConcepts.size());
 		} else {
 			Query conceptQuery = new NativeSearchQueryBuilder()
 					.withQuery(boolQuery().must(branchCriteria.getEntityBranchCriteria(Concept.class)))
@@ -737,7 +737,7 @@ public class ConceptService extends ComponentService {
 		conceptUpdateHelper.doSaveBatchComponents(componentsToSave, componentType, commit);
 	}
 
-	private Map<String, Concept> getExistingConceptsForSave(Collection<Concept> concepts, Commit commit) {
+	Map<String, Concept> getExistingConceptsForSave(Collection<Concept> concepts, Commit commit) {
 		Map<String, Concept> existingConceptsMap = new HashMap<>();
 		final List<String> conceptIds = concepts.stream().map(Concept::getConceptId).filter(Objects::nonNull).collect(Collectors.toList());
 		if (!conceptIds.isEmpty()) {

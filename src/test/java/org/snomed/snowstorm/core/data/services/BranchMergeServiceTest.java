@@ -1551,6 +1551,62 @@ class BranchMergeServiceTest extends AbstractTest {
 		assertEquals("Branch MAIN/A is already locked", failedJobs.get(0).getMessage());
 	}
 
+
+	@Test
+	void testReleasedFlagNotLostDuringRebase() throws ServiceException {
+		conceptService.create(new Concept("100001").addDescription(new Description("Boo")), "MAIN");
+		conceptService.create(new Concept("100002").addDescription(new Description("Foo")), "MAIN");
+		conceptService.create(new Concept("100003").addDescription(new Description("Hoo")), "MAIN");
+		codeSystemService.createVersion(codeSystemService.find(SNOMEDCT), 20220731, " test release");
+		branchService.create("MAIN/B");
+
+		// Create a new version on MAIN/B/B1
+		String taskB1 = "MAIN/B/B1";
+		String taskB2 = "MAIN/B/B2";
+
+		branchService.create(taskB1);
+		branchService.create(taskB2);
+
+		// Create a new version on MAIN/B/B1
+		Concept conceptA = conceptService.find("100003", "MAIN/B/B1");
+		conceptA.setModuleId("10000111");
+
+		Concept conceptB = conceptService.find("100002", "MAIN/B/B1");
+		conceptB.setModuleId("10000122");
+
+		conceptService.update(conceptA, taskB1);
+		conceptService.update(conceptB, taskB1);
+
+		List<Concept> conceptsOnTaskB1 = new ArrayList<>();
+		conceptsOnTaskB1.add(conceptService.find("100003", taskB1));
+		conceptsOnTaskB1.add(conceptService.find("100002", taskB1));
+		conceptsOnTaskB1.stream().forEach(concept -> { assertTrue(concept.isReleased()); });
+
+		// Create a new version on MAIN/B/B2 and promote to project
+		Concept conceptOnTaskB2 = conceptService.find("100003", taskB2);
+		conceptOnTaskB2.setModuleId("10000222");
+		conceptService.update(conceptOnTaskB2, taskB2);
+		branchMergeService.mergeBranchSync(taskB2, "MAIN/B", Arrays.asList(conceptOnTaskB2));
+
+		// Rebase taskB1
+		branchMergeService.mergeBranchSync("MAIN/B", taskB1, conceptsOnTaskB1);
+
+		// Check concepts and all published components haven't lost released flags
+		List<String> conceptIds = Arrays.asList("100003", "100001", "100002");
+		for (String conceptId : conceptIds) {
+			Concept concept = conceptService.find(conceptId, taskB1);
+			assertTrue(concept.isReleased());
+			concept.getDescriptions().forEach(description -> {
+				assertTrue(description.isReleased(), "Description has lost released flag:" + description);
+				assertNotNull(description.getEffectiveTimeI());
+			});
+			concept.getRelationships().forEach(relationship -> {
+				assertTrue(relationship.isReleased(), "Relationship has lost released flag:" + relationship);
+				assertNotNull(relationship.getEffectiveTimeI());
+			});
+		}
+	}
+
 	@Test
 	void testCreateMergeReviewConceptDeletedOnChildAcceptDeleted() throws InterruptedException, ServiceException {
 		createConcept("10000100", "MAIN");
