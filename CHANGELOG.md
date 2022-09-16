@@ -4,6 +4,17 @@ All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## Beta Fix Release 8.1.1 - FHIR Multiple Code Systems and Packages (fix)
+This beta release follows Beta 8.1.0 and contains fixes needed when importing all the CodeSystems within a FHIR package that contains
+potentially duplicate CodeSystem versions. This is required to import some HL7 packages, for example `hl7.terminology.r4-3.1.0.tgz`. 
+
+### Fixes
+  - ISTO-61 More lenient FHIR package import
+    - Use the package index file as the source of truth for the url and version of CodeSystems imported. This avoids some duplicates in the HL7 package.
+    - Automatically skip importing a duplicate CodeSystem version if it has "content:not-present". This case is logged at INFO level.
+  - Make logging less noisy during FHIR package import
+
+
 ## Beta Release 8.1.0 - FHIR Multiple Code Systems and Packages
 This beta release builds on Beta 8.0.0, adding support for loading code systems from FHIR packages.  
 See [Loading FHIR Packages documentation](https://github.com/IHTSDO/snowstorm-x/blob/snowstorm-x-8.1.0/docs/using-the-fhir-api.md#loading-fhir-packages) for details of how to load HL7 code systems and others.
