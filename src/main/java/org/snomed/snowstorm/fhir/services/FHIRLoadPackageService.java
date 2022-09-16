@@ -58,19 +58,27 @@ public class FHIRLoadPackageService {
 		logger.info("Importing {} resources, found within index of package {}.", filesToImport.size(), packageFile.getName());
 
 		for (FHIRPackageIndexFile indexFileToImport : filesToImport) {
-			if (indexFileToImport.getResourceType().equals("CodeSystem")) {
+			String id = indexFileToImport.getId();
+			String url = indexFileToImport.getUrl();
+			if (indexFileToImport.getResourceType().equals("CodeSystem") && id != null && url != null) {
 				CodeSystem codeSystem = extractObject(packageFile, indexFileToImport.getFilename(), CodeSystem.class, jsonParser);
+				codeSystem.setId(id);
+				codeSystem.setUrl(url);
 				if (FHIRHelper.isSnomedUri(codeSystem.getUrl())) {
 					logger.info("Skipping import of SNOMED CT code system via package. Please use the native SNOMED-CT API RF2 import.");
 					continue;
 				}
-				String url = indexFileToImport.getUrl();
 				String version = indexFileToImport.getVersion();
 				FHIRCodeSystemVersion existingCodeSystemVersion = codeSystemService.findCodeSystemVersion(new FHIRCodeSystemVersionParams(url).setVersion(version));
 				if (existingCodeSystemVersion != null) {
-					throw FHIRHelper.exception(format("Resource %s/%s already exists. Please delete this version before attempting to import.",
-									"CodeSystem", existingCodeSystemVersion.getId()),
-							OperationOutcome.IssueType.NOTSUPPORTED, 400);
+					if (codeSystem.getContent() == CodeSystem.CodeSystemContentMode.NOTPRESENT) {
+						logger.info("Skipping import of CodeSystem %s with 'content:not-present' because a CodeSystem with the same url and version already exists.");
+					} else {
+						throw FHIRHelper.exception(format("Resource %s with url '%s' and version '%s' already exists it has id '%s'. " +
+												"Please delete this version before attempting to import.",
+										"CodeSystem", url, version, existingCodeSystemVersion.getId()),
+								OperationOutcome.IssueType.NOTSUPPORTED, 400);
+					}
 				}
 				List<CodeSystem.ConceptDefinitionComponent> concepts = codeSystem.getConcept();
 				logger.info("Importing CodeSystem {} with {} concepts from package", codeSystem.getUrl(), concepts != null ? concepts.size() : 0);
@@ -80,6 +88,7 @@ public class FHIRLoadPackageService {
 				}
 			}
 		}
+		logger.info("Completed import of package {}.", packageFile.getName());
 	}
 
 	private static void validateResources(List<FHIRPackageIndexFile> filesToImport, Set<String> resourceUrlsToImport, boolean importAll, Set<String> supportedResourceTypes) {
@@ -113,7 +122,6 @@ public class FHIRLoadPackageService {
 						return mapper.readValue(tarIn, clazz);
 					} else {
 						IBaseResource iBaseResource = jsonParser.parseResource(tarIn);
-						System.out.println(iBaseResource.getClass());
 						return (T) iBaseResource;
 					}
 				}
