@@ -3,11 +3,12 @@ All notable changes to this project will be documented in this file.
 
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+
 ## 8.0.0 Release (February 2023)
 Major release with Elasticsearch 7.10.0 upgrade.
 
 ### Breaking
-- Elasticsearch from 7.10.0 to 7.17.9 MUST be used with this release.
+- Elasticsearch from 7.10.0 to 7.17.9 must be used with this release.
 
 ### Improvements
 - General
@@ -17,11 +18,12 @@ Major release with Elasticsearch 7.10.0 upgrade.
   - FRI-398 Force branch paths to be in upper case.
   - FRI-592 Update `generateAdditionalLanguageRefsetDelta` endpoint to work with both monthly and 6-monthly upgrades.
 - Authoring
-  - FRI-550 Add functionality to support CodeSystem upgrades.
+  - FRI-550 Add functionality to support CodeSystem upgrades via authoring platform UI.
 
 ### Fixes
 - MAINT-2095 Fix browser performance search test case for ECL.
-- MAINT-2081 Prevent classification statuses from becoming stuck by listening to JMS Topic instead of Queue.
+- MAINT-2081 Prevent classification statuses from becoming stuck by listening to JMS Topic instead of Queue (requires Classification Service v7.0.0).
+
 
 ## 7.12.0 Release (December 2022)
 Maintenance release with bug fixes and improvements.
@@ -33,6 +35,35 @@ Maintenance release with bug fixes and improvements.
 - MAINT-2071 Remove communication with Authoring Acceptance Gateway when completing classifications.
 - MAINT-1940 Stop inactive historical associations switching module when rebasing.
 - FRI-565 Correct Extension's traceability log when performing rebase after upgrading dependency.
+
+
+## SnowstormX Beta Release 8.0.0 - FHIR Multiple Code Systems
+This beta release has an overhaul of the FHIR API :fire: and adds support for multiple code systems!
+
+Previously Snowstorm only supported SNOMED CT but this beta adds FHIR support for LOINC, ICD-10 (International), ICD-10-CM (US) and any other "custom" code system.
+
+The "custom" code system format allows any other local or national code system to be supported. These need to be transformed into the custom code system format before being loaded.
+
+Please refer to the [updated v8 FHIR API documentation](https://github.com/IHTSDO/snowstorm-x/blob/8.0.0-beta/docs/using-the-fhir-api.md) for details of how to load non-SNOMED code systems. You will also find a link to the updated Postman collection for v8 there.
+
+### Breaking
+- FHIR API no longer defaults to the SNOMED CT code system
+- Renamed FHIR Elasticsearch indices with `fhir_` prefix
+
+### Features
+- Add FHIR Support for LOINC
+- Add FHIR Support for ICD-10
+- Add FHIR Support for ICD-10-CM
+- Add FHIR Support for Custom code systems
+
+### Improvements
+- Improve FHIR code system version resolution
+- Resolved code system version included in FHIR responses
+- Improved FHIR error catching and reporting
+
+### Fixes
+- Minor fixes for FHIR specification conformance
+
 
 ## 7.11.0 Release (October 2022)
 Maintenance release with bug fixes and improvements.
@@ -53,6 +84,7 @@ Maintenance release with bug fixes and improvements.
 - MAINT-1969 Fix published components from losing their released flags during rebase
 - MAINT-1862 Fix `searchAfter` request parameter to work with ECL dot notation
 - MAINT-2051 Fix the changing of a Concept's inactivation reason from resulting in duplicate ReferenceSetMembers
+
 
 ## 7.10.0 Release (September 2022)
 Maintenance release with integration support for [Consul](https://www.consul.io/) and [Vault](https://www.vaultproject.io/)
@@ -79,7 +111,6 @@ Maintenance release with integration support for [Consul](https://www.consul.io/
   - MAINT-1743 Fix loss of effective time in components saved during rebase.
   - MAINT-1999 Avoid persisting refset members unnecessarily when saving concepts.
   - MAINT-2003 Correct default language refset configuration for `es`
-
 
 
 ## 7.9.3 Release (June 2022)
