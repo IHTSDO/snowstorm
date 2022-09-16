@@ -99,7 +99,9 @@ public class FHIRConceptService {
 				}
 			}
 			// Add parent and child properties if missing
-			Map<String, String> conceptDisplayMap = concepts.stream().collect(Collectors.toMap(FHIRConcept::getCode, FHIRConcept::getDisplay));
+			Map<String, String> conceptDisplayMap = concepts.stream()
+					.filter(concept -> concept.getDisplay() != null)
+					.collect(Collectors.toMap(FHIRConcept::getCode, FHIRConcept::getDisplay));
 			for (FHIRConcept concept : concepts) {
 				Map<String, List<FHIRProperty>> properties = concept.getProperties();
 				Collection<String> parents = graphBuilder.getNodeParents(concept.getCode());
@@ -139,7 +141,7 @@ public class FHIRConceptService {
 				}
 			}
 			conceptRepository.saveAll(batch);
-			if (percentToLog != null) {
+			if (concepts.size() > 1000 && percentToLog != null) {
 				logger.info("Saved {}% of '{}' fhir concepts.", Math.round(percentToLog), idWithVersion);
 				percentToLog = null;
 			}
@@ -152,9 +154,8 @@ public class FHIRConceptService {
 	public void deleteExistingCodes(String idWithVersion) {
 		Page<FHIRConcept> existingConcepts = conceptRepository.findByCodeSystemVersion(idWithVersion, PageRequest.of(0, 1));
 		long totalExisting = existingConcepts.getTotalElements();
-		logger.info("Found {} existing concepts for this code system version {}", totalExisting, idWithVersion);
 		if (totalExisting > 0) {
-			logger.info("Deleting existing codes...");
+			logger.info("Deleting {} existing concepts for this code system version {}", totalExisting, idWithVersion);
 			// Deleting by query often seems to exceed the default 30 second query timeout so we will page through them...
 			Page<FHIRConcept> codesToDelete = conceptRepository.findByCodeSystemVersion(idWithVersion, PageRequest.of(0, DELETE_BATCH_SIZE));
 			while (!codesToDelete.isEmpty()) {

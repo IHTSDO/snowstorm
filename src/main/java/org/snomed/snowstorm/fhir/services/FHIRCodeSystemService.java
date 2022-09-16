@@ -58,7 +58,7 @@ public class FHIRCodeSystemService {
 		}
 
 		wrap(fhirCodeSystemVersion);
-		logger.info("Saving fhir code system '{}'.", fhirCodeSystemVersion.getId());
+		logger.debug("Saving fhir code system '{}'.", fhirCodeSystemVersion.getId());
 		codeSystemRepository.save(fhirCodeSystemVersion);
 		return fhirCodeSystemVersion;
 	}
