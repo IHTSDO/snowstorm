@@ -4,6 +4,17 @@ All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## Beta Release 8.1.0 - FHIR Multiple Code Systems and Packages
+This beta release builds on Beta 8.0.0, adding support for loading code systems from FHIR packages.  
+See [Loading FHIR Packages documentation](https://github.com/IHTSDO/snowstorm-x/blob/snowstorm-x-8.1.0/docs/using-the-fhir-api.md#loading-fhir-packages) for details of how to load HL7 code systems and others.
+
+### Features
+- Add support for loading CodeSystem resources from FHIR packages
+
+### Fixes
+- Fix total count when listing all ValueSet resources
+
+
 ## Beta Release 8.0.0 - FHIR Multiple Code Systems
 
 _(This beta release is exactly the same as the one published on the main Snowstorm repository)_
