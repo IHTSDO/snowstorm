@@ -3,6 +3,38 @@ All notable changes to this project will be documented in this file.
 
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+
+## Beta Release 8.0.0 - FHIR Multiple Code Systems
+
+_(This beta release is exactly the same as the one published on the main Snowstorm repository)_
+
+This beta release has an overhaul of the FHIR API :fire: and adds support for multiple code systems!
+
+Previously Snowstorm only supported SNOMED CT but this beta adds FHIR support for LOINC, ICD-10 (International), ICD-10-CM (US) and any other "custom" code system.
+
+The "custom" code system format allows any other local or national code system to be supported. These need to be transformed into the custom code system format before being loaded.
+
+Please refer to the [updated v8 FHIR API documentation](https://github.com/IHTSDO/snowstorm-x/blob/8.0.0-beta/docs/using-the-fhir-api.md) for details of how to load non-SNOMED code systems. You will also find a link to the updated Postman collection for v8 there.
+
+### Breaking
+- FHIR API no longer defaults to the SNOMED CT code system
+- Renamed FHIR Elasticsearch indices with `fhir_` prefix
+
+### Features
+- Add FHIR Support for LOINC
+- Add FHIR Support for ICD-10
+- Add FHIR Support for ICD-10-CM
+- Add FHIR Support for Custom code systems
+
+### Improvements
+- Improve FHIR code system version resolution
+- Resolved code system version included in FHIR responses
+- Improved FHIR error catching and reporting
+
+### Fixes
+- Minor fixes for FHIR specification conformance
+
+
 ## 7.11.0 Release (October 2022)
 Maintenance release with bug fixes and improvements.
 ### Improvements
@@ -22,6 +54,7 @@ Maintenance release with bug fixes and improvements.
 - MAINT-1969 Fix published components from losing their released flags during rebase
 - MAINT-1862 Fix `searchAfter` request parameter to work with ECL dot notation
 - MAINT-2051 Fix the changing of a Concept's inactivation reason from resulting in duplicate ReferenceSetMembers
+
 
 ## 7.10.0 Release (September 2022)
 Maintenance release with integration support for [Consul](https://www.consul.io/) and [Vault](https://www.vaultproject.io/)
@@ -48,7 +81,6 @@ Maintenance release with integration support for [Consul](https://www.consul.io/
   - MAINT-1743 Fix loss of effective time in components saved during rebase.
   - MAINT-1999 Avoid persisting refset members unnecessarily when saving concepts.
   - MAINT-2003 Correct default language refset configuration for `es`
-
 
 
 ## 7.9.3 Release (June 2022)
