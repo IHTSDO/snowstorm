@@ -427,27 +427,29 @@ public class ConceptUpdateHelper extends ComponentService {
 		//Otherwise, value is mutable, so we can re-use any member with the same refsetId and modify the value
 		if (membersRequired.size() > 0 && toKeep.isEmpty()) {
 			notNeeded.clear();
+			Set<String> reUsedMemberIds = new HashSet<>();
 			//Any existing refset members that exactly matched refsetId + value would have matched above
 			//So we're safe to reuse anything we can 
 			for (Map.Entry<String, Set<String>> memberEntry : membersRequired.entrySet()) {
 				String refsetId = memberEntry.getKey();
 				Set<String> newValuesRequired = new HashSet<>(memberEntry.getValue());
+
 				for (String newValueRequired : newValuesRequired) {
 					for (ReferenceSetMember existingMember : existingMembers) {
 						//As long as we've not already reused this member!
-						if (!toKeep.contains(existingMember) && existingMember.getRefsetId().equals(refsetId)) {
+						if (existingMember.getRefsetId().equals(refsetId) && !reUsedMemberIds.contains(existingMember.getMemberId())) {
 							// Keep member and modify the value
 							existingMember.setAdditionalField(fieldName, newValueRequired);
 							existingMember.markChanged();
 							toKeep.add(existingMember);
 							membersRequired.get(refsetId).remove(newValueRequired);
-							notNeeded.remove(existingMember);
-						} else {
-							notNeeded.add(existingMember);
+							reUsedMemberIds.add(existingMember.getMemberId());
+							break;
 						}
 					}
 				}
 			}
+			notNeeded.addAll(existingMembers.stream().filter(member -> !reUsedMemberIds.contains(member.getMemberId())).collect(Collectors.toList()));
 		}
 
 		List<ReferenceSetMember> toPersist = new ArrayList<>();

@@ -1020,6 +1020,62 @@ class ConceptServiceTest extends AbstractTest {
 	}
 
 	@Test
+	void testPreviouslyUsedIndicatorFromMultipleExistingInactiveInactivationIndicatorMembers() throws ServiceException {
+		/* When multiple refeset member are available to be reused, Snowstorm should pick only one up and make that member active
+		 * rather than creating a new one (which then shows up as an unnecessary duplicate to our validation). */
+
+		String path = "MAIN";
+		conceptService.batchCreate(Lists.newArrayList(new Concept("107658001"), new Concept("116680003")), path);
+		Concept concept = new Concept("50960005", 20020131, true, "900000000000207008", "900000000000074008");
+		concept.addDescription(new Description("84923010", 20020131, true, "900000000000207008", "50960005", "en", "900000000000013009", "Bleeding", "900000000000020002"));
+		concept.addAxiom(new Relationship(ISA, "107658001"));
+		concept = conceptService.create(concept, path);
+
+
+		// Version code system
+		codeSystemService.createVersion(codeSystem, 20190731, "");
+		concept = conceptService.find("107658001", path);
+
+		// Assume there are multiple existing inactive Inactivation Indicator Refset Members
+		ReferenceSetMember inactiveInactivationIndicatorRefsetMember1 = new ReferenceSetMember();
+		inactiveInactivationIndicatorRefsetMember1.setMemberId("2c1fd4bc-8504-46e9-a78c-0a854574f943");
+		inactiveInactivationIndicatorRefsetMember1.setReleaseHash(concept.getReleaseHash());
+		inactiveInactivationIndicatorRefsetMember1.setReleased(true);
+		inactiveInactivationIndicatorRefsetMember1.setActive(false);
+		inactiveInactivationIndicatorRefsetMember1.setRefsetId("900000000000489007");
+		inactiveInactivationIndicatorRefsetMember1.setAdditionalField(ReferenceSetMember.AttributeValueFields.VALUE_ID, OUTDATED);
+		inactiveInactivationIndicatorRefsetMember1.setReferencedComponentId("107658001");
+		referenceSetMemberService.createMember(path, inactiveInactivationIndicatorRefsetMember1);
+
+		ReferenceSetMember inactiveInactivationIndicatorRefsetMember2 = new ReferenceSetMember();
+		inactiveInactivationIndicatorRefsetMember2.setMemberId("f4738dfe-82f2-421e-bff7-7eb55fd71af5");
+		inactiveInactivationIndicatorRefsetMember2.setReleaseHash(concept.getReleaseHash());
+		inactiveInactivationIndicatorRefsetMember2.setReleased(true);
+		inactiveInactivationIndicatorRefsetMember2.setActive(false);
+		inactiveInactivationIndicatorRefsetMember2.setRefsetId("900000000000489007");
+		inactiveInactivationIndicatorRefsetMember2.setAdditionalField(ReferenceSetMember.AttributeValueFields.VALUE_ID, DUPLICATE);
+		inactiveInactivationIndicatorRefsetMember2.setReferencedComponentId("107658001");
+		referenceSetMemberService.createMember(path, inactiveInactivationIndicatorRefsetMember2);
+
+		// Make concept inactive
+		concept.setActive(false);
+		concept.setInactivationIndicator(Concepts.inactivationIndicatorNames.get(CONCEPT_NON_CURRENT));
+		concept = conceptService.update(concept, path);
+
+		// Check inactivation indicator string
+		concept = conceptService.find(concept.getId(), path);
+		assertEquals("CONCEPT_NON_CURRENT", concept.getInactivationIndicator());
+
+		// Check inactivation indicator reference set member was re-used
+		assertEquals(2, concept.getInactivationIndicatorMembers().size());
+		ReferenceSetMember inactivationIndicatorMember = concept.getInactivationIndicatorMembers().stream().filter(member -> member.isActive()).findFirst().orElse(null);
+		assertNotNull(inactivationIndicatorMember);
+		assertEquals(Concepts.CONCEPT_NON_CURRENT, inactivationIndicatorMember.getAdditionalField("valueId"));
+		assertTrue("2c1fd4bc-8504-46e9-a78c-0a854574f943".equals(inactivationIndicatorMember.getMemberId()) || "f4738dfe-82f2-421e-bff7-7eb55fd71af5".equals(inactivationIndicatorMember.getMemberId()));
+	}
+
+
+	@Test
 	void testCreateObjectAttribute() throws ServiceException {
 		conceptService.create(new Concept(CONCEPT_MODEL_OBJECT_ATTRIBUTE)
 						.addFSN("Concept model object attribute (attribute)")
