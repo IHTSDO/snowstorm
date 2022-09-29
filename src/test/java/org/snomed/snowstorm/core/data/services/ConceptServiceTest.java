@@ -1068,10 +1068,30 @@ class ConceptServiceTest extends AbstractTest {
 
 		// Check inactivation indicator reference set member was re-used
 		assertEquals(2, concept.getInactivationIndicatorMembers().size());
-		ReferenceSetMember inactivationIndicatorMember = concept.getInactivationIndicatorMembers().stream().filter(member -> member.isActive()).findFirst().orElse(null);
-		assertNotNull(inactivationIndicatorMember);
-		assertEquals(Concepts.CONCEPT_NON_CURRENT, inactivationIndicatorMember.getAdditionalField("valueId"));
-		assertTrue("2c1fd4bc-8504-46e9-a78c-0a854574f943".equals(inactivationIndicatorMember.getMemberId()) || "f4738dfe-82f2-421e-bff7-7eb55fd71af5".equals(inactivationIndicatorMember.getMemberId()));
+		ReferenceSetMember newlyActiveinactivationIndicatorMember = concept.getInactivationIndicatorMembers().stream().filter(member -> member.isActive()).findFirst().orElse(null);
+		assertNotNull(newlyActiveinactivationIndicatorMember);
+		assertEquals(Concepts.CONCEPT_NON_CURRENT, newlyActiveinactivationIndicatorMember.getAdditionalField("valueId"));
+
+		// Check the newly active one must be one of inactive inactivation indicator reference set members
+		assertTrue("2c1fd4bc-8504-46e9-a78c-0a854574f943".equals(newlyActiveinactivationIndicatorMember.getMemberId()) || "f4738dfe-82f2-421e-bff7-7eb55fd71af5".equals(newlyActiveinactivationIndicatorMember.getMemberId()));
+
+		// Check the remaining inactive inactivation indicator reference set member stays the same as original
+		ReferenceSetMember remainingInactiveInactivationIndicatorMember = concept.getInactivationIndicatorMembers().stream().filter(member -> !member.isActive()).findFirst().orElse(null);
+		if("2c1fd4bc-8504-46e9-a78c-0a854574f943".equals(remainingInactiveInactivationIndicatorMember.getMemberId())) {
+			assertEquals(inactiveInactivationIndicatorRefsetMember1.getReleaseHash(), remainingInactiveInactivationIndicatorMember.getReleaseHash());
+			assertEquals(inactiveInactivationIndicatorRefsetMember1.isActive(), remainingInactiveInactivationIndicatorMember.isActive());
+			assertEquals(inactiveInactivationIndicatorRefsetMember1.isReleased(), remainingInactiveInactivationIndicatorMember.isReleased());
+			assertEquals(inactiveInactivationIndicatorRefsetMember1.getAdditionalField(ReferenceSetMember.AttributeValueFields.VALUE_ID), remainingInactiveInactivationIndicatorMember.getAdditionalField(ReferenceSetMember.AttributeValueFields.VALUE_ID));
+			assertEquals(inactiveInactivationIndicatorRefsetMember1.getReferencedComponentId(), remainingInactiveInactivationIndicatorMember.getReferencedComponentId());
+			assertEquals(inactiveInactivationIndicatorRefsetMember1.getRefsetId(), remainingInactiveInactivationIndicatorMember.getRefsetId());
+		} else {
+			assertEquals(inactiveInactivationIndicatorRefsetMember2.getReleaseHash(), remainingInactiveInactivationIndicatorMember.getReleaseHash());
+			assertEquals(inactiveInactivationIndicatorRefsetMember2.isActive(), remainingInactiveInactivationIndicatorMember.isActive());
+			assertEquals(inactiveInactivationIndicatorRefsetMember2.isReleased(), remainingInactiveInactivationIndicatorMember.isReleased());
+			assertEquals(inactiveInactivationIndicatorRefsetMember2.getAdditionalField(ReferenceSetMember.AttributeValueFields.VALUE_ID), remainingInactiveInactivationIndicatorMember.getAdditionalField(ReferenceSetMember.AttributeValueFields.VALUE_ID));
+			assertEquals(inactiveInactivationIndicatorRefsetMember2.getReferencedComponentId(), remainingInactiveInactivationIndicatorMember.getReferencedComponentId());
+			assertEquals(inactiveInactivationIndicatorRefsetMember2.getRefsetId(), remainingInactiveInactivationIndicatorMember.getRefsetId());
+		}
 	}
 
 
