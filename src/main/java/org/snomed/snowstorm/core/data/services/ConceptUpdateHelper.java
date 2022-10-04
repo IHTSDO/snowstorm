@@ -423,7 +423,29 @@ public class ConceptUpdateHelper extends ComponentService {
 				notNeeded.add(existingMember);
 			}
 		}
-		
+
+		// Find existing members to keep - use an existing one that has the same value in release hash if we can
+		if (membersRequired.size() > 0 && toKeep.isEmpty()) {
+			notNeeded.clear();
+			for (ReferenceSetMember existingMember : existingMembers) {
+				final String refsetId = existingMember.getRefsetId();
+				String existingValueInReleaseHash = null;
+				if (existingMember.getReleaseHash() != null) {
+					String[] hashObjects = existingMember.getReleaseHash().split("\\|");
+					existingValueInReleaseHash = String.valueOf(hashObjects[hashObjects.length - 1]);
+				}
+				if (existingValueInReleaseHash != null && membersRequired.containsKey(refsetId) && membersRequired.get(refsetId).contains(existingValueInReleaseHash)) {
+					// Keep member
+					existingMember.setAdditionalField(fieldName, existingValueInReleaseHash);
+					existingMember.markChanged();
+					toKeep.add(existingMember);
+					membersRequired.get(refsetId).remove(existingValueInReleaseHash);
+				} else {
+					notNeeded.add(existingMember);
+				}
+			}
+		}
+
 		//Otherwise, value is mutable, so we can re-use any member with the same refsetId and modify the value
 		if (membersRequired.size() > 0 && toKeep.isEmpty()) {
 			notNeeded.clear();
