@@ -2,6 +2,27 @@
 All notable changes to this project will be documented in this file.
 
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## 7.11.0 Release (October 2022)
+Maintenance release with bug fixes and improvements.
+### Improvements
+- General
+  - MAINT-2037 Add `descriptionIds` as optional request parameter to `/{branch}/descriptions` endpoint
+  - MAINT-1439 Add `/user-group/{userGroup}` endpoint for retrieving permissions associated with User Group
+  - FRI-443 Send large Traceability JMS messages in batches
+  - MAINT-2044 Remove unused and commented-out code in WebConfig
+  - MAINT-2052 Revert re-used ReferenceSetMember if no longer required
+- Authoring
+  - FRI-480 Add new rule for ensuring defined Concepts must have at least one defining Relationship
+
+### Fixes
+- MAINT-1961 Fix `/browser/{branch}/concepts/bulk` endpoint from hanging if Branch doesn't exist
+- MAINT-2036 Fix adding multiple, new historical associations to an inactive Concept from failing
+- BROWSE-461 Fix parsing of ECL statements with nested `Parent of` and `Or` operations
+- MAINT-1969 Fix published components from losing their released flags during rebase
+- MAINT-1862 Fix `searchAfter` request parameter to work with ECL dot notation
+- MAINT-2051 Fix the changing of a Concept's inactivation reason from resulting in duplicate ReferenceSetMembers
+
 ## 7.10.0 Release (September 2022)
 Maintenance release with integration support for [Consul](https://www.consul.io/) and [Vault](https://www.vaultproject.io/)
 ### Features
