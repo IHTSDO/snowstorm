@@ -25,8 +25,8 @@ services:
 
 
   snowstorm:
-    image: snomedinternational/snowstorm:latest
-    container_name: snowstorm
+    image: snomedinternational/snowstorm-x:latest
+    container_name: snowstorm-x
     restart: always
     depends_on:
       elasticsearch:
