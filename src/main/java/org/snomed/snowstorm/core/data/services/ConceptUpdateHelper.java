@@ -499,7 +499,9 @@ public class ConceptUpdateHelper extends ComponentService {
 							.noneMatch(id -> id.equals(member.getMemberId()))) {
 
 				member.setActive(false);
-				member.markChanged();
+				if (!member.buildReleaseHash().equals(member.getReleaseHash())) {
+					member.markChanged();
+				}
 				
 				//Any change to a component in an extension needs to be done in the default module
 				if (member.isChanged() && (defaultModuleId != null && 
