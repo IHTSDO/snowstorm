@@ -3630,6 +3630,418 @@ class BranchMergeServiceTest extends AbstractTest {
 		}
 	}
 
+	@Test
+	void testRebaseDoesNotResultInExtensionStealingAssociationMemberWhenNoConflict() throws ServiceException, InterruptedException {
+		String intMain = "MAIN";
+		String extMain = "MAIN/SNOMEDCT-TEST";
+		Map<String, String> intPreferred = Map.of(US_EN_LANG_REFSET, descriptionAcceptabilityNames.get(PREFERRED), GB_EN_LANG_REFSET, descriptionAcceptabilityNames.get(PREFERRED));
+		Map<String, String> intAcceptable = Map.of(US_EN_LANG_REFSET, descriptionAcceptabilityNames.get(PREFERRED), GB_EN_LANG_REFSET, descriptionAcceptabilityNames.get(ACCEPTABLE));
+		String ci = "CASE_INSENSITIVE";
+		Concept concept;
+		CodeSystem codeSystem;
+		MergeReview review;
+		Collection<MergeReviewConceptVersions> conflicts;
+
+		// 1. Create International Concept
+		concept = new Concept()
+				.addDescription(new Description("Cinnamon bun (food)").setTypeId(FSN).setCaseSignificance(ci).setAcceptabilityMap(intPreferred))
+				.addDescription(new Description("Cinnamon bun").setTypeId(SYNONYM).setCaseSignificance(ci).setAcceptabilityMap(intPreferred))
+				.addDescription(new Description("Cinnamon roll").setTypeId(SYNONYM).setCaseSignificance(ci).setAcceptabilityMap(intAcceptable))
+				// Purposely plural. This will later be inactivated.
+				.addDescription(new Description("Cinnamon rolls").setTypeId(SYNONYM).setCaseSignificance(ci).setAcceptabilityMap(intAcceptable))
+				.addAxiom(new Relationship(ISA, SNOMEDCT_ROOT));
+		concept = conceptService.create(concept, intMain);
+		String cinnamonId = concept.getConceptId();
+
+		// 2. Version International
+		codeSystem = codeSystemService.find("SNOMEDCT");
+		codeSystemService.createVersion(codeSystem, 20220131, "20220131");
+
+		// 3. Create Extension
+		codeSystemService.createCodeSystem(new CodeSystem("SNOMEDCT-TEST", extMain));
+		concept = conceptService.create(
+				new Concept()
+						.addDescription(new Description("Extension maintained module").setTypeId(FSN).setCaseSignificance(ci).setAcceptabilityMap(intPreferred))
+						.addDescription(new Description("Extension maintained").setTypeId(SYNONYM).setCaseSignificance(ci).setAcceptabilityMap(intPreferred))
+						.addDescription(new Description("Extension nrc").setTypeId(SYNONYM).setCaseSignificance(ci).setAcceptabilityMap(intAcceptable))
+						.addAxiom(new Relationship(ISA, MODULE)),
+				extMain
+		);
+		String extModule = concept.getConceptId();
+		branchService.updateMetadata(extMain, Map.of(Config.DEFAULT_MODULE_ID_KEY, extModule));
+
+		// 4. Create Extension project
+		String extProject = "MAIN/SNOMEDCT-TEST/projectA";
+		branchService.create(extProject);
+
+		// 5. Inactivate International Description
+		concept = conceptService.find(cinnamonId, intMain);
+		Description cinnamonRolls = getDescription(concept, "Cinnamon rolls");
+		Description cinnamonRoll = getDescription(concept, "Cinnamon roll");
+		cinnamonRolls.setActive(false).updateEffectiveTime();
+		conceptService.update(concept, intMain);
+		ReferenceSetMember associationMember = memberService.createMember(
+				intMain,
+				new ReferenceSetMember(
+						CORE_MODULE, REFSET_SAME_AS_ASSOCIATION,
+						cinnamonRolls.getDescriptionId()
+				).setAdditionalField("targetComponentId", cinnamonRoll.getDescriptionId())
+		);
+
+		// 6. Version International
+		codeSystem = codeSystemService.find("SNOMEDCT");
+		codeSystemService.createVersion(codeSystem, 20220228, "20220228");
+
+		// 7. Upgrade Extension
+		codeSystem = codeSystemService.find("SNOMEDCT-TEST");
+		codeSystemUpgradeService.upgrade(codeSystem, 20220228, false);
+
+		// 8. Rebase Extension project
+		review = getMergeReviewInCurrentState(extMain, extProject);
+		conflicts = reviewService.getMergeReviewConflictingConcepts(review.getId(), new ArrayList<>());
+		assertTrue(conflicts.isEmpty());
+		reviewService.applyMergeReview(review);
+
+		// 9. Create task A
+		String extTaskA = "MAIN/SNOMEDCT-TEST/projectA/taskA";
+		branchService.create(extTaskA);
+
+		// 10. Add new top-level Concept to Extension
+		conceptService.create(
+				new Concept()
+						.addDescription(new Description("Vehicle (vehicle)").setTypeId(FSN).setCaseSignificance(ci).setAcceptabilityMap(intPreferred))
+						.addDescription(new Description("Vehicle").setTypeId(SYNONYM).setCaseSignificance(ci).setAcceptabilityMap(intPreferred))
+						.addAxiom(new Relationship(ISA, SNOMEDCT_ROOT)),
+				extTaskA
+		);
+
+		// 13. Promote task A
+		review = getMergeReviewInCurrentState(extProject, extTaskA);
+		conflicts = reviewService.getMergeReviewConflictingConcepts(review.getId(), new ArrayList<>());
+		assertTrue(conflicts.isEmpty());
+		branchMergeService.mergeBranchSync(extTaskA, extProject, Collections.emptySet());
+
+		// 16. In International, inactivate association member
+		// Author decides to inactivate the member as strictly speaking plural does not necessarily mean SAME_AS
+		String associationMemberId = associationMember.getMemberId();
+		associationMember = memberService.findMember(intMain, associationMemberId);
+		associationMember.setActive(false).updateEffectiveTime();
+		memberService.updateMember(intMain, associationMember);
+
+		// 17. Version International
+		codeSystem = codeSystemService.find("SNOMEDCT");
+		codeSystemService.createVersion(codeSystem, 20220331, "20220331");
+
+		// 18. Upgrade Extension
+		codeSystem = codeSystemService.find("SNOMEDCT-TEST");
+		codeSystemUpgradeService.upgrade(codeSystem, 20220331, false);
+
+		// 19. Assert state of inactivated member before rebase
+		associationMember = memberService.findMember(intMain, associationMemberId);
+		assertEquals(CORE_MODULE, associationMember.getModuleId());
+		assertVersioned(associationMember, 20220331); // International has latest version
+
+		associationMember = memberService.findMember(extProject, associationMemberId);
+		assertEquals(CORE_MODULE, associationMember.getModuleId());
+		assertVersioned(associationMember, 20220228); // Not yet rebased latest version
+
+		// 20. Rebase Extension project
+		review = getMergeReviewInCurrentState(extMain, extProject);
+		conflicts = reviewService.getMergeReviewConflictingConcepts(review.getId(), new ArrayList<>());
+		assertTrue(conflicts.isEmpty());
+		reviewService.applyMergeReview(review);
+
+		// 21. Assert state of inactivated member after rebase
+		associationMember = memberService.findMember(intMain, associationMemberId);
+		assertEquals(CORE_MODULE, associationMember.getModuleId());
+		assertVersioned(associationMember, 20220331);
+
+		associationMember = memberService.findMember(extProject, associationMemberId);
+		assertEquals(CORE_MODULE, associationMember.getModuleId());
+		assertVersioned(associationMember, 20220331);
+	}
+
+	@Test
+	void testRebaseDoesNotResultInExtensionStealingAssociationMemberWhenConflict() throws ServiceException, InterruptedException {
+		String intMain = "MAIN";
+		String extMain = "MAIN/SNOMEDCT-TEST";
+		Map<String, String> intPreferred = Map.of(US_EN_LANG_REFSET, descriptionAcceptabilityNames.get(PREFERRED), GB_EN_LANG_REFSET, descriptionAcceptabilityNames.get(PREFERRED));
+		Map<String, String> intAcceptable = Map.of(US_EN_LANG_REFSET, descriptionAcceptabilityNames.get(PREFERRED), GB_EN_LANG_REFSET, descriptionAcceptabilityNames.get(ACCEPTABLE));
+		String ci = "CASE_INSENSITIVE";
+		Concept concept;
+		CodeSystem codeSystem;
+		MergeReview review;
+		Collection<MergeReviewConceptVersions> conflicts;
+
+		// 1. Create International Concept
+		concept = new Concept()
+				.addDescription(new Description("Cinnamon bun (food)").setTypeId(FSN).setCaseSignificance(ci).setAcceptabilityMap(intPreferred))
+				.addDescription(new Description("Cinnamon bun").setTypeId(SYNONYM).setCaseSignificance(ci).setAcceptabilityMap(intPreferred))
+				.addDescription(new Description("Cinnamon roll").setTypeId(SYNONYM).setCaseSignificance(ci).setAcceptabilityMap(intAcceptable))
+				// Purposely plural. This will later be inactivated.
+				.addDescription(new Description("Cinnamon rolls").setTypeId(SYNONYM).setCaseSignificance(ci).setAcceptabilityMap(intAcceptable))
+				.addAxiom(new Relationship(ISA, SNOMEDCT_ROOT));
+		concept = conceptService.create(concept, intMain);
+		String cinnamonId = concept.getConceptId();
+
+		// 2. Version International
+		codeSystem = codeSystemService.find("SNOMEDCT");
+		codeSystemService.createVersion(codeSystem, 20220131, "20220131");
+
+		// 3. Create Extension
+		codeSystemService.createCodeSystem(new CodeSystem("SNOMEDCT-TEST", extMain));
+		concept = conceptService.create(
+				new Concept()
+						.addDescription(new Description("Extension maintained module").setTypeId(FSN).setCaseSignificance(ci).setAcceptabilityMap(intPreferred))
+						.addDescription(new Description("Extension maintained").setTypeId(SYNONYM).setCaseSignificance(ci).setAcceptabilityMap(intPreferred))
+						.addDescription(new Description("Extension nrc").setTypeId(SYNONYM).setCaseSignificance(ci).setAcceptabilityMap(intAcceptable))
+						.addAxiom(new Relationship(ISA, MODULE)),
+				extMain
+		);
+		String extModule = concept.getConceptId();
+		branchService.updateMetadata(extMain, Map.of(Config.DEFAULT_MODULE_ID_KEY, extModule));
+
+		// 4. Create Extension project
+		String extProject = "MAIN/SNOMEDCT-TEST/projectA";
+		branchService.create(extProject);
+
+		// 5. Inactivate International Description
+		concept = conceptService.find(cinnamonId, intMain);
+		Description cinnamonRolls = getDescription(concept, "Cinnamon rolls");
+		Description cinnamonRoll = getDescription(concept, "Cinnamon roll");
+		cinnamonRolls.setActive(false).updateEffectiveTime();
+		conceptService.update(concept, intMain);
+		ReferenceSetMember associationMember = memberService.createMember(
+				intMain,
+				new ReferenceSetMember(
+						CORE_MODULE, REFSET_SAME_AS_ASSOCIATION,
+						cinnamonRolls.getDescriptionId()
+				).setAdditionalField("targetComponentId", cinnamonRoll.getDescriptionId())
+		);
+
+		// 6. Version International
+		codeSystem = codeSystemService.find("SNOMEDCT");
+		codeSystemService.createVersion(codeSystem, 20220228, "20220228");
+
+		// 7. Upgrade Extension
+		codeSystem = codeSystemService.find("SNOMEDCT-TEST");
+		codeSystemUpgradeService.upgrade(codeSystem, 20220228, false);
+
+		// 8. Rebase Extension project
+		review = getMergeReviewInCurrentState(extMain, extProject);
+		conflicts = reviewService.getMergeReviewConflictingConcepts(review.getId(), new ArrayList<>());
+		assertTrue(conflicts.isEmpty());
+		reviewService.applyMergeReview(review);
+
+		// 9. Create task A
+		String extTaskA = "MAIN/SNOMEDCT-TEST/projectA/taskA";
+		branchService.create(extTaskA);
+
+		// 10. Add new top-level Concept to Extension
+		conceptService.create(
+				new Concept()
+						.addDescription(new Description("Vehicle (vehicle)").setTypeId(FSN).setCaseSignificance(ci).setAcceptabilityMap(intPreferred))
+						.addDescription(new Description("Vehicle").setTypeId(SYNONYM).setCaseSignificance(ci).setAcceptabilityMap(intPreferred))
+						.addAxiom(new Relationship(ISA, SNOMEDCT_ROOT)),
+				extTaskA
+		);
+
+		// 11. Create task B
+		String extTaskB = "MAIN/SNOMEDCT-TEST/projectA/taskB";
+		branchService.create(extTaskB);
+
+		// 12. Add translation to Cinnamon bun
+		concept = conceptService.find(cinnamonId, extTaskB);
+		concept.addDescription(new Description("Kanelbulle").setTypeId(FSN).setCaseSignificance(ci).setAcceptabilityMap(intAcceptable));
+		conceptService.update(concept, extTaskB);
+
+		// 13. Promote task A
+		review = getMergeReviewInCurrentState(extProject, extTaskA);
+		conflicts = reviewService.getMergeReviewConflictingConcepts(review.getId(), new ArrayList<>());
+		assertTrue(conflicts.isEmpty());
+		branchMergeService.mergeBranchSync(extTaskA, extProject, Collections.emptySet());
+
+		// 14. Prepare task B for promotion by rebasing
+		review = getMergeReviewInCurrentState(extProject, extTaskB);
+		conflicts = reviewService.getMergeReviewConflictingConcepts(review.getId(), new ArrayList<>());
+		assertTrue(conflicts.isEmpty());
+		reviewService.applyMergeReview(review);
+
+		// 15. Promote task B
+		branchMergeService.mergeBranchSync(extTaskB, extProject, Collections.emptySet());
+
+		// 16. In International, inactivate association member
+		// Author decides to inactivate the member as strictly speaking plural does not necessarily mean SAME_AS
+		String associationMemberId = associationMember.getMemberId();
+		associationMember = memberService.findMember(intMain, associationMemberId);
+		associationMember.setActive(false).updateEffectiveTime();
+		memberService.updateMember(intMain, associationMember);
+
+		// 17. Version International
+		codeSystem = codeSystemService.find("SNOMEDCT");
+		codeSystemService.createVersion(codeSystem, 20220331, "20220331");
+
+		// 18. Upgrade Extension
+		codeSystem = codeSystemService.find("SNOMEDCT-TEST");
+		codeSystemUpgradeService.upgrade(codeSystem, 20220331, false);
+
+		// 19. Assert state of inactivated member before rebase
+		associationMember = memberService.findMember(intMain, associationMemberId);
+		assertEquals(CORE_MODULE, associationMember.getModuleId());
+		assertVersioned(associationMember, 20220331); // International has latest version
+
+		associationMember = memberService.findMember(extProject, associationMemberId);
+		assertEquals(CORE_MODULE, associationMember.getModuleId());
+		assertVersioned(associationMember, 20220228); // Not yet rebased latest version
+
+		// 20. Rebase Extension project
+		review = getMergeReviewInCurrentState(extMain, extProject);
+		conflicts = reviewService.getMergeReviewConflictingConcepts(review.getId(), new ArrayList<>());
+		assertTrue(conflicts.size() != 0);
+		for (MergeReviewConceptVersions conflict : conflicts) {
+			reviewService.persistManuallyMergedConcept(review, Long.parseLong(cinnamonId), conflict.getAutoMergedConcept());
+		}
+		reviewService.applyMergeReview(review);
+
+		// 21. Assert state of inactivated member after rebase
+		associationMember = memberService.findMember(intMain, associationMemberId);
+		assertEquals(CORE_MODULE, associationMember.getModuleId());
+		assertVersioned(associationMember, 20220331);
+
+		associationMember = memberService.findMember(extProject, associationMemberId);
+		assertEquals(CORE_MODULE, associationMember.getModuleId());
+		assertVersioned(associationMember, 20220331);
+	}
+
+	@Test
+	void testPromotionDoesNotResultInExtensionStealingAssociationMember() throws ServiceException, InterruptedException {
+		String intMain = "MAIN";
+		String extMain = "MAIN/SNOMEDCT-TEST";
+		Map<String, String> intPreferred = Map.of(US_EN_LANG_REFSET, descriptionAcceptabilityNames.get(PREFERRED), GB_EN_LANG_REFSET, descriptionAcceptabilityNames.get(PREFERRED));
+		Map<String, String> intAcceptable = Map.of(US_EN_LANG_REFSET, descriptionAcceptabilityNames.get(PREFERRED), GB_EN_LANG_REFSET, descriptionAcceptabilityNames.get(ACCEPTABLE));
+		String ci = "CASE_INSENSITIVE";
+		Concept concept;
+		CodeSystem codeSystem;
+		MergeReview review;
+		Collection<MergeReviewConceptVersions> conflicts;
+
+		// 1. Create International Concept
+		concept = new Concept()
+				.addDescription(new Description("Cinnamon bun (food)").setTypeId(FSN).setCaseSignificance(ci).setAcceptabilityMap(intPreferred))
+				.addDescription(new Description("Cinnamon bun").setTypeId(SYNONYM).setCaseSignificance(ci).setAcceptabilityMap(intPreferred))
+				.addDescription(new Description("Cinnamon roll").setTypeId(SYNONYM).setCaseSignificance(ci).setAcceptabilityMap(intAcceptable))
+				// Purposely plural. This will later be inactivated.
+				.addDescription(new Description("Cinnamon rolls").setTypeId(SYNONYM).setCaseSignificance(ci).setAcceptabilityMap(intAcceptable))
+				.addAxiom(new Relationship(ISA, SNOMEDCT_ROOT));
+		concept = conceptService.create(concept, intMain);
+		String cinnamonId = concept.getConceptId();
+
+		// 2. Version International
+		codeSystem = codeSystemService.find("SNOMEDCT");
+		codeSystemService.createVersion(codeSystem, 20220131, "20220131");
+
+		// 3. Inactivate Description
+		concept = conceptService.find(cinnamonId, intMain);
+		Description cinnamonRolls = getDescription(concept, "Cinnamon rolls");
+		Description cinnamonRoll = getDescription(concept, "Cinnamon roll");
+		cinnamonRolls.setActive(false).updateEffectiveTime();
+		conceptService.update(concept, intMain);
+		ReferenceSetMember associationMember = memberService.createMember(
+				intMain,
+				new ReferenceSetMember(
+						CORE_MODULE, REFSET_SAME_AS_ASSOCIATION,
+						cinnamonRolls.getDescriptionId()
+				).setAdditionalField("targetComponentId", cinnamonRoll.getDescriptionId())
+		);
+
+		// 4. Version International
+		codeSystem = codeSystemService.find("SNOMEDCT");
+		codeSystemService.createVersion(codeSystem, 20220228, "20220228");
+
+		// 5. Inactivate association member
+		// Author decides to inactivate the member as strictly speaking plural does not necessarily mean SAME_AS
+		String associationMemberId = associationMember.getMemberId();
+		associationMember = memberService.findMember(intMain, associationMemberId);
+		associationMember.setActive(false).updateEffectiveTime();
+		memberService.updateMember(intMain, associationMember);
+
+		// 6. Version International
+		codeSystem = codeSystemService.find("SNOMEDCT");
+		codeSystemService.createVersion(codeSystem, 20220331, "20220331");
+
+		// 7. Create Extension
+		codeSystemService.createCodeSystem(new CodeSystem("SNOMEDCT-TEST", extMain));
+		concept = conceptService.create(
+				new Concept()
+						.addDescription(new Description("Extension maintained module").setTypeId(FSN).setCaseSignificance(ci).setAcceptabilityMap(intPreferred))
+						.addDescription(new Description("Extension maintained").setTypeId(SYNONYM).setCaseSignificance(ci).setAcceptabilityMap(intPreferred))
+						.addDescription(new Description("Extension nrc").setTypeId(SYNONYM).setCaseSignificance(ci).setAcceptabilityMap(intAcceptable))
+						.addAxiom(new Relationship(ISA, MODULE)),
+				extMain
+		);
+		String extModule = concept.getConceptId();
+		branchService.updateMetadata(extMain, Map.of(Config.DEFAULT_MODULE_ID_KEY, extModule));
+
+		// 8. Create Extension project
+		String extProject = "MAIN/SNOMEDCT-TEST/projectA";
+		branchService.create(extProject);
+
+		// 9. Create task A
+		String extTaskA = "MAIN/SNOMEDCT-TEST/projectA/taskA";
+		branchService.create(extTaskA);
+
+		// 10. Add new top-level Concept to Extension
+		conceptService.create(
+				new Concept()
+						.addDescription(new Description("Vehicle (vehicle)").setTypeId(FSN).setCaseSignificance(ci).setAcceptabilityMap(intPreferred))
+						.addDescription(new Description("Vehicle").setTypeId(SYNONYM).setCaseSignificance(ci).setAcceptabilityMap(intPreferred))
+						.addAxiom(new Relationship(ISA, SNOMEDCT_ROOT)),
+				extTaskA
+		);
+
+		// 11. Create task B
+		String extTaskB = "MAIN/SNOMEDCT-TEST/projectA/taskB";
+		branchService.create(extTaskB);
+
+		// 12. Add translation to Cinnamon bun
+		concept = conceptService.find(cinnamonId, extTaskB);
+		concept.addDescription(new Description("Kanelbulle").setTypeId(FSN).setCaseSignificance(ci).setAcceptabilityMap(intAcceptable));
+		conceptService.update(concept, extTaskB);
+
+		// 13. Promote task A
+		review = getMergeReviewInCurrentState(extProject, extTaskA);
+		conflicts = reviewService.getMergeReviewConflictingConcepts(review.getId(), new ArrayList<>());
+		assertTrue(conflicts.isEmpty());
+		branchMergeService.mergeBranchSync(extTaskA, extProject, Collections.emptySet());
+
+		// 14. Prepare task B for promotion by rebasing
+		review = getMergeReviewInCurrentState(extProject, extTaskB);
+		conflicts = reviewService.getMergeReviewConflictingConcepts(review.getId(), new ArrayList<>());
+		assertTrue(conflicts.isEmpty());
+		reviewService.applyMergeReview(review);
+
+		// 15. Assert state of inactivated member before promotion
+		associationMember = memberService.findMember(intMain, associationMemberId);
+		assertEquals(CORE_MODULE, associationMember.getModuleId());
+		assertVersioned(associationMember, 20220331);
+
+		associationMember = memberService.findMember(extProject, associationMemberId);
+		assertEquals(CORE_MODULE, associationMember.getModuleId());
+		assertVersioned(associationMember, 20220331);
+
+		// 16. Promote task B
+		branchMergeService.mergeBranchSync(extTaskB, extProject, Collections.emptySet());
+
+		// 15. Assert state of inactivated member after promotion
+		associationMember = memberService.findMember(intMain, associationMemberId);
+		assertEquals(CORE_MODULE, associationMember.getModuleId());
+		assertVersioned(associationMember, 20220331);
+
+		associationMember = memberService.findMember(extProject, associationMemberId);
+		assertEquals(CORE_MODULE, associationMember.getModuleId());
+		assertVersioned(associationMember, 20220331);
+	}
+
 	private void assertNotVersioned(Description description) {
 		assertNull(description.getEffectiveTime());
 		assertFalse(description.isReleased());
