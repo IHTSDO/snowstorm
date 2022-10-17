@@ -45,6 +45,8 @@ hapi-fhir-cli upload-terminology -d custom_code_system.zip -v r4 -t http://local
 ```
 
 ## Loading FHIR Packages
+Currently only CodeSystem type resources can be loaded via FHIR package. The import of ValueSets and ConceptMaps is not yet implemented.
+
 To load resources from a FHIR package first download the package from a package registry.
 For example:
 ```
@@ -59,7 +61,10 @@ curl --form file=@hl7.terminology.r4-3.1.0.tgz \
 ```
 All resources within a package can be loaded using `--form resourceUrls='*'`.
 
-Currently only CodeSystem type resources can be loaded via FHIR package.
+Notes on import behaviour:
+- The package index file is used as the source of truth for the url and version of CodeSystems imported. This avoids some duplicates in the HL7 terminology package.
+- Duplicate CodeSystem versions with "content:not-present" are skipped. This is logged at INFO level.
+
 
 ## Examples
 Use Postman to try out FHIR API calls.
