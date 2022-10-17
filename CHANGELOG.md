@@ -3,6 +3,43 @@ All notable changes to this project will be documented in this file.
 
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## Release 8.0.0 - FHIR Multiple Code Systems
+
+This major release has an overhaul of the FHIR API :fire: and adds support for multiple code systems within the FHIR API!
+
+Previously Snowstorm only supported SNOMED CT but this release adds support for LOINC, ICD-10 (International), ICD-10-CM (US) and
+any other code system using a FHIR package or the Custom code system format.
+
+The custom code system format allows any local or national code system to be supported. These need to be transformed into the custom code system format before being loaded.
+
+**FIXME (update links for snowstorm 8.0.0 release)**
+See [Snowstorm FHIR Terminology Server documentation](https://github.com/IHTSDO/snowstorm-x/blob/snowstorm-x-8.1.0/docs/using-the-fhir-api.md) for details of how to 
+load each package format and a link to the updated Postman collection for v8.
+
+### Breaking
+- FHIR API no longer defaults to the SNOMED CT code system, now a system must always be specified. This is in alignment with the FHIR specification.
+- Renamed FHIR Elasticsearch indices with `fhir_` prefix
+
+### Features
+- Add FHIR Support for LOINC
+  - Uses LOINC package format
+- Add FHIR Support for ICD-10
+  - Uses ICD-10 ClaML format
+- Add FHIR Support for ICD-10-CM
+  - Uses ICD-10-CM native format
+- Add support for loading HL7 and other code systems
+  - Uses FHIR package format
+- Add FHIR Support for Custom code systems
+  - Using simple custom code system format
+
+### Improvements
+- Improve FHIR code system version resolution
+- Include resolved code system version in FHIR responses
+- Improved FHIR error catching and reporting
+
+### Fixes
+- Minor fixes for FHIR specification conformance
+
 
 ## 7.10.0 Release (September 2022)
 Maintenance release with integration support for [Consul](https://www.consul.io/) and [Vault](https://www.vaultproject.io/)
@@ -29,59 +66,6 @@ Maintenance release with integration support for [Consul](https://www.consul.io/
   - MAINT-1743 Fix loss of effective time in components saved during rebase.
   - MAINT-1999 Avoid persisting refset members unnecessarily when saving concepts.
   - MAINT-2003 Correct default language refset configuration for `es`
-
-
-## Beta Fix Release 8.1.1 - FHIR Multiple Code Systems and Packages (fix)
-This beta release follows Beta 8.1.0 and contains fixes needed when importing all the CodeSystems within a FHIR package that contains
-potentially duplicate CodeSystem versions. This is required to import some HL7 packages, for example `hl7.terminology.r4-3.1.0.tgz`. 
-
-### Fixes
-  - ISTO-61 More lenient FHIR package import
-    - Use the package index file as the source of truth for the url and version of CodeSystems imported. This avoids some duplicates in the HL7 package.
-    - Automatically skip importing a duplicate CodeSystem version if it has "content:not-present". This case is logged at INFO level.
-  - Make logging less noisy during FHIR package import
-
-
-## Beta Release 8.1.0 - FHIR Multiple Code Systems and Packages
-This beta release builds on Beta 8.0.0, adding support for loading code systems from FHIR packages.  
-See [Loading FHIR Packages documentation](https://github.com/IHTSDO/snowstorm-x/blob/snowstorm-x-8.1.0/docs/using-the-fhir-api.md#loading-fhir-packages) for details of how to load HL7 code systems and others.
-
-### Features
-- Add support for loading CodeSystem resources from FHIR packages
-
-### Fixes
-- Fix total count when listing all ValueSet resources
-
-
-## Beta Release 8.0.0 - FHIR Multiple Code Systems
-
-_(This beta release is exactly the same as the one published on the main Snowstorm repository)_
-
-This beta release has an overhaul of the FHIR API :fire: and adds support for multiple code systems!
-
-Previously Snowstorm only supported SNOMED CT but this beta adds FHIR support for LOINC, ICD-10 (International), ICD-10-CM (US) and any other "custom" code system.
-
-The "custom" code system format allows any other local or national code system to be supported. These need to be transformed into the custom code system format before being loaded.
-
-Please refer to the [updated v8 FHIR API documentation](https://github.com/IHTSDO/snowstorm-x/blob/8.0.0-beta/docs/using-the-fhir-api.md) for details of how to load non-SNOMED code systems. You will also find a link to the updated Postman collection for v8 there.
-
-### Breaking
-- FHIR API no longer defaults to the SNOMED CT code system
-- Renamed FHIR Elasticsearch indices with `fhir_` prefix
-
-### Features
-- Add FHIR Support for LOINC
-- Add FHIR Support for ICD-10
-- Add FHIR Support for ICD-10-CM
-- Add FHIR Support for Custom code systems
-
-### Improvements
-- Improve FHIR code system version resolution
-- Resolved code system version included in FHIR responses
-- Improved FHIR error catching and reporting
-
-### Fixes
-- Minor fixes for FHIR specification conformance
 
 
 ## 7.9.3 Release (June 2022)
