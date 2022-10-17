@@ -160,6 +160,24 @@ class ValueSetProviderEclTest extends AbstractFHIRTest {
 	}
 	
 	@Test
+	void testExplicitNestedValueSetExpansion() {
+		ClassLoader classloader = Thread.currentThread().getContextClassLoader();
+		InputStream is = classloader.getResourceAsStream("dummy-fhir-content/exampleVS_incude_implicit_VS.json");
+		assertNotNull(is);
+		ValueSet exampleVS = fhirJsonParser.parseResource(ValueSet.class, is);
+		String vsJson = fhirJsonParser.encodeResourceToString(exampleVS);
+		storeVs("test-nested-vs", vsJson);
+		
+		//Now expand that ValueSet we just saved
+		String url = baseUrl + "/test-nested-vs/$expand";
+		ResponseEntity<String> response = restTemplate.getForEntity(url, String.class);
+		ValueSet savedVS = fhirJsonParser.parseResource(ValueSet.class, response.getBody());
+		
+		//10 Concepts on MAIN
+		assertEquals(10, savedVS.getExpansion().getTotal());
+		restTemplate.delete(baseUrl + "/test-nested-vs");
+	}
+	@Test
 	void testECLWithUnpublishedVersion() throws FHIROperationException {
 		//Asking for 5 at a time, expect 13 Total - 10 on MAIN + 3 in the sample module + 1 Root concept
 		String url = "http://localhost:" + port + "/fhir/ValueSet/$expand?system-version=http://snomed.info/xsct/1234&" + 
