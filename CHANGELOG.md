@@ -4,55 +4,42 @@ All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
-## SnowstormX Beta Fix Release 8.1.1 - FHIR Multiple Code Systems and Packages (fix)
-This beta release follows Beta 8.1.0 and contains fixes needed when importing all the CodeSystems within a FHIR package that contains
-potentially duplicate CodeSystem versions. This is required to import some HL7 packages, for example `hl7.terminology.r4-3.1.0.tgz`.
+## SnowstormX Release 8.x - FHIR Multiple Code Systems
 
-### Fixes
-- ISTO-61 More lenient FHIR package import
-  - Use the package index file as the source of truth for the url and version of CodeSystems imported. This avoids some duplicates in the HL7 package.
-  - Automatically skip importing a duplicate CodeSystem version if it has "content:not-present". This case is logged at INFO level.
-- Make logging less noisy during FHIR package import
+This major release has an overhaul of the FHIR API :fire: and adds support for multiple code systems within the FHIR API!
 
+Previously Snowstorm only supported SNOMED CT but this release adds support for LOINC, ICD-10 (International), ICD-10-CM (US) and
+any other code system using a FHIR package or the Custom code system format.
 
-## SnowstormX Beta Release 8.1.0 - FHIR Multiple Code Systems and Packages
-This beta release builds on SnowstormX Beta 8.0.0, adding support for loading code systems from FHIR packages.  
-This beta release builds on Beta 8.0.0, adding support for loading code systems from FHIR packages.  
-See [Loading FHIR Packages documentation](https://github.com/IHTSDO/snowstorm-x/blob/snowstorm-x-8.1.0/docs/using-the-fhir-api.md#loading-fhir-packages) for details of how to load HL7 code systems and others.
+The custom code system format allows any local or national code system to be supported. These need to be transformed into the custom code system format before being loaded.
 
-### Features
-- Add support for loading CodeSystem resources from FHIR packages
-
-### Fixes
-- Fix total count when listing all ValueSet resources
-
-
-## SnowstormX Beta Release 8.0.0 - FHIR Multiple Code Systems
-This beta release has an overhaul of the FHIR API :fire: and adds support for multiple code systems!
-
-Previously Snowstorm only supported SNOMED CT but this beta adds FHIR support for LOINC, ICD-10 (International), ICD-10-CM (US) and any other "custom" code system.
-
-The "custom" code system format allows any other local or national code system to be supported. These need to be transformed into the custom code system format before being loaded.
-
-Please refer to the [updated v8 FHIR API documentation](https://github.com/IHTSDO/snowstorm-x/blob/8.0.0-beta/docs/using-the-fhir-api.md) for details of how to load non-SNOMED code systems. You will also find a link to the updated Postman collection for v8 there.
+**FIXME (update links for snowstorm 8.0.0 release)**
+See [Snowstorm FHIR Terminology Server documentation](https://github.com/IHTSDO/snowstorm-x/blob/snowstorm-x-8.1.0/docs/using-the-fhir-api.md) for details of how to 
+load each package format and a link to the updated Postman collection for v8.
 
 ### Breaking
-- FHIR API no longer defaults to the SNOMED CT code system
+- FHIR API no longer defaults to the SNOMED CT code system, now a system must always be specified. This is in alignment with the FHIR specification.
 - Renamed FHIR Elasticsearch indices with `fhir_` prefix
 
 ### Features
 - Add FHIR Support for LOINC
+  - Uses LOINC package format
 - Add FHIR Support for ICD-10
+  - Uses ICD-10 ClaML format
 - Add FHIR Support for ICD-10-CM
+  - Uses ICD-10-CM native format
+- Add support for loading HL7 and other code systems
+  - Uses FHIR package format
 - Add FHIR Support for Custom code systems
+  - Using simple custom code system format
 
 ### Improvements
 - Improve FHIR code system version resolution
-- Resolved code system version included in FHIR responses
+- Include resolved code system version in FHIR responses
 - Improved FHIR error catching and reporting
 
 ### Fixes
-- Minor fixes for FHIR specification conformance
+- Various fixes for FHIR specification conformance
 
 
 ## 8.0.0 Release (February 2023)
