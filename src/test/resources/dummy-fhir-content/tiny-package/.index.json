@@ -1,0 +1,19 @@
+{
+  "index-version": 1,
+  "files": [
+    {
+      "filename": "ValueSet-device-status-reason.json",
+      "resourceType": "ValueSet",
+      "id": "device-status-reason",
+      "url": "http://terminology.hl7.org/ValueSet/device-status-reason",
+      "version": "0.1.0"
+    },
+    {
+      "filename": "CodeSystem-device-status-reason.json",
+      "resourceType": "CodeSystem",
+      "id": "device-status-reason",
+      "url": "http://terminology.hl7.org/CodeSystem/device-status-reason",
+      "version": "0.1.0"
+    }
+  ]
+}
