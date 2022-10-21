@@ -59,7 +59,7 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 	@Create()
 	public MethodOutcome createValueSet(@IdParam IdType id, @ResourceParam ValueSet vs) {
 		MethodOutcome outcome = new MethodOutcome();
-		FHIRValueSet savedVs = valueSetService.createValueset(vs);
+		FHIRValueSet savedVs = valueSetService.createOrUpdateValueset(vs);
 		outcome.setId(new IdType("ValueSet", savedVs.getId(), vs.getVersion()));
 		return outcome;
 	}

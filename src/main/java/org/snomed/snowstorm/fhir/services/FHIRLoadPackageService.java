@@ -9,6 +9,7 @@ import org.apache.commons.compress.compressors.gzip.GzipCompressorInputStream;
 import org.hl7.fhir.instance.model.api.IBaseResource;
 import org.hl7.fhir.r4.model.CodeSystem;
 import org.hl7.fhir.r4.model.OperationOutcome;
+import org.hl7.fhir.r4.model.ValueSet;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.fhir.domain.FHIRCodeSystemVersion;
@@ -38,6 +39,9 @@ public class FHIRLoadPackageService {
 	private FHIRCodeSystemService codeSystemService;
 
 	@Autowired
+	private FHIRValueSetService valueSetService;
+
+	@Autowired
 	private FHIRConceptService fhirConceptService;
 
 	@Autowired
@@ -48,7 +52,7 @@ public class FHIRLoadPackageService {
 	public void uploadPackageResources(File packageFile, Set<String> resourceUrlsToImport) throws IOException {
 		JsonParser jsonParser = (JsonParser) fhirContext.newJsonParser();
 		FHIRPackageIndex index = extractObject(packageFile, ".index.json", FHIRPackageIndex.class, jsonParser);
-		Set<String> supportedResourceTypes = Set.of("CodeSystem");
+		Set<String> supportedResourceTypes = Set.of("CodeSystem", "ValueSet");
 		boolean importAll = resourceUrlsToImport.contains("*");
 		List<FHIRPackageIndexFile> filesToImport = index.getFiles().stream()
 				.filter(file -> (importAll && supportedResourceTypes.contains(file.getResourceType())) ||
@@ -58,10 +62,12 @@ public class FHIRLoadPackageService {
 		logger.info("Importing {} resources, found within index of package {}.", filesToImport.size(), packageFile.getName());
 
 		for (FHIRPackageIndexFile indexFileToImport : filesToImport) {
+			String resourceType = indexFileToImport.getResourceType();
+			String filename = indexFileToImport.getFilename();
 			String id = indexFileToImport.getId();
 			String url = indexFileToImport.getUrl();
-			if (indexFileToImport.getResourceType().equals("CodeSystem") && id != null && url != null) {
-				CodeSystem codeSystem = extractObject(packageFile, indexFileToImport.getFilename(), CodeSystem.class, jsonParser);
+			if (resourceType.equals("CodeSystem") && id != null && url != null) {
+				CodeSystem codeSystem = extractObject(packageFile, filename, CodeSystem.class, jsonParser);
 				codeSystem.setId(id);
 				codeSystem.setUrl(url);
 				if (FHIRHelper.isSnomedUri(codeSystem.getUrl())) {
@@ -86,6 +92,12 @@ public class FHIRLoadPackageService {
 				if (concepts != null) {
 					fhirConceptService.saveAllConceptsOfCodeSystemVersion(concepts, codeSystemVersion);
 				}
+			} else if (resourceType.equals("ValueSet") && id != null && url != null) {
+				ValueSet valueSet = extractObject(packageFile, filename, ValueSet.class, jsonParser);
+				valueSet.setId(id);
+				valueSet.setUrl(url);
+				valueSet.setVersion(indexFileToImport.getVersion());
+				valueSetService.createOrUpdateValuesetWithoutExpandValidation(valueSet);
 			}
 		}
 		logger.info("Completed import of package {}.", packageFile.getName());
