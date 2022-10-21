@@ -97,18 +97,22 @@ public class FHIRValueSetService {
 		for (ValueSet valueSet : orEmpty(valueSets)) {
 			try {
 				logger.info("Saving ValueSet {}", valueSet.getIdElement());
-				createValueset(valueSet);
+				createOrUpdateValueset(valueSet);
 			} catch (SnowstormFHIRServerResponseException e) {
 				logger.error("Failed to store value set {}", valueSet.getIdElement(), e);
 			}
 		}
 	}
 
-	public FHIRValueSet createValueset(ValueSet valueSet) {
+	public FHIRValueSet createOrUpdateValueset(ValueSet valueSet) {
 		// Expand to validate
 		ValueSet.ValueSetExpansionComponent originalExpansion = valueSet.getExpansion();
 		expand(new ValueSetExpansionParameters(valueSet, true), null);
 		valueSet.setExpansion(originalExpansion);
+		return createOrUpdateValuesetWithoutExpandValidation(valueSet);
+	}
+
+	public FHIRValueSet createOrUpdateValuesetWithoutExpandValidation(ValueSet valueSet) {
 
 		// Delete existing ValueSets with the same URL and version (could be different ID)
 		valueSetRepository.findAllByUrl(valueSet.getUrl()).stream()
