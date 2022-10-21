@@ -7,6 +7,9 @@ import com.google.common.collect.Sets;
 import org.hl7.fhir.r4.model.*;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.snomed.snowstorm.fhir.repositories.FHIRCodeSystemRepository;
+import org.snomed.snowstorm.fhir.repositories.FHIRConceptMapRepository;
+import org.snomed.snowstorm.fhir.repositories.FHIRValueSetRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -40,6 +43,15 @@ public class AbstractFHIRTest {
 	@Autowired
 	protected TestRestTemplate restTemplate;
 
+	@Autowired
+	protected FHIRCodeSystemRepository codeSystemRepository;
+
+	@Autowired
+	protected FHIRValueSetRepository valueSetRepository;
+
+	@Autowired
+	protected FHIRConceptMapRepository conceptMapRepository;
+
 	@Value("${ims-security.roles.enabled}")
 	private boolean rolesEnabled;
 
@@ -56,7 +68,7 @@ public class AbstractFHIRTest {
 	protected HttpEntity<String> defaultRequestEntity;
 
 	@BeforeEach
-	public void setup() {
+	public void abstractSetup() throws Exception {
 		// Setup security
 		if (!rolesEnabled) {
 			PreAuthenticatedAuthenticationToken authentication = new PreAuthenticatedAuthenticationToken("test-admin", "1234000008", Sets.newHashSet(new SimpleGrantedAuthority("USER")));
@@ -185,5 +197,11 @@ public class AbstractFHIRTest {
 			}
 		}
 		propertyMap.put(key, value);
+	}
+
+	public void deleteAllFHIRResource() {
+		codeSystemRepository.deleteAll();
+		valueSetRepository.deleteAll();
+		conceptMapRepository.deleteAll();
 	}
 }

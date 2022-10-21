@@ -2,7 +2,6 @@ package org.snomed.snowstorm.fhir.services;
 
 import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.parser.IParser;
-import com.fasterxml.jackson.core.type.TypeReference;
 import org.apache.tomcat.util.http.fileupload.util.Streams;
 import org.hl7.fhir.r4.model.OperationOutcome;
 import org.springframework.web.context.WebApplicationContext;
@@ -27,7 +26,6 @@ import java.util.UUID;
 public class FHIRLoadPackageServlet extends HttpServlet {
 
 	private static final String MULTIPART_FORM_DATA = "multipart/form-data";
-	private static final TypeReference<Set<String>> STRING_SET_TYPE_REF = new TypeReference<>() {};
 
 	private FHIRLoadPackageService service;
 
