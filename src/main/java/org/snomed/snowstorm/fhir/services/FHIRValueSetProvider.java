@@ -43,7 +43,7 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 	private FHIRValueSetService valueSetService;
 
 	@Autowired
-	private QueryService queryService;
+	private FhirContext fhirContext;
 
 	@Autowired
 	private FHIRHelper fhirHelper;
@@ -198,7 +198,7 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 		ValueSetExpansionParameters params;
 		if (request.getMethod().equals(RequestMethod.POST.name())) {
 			// HAPI doesn't populate the OperationParam values for POST, we parse the body instead.
-			params = FHIRValueSetProviderHelper.getValueSetExpansionParameters(id, FhirContext.forR4().newJsonParser().parseResource(Parameters.class, rawBody).getParameter());
+			params = FHIRValueSetProviderHelper.getValueSetExpansionParameters(id, fhirContext.newJsonParser().parseResource(Parameters.class, rawBody).getParameter());
 		} else {
 			params = FHIRValueSetProviderHelper.getValueSetExpansionParameters(id, url, valueSetVersion, context, contextDirection, filter, date, offset, count,
 					includeDesignationsType, designations, includeDefinition, activeType, excludeNested, excludeNotForUI, excludePostCoordinated, displayLanguage,
@@ -238,7 +238,7 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 		ValueSetExpansionParameters params;
 		if (request.getMethod().equals(RequestMethod.POST.name())) {
 			// HAPI doesn't populate the OperationParam values for POST, we parse the body instead.
-			params = FHIRValueSetProviderHelper.getValueSetExpansionParameters(null, FhirContext.forR4().newJsonParser().parseResource(Parameters.class, rawBody).getParameter());
+			params = FHIRValueSetProviderHelper.getValueSetExpansionParameters(null, fhirContext.newJsonParser().parseResource(Parameters.class, rawBody).getParameter());
 		} else {
 			params = FHIRValueSetProviderHelper.getValueSetExpansionParameters(null, url, valueSetVersion, context, contextDirection, filter, date, offset, count,
 					includeDesignationsType, designations, includeDefinition, activeType, excludeNested, excludeNotForUI, excludePostCoordinated, displayLanguage,
