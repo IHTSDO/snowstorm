@@ -3773,16 +3773,24 @@ class BranchMergeServiceTest extends AbstractTest {
 		MergeReview review;
 		Collection<MergeReviewConceptVersions> conflicts;
 
-		// 1. Create International Concept
+		// 1. Create International Concepts
 		concept = new Concept()
-				.addDescription(new Description("Cinnamon bun (food)").setTypeId(FSN).setCaseSignificance(ci).setAcceptabilityMap(intPreferred))
-				.addDescription(new Description("Cinnamon bun").setTypeId(SYNONYM).setCaseSignificance(ci).setAcceptabilityMap(intPreferred))
-				.addDescription(new Description("Cinnamon roll").setTypeId(SYNONYM).setCaseSignificance(ci).setAcceptabilityMap(intAcceptable))
-				// Purposely plural. This will later be inactivated.
-				.addDescription(new Description("Cinnamon rolls").setTypeId(SYNONYM).setCaseSignificance(ci).setAcceptabilityMap(intAcceptable))
-				.addAxiom(new Relationship(ISA, SNOMEDCT_ROOT));
+				.addDescription(new Description("Vehicle (vehicle)").setTypeId(FSN).setCaseSignificance(ci).setAcceptabilityMap(intPreferred))
+				.addDescription(new Description("Vehicle").setTypeId(SYNONYM).setCaseSignificance(ci).setAcceptabilityMap(intPreferred))
+				.addAxiom(new Relationship(ISA, SNOMEDCT_ROOT))
+				.addRelationship(new Relationship(ISA, SNOMEDCT_ROOT));
 		concept = conceptService.create(concept, intMain);
-		String cinnamonId = concept.getConceptId();
+		String vehicleId = concept.getConceptId();
+
+		concept = new Concept()
+				.addDescription(new Description("Car (vehicle)").setTypeId(FSN).setCaseSignificance(ci).setAcceptabilityMap(intPreferred))
+				.addDescription(new Description("Car").setTypeId(SYNONYM).setCaseSignificance(ci).setAcceptabilityMap(intPreferred))
+				// Purposely plural. This will later be inactivated.
+				.addDescription(new Description("Cars").setTypeId(SYNONYM).setCaseSignificance(ci).setAcceptabilityMap(intAcceptable))
+				.addAxiom(new Relationship(ISA, vehicleId))
+				.addRelationship(new Relationship(ISA, vehicleId));
+		concept = conceptService.create(concept, intMain);
+		String carId = concept.getConceptId();
 
 		// 2. Version International
 		codeSystem = codeSystemService.find("SNOMEDCT");
@@ -3806,17 +3814,17 @@ class BranchMergeServiceTest extends AbstractTest {
 		branchService.create(extProject);
 
 		// 5. Inactivate International Description
-		concept = conceptService.find(cinnamonId, intMain);
-		Description cinnamonRolls = getDescription(concept, "Cinnamon rolls");
-		Description cinnamonRoll = getDescription(concept, "Cinnamon roll");
-		cinnamonRolls.setActive(false).updateEffectiveTime();
+		concept = conceptService.find(carId, intMain);
+		Description cars = getDescription(concept, "Cars");
+		Description car = getDescription(concept, "Car");
+		cars.setActive(false).updateEffectiveTime();
 		conceptService.update(concept, intMain);
 		ReferenceSetMember associationMember = memberService.createMember(
 				intMain,
 				new ReferenceSetMember(
 						CORE_MODULE, REFSET_SAME_AS_ASSOCIATION,
-						cinnamonRolls.getDescriptionId()
-				).setAdditionalField("targetComponentId", cinnamonRoll.getDescriptionId())
+						cars.getDescriptionId()
+				).setAdditionalField("targetComponentId", car.getDescriptionId())
 		);
 
 		// 6. Version International
@@ -3837,55 +3845,33 @@ class BranchMergeServiceTest extends AbstractTest {
 		String extTaskA = "MAIN/SNOMEDCT-TEST/projectA/taskA";
 		branchService.create(extTaskA);
 
-		// 10. Add new top-level Concept to Extension
-		conceptService.create(
-				new Concept()
-						.addDescription(new Description("Vehicle (vehicle)").setTypeId(FSN).setCaseSignificance(ci).setAcceptabilityMap(intPreferred))
-						.addDescription(new Description("Vehicle").setTypeId(SYNONYM).setCaseSignificance(ci).setAcceptabilityMap(intPreferred))
-						.addAxiom(new Relationship(ISA, SNOMEDCT_ROOT)),
-				extTaskA
-		);
+		// 10. Extension changes hierarchy of Car through classification, i.e. it is now top-level
+		concept = conceptService.find(carId, extTaskA);
+		concept.getClassAxioms().iterator().next().setActive(false);
+		concept.getRelationships().iterator().next().setActive(false);
+		concept.getClassAxioms().iterator().next().setRelationships(Set.of(new Relationship(ISA, SNOMEDCT_ROOT)));
+		concept.getRelationships().add(new Relationship(ISA, SNOMEDCT_ROOT));
+		conceptService.update(concept, extTaskA);
 
-		// 11. Create task B
-		String extTaskB = "MAIN/SNOMEDCT-TEST/projectA/taskB";
-		branchService.create(extTaskB);
-
-		// 12. Add translation to Cinnamon bun
-		concept = conceptService.find(cinnamonId, extTaskB);
-		concept.addDescription(new Description("Kanelbulle").setTypeId(FSN).setCaseSignificance(ci).setAcceptabilityMap(intAcceptable));
-		conceptService.update(concept, extTaskB);
-
-		// 13. Promote task A
-		review = getMergeReviewInCurrentState(extProject, extTaskA);
-		conflicts = reviewService.getMergeReviewConflictingConcepts(review.getId(), new ArrayList<>());
-		assertTrue(conflicts.isEmpty());
+		// 11. Promote task A
 		branchMergeService.mergeBranchSync(extTaskA, extProject, Collections.emptySet());
 
-		// 14. Prepare task B for promotion by rebasing
-		review = getMergeReviewInCurrentState(extProject, extTaskB);
-		conflicts = reviewService.getMergeReviewConflictingConcepts(review.getId(), new ArrayList<>());
-		assertTrue(conflicts.isEmpty());
-		reviewService.applyMergeReview(review);
-
-		// 15. Promote task B
-		branchMergeService.mergeBranchSync(extTaskB, extProject, Collections.emptySet());
-
-		// 16. In International, inactivate association member
+		// 12. In International, inactivate association member
 		// Author decides to inactivate the member as strictly speaking plural does not necessarily mean SAME_AS
 		String associationMemberId = associationMember.getMemberId();
 		associationMember = memberService.findMember(intMain, associationMemberId);
 		associationMember.setActive(false).updateEffectiveTime();
 		memberService.updateMember(intMain, associationMember);
 
-		// 17. Version International
+		// 13. Version International
 		codeSystem = codeSystemService.find("SNOMEDCT");
 		codeSystemService.createVersion(codeSystem, 20220331, "20220331");
 
-		// 18. Upgrade Extension
+		// 14. Upgrade Extension
 		codeSystem = codeSystemService.find("SNOMEDCT-TEST");
 		codeSystemUpgradeService.upgrade(codeSystem, 20220331, false);
 
-		// 19. Assert state of inactivated member before rebase
+		// 15. Assert state of inactivated member before rebase
 		associationMember = memberService.findMember(intMain, associationMemberId);
 		assertEquals(CORE_MODULE, associationMember.getModuleId());
 		assertVersioned(associationMember, 20220331); // International has latest version
@@ -3894,16 +3880,17 @@ class BranchMergeServiceTest extends AbstractTest {
 		assertEquals(CORE_MODULE, associationMember.getModuleId());
 		assertVersioned(associationMember, 20220228); // Not yet rebased latest version
 
-		// 20. Rebase Extension project
+		// 16. Rebase Extension project
 		review = getMergeReviewInCurrentState(extMain, extProject);
 		conflicts = reviewService.getMergeReviewConflictingConcepts(review.getId(), new ArrayList<>());
 		assertTrue(conflicts.size() != 0);
+		// Doesn't matter which column is selected
 		for (MergeReviewConceptVersions conflict : conflicts) {
-			reviewService.persistManuallyMergedConcept(review, Long.parseLong(cinnamonId), conflict.getAutoMergedConcept());
+			reviewService.persistManuallyMergedConcept(review, Long.parseLong(carId), conflict.getAutoMergedConcept());
 		}
 		reviewService.applyMergeReview(review);
 
-		// 21. Assert state of inactivated member after rebase
+		// 17. Assert state of inactivated member after rebase
 		associationMember = memberService.findMember(intMain, associationMemberId);
 		assertEquals(CORE_MODULE, associationMember.getModuleId());
 		assertVersioned(associationMember, 20220331);
