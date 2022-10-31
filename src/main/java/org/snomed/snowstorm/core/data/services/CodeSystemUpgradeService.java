@@ -10,6 +10,7 @@ import org.snomed.snowstorm.core.data.domain.CodeSystem;
 import org.snomed.snowstorm.core.data.domain.CodeSystemVersion;
 import org.snomed.snowstorm.core.data.repositories.CodeSystemRepository;
 import org.snomed.snowstorm.core.data.services.pojo.IntegrityIssueReport;
+import org.snomed.snowstorm.core.data.services.servicehook.UpgradeServiceHookClient;
 import org.snomed.snowstorm.dailybuild.DailyBuildService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -19,9 +20,7 @@ import org.springframework.stereotype.Service;
 import java.util.Date;
 
 import static org.snomed.snowstorm.core.data.services.BranchMetadataHelper.INTERNAL_METADATA_KEY;
-import static org.snomed.snowstorm.core.data.services.BranchMetadataKeys.DEPENDENCY_PACKAGE;
-import static org.snomed.snowstorm.core.data.services.BranchMetadataKeys.DEPENDENCY_RELEASE;
-import static org.snomed.snowstorm.core.data.services.BranchMetadataKeys.PREVIOUS_DEPENDENCY_PACKAGE;
+import static org.snomed.snowstorm.core.data.services.BranchMetadataKeys.*;
 
 @Service
 public class CodeSystemUpgradeService {
@@ -46,6 +45,9 @@ public class CodeSystemUpgradeService {
 
 	@Autowired
 	private UpgradeInactivationService upgradeInactivationService;
+
+	@Autowired
+	private UpgradeServiceHookClient upgradeServiceHookClient;
 
 	@Value("${snowstorm.rest-api.readonly}")
 	private boolean isReadOnly;
@@ -104,6 +106,9 @@ public class CodeSystemUpgradeService {
 
 			updateBranchMetaData(branchPath, newParentVersion, extensionBranch, integrityReport.isEmpty());
 			logger.info("Upgrade completed on {}", branchPath);
+
+			// Call the upgrade service-hook
+			upgradeServiceHookClient.upgradeCompletion(codeSystem.getShortName(), newParentVersion.getReleasePackage());
 
 		} finally {
 			// Re-enable daily build
