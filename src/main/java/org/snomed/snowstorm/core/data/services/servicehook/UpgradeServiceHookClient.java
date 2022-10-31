@@ -64,7 +64,7 @@ public class UpgradeServiceHookClient {
 			logger.info("External system returned HTTP status code {}.", responseEntity.getStatusCodeValue());
 		} catch (RestClientException e) {
 			// Cannot communicate with external system; perhaps lacking authentication or url configured incorrectly.
-			logger.error("Cannot communicate with external system, however, failure will be ignored as per configuration.");
+			logger.error("Cannot communicate with external system. Failure will be ignored.");
 		}
 	}
 
