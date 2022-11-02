@@ -211,7 +211,6 @@ public class ClassificationService {
 								}
 
 								final ClassificationStatus newStatusFinal = newStatus;
-								final SecurityContext context = SecurityContextHolder.getContext();
 								classificationProcessingExecutor.submit(() -> {
 									classification.setStatus(newStatusFinal);
 
