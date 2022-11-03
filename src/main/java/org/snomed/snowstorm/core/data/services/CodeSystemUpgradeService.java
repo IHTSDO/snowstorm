@@ -108,7 +108,7 @@ public class CodeSystemUpgradeService {
 			logger.info("Upgrade completed on {}", branchPath);
 
 			// Call the upgrade service-hook
-			upgradeServiceHookClient.upgradeCompletion(codeSystem.getShortName(), newParentVersion.getReleasePackage());
+			upgradeServiceHookClient.upgradeCompletion(codeSystem.getShortName(), newDependantVersion);
 
 		} finally {
 			// Re-enable daily build

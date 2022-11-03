@@ -40,7 +40,7 @@ public class UpgradeServiceHookClient {
 		}
 	}
 
-	public void upgradeCompletion(String codeSystemShortName, String newDependantReleasePackage) throws IllegalStateException {
+	public void upgradeCompletion(String codeSystemShortName, Integer newDependantVersion) throws IllegalStateException {
 		if (restTemplate == null) {
 			logger.info("restTemplate == null, upgrade completion done.");
 			return;
@@ -55,10 +55,10 @@ public class UpgradeServiceHookClient {
 		try {
 			String authenticationToken = SecurityUtil.getAuthenticationToken();
 			HttpHeaders httpHeaders = buildHttpHeaders(authenticationToken);
-			logRequest(codeSystemShortName, authenticationToken, newDependantReleasePackage);
+			logRequest(codeSystemShortName, authenticationToken, newDependantVersion);
 			Map requestBody = new HashMap();
 			requestBody.put("codeSystemShortName", codeSystemShortName);
-			requestBody.put("newDependantReleasePackage", newDependantReleasePackage);
+			requestBody.put("newDependantVersion", newDependantVersion);
 			ResponseEntity<?> responseEntity = restTemplate.postForEntity("/integration/snowstorm/upgrade",
 					new HttpEntity<>(requestBody, httpHeaders), Void.class);
 			logger.info("External system returned HTTP status code {}.", responseEntity.getStatusCodeValue());
@@ -76,10 +76,10 @@ public class UpgradeServiceHookClient {
 		return httpHeaders;
 	}
 
-	private void logRequest(String shortName, String authenticationToken, String newDependantReleasePackage) {
+	private void logRequest(String shortName, String authenticationToken, Integer newDependantVersion) {
 		logger.info("Upgrading Completion is being sent to external system.");
 		logger.trace("Cody System ShortName: {}", shortName);
-		logger.trace("New Dependant Release Package: {}", newDependantReleasePackage);
+		logger.trace("New Dependant Release Package: {}", newDependantVersion);
 		logger.trace("Cookie: {}", obfuscateToken(authenticationToken));
 		logger.trace("Service URL: {}", serviceUrl);
 	}
