@@ -487,6 +487,7 @@ public class BranchMergeService {
 					// End duplicate components in extension module
 					extensionVersion.setEnd(commit.getTimepoint());
 					repository.save(extensionVersion);
+					BranchMetadataHelper.getRebaseDuplicatesRemoved(commit).put(extensionVersion.getClass().getSimpleName(), Set.of(extensionVersion.getId()));
 					logger.info("Ended {} on {} at timepoint {} to match current commit.", duplicateId, branch, commit.getTimepoint());
 				} else {
 					// Hide parent version
