@@ -8,6 +8,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.snomed.otf.snomedboot.testutil.ZipUtil;
 import org.snomed.snowstorm.AbstractTest;
+import org.snomed.snowstorm.config.Config;
 import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.services.traceability.Activity;
 import org.snomed.snowstorm.core.data.services.traceability.TraceabilityLogService;
@@ -46,6 +47,12 @@ class TraceabilityLogServiceTest extends AbstractTest {
 
 	@Autowired
 	private ReferenceSetMemberService referenceSetMemberService;
+
+	@Autowired
+	private CodeSystemUpgradeService codeSystemUpgradeService;
+
+	@Autowired
+	private RelationshipService relationshipService;
 
 	private boolean traceabilityOriginallyEnabled;
 
@@ -642,6 +649,99 @@ class TraceabilityLogServiceTest extends AbstractTest {
 		assertEquals(Activity.ChangeType.INACTIVATE, componentChange.getChangeType());
 		assertTrue(componentChange.isEffectiveTimeNull());
 		assertTrue(componentChange.isSuperseded());
+	}
+
+	@Test
+	void testExtensionUpgradingDependencyWithSameComponentEdited() throws ServiceException, InterruptedException {
+		Concept concept;
+		CodeSystem codeSystem;
+		String extMain = "MAIN/SNOMEDCT-TEST";
+		Relationship relationship;
+
+		// Create International Concepts
+		concept = conceptService.create(
+				new Concept().addFSN("Vehicle (vehicle)").addRelationship(ISA, Concepts.SNOMEDCT_ROOT),
+				MAIN
+		);
+		String vehicleId = concept.getConceptId();
+		concept = conceptService.create(
+				// Published with wrong modelling
+				new Concept().addFSN("Car (vehicle)").addRelationship(ISA, Concepts.SNOMEDCT_ROOT),
+				MAIN
+		);
+		String carId = concept.getConceptId();
+		String relationshipToBeInactivated = concept.getRelationships().iterator().next().getRelationshipId();
+
+		// Version International
+		codeSystem = codeSystemService.createCodeSystem(new CodeSystem("SNOMEDCT", MAIN));
+		codeSystemService.createVersion(codeSystem, 20220131, "20220131");
+
+		// Create Extension
+		codeSystemService.createCodeSystem(new CodeSystem("SNOMEDCT-TEST", extMain));
+		concept = conceptService.create(
+				new Concept().addFSN("Extension module (core metadata concept)").addRelationship(ISA, Concepts.MODULE),
+				extMain
+		);
+		String extModule = concept.getConceptId();
+		branchService.updateMetadata(extMain, Map.of(Config.DEFAULT_MODULE_ID_KEY, extModule));
+
+		// International fixes modelling (through classification)
+		concept = conceptService.find(carId, MAIN);
+		concept.getRelationships().iterator().next().setActive(false).updateEffectiveTime();
+		concept.getRelationships().add(new Relationship(ISA, vehicleId));
+		concept = conceptService.update(concept, MAIN);
+		List<String> intRelationships = getRelationshipIds(concept);
+
+		// Version International
+		codeSystem = codeSystemService.find("SNOMEDCT");
+		codeSystemService.createVersion(codeSystem, 20220731, "20220731");
+
+		// Extension fixes modelling (through classification)
+		concept = conceptService.find(carId, extMain);
+		concept.getRelationships().iterator().next().setActive(false).updateEffectiveTime();
+		concept.getRelationships().add(new Relationship(ISA, vehicleId));
+		concept = conceptService.update(concept, extMain);
+		List<String> extRelationships = getRelationshipIds(concept);
+
+		// Assert before upgrade
+		Set<Activity.ComponentChange> componentChanges = getTraceabilityActivity().getChanges().iterator().next().getComponentChanges();
+		for (Activity.ComponentChange componentChange : componentChanges) {
+			String componentId = componentChange.getComponentId();
+			if (relationshipToBeInactivated.equals(componentId)) {
+				assertEquals(Activity.ChangeType.INACTIVATE, componentChange.getChangeType());
+			} else {
+				assertEquals(Activity.ChangeType.CREATE, componentChange.getChangeType());
+			}
+		}
+
+		// Extension upgrades to International's July content
+		codeSystem = codeSystemService.find("SNOMEDCT-TEST");
+		codeSystemUpgradeService.upgrade(codeSystem, 20220731, false);
+
+		// Extension ends up with International version of inactivated Relationship post upgrade
+		relationship = relationshipService.findRelationship(extMain, relationshipToBeInactivated);
+		assertTrue(relationship.isReleased());
+		assertEquals(Concepts.CORE_MODULE, relationship.getModuleId());
+		assertEquals(20220731, relationship.getReleasedEffectiveTime());
+
+		// Assert after upgrade
+		Activity.ComponentChange changedComponent = getTraceabilityActivity().getChanges().iterator().next().getComponentChanges().iterator().next();
+		Activity.ChangeType changeType = changedComponent.getChangeType();
+		String componentId = changedComponent.getComponentId();
+		boolean superseded = changedComponent.isSuperseded();
+
+		assertEquals(componentId, relationshipToBeInactivated);
+		assertEquals(Activity.ChangeType.INACTIVATE, changeType);
+		assertTrue(superseded);
+	}
+
+	private List<String> getRelationshipIds(Concept concept) {
+		List<String> relationships = new ArrayList<>();
+		for (Relationship relationship : concept.getRelationships()) {
+			relationships.add(relationship.getRelationshipId());
+		}
+
+		return relationships;
 	}
 
 	private String toString(Set<Activity.ComponentChange> componentChanges) {
