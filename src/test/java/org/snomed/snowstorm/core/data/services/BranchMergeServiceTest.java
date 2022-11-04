@@ -602,8 +602,6 @@ class BranchMergeServiceTest extends AbstractTest {
 		for (ReferenceSetMember member : memberService.findMembers(path, conceptId, PageRequest.of(0, 10))) {
 			System.out.println(member.toString());
 		}
-		//assertEquals(5, memberService.findMembers(path, conceptId, PageRequest.of(0, 10)).getTotalElements(), "One axiom, one inactive published association, one inactive published historic association, " +
-		//		"one new association and one new inactivation reason member."
 		assertEquals(3, memberService.findMembers(path, conceptId, PageRequest.of(0, 10)).getTotalElements(), "One axiom, one re-used association (same refetId) and one re-used inactivation reason member."
 		);
 
@@ -3873,10 +3871,12 @@ class BranchMergeServiceTest extends AbstractTest {
 
 		// 15. Assert state of inactivated member before rebase
 		associationMember = memberService.findMember(intMain, associationMemberId);
+		assertFalse(associationMember.isActive());
 		assertEquals(CORE_MODULE, associationMember.getModuleId());
 		assertVersioned(associationMember, 20220331); // International has latest version
 
 		associationMember = memberService.findMember(extProject, associationMemberId);
+		assertTrue(associationMember.isActive());
 		assertEquals(CORE_MODULE, associationMember.getModuleId());
 		assertVersioned(associationMember, 20220228); // Not yet rebased latest version
 
@@ -3891,11 +3891,8 @@ class BranchMergeServiceTest extends AbstractTest {
 		reviewService.applyMergeReview(review);
 
 		// 17. Assert state of inactivated member after rebase
-		associationMember = memberService.findMember(intMain, associationMemberId);
-		assertEquals(CORE_MODULE, associationMember.getModuleId());
-		assertVersioned(associationMember, 20220331);
-
 		associationMember = memberService.findMember(extProject, associationMemberId);
+		assertFalse(associationMember.isActive());
 		assertEquals(CORE_MODULE, associationMember.getModuleId());
 		assertVersioned(associationMember, 20220331);
 	}
