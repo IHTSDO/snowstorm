@@ -34,14 +34,6 @@ public class FHIRValueSetProviderExpandTest extends AbstractFHIRTest {
 			"        {\n" +
 			"            \"name\": \"version\",\n" +
 			"            \"valueString\": \"test\"\n" +
-			"        },\n" +
-			"        {\n" +
-			"            \"name\": \"offset\",\n" +
-			"            \"valueString\": \"1\"\n" +
-			"        },\n" +
-			"        {\n" +
-			"            \"name\": \"count\",\n" +
-			"            \"valueString\": \"2\"\n" +
 			"        }\n" +
 			"    ]\n" +
 			"}";

@@ -738,7 +738,18 @@ public class FHIRValueSetService {
 					// Spec says there are no filters for ICD-9 and 10.
 					throw exception("This server does not expect any ValueSet property filters for ICD-10.", OperationOutcome.IssueType.NOTSUPPORTED, 400);
 				} else {
-					throw exception("This server does not support ValueSet property filters on generic code systems.", OperationOutcome.IssueType.NOTSUPPORTED, 400);
+					// Generic code system
+					if ("concept".equals(property) && op == ValueSet.FilterOperator.ISA) {
+						Set<String> singleton = Collections.singleton(value);
+						inclusionConstraints.add(new ConceptConstraint(singleton));
+						inclusionConstraints.add(new ConceptConstraint().setAncestor(singleton));
+					} else if ("concept".equals(property) && op == ValueSet.FilterOperator.DESCENDENTOF) {
+						Set<String> singleton = Collections.singleton(value);
+						inclusionConstraints.add(new ConceptConstraint().setAncestor(singleton));
+					} else {
+						throw exception("This server does not support this ValueSet property filter on generic code systems. " +
+								"Supported filters for generic code systems are: (concept, is-a) and (concept, descendant-of).", OperationOutcome.IssueType.NOTSUPPORTED, 400);
+					}
 				}
 			}
 		}

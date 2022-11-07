@@ -1,0 +1,289 @@
+{
+  "resourceType": "CodeSystem",
+  "id": "v3-ContextControl",
+  "language": "en",
+  "text": {
+    "status": "generated",
+    "div": "<div xml:lang=\"en\" xmlns=\"http://www.w3.org/1999/xhtml\" lang=\"en\"><p><b>Properties</b></p><table class=\"grid\"><tr><td><b>Code</b></td><td><b>URL</b></td><td><b>Type</b></td><td><b>Description</b></td></tr><tr><td>Specializes</td><td/><td>Coding</td><td>The child code is a more narrow version of the concept represented by the parent code.  I.e. Every child concept is also a valid parent concept.  Used to allow determination of subsumption.  Must be transitive, irreflexive, antisymmetric.</td></tr><tr><td>Generalizes</td><td/><td>Coding</td><td>Inverse of Specializes.  Only included as a derived relationship.</td></tr><tr><td>internalId</td><td>http://terminology.hl7.org/CodeSystem/utg-concept-properties#v3-internal-id</td><td>code</td><td>The internal identifier for the concept in the HL7 Access database repository.</td></tr><tr><td>notSelectable</td><td>http://hl7.org/fhir/concept-properties#notSelectable</td><td>boolean</td><td>Indicates that the code is abstract - only intended to be used as a selector for other concepts</td></tr><tr><td>status</td><td>http://hl7.org/fhir/concept-properties#status</td><td>code</td><td>Designation of a concept's state. Normally is not populated unless the state is retired.</td></tr><tr><td>subsumedBy</td><td>http://hl7.org/fhir/concept-properties#parent</td><td>code</td><td>The concept code of a parent concept</td></tr></table><p>This code system http://terminology.hl7.org/CodeSystem/v3-ContextControl defines the following codes:</p><table class=\"codes\"><tr><td><b>Lvl</b></td><td style=\"white-space:nowrap\"><b>Code</b></td><td><b>Display</b></td><td><b>Definition</b></td><td><b>internalId</b></td><td><b>Not Selectable</b></td><td><b>status</b></td><td><b>Parent</b></td></tr><tr><td>1</td><td style=\"white-space:nowrap\">_ContextControlAdditive<a name=\"v3-ContextControl-_ContextControlAdditive\"> </a></td><td>ContextControlAdditive</td><td>The association adds to the existing context associated with the Act. Both this association and any associations propagated from ancestor Acts are interpreted as being related to this Act.</td><td>21053</td><td>true</td><td>active</td><td/></tr><tr><td>2</td><td style=\"white-space:nowrap\">  AN<a name=\"v3-ContextControl-AN\"> </a></td><td>additive, non-propagating</td><td>The association adds to the existing context associated with the Act, but will not propagate to any descendant Acts reached by conducting ActRelationships (see contextControlCode). Examples: If an 'Author' Participation were marked as &quot;Additive, Non-Propagating&quot; it means that the author will be added to the set of author participations that have propagated from ancestor Acts for the purpose of this Act. However only the previously propagated authors will propagate to any child Acts that allow context to be propagated.</td><td>18932</td><td/><td>active</td><td>_ContextControlAdditive, _ContextControlNonPropagating</td></tr><tr><td>2</td><td style=\"white-space:nowrap\">  AP<a name=\"v3-ContextControl-AP\"> </a></td><td>additive, propagating</td><td>The association adds to the existing context associated with the Act, and will propagate to any descendant Acts reached by conducting ActRelationships (see contextControlCode). Examples: If an 'Author' Participation were marked as &quot;Additive, Propagating&quot; it means that the author will be added to the set of author participations that have propagated from ancestor Acts, and will itself propagate with the other authors to any child Acts that allow context to be propagated.</td><td>18930</td><td/><td>active</td><td>_ContextControlAdditive, _ContextControlPropagating</td></tr><tr><td>1</td><td style=\"white-space:nowrap\">_ContextControlNonPropagating<a name=\"v3-ContextControl-_ContextControlNonPropagating\"> </a></td><td>ContextControlNonPropagating</td><td>The association applies only to the current Act and will not propagate to any child Acts that are related via a conducting ActRelationship (refer to contextConductionInd).</td><td>21054</td><td>true</td><td>active</td><td/></tr><tr><td>2</td><td style=\"white-space:nowrap\">  ON<a name=\"v3-ContextControl-ON\"> </a></td><td>overriding, non-propagating</td><td>The association is added to the existing context associated with the Act, but overrides an association with the same typeCode. However, this overriding association will not propagate to any descendant Acts reached by conducting ActRelationships (see contextControlCode). Examples: If an 'Author' Participation were marked as &quot;Overriding, Non-Propagating&quot; it means that the author will replace the set of author participations that have propagated from ancestor Acts. Furthermore, no author participations whatsoever will propagate to any child Acts that allow context to be propagated.</td><td>18933</td><td/><td>active</td><td>_ContextControlNonPropagating, _ContextControlOverriding</td></tr><tr><td>2</td><td style=\"white-space:nowrap\">  <a href=\"#v3-ContextControl-AN\">AN</a></td><td>additive, non-propagating</td><td colspan=\"5\"/></tr><tr><td>1</td><td style=\"white-space:nowrap\">_ContextControlOverriding<a name=\"v3-ContextControl-_ContextControlOverriding\"> </a></td><td>ContextControlOverriding</td><td>The association adds to the existing context associated with the Act, but replaces associations propagated from ancestor Acts whose typeCodes are the same or more specific.</td><td>21055</td><td>true</td><td>active</td><td/></tr><tr><td>2</td><td style=\"white-space:nowrap\">  OP<a name=\"v3-ContextControl-OP\"> </a></td><td>overriding, propagating</td><td>The association is added to the existing context associated with the Act, but overrides an association with the same typeCode. This overriding association will propagate to any descendant Acts reached by conducting ActRelationships (see contextControlCode). Examples: If an 'Author' Participation were marked as &quot;Overriding, Propagating&quot; it means that the author will replace the set of author participations that have propagated from ancestor Acts, and will itself be the only author to propagate to any child Acts that allow context to be propagated.</td><td>18931</td><td/><td>active</td><td>_ContextControlOverriding, _ContextControlPropagating</td></tr><tr><td>2</td><td style=\"white-space:nowrap\">  <a href=\"#v3-ContextControl-ON\">ON</a></td><td>overriding, non-propagating</td><td colspan=\"5\"/></tr><tr><td>1</td><td style=\"white-space:nowrap\">_ContextControlPropagating<a name=\"v3-ContextControl-_ContextControlPropagating\"> </a></td><td>ContextControlPropagating</td><td>The association propagates to any child Acts that are related via a conducting ActRelationship (refer to contextConductionInd).</td><td>21056</td><td>true</td><td>active</td><td/></tr><tr><td>2</td><td style=\"white-space:nowrap\">  <a href=\"#v3-ContextControl-AP\">AP</a></td><td>additive, propagating</td><td colspan=\"5\"/></tr><tr><td>2</td><td style=\"white-space:nowrap\">  <a href=\"#v3-ContextControl-OP\">OP</a></td><td>overriding, propagating</td><td colspan=\"5\"/></tr></table></div>"
+  },
+  "url": "http://terminology.hl7.org/CodeSystem/v3-ContextControl",
+  "identifier": [
+    {
+      "system": "urn:ietf:rfc:3986",
+      "value": "urn:oid:2.16.840.1.113883.5.1057"
+    }
+  ],
+  "version": "2.1.0",
+  "name": "ContextControl",
+  "title": "ContextControl",
+  "status": "active",
+  "date": "2019-03-20",
+  "publisher": "Health Level 7",
+  "contact": [
+    {
+      "name": "Health Level Seven"
+    }
+  ],
+  "description": "A code that specifies how an ActRelationship or Participation contributes to the context of an Act, and whether it may be propagated to descendent Acts whose association allows such propagation (see also attributes Participation.contextControlCode, ActRelationship.contextControlCode, ActRelationship.contextConductionInd).",
+  "caseSensitive": true,
+  "hierarchyMeaning": "is-a",
+  "content": "complete",
+  "property": [
+    {
+      "extension": [
+        {
+          "url": "http://terminology.hl7.org/StructureDefinition/ext-mif-relationship-symmetry",
+          "valueCode": "antisymmetric"
+        },
+        {
+          "url": "http://terminology.hl7.org/StructureDefinition/ext-mif-relationship-transitivity",
+          "valueCode": "transitive"
+        },
+        {
+          "url": "http://terminology.hl7.org/StructureDefinition/ext-mif-relationship-reflexivity",
+          "valueCode": "irreflexive"
+        },
+        {
+          "url": "http://terminology.hl7.org/StructureDefinition/ext-mif-relationship-isNavigable",
+          "valueBoolean": true
+        },
+        {
+          "url": "http://terminology.hl7.org/StructureDefinition/ext-mif-relationship-relationshipKind",
+          "valueCode": "Specializes"
+        },
+        {
+          "url": "http://terminology.hl7.org/StructureDefinition/ext-mif-relationship-inverseName",
+          "valueString": "Generalizes"
+        }
+      ],
+      "code": "Specializes",
+      "description": "The child code is a more narrow version of the concept represented by the parent code.  I.e. Every child concept is also a valid parent concept.  Used to allow determination of subsumption.  Must be transitive, irreflexive, antisymmetric.",
+      "type": "Coding"
+    },
+    {
+      "extension": [
+        {
+          "url": "http://terminology.hl7.org/StructureDefinition/ext-mif-relationship-symmetry",
+          "valueCode": "antisymmetric"
+        },
+        {
+          "url": "http://terminology.hl7.org/StructureDefinition/ext-mif-relationship-transitivity",
+          "valueCode": "transitive"
+        },
+        {
+          "url": "http://terminology.hl7.org/StructureDefinition/ext-mif-relationship-reflexivity",
+          "valueCode": "irreflexive"
+        },
+        {
+          "url": "http://terminology.hl7.org/StructureDefinition/ext-mif-relationship-isNavigable",
+          "valueBoolean": true
+        },
+        {
+          "url": "http://terminology.hl7.org/StructureDefinition/ext-mif-relationship-relationshipKind",
+          "valueCode": "Generalizes"
+        },
+        {
+          "url": "http://terminology.hl7.org/StructureDefinition/ext-mif-relationship-inverseName",
+          "valueString": "Specializes"
+        }
+      ],
+      "code": "Generalizes",
+      "description": "Inverse of Specializes.  Only included as a derived relationship.",
+      "type": "Coding"
+    },
+    {
+      "code": "internalId",
+      "uri": "http://terminology.hl7.org/CodeSystem/utg-concept-properties#v3-internal-id",
+      "description": "The internal identifier for the concept in the HL7 Access database repository.",
+      "type": "code"
+    },
+    {
+      "code": "notSelectable",
+      "uri": "http://hl7.org/fhir/concept-properties#notSelectable",
+      "description": "Indicates that the code is abstract - only intended to be used as a selector for other concepts",
+      "type": "boolean"
+    },
+    {
+      "code": "status",
+      "uri": "http://hl7.org/fhir/concept-properties#status",
+      "description": "Designation of a concept's state. Normally is not populated unless the state is retired.",
+      "type": "code"
+    },
+    {
+      "code": "subsumedBy",
+      "uri": "http://hl7.org/fhir/concept-properties#parent",
+      "description": "The concept code of a parent concept",
+      "type": "code"
+    }
+  ],
+  "concept": [
+    {
+      "code": "_ContextControlAdditive",
+      "display": "ContextControlAdditive",
+      "definition": "The association adds to the existing context associated with the Act. Both this association and any associations propagated from ancestor Acts are interpreted as being related to this Act.",
+      "property": [
+        {
+          "code": "notSelectable",
+          "valueBoolean": true
+        },
+        {
+          "code": "status",
+          "valueCode": "active"
+        },
+        {
+          "code": "internalId",
+          "valueCode": "21053"
+        }
+      ]
+    },
+    {
+      "code": "_ContextControlNonPropagating",
+      "display": "ContextControlNonPropagating",
+      "definition": "The association applies only to the current Act and will not propagate to any child Acts that are related via a conducting ActRelationship (refer to contextConductionInd).",
+      "property": [
+        {
+          "code": "notSelectable",
+          "valueBoolean": true
+        },
+        {
+          "code": "status",
+          "valueCode": "active"
+        },
+        {
+          "code": "internalId",
+          "valueCode": "21054"
+        }
+      ]
+    },
+    {
+      "code": "_ContextControlOverriding",
+      "display": "ContextControlOverriding",
+      "definition": "The association adds to the existing context associated with the Act, but replaces associations propagated from ancestor Acts whose typeCodes are the same or more specific.",
+      "property": [
+        {
+          "code": "notSelectable",
+          "valueBoolean": true
+        },
+        {
+          "code": "status",
+          "valueCode": "active"
+        },
+        {
+          "code": "internalId",
+          "valueCode": "21055"
+        }
+      ]
+    },
+    {
+      "code": "_ContextControlPropagating",
+      "display": "ContextControlPropagating",
+      "definition": "The association propagates to any child Acts that are related via a conducting ActRelationship (refer to contextConductionInd).",
+      "property": [
+        {
+          "code": "notSelectable",
+          "valueBoolean": true
+        },
+        {
+          "code": "status",
+          "valueCode": "active"
+        },
+        {
+          "code": "internalId",
+          "valueCode": "21056"
+        }
+      ]
+    },
+    {
+      "code": "AN",
+      "display": "additive, non-propagating",
+      "definition": "The association adds to the existing context associated with the Act, but will not propagate to any descendant Acts reached by conducting ActRelationships (see contextControlCode). Examples: If an 'Author' Participation were marked as \"Additive, Non-Propagating\" it means that the author will be added to the set of author participations that have propagated from ancestor Acts for the purpose of this Act. However only the previously propagated authors will propagate to any child Acts that allow context to be propagated.",
+      "property": [
+        {
+          "code": "status",
+          "valueCode": "active"
+        },
+        {
+          "code": "internalId",
+          "valueCode": "18932"
+        },
+        {
+          "code": "subsumedBy",
+          "valueCode": "_ContextControlAdditive"
+        },
+        {
+          "code": "subsumedBy",
+          "valueCode": "_ContextControlNonPropagating"
+        }
+      ]
+    },
+    {
+      "code": "AP",
+      "display": "additive, propagating",
+      "definition": "The association adds to the existing context associated with the Act, and will propagate to any descendant Acts reached by conducting ActRelationships (see contextControlCode). Examples: If an 'Author' Participation were marked as \"Additive, Propagating\" it means that the author will be added to the set of author participations that have propagated from ancestor Acts, and will itself propagate with the other authors to any child Acts that allow context to be propagated.",
+      "property": [
+        {
+          "code": "status",
+          "valueCode": "active"
+        },
+        {
+          "code": "internalId",
+          "valueCode": "18930"
+        },
+        {
+          "code": "subsumedBy",
+          "valueCode": "_ContextControlAdditive"
+        },
+        {
+          "code": "subsumedBy",
+          "valueCode": "_ContextControlPropagating"
+        }
+      ]
+    },
+    {
+      "code": "ON",
+      "display": "overriding, non-propagating",
+      "definition": "The association is added to the existing context associated with the Act, but overrides an association with the same typeCode. However, this overriding association will not propagate to any descendant Acts reached by conducting ActRelationships (see contextControlCode). Examples: If an 'Author' Participation were marked as \"Overriding, Non-Propagating\" it means that the author will replace the set of author participations that have propagated from ancestor Acts. Furthermore, no author participations whatsoever will propagate to any child Acts that allow context to be propagated.",
+      "property": [
+        {
+          "code": "status",
+          "valueCode": "active"
+        },
+        {
+          "code": "internalId",
+          "valueCode": "18933"
+        },
+        {
+          "code": "subsumedBy",
+          "valueCode": "_ContextControlNonPropagating"
+        },
+        {
+          "code": "subsumedBy",
+          "valueCode": "_ContextControlOverriding"
+        }
+      ]
+    },
+    {
+      "code": "OP",
+      "display": "overriding, propagating",
+      "definition": "The association is added to the existing context associated with the Act, but overrides an association with the same typeCode. This overriding association will propagate to any descendant Acts reached by conducting ActRelationships (see contextControlCode). Examples: If an 'Author' Participation were marked as \"Overriding, Propagating\" it means that the author will replace the set of author participations that have propagated from ancestor Acts, and will itself be the only author to propagate to any child Acts that allow context to be propagated.",
+      "property": [
+        {
+          "code": "status",
+          "valueCode": "active"
+        },
+        {
+          "code": "internalId",
+          "valueCode": "18931"
+        },
+        {
+          "code": "subsumedBy",
+          "valueCode": "_ContextControlOverriding"
+        },
+        {
+          "code": "subsumedBy",
+          "valueCode": "_ContextControlPropagating"
+        }
+      ]
+    }
+  ]
+}
