@@ -105,8 +105,8 @@ public class FHIRConcept implements FHIRGraphNode {
 		parents = new HashSet<>();
 		for (CodeSystem.ConceptPropertyComponent propertyComponent : definitionConcept.getProperty()) {
 			properties.computeIfAbsent(propertyComponent.getCode(), k -> new ArrayList<>()).add(new FHIRProperty(propertyComponent));
-			if (propertyComponent.getCode().equals("parent")) {
-				parents.add(propertyComponent.hasValueCoding() ? propertyComponent.getValueCoding().getCode() : propertyComponent.getCode());
+			if (propertyComponent.getCode().equals("parent") || propertyComponent.getCode().equals("subsumedBy")) {
+				parents.add(propertyComponent.hasValueCoding() ? propertyComponent.getValueCoding().getCode() : propertyComponent.getValue().toString());
 			}
 		}
 		// Ancestors will be set before save
