@@ -9,6 +9,8 @@ import org.snomed.snowstorm.TestConfig;
 import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.services.*;
 import org.snomed.snowstorm.core.data.services.pojo.CodeSystemConfiguration;
+import org.snomed.snowstorm.fhir.repositories.FHIRCodeSystemRepository;
+import org.snomed.snowstorm.fhir.repositories.FHIRConceptRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import javax.annotation.PostConstruct;
@@ -33,6 +35,12 @@ public class FHIRTestConfig extends TestConfig {
 
 	@Autowired
 	protected CodeSystemService codeSystemService;
+
+	@Autowired
+	private FHIRCodeSystemRepository fhirCodeSystemRepository;
+
+	@Autowired
+	private FHIRConceptRepository fhirConceptRepository;
 
 	@Autowired
 	protected ReferenceSetMemberService memberService;
@@ -112,6 +120,8 @@ public class FHIRTestConfig extends TestConfig {
 		branchService.deleteAll();
 		conceptService.deleteAll();
 		codeSystemService.deleteAll();
+		fhirCodeSystemRepository.deleteAll();
+		fhirConceptRepository.deleteAll();
 	}
 
 	private void createDummyConcepts(int sequence, List<Concept> concepts, boolean concrete) {
