@@ -102,9 +102,10 @@ public class FHIRConceptMapProvider implements IResourceProvider, FHIRConstants 
 				if (codeableConcept.getCoding().size() > 1) {
 					throw exception("Translation of CodeableConcept with multiple codes is not supported.", IssueType.NOTSUPPORTED, 400);
 				}
-				if (!codeableConcept.getCoding().isEmpty()) {
-					coding = codeableConcept.getCoding().get(0);
+				if (codeableConcept.getCoding().isEmpty()) {
+					throw exception("CodeableConcept contains no coding.", IssueType.INVARIANT, 400);
 				}
+				coding = codeableConcept.getCoding().get(0);
 			}
 		}
 

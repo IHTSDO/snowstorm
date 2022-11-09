@@ -729,6 +729,9 @@ public class FHIRValueSetService {
 					// [property], =/regex, [value] - not supported
 					// copyright, =, LOINC/3rdParty - not supported
 
+					if (Strings.hasLength(value)) {
+						throw exception("Value missing for LOINC ValueSet filter", OperationOutcome.IssueType.INVALID, 400);
+					}
 					Set<String> values = op == ValueSet.FilterOperator.IN ? new HashSet<>(Arrays.asList(value.split(","))) : Collections.singleton(value);
 					if ("parent".equals(property)) {
 						inclusionConstraints.add(new ConceptConstraint().setParent(values));
