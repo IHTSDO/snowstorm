@@ -49,7 +49,7 @@ public class FHIRLoadPackageService {
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
-	public void uploadPackageResources(File packageFile, Set<String> resourceUrlsToImport) throws IOException {
+	public void uploadPackageResources(File packageFile, Set<String> resourceUrlsToImport, String submittedFileName) throws IOException {
 		JsonParser jsonParser = (JsonParser) fhirContext.newJsonParser();
 		FHIRPackageIndex index = extractObject(packageFile, ".index.json", FHIRPackageIndex.class, jsonParser);
 		Set<String> supportedResourceTypes = Set.of("CodeSystem", "ValueSet");
@@ -59,7 +59,7 @@ public class FHIRLoadPackageService {
 						(!importAll && resourceUrlsToImport.contains(file.getUrl())))
 				.collect(Collectors.toList());
 		validateResources(filesToImport, resourceUrlsToImport, importAll, supportedResourceTypes);
-		logger.info("Importing {} resources, found within index of package {}.", filesToImport.size(), packageFile.getName());
+		logger.info("Importing {} resources, found within index of package {}.", filesToImport.size(), submittedFileName);
 
 		for (FHIRPackageIndexFile indexFileToImport : filesToImport) {
 			String resourceType = indexFileToImport.getResourceType();
@@ -100,7 +100,7 @@ public class FHIRLoadPackageService {
 				valueSetService.createOrUpdateValuesetWithoutExpandValidation(valueSet);
 			}
 		}
-		logger.info("Completed import of package {}.", packageFile.getName());
+		logger.info("Completed import of package {}.", submittedFileName);
 	}
 
 	private static void validateResources(List<FHIRPackageIndexFile> filesToImport, Set<String> resourceUrlsToImport, boolean importAll, Set<String> supportedResourceTypes) {
@@ -129,7 +129,7 @@ public class FHIRLoadPackageService {
 			ArchiveEntry entry;
 			while ((entry = tarIn.getNextEntry()) != null) {
 				if (entry.getName().replace("package/", "").equals(archiveEntryName)) {
-					System.out.println("Mapping " + entry.getName());
+					logger.debug("Reading {}", entry.getName());
 					if (archiveEntryName.equals(".index.json")) {
 						return mapper.readValue(tarIn, clazz);
 					} else {
