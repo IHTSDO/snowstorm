@@ -191,7 +191,6 @@ public class FHIRConceptMapService {
 			memberSearchRequest.referencedComponentId(coding.getCode());
 		}
 		Page<ReferenceSetMember> members = snomedRefsetMemberService.findMembers(snomedVersion.getSnomedBranch(), memberSearchRequest, PAGE_OF_ONE_THOUSAND);
-		System.out.println("members elements = " + members.getTotalElements());
 
 		// Collect map targets for filling terms
 		Map<String, List<FHIRMapTarget>> mapTargetsByCode = new HashMap<>();

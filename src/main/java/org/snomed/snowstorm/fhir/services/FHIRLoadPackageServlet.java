@@ -52,6 +52,7 @@ public class FHIRLoadPackageServlet extends HttpServlet {
 			badRequest("Request must include \"file\" parameter.", resp);
 			return;
 		}
+		String submittedFileName = filePart.getSubmittedFileName();
 		File tempFile = File.createTempFile("fhir-bundle-upload-" + UUID.randomUUID(), ".tgz");
 		try (InputStream inputStream = filePart.getInputStream()) {
 			Files.copy(inputStream, tempFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
@@ -70,7 +71,7 @@ public class FHIRLoadPackageServlet extends HttpServlet {
 		}
 
 		try {
-			service.uploadPackageResources(tempFile, resourceUrls);
+			service.uploadPackageResources(tempFile, resourceUrls, submittedFileName);
 		} catch (SnowstormFHIRServerResponseException e) {
 			error(e, resp);
 			return;
