@@ -45,19 +45,15 @@ public class FHIRTermCodeSystemStorage implements ITermCodeSystemStorageSvc {
 
 	@Override
 	public void deleteCodeSystem(TermCodeSystem termCodeSystem) {
-		System.out.println();
 	}
 
 	@Override
 	public void deleteCodeSystemVersion(TermCodeSystemVersion termCodeSystemVersion) {
-		System.out.println();
 
 	}
 
 	@Override
 	public void storeNewCodeSystemVersion(ResourcePersistentId resourcePersistentId, String s, String s1, String s2, TermCodeSystemVersion termCodeSystemVersion, ResourceTable resourceTable, RequestDetails requestDetails) {
-		System.out.println();
-
 	}
 
 	@Override
@@ -92,31 +88,25 @@ public class FHIRTermCodeSystemStorage implements ITermCodeSystemStorageSvc {
 
 	@Override
 	public void storeNewCodeSystemVersionIfNeeded(CodeSystem codeSystem, ResourceTable resourceTable, RequestDetails requestDetails) {
-		System.out.println();
-
 	}
 
 	@Override
 	public UploadStatistics applyDeltaCodeSystemsAdd(String s, CustomTerminologySet customTerminologySet) {
-		System.out.println();
 		return null;
 	}
 
 	@Override
 	public UploadStatistics applyDeltaCodeSystemsRemove(String s, CustomTerminologySet customTerminologySet) {
-		System.out.println();
 		return null;
 	}
 
 	@Override
 	public int saveConcept(TermConcept termConcept) {
-		System.out.println();
 		return 0;
 	}
 
 	@Override
 	public ResourcePersistentId getValueSetResourcePid(IIdType iIdType) {
-		System.out.println();
 		return null;
 	}
 }
