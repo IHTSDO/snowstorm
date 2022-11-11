@@ -118,7 +118,11 @@ public class FHIRConceptService {
 		}
 
 		Set<String> props = new HashSet<>();
-		logger.info("Saving {} '{}' fhir concepts.", concepts.size(), idWithVersion);
+		concepts.stream()
+				.filter(concept -> concept.getProperties() != null)
+				.forEach(concept -> props.addAll(concept.getProperties().keySet()));
+
+		logger.info("Saving {} '{}' fhir concepts. All properties: {}", concepts.size(), idWithVersion, props);
 		float allSize = concepts.size();
 		int tenPercent = concepts.size() / 10;
 		if (tenPercent == 0) {
@@ -130,9 +134,6 @@ public class FHIRConceptService {
 		for (List<FHIRConcept> conceptsBatch : Iterables.partition(concepts, SAVE_BATCH_SIZE)) {
 			List<FHIRConcept> batch = new ArrayList<>();
 			for (FHIRConcept concept : conceptsBatch) {
-				if (concept.getProperties() != null) {
-					props.addAll(concept.getProperties().keySet());
-				}
 				concept.setAncestors(graphBuilder.getTransitiveClosure(concept.getCode()));
 				batch.add(concept);
 				saved++;
@@ -146,9 +147,6 @@ public class FHIRConceptService {
 				percentToLog = null;
 			}
 		}
-		System.out.print("All properties: ");
-		System.out.println(props);
-		System.out.println();
 	}
 
 	public void deleteExistingCodes(String idWithVersion) {
@@ -162,7 +160,6 @@ public class FHIRConceptService {
 				conceptRepository.deleteByCodeSystemVersionAndCodeIn(idWithVersion, codesToDelete.getContent().stream().map(FHIRConcept::getCode).collect(Collectors.toList()));
 				codesToDelete = conceptRepository.findByCodeSystemVersion(idWithVersion, PageRequest.of(0, DELETE_BATCH_SIZE));
 			}
-			System.out.println();
 			logger.info("Existing codes deleted");
 		}
 	}

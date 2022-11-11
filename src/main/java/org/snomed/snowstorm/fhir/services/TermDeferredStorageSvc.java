@@ -14,72 +14,60 @@ import java.util.List;
 public class TermDeferredStorageSvc implements ITermDeferredStorageSvc {
 	@Override
 	public void saveDeferred() {
-		System.out.println();
 	}
 
 	@Override
 	public boolean isStorageQueueEmpty() {
-		System.out.println();
 		return false;
 	}
 
 	@Override
 	public void setProcessDeferred(boolean b) {
-		System.out.println();
 
 	}
 
 	@Override
 	public void addConceptToStorageQueue(TermConcept termConcept) {
-		System.out.println();
 
 	}
 
 	@Override
 	public void addConceptLinkToStorageQueue(TermConceptParentChildLink termConceptParentChildLink) {
-		System.out.println();
 
 	}
 
 	@Override
 	public void addConceptMapsToStorageQueue(List<ConceptMap> list) {
-		System.out.println();
 
 	}
 
 	@Override
 	public void addValueSetsToStorageQueue(List<ValueSet> list) {
-		System.out.println();
 
 	}
 
 	@Override
 	public void deleteCodeSystem(TermCodeSystem termCodeSystem) {
-		System.out.println();
 
 	}
 
 	@Override
 	public void deleteCodeSystemForResource(ResourceTable resourceTable) {
-		System.out.println();
 
 	}
 
 	@Override
 	public void deleteCodeSystemVersion(TermCodeSystemVersion termCodeSystemVersion) {
-		System.out.println();
 
 	}
 
 	@Override
 	public void saveAllDeferred() {
-		System.out.println();
 
 	}
 
 	@Override
 	public void logQueueForUnitTest() {
-		System.out.println();
 
 	}
 }
