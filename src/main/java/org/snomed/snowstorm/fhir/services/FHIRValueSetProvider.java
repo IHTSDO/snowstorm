@@ -84,7 +84,7 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 		} else {
 			FHIRHelper.required("url", url);
 			FHIRHelper.required("version", version);
-			valueSetService.find(url, version).ifPresent(vs -> valuesetRepository.deleteById(vs.getId()));
+			valueSetService.find(url.getValueAsString(), version).ifPresent(vs -> valuesetRepository.deleteById(vs.getId()));
 		}
 	}
 
