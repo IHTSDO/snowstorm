@@ -3,6 +3,7 @@ package org.snomed.snowstorm.fhir.services;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 import org.elasticsearch.common.Strings;
 import org.elasticsearch.index.query.BoolQueryBuilder;
+import org.elasticsearch.index.query.QueryBuilder;
 import org.hl7.fhir.r4.model.*;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -21,6 +22,7 @@ import org.snomed.snowstorm.fhir.domain.*;
 import org.snomed.snowstorm.fhir.pojo.CanonicalUri;
 import org.snomed.snowstorm.fhir.pojo.ValueSetExpansionParameters;
 import org.snomed.snowstorm.fhir.repositories.FHIRValueSetRepository;
+import org.snomed.snowstorm.fhir.services.context.CodeSystemVersionProvider;
 import org.snomed.snowstorm.rest.ControllerHelper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.*;
@@ -29,14 +31,12 @@ import org.springframework.data.elasticsearch.core.SearchAfterPageRequest;
 import org.springframework.data.elasticsearch.core.SearchHits;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQuery;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
-import org.springframework.data.util.Pair;
 import org.springframework.stereotype.Service;
 
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 import static io.kaicode.elasticvc.api.ComponentService.LARGE_PAGE;
 import static java.lang.Boolean.TRUE;
@@ -89,8 +89,30 @@ public class FHIRValueSetService {
 		return toPage(search, pageable);
 	}
 
-	public Optional<FHIRValueSet> findByUrl(String url) {
-		return valueSetRepository.findByUrl(url);
+	public Optional<FHIRValueSet> findLatestByUrl(String url) {
+		return find(url, null);
+	}
+
+	public FHIRValueSet findOrThrow(String url, String version) {
+		Optional<FHIRValueSet> fhirValueSet = find(url, version);
+		if (fhirValueSet.isEmpty()) {
+			throw exception(format("ValueSet not found %s %s", url, version != null ? version : ""), OperationOutcome.IssueType.INVARIANT, 400);
+		}
+		return fhirValueSet.get();
+	}
+
+	public Optional<FHIRValueSet> find(String url, String version) {
+		List<FHIRValueSet> allByUrl = valueSetRepository.findAllByUrl(url);
+
+		// Sort to get "latest" version first if version param is null
+		allByUrl.sort(Comparator.comparing(FHIRValueSet::getVersion).reversed());
+
+		for (FHIRValueSet valueSet : allByUrl) {
+			if (version == null || version.equals(valueSet.getVersion())) {
+				return Optional.of(valueSet);
+			}
+		}
+		return Optional.empty();
 	}
 
 	public void saveAllValueSetsOfCodeSystemVersion(List<ValueSet> valueSets) {
@@ -149,45 +171,48 @@ public class FHIRValueSetService {
 			return hapiValueSet;
 		}
 
-		ValueSet.ValueSetComposeComponent compose = hapiValueSet.getCompose();
 		String filter = params.getFilter();
 		boolean activeOnly = TRUE == params.getActiveOnly();
 		PageRequest pageRequest = params.getPageRequest();
 
 		// Resolve the set of code system versions that will actually be used. Includes some input parameter validation.
 		Set<CanonicalUri> systemVersionParam = params.getSystemVersion() != null ? Collections.singleton(params.getSystemVersion()) : Collections.emptySet();
-		Map<CanonicalUri, FHIRCodeSystemVersion> codeSystemVersionsForExpansion = resolveCodeSystemVersionsForExpansion(compose,
-				systemVersionParam, params.getCheckSystemVersion(), params.getForceSystemVersion(), params.getExcludeSystem());
 
-		// Restrict expansion of ValueSets with multiple code system versions if any are SNOMED CT, to simplify pagination.
-		if (codeSystemVersionsForExpansion.size() > 1 && codeSystemVersionsForExpansion.keySet().stream().anyMatch(CanonicalUri::isSnomed)) {
-			throw exception("This server does not allow ValueSet$expand on ValueSets with multiple code systems any are SNOMED CT, " +
-							"because of the complexities around pagination and result totals.",
-					OperationOutcome.IssueType.NOTSUPPORTED, 400);
-		}
+		CodeSystemVersionProvider codeSystemVersionProvider = new CodeSystemVersionProvider(systemVersionParam,
+				params.getCheckSystemVersion(), params.getForceSystemVersion(), params.getExcludeSystem(), codeSystemService);
 
 		// Collate set of inclusion and exclusion constraints for each code system version
-		Map<FHIRCodeSystemVersion, Pair<Set<ConceptConstraint>, Set<ConceptConstraint>>> inclusionExclusionConstraints =
-				generateInclusionExclusionConstraints(compose, codeSystemVersionsForExpansion, activeOnly);
+		CodeSelectionCriteria codeSelectionCriteria = generateInclusionExclusionConstraints(hapiValueSet, codeSystemVersionProvider, activeOnly);
 
-		if (inclusionExclusionConstraints.isEmpty()) {
+		// Restrict expansion of ValueSets with multiple code system versions if any are SNOMED CT, to simplify pagination.
+		Set<FHIRCodeSystemVersion> allInclusionVersions = codeSelectionCriteria.gatherAllInclusionVersions();
+		boolean isSnomed = allInclusionVersions.stream().anyMatch(FHIRCodeSystemVersion::isSnomed);
+		if (isSnomed) {
+			if (allInclusionVersions.size() > 1) {
+				throw exception("This server does not yet support ValueSet$expand on ValueSets with multiple code systems if any are SNOMED CT, " +
+								"because of the complexities around pagination and result totals.",
+						OperationOutcome.IssueType.NOTSUPPORTED, 400);
+			}
+			if (!codeSelectionCriteria.getNestedSelections().isEmpty()) {
+				throw exception("This server does not yet support ValueSet$expand on SNOMED CT ValueSets with nested value sets, " +
+								"because of the complexities around pagination and result totals.",
+						OperationOutcome.IssueType.NOTSUPPORTED, 400);
+			}
+		}
+
+		if (allInclusionVersions.isEmpty()) {
 			return hapiValueSet;
 		}
 
 		Page<FHIRConcept> conceptsPage;
 		String copyright = null;
 		boolean includeDesignations = TRUE.equals(params.getIncludeDesignations());
-		if (inclusionExclusionConstraints.keySet().iterator().next().isSnomed()) {// If one is SNOMED then they will all be
+		if (isSnomed) {
 			// SNOMED CT Expansion
+			// Only expansion of single version is supported.
 			copyright = SNOMED_VALUESET_COPYRIGHT;
 
-			if (inclusionExclusionConstraints.size() > 1) {
-				throw exception(format("This server does not support ValueSet $expand operation using multiple SNOMED CT versions. Versions requested: %s",
-								inclusionExclusionConstraints.keySet()), OperationOutcome.IssueType.NOTSUPPORTED, 400);
-			}
-
-
-			FHIRCodeSystemVersion codeSystemVersion = inclusionExclusionConstraints.keySet().iterator().next();
+			FHIRCodeSystemVersion codeSystemVersion = allInclusionVersions.iterator().next();
 			List<LanguageDialect> languageDialects = ControllerHelper.parseAcceptLanguageHeader(displayLanguage);
 
 			// Constraints:
@@ -198,7 +223,7 @@ public class FHIRValueSetService {
 			int offsetRequested = (int) pageRequest.getOffset();
 			int limitRequested = (int) (pageRequest.getOffset() + pageRequest.getPageSize());
 
-			QueryService.ConceptQueryBuilder conceptQuery = getSnomedConceptQuery(filter, activeOnly, inclusionExclusionConstraints.get(codeSystemVersion));
+			QueryService.ConceptQueryBuilder conceptQuery = getSnomedConceptQuery(filter, activeOnly, codeSelectionCriteria);
 
 			int totalResults = 0;
 			List<Long> conceptsToLoad;
@@ -251,16 +276,16 @@ public class FHIRValueSetService {
 			// FHIR Concept Expansion (non-SNOMED)
 			String sortField = filter != null ? "displayLen" : "code";
 			pageRequest = PageRequest.of(pageRequest.getPageNumber(), pageRequest.getPageSize(), Sort.Direction.ASC, sortField);
-			BoolQueryBuilder fhirConceptQuery = getFhirConceptQuery(inclusionExclusionConstraints, hapiValueSet, filter);
+			BoolQueryBuilder fhirConceptQuery = getFhirConceptQuery(codeSelectionCriteria, filter);
 			conceptsPage = conceptService.findConcepts(fhirConceptQuery, pageRequest);
 		}
 
-		Map<String, String> idAndVersionToUrl = codeSystemVersionsForExpansion.values().stream()
+		Map<String, String> idAndVersionToUrl = allInclusionVersions.stream()
 				.collect(Collectors.toMap(FHIRCodeSystemVersion::getId, FHIRCodeSystemVersion::getUrl));
 		ValueSet.ValueSetExpansionComponent expansion = new ValueSet.ValueSetExpansionComponent();
 		expansion.setId(UUID.randomUUID().toString());
 		expansion.setTimestamp(new Date());
-		codeSystemVersionsForExpansion.values().forEach(codeSystemVersion ->
+		allInclusionVersions.forEach(codeSystemVersion ->
 				expansion.addParameter(new ValueSet.ValueSetExpansionParameterComponent(new StringType("version"))
 						.setValue(new CanonicalType(codeSystemVersion.getCanonical()))));
 		expansion.addParameter(new ValueSet.ValueSetExpansionParameterComponent(new StringType("displayLanguage")).setValue(new StringType(displayLanguage)));
@@ -301,54 +326,75 @@ public class FHIRValueSetService {
 		return hapiValueSet;
 	}
 
+	private String getUserRef(ValueSet valueSet) {
+		return valueSet.getUrl() != null ? valueSet.getUrl() : "inline value set";
+	}
+
 	@NotNull
-	private BoolQueryBuilder getFhirConceptQuery(Map<FHIRCodeSystemVersion, Pair<Set<ConceptConstraint>, Set<ConceptConstraint>>> inclusionExclusionConstraints,
-			ValueSet hapiValueSet, String termFilter) {
+	private BoolQueryBuilder getFhirConceptQuery(CodeSelectionCriteria codeSelectionCriteria, String termFilter) {
+		QueryBuilder contentQuery = doGetFhirConceptQuery(codeSelectionCriteria);
 
-		BoolQueryBuilder versionQueries = boolQuery();
-		for (FHIRCodeSystemVersion codeSystemVersion : inclusionExclusionConstraints.keySet()) {
-			BoolQueryBuilder versionQuery = boolQuery()
-					.must(termQuery(FHIRConcept.Fields.CODE_SYSTEM_VERSION, codeSystemVersion.getId()));
-			versionQueries.should(versionQuery);// Must match one of these
-
-			Pair<Set<ConceptConstraint>, Set<ConceptConstraint>> inclusionExclusionClauses = inclusionExclusionConstraints.get(codeSystemVersion);
-			BoolQueryBuilder disjunctionQueries = boolQuery();
-			if (!inclusionExclusionClauses.getFirst().isEmpty()) {
-				versionQuery.must(disjunctionQueries);// Concept must meet one of the conditions
-			}
-			for (ConceptConstraint inclusion : inclusionExclusionClauses.getFirst()) {
-				BoolQueryBuilder disjunctionQuery = boolQuery();
-				disjunctionQueries.should(disjunctionQuery);// "disjunctionQueries" contains only "should" conditions, Elasticsearch forces at least one of them to match.
-				addQueryCriteria(inclusion, disjunctionQuery, hapiValueSet);
-			}
-			Set<ConceptConstraint> exclusionClauses = inclusionExclusionClauses.getSecond();
-			if (!exclusionClauses.isEmpty()) {
-				BoolQueryBuilder mustNotClauses = boolQuery();
-				versionQuery.mustNot(mustNotClauses);// All must-not conditions apply, at once.
-				for (ConceptConstraint exclusionClause : exclusionClauses) {
-					addQueryCriteria(exclusionClause, mustNotClauses, hapiValueSet);
-				}
-			}
-		}
-		BoolQueryBuilder masterQuery = boolQuery().must(versionQueries);
+		BoolQueryBuilder masterQuery = boolQuery().must(contentQuery);
 		if (termFilter != null) {
 			masterQuery.must(prefixQuery(FHIRConcept.Fields.DISPLAY, termFilter.toLowerCase()));
 		}
 		return masterQuery;
 	}
 
+	private QueryBuilder doGetFhirConceptQuery(CodeSelectionCriteria codeSelectionCriteria) {
+		BoolQueryBuilder valueSetQuery = new BoolQueryBuilder();
+
+		Map<FHIRCodeSystemVersion, Set<ConceptConstraint>> inclusionConstraints = codeSelectionCriteria.getInclusionConstraints();
+		Set<CodeSelectionCriteria> nestedSelections = codeSelectionCriteria.getNestedSelections();
+		Map<FHIRCodeSystemVersion, Set<ConceptConstraint>> exclusionConstraints = codeSelectionCriteria.getExclusionConstraints();
+
+		// Inclusions
+		for (Map.Entry<FHIRCodeSystemVersion, Set<ConceptConstraint>> versionInclusionConstraints : inclusionConstraints.entrySet()) {
+			BoolQueryBuilder versionQuery = getInclusionQueryBuilder(versionInclusionConstraints, codeSelectionCriteria.getValueSetUserRef());
+			valueSetQuery.should(versionQuery);// Must match at least one of these
+		}
+
+		// Nested value sets
+		for (CodeSelectionCriteria nestedSelection : nestedSelections) {
+			QueryBuilder nestedQuery = doGetFhirConceptQuery(nestedSelection);
+			valueSetQuery.should(nestedQuery);
+		}
+
+		// Exclusions
+		for (Map.Entry<FHIRCodeSystemVersion, Set<ConceptConstraint>> versionExclusionConstraints : exclusionConstraints.entrySet()) {
+			BoolQueryBuilder versionQuery = getInclusionQueryBuilder(versionExclusionConstraints, codeSelectionCriteria.getValueSetUserRef());
+			valueSetQuery.mustNot(versionQuery);
+		}
+
+		return valueSetQuery;
+	}
+
 	@NotNull
-	private QueryService.ConceptQueryBuilder getSnomedConceptQuery(String filter, boolean activeOnly, Pair<Set<ConceptConstraint>, Set<ConceptConstraint>> inclusionExclusionClauses) {
+	private BoolQueryBuilder getInclusionQueryBuilder(Map.Entry<FHIRCodeSystemVersion, Set<ConceptConstraint>> versionInclusionConstraints, String valueSetUserRef) {
+		BoolQueryBuilder versionQuery = boolQuery().must(termQuery(FHIRConcept.Fields.CODE_SYSTEM_VERSION, versionInclusionConstraints.getKey().getId()));
+
+		BoolQueryBuilder disjunctionQueries = boolQuery();
+		versionQuery.must(disjunctionQueries);// Concept must meet one of the conditions
+		for (ConceptConstraint inclusion : versionInclusionConstraints.getValue()) {
+			BoolQueryBuilder disjunctionQuery = boolQuery();
+			disjunctionQueries.should(disjunctionQuery);// "disjunctionQueries" contains only "should" conditions, Elasticsearch forces at least one of them to match.
+			addQueryCriteria(inclusion, disjunctionQuery, valueSetUserRef);
+		}
+		return versionQuery;
+	}
+
+	@NotNull
+	private QueryService.ConceptQueryBuilder getSnomedConceptQuery(String filter, boolean activeOnly, CodeSelectionCriteria codeSelectionCriteria) {
 		QueryService.ConceptQueryBuilder conceptQuery = snomedQueryService.createQueryBuilder(false);
-		if (Stream.concat(inclusionExclusionClauses.getFirst().stream(), inclusionExclusionClauses.getSecond().stream()).anyMatch(ConceptConstraint::hasEcl)) {
+		if (codeSelectionCriteria.isAnyECL()) {
 			// ECL search
-			String ecl = inclusionExclusionClausesToEcl(inclusionExclusionClauses);
+			String ecl = inclusionExclusionClausesToEcl(codeSelectionCriteria);
 			conceptQuery.ecl(ecl);
 		} else {
 			// Just a set of concept codes
 			Set<String> codes = new HashSet<>();
-			inclusionExclusionClauses.getFirst().forEach(include -> codes.addAll(include.getCode()));
-			inclusionExclusionClauses.getSecond().forEach(exclude -> codes.removeAll(exclude.getCode()));
+			codeSelectionCriteria.getInclusionConstraints().values().stream().flatMap(Collection::stream).forEach(include -> codes.addAll(include.getCode()));
+			codeSelectionCriteria.getExclusionConstraints().values().stream().flatMap(Collection::stream).forEach(include -> codes.removeAll(include.getCode()));
 			conceptQuery.conceptIds(codes);
 			if (activeOnly) {
 				conceptQuery.activeFilter(activeOnly);
@@ -361,25 +407,38 @@ public class FHIRValueSetService {
 	}
 
 	@NotNull
-	private Map<FHIRCodeSystemVersion, Pair<Set<ConceptConstraint>, Set<ConceptConstraint>>> generateInclusionExclusionConstraints(ValueSet.ValueSetComposeComponent compose, Map<CanonicalUri, FHIRCodeSystemVersion> codeSystemVersionsForExpansion, boolean activeOnly) {
-		Map<FHIRCodeSystemVersion, Pair<Set<ConceptConstraint>, Set<ConceptConstraint>>> inclusionExclusionConstraints = new HashMap<>();
+	private CodeSelectionCriteria generateInclusionExclusionConstraints(ValueSet valueSet, CodeSystemVersionProvider codeSystemVersionProvider, boolean activeOnly) {
+
+		CodeSelectionCriteria codeSelectionCriteria = new CodeSelectionCriteria(getUserRef(valueSet));
+
+		ValueSet.ValueSetComposeComponent compose = valueSet.getCompose();
 		for (ValueSet.ConceptSetComponent include : compose.getInclude()) {
-			FHIRCodeSystemVersion codeSystemVersion = codeSystemVersionsForExpansion.get(CanonicalUri.of(include.getSystem(), include.getVersion()));
-			Set<ConceptConstraint> inclusionConstraints = inclusionExclusionConstraints.computeIfAbsent(codeSystemVersion, key -> Pair.of(new HashSet<>(), new HashSet<>())).getFirst();
-			collectConstraints(include, codeSystemVersion, inclusionConstraints, activeOnly);
+			if (include.hasSystem()) {
+				FHIRCodeSystemVersion codeSystemVersion = codeSystemVersionProvider.get(include.getSystem(), include.getVersion());
+				collectConstraints(include, codeSystemVersion, codeSelectionCriteria.addInclusion(codeSystemVersion), activeOnly);
+			} else if (include.hasValueSet()) {
+				for (CanonicalType canonicalType : include.getValueSet()) {
+					CanonicalUri canonicalUri = CanonicalUri.fromString(canonicalType.getValueAsString());
+					ValueSet nestedValueSet = findOrThrow(canonicalUri.getSystem(), canonicalUri.getVersion()).getHapi();
+					CodeSelectionCriteria nestedCriteria = generateInclusionExclusionConstraints(nestedValueSet, codeSystemVersionProvider, activeOnly);
+					codeSelectionCriteria.addNested(nestedCriteria);
+				}
+			} else {
+				throw exception("ValueSet clause has no system or nested value set", OperationOutcome.IssueType.INVARIANT, 400);
+			}
 		}
 		for (ValueSet.ConceptSetComponent exclude : compose.getExclude()) {
 			// Apply exclude-constraint to all resolved versions from include statements
-			List<CanonicalUri> includeVersionsToExcludeFrom = codeSystemVersionsForExpansion.keySet().stream().filter(includeVersion ->
-					includeVersion.getSystem().equals(exclude.getSystem()) && (exclude.getVersion() == null || exclude.getVersion().equals(includeVersion.getVersion()))
+			Set<FHIRCodeSystemVersion> codeSystemVersionsForExpansion = codeSelectionCriteria.gatherAllInclusionVersions();
+			List<FHIRCodeSystemVersion> includeVersionsToExcludeFrom = codeSystemVersionsForExpansion.stream().filter(includeVersion ->
+					includeVersion.getUrl().equals(exclude.getSystem()) && (exclude.getVersion() == null || exclude.getVersion().equals(includeVersion.getVersion()))
 			).collect(Collectors.toList());
-			for (CanonicalUri version : includeVersionsToExcludeFrom) {
-				FHIRCodeSystemVersion codeSystemVersion = codeSystemVersionsForExpansion.get(version);
-				Set<ConceptConstraint> exclusionConstraints = inclusionExclusionConstraints.get(codeSystemVersion).getSecond();
-				collectConstraints(exclude, codeSystemVersion, exclusionConstraints, activeOnly);
+
+			for (FHIRCodeSystemVersion codeSystemVersion : includeVersionsToExcludeFrom) {
+				collectConstraints(exclude, codeSystemVersion, codeSelectionCriteria.addExclusion(codeSystemVersion), activeOnly);
 			}
 		}
-		return inclusionExclusionConstraints;
+		return codeSelectionCriteria;
 	}
 
 	public Parameters validateCode(String id, UriType url, UriType context, ValueSet valueSet, String valueSetVersion, String code, UriType system, String systemVersion,
@@ -417,18 +476,14 @@ public class FHIRValueSetService {
 		Set<CanonicalUri> codingSystemVersions = codings.stream()
 				.filter(Coding::hasVersion).map(codingA -> CanonicalUri.of(codingA.getSystem(), codingA.getVersion())).collect(Collectors.toSet());
 
-		// Resolve the set of code system versions that will actually be used. Includes some input parameter validation.
-		ValueSet.ValueSetComposeComponent compose = hapiValueSet.getCompose();
-		Map<CanonicalUri, FHIRCodeSystemVersion> codeSystemVersionsForExpansion = resolveCodeSystemVersionsForExpansion(compose, codingSystemVersions, null, null, null);
-
+		CodeSystemVersionProvider codeSystemVersionProvider = new CodeSystemVersionProvider(codingSystemVersions, null, null, null, codeSystemService);
 		// Collate set of inclusion and exclusion constraints for each code system version
-		Map<FHIRCodeSystemVersion, Pair<Set<ConceptConstraint>, Set<ConceptConstraint>>> inclusionExclusionConstraints =
-				generateInclusionExclusionConstraints(compose, codeSystemVersionsForExpansion, false);
+		CodeSelectionCriteria codeSelectionCriteria = generateInclusionExclusionConstraints(hapiValueSet, codeSystemVersionProvider, false);
 
 		Set<FHIRCodeSystemVersion> resolvedCodeSystemVersionsMatchingCodings = new HashSet<>();
 		boolean systemMatch = false;
 		for (Coding codingA : codings) {
-			for (FHIRCodeSystemVersion version : inclusionExclusionConstraints.keySet()) {
+			for (FHIRCodeSystemVersion version : codeSelectionCriteria.gatherAllInclusionVersions()) {
 				if (codingA.getSystem().equals(version.getUrl().replace("xsct", "sct"))) {
 					systemMatch = true;
 					if (codingA.getVersion() == null || codingA.getVersion().equals(version.getVersion()) ||
@@ -473,7 +528,7 @@ public class FHIRValueSetService {
 
 		List<LanguageDialect> languageDialects = ControllerHelper.parseAcceptLanguageHeader(displayLanguage);
 		for (Coding codingA : codings) {
-			FHIRConcept concept = findInValueSet(codingA, resolvedCodeSystemVersionsMatchingCodings, inclusionExclusionConstraints, hapiValueSet);
+			FHIRConcept concept = findInValueSet(codingA, resolvedCodeSystemVersionsMatchingCodings, codeSelectionCriteria);
 			if (concept != null) {
 				String codingADisplay = codingA.getDisplay();
 				if (codingADisplay == null) {
@@ -551,17 +606,16 @@ public class FHIRValueSetService {
 			valueSet.setStatus(Enumerations.PublicationStatus.ACTIVE.toCode());
 			hapiValueSet = valueSet.getHapi();
 		} else if (hapiValueSet == null) {
-			hapiValueSet = findByUrl(url).map(FHIRValueSet::getHapi).orElse(null);
+			hapiValueSet = findLatestByUrl(url).map(FHIRValueSet::getHapi).orElse(null);
 		}
 		return hapiValueSet;
 	}
 
-	private FHIRConcept findInValueSet(Coding coding, Set<FHIRCodeSystemVersion> codeSystemVersionsForExpansion,
-			Map<FHIRCodeSystemVersion, Pair<Set<ConceptConstraint>, Set<ConceptConstraint>>> inclusionExclusionConstraints, ValueSet hapiValueSet) {
+	private FHIRConcept findInValueSet(Coding coding, Set<FHIRCodeSystemVersion> codeSystemVersionsForExpansion, CodeSelectionCriteria codeSelectionCriteria) {
 
 		// Collect sets of SNOMED and FHIR-concept constraints relevant to this coding. The later can be evaluated in a single query.
-		Map<FHIRCodeSystemVersion, Pair<Set<ConceptConstraint>, Set<ConceptConstraint>>> codingSnomedConstraints = new HashMap<>();
-		Map<FHIRCodeSystemVersion, Pair<Set<ConceptConstraint>, Set<ConceptConstraint>>> codingFhirConstraints = new HashMap<>();
+		Set<FHIRCodeSystemVersion> snomedVersions = new HashSet<>();
+		Set<FHIRCodeSystemVersion> genericVersions = new HashSet<>();
 		for (FHIRCodeSystemVersion codeSystemVersionForExpansion : codeSystemVersionsForExpansion) {
 
 			// Check system and version match
@@ -570,25 +624,28 @@ public class FHIRValueSetService {
 					(FHIRHelper.isSnomedUri(coding.getSystem()) && codeSystemVersionForExpansion.getVersion().contains(coding.getVersion()))) {
 
 				if (codeSystemVersionForExpansion.isSnomed()) {
-					codingSnomedConstraints.put(codeSystemVersionForExpansion, inclusionExclusionConstraints.get(codeSystemVersionForExpansion));
+					snomedVersions.add(codeSystemVersionForExpansion);
 				} else {
-					codingFhirConstraints.put(codeSystemVersionForExpansion, inclusionExclusionConstraints.get(codeSystemVersionForExpansion));
+					genericVersions.add(codeSystemVersionForExpansion);
 				}
 			}
 		}
 
-		for (FHIRCodeSystemVersion snomedVersion : codingSnomedConstraints.keySet()) {
-			QueryService.ConceptQueryBuilder conceptQuery = getSnomedConceptQuery(null, false, codingSnomedConstraints.get(snomedVersion));
+		QueryService.ConceptQueryBuilder snomedConceptQuery = null;
+		for (FHIRCodeSystemVersion snomedVersion : snomedVersions) {
+			if (snomedConceptQuery == null) {
+				snomedConceptQuery = getSnomedConceptQuery(null, false, codeSelectionCriteria);
+			}
 			// Add criteria to select just this code
-			conceptQuery.conceptIds(Collections.singleton(coding.getCode()));
-			List<ConceptMini> conceptMinis = snomedQueryService.search(conceptQuery, snomedVersion.getSnomedBranch(), PAGE_OF_ONE).getContent();
+			snomedConceptQuery.conceptIds(Collections.singleton(coding.getCode()));
+			List<ConceptMini> conceptMinis = snomedQueryService.search(snomedConceptQuery, snomedVersion.getSnomedBranch(), PAGE_OF_ONE).getContent();
 			if (!conceptMinis.isEmpty()) {
 				return new FHIRConcept(conceptMinis.get(0), snomedVersion, true);
 			}
 		}
 
-		if (!codingFhirConstraints.isEmpty()) {
-			BoolQueryBuilder fhirConceptQuery = getFhirConceptQuery(inclusionExclusionConstraints, hapiValueSet, null);
+		if (!genericVersions.isEmpty()) {
+			BoolQueryBuilder fhirConceptQuery = getFhirConceptQuery(codeSelectionCriteria, null);
 			// Add criteria to select just this code
 			fhirConceptQuery.must(termQuery(FHIRConcept.Fields.CODE, coding.getCode()));
 			List<FHIRConcept> concepts = conceptService.findConcepts(fhirConceptQuery, PAGE_OF_ONE).getContent();
@@ -600,9 +657,9 @@ public class FHIRValueSetService {
 		return null;
 	}
 
-	private String inclusionExclusionClausesToEcl(Pair<Set<ConceptConstraint>, Set<ConceptConstraint>> inclusionExclusionClauses) {
+	private String inclusionExclusionClausesToEcl(CodeSelectionCriteria codeSelectionCriteria) {
 		StringBuilder ecl = new StringBuilder();
-		for (ConceptConstraint inclusion : inclusionExclusionClauses.getFirst()) {
+		for (ConceptConstraint inclusion : codeSelectionCriteria.getInclusionConstraints().values().iterator().next()) {
 			if (ecl.length() > 0) {
 				ecl.append(" OR ");
 			}
@@ -614,13 +671,12 @@ public class FHIRValueSetService {
 			ecl.append("*");
 		}
 
-		Set<ConceptConstraint> exclusions = inclusionExclusionClauses.getSecond();
-		if (!exclusions.isEmpty()) {
+		if (!codeSelectionCriteria.getExclusionConstraints().isEmpty()) {
 			// Existing ECL must be made into sub expression, because disjunction and exclusion expressions can not be mixed.
 			ecl = new StringBuilder().append("( ").append(ecl).append(" )");
-		}
-		for (ConceptConstraint exclusion : exclusions) {
-			ecl.append(" MINUS ( ").append(exclusion.getEcl()).append(" )");
+			for (ConceptConstraint exclusion : codeSelectionCriteria.getExclusionConstraints().values().iterator().next()) {
+				ecl.append(" MINUS ( ").append(exclusion.getEcl()).append(" )");
+			}
 		}
 
 		return ecl.toString();
@@ -633,7 +689,7 @@ public class FHIRValueSetService {
 		return String.join(" OR ", inclusion.getCode());
 	}
 
-	private void addQueryCriteria(ConceptConstraint inclusion, BoolQueryBuilder versionQuery, ValueSet hapiValueSet) {
+	private void addQueryCriteria(ConceptConstraint inclusion, BoolQueryBuilder versionQuery, String valueSetUserRef) {
 		if (inclusion.getCode() != null) {
 			versionQuery.must(termsQuery(FHIRConcept.Fields.CODE, inclusion.getCode()));
 		} else if (inclusion.getParent() != null) {
@@ -641,7 +697,7 @@ public class FHIRValueSetService {
 		} else if (inclusion.getAncestor() != null) {
 			versionQuery.must(termsQuery(FHIRConcept.Fields.ANCESTORS, inclusion.getAncestor()));
 		} else {
-			String message = "Unrecognised constraints for ValueSet: " + hapiValueSet;
+			String message = "Unrecognised constraints for ValueSet: " + valueSetUserRef;
 			logger.error(message);
 			throw exception(message, OperationOutcome.IssueType.EXCEPTION, 500);
 		}
@@ -651,8 +707,8 @@ public class FHIRValueSetService {
 		if (!include.getConcept().isEmpty()) {
 			List<String> codes = include.getConcept().stream().map(ValueSet.ConceptReferenceComponent::getCode).collect(Collectors.toList());
 			inclusionConstraints.add(new ConceptConstraint(codes));
-
-		} else if (!include.getFilter().isEmpty()) {
+		}
+		if (!include.getFilter().isEmpty()) {
 			for (ValueSet.ConceptSetFilterComponent filter : include.getFilter()) {
 				String property = filter.getProperty();
 				ValueSet.FilterOperator op = filter.getOp();
@@ -846,82 +902,6 @@ public class FHIRValueSetService {
 		return refsets;
 	}
 
-	/**
-	 * Returns map of CanonicalUris and FHIRCodeSystemVersions to be used in expansion.
-	 * The CanonicalUris in the returned map represent the systems, and optionally versions, that are stated in the ValueSet.
-	 * The FHIRCodeSystemVersions in the returned map are the versions that should actually be used, they reflect all the current constraints.
-	 */
-	private Map<CanonicalUri, FHIRCodeSystemVersion> resolveCodeSystemVersionsForExpansion(ValueSet.ValueSetComposeComponent compose,
-			Set<CanonicalUri> systemVersions, CanonicalUri checkSystemVersion, CanonicalUri forceSystemVersion, CanonicalUri excludeSystem) {
-
-		Map<CanonicalUri, FHIRCodeSystemVersion> composeSystemVersions = new HashMap<>();
-		// include
-		resolveCodeSystemVersionForIncludeExclude(compose.getInclude(), systemVersions, checkSystemVersion, forceSystemVersion, excludeSystem, composeSystemVersions);
-		// exclude
-		resolveCodeSystemVersionForIncludeExclude(compose.getExclude(), systemVersions, checkSystemVersion, forceSystemVersion, excludeSystem, composeSystemVersions);
-		return composeSystemVersions;
-	}
-
-	private void resolveCodeSystemVersionForIncludeExclude(List<ValueSet.ConceptSetComponent> includeExclude, Set<CanonicalUri> systemVersions, CanonicalUri checkSystemVersion,
-			CanonicalUri forceSystemVersion, CanonicalUri excludeSystem, Map<CanonicalUri, FHIRCodeSystemVersion> composeSystemVersions) {
-
-		for (ValueSet.ConceptSetComponent component : includeExclude) {
-			if (component.hasValueSet()) {
-				throw exception("valueSet within a ValueSet compose include/exclude is not supported.", OperationOutcome.IssueType.NOTSUPPORTED, 400);
-			}
-			String componentSystem = component.getSystem();
-			if (componentSystem == null) {
-				throw exception("ValueSet compose include/exclude must include a system.", OperationOutcome.IssueType.INVARIANT, 400);
-			}
-
-			String componentVersion = component.getVersion();
-
-			CanonicalUri canonicalUri = CanonicalUri.of(componentSystem, componentVersion);
-			if (!composeSystemVersions.containsKey(canonicalUri)) {
-				// Apply force system version if systems match
-				if (forceSystemVersion != null && componentSystem.equals(forceSystemVersion.getSystem()) && forceSystemVersion.getVersion() != null) {
-					componentVersion = forceSystemVersion.getVersion();
-
-				// Apply system version if no version set and systems match
-				} else if (componentVersion == null) {
-					String componentSystemTmp = componentSystem;
-					CanonicalUri systemVersion = systemVersions.stream()
-							.filter(canonicalUri1 -> componentSystemTmp.equals(canonicalUri1.getSystem()) ||
-									(isSnomedUri(componentSystemTmp) && isSnomedUri(canonicalUri1.getSystem())))// Both SCT, may not be equal if one using xsct
-							.findFirst().orElse(null);
-					if (systemVersion != null) {
-						componentVersion = systemVersion.getVersion();
-						// Take system too, in case it's unversioned snomed (sctx)
-						componentSystem = systemVersion.getSystem();
-					}
-				}
-
-				FHIRCodeSystemVersion codeSystemVersion = codeSystemService.findCodeSystemVersionOrThrow(
-						FHIRHelper.getCodeSystemVersionParams(null, componentSystem, componentVersion, null));
-
-				// Apply exclude-system param
-				if (excludeSystem != null && componentSystem.equals(excludeSystem.getSystem())) {
-					String excludeSystemVersion = excludeSystem.getVersion();
-					if (excludeSystemVersion == null || excludeSystemVersion.equals(codeSystemVersion.getVersion())) {
-						continue;
-					}
-				}
-
-				// Validate check-system-version param
-				if (checkSystemVersion != null && checkSystemVersion.getVersion() != null && checkSystemVersion.getSystem().equals(componentSystem)) {
-					if (!codeSystemVersion.getVersion().equals(checkSystemVersion.getVersion())) {
-						throw exception(format("ValueSet expansion includes CodeSystem '%s' version '%s', which does not match input parameter " +
-								"check-system-version '%s' '%s'.", codeSystemVersion.getUrl(), codeSystemVersion.getVersion(),
-								checkSystemVersion.getSystem(), checkSystemVersion.getVersion()), OperationOutcome.IssueType.INVALID, 400);
-					}
-				}
-
-				// This system version will be used whenever an include/exclude has this componentSystem-componentVersion combination
-				composeSystemVersions.put(canonicalUri, codeSystemVersion);
-			}
-		}
-	}
-
 	private void idUrlCrosscheck(String id, String url, FHIRValueSet valueSet) {
 		if (url != null && !url.equals(valueSet.getUrl())) {
 			throw exception(format("The requested ValueSet URL '%s' does not match the URL '%s' of the ValueSet found using identifier '%s'.",
@@ -929,12 +909,4 @@ public class FHIRValueSetService {
 		}
 	}
 
-	public Optional<FHIRValueSet> find(UriType url, String version) {
-		for (FHIRValueSet valueSet : valueSetRepository.findAllByUrl(url.getValueAsString())) {
-			if (version.equals(valueSet.getVersion())) {
-				return Optional.of(valueSet);
-			}
-		}
-		return Optional.empty();
-	}
 }

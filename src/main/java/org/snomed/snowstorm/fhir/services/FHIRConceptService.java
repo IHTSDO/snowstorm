@@ -160,7 +160,6 @@ public class FHIRConceptService {
 				conceptRepository.deleteByCodeSystemVersionAndCodeIn(idWithVersion, codesToDelete.getContent().stream().map(FHIRConcept::getCode).collect(Collectors.toList()));
 				codesToDelete = conceptRepository.findByCodeSystemVersion(idWithVersion, PageRequest.of(0, DELETE_BATCH_SIZE));
 			}
-			logger.info("Existing codes deleted");
 		}
 	}
 
