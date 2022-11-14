@@ -80,10 +80,8 @@ public class FHIRLoadPackageService {
 					if (codeSystem.getContent() == CodeSystem.CodeSystemContentMode.NOTPRESENT) {
 						logger.info("Skipping import of CodeSystem %s with 'content:not-present' because a CodeSystem with the same url and version already exists.");
 					} else {
-						throw FHIRHelper.exception(format("Resource %s with url '%s' and version '%s' already exists it has id '%s'. " +
-												"Please delete this version before attempting to import.",
-										"CodeSystem", url, version, existingCodeSystemVersion.getId()),
-								OperationOutcome.IssueType.NOTSUPPORTED, 400);
+						logger.info("Deleting existing CodeSystem and concepts for url:{}, version:{}", existingCodeSystemVersion.getUrl(), existingCodeSystemVersion.getVersion());
+						codeSystemService.deleteCodeSystemVersion(existingCodeSystemVersion.getId());
 					}
 				}
 				List<CodeSystem.ConceptDefinitionComponent> concepts = codeSystem.getConcept();
