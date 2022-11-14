@@ -1,11 +1,13 @@
 package org.snomed.snowstorm.fhir.domain;
 
+import org.hl7.fhir.r4.model.CanonicalType;
 import org.hl7.fhir.r4.model.ValueSet;
 import org.springframework.data.elasticsearch.annotations.Field;
 import org.springframework.data.elasticsearch.annotations.FieldType;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import static org.snomed.snowstorm.core.util.CollectionUtils.orEmpty;
 
@@ -21,6 +23,8 @@ public class FHIRValueSetCriteria {
 	private List<String> codes;
 
 	private List<FHIRValueSetFilter> filter;
+
+	private List<String> valueSet;
 
 	public FHIRValueSetCriteria() {
 	}
@@ -40,6 +44,7 @@ public class FHIRValueSetCriteria {
 			}
 			filter.add(new FHIRValueSetFilter(hapiFilter));
 		}
+		valueSet = hapiCriteria.getValueSet().stream().map(CanonicalType::getValueAsString).collect(Collectors.toList());
 	}
 
 	public ValueSet.ConceptSetComponent getHapi() {
@@ -54,6 +59,7 @@ public class FHIRValueSetCriteria {
 		for (FHIRValueSetFilter filter : orEmpty(getFilter())) {
 			hapiConceptSet.addFilter(filter.getHapi());
 		}
+		hapiConceptSet.setValueSet(orEmpty(valueSet).stream().map(CanonicalType::new).collect(Collectors.toList()));
 		return hapiConceptSet;
 	}
 

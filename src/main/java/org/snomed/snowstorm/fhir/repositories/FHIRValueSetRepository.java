@@ -8,8 +8,6 @@ import java.util.Optional;
 
 public interface FHIRValueSetRepository extends ElasticsearchRepository<FHIRValueSet, String> {
 
-	Optional<FHIRValueSet> findByUrl(String url);
-
 	List<FHIRValueSet> findAllByUrl(String url);
 
 }

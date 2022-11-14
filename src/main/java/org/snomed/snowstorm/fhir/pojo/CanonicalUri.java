@@ -1,11 +1,8 @@
 package org.snomed.snowstorm.fhir.pojo;
 
-import org.hl7.fhir.r4.model.OperationOutcome;
 import org.snomed.snowstorm.fhir.services.FHIRHelper;
 
 import java.util.Objects;
-
-import static java.lang.String.format;
 
 public class CanonicalUri {
 
@@ -24,9 +21,6 @@ public class CanonicalUri {
 		String[] split = canonicalUriString.split("\\|", 2);
 		String system = split[0];
 		String version = split.length > 1 ? split[1] : null;
-		if (version == null || version.isEmpty()) {
-			throw FHIRHelper.exception(format("Canonical is missing version for system '%s'.", system), OperationOutcome.IssueType.INVALID, 400);
-		}
 		return new CanonicalUri(system, version);
 	}
 
@@ -44,6 +38,17 @@ public class CanonicalUri {
 
 	public String getVersion() {
 		return version;
+	}
+
+	@Override
+	public String toString() {
+		if (system == null) {
+			return null;
+		} else if (version == null) {
+			return system;
+		} else {
+			return String.join("|", system, version);
+		}
 	}
 
 	@Override
