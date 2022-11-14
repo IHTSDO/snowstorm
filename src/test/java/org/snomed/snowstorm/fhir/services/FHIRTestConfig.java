@@ -56,7 +56,8 @@ public class FHIRTestConfig extends TestConfig {
 	protected final Logger logger = LoggerFactory.getLogger(getClass());
 
 	@PostConstruct
-	public void beforeAll() throws ServiceException {
+	public void beforeAll() throws ServiceException, InterruptedException {
+		tearDown();
 		List<Concept> concepts = new ArrayList<>();
 		concepts.add(new Concept(Concepts.SNOMEDCT_ROOT));
 		for (int x=1; x<=10; x++) {

@@ -16,6 +16,7 @@ import org.snomed.snowstorm.fhir.domain.FHIRCodeSystemVersion;
 import org.snomed.snowstorm.fhir.domain.FHIRPackageIndex;
 import org.snomed.snowstorm.fhir.domain.FHIRPackageIndexFile;
 import org.snomed.snowstorm.fhir.pojo.FHIRCodeSystemVersionParams;
+import org.snomed.snowstorm.fhir.pojo.ValueSetExpansionParameters;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -49,7 +50,7 @@ public class FHIRLoadPackageService {
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
-	public void uploadPackageResources(File packageFile, Set<String> resourceUrlsToImport, String submittedFileName) throws IOException {
+	public void uploadPackageResources(File packageFile, Set<String> resourceUrlsToImport, String submittedFileName, boolean testValueSets) throws IOException {
 		JsonParser jsonParser = (JsonParser) fhirContext.newJsonParser();
 		FHIRPackageIndex index = extractObject(packageFile, ".index.json", FHIRPackageIndex.class, jsonParser);
 		Set<String> supportedResourceTypes = Set.of("CodeSystem", "ValueSet");
@@ -59,14 +60,15 @@ public class FHIRLoadPackageService {
 						(!importAll && resourceUrlsToImport.contains(file.getUrl())))
 				.collect(Collectors.toList());
 		validateResources(filesToImport, resourceUrlsToImport, importAll, supportedResourceTypes);
-		logger.info("Importing {} resources, found within index of package {}.", filesToImport.size(), submittedFileName);
+		logger.info("Importing {} resources, found within index of package {}.{}", filesToImport.size(), submittedFileName,
+				testValueSets ? " Each value set will be expanded and any issues logged as warning." : "");
 
-		for (FHIRPackageIndexFile indexFileToImport : filesToImport) {
-			String resourceType = indexFileToImport.getResourceType();
+		// Import all code systems
+		for (FHIRPackageIndexFile indexFileToImport : filesToImport.stream().filter(file -> file.getResourceType().equals("CodeSystem")).collect(Collectors.toList())) {
 			String filename = indexFileToImport.getFilename();
 			String id = indexFileToImport.getId();
 			String url = indexFileToImport.getUrl();
-			if (resourceType.equals("CodeSystem") && id != null && url != null) {
+			if (id != null && url != null) {
 				CodeSystem codeSystem = extractObject(packageFile, filename, CodeSystem.class, jsonParser);
 				codeSystem.setId(id);
 				codeSystem.setUrl(url);
@@ -90,14 +92,31 @@ public class FHIRLoadPackageService {
 				if (concepts != null) {
 					fhirConceptService.saveAllConceptsOfCodeSystemVersion(concepts, codeSystemVersion);
 				}
-			} else if (resourceType.equals("ValueSet") && id != null && url != null) {
+			}
+		}
+
+		// Import all value sets
+		for (FHIRPackageIndexFile indexFileToImport : filesToImport.stream().filter(file -> file.getResourceType().equals("ValueSet")).collect(Collectors.toList())) {
+			String filename = indexFileToImport.getFilename();
+			String id = indexFileToImport.getId();
+			String url = indexFileToImport.getUrl();
+			if (id != null && url != null) {
 				ValueSet valueSet = extractObject(packageFile, filename, ValueSet.class, jsonParser);
 				valueSet.setId(id);
 				valueSet.setUrl(url);
 				valueSet.setVersion(indexFileToImport.getVersion());
+				logger.info("Importing ValueSet {} from package", valueSet.getUrl());
 				valueSetService.createOrUpdateValuesetWithoutExpandValidation(valueSet);
+				if (testValueSets) {
+					try {
+						valueSetService.expand(new ValueSetExpansionParameters(valueSet, true), null);
+					} catch (SnowstormFHIRServerResponseException e) {
+						logger.warn("Failed to expand ValueSet {}, {}", valueSet.getUrl(), e.getMessage());
+					}
+				}
 			}
 		}
+
 		logger.info("Completed import of package {}.", submittedFileName);
 	}
 
