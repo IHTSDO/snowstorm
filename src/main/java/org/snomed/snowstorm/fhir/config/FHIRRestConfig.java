@@ -1,6 +1,7 @@
 package org.snomed.snowstorm.fhir.config;
 
 import ca.uhn.fhir.rest.api.EncodingEnum;
+import ca.uhn.fhir.rest.server.interceptor.ResponseHighlighterInterceptor;
 import org.snomed.snowstorm.fhir.services.FHIRLoadPackageServlet;
 import org.springframework.boot.web.servlet.ServletRegistrationBean;
 import org.springframework.context.annotation.Bean;
@@ -23,6 +24,10 @@ public class FHIRRestConfig {
 		hapiServlet.setServerName("Snowstorm X FHIR Server");
 		hapiServlet.setServerVersion(getClass().getPackage().getImplementationVersion());
 		hapiServlet.setDefaultResponseEncoding(EncodingEnum.JSON);
+
+		ResponseHighlighterInterceptor interceptor = new ResponseHighlighterInterceptor();
+		hapiServlet.registerInterceptor(interceptor);
+
 		return servletRegistrationBean;
 	}
 
