@@ -6,7 +6,7 @@ import java.util.Set;
 public class ConceptConstraint {
 
 	private Collection<String> code;
-	private Set<String> parent;
+	private Set<String> parent;// ECL used instead for SNOMED
 	private Set<String> ancestor;
 	private String ecl;
 

@@ -59,9 +59,13 @@ public class FHIRLoadPackageServlet extends HttpServlet {
 		}
 
 		Set<String> resourceUrls = new HashSet<>();
+		boolean testValueSets = false;
 		for (Part part : req.getParts()) {
 			if ("resourceUrls".equals(part.getName())) {
 				resourceUrls.add(Streams.asString(part.getInputStream()));
+			}
+			if ("testValueSets".equals(part.getName()) && Boolean.parseBoolean(Streams.asString(part.getInputStream()))) {
+				testValueSets = true;
 			}
 		}
 
@@ -71,7 +75,7 @@ public class FHIRLoadPackageServlet extends HttpServlet {
 		}
 
 		try {
-			service.uploadPackageResources(tempFile, resourceUrls, submittedFileName);
+			service.uploadPackageResources(tempFile, resourceUrls, submittedFileName, testValueSets);
 		} catch (SnowstormFHIRServerResponseException e) {
 			error(e, resp);
 			return;
