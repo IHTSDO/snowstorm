@@ -55,7 +55,7 @@ class FHIRLoadPackageServiceTest extends AbstractFHIRTest {
 
 	@Test
 	void uploadPackageResources() throws IOException {
-		service.uploadPackageResources(packageFile, Collections.singleton("*"), packageFile.getName(), testValueSets);
+		service.uploadPackageResources(packageFile, Collections.singleton("*"), packageFile.getName(), true);
 
 		for (FHIRCodeSystemVersion codeSystemVersion : codeSystemRepository.findAll()) {
 			System.out.println(codeSystemVersion.getCanonical());
