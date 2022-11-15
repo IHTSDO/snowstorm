@@ -4,8 +4,10 @@ import org.apache.commons.compress.archivers.ArchiveEntry;
 import org.apache.commons.compress.archivers.tar.TarArchiveOutputStream;
 import org.apache.commons.compress.compressors.gzip.GzipCompressorOutputStream;
 import org.hl7.fhir.r4.model.ValueSet;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.snomed.snowstorm.fhir.domain.FHIRCodeSystemVersion;
 import org.snomed.snowstorm.fhir.domain.FHIRValueSet;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -18,9 +20,9 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.util.Collections;
+import java.util.Optional;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.*;
 
 class FHIRLoadPackageServiceTest extends AbstractFHIRTest {
 
@@ -30,7 +32,7 @@ class FHIRLoadPackageServiceTest extends AbstractFHIRTest {
 	private File packageFile;
 
 	@BeforeEach
-	public void setup() throws IOException {
+	public void testSetup() throws IOException {
 		// Create compressed archive for the test FHIR Package file
 		packageFile = Files.createTempFile(getClass().getSimpleName() + "test-file", "tgz").toFile();
 		try (GzipCompressorOutputStream gzipOut = new GzipCompressorOutputStream(new FileOutputStream(packageFile));
@@ -49,28 +51,23 @@ class FHIRLoadPackageServiceTest extends AbstractFHIRTest {
 				}
 			}
 		}
+	}
 
-		deleteAllFHIRResource();
+	@AfterEach
+	public void testAfter() {
+		valueSetRepository.deleteById("device-status-reason");
+		codeSystemRepository.deleteById("device-status-reason");
 	}
 
 	@Test
 	void uploadPackageResources() throws IOException {
+		assertFalse(codeSystemRepository.findById("device-status-reason").isPresent());
+		assertFalse(valueSetRepository.findById("device-status-reason").isPresent());
+
 		service.uploadPackageResources(packageFile, Collections.singleton("*"), packageFile.getName(), true);
 
-		for (FHIRCodeSystemVersion codeSystemVersion : codeSystemRepository.findAll()) {
-			System.out.println(codeSystemVersion.getCanonical());
-		}
-		assertEquals(1, codeSystemRepository.count());
-
-		for (FHIRValueSet valueSet : valueSetRepository.findAll()) {
-			System.out.println(valueSet.getUrl() + "|" + valueSet.getVersion());
-		}
-		assertEquals(1, valueSetRepository.count());
-
-
-		ResponseEntity<String> pageResponse = restTemplate.exchange(baseUrl + "/ValueSet", HttpMethod.GET, null, String.class);
-		System.out.println("Page");
-		System.out.println(pageResponse.getBody());
+		assertTrue(codeSystemRepository.findById("device-status-reason").isPresent());
+		assertTrue(valueSetRepository.findById("device-status-reason").isPresent());
 
 		// Expand imported implicit value set, that includes codes from imported code system
 		//
