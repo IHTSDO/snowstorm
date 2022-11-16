@@ -2,6 +2,7 @@ package org.snomed.snowstorm.core.data.services.postcoordination;
 
 import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.domain.Branch;
+import io.kaicode.elasticvc.domain.Metadata;
 import org.ihtsdo.otf.resourcemanager.ResourceManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -125,7 +126,7 @@ public class IncrementalClassificationService {
 			for (Long concept : equivalentConceptSet) {
 				for (Long otherConcept : equivalentConceptSet) {
 					final String otherConceptId = otherConcept.toString();
-					if (!concept.equals(otherConcept) && !otherConceptId.substring(otherConceptId.length() - 3, otherConceptId.length() - 1).equals("06")) {
+					if (!concept.equals(otherConcept) && !otherConceptId.startsWith("06", otherConceptId.length() - 3)) {
 						map.put(concept, otherConcept);
 					}
 				}
@@ -148,8 +149,8 @@ public class IncrementalClassificationService {
 
 	private void createClassificationContainer() throws ReasonerServiceException {
 		Branch branchWithInheritedMetadata = branchService.findBranchOrThrow("MAIN", false);
-		Map<String, String> metadata = branchWithInheritedMetadata.getMetadata();
-		String previousPackage = metadata != null ? metadata.get(BranchMetadataKeys.PREVIOUS_PACKAGE) : null;
+		Metadata metadata = branchWithInheritedMetadata.getMetadata();
+		String previousPackage = metadata.getString(BranchMetadataKeys.PREVIOUS_PACKAGE);
 		if (previousPackage == null) {
 			throw new IllegalStateException(format("No %s set in branch metadata.", BranchMetadataKeys.PREVIOUS_PACKAGE));
 		}
