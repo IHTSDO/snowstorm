@@ -22,16 +22,17 @@ load each package format and a link to the updated Postman collection for v8.
 - Renamed FHIR Elasticsearch indices with `fhir_` prefix
 
 ### Features
+- Add FHIR support generic CodeSystems
+  - HL7 terminologies and many other code systems supported
+  - Import can use 'FHIR package' from simplifier.net
+  - Alternatively import can use HAPI custom code system format
 - Add FHIR Support for LOINC
-  - Uses LOINC package format
+  - Import uses LOINC package format
 - Add FHIR Support for ICD-10
-  - Uses ICD-10 ClaML format
+  - Import uses ICD-10 ClaML format
 - Add FHIR Support for ICD-10-CM
-  - Uses ICD-10-CM native format
-- Add support for loading HL7 and other code systems
-  - Uses FHIR package format
-- Add FHIR Support for Custom code systems
-  - Using simple custom code system format
+  - Import uses ICD-10-CM native format
+- Add support for FHIR ValueSets with nesting, for non-SNOMED CT value sets
 
 ### Improvements
 - Improve FHIR code system version resolution
