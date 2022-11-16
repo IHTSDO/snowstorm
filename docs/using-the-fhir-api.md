@@ -62,8 +62,9 @@ curl --form file=@hl7.terminology.r4-3.1.0.tgz \
 All resources within a package can be loaded using `--form resourceUrls='*'`.
 
 Notes on import behaviour:
+- Existing resources will be replaced if any imported resource has the same URL and version.
 - The package index file is used as the source of truth for the url and version of CodeSystems imported. This avoids some duplicates in the HL7 terminology package.
-- Duplicate CodeSystem versions with "content:not-present" are skipped. This is logged at INFO level.
+- Duplicate CodeSystem versions within the package with "content:not-present" are skipped. This is logged at INFO level.
 
 
 ## Examples
