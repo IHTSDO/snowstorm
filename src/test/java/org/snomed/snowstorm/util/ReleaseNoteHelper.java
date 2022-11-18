@@ -31,7 +31,7 @@ public class ReleaseNoteHelper {
 
 
 		try {
-			Process process = Runtime.getRuntime().exec("git log " + startCommit + ".." + endCommit, new String[]{}, codeDirectory);
+			Process process = Runtime.getRuntime().exec(new String[] {"git log", String.format("%s..%s", startCommit, endCommit)}, new String[]{}, codeDirectory);
 			ExecutorService executorService = Executors.newCachedThreadPool();
 			executorService.submit(new StreamGobbler(process.getErrorStream(), System.err::println));
 			int i = process.waitFor();
