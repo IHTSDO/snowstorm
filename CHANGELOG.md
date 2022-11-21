@@ -3,6 +3,17 @@ All notable changes to this project will be documented in this file.
 
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 7.12.0 Release (December 2022)
+Maintenance release with bug fixes and improvements.
+### Improvements
+- General
+  - MAINT-1974 Add optional configuration to allow new ReferenceSet types to be configured on branch other than MAIN.
+  
+### Fixes
+- MAINT-2071 Remove communication with Authoring Acceptance Gateway when completing classifications.
+- MAINT-1940 Stop inactive historical associations switching module when rebasing.
+- FRI-565 Correct Extension's traceability log when performing rebase after upgrading dependency.
+
 ## 7.11.0 Release (October 2022)
 Maintenance release with bug fixes and improvements.
 ### Improvements
