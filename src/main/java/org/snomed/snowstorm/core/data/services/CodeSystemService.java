@@ -172,6 +172,9 @@ public class CodeSystemService {
 					newCodeSystem.setDependantVersionEffectiveTime(latestVersion.getEffectiveDate());
 				}
 			}
+		} else if (newCodeSystem.isPostcoordinated() == Boolean.TRUE) {
+			throw new IllegalArgumentException("Postcoordination is not possible on the root code system. " +
+					"Please create a child code system that depends on the precoordinated content in the parent code system.");
 		}
 		Integer dependantVersionEffectiveTime = newCodeSystem.getDependantVersionEffectiveTime();
 		boolean branchExists = branchService.exists(branchPath);

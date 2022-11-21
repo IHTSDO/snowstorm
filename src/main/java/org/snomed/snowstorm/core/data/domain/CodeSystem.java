@@ -22,7 +22,8 @@ import java.util.Set;
  */
 @Document(indexName = "#{@indexNameProvider.indexName('codesystem')}", createIndex = false)
 @JsonPropertyOrder({"name", "owner", "shortName", "branchPath", "dependantVersionEffectiveTime", "dailyBuildAvailable", "latestDailyBuild",
-		"countryCode", "defaultLanguageCode", "defaultLanguageReferenceSets", "maintainerType", "latestVersion", "languages", "modules"})
+		"postcoordinated", "postcoordinationLevel", "countryCode", "defaultLanguageCode", "defaultLanguageReferenceSets", "maintainerType",
+		"latestVersion", "languages", "modules"})
 public class CodeSystem implements CodeSystemCreate {
 
 	public interface Fields {
@@ -63,6 +64,9 @@ public class CodeSystem implements CodeSystemCreate {
 
 	@Field(type = FieldType.Keyword)
 	private String latestDailyBuild;
+
+	@Field(type = FieldType.Short)
+	private short postcoordinationLevel;
 
 	@Transient
 	private String defaultModuleId;
@@ -184,6 +188,28 @@ public class CodeSystem implements CodeSystemCreate {
 
 	public void setLatestDailyBuild(String latestDailyBuild) {
 		this.latestDailyBuild = latestDailyBuild;
+	}
+
+	/**
+	 * Postcoordination Levels:
+	 * Level 0 means postcoordination is disabled.
+	 * Level 1 supports postcoordinated expressions with no transformation.
+	 * Level 2 supports postcoordinated expressions with a some known transformations.
+	 * Level 3 is not yet defined or supported.
+	 * Level 4 is not yet defined or supported.
+	 * @return the level of postcoordination supported in this code system, 0 means disabled.
+	 */
+	public Short getPostcoordinationLevel() {
+		return postcoordinationLevel != 0 ? postcoordinationLevel : null;
+	}
+
+	public CodeSystem setPostcoordinationLevel(short postcoordinationLevel) {
+		this.postcoordinationLevel = postcoordinationLevel;
+		return this;
+	}
+
+	public Boolean isPostcoordinated() {
+		return postcoordinationLevel != 0 ? true : null;
 	}
 
 	@JsonIgnore
