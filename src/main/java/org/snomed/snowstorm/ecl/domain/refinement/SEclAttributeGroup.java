@@ -7,7 +7,9 @@ import org.snomed.snowstorm.ecl.domain.SRefinement;
 import org.snomed.snowstorm.ecl.domain.SubRefinementBuilder;
 import org.snomed.snowstorm.ecl.domain.expressionconstraint.MatchContext;
 
+import java.util.List;
 import java.util.Set;
+import java.util.function.Consumer;
 
 public class SEclAttributeGroup extends EclAttributeGroup implements SRefinement {
 
@@ -17,6 +19,10 @@ public class SEclAttributeGroup extends EclAttributeGroup implements SRefinement
 	}
 
 	@Override
+	public void addCriteria(RefinementBuilder refinementBuilder, Consumer<List<Long>> filteredOrSupplementedContentCallback, boolean triedCache) {
+		addCriteria(refinementBuilder);
+	}
+
 	public void addCriteria(RefinementBuilder refinementBuilder) {
 		// All grouping checks require the inclusion filter because it's not supported by the index
 		refinementBuilder.inclusionFilterRequired();

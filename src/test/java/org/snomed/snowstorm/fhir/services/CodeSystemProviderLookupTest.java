@@ -3,7 +3,7 @@ package org.snomed.snowstorm.fhir.services;
 import org.hl7.fhir.r4.model.Parameters;
 import org.junit.jupiter.api.Test;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 
 class CodeSystemProviderLookupTest extends AbstractFHIRTest {
 

@@ -23,7 +23,6 @@ public class TraceabilityLogServiceHelper {
 
 	@Autowired
 	private ElasticsearchRestTemplate elasticsearchTemplate;
-
 	public <T extends SnomedComponent<T>> Iterable<T> loadChangesAndDeletionsWithinOpenCommitOnly(Class<T> clazz, BranchCriteria changesAndDeletionsWithinOpenCommitCriteria,
 			String branchPath, Commit commit) {
 
@@ -77,7 +76,6 @@ public class TraceabilityLogServiceHelper {
 
 		final Map<String, Set<String>> rebaseDuplicatesRemoved = commit.isRebase() ? BranchMetadataHelper.getRebaseDuplicatesRemoved(commit) : Collections.emptyMap();
 
-		final List<T> changesReplaced = new ArrayList<>();
 		// Use new and ended sets to work out if components was created, updated or deleted
 		components.forEach(component -> {
 			final String componentId = component.getId();
@@ -89,17 +87,13 @@ public class TraceabilityLogServiceHelper {
 				}
 			} else {
 				if (commit.isRebase() && rebaseDuplicatesRemoved.computeIfAbsent(clazz.getSimpleName(), key -> Collections.emptySet()).contains(componentId)) {
-					// Component in child branch is replaced by newer version in parent branch.
-					changesReplaced.add(component);
+					// Component in child branch is replaced by newer version in parent branch. Log as change, not deletion.
+					component.markChanged();
 				} else {
 					component.markDeleted();
 				}
 			}
 		});
-
-		// Remove changes replaced to skip traceability logging.
-		components.removeAll(changesReplaced);
 		return components;
 	}
-
 }

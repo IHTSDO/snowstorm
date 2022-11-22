@@ -13,7 +13,7 @@ Snowstorm provides the terminology server API for the SNOMED International Brows
 Snowstorm can be used in local implementations to query SNOMED CT with the following features:
 - Hosting multiple extensions alongside the International Edition of SNOMED CT
 - Multi-lingual search and content retrieval
-- Fully ECL v1.3 compliant
+- Fully ECL v2.0 compliant
 - Full history (depends on full RF2 import)
 - Read-only FHIR API :fire:
 
@@ -33,6 +33,7 @@ The Authoring Platform is used for the maintenance of the International Edition 
   - [Extension Authoring](docs/extension-authoring.md)
   - [Elasticsearch Index Mapping Changes](docs/index-mapping-changes.md)
   - [Docker Quickstart](docs/using-docker.md)
+  - [Load Balancing](docs/load-balancing.md)
 - Use
   - [Using the API](docs/using-the-api.md)
     - [Code Systems & Branches](docs/code-systems-and-branches.md)

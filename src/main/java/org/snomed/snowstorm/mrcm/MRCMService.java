@@ -178,7 +178,7 @@ public class MRCMService {
 			List<LanguageDialect> languageDialects, MRCM branchMRCM, BranchCriteria branchCriteria) {
 
 		QueryService.ConceptQueryBuilder conceptQuery = createAttributeValuesQuery(contentType, attributeId, termPrefix, languageDialects, branchMRCM);
-		return queryService.searchForIds(conceptQuery, branchPath, branchCriteria, RESPONSE_PAGE_SIZE).getContent();
+		return queryService.searchForIds(conceptQuery, branchCriteria, RESPONSE_PAGE_SIZE).getContent();
 	}
 
 	private QueryService.ConceptQueryBuilder createAttributeValuesQuery(ContentType contentType, String attributeId, String termPrefix, List<LanguageDialect> languageDialects, MRCM branchMRCM) {

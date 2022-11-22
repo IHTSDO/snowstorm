@@ -4,7 +4,8 @@ import io.kaicode.elasticvc.api.BranchCriteria;
 import org.snomed.langauges.ecl.domain.expressionconstraint.RefinedExpressionConstraint;
 import org.snomed.langauges.ecl.domain.expressionconstraint.SubExpressionConstraint;
 import org.snomed.langauges.ecl.domain.refinement.EclRefinement;
-import org.snomed.snowstorm.core.data.services.QueryService;
+import org.snomed.snowstorm.ecl.ConceptSelectorHelper;
+import org.snomed.snowstorm.ecl.ECLContentService;
 import org.snomed.snowstorm.ecl.deserializer.ECLModelDeserializer;
 import org.snomed.snowstorm.ecl.domain.RefinementBuilder;
 import org.snomed.snowstorm.ecl.domain.refinement.SEclRefinement;
@@ -12,12 +13,15 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 
 import java.util.*;
+import java.util.function.Consumer;
 
 import static com.google.common.collect.Sets.newHashSet;
 
 public class SRefinedExpressionConstraint extends RefinedExpressionConstraint implements SExpressionConstraint {
 
-	public SRefinedExpressionConstraint() {
+	@SuppressWarnings("unused")
+	// For JSON
+	private SRefinedExpressionConstraint() {
 		this(null, null);
 	}
 
@@ -26,13 +30,15 @@ public class SRefinedExpressionConstraint extends RefinedExpressionConstraint im
 	}
 
 	@Override
-	public Optional<Page<Long>> select(String path, BranchCriteria branchCriteria, boolean stated, Collection<Long> conceptIdFilter, PageRequest pageRequest, QueryService queryService) {
-		return SExpressionConstraintHelper.select(this, path, branchCriteria, stated, conceptIdFilter, pageRequest, queryService);
+	public Optional<Page<Long>> select(BranchCriteria branchCriteria, boolean stated, Collection<Long> conceptIdFilter,
+			PageRequest pageRequest, ECLContentService eclContentService, boolean triedCache) {
+
+		return Optional.of(ConceptSelectorHelper.select(this, branchCriteria, stated, conceptIdFilter, pageRequest, eclContentService, triedCache));
 	}
 
 	@Override
 	public Optional<Page<Long>> select(RefinementBuilder refinementBuilder) {
-		return SExpressionConstraintHelper.select(this, refinementBuilder);
+		return Optional.of(ConceptSelectorHelper.select(this, refinementBuilder));
 	}
 
 	@Override
@@ -44,8 +50,10 @@ public class SRefinedExpressionConstraint extends RefinedExpressionConstraint im
 	}
 
 	@Override
-	public void addCriteria(RefinementBuilder refinementBuilder) {
-		((SSubExpressionConstraint)subexpressionConstraint).addCriteria(refinementBuilder);
+	public void addCriteria(RefinementBuilder refinementBuilder, Consumer<List<Long>> filteredOrSupplementedContentCallback, boolean triedCache) {
+		triedCache = false;// The subExpressionConstraint has not been through the cache
+
+		((SSubExpressionConstraint)subexpressionConstraint).addCriteria(refinementBuilder, (ids) -> {}, triedCache);
 		((SEclRefinement)eclRefinement).addCriteria(refinementBuilder);
 
 		if (refinementBuilder.isInclusionFilterRequired()) {
@@ -57,9 +65,15 @@ public class SRefinedExpressionConstraint extends RefinedExpressionConstraint im
 		}
 	}
 
-	public void toString(StringBuffer buffer) {
+	@Override
+	public String toEclString() {
+		return toString(new StringBuffer()).toString();
+	}
+
+	public StringBuffer toString(StringBuffer buffer) {
 		ECLModelDeserializer.expressionConstraintToString(subexpressionConstraint, buffer);
 		buffer.append(" : ");
 		ECLModelDeserializer.expressionConstraintToString((SEclRefinement) eclRefinement, buffer);
+		return buffer;
 	}
 }

@@ -1,6 +1,7 @@
 package org.snomed.snowstorm.core.util;
 
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.elasticsearch.core.SearchAfterPageRequest;
 import org.springframework.data.elasticsearch.core.SearchHit;
@@ -25,8 +26,11 @@ public class PageHelper {
 		if (pageable instanceof SearchAfterPageRequest) {
 			Object[] searchAfter = ((SearchAfterPageRequest) pageable).getSearchAfter();
 			pageOfResults = subList(fullResultList, searchAfter, pageable.getPageSize(), searchAfterExtractor);
-		} else {
+		} else if (pageable != null) {
 			pageOfResults = subList(fullResultList, pageable.getPageNumber(), pageable.getPageSize());
+		} else {
+			pageOfResults = fullResultList;
+			pageable = PageRequest.of(0, Math.max(fullResultList.size(), 10));
 		}
 
 		T lastItem = getLastItem(pageOfResults);

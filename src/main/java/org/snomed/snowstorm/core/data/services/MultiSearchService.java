@@ -113,7 +113,7 @@ public class MultiSearchService implements CommitListener {
 		final BoolQueryBuilder descriptionQuery = boolQuery()
 				.must(branchesQuery);
 
-		descriptionService.addTermClauses(criteria.getTerm(), criteria.getSearchLanguageCodes(), criteria.getType(), descriptionQuery, criteria.getSearchMode());
+		descriptionService.addTermClauses(criteria.getTerm(), criteria.getSearchMode(), criteria.getSearchLanguageCodes(), criteria.getType(), descriptionQuery);
 
 		Boolean active = criteria.getActive();
 		if (active != null) {

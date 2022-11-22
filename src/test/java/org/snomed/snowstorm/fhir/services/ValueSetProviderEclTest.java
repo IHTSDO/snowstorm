@@ -12,7 +12,7 @@ import org.springframework.http.ResponseEntity;
 
 import java.io.InputStream;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 
 class ValueSetProviderEclTest extends AbstractFHIRTest {
 	
@@ -122,7 +122,7 @@ class ValueSetProviderEclTest extends AbstractFHIRTest {
 		url = "http://localhost:" + port + "/fhir/ValueSet/$expand?url=http://snomed.info/sct/1234?fhir_vs=refset";
 		v = getValueSet(url);
 		//2 x Language Refsets + OWLAxiom Refset + ModuleDependencyRefset created during versioning.
-		assertEquals("Four reference sets in the latest release branch.", 4, v.getExpansion().getTotal());
+		assertEquals(4, v.getExpansion().getTotal(), "Four reference sets in the latest release branch.");
 		
 		// ?fhir_vs=isa/<root concept> -> all concepts under root plus self
 		url = "http://localhost:" + port + "/fhir/ValueSet/$expand?url=http://snomed.info/sct/1234?fhir_vs=isa/" + Concepts.SNOMEDCT_ROOT;
@@ -159,6 +159,24 @@ class ValueSetProviderEclTest extends AbstractFHIRTest {
 		restTemplate.delete(baseUrl + "/reason-for-encounter");
 	}
 	
+	@Test
+	void testExplicitNestedValueSetExpansion() {
+		ClassLoader classloader = Thread.currentThread().getContextClassLoader();
+		InputStream is = classloader.getResourceAsStream("dummy-fhir-content/exampleVS_incude_implicit_VS.json");
+		assertNotNull(is);
+		ValueSet exampleVS = fhirJsonParser.parseResource(ValueSet.class, is);
+		String vsJson = fhirJsonParser.encodeResourceToString(exampleVS);
+		storeVs("test-nested-vs", vsJson);
+		
+		//Now expand that ValueSet we just saved
+		String url = baseUrl + "/test-nested-vs/$expand";
+		ResponseEntity<String> response = restTemplate.getForEntity(url, String.class);
+		ValueSet savedVS = fhirJsonParser.parseResource(ValueSet.class, response.getBody());
+		
+		//10 Concepts on MAIN
+		assertEquals(10, savedVS.getExpansion().getTotal());
+		restTemplate.delete(baseUrl + "/test-nested-vs");
+	}
 	@Test
 	void testECLWithUnpublishedVersion() throws FHIROperationException {
 		//Asking for 5 at a time, expect 13 Total - 10 on MAIN + 3 in the sample module + 1 Root concept

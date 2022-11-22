@@ -14,5 +14,4 @@ public class WebConfig implements WebMvcConfigurer {
 	public void configureMessageConverters(List<HttpMessageConverter<?>> converters) {
 		converters.add(new ItemsPageCSVConverter());
 	}
-
 }

@@ -7,6 +7,7 @@ Before anything, get hold of the most recent [SNOMED CT International Edition RF
 - [Loading Release Snapshot](#loading-release-snapshot)
   * [Via REST](#via-rest)
   * [Via Command line](#via-command-line)
+- [Do not use Generated Delta Files](#do-not-use-generated-delta-files)
 - [Loading Release Full Files](#loading-release-full-files)
 - [Stopping After Loading](#stopping-after-loading)
 
@@ -36,7 +37,7 @@ curl -X POST --header 'Content-Type: multipart/form-data' --header 'Accept: appl
 
 You can watch the log to see how this is progressing, or simply to the import endpoint - http://<ip address>:8080/imports/<import id> . This can take between 20-60 minutes depending on the performance of your machine.
 
-### Command line
+### Via Command line
 
 To delete any existing Snowstorm Elasticsearch indices and load the RF2 **Snapshot** start Snowstorm with the following arguments:
 
@@ -44,6 +45,10 @@ To delete any existing Snowstorm Elasticsearch indices and load the RF2 **Snapsh
 
 This will take between 30-60 minutes depending on the performance of your machine.
 
+## Do not use Generated Delta Files
+**Do not attempt to import generated delta files into Snowstorm!**
+Since Janurary 2022 the International Edition no longer contains RF2 delta files. There is a tool to generate delta files if required but Snowstorm can not currently import these because they can contain multiple states of SNOMED CT components. When importing generated delta files the import will complete but the content will be inconsistent. Instead use the SNAPSHOT import type when importing a new version of any release that does not contain delta files. Using a Snapshot import is slightly slower than a delta but will result in the same outcome.
+ 
 ## Loading Release Full Files
 
 It's possible to load the RF2 **Full** files which gives you access to all previous releases of SNOMED CT in addition to the current content. However, this will  take longer (*last run took 2h15 on an m5.xlarge AWS instance with 4 vCPU and 16GB Memory*), but will not have an impact to the performance.

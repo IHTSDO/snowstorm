@@ -57,10 +57,13 @@ public class Activity {
 		this.sourceBranch = sourceBranch;
 	}
 
-	public Collection<ConceptActivity> getChanges() {
+	public List<ConceptActivity> getChanges() {
 		return changes;
 	}
 
+	public void setChanges(List<ConceptActivity> changes) {
+		this.changes = changes;
+	}
 	@JsonIgnore
 	public Map<String, ConceptActivity> getChangesMap() {
 		return changes.stream().collect(Collectors.toMap(ConceptActivity::getConceptId, Function.identity()));
@@ -122,6 +125,7 @@ public class Activity {
 		private Long componentSubType;
 		private String componentId;
 		private boolean effectiveTimeNull;
+		private Boolean superseded;
 
 		public ComponentChange() {
 		}
@@ -158,6 +162,19 @@ public class Activity {
 			return effectiveTimeNull;
 		}
 
+		public void setSuperseded(Boolean superseded) {
+			if (superseded != null && superseded) {
+				this.superseded = true;
+			} else {
+				// Set to null so that it won't be persisted in data store
+				this.superseded = null;
+			}
+		}
+
+		public boolean isSuperseded() {
+			return Boolean.TRUE == superseded;
+		}
+
 		@Override
 		public boolean equals(Object o) {
 			if (this == o) return true;
@@ -173,15 +190,21 @@ public class Activity {
 			return componentId.hashCode();
 		}
 
+
 		@Override
 		public String toString() {
-			return "ComponentChange{" +
+			StringBuilder builder = new StringBuilder("ComponentChange{" +
 					"componentType=" + componentType +
 					", componentSubType=" + componentSubType +
 					", componentId='" + componentId + '\'' +
 					", changeType=" + changeType +
-					", effectiveTimeNull=" + effectiveTimeNull +
-					'}';
+					", effectiveTimeNull=" + effectiveTimeNull);
+			if (isSuperseded()) {
+				builder.append(", superseded=");
+				builder.append(isSuperseded());
+			}
+			builder.append('}');
+			return builder.toString();
 		}
 	}
 

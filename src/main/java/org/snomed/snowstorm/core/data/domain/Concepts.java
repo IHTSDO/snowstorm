@@ -15,10 +15,11 @@ public class Concepts {
 	public static final String MODEL_MODULE = "900000000000012004";
 	public static final String ICD10_MODULE = "449080006";
 	public static final String COMMON_FRENCH_MODULE = "11000241103";
+	public static final String MODULE = "900000000000443000";
 
 	public static final String PRIMITIVE = "900000000000074008";
 	public static final String FULLY_DEFINED = "900000000000073002";
-	public static final String SUFFICIENTLY_DEFINED = FULLY_DEFINED;
+	public static final String DEFINED = FULLY_DEFINED;
 
 	public static final String FSN = "900000000000003001";
 	public static final String SYNONYM = "900000000000013009";
@@ -67,6 +68,7 @@ public class Concepts {
 	public static final String OUTDATED = "900000000000483008";
 	public static final String AMBIGUOUS = "900000000000484002";
 	public static final String ERRONEOUS = "900000000000485001";
+	public static final String GRAMMATICAL_DESCRIPTION_ERROR = "1217318005";
 	public static final String LIMITED = "900000000000486000";
 	public static final String MOVED_ELSEWHERE = "900000000000487009";
 	public static final String PENDING_MOVE = "900000000000492006";
@@ -118,6 +120,7 @@ public class Concepts {
 			.put(OUTDATED, "OUTDATED")
 			.put(AMBIGUOUS, "AMBIGUOUS")
 			.put(ERRONEOUS, "ERRONEOUS")
+			.put(GRAMMATICAL_DESCRIPTION_ERROR, "GRAMMATICAL_DESCRIPTION_ERROR")
 			.put(LIMITED, "LIMITED")
 			.put(MOVED_ELSEWHERE, "MOVED_ELSEWHERE")
 			.put(PENDING_MOVE, "PENDING_MOVE")

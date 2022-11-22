@@ -227,15 +227,16 @@ public class QueryConcept extends DomainEntity<QueryConcept> {
 				|| !this.getAncestors().equals(other.getAncestors())) {
 			return false;
 		}
-		final Map<Integer, Map<String, List<Object>>> groupedAttributesMap = this.getGroupedAttributesMap();
-		final Map<Integer, Map<String, List<Object>>> otherGroupedAttributesMap = other.getGroupedAttributesMap();
-		if (groupedAttributesMap.isEmpty() && otherGroupedAttributesMap == null) {
-			return true;
-		}
+		final Map<Integer, Map<String, List<Object>>> groupedAttributesMap = orEmpty(this.getGroupedAttributesMap());
+		final Map<Integer, Map<String, List<Object>>> otherGroupedAttributesMap = orEmpty(other.getGroupedAttributesMap());
 		// Sort both before comparing
 		groupedAttributesMap.values().forEach(value -> value.values().forEach(list -> list.sort(null)));
 		otherGroupedAttributesMap.values().forEach(value -> value.values().forEach(list -> list.sort(null)));
 		return groupedAttributesMap.equals(otherGroupedAttributesMap);
+	}
+
+	private <K, V> Map<K, V> orEmpty(Map<K, V> map) {
+		return map != null ? map : new HashMap<>();
 	}
 
 	public void setCreating(boolean creating) {

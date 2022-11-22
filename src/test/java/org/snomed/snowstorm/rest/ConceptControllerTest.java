@@ -1,7 +1,9 @@
 package org.snomed.snowstorm.rest;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.kaicode.elasticvc.api.BranchService;
+import io.kaicode.elasticvc.api.ComponentService;
 import org.json.JSONException;
 import org.json.JSONObject;
 import org.junit.jupiter.api.BeforeEach;
@@ -10,11 +12,10 @@ import org.snomed.snowstorm.AbstractTest;
 import org.snomed.snowstorm.TestConfig;
 import org.snomed.snowstorm.config.Config;
 import org.snomed.snowstorm.core.data.domain.*;
-import org.snomed.snowstorm.core.data.services.BranchMergeService;
-import org.snomed.snowstorm.core.data.services.CodeSystemService;
-import org.snomed.snowstorm.core.data.services.ConceptService;
-import org.snomed.snowstorm.core.data.services.ServiceException;
+import org.snomed.snowstorm.core.data.services.*;
+import org.snomed.snowstorm.core.data.services.pojo.AsyncConceptChangeBatch;
 import org.snomed.snowstorm.core.data.services.pojo.ConceptHistory;
+import org.snomed.snowstorm.core.data.services.pojo.RefSetMemberPageWithBucketAggregations;
 import org.snomed.snowstorm.core.pojo.BranchTimepoint;
 import org.snomed.snowstorm.loadtest.ItemsPagePojo;
 import org.snomed.snowstorm.rest.pojo.ConceptBulkLoadRequest;
@@ -43,8 +44,7 @@ import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.Assert.*;
-import static org.snomed.snowstorm.core.data.domain.Concepts.ISA;
-import static org.snomed.snowstorm.core.data.domain.Concepts.SNOMEDCT_ROOT;
+import static org.snomed.snowstorm.core.data.domain.Concepts.*;
 
 @ActiveProfiles("test")
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, classes = TestConfig.class)
@@ -70,6 +70,9 @@ class ConceptControllerTest extends AbstractTest {
 
 	@Autowired
 	private ObjectMapper objectMapper;
+
+	@Autowired
+	private ReferenceSetMemberService referenceSetMemberService;
 
 	private Date timepointWithOneRelationship;
 
@@ -340,6 +343,35 @@ class ConceptControllerTest extends AbstractTest {
 	}
 
 	@Test
+	void testBulkUpdateConcept() throws ServiceException {
+		HttpHeaders httpHeaders = new HttpHeaders();
+		httpHeaders.setContentType(MediaType.APPLICATION_JSON);
+		conceptService.create(new Concept("99970008"), "MAIN");
+		ResponseEntity<String> response = restTemplate.exchange(
+				UriComponentsBuilder.fromUriString("http://localhost:" + port + "/browser/MAIN/concepts/bulk").build().toUri(),
+				HttpMethod.POST, new HttpEntity<>("[" + ConceptControllerTestConstants.CONCEPT_WITH_VALIDATION_WARNINGS_ONLY + "]", httpHeaders), String.class);
+		assertTrue(response.getStatusCode().is2xxSuccessful());
+
+		ControllerTestHelper.waitForStatus(response, AsyncConceptChangeBatch.Status.COMPLETED.name(), AsyncConceptChangeBatch.Status.FAILED.name(),
+				httpHeaders, restTemplate);
+	}
+
+	@Test
+	void testBulkUpdateConceptUsingMissingBranch() throws ServiceException {
+		HttpHeaders httpHeaders = new HttpHeaders();
+		httpHeaders.setContentType(MediaType.APPLICATION_JSON);
+		conceptService.create(new Concept("99970008"), "MAIN");
+		ResponseEntity<String> response = restTemplate.exchange(
+				UriComponentsBuilder.fromUriString("http://localhost:" + port + "/browser/MAIN/MISSING/concepts/bulk").build().toUri(),
+				HttpMethod.POST, new HttpEntity<>("[" + ConceptControllerTestConstants.CONCEPT_WITH_VALIDATION_WARNINGS_ONLY + "]", httpHeaders), String.class);
+		assertTrue(response.getStatusCode().is2xxSuccessful());
+
+		// Expect failed status
+		ControllerTestHelper.waitForStatus(response, AsyncConceptChangeBatch.Status.FAILED.name(), AsyncConceptChangeBatch.Status.COMPLETED.name(),
+				httpHeaders, restTemplate);
+	}
+
+	@Test
 	void testUpdateConceptWithValidationEnabledWhichContainsErrorsReturnsBadRequest() throws ServiceException {
 		branchService.updateMetadata("MAIN", ImmutableMap.of(
 				"assertionGroupNames", "common-authoring",
@@ -363,24 +395,28 @@ class ConceptControllerTest extends AbstractTest {
 
 		// Fetch first page
 		ResponseEntity<ItemsPagePojo<ConceptMini>> responseEntity = this.restTemplate.exchange("http://localhost:" + port + "/MAIN/concepts?activeFilter=true&statedEcl=<138875005&limit=1",
-				HttpMethod.GET, new HttpEntity<>(null), new ParameterizedTypeReference<ItemsPagePojo<ConceptMini>>() {});
+				HttpMethod.GET, new HttpEntity<>(null), new ParameterizedTypeReference<>() {
+				});
 		assertEquals(200, responseEntity.getStatusCode().value());
 		ItemsPagePojo<ConceptMini> page = responseEntity.getBody();
 		assertNotNull(page);
 		assertEquals(2L, page.getTotal());
 		assertEquals(1, page.getItems().size());
 		String conceptIdFromFirstPage = page.getItems().iterator().next().getConceptId();
+		assertEquals("404684003", conceptIdFromFirstPage);
 		String searchAfterFromFirstPage = page.getSearchAfter();
 		assertNotNull(searchAfterFromFirstPage);
 
 		// Fetch second page
 		responseEntity = this.restTemplate.exchange("http://localhost:" + port + "/MAIN/concepts?activeFilter=true&statedEcl=<138875005&limit=1&searchAfter=" + searchAfterFromFirstPage,
-				HttpMethod.GET, new HttpEntity<>(null), new ParameterizedTypeReference<ItemsPagePojo<ConceptMini>>() {});
+				HttpMethod.GET, new HttpEntity<>(null), new ParameterizedTypeReference<>() {
+				});
 		assertEquals(200, responseEntity.getStatusCode().value());
 		page = responseEntity.getBody();
 		assertNotNull(page);
 		assertEquals(1, page.getItems().size());
 		String conceptIdFromSecondPage = page.getItems().iterator().next().getConceptId();
+		assertEquals("257751006", conceptIdFromSecondPage);
 		assertNotEquals(conceptIdFromFirstPage, conceptIdFromSecondPage);
 	}
 
@@ -441,6 +477,7 @@ class ConceptControllerTest extends AbstractTest {
 		assertEquals(2L, page.getTotal());
 		assertEquals(1, page.getItems().size());
 		String conceptIdFromFirstPage = page.getItems().iterator().next().getConceptId();
+		assertEquals("404684003", conceptIdFromFirstPage);
 		String searchAfterFromFirstPage = page.getSearchAfter();
 		assertNotNull(searchAfterFromFirstPage);
 
@@ -453,6 +490,7 @@ class ConceptControllerTest extends AbstractTest {
 		assertNotNull(page);
 		assertEquals(1, page.getItems().size());
 		String conceptIdFromSecondPage = page.getItems().iterator().next().getConceptId();
+		assertEquals("257751006", conceptIdFromSecondPage);
 		assertNotEquals(conceptIdFromFirstPage, conceptIdFromSecondPage);
 	}
 
@@ -906,9 +944,10 @@ class ConceptControllerTest extends AbstractTest {
 	}
 
 	@Test
-	void testModuleIdNotRestoredWhenLangRefSetChanged() throws ServiceException {
+	void testDescModuleNotModifiedWhenLangRefSetChanged() throws ServiceException {
+		CodeSystem codeSystem = codeSystemService.createCodeSystem(new CodeSystem("SNOMEDCT-A1", "MAIN/SNOMEDCT-A1"));
 		// A has Lait (food) as Acceptable
-		branchService.create("MAIN/SNOMEDCT-A1", Map.of(Config.DEFAULT_MODULE_ID_KEY, Concepts.CORE_MODULE));
+		branchService.updateMetadata("MAIN/SNOMEDCT-A1", Map.of(Config.DEFAULT_MODULE_ID_KEY, Concepts.CORE_MODULE));
 		Concept concept = conceptService.create(new Concept()
 				.addDescription(new Description("Milk (food)")
 						.setTypeId(Concepts.FSN)
@@ -922,6 +961,9 @@ class ConceptControllerTest extends AbstractTest {
 				.addAxiom(new Relationship(ISA, SNOMEDCT_ROOT)), "MAIN/SNOMEDCT-A1");
 		assertExpectedModule(conceptService.find(concept.getId(), "MAIN/SNOMEDCT-A1"), "Lait (food)", Concepts.CORE_MODULE);
 
+		// Version
+		codeSystemService.createVersion(codeSystem, 20200131, "");
+
 		// B changes Lait (food) to be Preferred
 		branchService.create("MAIN/SNOMEDCT-A1/SNOMEDCT-B1", Map.of(Config.DEFAULT_MODULE_ID_KEY, Concepts.COMMON_FRENCH_MODULE));
 		for (Description description : concept.getDescriptions()) {
@@ -931,8 +973,11 @@ class ConceptControllerTest extends AbstractTest {
 			}
 		}
 
-		assertExpectedModule(conceptService.update(concept, "MAIN/SNOMEDCT-A1/SNOMEDCT-B1"), "Lait (food)", Concepts.CORE_MODULE); // Assert response from update
-		assertExpectedModule(conceptService.find(concept.getId(), "MAIN/SNOMEDCT-A1/SNOMEDCT-B1"), "Lait (food)", Concepts.CORE_MODULE); // Assert response from find
+		Concept updatedConcept = conceptService.update(concept, "MAIN/SNOMEDCT-A1/SNOMEDCT-B1");
+		assertExpectedModule(updatedConcept, "Lait (food)", Concepts.CORE_MODULE); // Assert response from update
+		
+		Concept foundConcept = conceptService.find(concept.getId(), "MAIN/SNOMEDCT-A1/SNOMEDCT-B1");
+		assertExpectedModule(foundConcept, "Lait (food)", Concepts.CORE_MODULE); // Assert response from find
 	}
 
 	@Test
@@ -1013,12 +1058,390 @@ class ConceptControllerTest extends AbstractTest {
 		assertExpectedModule(conceptService.find(concept.getId(), "MAIN/SNOMEDCT-A1/SNOMEDCT-B1"), "Milk", Concepts.COMMON_FRENCH_MODULE);
 	}
 
-	private void assertExpectedModule(Concept concept, String descriptionTerm, String moduleId) {
+	@Test
+	void testMemberReturnedInHeadersWhenCreatingReferenceSetConcept() throws ServiceException, JsonProcessingException {
+		// data set up
+		givenReferenceSetsExist();
+		givenRefSetAncestorsExist();
+
+		// create test reference set concept
+		ResponseEntity<String> postConcept = postConcept(ConceptControllerTestConstants.CONCEPT_REFERENCE_SET_SIMPLE);
+		Concept concept = objectMapper.readValue(postConcept.getBody(), Concept.class);
+
+		// find member associating test concept with descriptor
+		ResponseEntity<String> getMembers = getDescriptorMembers(concept);
+		RefSetMemberPageWithBucketAggregations<LinkedHashMap> members = objectMapper.readValue(getMembers.getBody(), RefSetMemberPageWithBucketAggregations.class);
+
+		// response from headers should match those from manual search
+		String descriptorsInHeader = postConcept.getHeaders().get("Descriptors").iterator().next();
+		String[] a = descriptorsInHeader.split(",");
+		Arrays.sort(a); // Identifiers in order
+
+		String descriptorsInSearch = members.getContent().stream().map(member -> (String) member.get("memberId")).collect(Collectors.joining(","));
+		String[] b = descriptorsInSearch.split(",");
+		Arrays.sort(b); // Identifiers in order
+
+		assertThat(a).isEqualTo(b);
+	}
+
+	@Test
+	void testMemberReturnedInHeadersWhenUpdatingReferenceSetConcept() throws ServiceException, JsonProcessingException {
+		// data set up
+		givenReferenceSetsExist();
+		givenRefSetAncestorsExist();
+
+		// create test concept
+		ResponseEntity<String> postConcept = postConcept(ConceptControllerTestConstants.CONCEPT_REFERENCE_SET_SIMPLE);
+		Concept concept = objectMapper.readValue(postConcept.getBody(), Concept.class);
+		assertNotNull(postConcept.getHeaders().get("Descriptors"));
+
+		// edit test concept
+		ResponseEntity<String> putConcept = putConcept(concept.getConceptId(), ConceptControllerTestConstants.CONCEPT_REFERENCE_SET_SIMPLE);
+		concept = objectMapper.readValue(postConcept.getBody(), Concept.class);
+		assertNotNull(putConcept.getHeaders().get("Descriptors"));
+
+		// find member associating test concept with descriptor
+		ResponseEntity<String> getMembers = getDescriptorMembers(concept);
+		RefSetMemberPageWithBucketAggregations<LinkedHashMap> members = objectMapper.readValue(getMembers.getBody(), RefSetMemberPageWithBucketAggregations.class);
+		assertThat(members).isNotEmpty();
+
+		// response from headers should match those from manual search
+		String descriptorsInPostHeader = postConcept.getHeaders().get("Descriptors").iterator().next();
+		String[] a = descriptorsInPostHeader.split(",");
+		Arrays.sort(a); // Identifiers in order
+
+		String descriptorsInPutHeader = putConcept.getHeaders().get("Descriptors").iterator().next();
+		String[] b = descriptorsInPutHeader.split(",");
+		Arrays.sort(b); // Identifiers in order
+
+		String descriptorsInSearch = members.getContent().stream().map(member -> (String) member.get("memberId")).collect(Collectors.joining(","));
+		String[] c = descriptorsInSearch.split(",");
+		Arrays.sort(c); // Identifiers in order
+
+		assertThat(a).isEqualTo(b);
+		assertThat(b).isEqualTo(c);
+	}
+
+	@Test
+	void testMemberNotReturnedInHeadersWhenCreatingNonReferenceSetConcept() throws ServiceException, JsonProcessingException {
+		// data set up
+		givenReferenceSetsExist();
+		givenRefSetAncestorsExist();
+
+		// create test concept
+		ResponseEntity<String> postConcept = postConcept(ConceptControllerTestConstants.CONCEPT_WITH_VALIDATION_WARNINGS_ONLY);
+		Concept concept = objectMapper.readValue(postConcept.getBody(), Concept.class);
+		assertNull(postConcept.getHeaders().get("Descriptors"));
+
+		// find member associating test concept with descriptor (should be none)
+		ResponseEntity<String> getMembers = getDescriptorMembers(concept);
+		RefSetMemberPageWithBucketAggregations<LinkedHashMap> members = objectMapper.readValue(getMembers.getBody(), RefSetMemberPageWithBucketAggregations.class);
+		assertThat(members).isEmpty();
+	}
+
+	@Test
+	void testDonateConcepts_SourceBranchNotAVersionBranch() throws ServiceException {
+		String sourceBranch = "MAIN/SNOMEDCT-BE";
+		String destinationBranch = "MAIN/A1";
+
+		// Create extension code system SNOMEDCT-BE
+		CodeSystem extension = createSourceCodeSystem("SNOMEDCT-BE", sourceBranch);
+
+		// Create a concept to copy on MAIN/SNOMEDCT-BE
+		givenConceptExists("100001", sourceBranch, false, false);
+
+		// Version extension
+		codeSystemService.createVersion(extension, 20220228, "February 2022");
+
+		// Create a task under MAIN
+		branchService.create(destinationBranch);
+
+		String ecl = "100001 | Milk (food) |";
+
+		ResponseEntity<String> responseEntity = donateConcepts(ecl, sourceBranch, destinationBranch, false);
+		assertFalse(responseEntity.getStatusCode().equals(HttpStatus.OK));
+		assertTrue(responseEntity.getBody().contains("Source branch must be a version branch."));
+	}
+
+	@Test
+	void testDonateConcepts() throws ServiceException {
+		String sourceBranch = "MAIN/SNOMEDCT-BE";
+		String destinationBranch = "MAIN/A1";
+
+		// Create extension code system SNOMEDCT-BE
+		CodeSystem extension = createSourceCodeSystem("SNOMEDCT-BE", sourceBranch);
+
+		// Create a concept to copy on MAIN/SNOMEDCT-BE
+		givenConceptExists("100001", sourceBranch, false, false);
+
+		// Version extension
+		codeSystemService.createVersion(extension, 20220228, "February 2022");
+
+		// Create a task under MAIN
+		branchService.create(destinationBranch);
+
+		String ecl = "100001 | Milk (food) |";
+
+		ResponseEntity<String> responseEntity = donateConcepts(ecl, codeSystemService.findVersion("SNOMEDCT-BE", 20220228).getBranchPath(), destinationBranch, false);
+		assertTrue(responseEntity.getStatusCode().equals(HttpStatus.OK));
+
+		Concept concept = conceptService.find("100001", destinationBranch);
+		assertNull(concept.getEffectiveTimeI());
+		assertEquals(CORE_MODULE, concept.getModuleId());
+
+		List<Description> descriptions = concept.getActiveDescriptions();
+		assertEquals(3, descriptions.size());
+		descriptions.forEach(description -> {
+			assertDescription(description, destinationBranch, CORE_MODULE);
+		});
+
+		List<ReferenceSetMember> axioms = referenceSetMemberService.findMembers(destinationBranch, concept.getConceptId(), ComponentService.LARGE_PAGE).getContent();
+		assertEquals(1, axioms.size());
+		axioms.forEach(axiom -> {
+			assertRefsetMember(axiom, CORE_MODULE, OWL_AXIOM_REFERENCE_SET);
+		});
+	}
+
+	@Test
+	void testDonateConceptsWithDependencies() throws ServiceException {
+		String sourceBranch = "MAIN/SNOMEDCT-BE";
+		String destinationBranch = "MAIN/A1";
+
+		// Create extension code system SNOMEDCT-BE
+		CodeSystem extension = createSourceCodeSystem("SNOMEDCT-BE", sourceBranch);
+
+		// Create a concept to copy on MAIN/SNOMEDCT-BE
+		givenConceptExists("100001", sourceBranch, true, false);
+
+		// Version extension
+		codeSystemService.createVersion(extension, 20220228, "February 2022");
+
+		// Create a task under MAIN
+		branchService.create(destinationBranch);
+
+		String ecl = "100001 | Milk (food) |";
+
+		ResponseEntity<String> responseEntity = donateConcepts(ecl, codeSystemService.findVersion("SNOMEDCT-BE", 20220228).getBranchPath(), destinationBranch, true);
+		assertTrue(responseEntity.getStatusCode().equals(HttpStatus.OK));
+
+		// Concept defined in ECL
+		Concept concept = conceptService.find("100001", destinationBranch);
+		assertNull(concept.getEffectiveTimeI());
+		assertEquals(CORE_MODULE, concept.getModuleId());
+
+		List<Description> descriptions = concept.getActiveDescriptions();
+		assertEquals(3, descriptions.size());
+		descriptions.forEach(description -> {
+			assertDescription(description, destinationBranch, CORE_MODULE);
+		});
+
+		List<ReferenceSetMember> axioms = referenceSetMemberService.findMembers(destinationBranch, concept.getConceptId(), ComponentService.LARGE_PAGE).getContent();
+		assertEquals(1, axioms.size());
+		axioms.forEach(axiom -> {
+			assertRefsetMember(axiom, CORE_MODULE, OWL_AXIOM_REFERENCE_SET);
+		});
+
+		// Dependant concept
+		concept = conceptService.find("100000", destinationBranch);
+		assertNull(concept.getEffectiveTimeI());
+		assertEquals(CORE_MODULE, concept.getModuleId());
+
+		descriptions = concept.getActiveDescriptions();
+		assertEquals(1, descriptions.size());
+		descriptions.forEach(description -> {
+			assertDescription(description, destinationBranch, CORE_MODULE);
+		});
+
+		axioms = referenceSetMemberService.findMembers(destinationBranch, concept.getConceptId(), ComponentService.LARGE_PAGE).getContent();
+		assertEquals(1, axioms.size());
+		axioms.forEach(axiom -> {
+			assertRefsetMember(axiom, CORE_MODULE, OWL_AXIOM_REFERENCE_SET);
+		});
+	}
+
+	@Test
+	void testDonateConceptsWithConcreteValues() throws ServiceException {
+		String sourceBranch = "MAIN/SNOMEDCT-BE";
+		String destinationBranch = "MAIN/A1";
+
+		// Create extension code system SNOMEDCT-BE
+		CodeSystem extension = createSourceCodeSystem("SNOMEDCT-BE", sourceBranch);
+
+		// Create a concept to copy on MAIN/SNOMEDCT-BE
+		givenConceptExists("100001", sourceBranch, false, true);
+
+		// Version extension
+		codeSystemService.createVersion(extension, 20220228, "February 2022");
+
+		// Create a task under MAIN
+		branchService.create(destinationBranch);
+
+		String ecl = "100001 | Milk (food) |";
+
+		ResponseEntity<String> responseEntity = donateConcepts(ecl, codeSystemService.findVersion("SNOMEDCT-BE", 20220228).getBranchPath(), destinationBranch, false);
+		assertTrue(responseEntity.getStatusCode().equals(HttpStatus.OK));
+
+		Concept concept = conceptService.find("100001", destinationBranch);
+		assertNull(concept.getEffectiveTimeI());
+		assertEquals(CORE_MODULE, concept.getModuleId());
+
+		List<Description> descriptions = concept.getActiveDescriptions();
+		assertEquals(3, descriptions.size());
+		descriptions.forEach(description -> {
+			assertDescription(description, destinationBranch, CORE_MODULE);
+		});
+
+		List<ReferenceSetMember> axioms = referenceSetMemberService.findMembers(destinationBranch, concept.getConceptId(), ComponentService.LARGE_PAGE).getContent();
+		assertEquals(1, axioms.size());
+		axioms.forEach(axiom -> {
+			assertRefsetMember(axiom, CORE_MODULE, OWL_AXIOM_REFERENCE_SET);
+		});
+	}
+
+	private ResponseEntity<String> putConcept(String conceptId, String conceptJson) {
+		HttpHeaders httpHeaders = new HttpHeaders();
+		httpHeaders.set("Content-Type", "application/json");
+		HttpEntity<String> httpEntity = new HttpEntity<>(conceptJson, httpHeaders);
+		URI requestUrl = UriComponentsBuilder.fromUriString("http://localhost:" + port + "/browser/MAIN/concepts/" + conceptId).queryParam("validate", "false").build().toUri();
+		return restTemplate.exchange(requestUrl, HttpMethod.PUT, httpEntity, String.class);
+	}
+
+	private ResponseEntity<String> getDescriptorMembers(Concept concept) {
+		HttpHeaders httpHeaders = new HttpHeaders();
+		httpHeaders.set("Content-Type", "application/json");
+		HttpEntity<String> httpEntity = new HttpEntity<>(null, httpHeaders);
+		URI requestUrl = UriComponentsBuilder
+				.fromUriString(
+						"http://localhost:" + port + "/browser/MAIN/members"
+				)
+				.queryParam("referenceSet", Concepts.REFSET_DESCRIPTOR_REFSET)
+				.queryParam("referencedComponentId", concept.getConceptId())
+				.build()
+				.toUri();
+
+		return restTemplate.exchange(requestUrl, HttpMethod.GET, httpEntity, String.class);
+	}
+
+	private ResponseEntity<String> postConcept(String conceptJson) {
+		HttpHeaders httpHeaders = new HttpHeaders();
+		httpHeaders.set("Content-Type", "application/json");
+		HttpEntity<String> httpEntity = new HttpEntity<>(conceptJson, httpHeaders);
+		URI requestUrl = UriComponentsBuilder.fromUriString("http://localhost:" + port + "/browser/MAIN/concepts").queryParam("validate", "false").build().toUri();
+		return restTemplate.exchange(requestUrl, HttpMethod.POST, httpEntity, String.class);
+	}
+
+	private void givenReferenceSetsExist() throws ServiceException {
+		conceptService.create(new Concept(Concepts.SNOMEDCT_ROOT), MAIN);
+		conceptService.create(new Concept(Concepts.ISA)
+				.addAxiom(new Relationship(Concepts.ISA, Concepts.SNOMEDCT_ROOT)), MAIN);
+		conceptService.create(new Concept(Concepts.REFSET)
+				.addAxiom(new Relationship(Concepts.ISA, Concepts.FOUNDATION_METADATA)).setModuleId(Concepts.MODEL_MODULE), MAIN);
+		conceptService.create(new Concept(Concepts.REFSET_SIMPLE)
+				.addAxiom(new Relationship(Concepts.ISA, Concepts.REFSET)).setModuleId(Concepts.MODEL_MODULE), MAIN);
+		conceptService.create(new Concept(Concepts.REFSET_DESCRIPTOR_REFSET)
+				.addAxiom(new Relationship(Concepts.ISA, Concepts.REFSET)).setModuleId(Concepts.MODEL_MODULE), MAIN);
+	}
+
+	private void givenRefSetAncestorsExist() throws ServiceException {
+		// Create top-level Concept
+		Concept foodStructure = conceptService.create(
+				new Concept()
+						.addDescription(new Description("History (foundation metadata concept)"))
+						.addAxiom(new Relationship(Concepts.ISA, Concepts.SNOMEDCT_ROOT)),
+				"MAIN"
+		);
+
+		// Add top-level Concept to simple refset
+		ReferenceSetMember foodStructureMember = new ReferenceSetMember(Concepts.MODEL_MODULE, Concepts.REFSET_SIMPLE, foodStructure.getId());
+		referenceSetMemberService.createMember("MAIN", foodStructureMember);
+
+		// Add simple refset to refset descriptor
+		ReferenceSetMember refsetInDescriptor = new ReferenceSetMember(Concepts.MODEL_MODULE, Concepts.REFSET_DESCRIPTOR_REFSET, Concepts.REFSET_SIMPLE);
+		refsetInDescriptor.setAdditionalFields(Map.of(
+				"attributeDescription", Concepts.REFERENCED_COMPONENT,
+				"attributeType", Concepts.CONCEPT_TYPE_COMPONENT,
+				"attributeOrder", "0")
+		);
+		referenceSetMemberService.createMember("MAIN", refsetInDescriptor);
+
+		refsetInDescriptor = new ReferenceSetMember(Concepts.MODEL_MODULE, Concepts.REFSET_DESCRIPTOR_REFSET, Concepts.REFSET_SIMPLE);
+		refsetInDescriptor.setAdditionalFields(Map.of(
+				"attributeDescription", Concepts.REFERENCED_COMPONENT,
+				"attributeType", Concepts.CONCEPT_TYPE_COMPONENT,
+				"attributeOrder", "1")
+		);
+		referenceSetMemberService.createMember("MAIN", refsetInDescriptor);
+	}
+
+	private CodeSystem createSourceCodeSystem(String shortName, String branchPath) {
+		CodeSystem extension = codeSystemService.createCodeSystem(new CodeSystem(shortName, branchPath));
+
+		branchService.updateMetadata(branchPath, ImmutableMap.of(
+				Config.DEFAULT_MODULE_ID_KEY, "11000172109",
+				Config.DEFAULT_NAMESPACE_KEY, "1000172",
+				BranchMetadataKeys.DEPENDENCY_PACKAGE, "International_Release.zip"));
+
+		return extension;
+	}
+
+	private void givenConceptExists(String conceptId, String branchPath, boolean isDependantConcept, boolean isConcreteValue) throws ServiceException {
+		assertTrue(conceptService.exists("257751006", "MAIN"));
+
+		Concept concept = new Concept(conceptId, "11000172109")
+				.addDescription(new Description("Milk (food)")
+						.setTypeId(Concepts.FSN)
+						.addLanguageRefsetMember(Concepts.US_EN_LANG_REFSET, Concepts.PREFERRED))
+				.addDescription(new Description("Milk")
+						.setTypeId(Concepts.SYNONYM)
+						.addLanguageRefsetMember(Concepts.US_EN_LANG_REFSET, Concepts.ACCEPTABLE))
+				.addDescription(new Description("Lait")
+						.setTypeId(Concepts.SYNONYM)
+						.addLanguageRefsetMember("21000172104", Concepts.PREFERRED))
+				.addDescription(new Description("Full-fat cow milk, ultra pasteurised, 3.5% fat")
+						.setTypeId(Concepts.TEXT_DEFINITION)
+						.addLanguageRefsetMember(Concepts.US_EN_LANG_REFSET, Concepts.PREFERRED));
+
+		Set<Relationship> relationships = new HashSet<>();
+		relationships.add(new Relationship(ISA, "257751006"));
+
+		if (isDependantConcept) {
+			// Create a dependant concept in the same module
+			conceptService.create(new Concept("100000", "11000172109")
+					.addDescription(new Description("Food")
+							.setTypeId(Concepts.FSN)
+							.addLanguageRefsetMember(Concepts.US_EN_LANG_REFSET, Concepts.PREFERRED))
+					.addAxiom(new Relationship(ISA, "257751006")), branchPath);
+			// Add a relationship
+			relationships.add(new Relationship(ISA, "100000"));
+		}
+		if (isConcreteValue) {
+			// Add a concrete value relationship
+			relationships.add(Relationship.newConcrete("1142139005", ConcreteValue.newInteger("#1")));
+		}
+
+		concept.addAxiom(relationships.stream().toArray(Relationship[]::new));
+		conceptService.create(concept, branchPath);
+	}
+
+	private ResponseEntity<String> donateConcepts(String ecl, String sourceBranch, String destinationBranch, boolean includeDependencies) {
+		HttpHeaders httpHeaders = new HttpHeaders();
+		httpHeaders.set("Content-Type", "application/json");
+
+		return restTemplate.exchange(
+				UriComponentsBuilder.fromUriString("http://localhost:" + port + "/" + destinationBranch + "/concepts/donate")
+						.queryParam("sourceBranch", sourceBranch)
+						.queryParam("ecl", ecl)
+						.queryParam("includeDependencies", includeDependencies)
+						.build().toUri(),
+				HttpMethod.POST, null, String.class);
+	}
+
+	private void assertExpectedModule(Concept concept, String descriptionTerm, String expectedModuleId) {
 		boolean found = false;
 		for (Description description : concept.getDescriptions()) {
 			if (description.getTerm().equals(descriptionTerm)) {
 				found = true;
-				assertEquals(moduleId, description.getModuleId());
+				assertEquals(expectedModuleId, description.getModuleId());
 			}
 		}
 
@@ -1029,5 +1452,37 @@ class ConceptControllerTest extends AbstractTest {
 
 	protected interface Procedure {
 		void insert() throws Exception;
+	}
+
+	private void assertDescription(Description description, String branchPath, String expectedModuleId) {
+		assertNull(description.getEffectiveTimeI());
+		assertEquals(expectedModuleId, description.getModuleId());
+
+		Map<String, String> acceptabilityMap = description.getAcceptabilityMap();
+
+		acceptabilityMap.forEach((referenceSetId, acceptability) -> {
+			assertThat(referenceSetId.equals(US_EN_LANG_REFSET) || referenceSetId.equals(GB_EN_LANG_REFSET));
+			assertThat(acceptability.equals(PREFERRED_CONSTANT) || acceptability.equals(ACCEPTABLE_CONSTANT));
+		});
+
+		List<ReferenceSetMember> langRefsetMembers = referenceSetMemberService.findMembers(branchPath, description.getDescriptionId(), ComponentService.LARGE_PAGE).getContent();
+		if (acceptabilityMap.get(US_EN_LANG_REFSET).equals(PREFERRED_CONSTANT)) {
+			assertEquals(2, langRefsetMembers.size());
+			assertTrue(acceptabilityMap.containsKey(GB_EN_LANG_REFSET));
+		} else {
+			assertEquals(2, langRefsetMembers.size());
+		}
+
+		langRefsetMembers.forEach(langRefsetMember -> {
+			String refsetId = langRefsetMember.getRefsetId();
+			assertThat(refsetId.equals(US_EN_LANG_REFSET) || refsetId.equals(GB_EN_LANG_REFSET));
+			assertRefsetMember(langRefsetMember, expectedModuleId, refsetId);
+		});
+	}
+
+	private void assertRefsetMember(ReferenceSetMember refsetMember, String expectedModuleId, String expectedRefsetId) {
+		assertNull(refsetMember.getEffectiveTimeI());
+		assertEquals(expectedModuleId, refsetMember.getModuleId());
+		assertEquals(expectedRefsetId, refsetMember.getRefsetId());
 	}
 }

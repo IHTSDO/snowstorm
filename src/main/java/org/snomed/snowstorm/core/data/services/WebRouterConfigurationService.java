@@ -4,6 +4,7 @@ import javax.annotation.PostConstruct;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.util.StringUtils;
 
 import java.util.*;
 
@@ -21,12 +22,16 @@ public class WebRouterConfigurationService {
 	private static String DEFAULT_ROUTE_INDICATOR = "all";
 	
 	private static String DEFAULT_NAMESPACE = "default";
+
+	private static String NAMESPACE_MAPPING = "mapping";
 	
 	private static WebRouterConfigurationService singleton;
 	
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
 	private Map<String, String> namespaceConfig = new HashMap<>();
+
+	private Map<String, String> namespaceMap = new HashMap<>();
 
 	//Map of namespaces to aliases to Webroutes
 	private Map<String, Map<String, WebRoute>> webRoutesNamespaceMap;
@@ -39,6 +44,10 @@ public class WebRouterConfigurationService {
 
 	public Map<String, String> getNamespaceConfig() {
 		return namespaceConfig;
+	}
+
+	public Map<String, String> getNamespaceMap() {
+		return namespaceMap;
 	}
 	
 	public WebRoute getFallbackRoute () {
@@ -56,6 +65,8 @@ public class WebRouterConfigurationService {
 			if (key.equals(FALL_BACK)) {
 				fallbackRoute = parseAcceptHeaderRoute(namespaceConfig.get(key));
 				logger.info("Fall-back route set for use with unconfigured namespaces");
+			} else if (key.equals(NAMESPACE_MAPPING)) {
+				parseNamespaceMapping(namespaceConfig.get(key));
 			} else {
 				String[] namespaceAliasArr = key.split("\\.");
 				if (namespaceAliasArr.length != 2) {
@@ -79,6 +90,18 @@ public class WebRouterConfigurationService {
 			}
 		}
 		singleton = this;
+	}
+
+	private void parseNamespaceMapping(String namespaces) {
+		if (StringUtils.hasLength(namespaces)) {
+			String[] arr = namespaces.split(",");
+			for (String str : arr) {
+				String[] parts = str.split("\\|");
+				if (parts.length == 2) {
+					this.namespaceMap.put(parts[0], parts[1]);
+				}
+			}
+		}
 	}
 
 	private WebRoute parseAcceptHeaderRoute(String acceptHeaderRoute) {

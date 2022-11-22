@@ -83,7 +83,7 @@ class SRefinementTest {
         String eclExpression =
                 "< 404684003 |Clinical finding|:" +
                         "363698007 |Finding site| =<< 39057004 |Pulmonary valve structure|" +
-                            "AND " +
+                            " AND " +
                         "116676008 |Associated morphology| =<< 415582006 |Stenosis|";
 
         Set<String> actualConceptIds = getConceptIdsScenario(eclExpression);

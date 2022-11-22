@@ -6,6 +6,7 @@ import io.kaicode.elasticvc.api.PathUtil;
 import io.kaicode.elasticvc.api.VersionControlHelper;
 import io.kaicode.elasticvc.domain.Branch;
 import io.kaicode.elasticvc.domain.Metadata;
+import org.elasticsearch.common.Strings;
 import org.elasticsearch.search.aggregations.AggregationBuilders;
 import org.elasticsearch.search.aggregations.bucket.MultiBucketsAggregation;
 import org.elasticsearch.search.aggregations.bucket.terms.ParsedStringTerms;
@@ -24,7 +25,6 @@ import org.snomed.snowstorm.core.data.services.pojo.PageWithBucketAggregationsFa
 import org.snomed.snowstorm.core.pojo.LanguageDialect;
 import org.snomed.snowstorm.core.util.DateUtil;
 import org.snomed.snowstorm.core.util.LangUtil;
-import org.snomed.snowstorm.rest.pojo.CodeSystemNewAuthoringCycleRequest;
 import org.snomed.snowstorm.rest.pojo.CodeSystemUpdateRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -60,6 +60,10 @@ public class CodeSystemService {
 	public static final String SNOMEDCT = "SNOMEDCT";
 	public static final String MAIN = "MAIN";
 	private static final Pattern VERSION_BRANCH_NAME_PATTERN = Pattern.compile("[0-9]{4}-[0-9]{2}-[0-9]{2}");
+
+
+	@Value("${code-systems.version.visible.after.published.date}")
+	private Set<String> codeSystemsWithVersionVisibleAfterPublishedDate;
 
 	@Autowired
 	private CodeSystemRepository repository;
@@ -244,7 +248,7 @@ public class CodeSystemService {
 		return version;
 	}
 
-	@PreAuthorize("hasPermission('ADMIN', #codeSystemVersion.branchPath)")
+	@PreAuthorize("hasPermission('ADMIN', #codeSystemVersion.branchPath) || hasPermission('RELEASE_ADMIN', 'global') || hasPermission('RELEASE_MANAGER', 'global')")
 	public synchronized CodeSystemVersion updateCodeSystemVersionPackage(CodeSystemVersion codeSystemVersion, String releasePackage) {
 		String shortName = codeSystemVersion.getShortName();
 		Integer effectiveDate = codeSystemVersion.getEffectiveDate();
@@ -474,6 +478,18 @@ public class CodeSystemService {
 		return null;
 	}
 
+	public CodeSystemVersion findVersion(String branchPath) {
+		String codeSystemPath = PathUtil.getParentPath(branchPath);
+		if (codeSystemPath == null) {
+			return null;
+		}
+		Optional<CodeSystem> codeSystem = findByBranchPath(codeSystemPath);
+		if (codeSystem.isEmpty()) {
+			return null;
+		}
+		return findVersion(codeSystem.get().getShortName(), branchPath.substring(codeSystemPath.length() + 1));
+	}
+
 	public List<CodeSystemVersion> findAllVersions(String shortName, boolean includeFutureVersions, boolean includeInternalReleases) {
 		return findAllVersions(shortName, true, includeFutureVersions, includeInternalReleases);
 	}
@@ -487,7 +503,7 @@ public class CodeSystemService {
 		}
 		int todaysEffectiveTime = DateUtil.getTodaysEffectiveTime();
 		return content.stream()
-				.filter(version -> includeFutureVersions || version.getEffectiveDate() <= todaysEffectiveTime)
+				.filter(version -> includeFutureVersions || (codeSystemsWithVersionVisibleAfterPublishedDate.contains(shortName) ? version.getEffectiveDate() < todaysEffectiveTime : version.getEffectiveDate() <= todaysEffectiveTime))
 				.filter(version -> includeInternalReleases || !version.isInternalRelease())
 				.collect(Collectors.toList());
 	}
@@ -569,22 +585,37 @@ public class CodeSystemService {
 	}
 
 	@PreAuthorize("hasPermission('ADMIN', #codeSystem.branchPath)")
-	public void updateCodeSystemBranchMetadata(CodeSystem codeSystem, CodeSystemNewAuthoringCycleRequest updateRequest) {
+	public void updateCodeSystemBranchMetadata(CodeSystem codeSystem) {
 		String branchPath = codeSystem.getBranchPath();
 		Branch branch = branchService.findBranchOrThrow(branchPath);
-
 		if (branch.isLocked()) {
 			throw new IllegalStateException("Branch metadata can not be updated when branch is locked.");
 		}
+		// Find latest version including future / internal releases
+		final CodeSystemVersion codeSystemVersion = findLatestImportedVersion(codeSystem.getShortName());
+		if (codeSystemVersion == null) {
+			throw new IllegalStateException("Latest code system version not found.");
+		}
+		if (Strings.isNullOrEmpty(codeSystemVersion.getReleasePackage())) {
+			throw new IllegalStateException("Previous package not found.");
+		}
 		Metadata branchMetadata = branch.getMetadata();
-		if (updateRequest.getPreviousPackage() != null) {
-			branchMetadata.putString(PREVIOUS_PACKAGE, updateRequest.getPreviousPackage());
-		}
-		if (updateRequest.getPreviousRelease() != null) {
-			branchMetadata.putString(PREVIOUS_RELEASE, updateRequest.getPreviousRelease());
-		}
-		if (updateRequest.getPreviousDependency() != null) {
-			branchMetadata.putString(PREVIOUS_DEPENDENCY_PACKAGE, updateRequest.getPreviousDependency());
+		branchMetadata.putString(PREVIOUS_RELEASE, String.valueOf(codeSystemVersion.getEffectiveDate()));
+		branchMetadata.putString(PREVIOUS_PACKAGE, codeSystemVersion.getReleasePackage());
+
+		if (codeSystem.getDependantVersionEffectiveTime() != null) {
+			final Optional<CodeSystem> parentCodeSystem = findByBranchPath(PathUtil.getParentPath(branchPath));
+			if (parentCodeSystem.isEmpty()) {
+				throw new IllegalStateException("Dependant version set but parent code system not found.");
+			}
+			final CodeSystemVersion parentCodeSystemVersion = findVersion(parentCodeSystem.get().getShortName(), codeSystem.getDependantVersionEffectiveTime());
+			if (parentCodeSystemVersion == null) {
+				throw new IllegalStateException("Dependant version " + codeSystem.getDependantVersionEffectiveTime() + " not found.");
+			}
+			if (Strings.isNullOrEmpty(parentCodeSystemVersion.getReleasePackage())) {
+				throw new IllegalStateException("Previous dependency package not found.");
+			}
+			branchMetadata.putString(PREVIOUS_DEPENDENCY_PACKAGE, parentCodeSystemVersion.getReleasePackage());
 		}
 		branchService.updateMetadata(branchPath, branchMetadata);
 	}

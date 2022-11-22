@@ -15,16 +15,24 @@ import java.util.stream.Collectors;
 public class PageWithBucketAggregationsFactory {
 
 	public static <T> PageWithBucketAggregations<T> createPage(SearchHits<T> searchHits, Aggregations aggregations, Pageable pageable) {
+		Object[] searchAfter = null;
+		if (!searchHits.isEmpty()) {
+			searchAfter = searchHits.getSearchHit(searchHits.getSearchHits().size()-1).getSortValues().toArray();
+		}
 		Map<String, Map<String, Long>> buckets = createBuckets(aggregations);
-		return new PageWithBucketAggregations<>(searchHits.get().map(SearchHit::getContent).collect(Collectors.toList()), pageable, searchHits.getTotalHits(), buckets);
+		return new PageWithBucketAggregations<>(searchHits.get().map(SearchHit::getContent).collect(Collectors.toList()), pageable, searchHits.getTotalHits(), buckets, searchAfter);
 	}
 
 	public static <T> PageWithBucketAggregations<T> createPage(SearchHits<T> searchHits, Pageable pageable) {
+		Object[] searchAfter = null;
+		if (!searchHits.isEmpty()) {
+			searchAfter = searchHits.getSearchHit(searchHits.getSearchHits().size()-1).getSortValues().toArray();
+		}
 		Map<String, Map<String, Long>> buckets = new HashMap<>();
 		if (searchHits.hasAggregations()) {
 			buckets = createBuckets(searchHits.getAggregations());
 		}
-		return new PageWithBucketAggregations<>(searchHits.get().map(SearchHit::getContent).collect(Collectors.toList()), pageable, searchHits.getTotalHits(), buckets);
+		return new PageWithBucketAggregations<>(searchHits.get().map(SearchHit::getContent).collect(Collectors.toList()), pageable, searchHits.getTotalHits(), buckets, searchAfter);
 	}
 
 	private static Map<String, Map<String, Long>> createBuckets(Aggregations aggregations) {

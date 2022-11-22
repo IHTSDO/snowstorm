@@ -54,7 +54,16 @@ class DescriptionHelperTest {
 				// I love the history of the English language!
 				new Description("Jet aeroplane").setTypeId(Concepts.SYNONYM).addLanguageRefsetMember(GB_EN_LANG_REFSET, Concepts.PREFERRED),
 
-				new Description("jetfly").setTypeId(Concepts.SYNONYM).setLang("da").addLanguageRefsetMember(danishLanguageReferenceSet, Concepts.PREFERRED)
+				new Description("A1jetfly").setTypeId(Concepts.SYNONYM).setLang("da").addLanguageRefsetMember(danishLanguageReferenceSet, Concepts.PREFERRED, false),
+				new Description("A2jetfly").setTypeId(Concepts.SYNONYM).setLang("da").addLanguageRefsetMember(danishLanguageReferenceSet, Concepts.PREFERRED, false),
+				new Description("A3jetfly").setTypeId(Concepts.SYNONYM).setLang("da").addLanguageRefsetMember(danishLanguageReferenceSet, Concepts.PREFERRED, false),
+				new Description("A4jetfly").setTypeId(Concepts.SYNONYM).setLang("da").addLanguageRefsetMember(danishLanguageReferenceSet, Concepts.PREFERRED, false),
+				new Description("Bjetfly").setTypeId(Concepts.SYNONYM).setLang("da").addLanguageRefsetMember(danishLanguageReferenceSet, Concepts.PREFERRED),
+				new Description("Cjetfly").setTypeId(Concepts.SYNONYM).setLang("da").addLanguageRefsetMember(danishLanguageReferenceSet, Concepts.ACCEPTABLE),
+				new Description("D1jetfly").setTypeId(Concepts.SYNONYM).setLang("da").addLanguageRefsetMember(danishLanguageReferenceSet, Concepts.PREFERRED, false),
+				new Description("D2jetfly").setTypeId(Concepts.SYNONYM).setLang("da").addLanguageRefsetMember(danishLanguageReferenceSet, Concepts.PREFERRED, false),
+				new Description("D3jetfly").setTypeId(Concepts.SYNONYM).setLang("da").addLanguageRefsetMember(danishLanguageReferenceSet, Concepts.PREFERRED, false),
+				new Description("D4jetfly").setTypeId(Concepts.SYNONYM).setLang("da").addLanguageRefsetMember(danishLanguageReferenceSet, Concepts.PREFERRED, false)
 		);
 
 		assertEquals("en-X-900000000000509007,en-X-900000000000508004,en", Config.DEFAULT_ACCEPT_LANG_HEADER);
@@ -63,7 +72,8 @@ class DescriptionHelperTest {
 		assertEquals("Jet aeroplane", getPtTerm("en-X-" + GB_EN_LANG_REFSET, descriptions));
 		assertEquals("Fallback on US english defaults.", "Jet airplane", getPtTerm("en-X-" + danishLanguageReferenceSet, descriptions));
 		assertEquals("Fallback on GB english because of header.", "Jet aeroplane", getPtTerm("en-X-" + danishLanguageReferenceSet + ",en-X-" + GB_EN_LANG_REFSET, descriptions));
-		assertEquals("jetfly", getPtTerm("da-X-" + danishLanguageReferenceSet, descriptions));
+		assertEquals("Bjetfly", getPtTerm("da-X-" + danishLanguageReferenceSet, descriptions));
+		assertEquals("Bjetfly", getPtTerm("da", descriptions));
 	}
 
 	@Test

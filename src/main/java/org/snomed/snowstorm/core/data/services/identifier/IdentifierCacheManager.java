@@ -137,6 +137,7 @@ public class IdentifierCacheManager implements Runnable {
 		IdentifierCache cache = getCache(namespaceId, partitionId);
 		ComponentType componentType = ComponentType.getTypeFromPartition(partitionId);
 		boolean requestSatisfied = false;
+		boolean setupNewCache = false;
 		if (cache != null) {
 			//Does cache need topping up anyway?
 			if (cache.identifiersAvailable() == 0 || 
@@ -158,26 +159,31 @@ public class IdentifierCacheManager implements Runnable {
 		} else {
 			//If no cache available & not requesting for International (as already prefetched),
 			//then prefetch additional identifiers for subsequent requests.
-			int prefetchQuantity;
-			switch (componentType) {
-				case Concept:
-					prefetchQuantity = conceptIdPrefetchCount;
-					break;
-				case Description:
-					prefetchQuantity = conceptIdPrefetchCount * 2;
-					break;
-				case Relationship:
-					prefetchQuantity = conceptIdPrefetchCount * 4;
-					break;
-				default:
-					throw new IllegalArgumentException("Cache does not support prefetching identifiers for " + componentType);
-			}
-			addCache(namespaceId, partitionId, prefetchQuantity);
+			setupNewCache = true;
 		}
 		
 		if (!requestSatisfied) {
 			//If we don't have the right cache, or it doesn't have sufficient availability, then call storage directly
 			idBlock.addAll(componentType, identifierSource.reserveIds(namespaceId, partitionId, quantityRequired));
+		}
+		
+		if (setupNewCache) {
+			//Do this after the attempt to reserveIds because if that fails, we don't want
+			//to set up a cache that would then continue to fail every N seconds.
+			addCache(namespaceId, partitionId, determinePrefetchQuantity(componentType));
+		}
+	}
+	
+	private int determinePrefetchQuantity(ComponentType componentType) {
+		switch (componentType) {
+			case Concept:
+				return conceptIdPrefetchCount;
+			case Description:
+				return conceptIdPrefetchCount * 2;
+			case Relationship:
+				return conceptIdPrefetchCount * 4;
+			default:
+				throw new IllegalArgumentException("Cache does not support prefetching identifiers for " + componentType);
 		}
 	}
 

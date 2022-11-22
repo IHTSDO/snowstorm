@@ -27,10 +27,14 @@ import java.util.*;
 import static java.lang.Long.parseLong;
 import static org.elasticsearch.index.query.QueryBuilders.*;
 import static org.snomed.snowstorm.core.data.domain.ReferenceSetMember.OwlExpressionFields.OWL_EXPRESSION;
+import static org.snomed.snowstorm.core.data.domain.Relationship.Fields.*;
+import static org.snomed.snowstorm.core.data.domain.SnomedComponent.Fields.ACTIVE;
 import static org.snomed.snowstorm.core.data.services.BranchMetadataHelper.INTERNAL_METADATA_KEY;
 
 @Service
 public class IntegrityService extends ComponentService implements CommitListener {
+
+	public static final String FAILED_TO_DESERIALISE_AXIOM_DURING_REFERENCE_INTEGRITY_CHECK = "Failed to deserialise axiom during reference integrity check.";
 
 	@Autowired
 	private ElasticsearchOperations elasticsearchTemplate;
@@ -48,9 +52,6 @@ public class IntegrityService extends ComponentService implements CommitListener
 	private AxiomConversionService axiomConversionService;
 
 	@Autowired
-	private BranchMetadataHelper branchMetadataHelper;
-
-	@Autowired
 	private DescriptionService descriptionService;
 
 	@Autowired
@@ -58,7 +59,7 @@ public class IntegrityService extends ComponentService implements CommitListener
 
 	public static final String INTEGRITY_ISSUE_METADATA_KEY = "integrityIssue";
 
-	private Logger logger = LoggerFactory.getLogger(getClass());
+	private final Logger logger = LoggerFactory.getLogger(getClass());
 
 	@Override
 	public void preCommitCompletion(Commit commit) throws IllegalStateException {
@@ -116,12 +117,12 @@ public class IntegrityService extends ComponentService implements CommitListener
 				new NativeSearchQueryBuilder()
 						.withQuery(boolQuery()
 								.must(branchCriteria.getEntityBranchCriteria(Relationship.class))
-								.must(termsQuery(Relationship.Fields.ACTIVE, true))
-								.mustNot(termsQuery(Relationship.Fields.CHARACTERISTIC_TYPE_ID, Concepts.INFERRED_RELATIONSHIP))
+								.must(termQuery(ACTIVE, true))
+								.mustNot(termsQuery(CHARACTERISTIC_TYPE_ID, Concepts.INFERRED_RELATIONSHIP))
 								.must(boolQuery()
-										.should(termsQuery(Relationship.Fields.SOURCE_ID, deletedOrInactiveConcepts))
-										.should(termsQuery(Relationship.Fields.TYPE_ID, deletedOrInactiveConcepts))
-										.should(termsQuery(Relationship.Fields.DESTINATION_ID, deletedOrInactiveConcepts))
+										.should(termsQuery(SOURCE_ID, deletedOrInactiveConcepts))
+										.should(termsQuery(TYPE_ID, deletedOrInactiveConcepts))
+										.should(termsQuery(DESTINATION_ID, deletedOrInactiveConcepts))
 								)
 						)
 						.withPageable(LARGE_PAGE).build(),
@@ -162,7 +163,7 @@ public class IntegrityService extends ComponentService implements CommitListener
 					new NativeSearchQueryBuilder()
 							.withQuery(boolQuery()
 									.must(branchCriteria.getEntityBranchCriteria(ReferenceSetMember.class))
-									.must(termQuery(ReferenceSetMember.Fields.ACTIVE, true))
+									.must(termQuery(ACTIVE, true))
 									.must(termQuery(ReferenceSetMember.Fields.REFSET_ID, Concepts.OWL_AXIOM_REFERENCE_SET))
 									.must(termsQuery(ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID, conceptIdsWithBadAxioms))
 							)
@@ -193,8 +194,8 @@ public class IntegrityService extends ComponentService implements CommitListener
 		try (SearchHitsIterator<Relationship> relationshipStream = elasticsearchTemplate.searchForStream(new NativeSearchQueryBuilder()
 						.withQuery(boolQuery()
 								.must(versionControlHelper.getBranchCriteriaUnpromotedChanges(branch).getEntityBranchCriteria(Relationship.class))
-								.must(termQuery(Relationship.Fields.ACTIVE, true))
-								.mustNot(termsQuery(Relationship.Fields.CHARACTERISTIC_TYPE_ID, Concepts.INFERRED_RELATIONSHIP))
+								.must(termQuery(ACTIVE, true))
+								.mustNot(termsQuery(CHARACTERISTIC_TYPE_ID, Concepts.INFERRED_RELATIONSHIP))
 						)
 						.withPageable(LARGE_PAGE)
 						.build(),
@@ -212,7 +213,7 @@ public class IntegrityService extends ComponentService implements CommitListener
 		try (SearchHitsIterator<ReferenceSetMember> axiomStream = elasticsearchTemplate.searchForStream(new NativeSearchQueryBuilder()
 						.withQuery(boolQuery()
 								.must(versionControlHelper.getBranchCriteriaUnpromotedChanges(branch).getEntityBranchCriteria(ReferenceSetMember.class))
-								.must(termQuery(ReferenceSetMember.Fields.ACTIVE, true))
+								.must(termQuery(ACTIVE, true))
 								.must(termQuery(ReferenceSetMember.Fields.REFSET_ID, Concepts.OWL_AXIOM_REFERENCE_SET))
 						)
 						.withPageable(LARGE_PAGE)
@@ -228,7 +229,7 @@ public class IntegrityService extends ComponentService implements CommitListener
 					}
 				}
 			} catch (ConversionException e) {
-				throw new ServiceException("Failed to deserialise axiom during reference integrity check.", e);
+				throw new ServiceException(FAILED_TO_DESERIALISE_AXIOM_DURING_REFERENCE_INTEGRITY_CHECK, e);
 			}
 		}
 
@@ -244,7 +245,7 @@ public class IntegrityService extends ComponentService implements CommitListener
 		try (SearchHitsIterator<Concept> activeConceptStream = elasticsearchTemplate.searchForStream(new NativeSearchQueryBuilder()
 				.withQuery(boolQuery()
 						.must(branchCriteria.getEntityBranchCriteria(Concept.class))
-						.must(termQuery(Concept.Fields.ACTIVE, true))
+						.must(termQuery(ACTIVE, true))
 						.must(termsQuery(Concept.Fields.CONCEPT_ID, conceptsRequiredActive))
 				)
 				.withFields(Concept.Fields.CONCEPT_ID)
@@ -287,7 +288,7 @@ public class IntegrityService extends ComponentService implements CommitListener
 	public IntegrityIssueReport findChangedComponentsWithBadIntegrityNotFixed(Branch fixBranch, String extensionMainBranchPath) throws ServiceException {
 		Branch extensionMain = branchService.findBranchOrThrow(extensionMainBranchPath);
 		Branch projectBranch = branchService.findBranchOrThrow(PathUtil.getParentPath(fixBranch.getPath()));
-		if (!projectBranch.getPath().equalsIgnoreCase(extensionMainBranchPath) && !PathUtil.getParentPath(projectBranch.getPath()).equalsIgnoreCase(extensionMain.getPath())) {
+		if (!projectBranch.getPath().startsWith(extensionMain.getPath())) {
 			throw new RuntimeServiceException(String.format("Branch %s is not a descendant of %s", projectBranch.getPath(), extensionMainBranchPath));
 		}
 		// make sure project and task are rebased
@@ -336,8 +337,8 @@ public class IntegrityService extends ComponentService implements CommitListener
 				new NativeSearchQueryBuilder()
 						.withQuery(boolQuery()
 								.must(taskBranchCriteria.getEntityBranchCriteria(Relationship.class))
-								.must(termsQuery(Relationship.Fields.ACTIVE, true))
-								.mustNot(termsQuery(Relationship.Fields.CHARACTERISTIC_TYPE_ID, Concepts.INFERRED_RELATIONSHIP))
+								.must(termsQuery(ACTIVE, true))
+								.mustNot(termsQuery(CHARACTERISTIC_TYPE_ID, Concepts.INFERRED_RELATIONSHIP))
 								.must(termsQuery(Relationship.Fields.RELATIONSHIP_ID, relationshipIdsWithBadIntegrity))
 						)
 						.withPageable(LARGE_PAGE).build(),
@@ -356,7 +357,7 @@ public class IntegrityService extends ComponentService implements CommitListener
 		try (SearchHitsIterator<ReferenceSetMember> axiomStream = elasticsearchTemplate.searchForStream(new NativeSearchQueryBuilder()
 						.withQuery(boolQuery()
 								.must(taskBranchCriteria.getEntityBranchCriteria(ReferenceSetMember.class))
-								.must(termQuery(ReferenceSetMember.Fields.ACTIVE, true))
+								.must(termQuery(ACTIVE, true))
 								.must(termQuery(ReferenceSetMember.Fields.REFSET_ID, Concepts.OWL_AXIOM_REFERENCE_SET))
 								.must(termsQuery(ReferenceSetMember.Fields.MEMBER_ID, axiomsWithBadIntegrity))
 						)
@@ -373,7 +374,7 @@ public class IntegrityService extends ComponentService implements CommitListener
 					}
 				}
 			} catch (ConversionException e) {
-				throw new ServiceException("Failed to deserialise axiom during reference integrity check.", e);
+				throw new ServiceException(FAILED_TO_DESERIALISE_AXIOM_DURING_REFERENCE_INTEGRITY_CHECK, e);
 			}
 		}
 
@@ -387,7 +388,7 @@ public class IntegrityService extends ComponentService implements CommitListener
 		try (SearchHitsIterator<Concept> activeConceptStream = elasticsearchTemplate.searchForStream(new NativeSearchQueryBuilder()
 				.withQuery(boolQuery()
 						.must(taskBranchCriteria.getEntityBranchCriteria(Concept.class))
-						.must(termQuery(Concept.Fields.ACTIVE, true))
+						.must(termQuery(ACTIVE, true))
 						.must(termsQuery(Concept.Fields.CONCEPT_ID, conceptIdsToCheck))
 				)
 				.withFields(Concept.Fields.CONCEPT_ID)
@@ -468,18 +469,18 @@ public class IntegrityService extends ComponentService implements CommitListener
 		queryBuilder
 				.withQuery(boolQueryBuilder
 						.must(branchCriteria.getEntityBranchCriteria(Relationship.class))
-						.must(termQuery(Relationship.Fields.ACTIVE, true))
+						.must(termQuery(ACTIVE, true))
 						.must(boolQuery()
-							.should(boolQuery().mustNot(termsQuery(Relationship.Fields.SOURCE_ID, activeConcepts)))
-							.should(boolQuery().mustNot(termsQuery(Relationship.Fields.TYPE_ID, activeConcepts)))
+							.should(boolQuery().mustNot(termsQuery(SOURCE_ID, activeConcepts)))
+							.should(boolQuery().mustNot(termsQuery(TYPE_ID, activeConcepts)))
 							.should(boolQuery().mustNot(termsQuery(Relationship.Fields.DESTINATION_ID, activeConcepts)))
 						)
 				)
 				.withPageable(LARGE_PAGE);
 		if (stated) {
-			boolQueryBuilder.mustNot(termsQuery(Relationship.Fields.CHARACTERISTIC_TYPE_ID, Concepts.INFERRED_RELATIONSHIP));
+			boolQueryBuilder.mustNot(termsQuery(CHARACTERISTIC_TYPE_ID, Concepts.INFERRED_RELATIONSHIP));
 		} else {
-			boolQueryBuilder.must(termsQuery(Relationship.Fields.CHARACTERISTIC_TYPE_ID, Concepts.INFERRED_RELATIONSHIP));
+			boolQueryBuilder.must(termsQuery(CHARACTERISTIC_TYPE_ID, Concepts.INFERRED_RELATIONSHIP));
 		}
 		try (SearchHitsIterator<Relationship> relationshipStream = elasticsearchTemplate.searchForStream(queryBuilder.build(), Relationship.class)) {
 			relationshipStream.forEachRemaining(hit -> {
@@ -509,7 +510,7 @@ public class IntegrityService extends ComponentService implements CommitListener
 					new NativeSearchQueryBuilder()
 							.withQuery(boolQuery()
 									.must(branchCriteria.getEntityBranchCriteria(ReferenceSetMember.class))
-									.must(termQuery(ReferenceSetMember.Fields.ACTIVE, true))
+									.must(termQuery(ACTIVE, true))
 									.must(termQuery(ReferenceSetMember.Fields.REFSET_ID, Concepts.OWL_AXIOM_REFERENCE_SET))
 									.must(termsQuery(ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID, conceptIdsWithBadAxioms))
 							)
@@ -529,7 +530,7 @@ public class IntegrityService extends ComponentService implements CommitListener
 					// Join descriptions so FSN and PT are returned
 					descriptionService.joinActiveDescriptions(branch.getPath(), conceptMiniMap);
 				} catch (ConversionException e) {
-					throw new ServiceException("Failed to deserialise axiom during reference integrity check.", e);
+					throw new ServiceException(FAILED_TO_DESERIALISE_AXIOM_DURING_REFERENCE_INTEGRITY_CHECK, e);
 				}
 			}
 		}
@@ -636,7 +637,7 @@ public class IntegrityService extends ComponentService implements CommitListener
 						.withQuery(boolQuery()
 								.must(branchCriteria.getEntityBranchCriteria(Concept.class))
 								.must(termsQuery(Concept.Fields.CONCEPT_ID, changedOrDeletedConcepts))
-								.must(termQuery(Concept.Fields.ACTIVE, true))
+								.must(termQuery(ACTIVE, true))
 						)
 						.withFields(Concept.Fields.CONCEPT_ID)
 						.withPageable(LARGE_PAGE).build(),

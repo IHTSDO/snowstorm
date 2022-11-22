@@ -5,6 +5,7 @@ import org.springframework.util.CollectionUtils;
 
 import java.util.Collection;
 import java.util.Objects;
+import java.util.List;
 import java.util.Set;
 
 import static org.snomed.snowstorm.config.Config.DEFAULT_LANGUAGE_CODES;
@@ -28,6 +29,8 @@ public class DescriptionCriteria {
 	private Set<Long> preferredIn;
 	private Set<Long> acceptableIn;
 	private Set<Long> preferredOrAcceptableIn;
+	private List<DisjunctionAcceptabilityCriteria> disjunctionAcceptabilityCriteria;
+
 	private Collection<Long> conceptIds;
 
 	public static void configure(int searchTermMinimumLength, int searchTermMaximumLength) {
@@ -41,7 +44,8 @@ public class DescriptionCriteria {
 				|| semanticTag != null
 				|| !CollectionUtils.isEmpty(preferredIn)
 				|| !CollectionUtils.isEmpty(acceptableIn)
-				|| !CollectionUtils.isEmpty(preferredOrAcceptableIn);
+				|| !CollectionUtils.isEmpty(preferredOrAcceptableIn)
+				|| !CollectionUtils.isEmpty(disjunctionAcceptabilityCriteria);
 	}
 
 	public DescriptionCriteria term(String term) {
@@ -204,6 +208,16 @@ public class DescriptionCriteria {
 		return conceptIds;
 	}
 
+
+	public DescriptionCriteria disjunctionAcceptabilityCriteria(List<DisjunctionAcceptabilityCriteria> disjunctionAcceptabilityCriteria) {
+		this.disjunctionAcceptabilityCriteria = disjunctionAcceptabilityCriteria;
+		return this;
+	}
+
+	public List<DisjunctionAcceptabilityCriteria> getDisjunctionAcceptabilityCriteria() {
+		return disjunctionAcceptabilityCriteria;
+	}
+
 	@Override
 	public boolean equals(Object o) {
 		if (this == o) return true;
@@ -222,11 +236,54 @@ public class DescriptionCriteria {
 				Objects.equals(type, that.type) &&
 				Objects.equals(preferredIn, that.preferredIn) &&
 				Objects.equals(acceptableIn, that.acceptableIn) &&
-				Objects.equals(preferredOrAcceptableIn, that.preferredOrAcceptableIn);
+				Objects.equals(preferredOrAcceptableIn, that.preferredOrAcceptableIn) &&
+				Objects.equals(disjunctionAcceptabilityCriteria, that.disjunctionAcceptabilityCriteria);
 	}
 
 	@Override
 	public int hashCode() {
 		return Objects.hash(term, searchLanguageCodes, active, modules, semanticTag, semanticTags, conceptActive, conceptRefset, groupByConcept, searchMode, type, preferredIn, acceptableIn, preferredOrAcceptableIn);
 	}
+
+	public static class DisjunctionAcceptabilityCriteria {
+
+		private final Set<Long> preferred;
+
+		private final Set<Long> acceptable;
+
+		private final Set<Long> preferredOrAcceptable;
+
+		public DisjunctionAcceptabilityCriteria(Set<Long> preferred, Set<Long> acceptable, Set<Long> preferredOrAcceptable) {
+			this.preferred = preferred;
+			this.acceptable = acceptable;
+			this.preferredOrAcceptable = preferredOrAcceptable;
+		}
+
+		public Set<Long> getPreferred() {
+			return preferred;
+		}
+
+		public Set<Long> getAcceptable() {
+			return acceptable;
+		}
+
+		public Set<Long> getPreferredOrAcceptable() {
+			return preferredOrAcceptable;
+		}
+
+		public boolean hasMultiple() {
+			int counter = 0;
+			if (preferred != null && !preferred.isEmpty()) {
+				counter++;
+			}
+			if (acceptable != null && !acceptable.isEmpty()) {
+				counter++;
+			}
+			if (preferredOrAcceptable != null && !preferredOrAcceptable.isEmpty()) {
+				counter++;
+			}
+			return counter > 1;
+		}
+	}
+
 }

@@ -89,8 +89,8 @@ public class AxiomConversionService {
 				.map(Long::parseLong)
 				.collect(Collectors.toSet());
 		BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(branchPath);
-		List<Long> objectAttributes = eclQueryService.selectConceptIds("<<" + Concepts.CONCEPT_MODEL_OBJECT_ATTRIBUTE, branchCriteria, branchPath, true, LARGE_PAGE).getContent();
-		List<Long> dataAttributes = eclQueryService.selectConceptIds("<<" + Concepts.CONCEPT_MODEL_DATA_ATTRIBUTE, branchCriteria, branchPath, true, LARGE_PAGE).getContent();
+		List<Long> objectAttributes = eclQueryService.selectConceptIds("<<" + Concepts.CONCEPT_MODEL_OBJECT_ATTRIBUTE, branchCriteria, true, LARGE_PAGE).getContent();
+		List<Long> dataAttributes = eclQueryService.selectConceptIds("<<" + Concepts.CONCEPT_MODEL_DATA_ATTRIBUTE, branchCriteria, true, LARGE_PAGE).getContent();
 		timer.checkpoint(String.format("Gathering %s never grouped attributes, %s object attributes and %s data attributes.", neverGroupedAttributes.size(), objectAttributes.size(), dataAttributes.size()));
 		AxiomRelationshipConversionService conversionService = new AxiomRelationshipConversionService(neverGroupedAttributes, objectAttributes, dataAttributes);
 		timer.checkpoint("Creating AxiomRelationshipConversionService");

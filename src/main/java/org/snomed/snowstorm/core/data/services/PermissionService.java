@@ -46,7 +46,9 @@ public class PermissionService {
 
 	@PostConstruct
 	public void init() {
-		setGlobalRoleGroups(Role.ADMIN, Collections.singleton(adminUserGroup));
+		PermissionRecord adminPermissionRecord = getAdminRecord();
+		adminPermissionRecord.getUserGroups().add(adminUserGroup);
+		save(adminPermissionRecord);
 		fixGlobalFlag();
 	}
 
@@ -150,6 +152,10 @@ public class PermissionService {
 		setGlobalOrBranchRoleGroups(false, branch, role, Collections.emptySet());
 	}
 
+	public List<PermissionRecord> findUserGroupPermissions(String userGroup) {
+		return repository.findByUserGroups(userGroup, PAGE_REQUEST).getContent();
+	}
+
 	private void setGlobalOrBranchRoleGroups(boolean global, String branch, String role, Set<String> userGroups) {
 		if (!userGroups.isEmpty()) {
 			PermissionRecord permissionRecord = findByGlobalPathAndRole(global, branch, role).orElse(new PermissionRecord(role, branch));
@@ -225,4 +231,11 @@ public class PermissionService {
 		}
 	}
 
+	private PermissionRecord getAdminRecord() {
+		PermissionRecord adminPermissionRecord = findByGlobalPathAndRole(true, null, Role.ADMIN.toString()).orElse(new PermissionRecord(Role.ADMIN.toString(), null));
+		if (adminPermissionRecord.getUserGroups() == null) {
+			adminPermissionRecord.setUserGroups(new HashSet<>());
+		}
+		return adminPermissionRecord;
+	}
 }

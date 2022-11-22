@@ -17,6 +17,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mockito;
 import org.snomed.snowstorm.AbstractTest;
+import org.snomed.snowstorm.config.Config;
 import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.domain.review.BranchReview;
 import org.snomed.snowstorm.core.data.domain.review.MergeReview;
@@ -91,6 +92,9 @@ class BranchMergeServiceTest extends AbstractTest {
 
 	@Autowired
 	private AdminOperationsService adminOperationsService;
+
+	@Autowired
+	private CodeSystemUpgradeService codeSystemUpgradeService;
 
 	private List<Activity> activities;
 
@@ -598,8 +602,7 @@ class BranchMergeServiceTest extends AbstractTest {
 		for (ReferenceSetMember member : memberService.findMembers(path, conceptId, PageRequest.of(0, 10))) {
 			System.out.println(member.toString());
 		}
-		assertEquals(5, memberService.findMembers(path, conceptId, PageRequest.of(0, 10)).getTotalElements(), "One axiom, one inactive published association, one inactive published historic association, " +
-				"one new association and one new inactivation reason member."
+		assertEquals(3, memberService.findMembers(path, conceptId, PageRequest.of(0, 10)).getTotalElements(), "One axiom, one re-used association (same refetId) and one re-used inactivation reason member."
 		);
 
 		path = "MAIN/B/B2";
@@ -607,9 +610,7 @@ class BranchMergeServiceTest extends AbstractTest {
 		concept.setInactivationIndicator("AMBIGUOUS");
 		concept.setAssociationTargets(Maps.newHashMap("POSSIBLY_EQUIVALENT_TO", Sets.newHashSet(Concepts.ISA)));
 		conceptService.update(concept, path);
-		assertEquals(5, memberService.findMembers(path, conceptId, PageRequest.of(0, 10)).getTotalElements(), "One axiom, one inactive published association, one inactive published historic association, " +
-				"one new association and one new inactivation reason member."
-		);
+		assertEquals(3, memberService.findMembers(path, conceptId, PageRequest.of(0, 10)).getTotalElements(), "One axiom, one re-used association (same refetId) and one re-used inactivation reason member.");
 
 		// Promote B2
 		branchMergeService.mergeBranchSync("MAIN/B/B2", "MAIN/B", Collections.emptySet());
@@ -629,8 +630,7 @@ class BranchMergeServiceTest extends AbstractTest {
 		members.forEach(member -> memberIdCounts.computeIfAbsent(member.getId(), (id) -> new AtomicInteger()).incrementAndGet());
 		assertFalse(memberIdCounts.values().stream().anyMatch(value -> value.get() > 1), "No duplicate refset members.");
 
-		assertEquals(5, members.getTotalElements(), "One axiom, one inactive published association, one inactive published historic association, " +
-				"one new association and one new inactivation reason member.");
+		assertEquals(3, memberService.findMembers(path, conceptId, PageRequest.of(0, 10)).getTotalElements(), "One axiom, one re-used association (same refetId) and one re-used inactivation reason member.");
 		concept = conceptService.find(conceptId, path);
 		assertEquals("AMBIGUOUS", concept.getInactivationIndicator());
 		assertEquals("{POSSIBLY_EQUIVALENT_TO=[138875005]}", concept.getAssociationTargets().toString());
@@ -1415,7 +1415,7 @@ class BranchMergeServiceTest extends AbstractTest {
 		// Inactivate concept on MAIN and create Version #1 - with inactivation data
 		releaseVersionConcept.setActive(false);
 		releaseVersionConcept.setInactivationIndicator("DUPLICATE");
-		releaseVersionConcept.setAssociationTargets(Map.of("POSSIBLY_EQUIVALENT_TO", Collections.singleton("100002000")));
+		releaseVersionConcept.setAssociationTargets(Map.of("SAME_AS", Collections.singleton("100002000")));
 		conceptService.update(releaseVersionConcept, "MAIN");
 		codeSystemService.createVersion(codeSystemService.find(SNOMEDCT), 2021_08_01, "");
 		releaseVersionConcept = simulateRestTransfer(conceptService.find(conceptId, "MAIN"));
@@ -1452,7 +1452,8 @@ class BranchMergeServiceTest extends AbstractTest {
 		assertEquals(Map.of("POSSIBLY_EQUIVALENT_TO", Collections.singleton("100003000")), mergedConcept.getAssociationTargets());
 
 		final Collection<ReferenceSetMember> inactivationIndicatorMembers = mergedConcept.getInactivationIndicatorMembers();
-		assertEquals(2, inactivationIndicatorMembers.size());
+		//The inactivation value is mutable, so we will re-use the existing indicator.  So 1 refset member expected after modification
+		assertEquals(1, inactivationIndicatorMembers.size());
 
 		final ReferenceSetMember activeIndicatorMember = inactivationIndicatorMembers.stream().filter(ReferenceSetMember::isActive).findFirst().orElseThrow();
 		assertTrue(activeIndicatorMember.isActive());
@@ -1461,14 +1462,14 @@ class BranchMergeServiceTest extends AbstractTest {
 		assertEquals(2021_09_01, activeIndicatorMember.getReleasedEffectiveTime());
 		assertEquals("900000000000483008", activeIndicatorMember.getAdditionalField("valueId"));
 
-		final ReferenceSetMember inactiveIndicatorMember = inactivationIndicatorMembers.stream().filter(not(ReferenceSetMember::isActive)).findFirst().orElseThrow();
-		assertFalse(inactiveIndicatorMember.isActive());
+		assertTrue(inactivationIndicatorMembers.stream().filter(not(ReferenceSetMember::isActive)).findFirst().isEmpty());
+		/*assertFalse(inactiveIndicatorMember.isActive());
 		assertTrue(inactiveIndicatorMember.isReleased());
 		assertEquals(2021_09_01, inactiveIndicatorMember.getEffectiveTimeI());
 		assertEquals(2021_09_01, inactiveIndicatorMember.getReleasedEffectiveTime());
-		assertEquals("900000000000482003", inactiveIndicatorMember.getAdditionalField("valueId"));
+		assertEquals("900000000000482003", inactiveIndicatorMember.getAdditionalField("valueId"));*/
 
-
+		//However because refset ids are NOT mutable, we expect to have a refset member for each type of historical association
 		final List<ReferenceSetMember> associationTargetMembers = mergedConcept.getAssociationTargetMembers();
 		assertEquals(2, associationTargetMembers.size());
 
@@ -1546,6 +1547,62 @@ class BranchMergeServiceTest extends AbstractTest {
 		assertEquals(1, completeJobs.size());
 		assertEquals(1, failedJobs.size());
 		assertEquals("Branch MAIN/A is already locked", failedJobs.get(0).getMessage());
+	}
+
+
+	@Test
+	void testReleasedFlagNotLostDuringRebase() throws ServiceException {
+		conceptService.create(new Concept("100001").addDescription(new Description("Boo")), "MAIN");
+		conceptService.create(new Concept("100002").addDescription(new Description("Foo")), "MAIN");
+		conceptService.create(new Concept("100003").addDescription(new Description("Hoo")), "MAIN");
+		codeSystemService.createVersion(codeSystemService.find(SNOMEDCT), 20220731, " test release");
+		branchService.create("MAIN/B");
+
+		// Create a new version on MAIN/B/B1
+		String taskB1 = "MAIN/B/B1";
+		String taskB2 = "MAIN/B/B2";
+
+		branchService.create(taskB1);
+		branchService.create(taskB2);
+
+		// Create a new version on MAIN/B/B1
+		Concept conceptA = conceptService.find("100003", "MAIN/B/B1");
+		conceptA.setModuleId("10000111");
+
+		Concept conceptB = conceptService.find("100002", "MAIN/B/B1");
+		conceptB.setModuleId("10000122");
+
+		conceptService.update(conceptA, taskB1);
+		conceptService.update(conceptB, taskB1);
+
+		List<Concept> conceptsOnTaskB1 = new ArrayList<>();
+		conceptsOnTaskB1.add(conceptService.find("100003", taskB1));
+		conceptsOnTaskB1.add(conceptService.find("100002", taskB1));
+		conceptsOnTaskB1.stream().forEach(concept -> { assertTrue(concept.isReleased()); });
+
+		// Create a new version on MAIN/B/B2 and promote to project
+		Concept conceptOnTaskB2 = conceptService.find("100003", taskB2);
+		conceptOnTaskB2.setModuleId("10000222");
+		conceptService.update(conceptOnTaskB2, taskB2);
+		branchMergeService.mergeBranchSync(taskB2, "MAIN/B", Arrays.asList(conceptOnTaskB2));
+
+		// Rebase taskB1
+		branchMergeService.mergeBranchSync("MAIN/B", taskB1, conceptsOnTaskB1);
+
+		// Check concepts and all published components haven't lost released flags
+		List<String> conceptIds = Arrays.asList("100003", "100001", "100002");
+		for (String conceptId : conceptIds) {
+			Concept concept = conceptService.find(conceptId, taskB1);
+			assertTrue(concept.isReleased());
+			concept.getDescriptions().forEach(description -> {
+				assertTrue(description.isReleased(), "Description has lost released flag:" + description);
+				assertNotNull(description.getEffectiveTimeI());
+			});
+			concept.getRelationships().forEach(relationship -> {
+				assertTrue(relationship.isReleased(), "Relationship has lost released flag:" + relationship);
+				assertNotNull(relationship.getEffectiveTimeI());
+			});
+		}
 	}
 
 	@Test
@@ -1832,6 +1889,2216 @@ class BranchMergeServiceTest extends AbstractTest {
 		// Promotion should fail
 		String message = assertThrows(RuntimeServiceException.class, () -> branchMergeService.mergeBranchSync("MAIN/A/A1", "MAIN/A", Collections.emptyList())).getMessage();
 		assertEquals("Promotion blocked; not all criteria have been met.", message);
+	}
+
+	@Test
+	void testAutoMergeWhenConceptDeletedSomewhereAndVersionedElsewhere() throws ServiceException, InterruptedException {
+		String codeSystemShortName = "SNOMEDCT-TEST";
+		String parentBranch = "MAIN/TEST";
+		String childBranch = "MAIN/TEST/TEST-1";
+
+		// Create Concept on CodeSystem
+		CodeSystem codeSystem = codeSystemService.createCodeSystem(new CodeSystem(codeSystemShortName, parentBranch));
+		Map<String, String> acceptabilityMap = Collections.singletonMap(US_EN_LANG_REFSET, descriptionAcceptabilityNames.get(ACCEPTABLE));
+		Description pizzaFood = new Description("Pizza (food)").setTypeId(FSN).setCaseSignificance("CASE_INSENSITIVE").setAcceptabilityMap(acceptabilityMap);
+		Description pizza = new Description("Pizza").setTypeId(SYNONYM).setCaseSignificance("CASE_INSENSITIVE").setAcceptabilityMap(acceptabilityMap);
+		Relationship isA = new Relationship(ISA, SNOMEDCT_ROOT);
+		Concept conceptOnParent = conceptService.create(new Concept().addDescription(pizzaFood).addDescription(pizza).addRelationship(isA), parentBranch);
+		String conceptId = conceptOnParent.getId();
+
+		// On child branch, delete Concept
+		branchService.create(childBranch);
+		assertNotNull(conceptService.find(conceptId, childBranch));
+		conceptService.deleteConceptAndComponents(conceptId, childBranch, false);
+		assertNull(conceptService.find(conceptId, childBranch));
+
+		// On parent branch, version new Concept
+		codeSystemService.createVersion(codeSystem, 20210812, "20210812");
+		conceptOnParent = conceptService.find(conceptId, parentBranch);
+		assertVersioned(conceptOnParent, 20210812);
+
+		// Rebase
+		MergeReview review = getMergeReviewInCurrentState(parentBranch, childBranch);
+		// AP calls this endpoint to check for conflicts
+		assertEquals(0, reviewService.getMergeReviewConflictingConcepts(review.getId(), new ArrayList<>()).size());
+
+		// Finalise rebase
+		reviewService.applyMergeReview(review);
+
+		// Expected state of child branch
+		assertVersioned(conceptService.find(conceptId, childBranch), 20210812);
+	}
+
+	@Test
+	void testAutoMergeWhenDescriptionDeletedSomewhereAndVersionedElsewhere() throws ServiceException, InterruptedException {
+		String codeSystemShortName = "SNOMEDCT-TEST";
+		String parentBranch = "MAIN/TEST";
+		String childBranch = "MAIN/TEST/TEST-1";
+
+		// Create Concept on CodeSystem
+		CodeSystem codeSystem = codeSystemService.createCodeSystem(new CodeSystem(codeSystemShortName, parentBranch));
+		Map<String, String> acceptabilityMap = Collections.singletonMap(US_EN_LANG_REFSET, descriptionAcceptabilityNames.get(ACCEPTABLE));
+		Description pizzaFood = new Description("Pizza (food)").setTypeId(FSN).setCaseSignificance("CASE_INSENSITIVE").setAcceptabilityMap(acceptabilityMap);
+		Description pizza = new Description("Pizza").setTypeId(SYNONYM).setCaseSignificance("CASE_INSENSITIVE").setAcceptabilityMap(acceptabilityMap);
+		Relationship isA = new Relationship(ISA, SNOMEDCT_ROOT);
+		Concept conceptOnParent = conceptService.create(new Concept().addDescription(pizzaFood).addDescription(pizza).addRelationship(isA), parentBranch);
+		String conceptId = conceptOnParent.getId();
+
+		// On child branch, delete Description
+		branchService.create(childBranch);
+		Concept conceptOnChild = conceptService.find(conceptId, childBranch);
+		pizza = getDescription(conceptOnChild, "Pizza");
+		assertNotNull(descriptionService.findDescription(childBranch, pizza.getId()));
+		descriptionService.deleteDescription(pizza, childBranch, false);
+		assertNull(descriptionService.findDescription(childBranch, pizza.getId()));
+
+		// On child branch, add new Description
+		Description pie = new Description("Pie").setTypeId(SYNONYM).setCaseSignificance("CASE_INSENSITIVE").setAcceptabilityMap(acceptabilityMap);
+		conceptOnChild = conceptService.find(conceptId, childBranch);
+		conceptOnChild.addDescription(pie);
+		conceptService.update(conceptOnChild, childBranch);
+		conceptOnChild = conceptService.find(conceptId, childBranch);
+		pie = getDescription(conceptOnChild, "Pie");
+		assertNotNull(descriptionService.findDescription(childBranch, pie.getId()));
+
+		// On parent branch, version new Concept
+		codeSystemService.createVersion(codeSystem, 20210812, "20210812");
+		conceptOnParent = conceptService.find(conceptId, parentBranch);
+		assertVersioned(conceptOnParent, 20210812);
+		assertVersioned(getDescription(conceptOnParent, "Pizza (food)"), 20210812);
+		assertVersioned(getDescription(conceptOnParent, "Pizza"), 20210812);
+
+		// Rebase
+		MergeReview review = getMergeReviewInCurrentState(parentBranch, childBranch);
+		// AP calls this endpoint to check for conflicts
+		Collection<MergeReviewConceptVersions> conflicts = reviewService.getMergeReviewConflictingConcepts(review.getId(), new ArrayList<>());
+		assertEquals(1, conflicts.size());
+
+		// User selects the RHS (i.e. the one without versioned content)
+		for (MergeReviewConceptVersions conflict : conflicts) {
+			reviewService.persistManuallyMergedConcept(review, Long.parseLong(conceptId), conflict.getTargetConcept());
+		}
+
+		// Finalise rebase
+		reviewService.applyMergeReview(review);
+
+		// Expected state of child branch
+		conceptOnChild = conceptService.find(conceptId, childBranch);
+		assertEquals(conceptOnParent, conceptOnChild);
+		assertEquals(conceptOnParent.getReleaseHash(), conceptOnChild.getReleaseHash());
+
+		assertVersioned(getDescription(conceptOnChild, "Pizza (food)"), 20210812);
+		assertVersioned(getDescription(conceptOnChild, "Pizza"), 20210812);
+		assertNotVersioned(getDescription(conceptOnChild, "Pie"));
+	}
+
+	@Test
+	void testAutoMergeWhenAcceptabilityEditedSomewhereAndVersionedElsewhere() throws ServiceException, InterruptedException {
+		String codeSystemShortName = "SNOMEDCT-TEST";
+		String parentBranch = "MAIN/TEST";
+		String childBranch = "MAIN/TEST/TEST-1";
+		Page<ReferenceSetMember> members;
+
+		// Create Concept on CodeSystem
+		CodeSystem codeSystem = codeSystemService.createCodeSystem(new CodeSystem(codeSystemShortName, parentBranch));
+		Map<String, String> acceptabilityMap = Collections.singletonMap(US_EN_LANG_REFSET, descriptionAcceptabilityNames.get(PREFERRED));
+		Description pizzaFood = new Description("Pizza (food)").setTypeId(FSN).setCaseSignificance("CASE_INSENSITIVE").setAcceptabilityMap(acceptabilityMap);
+		Description pizza = new Description("Pizza").setTypeId(SYNONYM).setCaseSignificance("CASE_INSENSITIVE").setAcceptabilityMap(acceptabilityMap);
+		Description pizzaPie = new Description("Pizza pie").setTypeId(SYNONYM).setCaseSignificance("CASE_INSENSITIVE").setAcceptabilityMap(acceptabilityMap);
+		Relationship isA = new Relationship(ISA, SNOMEDCT_ROOT);
+		Concept conceptOnParent = conceptService.create(new Concept().addDescription(pizzaFood).addDescription(pizza).addDescription(pizzaPie).addRelationship(isA), parentBranch);
+		String conceptId = conceptOnParent.getId();
+
+		// On parent branch, version new Concept
+		codeSystemService.createVersion(codeSystem, 20210812, "20210812");
+		conceptOnParent = conceptService.find(conceptId, parentBranch);
+		members = memberService.findMembers(parentBranch, new MemberSearchRequest().referencedComponentId(pizzaPie.getId()).referenceSet(US_EN_LANG_REFSET), PageRequest.of(0, 10));
+		assertVersioned(conceptOnParent, 20210812);
+		assertVersioned(getDescription(conceptOnParent, "Pizza (food)"), 20210812);
+		assertVersioned(getDescription(conceptOnParent, "Pizza"), 20210812);
+		assertVersioned(getDescription(conceptOnParent, "Pizza pie"), 20210812);
+		assertVersioned(getMember(members), 20210812);
+
+		// On child branch, change Acceptability of Pizza pie
+		branchService.create(childBranch);
+		Concept conceptOnChild = conceptService.find(conceptId, childBranch);
+		pizzaPie = getDescription(conceptOnChild, "Pizza pie");
+		pizzaPie.addLanguageRefsetMember(US_EN_LANG_REFSET, ACCEPTABLE);
+		conceptService.update(conceptOnChild, childBranch);
+		members = memberService.findMembers(childBranch, new MemberSearchRequest().referencedComponentId(pizzaPie.getId()).referenceSet(US_EN_LANG_REFSET), PageRequest.of(0, 10));
+		assertVersionedButChanged(getMember(members), 20210812); // This will be 20210813 in parent version post re-versioning
+
+		// On parent branch, inactivate Pizza pie
+		conceptOnParent = conceptService.find(conceptId, parentBranch);
+		pizzaPie = getDescription(conceptOnParent, "Pizza pie");
+		inactive(pizzaPie, "OUTDATED", null, null);
+		conceptService.update(conceptOnParent, parentBranch);
+
+		// On parent branch, version Concept again (task branch is now behind a version)
+		codeSystemService.createVersion(codeSystem, 20210813, "20210813");
+		conceptOnParent = conceptService.find(conceptId, parentBranch);
+		members = memberService.findMembers(parentBranch, new MemberSearchRequest().referencedComponentId(pizzaPie.getId()).referenceSet(US_EN_LANG_REFSET), PageRequest.of(0, 10));
+		assertVersioned(conceptOnParent, 20210812); // Not changed
+		assertVersioned(getDescription(conceptOnParent, "Pizza (food)"), 20210812); // Not changed
+		assertVersioned(getDescription(conceptOnParent, "Pizza"), 20210812); // Not changed
+		assertVersioned(getDescription(conceptOnParent, "Pizza pie"), 20210813); // Changed as inactivated
+		assertFalse(getDescription(conceptOnParent, "Pizza pie").isActive());
+		assertVersioned(getMember(members), 20210813); // Changed as inactivated
+		assertFalse(getMember(members).isActive());
+
+		// Rebase
+		MergeReview review = getMergeReviewInCurrentState(parentBranch, childBranch);
+		// AP calls this endpoint to check for conflicts
+		assertEquals(0, reviewService.getMergeReviewConflictingConcepts(review.getId(), new ArrayList<>()).size());
+
+		// Finalise rebase
+		reviewService.applyMergeReview(review);
+		members = memberService.findMembers(childBranch, new MemberSearchRequest().referencedComponentId(pizzaPie.getId()).referenceSet(US_EN_LANG_REFSET), PageRequest.of(0, 10));
+		assertVersioned(getMember(members), 20210813); // Overwritten child's version.
+		assertFalse(getMember(members).isActive());
+	}
+
+	@Test
+	void testAutoMergeWhenAxiomDeletedSomewhereAndVersionedElsewhere() throws ServiceException, InterruptedException {
+		String codeSystemShortName = "SNOMEDCT-TEST";
+		String parentBranch = "MAIN/TEST";
+		String childBranch = "MAIN/TEST/TEST-1";
+
+		// Create Concept on CodeSystem
+		CodeSystem codeSystem = codeSystemService.createCodeSystem(new CodeSystem(codeSystemShortName, parentBranch));
+		Map<String, String> acceptabilityMap = Collections.singletonMap(US_EN_LANG_REFSET, descriptionAcceptabilityNames.get(ACCEPTABLE));
+		Description pizzaFood = new Description("Pizza (food)").setTypeId(FSN).setCaseSignificance("CASE_INSENSITIVE").setAcceptabilityMap(acceptabilityMap);
+		Description pizza = new Description("Pizza").setTypeId(SYNONYM).setCaseSignificance("CASE_INSENSITIVE").setAcceptabilityMap(acceptabilityMap);
+		Relationship isA = new Relationship(ISA, SNOMEDCT_ROOT);
+		Concept conceptOnParent = conceptService.create(new Concept().addDescription(pizzaFood).addDescription(pizza).addAxiom(isA), parentBranch);
+		String conceptId = conceptOnParent.getId();
+
+		// On child branch, delete Axiom
+		branchService.create(childBranch);
+		Concept conceptOnChild = conceptService.find(conceptId, childBranch);
+		String axiomId = conceptOnChild.getClassAxioms().iterator().next().getAxiomId();
+		assertNotNull(memberService.findMember(childBranch, axiomId));
+		memberService.deleteMember(childBranch, axiomId);
+		assertNull(memberService.findMember(childBranch, axiomId));
+
+		// On child branch, add new Axiom
+		conceptOnChild = conceptService.find(conceptId, childBranch);
+		assertEquals(0, getAxioms(conceptOnChild, false).size());
+		conceptOnChild.addAxiom(new Relationship(ISA, HEART_STRUCTURE));
+		conceptService.update(conceptOnChild, childBranch);
+		conceptOnChild = conceptService.find(conceptId, childBranch);
+		assertEquals(1, getAxioms(conceptOnChild, false).size());
+
+		// On parent branch, version new Concept
+		codeSystemService.createVersion(codeSystem, 20210812, "20210812");
+		conceptOnParent = conceptService.find(conceptId, parentBranch);
+		assertVersioned(conceptOnParent, 20210812);
+		assertVersioned(getAxioms(conceptOnParent, true), 20210812);
+
+		// Rebase
+		MergeReview review = getMergeReviewInCurrentState(parentBranch, childBranch);
+		// AP calls this endpoint to check for conflicts
+		assertEquals(1, reviewService.getMergeReviewConflictingConcepts(review.getId(), new ArrayList<>()).size());
+
+		// User selects the RHS (i.e. the one without versioned content)
+		reviewService.persistManuallyMergedConcept(review, Long.parseLong(conceptId), conceptOnChild);
+
+		// Finalise rebase
+		reviewService.applyMergeReview(review);
+
+		// Expected state of child branch
+		conceptOnChild = conceptService.find(conceptId, childBranch);
+		assertEquals(conceptOnParent, conceptOnChild);
+		assertEquals(conceptOnParent.getReleaseHash(), conceptOnChild.getReleaseHash());
+		assertVersioned(conceptOnChild, 20210812);
+		assertVersioned(getAxioms(conceptOnParent, true), 20210812);
+		assertNotVersioned(getAxioms(conceptOnParent, false));
+	}
+
+	@Test
+	void testAutoMergeWhenMemberDeletedSomewhereAndVersionedElsewhere() throws ServiceException, InterruptedException {
+		String codeSystemShortName = "SNOMEDCT-TEST";
+		String parentBranch = "MAIN/TEST";
+		String childBranch = "MAIN/TEST/TEST-1";
+
+		// Create Concept on CodeSystem
+		CodeSystem codeSystem = codeSystemService.createCodeSystem(new CodeSystem(codeSystemShortName, parentBranch));
+		Map<String, String> acceptabilityMap = Collections.singletonMap(US_EN_LANG_REFSET, descriptionAcceptabilityNames.get(ACCEPTABLE));
+		Description pizzaFood = new Description("Pizza (food)").setTypeId(FSN).setCaseSignificance("CASE_INSENSITIVE").setAcceptabilityMap(acceptabilityMap);
+		Description pizza = new Description("Pizza").setTypeId(SYNONYM).setCaseSignificance("CASE_INSENSITIVE").setAcceptabilityMap(acceptabilityMap);
+		Relationship isA = new Relationship(ISA, SNOMEDCT_ROOT);
+		Concept conceptOnParent = conceptService.create(new Concept().addDescription(pizzaFood).addDescription(pizza).addAxiom(isA), parentBranch);
+		String conceptId = conceptOnParent.getId();
+
+		// Add Concept to reference set
+		pizza = getDescription(conceptOnParent, "Pizza");
+		ReferenceSetMember referenceSetMember = new ReferenceSetMember(UUID.randomUUID().toString(), null, true, CORE_MODULE, GB_EN_LANG_REFSET, pizza.getId());
+		memberService.createMembers(parentBranch, Set.of(referenceSetMember));
+		Page<ReferenceSetMember> members = memberService.findMembers(parentBranch, new MemberSearchRequest().referencedComponentId(pizza.getId()).referenceSet(GB_EN_LANG_REFSET), PageRequest.of(0, 10));
+		assertEquals(1, members.getContent().size());
+
+		// On child branch, remove Concept from reference set
+		branchService.create(childBranch);
+		members = memberService.findMembers(childBranch, new MemberSearchRequest().referencedComponentId(pizza.getId()).referenceSet(GB_EN_LANG_REFSET), PageRequest.of(0, 10));
+		assertEquals(1, members.getContent().size());
+		memberService.deleteMember(childBranch, referenceSetMember.getId());
+		members = memberService.findMembers(childBranch, new MemberSearchRequest().referencedComponentId(pizza.getId()).referenceSet(GB_EN_LANG_REFSET), PageRequest.of(0, 10));
+		assertEquals(0, members.getContent().size());
+
+		// On parent branch, version new Concept
+		codeSystemService.createVersion(codeSystem, 20210812, "20210812");
+		conceptOnParent = conceptService.find(conceptId, parentBranch);
+		assertVersioned(conceptOnParent, 20210812);
+		assertVersioned(getAxioms(conceptOnParent, true), 20210812);
+		referenceSetMember = memberService.findMember(parentBranch, referenceSetMember.getId());
+		members = memberService.findMembers(parentBranch, new MemberSearchRequest().referencedComponentId(pizza.getId()).referenceSet(GB_EN_LANG_REFSET), PageRequest.of(0, 10));
+		assertEquals(1, members.getContent().size());
+		assertVersioned(referenceSetMember, 20210812);
+
+		// Rebase
+		MergeReview review = getMergeReviewInCurrentState(parentBranch, childBranch);
+		// AP calls this endpoint to check for conflicts
+		assertEquals(0, reviewService.getMergeReviewConflictingConcepts(review.getId(), new ArrayList<>()).size());
+
+		// Finalise rebase
+		reviewService.applyMergeReview(review);
+
+		// Expected state of child branch
+		referenceSetMember = memberService.findMember(childBranch, referenceSetMember.getId());
+		members = memberService.findMembers(childBranch, new MemberSearchRequest().referencedComponentId(pizza.getId()).referenceSet(GB_EN_LANG_REFSET), PageRequest.of(0, 10));
+		assertEquals(1, members.getContent().size());
+		assertVersioned(referenceSetMember, 20210812);
+	}
+
+	/*
+	 * The Extension upgrades to the latest version of International. After doing the upgrade, the Extension's task then
+	 * does a rebase, which results in no conflicts as the task has no authoring changes. The latest and greatest components
+	 * are present on the task.
+	 * */
+	@Test
+	void testUpgradeExtensionWhenExtensionTaskHasNoAuthoringChanges() throws ServiceException, InterruptedException {
+		String intMain = "MAIN";
+		String extMain = "MAIN/SNOMEDCT-TEST";
+		Map<String, String> intPreferred = Map.of(US_EN_LANG_REFSET, descriptionAcceptabilityNames.get(PREFERRED), GB_EN_LANG_REFSET, descriptionAcceptabilityNames.get(PREFERRED));
+		Map<String, String> intAcceptable = Map.of(US_EN_LANG_REFSET, descriptionAcceptabilityNames.get(PREFERRED), GB_EN_LANG_REFSET, descriptionAcceptabilityNames.get(ACCEPTABLE));
+		String ci = "CASE_INSENSITIVE";
+		Concept concept;
+		Description description;
+		CodeSystem codeSystem;
+
+		// 1. Create International Concept
+		concept = new Concept()
+				.addDescription(new Description("Cinnamon bun (food)").setTypeId(FSN).setCaseSignificance(ci).setAcceptabilityMap(intPreferred))
+				.addDescription(new Description("Cinnamon bun").setTypeId(SYNONYM).setCaseSignificance(ci).setAcceptabilityMap(intPreferred))
+				.addDescription(new Description("Cinnamon roll").setTypeId(SYNONYM).setCaseSignificance(ci).setAcceptabilityMap(intAcceptable))
+				.addAxiom(new Relationship(ISA, SNOMEDCT_ROOT));
+		concept = conceptService.create(concept, intMain);
+		String cinnamonId = concept.getConceptId();
+
+		// 2. Version International
+		codeSystem = codeSystemService.find("SNOMEDCT");
+		codeSystemService.createVersion(codeSystem, 20220131, "20220131");
+
+		// 3. Create Extension
+		codeSystem = codeSystemService.createCodeSystem(new CodeSystem("SNOMEDCT-TEST", extMain));
+		concept = conceptService.create(
+				new Concept()
+						.addDescription(new Description("Extension maintained module").setTypeId(FSN).setCaseSignificance(ci).setAcceptabilityMap(intPreferred))
+						.addDescription(new Description("Extension maintained").setTypeId(SYNONYM).setCaseSignificance(ci).setAcceptabilityMap(intPreferred))
+						.addDescription(new Description("Extension nrc").setTypeId(SYNONYM).setCaseSignificance(ci).setAcceptabilityMap(intAcceptable))
+						.addAxiom(new Relationship(ISA, MODULE)),
+				extMain
+		);
+		branchService.updateMetadata(extMain, Map.of(Config.DEFAULT_MODULE_ID_KEY, concept.getConceptId()));
+
+		// 4. Create Extension task (with no authoring changes)
+		String extTask = "MAIN/SNOMEDCT-TEST/projectA";
+		branchService.create(extTask);
+
+		// 5. Update International Concept
+		concept = conceptService.find(cinnamonId, intMain);
+		concept.setModuleId(MODEL_MODULE);
+		concept.addDescription(new Description("Cinnamon swirl").setTypeId(SYNONYM).setCaseSignificance(ci).setAcceptabilityMap(intPreferred));
+		conceptService.update(concept, intMain);
+
+		// 6. Version International (again)
+		codeSystem = codeSystemService.find("SNOMEDCT");
+		codeSystemService.createVersion(codeSystem, 20220228, "20220228");
+
+		// 7. Upgrade Extension
+		codeSystem = codeSystemService.find("SNOMEDCT-TEST");
+		codeSystemUpgradeService.upgrade(codeSystem, 20220228, false);
+
+		// 8. Rebase Extension task
+		MergeReview review = getMergeReviewInCurrentState(extMain, extTask);
+		Collection<MergeReviewConceptVersions> conflicts = reviewService.getMergeReviewConflictingConcepts(review.getId(), new ArrayList<>());
+		assertEquals(0, conflicts.size()); // Extension hasn't made an authoring change
+		reviewService.applyMergeReview(review);
+
+		// 9. Assert state of task
+		concept = conceptService.find(cinnamonId, extTask);
+		assertEquals(20220228, concept.getReleasedEffectiveTime());
+		assertEquals(20220228, concept.getEffectiveTimeI());
+		assertEquals(MODEL_MODULE, concept.getModuleId());
+		assertTrue(concept.isReleased());
+		assertTrue(concept.isActive());
+
+		description = getDescription(concept, "Cinnamon bun (food)");
+		assertEquals(20220131, description.getReleasedEffectiveTime());
+		assertEquals(20220131, description.getEffectiveTimeI());
+		assertTrue(description.isReleased());
+		assertTrue(description.isActive());
+
+		description = getDescription(concept, "Cinnamon bun");
+		assertEquals(20220131, description.getReleasedEffectiveTime());
+		assertEquals(20220131, description.getEffectiveTimeI());
+		assertTrue(description.isReleased());
+		assertTrue(description.isActive());
+
+		description = getDescription(concept, "Cinnamon roll");
+		assertEquals(20220131, description.getReleasedEffectiveTime());
+		assertEquals(20220131, description.getEffectiveTimeI());
+		assertTrue(description.isReleased());
+		assertTrue(description.isActive());
+
+		description = getDescription(concept, "Cinnamon swirl");
+		assertEquals(20220228, description.getReleasedEffectiveTime());
+		assertEquals(20220228, description.getEffectiveTimeI());
+		assertTrue(description.isReleased());
+		assertTrue(description.isActive());
+	}
+
+	/*
+	 * The Extension upgrades to the latest version of International. After doing the upgrade, the Extension's task then
+	 * does a rebase, which results in a conflict as there are authoring changes. The user selects the RHS of the merge window.
+	 * The latest and greatest International components are present on the task, as well as the working-in-progress Extension
+	 * components. In this particular scenario, the middle & right columns of the merge screen are identical.
+	 * */
+	@Test
+	void testUpgradeExtensionWhenExtensionHasAuthoringChangesAndUserSelectsRHS() throws ServiceException, InterruptedException {
+		String intMain = "MAIN";
+		String extMain = "MAIN/SNOMEDCT-TEST";
+		Map<String, String> intPreferred = Map.of(US_EN_LANG_REFSET, descriptionAcceptabilityNames.get(PREFERRED), GB_EN_LANG_REFSET, descriptionAcceptabilityNames.get(PREFERRED));
+		Map<String, String> intAcceptable = Map.of(US_EN_LANG_REFSET, descriptionAcceptabilityNames.get(PREFERRED), GB_EN_LANG_REFSET, descriptionAcceptabilityNames.get(ACCEPTABLE));
+		String ci = "CASE_INSENSITIVE";
+		Concept concept;
+		Description description;
+		CodeSystem codeSystem;
+
+		// 1. Create International Concept
+		concept = new Concept()
+				.addDescription(new Description("Cinnamon bun (food)").setTypeId(FSN).setCaseSignificance(ci).setAcceptabilityMap(intPreferred))
+				.addDescription(new Description("Cinnamon bun").setTypeId(SYNONYM).setCaseSignificance(ci).setAcceptabilityMap(intPreferred))
+				.addDescription(new Description("Cinnamon roll").setTypeId(SYNONYM).setCaseSignificance(ci).setAcceptabilityMap(intAcceptable))
+				.addAxiom(new Relationship(ISA, SNOMEDCT_ROOT));
+		concept = conceptService.create(concept, intMain);
+		String cinnamonId = concept.getConceptId();
+
+		// 2. Version International
+		codeSystem = codeSystemService.find("SNOMEDCT");
+		codeSystemService.createVersion(codeSystem, 20220131, "20220131");
+
+		// 3. Create Extension
+		codeSystem = codeSystemService.createCodeSystem(new CodeSystem("SNOMEDCT-TEST", extMain));
+		concept = conceptService.create(
+				new Concept()
+						.addDescription(new Description("Extension maintained module").setTypeId(FSN).setCaseSignificance(ci).setAcceptabilityMap(intPreferred))
+						.addDescription(new Description("Extension maintained").setTypeId(SYNONYM).setCaseSignificance(ci).setAcceptabilityMap(intPreferred))
+						.addDescription(new Description("Extension nrc").setTypeId(SYNONYM).setCaseSignificance(ci).setAcceptabilityMap(intAcceptable))
+						.addAxiom(new Relationship(ISA, MODULE)),
+				extMain
+		);
+		String extModule = concept.getConceptId();
+		branchService.updateMetadata(extMain, Map.of(Config.DEFAULT_MODULE_ID_KEY, extModule));
+
+		// 4. Create Extension task (with authoring changes)
+		String extTask = "MAIN/SNOMEDCT-TEST/projectA";
+		branchService.create(extTask);
+		concept = conceptService.find(cinnamonId, extTask);
+		concept.addDescription(new Description("Kanelbulle").setTypeId(SYNONYM).setCaseSignificance(ci).setAcceptabilityMap(intAcceptable));
+		conceptService.update(concept, extTask);
+
+		// 5. Update International Concept
+		concept = conceptService.find(cinnamonId, intMain);
+		concept.setModuleId(MODEL_MODULE);
+		concept.addDescription(new Description("Cinnamon swirl").setTypeId(SYNONYM).setCaseSignificance(ci).setAcceptabilityMap(intPreferred));
+		conceptService.update(concept, intMain);
+
+		// 6. Version International (again)
+		codeSystem = codeSystemService.find("SNOMEDCT");
+		codeSystemService.createVersion(codeSystem, 20220228, "20220228");
+
+		// 7. Upgrade Extension
+		codeSystem = codeSystemService.find("SNOMEDCT-TEST");
+		codeSystemUpgradeService.upgrade(codeSystem, 20220228, false);
+
+		// 8. Rebase Extension task
+		MergeReview review = getMergeReviewInCurrentState(extMain, extTask);
+		Collection<MergeReviewConceptVersions> conflicts = reviewService.getMergeReviewConflictingConcepts(review.getId(), new ArrayList<>());
+		assertEquals(1, conflicts.size()); // Extension has made an authoring change to the same overall component which results in conflict
+
+		// 9. User selects right column (International components have been upgraded)
+		for (MergeReviewConceptVersions conflict : conflicts) {
+			Concept autoMergedConcept = conflict.getAutoMergedConcept();
+			Concept targetConcept = conflict.getTargetConcept();
+
+			// 9.a For this scenario, both middle & right columns should have the same data
+			assertEquals(autoMergedConcept.getConceptId(), targetConcept.getConceptId());
+			assertEquals(autoMergedConcept.getReleasedEffectiveTime(), targetConcept.getReleasedEffectiveTime());
+			assertEquals(autoMergedConcept.getEffectiveTimeI(), targetConcept.getEffectiveTimeI());
+			assertEquals(autoMergedConcept.getModuleId(), targetConcept.getModuleId());
+			assertEquals(autoMergedConcept.isReleased(), targetConcept.isReleased());
+			assertEquals(autoMergedConcept.isActive(), targetConcept.isActive());
+			assertEquals(autoMergedConcept.getDescriptions().size(), targetConcept.getDescriptions().size());
+			assertEquals(autoMergedConcept.getRelationships().size(), targetConcept.getRelationships().size());
+			assertEquals(autoMergedConcept.getAllOwlAxiomMembers().size(), targetConcept.getAllOwlAxiomMembers().size());
+
+			reviewService.persistManuallyMergedConcept(review, Long.parseLong(cinnamonId), targetConcept);
+		}
+
+		reviewService.applyMergeReview(review);
+
+		// 10. Assert state of task
+		concept = conceptService.find(cinnamonId, extTask);
+
+		assertEquals(20220228, concept.getReleasedEffectiveTime());
+		assertEquals(20220228, concept.getEffectiveTimeI());
+		assertEquals(MODEL_MODULE, concept.getModuleId());
+		assertTrue(concept.isReleased());
+		assertTrue(concept.isActive());
+
+		description = getDescription(concept, "Cinnamon bun (food)");
+		assertEquals(20220131, description.getReleasedEffectiveTime());
+		assertEquals(20220131, description.getEffectiveTimeI());
+		assertTrue(description.isReleased());
+		assertTrue(description.isActive());
+
+		description = getDescription(concept, "Cinnamon bun");
+		assertEquals(20220131, description.getReleasedEffectiveTime());
+		assertEquals(20220131, description.getEffectiveTimeI());
+		assertTrue(description.isReleased());
+		assertTrue(description.isActive());
+
+		description = getDescription(concept, "Cinnamon roll");
+		assertEquals(20220131, description.getReleasedEffectiveTime());
+		assertEquals(20220131, description.getEffectiveTimeI());
+		assertTrue(description.isReleased());
+		assertTrue(description.isActive());
+
+		description = getDescription(concept, "Cinnamon swirl");
+		assertEquals(20220228, description.getReleasedEffectiveTime());
+		assertEquals(20220228, description.getEffectiveTimeI());
+		assertTrue(description.isReleased());
+		assertTrue(description.isActive());
+
+		description = getDescription(concept, "Kanelbulle");
+		assertNull(description.getEffectiveTimeI());
+		assertNull(description.getReleasedEffectiveTime());
+		assertEquals(extModule, description.getModuleId());
+		assertFalse(description.isReleased());
+		assertTrue(description.isActive());
+	}
+
+	/*
+	 * The Extension upgrades to the latest version of International. After doing the upgrade, the Extension's task then
+	 * does a rebase, which results in a conflict as there are authoring changes. In between the Extension upgrading and
+	 * the task rebasing, someone has sneakily promoted an authoring change to the CodeSystem. The user selects the RHS of
+	 * the merge window. The latest and greatest International components are present on the task, as well as the working-in-progress
+	 * Extension TASK components. The components sneakily promoted to the CodeSystem are rejected during the merge. In this
+	 * particular scenario, the middle column contains an additional, unpublished Description.
+	 * */
+	@Test
+	void testUpgradeExtensionWhenExtensionProjectAndTaskBothHaveAuthoringChangesAndUserSelectsRHS() throws ServiceException, InterruptedException {
+		String intMain = "MAIN";
+		String extMain = "MAIN/SNOMEDCT-TEST";
+		Map<String, String> intPreferred = Map.of(US_EN_LANG_REFSET, descriptionAcceptabilityNames.get(PREFERRED), GB_EN_LANG_REFSET, descriptionAcceptabilityNames.get(PREFERRED));
+		Map<String, String> intAcceptable = Map.of(US_EN_LANG_REFSET, descriptionAcceptabilityNames.get(PREFERRED), GB_EN_LANG_REFSET, descriptionAcceptabilityNames.get(ACCEPTABLE));
+		String ci = "CASE_INSENSITIVE";
+		Concept concept;
+		Description description;
+		CodeSystem codeSystem;
+
+		// 1. Create International Concept
+		concept = new Concept()
+				.addDescription(new Description("Cinnamon bun (food)").setTypeId(FSN).setCaseSignificance(ci).setAcceptabilityMap(intPreferred))
+				.addDescription(new Description("Cinnamon bun").setTypeId(SYNONYM).setCaseSignificance(ci).setAcceptabilityMap(intPreferred))
+				.addDescription(new Description("Cinnamon roll").setTypeId(SYNONYM).setCaseSignificance(ci).setAcceptabilityMap(intAcceptable))
+				.addAxiom(new Relationship(ISA, SNOMEDCT_ROOT));
+		concept = conceptService.create(concept, intMain);
+		String cinnamonId = concept.getConceptId();
+
+		// 2. Version International
+		codeSystem = codeSystemService.find("SNOMEDCT");
+		codeSystemService.createVersion(codeSystem, 20220131, "20220131");
+
+		// 3. Create Extension
+		codeSystem = codeSystemService.createCodeSystem(new CodeSystem("SNOMEDCT-TEST", extMain));
+		concept = conceptService.create(
+				new Concept()
+						.addDescription(new Description("Extension maintained module").setTypeId(FSN).setCaseSignificance(ci).setAcceptabilityMap(intPreferred))
+						.addDescription(new Description("Extension maintained").setTypeId(SYNONYM).setCaseSignificance(ci).setAcceptabilityMap(intPreferred))
+						.addDescription(new Description("Extension nrc").setTypeId(SYNONYM).setCaseSignificance(ci).setAcceptabilityMap(intAcceptable))
+						.addAxiom(new Relationship(ISA, MODULE)),
+				extMain
+		);
+		String extModule = concept.getConceptId();
+		branchService.updateMetadata(extMain, Map.of(Config.DEFAULT_MODULE_ID_KEY, extModule));
+
+		// 4. Create Extension task (with authoring changes)
+		String extTask = "MAIN/SNOMEDCT-TEST/projectA";
+		branchService.create(extTask);
+		concept = conceptService.find(cinnamonId, extTask);
+		concept.addDescription(new Description("Kanelbulle").setTypeId(SYNONYM).setCaseSignificance(ci).setAcceptabilityMap(intAcceptable));
+		conceptService.update(concept, extTask);
+
+		// 5. Update International Concept
+		concept = conceptService.find(cinnamonId, intMain);
+		concept.setModuleId(MODEL_MODULE);
+		concept.addDescription(new Description("Cinnamon swirl").setTypeId(SYNONYM).setCaseSignificance(ci).setAcceptabilityMap(intPreferred));
+		conceptService.update(concept, intMain);
+
+		// 6. Version International (again)
+		codeSystem = codeSystemService.find("SNOMEDCT");
+		codeSystemService.createVersion(codeSystem, 20220228, "20220228");
+
+		// 7. Upgrade Extension
+		codeSystem = codeSystemService.find("SNOMEDCT-TEST");
+		codeSystemUpgradeService.upgrade(codeSystem, 20220228, false);
+
+		// 8. Someone sneaks in an authoring change to the CodeSystem
+		concept = conceptService.find(cinnamonId, extMain);
+		concept.addDescription(new Description("Kanelbullar").setTypeId(SYNONYM).setCaseSignificance(ci).setAcceptabilityMap(intPreferred));
+		conceptService.update(concept, extMain);
+
+		// 9. Rebase Extension task
+		MergeReview review = getMergeReviewInCurrentState(extMain, extTask);
+		Collection<MergeReviewConceptVersions> conflicts = reviewService.getMergeReviewConflictingConcepts(review.getId(), new ArrayList<>());
+		assertEquals(1, conflicts.size()); // Extension has made an authoring change to the same overall component which results in conflict
+
+		// 10. User selects right column (International components have been upgraded)
+		for (MergeReviewConceptVersions conflict : conflicts) {
+			Concept autoMergedConcept = conflict.getAutoMergedConcept();
+			Concept targetConcept = conflict.getTargetConcept();
+
+			// 10.a For this scenario, both middle & right columns should have the same data
+			assertEquals(autoMergedConcept.getConceptId(), targetConcept.getConceptId());
+			assertEquals(autoMergedConcept.getReleasedEffectiveTime(), targetConcept.getReleasedEffectiveTime());
+			assertEquals(autoMergedConcept.getEffectiveTimeI(), targetConcept.getEffectiveTimeI());
+			assertEquals(autoMergedConcept.getModuleId(), targetConcept.getModuleId());
+			assertEquals(autoMergedConcept.isReleased(), targetConcept.isReleased());
+			assertEquals(autoMergedConcept.isActive(), targetConcept.isActive());
+			assertEquals(autoMergedConcept.getDescriptions().size(), targetConcept.getDescriptions().size() + 1); // CodeSystem has the "sneaky" authoring change
+			assertEquals(autoMergedConcept.getRelationships().size(), targetConcept.getRelationships().size());
+			assertEquals(autoMergedConcept.getAllOwlAxiomMembers().size(), targetConcept.getAllOwlAxiomMembers().size());
+
+			reviewService.persistManuallyMergedConcept(review, Long.parseLong(cinnamonId), targetConcept);
+		}
+
+		reviewService.applyMergeReview(review);
+
+		// 11. Assert state of task
+		concept = conceptService.find(cinnamonId, extTask);
+
+		assertEquals(20220228, concept.getReleasedEffectiveTime());
+		assertEquals(20220228, concept.getEffectiveTimeI());
+		assertEquals(MODEL_MODULE, concept.getModuleId());
+		assertTrue(concept.isReleased());
+		assertTrue(concept.isActive());
+
+		description = getDescription(concept, "Cinnamon bun (food)");
+		assertEquals(20220131, description.getReleasedEffectiveTime());
+		assertEquals(20220131, description.getEffectiveTimeI());
+		assertTrue(description.isReleased());
+		assertTrue(description.isActive());
+
+		description = getDescription(concept, "Cinnamon bun");
+		assertEquals(20220131, description.getReleasedEffectiveTime());
+		assertEquals(20220131, description.getEffectiveTimeI());
+		assertTrue(description.isReleased());
+		assertTrue(description.isActive());
+
+		description = getDescription(concept, "Cinnamon roll");
+		assertEquals(20220131, description.getReleasedEffectiveTime());
+		assertEquals(20220131, description.getEffectiveTimeI());
+		assertTrue(description.isReleased());
+		assertTrue(description.isActive());
+
+		description = getDescription(concept, "Cinnamon swirl");
+		assertEquals(20220228, description.getReleasedEffectiveTime());
+		assertEquals(20220228, description.getEffectiveTimeI());
+		assertTrue(description.isReleased());
+		assertTrue(description.isActive());
+
+		description = getDescription(concept, "Kanelbulle");
+		assertNull(description.getEffectiveTimeI());
+		assertNull(description.getReleasedEffectiveTime());
+		assertEquals(extModule, description.getModuleId());
+		assertFalse(description.isReleased());
+		assertTrue(description.isActive());
+
+		description = getDescription(concept, "Kanelbullar");
+		assertNull(description);
+	}
+
+	/*
+	 * The Extension upgrades to the latest version of International. After doing the upgrade, the Extension's task then
+	 * does a rebase, which results in a conflict as there are authoring changes. In between the Extension upgrading and
+	 * the task rebasing, someone has sneakily promoted an authoring change to the CodeSystem. The user selects the Middle of
+	 * the merge window. The latest and greatest International components are present on the task, as well as the working-in-progress
+	 * Extension TASK and PROJECT components. In this particular scenario, the middle column contains an additional, unpublished Description.
+	 * */
+	@Test
+	void testUpgradeExtensionWhenExtensionProjectAndTaskBothHaveAuthoringChangesAndUserSelectsMiddle() throws ServiceException, InterruptedException {
+		String intMain = "MAIN";
+		String extMain = "MAIN/SNOMEDCT-TEST";
+		Map<String, String> intPreferred = Map.of(US_EN_LANG_REFSET, descriptionAcceptabilityNames.get(PREFERRED), GB_EN_LANG_REFSET, descriptionAcceptabilityNames.get(PREFERRED));
+		Map<String, String> intAcceptable = Map.of(US_EN_LANG_REFSET, descriptionAcceptabilityNames.get(PREFERRED), GB_EN_LANG_REFSET, descriptionAcceptabilityNames.get(ACCEPTABLE));
+		String ci = "CASE_INSENSITIVE";
+		Concept concept;
+		Description description;
+		CodeSystem codeSystem;
+
+		// 1. Create International Concept
+		concept = new Concept()
+				.addDescription(new Description("Cinnamon bun (food)").setTypeId(FSN).setCaseSignificance(ci).setAcceptabilityMap(intPreferred))
+				.addDescription(new Description("Cinnamon bun").setTypeId(SYNONYM).setCaseSignificance(ci).setAcceptabilityMap(intPreferred))
+				.addDescription(new Description("Cinnamon roll").setTypeId(SYNONYM).setCaseSignificance(ci).setAcceptabilityMap(intAcceptable))
+				.addAxiom(new Relationship(ISA, SNOMEDCT_ROOT));
+		concept = conceptService.create(concept, intMain);
+		String cinnamonId = concept.getConceptId();
+
+		// 2. Version International
+		codeSystem = codeSystemService.find("SNOMEDCT");
+		codeSystemService.createVersion(codeSystem, 20220131, "20220131");
+
+		// 3. Create Extension
+		codeSystem = codeSystemService.createCodeSystem(new CodeSystem("SNOMEDCT-TEST", extMain));
+		concept = conceptService.create(
+				new Concept()
+						.addDescription(new Description("Extension maintained module").setTypeId(FSN).setCaseSignificance(ci).setAcceptabilityMap(intPreferred))
+						.addDescription(new Description("Extension maintained").setTypeId(SYNONYM).setCaseSignificance(ci).setAcceptabilityMap(intPreferred))
+						.addDescription(new Description("Extension nrc").setTypeId(SYNONYM).setCaseSignificance(ci).setAcceptabilityMap(intAcceptable))
+						.addAxiom(new Relationship(ISA, MODULE)),
+				extMain
+		);
+		String extModule = concept.getConceptId();
+		branchService.updateMetadata(extMain, Map.of(Config.DEFAULT_MODULE_ID_KEY, extModule));
+
+		// 4. Create Extension task (with authoring changes)
+		String extTask = "MAIN/SNOMEDCT-TEST/projectA";
+		branchService.create(extTask);
+		concept = conceptService.find(cinnamonId, extTask);
+		concept.addDescription(new Description("Kanelbulle").setTypeId(SYNONYM).setCaseSignificance(ci).setAcceptabilityMap(intAcceptable));
+		conceptService.update(concept, extTask);
+
+		// 5. Update International Concept
+		concept = conceptService.find(cinnamonId, intMain);
+		concept.setModuleId(MODEL_MODULE);
+		concept.addDescription(new Description("Cinnamon swirl").setTypeId(SYNONYM).setCaseSignificance(ci).setAcceptabilityMap(intPreferred));
+		conceptService.update(concept, intMain);
+
+		// 6. Version International (again)
+		codeSystem = codeSystemService.find("SNOMEDCT");
+		codeSystemService.createVersion(codeSystem, 20220228, "20220228");
+
+		// 7. Upgrade Extension
+		codeSystem = codeSystemService.find("SNOMEDCT-TEST");
+		codeSystemUpgradeService.upgrade(codeSystem, 20220228, false);
+
+		// 8. Someone sneaks in an authoring change to the CodeSystem
+		concept = conceptService.find(cinnamonId, extMain);
+		concept.addDescription(new Description("Kanelbullar").setTypeId(SYNONYM).setCaseSignificance(ci).setAcceptabilityMap(intPreferred));
+		conceptService.update(concept, extMain);
+
+		// 9. Rebase Extension task
+		MergeReview review = getMergeReviewInCurrentState(extMain, extTask);
+		Collection<MergeReviewConceptVersions> conflicts = reviewService.getMergeReviewConflictingConcepts(review.getId(), new ArrayList<>());
+		assertEquals(1, conflicts.size()); // Extension has made an authoring change to the same overall component which results in conflict
+
+		// 10. User selects right column (International components have been upgraded)
+		for (MergeReviewConceptVersions conflict : conflicts) {
+			Concept autoMergedConcept = conflict.getAutoMergedConcept();
+			Concept targetConcept = conflict.getTargetConcept();
+
+			// 10.a For this scenario, both middle & right columns should have the same data
+			assertEquals(autoMergedConcept.getConceptId(), targetConcept.getConceptId());
+			assertEquals(autoMergedConcept.getReleasedEffectiveTime(), targetConcept.getReleasedEffectiveTime());
+			assertEquals(autoMergedConcept.getEffectiveTimeI(), targetConcept.getEffectiveTimeI());
+			assertEquals(autoMergedConcept.getModuleId(), targetConcept.getModuleId());
+			assertEquals(autoMergedConcept.isReleased(), targetConcept.isReleased());
+			assertEquals(autoMergedConcept.isActive(), targetConcept.isActive());
+			assertEquals(autoMergedConcept.getDescriptions().size(), targetConcept.getDescriptions().size() + 1); // CodeSystem has the "sneaky" authoring change
+			assertEquals(autoMergedConcept.getRelationships().size(), targetConcept.getRelationships().size());
+			assertEquals(autoMergedConcept.getAllOwlAxiomMembers().size(), targetConcept.getAllOwlAxiomMembers().size());
+
+			reviewService.persistManuallyMergedConcept(review, Long.parseLong(cinnamonId), autoMergedConcept);
+		}
+
+		reviewService.applyMergeReview(review);
+
+		// 11. Assert state of task
+		concept = conceptService.find(cinnamonId, extTask);
+
+		assertEquals(20220228, concept.getReleasedEffectiveTime());
+		assertEquals(20220228, concept.getEffectiveTimeI());
+		assertEquals(MODEL_MODULE, concept.getModuleId());
+		assertTrue(concept.isReleased());
+		assertTrue(concept.isActive());
+
+		description = getDescription(concept, "Cinnamon bun (food)");
+		assertEquals(20220131, description.getReleasedEffectiveTime());
+		assertEquals(20220131, description.getEffectiveTimeI());
+		assertTrue(description.isReleased());
+		assertTrue(description.isActive());
+
+		description = getDescription(concept, "Cinnamon bun");
+		assertEquals(20220131, description.getReleasedEffectiveTime());
+		assertEquals(20220131, description.getEffectiveTimeI());
+		assertTrue(description.isReleased());
+		assertTrue(description.isActive());
+
+		description = getDescription(concept, "Cinnamon roll");
+		assertEquals(20220131, description.getReleasedEffectiveTime());
+		assertEquals(20220131, description.getEffectiveTimeI());
+		assertTrue(description.isReleased());
+		assertTrue(description.isActive());
+
+		description = getDescription(concept, "Cinnamon swirl");
+		assertEquals(20220228, description.getReleasedEffectiveTime());
+		assertEquals(20220228, description.getEffectiveTimeI());
+		assertTrue(description.isReleased());
+		assertTrue(description.isActive());
+
+		description = getDescription(concept, "Kanelbulle");
+		assertNull(description.getEffectiveTimeI());
+		assertNull(description.getReleasedEffectiveTime());
+		assertEquals(extModule, description.getModuleId());
+		assertFalse(description.isReleased());
+		assertTrue(description.isActive());
+
+		description = getDescription(concept, "Kanelbullar");
+		assertNull(description.getEffectiveTimeI());
+		assertNull(description.getReleasedEffectiveTime());
+		assertEquals(extModule, description.getModuleId());
+		assertFalse(description.isReleased());
+		assertTrue(description.isActive());
+	}
+
+	/*
+	 * The Extension upgrades to the latest version of International. After doing the upgrade, two authors change the same component
+	 * which results in a conflict.
+	 * */
+	@Test
+	void testUpgradeExtensionWhenExtensionProjectAndTaskBothHaveAuthoredSameComponentAndUserSelectsRHS() throws ServiceException, InterruptedException {
+		String intMain = "MAIN";
+		String extMain = "MAIN/SNOMEDCT-TEST";
+		Map<String, String> intPreferred = Map.of(US_EN_LANG_REFSET, descriptionAcceptabilityNames.get(PREFERRED), GB_EN_LANG_REFSET, descriptionAcceptabilityNames.get(PREFERRED));
+		Map<String, String> intAcceptable = Map.of(US_EN_LANG_REFSET, descriptionAcceptabilityNames.get(PREFERRED), GB_EN_LANG_REFSET, descriptionAcceptabilityNames.get(ACCEPTABLE));
+		String ci = "CASE_INSENSITIVE";
+		Concept concept;
+		Description description;
+		CodeSystem codeSystem;
+		MergeReview review;
+		Collection<MergeReviewConceptVersions> conflicts;
+
+		// 1. Create International Concept
+		concept = new Concept()
+				.addDescription(new Description("Cinnamon bun (food)").setTypeId(FSN).setCaseSignificance(ci).setAcceptabilityMap(intPreferred))
+				.addDescription(new Description("Cinnamon bun").setTypeId(SYNONYM).setCaseSignificance(ci).setAcceptabilityMap(intPreferred))
+				.addDescription(new Description("Cinnamon roll").setTypeId(SYNONYM).setCaseSignificance(ci).setAcceptabilityMap(intAcceptable))
+				.addAxiom(new Relationship(ISA, SNOMEDCT_ROOT));
+		concept = conceptService.create(concept, intMain);
+		String cinnamonId = concept.getConceptId();
+
+		// 2. Version International
+		codeSystem = codeSystemService.find("SNOMEDCT");
+		codeSystemService.createVersion(codeSystem, 20220131, "20220131");
+
+		// 3. Create Extension
+		codeSystem = codeSystemService.createCodeSystem(new CodeSystem("SNOMEDCT-TEST", extMain));
+		concept = conceptService.create(
+				new Concept()
+						.addDescription(new Description("Extension maintained module").setTypeId(FSN).setCaseSignificance(ci).setAcceptabilityMap(intPreferred))
+						.addDescription(new Description("Extension maintained").setTypeId(SYNONYM).setCaseSignificance(ci).setAcceptabilityMap(intPreferred))
+						.addDescription(new Description("Extension nrc").setTypeId(SYNONYM).setCaseSignificance(ci).setAcceptabilityMap(intAcceptable))
+						.addAxiom(new Relationship(ISA, MODULE)),
+				extMain
+		);
+		String extModule = concept.getConceptId();
+		branchService.updateMetadata(extMain, Map.of(Config.DEFAULT_MODULE_ID_KEY, extModule));
+
+		// 4. Create Extension project
+		String extProject = "MAIN/SNOMEDCT-TEST/projectA";
+		branchService.create(extProject);
+
+		// 5. Create task and promote translation
+		String extTaskA = "MAIN/SNOMEDCT-TEST/projectA/taskA";
+		branchService.create(extTaskA);
+		concept = conceptService.find(cinnamonId, extTaskA);
+		concept.addDescription(new Description("Kanelbulle").setTypeId(FSN).setCaseSignificance(ci).setAcceptabilityMap(intAcceptable));
+		conceptService.update(concept, extTaskA);
+		branchMergeService.mergeBranchSync(extTaskA, extProject, Collections.emptySet());
+
+		// 6. Update International Concept
+		concept = conceptService.find(cinnamonId, intMain);
+		concept.setModuleId(MODEL_MODULE);
+		concept.addDescription(new Description("Cinnamon swirl").setTypeId(SYNONYM).setCaseSignificance(ci).setAcceptabilityMap(intPreferred));
+		conceptService.update(concept, intMain);
+
+		// 7. Version International (again)
+		codeSystem = codeSystemService.find("SNOMEDCT");
+		codeSystemService.createVersion(codeSystem, 20220228, "20220228");
+
+		// 8. Upgrade Extension
+		codeSystem = codeSystemService.find("SNOMEDCT-TEST");
+		codeSystemUpgradeService.upgrade(codeSystem, 20220228, false);
+
+		// 9 Rebase project
+		review = getMergeReviewInCurrentState(extMain, extProject);
+		conflicts = reviewService.getMergeReviewConflictingConcepts(review.getId(), new ArrayList<>());
+		assertEquals(1, conflicts.size()); // Added translation, thus conflict
+		for (MergeReviewConceptVersions conflict : conflicts) {
+			Concept autoMergedConcept = conflict.getAutoMergedConcept();
+			reviewService.persistManuallyMergedConcept(review, Long.parseLong(cinnamonId), autoMergedConcept);
+		}
+
+		reviewService.applyMergeReview(review);
+
+		// 10. Author A re-terms translation
+		String extTaskB = "MAIN/SNOMEDCT-TEST/projectA/taskB";
+		branchService.create(extTaskB);
+		concept = conceptService.find(cinnamonId, extTaskB);
+		getDescription(concept, "Kanelbulle").setTerm("Kanelbulles");
+		conceptService.update(concept, extTaskB);
+
+		// 11. Author B also re-terms translation
+		String extTaskC = "MAIN/SNOMEDCT-TEST/projectA/taskC";
+		branchService.create(extTaskC);
+		concept = conceptService.find(cinnamonId, extTaskC);
+		getDescription(concept, "Kanelbulle").setTerm("Kanelbullar");
+		conceptService.update(concept, extTaskC);
+
+		// 12. Author A promotes re-termed translation
+		branchMergeService.mergeBranchSync(extTaskB, extProject, Collections.emptySet());
+
+		// 13. Author B prepares for promotion by rebasing
+		review = getMergeReviewInCurrentState(extProject, extTaskC);
+		conflicts = reviewService.getMergeReviewConflictingConcepts(review.getId(), new ArrayList<>());
+		assertEquals(1, conflicts.size()); // Both authors have changed the original translation
+
+		// 14. Author B prefers their re-termed translation
+		for (MergeReviewConceptVersions conflict : conflicts) {
+			Concept targetConcept = conflict.getTargetConcept();
+			reviewService.persistManuallyMergedConcept(review, Long.parseLong(cinnamonId), targetConcept);
+		}
+		reviewService.applyMergeReview(review);
+
+		// 15. Assert state of Author B's task
+		concept = conceptService.find(cinnamonId, extTaskC);
+		assertEquals(20220228, concept.getReleasedEffectiveTime());
+		assertEquals(20220228, concept.getEffectiveTimeI());
+		assertEquals(MODEL_MODULE, concept.getModuleId());
+		assertTrue(concept.isReleased());
+		assertTrue(concept.isActive());
+
+		description = getDescription(concept, "Cinnamon bun (food)");
+		assertEquals(20220131, description.getReleasedEffectiveTime());
+		assertEquals(20220131, description.getEffectiveTimeI());
+		assertTrue(description.isReleased());
+		assertTrue(description.isActive());
+
+		description = getDescription(concept, "Cinnamon bun");
+		assertEquals(20220131, description.getReleasedEffectiveTime());
+		assertEquals(20220131, description.getEffectiveTimeI());
+		assertTrue(description.isReleased());
+		assertTrue(description.isActive());
+
+		description = getDescription(concept, "Cinnamon roll");
+		assertEquals(20220131, description.getReleasedEffectiveTime());
+		assertEquals(20220131, description.getEffectiveTimeI());
+		assertTrue(description.isReleased());
+		assertTrue(description.isActive());
+
+		description = getDescription(concept, "Cinnamon swirl");
+		assertEquals(20220228, description.getReleasedEffectiveTime());
+		assertEquals(20220228, description.getEffectiveTimeI());
+		assertTrue(description.isReleased());
+		assertTrue(description.isActive());
+
+		description = getDescription(concept, "Kanelbullar");
+		assertNull(description.getEffectiveTimeI());
+		assertNull(description.getReleasedEffectiveTime());
+		assertEquals(extModule, description.getModuleId());
+		assertFalse(description.isReleased());
+		assertTrue(description.isActive());
+
+		description = getDescription(concept, "Kanelbulles");
+		assertNull(description);
+	}
+
+	/*
+	 * The Extension upgrades to the latest version of International. After doing the upgrade, two authors change the same component
+	 * which results in a conflict.
+	 * */
+	@Test
+	void testUpgradeExtensionWhenExtensionProjectAndTaskBothHaveAuthoredSameComponentAndUserSelectsMiddle() throws ServiceException, InterruptedException {
+		String intMain = "MAIN";
+		String extMain = "MAIN/SNOMEDCT-TEST";
+		Map<String, String> intPreferred = Map.of(US_EN_LANG_REFSET, descriptionAcceptabilityNames.get(PREFERRED), GB_EN_LANG_REFSET, descriptionAcceptabilityNames.get(PREFERRED));
+		Map<String, String> intAcceptable = Map.of(US_EN_LANG_REFSET, descriptionAcceptabilityNames.get(PREFERRED), GB_EN_LANG_REFSET, descriptionAcceptabilityNames.get(ACCEPTABLE));
+		String ci = "CASE_INSENSITIVE";
+		Concept concept;
+		Description description;
+		CodeSystem codeSystem;
+		MergeReview review;
+		Collection<MergeReviewConceptVersions> conflicts;
+
+		// 1. Create International Concept
+		concept = new Concept()
+				.addDescription(new Description("Cinnamon bun (food)").setTypeId(FSN).setCaseSignificance(ci).setAcceptabilityMap(intPreferred))
+				.addDescription(new Description("Cinnamon bun").setTypeId(SYNONYM).setCaseSignificance(ci).setAcceptabilityMap(intPreferred))
+				.addDescription(new Description("Cinnamon roll").setTypeId(SYNONYM).setCaseSignificance(ci).setAcceptabilityMap(intAcceptable))
+				.addAxiom(new Relationship(ISA, SNOMEDCT_ROOT));
+		concept = conceptService.create(concept, intMain);
+		String cinnamonId = concept.getConceptId();
+
+		// 2. Version International
+		codeSystem = codeSystemService.find("SNOMEDCT");
+		codeSystemService.createVersion(codeSystem, 20220131, "20220131");
+
+		// 3. Create Extension
+		codeSystem = codeSystemService.createCodeSystem(new CodeSystem("SNOMEDCT-TEST", extMain));
+		concept = conceptService.create(
+				new Concept()
+						.addDescription(new Description("Extension maintained module").setTypeId(FSN).setCaseSignificance(ci).setAcceptabilityMap(intPreferred))
+						.addDescription(new Description("Extension maintained").setTypeId(SYNONYM).setCaseSignificance(ci).setAcceptabilityMap(intPreferred))
+						.addDescription(new Description("Extension nrc").setTypeId(SYNONYM).setCaseSignificance(ci).setAcceptabilityMap(intAcceptable))
+						.addAxiom(new Relationship(ISA, MODULE)),
+				extMain
+		);
+		String extModule = concept.getConceptId();
+		branchService.updateMetadata(extMain, Map.of(Config.DEFAULT_MODULE_ID_KEY, extModule));
+
+		// 4. Create Extension project
+		String extProject = "MAIN/SNOMEDCT-TEST/projectA";
+		branchService.create(extProject);
+
+		// 5. Create task and promote translation
+		String extTaskA = "MAIN/SNOMEDCT-TEST/projectA/taskA";
+		branchService.create(extTaskA);
+		concept = conceptService.find(cinnamonId, extTaskA);
+		concept.addDescription(new Description("Kanelbulle").setTypeId(FSN).setCaseSignificance(ci).setAcceptabilityMap(intAcceptable));
+		conceptService.update(concept, extTaskA);
+		branchMergeService.mergeBranchSync(extTaskA, extProject, Collections.emptySet());
+
+		// 6. Update International Concept
+		concept = conceptService.find(cinnamonId, intMain);
+		concept.setModuleId(MODEL_MODULE);
+		concept.addDescription(new Description("Cinnamon swirl").setTypeId(SYNONYM).setCaseSignificance(ci).setAcceptabilityMap(intPreferred));
+		conceptService.update(concept, intMain);
+
+		// 7. Version International (again)
+		codeSystem = codeSystemService.find("SNOMEDCT");
+		codeSystemService.createVersion(codeSystem, 20220228, "20220228");
+
+		// 8. Upgrade Extension
+		codeSystem = codeSystemService.find("SNOMEDCT-TEST");
+		codeSystemUpgradeService.upgrade(codeSystem, 20220228, false);
+
+		// 9 Rebase project
+		review = getMergeReviewInCurrentState(extMain, extProject);
+		conflicts = reviewService.getMergeReviewConflictingConcepts(review.getId(), new ArrayList<>());
+		assertEquals(1, conflicts.size()); // Added translation, thus conflict
+		for (MergeReviewConceptVersions conflict : conflicts) {
+			Concept autoMergedConcept = conflict.getAutoMergedConcept();
+			reviewService.persistManuallyMergedConcept(review, Long.parseLong(cinnamonId), autoMergedConcept);
+		}
+
+		reviewService.applyMergeReview(review);
+
+		// 10. Author A re-terms translation
+		String extTaskB = "MAIN/SNOMEDCT-TEST/projectA/taskB";
+		branchService.create(extTaskB);
+		concept = conceptService.find(cinnamonId, extTaskB);
+		getDescription(concept, "Kanelbulle").setTerm("Kanelbulles");
+		conceptService.update(concept, extTaskB);
+
+		// 11. Author B also re-terms translation
+		String extTaskC = "MAIN/SNOMEDCT-TEST/projectA/taskC";
+		branchService.create(extTaskC);
+		concept = conceptService.find(cinnamonId, extTaskC);
+		getDescription(concept, "Kanelbulle").setTerm("Kanelbullar");
+		conceptService.update(concept, extTaskC);
+
+		// 12. Author A promotes re-termed translation
+		branchMergeService.mergeBranchSync(extTaskB, extProject, Collections.emptySet());
+
+		// 13. Author B prepares for promotion by rebasing
+		review = getMergeReviewInCurrentState(extProject, extTaskC);
+		conflicts = reviewService.getMergeReviewConflictingConcepts(review.getId(), new ArrayList<>());
+		assertEquals(1, conflicts.size()); // Both authors have changed the original translation
+
+		// 14. Author B prefers Author A's re-termed translation
+		for (MergeReviewConceptVersions conflict : conflicts) {
+			Concept autoMergedConcept = conflict.getAutoMergedConcept();
+			reviewService.persistManuallyMergedConcept(review, Long.parseLong(cinnamonId), autoMergedConcept);
+		}
+		reviewService.applyMergeReview(review);
+
+		// 15. Assert state of Author B's task
+		concept = conceptService.find(cinnamonId, extTaskC);
+		assertEquals(20220228, concept.getReleasedEffectiveTime());
+		assertEquals(20220228, concept.getEffectiveTimeI());
+		assertEquals(MODEL_MODULE, concept.getModuleId());
+		assertTrue(concept.isReleased());
+		assertTrue(concept.isActive());
+
+		description = getDescription(concept, "Cinnamon bun (food)");
+		assertEquals(20220131, description.getReleasedEffectiveTime());
+		assertEquals(20220131, description.getEffectiveTimeI());
+		assertTrue(description.isReleased());
+		assertTrue(description.isActive());
+
+		description = getDescription(concept, "Cinnamon bun");
+		assertEquals(20220131, description.getReleasedEffectiveTime());
+		assertEquals(20220131, description.getEffectiveTimeI());
+		assertTrue(description.isReleased());
+		assertTrue(description.isActive());
+
+		description = getDescription(concept, "Cinnamon roll");
+		assertEquals(20220131, description.getReleasedEffectiveTime());
+		assertEquals(20220131, description.getEffectiveTimeI());
+		assertTrue(description.isReleased());
+		assertTrue(description.isActive());
+
+		description = getDescription(concept, "Cinnamon swirl");
+		assertEquals(20220228, description.getReleasedEffectiveTime());
+		assertEquals(20220228, description.getEffectiveTimeI());
+		assertTrue(description.isReleased());
+		assertTrue(description.isActive());
+
+		description = getDescription(concept, "Kanelbulles");
+		assertNull(description.getEffectiveTimeI());
+		assertNull(description.getReleasedEffectiveTime());
+		assertEquals(extModule, description.getModuleId());
+		assertFalse(description.isReleased());
+		assertTrue(description.isActive());
+
+		description = getDescription(concept, "Kanelbullar");
+		assertNull(description);
+	}
+
+	/*
+	 * After International publishes a Concept, one author adds a Description, one author changes the module of the Concept.
+	 * */
+	@Test
+	void testChangingComponentAfterPublishingAndUserSelectsRHS() throws ServiceException, InterruptedException {
+		String intMain = "MAIN";
+		Map<String, String> intPreferred = Map.of(US_EN_LANG_REFSET, descriptionAcceptabilityNames.get(PREFERRED), GB_EN_LANG_REFSET, descriptionAcceptabilityNames.get(PREFERRED));
+		Map<String, String> intAcceptable = Map.of(US_EN_LANG_REFSET, descriptionAcceptabilityNames.get(PREFERRED), GB_EN_LANG_REFSET, descriptionAcceptabilityNames.get(ACCEPTABLE));
+		String ci = "CASE_INSENSITIVE";
+		Concept concept;
+		Description description;
+		CodeSystem codeSystem;
+
+		// 1. Create International Concept
+		concept = new Concept()
+				.addDescription(new Description("Cinnamon bun (food)").setTypeId(FSN).setCaseSignificance(ci).setAcceptabilityMap(intPreferred))
+				.addDescription(new Description("Cinnamon bun").setTypeId(SYNONYM).setCaseSignificance(ci).setAcceptabilityMap(intPreferred))
+				.addDescription(new Description("Cinnamon roll").setTypeId(SYNONYM).setCaseSignificance(ci).setAcceptabilityMap(intAcceptable))
+				.addAxiom(new Relationship(ISA, SNOMEDCT_ROOT));
+		concept = conceptService.create(concept, intMain);
+		String cinnamonId = concept.getConceptId();
+
+		// 2. Version International
+		codeSystem = codeSystemService.find("SNOMEDCT");
+		codeSystemService.createVersion(codeSystem, 20220131, "20220131");
+
+		// 3. Create International project
+		String project = "MAIN/projectA";
+		branchService.create("MAIN/projectA");
+
+		// 3. Author A creates task and adds new Description
+		String taskA = "MAIN/projectA/taskA";
+		branchService.create(taskA);
+		concept = conceptService.find(cinnamonId, taskA);
+		concept.addDescription(new Description("Cinnamon swirl").setTypeId(SYNONYM).setCaseSignificance(ci).setAcceptabilityMap(intAcceptable));
+		conceptService.update(concept, taskA);
+
+		// 4. Author B creates task and changes module of existing Description
+		String taskB = "MAIN/projectA/taskB";
+		branchService.create(taskB);
+		concept = conceptService.find(cinnamonId, taskB);
+		concept.setModuleId(MODEL_MODULE);
+		conceptService.update(concept, taskB);
+
+		// 5. Author A promotes new Description to Project
+		branchMergeService.mergeBranchSync(taskA, project, Collections.emptySet());
+
+		// 6. Author B prepares for promotion by rebasing
+		MergeReview review = getMergeReviewInCurrentState(project, taskB);
+		Collection<MergeReviewConceptVersions> conflicts = reviewService.getMergeReviewConflictingConcepts(review.getId(), new ArrayList<>());
+		assertEquals(1, conflicts.size());
+
+		// 7. Author B prefers the right column
+		for (MergeReviewConceptVersions conflict : conflicts) {
+			Concept targetConcept = conflict.getTargetConcept();
+			reviewService.persistManuallyMergedConcept(review, Long.parseLong(cinnamonId), targetConcept);
+		}
+
+		reviewService.applyMergeReview(review);
+
+		// 8. Assert state of task B
+		concept = conceptService.find(cinnamonId, taskB);
+		assertEquals(20220131, concept.getReleasedEffectiveTime());
+		assertNull(concept.getEffectiveTimeI()); // Module has changed
+		assertEquals(MODEL_MODULE, concept.getModuleId()); // Module has changed
+		assertTrue(concept.isReleased());
+		assertTrue(concept.isActive());
+
+		description = getDescription(concept, "Cinnamon bun (food)");
+		assertEquals(20220131, description.getReleasedEffectiveTime());
+		assertEquals(20220131, description.getEffectiveTimeI());
+		assertTrue(description.isReleased());
+		assertTrue(description.isActive());
+
+		description = getDescription(concept, "Cinnamon bun");
+		assertEquals(20220131, description.getReleasedEffectiveTime());
+		assertEquals(20220131, description.getEffectiveTimeI());
+		assertTrue(description.isReleased());
+		assertTrue(description.isActive());
+
+		description = getDescription(concept, "Cinnamon roll");
+		assertEquals(20220131, description.getReleasedEffectiveTime());
+		assertEquals(20220131, description.getEffectiveTimeI());
+		assertTrue(description.isReleased());
+		assertTrue(description.isActive());
+
+		description = getDescription(concept, "Cinnamon swirl");
+		assertNull(description); // Author preferred their changes on RHS
+	}
+
+	/*
+	 * After International publishes a Concept, one author adds a Description, one author changes the module of the Concept.
+	 * */
+	@Test
+	void testChangingComponentAfterPublishingAndUserSelectsMiddle() throws ServiceException, InterruptedException {
+		String intMain = "MAIN";
+		Map<String, String> intPreferred = Map.of(US_EN_LANG_REFSET, descriptionAcceptabilityNames.get(PREFERRED), GB_EN_LANG_REFSET, descriptionAcceptabilityNames.get(PREFERRED));
+		Map<String, String> intAcceptable = Map.of(US_EN_LANG_REFSET, descriptionAcceptabilityNames.get(PREFERRED), GB_EN_LANG_REFSET, descriptionAcceptabilityNames.get(ACCEPTABLE));
+		String ci = "CASE_INSENSITIVE";
+		Concept concept;
+		Description description;
+		CodeSystem codeSystem;
+
+		// 1. Create International Concept
+		concept = new Concept()
+				.addDescription(new Description("Cinnamon bun (food)").setTypeId(FSN).setCaseSignificance(ci).setAcceptabilityMap(intPreferred))
+				.addDescription(new Description("Cinnamon bun").setTypeId(SYNONYM).setCaseSignificance(ci).setAcceptabilityMap(intPreferred))
+				.addDescription(new Description("Cinnamon roll").setTypeId(SYNONYM).setCaseSignificance(ci).setAcceptabilityMap(intAcceptable))
+				.addAxiom(new Relationship(ISA, SNOMEDCT_ROOT));
+		concept = conceptService.create(concept, intMain);
+		String cinnamonId = concept.getConceptId();
+
+		// 2. Version International
+		codeSystem = codeSystemService.find("SNOMEDCT");
+		codeSystemService.createVersion(codeSystem, 20220131, "20220131");
+
+		// 3. Create International project
+		String project = "MAIN/projectA";
+		branchService.create("MAIN/projectA");
+
+		// 3. Author A creates task and adds new Description
+		String taskA = "MAIN/projectA/taskA";
+		branchService.create(taskA);
+		concept = conceptService.find(cinnamonId, taskA);
+		concept.addDescription(new Description("Cinnamon swirl").setTypeId(SYNONYM).setCaseSignificance(ci).setAcceptabilityMap(intAcceptable));
+		conceptService.update(concept, taskA);
+
+		// 4. Author B creates task and changes module of existing Description
+		String taskB = "MAIN/projectA/taskB";
+		branchService.create(taskB);
+		concept = conceptService.find(cinnamonId, taskB);
+		concept.setModuleId(MODEL_MODULE);
+		conceptService.update(concept, taskB);
+
+		// 5. Author A promotes new Description to Project
+		branchMergeService.mergeBranchSync(taskA, project, Collections.emptySet());
+
+		// 6. Author B prepares for promotion by rebasing
+		MergeReview review = getMergeReviewInCurrentState(project, taskB);
+		Collection<MergeReviewConceptVersions> conflicts = reviewService.getMergeReviewConflictingConcepts(review.getId(), new ArrayList<>());
+		assertEquals(1, conflicts.size());
+
+		// 7. Author B prefers the middle column
+		for (MergeReviewConceptVersions conflict : conflicts) {
+			Concept autoMergedConcept = conflict.getAutoMergedConcept();
+			reviewService.persistManuallyMergedConcept(review, Long.parseLong(cinnamonId), autoMergedConcept);
+		}
+
+		reviewService.applyMergeReview(review);
+
+		// 8. Assert state of task B
+		concept = conceptService.find(cinnamonId, taskB);
+		assertEquals(20220131, concept.getReleasedEffectiveTime());
+		assertNull(concept.getEffectiveTimeI()); // Module has changed
+		assertEquals(MODEL_MODULE, concept.getModuleId()); // Module has changed
+		assertTrue(concept.isReleased());
+		assertTrue(concept.isActive());
+
+		description = getDescription(concept, "Cinnamon bun (food)");
+		assertEquals(20220131, description.getReleasedEffectiveTime());
+		assertEquals(20220131, description.getEffectiveTimeI());
+		assertTrue(description.isReleased());
+		assertTrue(description.isActive());
+
+		description = getDescription(concept, "Cinnamon bun");
+		assertEquals(20220131, description.getReleasedEffectiveTime());
+		assertEquals(20220131, description.getEffectiveTimeI());
+		assertTrue(description.isReleased());
+		assertTrue(description.isActive());
+
+		description = getDescription(concept, "Cinnamon roll");
+		assertEquals(20220131, description.getReleasedEffectiveTime());
+		assertEquals(20220131, description.getEffectiveTimeI());
+		assertTrue(description.isReleased());
+		assertTrue(description.isActive());
+
+		description = getDescription(concept, "Cinnamon swirl"); // Author preferred the middle column which includes this Description
+		assertNull(description.getReleasedEffectiveTime());
+		assertEquals(CORE_MODULE, description.getModuleId()); // Description was created before Author B changed Concept's module
+		assertNull(description.getEffectiveTimeI());
+		assertTrue(description.isActive());
+		assertFalse(description.isReleased());
+	}
+
+	@Test
+	void testPropertiesWhenRebasingDifferentScenarios() throws ServiceException, InterruptedException {
+		/*
+		 * Concept has been released.
+		 * Concept has been updated & released.
+		 * Task was created before the second release,
+		 * and has no subsequent changes.
+		 * Assert properties after rebasing and selecting
+		 * L/M/R columns within the merge.
+		 * */
+		String year = "2022";
+		assertReleaseProperties(year + "0131",
+				year + "0331",
+				year + "0331",
+				year + "0131",
+				year + "0131",
+				"left",
+				year + "0331",
+				year + "0331"
+		);
+
+		year = "2023";
+		assertReleaseProperties(year + "0131",
+				year + "0331",
+				year + "0331",
+				year + "0131",
+				year + "0131",
+				"middle",
+				year + "0331",
+				year + "0331"
+		);
+
+		year = "2024";
+		assertReleaseProperties(year + "0131",
+				year + "0331",
+				year + "0331",
+				year + "0131",
+				year + "0131",
+				"right",
+				year + "0331",
+				year + "0331"
+		);
+
+		/*
+		 * Concept has been released.
+		 * Concept has been updated & released.
+		 * Task was created before the second release,
+		 * but has subsequent changes.
+		 * Assert properties after rebasing and selecting
+		 * L/M/R columns within the merge.
+		 * */
+		year = "2025";
+		assertReleaseProperties(year + "0131",
+				year + "0331",
+				year + "0331",
+				year + "0131",
+				null,
+				"left",
+				year + "0331",
+				year + "0331"
+		);
+
+		year = "2026";
+		assertReleaseProperties(year + "0131",
+				year + "0331",
+				year + "0331",
+				year + "0331",
+				null,
+				"middle",
+				year + "0331",
+				null
+		);
+
+		year = "2027";
+		assertReleaseProperties(year + "0131",
+				year + "0331",
+				year + "0331",
+				year + "0331",
+				null,
+				"right",
+				year + "0331",
+				null
+		);
+
+		/*
+		 * Concept has been released.
+		 * Concept has been updated & released.
+		 * Task was created after the second release, but
+		 * has subsequent changes.
+		 * Assert properties after rebasing and selecting
+		 * L/M/R columns within the merge.
+		 * */
+		year = "2028";
+		assertReleaseProperties(year + "0131",
+				year + "0331",
+				year + "0331",
+				year + "0331",
+				null,
+				null,
+				year + "0331",
+				null
+		);
+
+		year = "2029";
+		assertReleaseProperties(year + "0131",
+				year + "0331",
+				year + "0331",
+				year + "0331",
+				null,
+				"left",
+				year + "0331",
+				year + "0331"
+		);
+
+		year = "2030";
+		assertReleaseProperties(year + "0131",
+				year + "0331",
+				year + "0331",
+				year + "0331",
+				null,
+				"middle",
+				year + "0331",
+				null
+		);
+
+		year = "2031";
+		assertReleaseProperties(year + "0131",
+				year + "0331",
+				year + "0331",
+				year + "0331",
+				null,
+				"right",
+				year + "0331",
+				null
+		);
+
+		/*
+		 * Concept has been released.
+		 * Concept has been updated & released.
+		 * Task was created before the second release, and has had
+		 * no subsequent changes.
+		 * Assert properties after rebasing and selecting
+		 * L/M/R columns within the merge.
+		 * */
+		year = "2032";
+		assertReleaseProperties(year + "0131",
+				year + "0331",
+				null,
+				year + "0131",
+				year + "0131",
+				"left",
+				year + "0331",
+				null
+		);
+
+		year = "2033";
+		assertReleaseProperties(year + "0131",
+				year + "0331",
+				null,
+				year + "0131",
+				year + "0131",
+				"middle",
+				year + "0331",
+				null
+		);
+
+		year = "2034";
+		assertReleaseProperties(year + "0131",
+				year + "0331",
+				null,
+				year + "0131",
+				year + "0131",
+				"right",
+				year + "0331",
+				null
+		);
+
+		/*
+		 * Concept has been released.
+		 * Concept has been updated and released, and has subsequent changes.
+		 * Task was created before the second release, and has also had
+		 * subsequent changes.
+		 * Assert properties after rebasing and selecting L/M/R columns within the merge.
+		 * */
+		year = "2035";
+		assertReleaseProperties(year + "0131",
+				year + "0331",
+				null,
+				year + "0131",
+				null,
+				"left",
+				year + "0331",
+				null
+		);
+
+		year = "2036";
+		assertReleaseProperties(year + "0131",
+				year + "0331",
+				null,
+				year + "0131",
+				null,
+				"middle",
+				year + "0331",
+				null
+		);
+
+		year = "2037";
+		assertReleaseProperties(year + "0131",
+				year + "0331",
+				null,
+				year + "0131",
+				null,
+				"right",
+				year + "0331",
+				null
+		);
+
+		/*
+		 * Concept has been released.
+		 * Concept has been updated and released, and has subsequent changes.
+		 * Task was created before the first release and has null release properties.
+		 * Assert properties after rebasing and selecting L/M/R columns within the merge.
+		 * */
+		year = "2038";
+		assertReleaseProperties(year + "0131",
+				year + "0331",
+				null,
+				null,
+				null,
+				"left",
+				year + "0331",
+				null
+		);
+
+		year = "2039";
+		assertReleaseProperties(year + "0131",
+				year + "0331",
+				null,
+				null,
+				null,
+				"middle",
+				year + "0331",
+				null
+		);
+
+		year = "2040";
+		assertReleaseProperties(year + "0131",
+				year + "0331",
+				null,
+				null,
+				null,
+				"right",
+				year + "0331",
+				null
+		);
+
+		/*
+		 * Concept has not been released and has null release properties
+		 * on both project and task.
+		 * Assert properties after rebasing and selecting L/M/R columns within the merge.
+		 * */
+		assertReleaseProperties(null,
+				null,
+				null,
+				null,
+				null,
+				"left",
+				null,
+				null
+		);
+
+		assertReleaseProperties(null,
+				null,
+				null,
+				null,
+				null,
+				"middle",
+				null,
+				null
+		);
+
+		assertReleaseProperties(null,
+				null,
+				null,
+				null,
+				null,
+				"right",
+				null,
+				null
+		);
+	}
+
+	void assertReleaseProperties(
+			String initialReleaseEffectiveTime,
+			String projectReleaseEffectiveTime,
+			String projectEffectiveTime,
+			String taskReleaseEffectiveTime,
+			String taskEffectiveTime,
+			String column,
+			String finalReleaseEffectiveTime,
+			String finalEffectiveTime
+	) throws ServiceException, InterruptedException {
+		Map<String, String> intPreferred = Map.of(US_EN_LANG_REFSET, descriptionAcceptabilityNames.get(PREFERRED), GB_EN_LANG_REFSET, descriptionAcceptabilityNames.get(PREFERRED));
+		Map<String, String> intAcceptable = Map.of(US_EN_LANG_REFSET, descriptionAcceptabilityNames.get(PREFERRED), GB_EN_LANG_REFSET, descriptionAcceptabilityNames.get(ACCEPTABLE));
+		String ci = "CASE_INSENSITIVE";
+		Concept concept;
+		CodeSystem codeSystem;
+		MergeReview review;
+		Collection<MergeReviewConceptVersions> conflicts;
+
+		// International project
+		String project = "MAIN/" + UUID.randomUUID().toString().substring(0, 5);
+		branchService.create(project);
+
+		// International task (Created before / after versioning depending on scenario)
+		String task = project + "/" + UUID.randomUUID().toString().substring(0, 5);
+
+		// Create Concept
+		concept = new Concept()
+				.addDescription(new Description("Cinnamon bun (food)").setTypeId(FSN).setCaseSignificance(ci).setAcceptabilityMap(intPreferred))
+				.addDescription(new Description("Cinnamon bun").setTypeId(SYNONYM).setCaseSignificance(ci).setAcceptabilityMap(intPreferred))
+				.addDescription(new Description("Cinnamon roll").setTypeId(SYNONYM).setCaseSignificance(ci).setAcceptabilityMap(intAcceptable))
+				.addAxiom(new Relationship(ISA, SNOMEDCT_ROOT));
+		concept = conceptService.create(concept, project);
+		String cinnamonId = concept.getConceptId();
+
+		// Promote Project to Main
+		concept = conceptService.find(cinnamonId, "MAIN");
+		assertNull(concept);
+		branchMergeService.mergeBranchSync(project, "MAIN", Collections.emptySet());
+		concept = conceptService.find(cinnamonId, "MAIN");
+		assertNotNull(concept);
+
+		// Task created before International versioning
+		if (taskReleaseEffectiveTime == null && taskEffectiveTime == null) {
+			branchService.create(task);
+		}
+
+		// Version International
+		if (initialReleaseEffectiveTime != null) {
+			// Version
+			codeSystem = codeSystemService.find("SNOMEDCT");
+			codeSystemService.createVersion(codeSystem, Integer.parseInt(initialReleaseEffectiveTime), initialReleaseEffectiveTime);
+
+			// Rebase project
+			review = getMergeReviewInCurrentState("MAIN", project);
+			conflicts = reviewService.getMergeReviewConflictingConcepts(review.getId(), new ArrayList<>());
+			assertEquals(0, conflicts.size());
+
+			reviewService.applyMergeReview(review);
+		}
+
+		// Update International Concept (publish)
+		if (projectReleaseEffectiveTime != null && !projectReleaseEffectiveTime.equals(initialReleaseEffectiveTime)) {
+			// Change Concept module
+			concept = conceptService.find(cinnamonId, project);
+			concept.setModuleId(MODEL_MODULE);
+			conceptService.update(concept, project);
+
+			// Promote project to main
+			branchMergeService.mergeBranchSync(project, "MAIN", Collections.emptySet());
+
+			// Version International
+			codeSystem = codeSystemService.find("SNOMEDCT");
+			codeSystemService.createVersion(codeSystem, Integer.parseInt(projectReleaseEffectiveTime), projectReleaseEffectiveTime);
+
+			// Rebase project
+			review = getMergeReviewInCurrentState("MAIN", project);
+			conflicts = reviewService.getMergeReviewConflictingConcepts(review.getId(), new ArrayList<>());
+			assertEquals(0, conflicts.size());
+
+			reviewService.applyMergeReview(review);
+		}
+
+		// Task has latest version
+		if (taskReleaseEffectiveTime != null && taskReleaseEffectiveTime.equals(projectReleaseEffectiveTime)) {
+			branchService.create(task);
+		}
+
+		// Update Concept on project (do not publish)
+		if (projectEffectiveTime == null) {
+			// Change Concept
+			concept = conceptService.find(cinnamonId, project);
+			concept.setModuleId(CORE_MODULE);
+			conceptService.update(concept, project);
+
+			// Promote project to main
+			branchMergeService.mergeBranchSync(project, "MAIN", Collections.emptySet());
+		}
+
+		// Task is behind a version
+		if (taskReleaseEffectiveTime != null && !taskReleaseEffectiveTime.equals(projectReleaseEffectiveTime)) {
+			branchService.create(task);
+		}
+
+		// Update Concept on task (do not publish)
+		if (taskEffectiveTime == null) {
+			// Change Concept
+			concept = conceptService.find(cinnamonId, task);
+			concept.setDefinitionStatusId(FULLY_DEFINED);
+			conceptService.update(concept, task);
+		}
+
+		// Update Concept on project (to allow task to rebase)
+		if (column != null) {
+			concept = conceptService.find(cinnamonId, project);
+			concept.addDescription(new Description("Cinnamon swirls").setTypeId(SYNONYM).setCaseSignificance(ci).setAcceptabilityMap(intAcceptable));
+			conceptService.update(concept, project);
+		}
+
+		// Rebase task
+		review = getMergeReviewInCurrentState(project, task);
+		conflicts = reviewService.getMergeReviewConflictingConcepts(review.getId(), new ArrayList<>());
+		if (column == null) {
+			assertEquals(0, conflicts.size());
+		} else {
+			if ((taskReleaseEffectiveTime != null && taskReleaseEffectiveTime.equals(projectReleaseEffectiveTime))) {
+				assertTrue(conflicts.size() != 0);
+			}
+
+			for (MergeReviewConceptVersions conflict : conflicts) {
+				Concept conceptToAccept = conflict.getSourceConcept();
+
+				column = column.toLowerCase();
+				if ("middle".equals(column)) {
+					conceptToAccept = conflict.getAutoMergedConcept();
+				} else if ("right".equals(column)) {
+					conceptToAccept = conflict.getTargetConcept();
+				}
+
+				reviewService.persistManuallyMergedConcept(review, Long.parseLong(cinnamonId), conceptToAccept);
+			}
+
+			reviewService.applyMergeReview(review);
+		}
+
+		// Assert state of task
+		concept = conceptService.find(cinnamonId, task);
+
+		Integer fRET;
+		if (finalReleaseEffectiveTime != null) {
+			fRET = Integer.parseInt(finalReleaseEffectiveTime);
+			assertEquals(fRET, concept.getReleasedEffectiveTime());
+		} else {
+			assertNull(concept.getReleasedEffectiveTime());
+		}
+
+		Integer fET;
+		if (finalEffectiveTime != null) {
+			fET = Integer.parseInt(finalEffectiveTime);
+			assertEquals(fET, concept.getEffectiveTimeI());
+		} else {
+			assertNull(concept.getEffectiveTimeI());
+		}
+	}
+
+	@Test
+	void testRebaseDoesNotResultInExtensionStealingAssociationMemberWhenNoConflict() throws ServiceException, InterruptedException {
+		String intMain = "MAIN";
+		String extMain = "MAIN/SNOMEDCT-TEST";
+		Map<String, String> intPreferred = Map.of(US_EN_LANG_REFSET, descriptionAcceptabilityNames.get(PREFERRED), GB_EN_LANG_REFSET, descriptionAcceptabilityNames.get(PREFERRED));
+		Map<String, String> intAcceptable = Map.of(US_EN_LANG_REFSET, descriptionAcceptabilityNames.get(PREFERRED), GB_EN_LANG_REFSET, descriptionAcceptabilityNames.get(ACCEPTABLE));
+		String ci = "CASE_INSENSITIVE";
+		Concept concept;
+		CodeSystem codeSystem;
+		MergeReview review;
+		Collection<MergeReviewConceptVersions> conflicts;
+
+		// 1. Create International Concept
+		concept = new Concept()
+				.addDescription(new Description("Cinnamon bun (food)").setTypeId(FSN).setCaseSignificance(ci).setAcceptabilityMap(intPreferred))
+				.addDescription(new Description("Cinnamon bun").setTypeId(SYNONYM).setCaseSignificance(ci).setAcceptabilityMap(intPreferred))
+				.addDescription(new Description("Cinnamon roll").setTypeId(SYNONYM).setCaseSignificance(ci).setAcceptabilityMap(intAcceptable))
+				// Purposely plural. This will later be inactivated.
+				.addDescription(new Description("Cinnamon rolls").setTypeId(SYNONYM).setCaseSignificance(ci).setAcceptabilityMap(intAcceptable))
+				.addAxiom(new Relationship(ISA, SNOMEDCT_ROOT));
+		concept = conceptService.create(concept, intMain);
+		String cinnamonId = concept.getConceptId();
+
+		// 2. Version International
+		codeSystem = codeSystemService.find("SNOMEDCT");
+		codeSystemService.createVersion(codeSystem, 20220131, "20220131");
+
+		// 3. Create Extension
+		codeSystemService.createCodeSystem(new CodeSystem("SNOMEDCT-TEST", extMain));
+		concept = conceptService.create(
+				new Concept()
+						.addDescription(new Description("Extension maintained module").setTypeId(FSN).setCaseSignificance(ci).setAcceptabilityMap(intPreferred))
+						.addDescription(new Description("Extension maintained").setTypeId(SYNONYM).setCaseSignificance(ci).setAcceptabilityMap(intPreferred))
+						.addDescription(new Description("Extension nrc").setTypeId(SYNONYM).setCaseSignificance(ci).setAcceptabilityMap(intAcceptable))
+						.addAxiom(new Relationship(ISA, MODULE)),
+				extMain
+		);
+		String extModule = concept.getConceptId();
+		branchService.updateMetadata(extMain, Map.of(Config.DEFAULT_MODULE_ID_KEY, extModule));
+
+		// 4. Create Extension project
+		String extProject = "MAIN/SNOMEDCT-TEST/projectA";
+		branchService.create(extProject);
+
+		// 5. Inactivate International Description
+		concept = conceptService.find(cinnamonId, intMain);
+		Description cinnamonRolls = getDescription(concept, "Cinnamon rolls");
+		Description cinnamonRoll = getDescription(concept, "Cinnamon roll");
+		cinnamonRolls.setActive(false).updateEffectiveTime();
+		conceptService.update(concept, intMain);
+		ReferenceSetMember associationMember = memberService.createMember(
+				intMain,
+				new ReferenceSetMember(
+						CORE_MODULE, REFSET_SAME_AS_ASSOCIATION,
+						cinnamonRolls.getDescriptionId()
+				).setAdditionalField("targetComponentId", cinnamonRoll.getDescriptionId())
+		);
+
+		// 6. Version International
+		codeSystem = codeSystemService.find("SNOMEDCT");
+		codeSystemService.createVersion(codeSystem, 20220228, "20220228");
+
+		// 7. Upgrade Extension
+		codeSystem = codeSystemService.find("SNOMEDCT-TEST");
+		codeSystemUpgradeService.upgrade(codeSystem, 20220228, false);
+
+		// 8. Rebase Extension project
+		review = getMergeReviewInCurrentState(extMain, extProject);
+		conflicts = reviewService.getMergeReviewConflictingConcepts(review.getId(), new ArrayList<>());
+		assertTrue(conflicts.isEmpty());
+		reviewService.applyMergeReview(review);
+
+		// 9. Create task A
+		String extTaskA = "MAIN/SNOMEDCT-TEST/projectA/taskA";
+		branchService.create(extTaskA);
+
+		// 10. Add new top-level Concept to Extension
+		conceptService.create(
+				new Concept()
+						.addDescription(new Description("Vehicle (vehicle)").setTypeId(FSN).setCaseSignificance(ci).setAcceptabilityMap(intPreferred))
+						.addDescription(new Description("Vehicle").setTypeId(SYNONYM).setCaseSignificance(ci).setAcceptabilityMap(intPreferred))
+						.addAxiom(new Relationship(ISA, SNOMEDCT_ROOT)),
+				extTaskA
+		);
+
+		// 13. Promote task A
+		review = getMergeReviewInCurrentState(extProject, extTaskA);
+		conflicts = reviewService.getMergeReviewConflictingConcepts(review.getId(), new ArrayList<>());
+		assertTrue(conflicts.isEmpty());
+		branchMergeService.mergeBranchSync(extTaskA, extProject, Collections.emptySet());
+
+		// 16. In International, inactivate association member
+		// Author decides to inactivate the member as strictly speaking plural does not necessarily mean SAME_AS
+		String associationMemberId = associationMember.getMemberId();
+		associationMember = memberService.findMember(intMain, associationMemberId);
+		associationMember.setActive(false).updateEffectiveTime();
+		memberService.updateMember(intMain, associationMember);
+
+		// 17. Version International
+		codeSystem = codeSystemService.find("SNOMEDCT");
+		codeSystemService.createVersion(codeSystem, 20220331, "20220331");
+
+		// 18. Upgrade Extension
+		codeSystem = codeSystemService.find("SNOMEDCT-TEST");
+		codeSystemUpgradeService.upgrade(codeSystem, 20220331, false);
+
+		// 19. Assert state of inactivated member before rebase
+		associationMember = memberService.findMember(intMain, associationMemberId);
+		assertEquals(CORE_MODULE, associationMember.getModuleId());
+		assertVersioned(associationMember, 20220331); // International has latest version
+
+		associationMember = memberService.findMember(extProject, associationMemberId);
+		assertEquals(CORE_MODULE, associationMember.getModuleId());
+		assertVersioned(associationMember, 20220228); // Not yet rebased latest version
+
+		// 20. Rebase Extension project
+		review = getMergeReviewInCurrentState(extMain, extProject);
+		conflicts = reviewService.getMergeReviewConflictingConcepts(review.getId(), new ArrayList<>());
+		assertTrue(conflicts.isEmpty());
+		reviewService.applyMergeReview(review);
+
+		// 21. Assert state of inactivated member after rebase
+		associationMember = memberService.findMember(intMain, associationMemberId);
+		assertEquals(CORE_MODULE, associationMember.getModuleId());
+		assertVersioned(associationMember, 20220331);
+
+		associationMember = memberService.findMember(extProject, associationMemberId);
+		assertEquals(CORE_MODULE, associationMember.getModuleId());
+		assertVersioned(associationMember, 20220331);
+	}
+
+	@Test
+	void testRebaseDoesNotResultInExtensionStealingAssociationMemberWhenConflict() throws ServiceException, InterruptedException {
+		String intMain = "MAIN";
+		String extMain = "MAIN/SNOMEDCT-TEST";
+		Map<String, String> intPreferred = Map.of(US_EN_LANG_REFSET, descriptionAcceptabilityNames.get(PREFERRED), GB_EN_LANG_REFSET, descriptionAcceptabilityNames.get(PREFERRED));
+		Map<String, String> intAcceptable = Map.of(US_EN_LANG_REFSET, descriptionAcceptabilityNames.get(PREFERRED), GB_EN_LANG_REFSET, descriptionAcceptabilityNames.get(ACCEPTABLE));
+		String ci = "CASE_INSENSITIVE";
+		Concept concept;
+		CodeSystem codeSystem;
+		MergeReview review;
+		Collection<MergeReviewConceptVersions> conflicts;
+
+		// 1. Create International Concepts
+		concept = new Concept()
+				.addDescription(new Description("Vehicle (vehicle)").setTypeId(FSN).setCaseSignificance(ci).setAcceptabilityMap(intPreferred))
+				.addDescription(new Description("Vehicle").setTypeId(SYNONYM).setCaseSignificance(ci).setAcceptabilityMap(intPreferred))
+				.addAxiom(new Relationship(ISA, SNOMEDCT_ROOT))
+				.addRelationship(new Relationship(ISA, SNOMEDCT_ROOT));
+		concept = conceptService.create(concept, intMain);
+		String vehicleId = concept.getConceptId();
+
+		concept = new Concept()
+				.addDescription(new Description("Car (vehicle)").setTypeId(FSN).setCaseSignificance(ci).setAcceptabilityMap(intPreferred))
+				.addDescription(new Description("Car").setTypeId(SYNONYM).setCaseSignificance(ci).setAcceptabilityMap(intPreferred))
+				// Purposely plural. This will later be inactivated.
+				.addDescription(new Description("Cars").setTypeId(SYNONYM).setCaseSignificance(ci).setAcceptabilityMap(intAcceptable))
+				.addAxiom(new Relationship(ISA, vehicleId))
+				.addRelationship(new Relationship(ISA, vehicleId));
+		concept = conceptService.create(concept, intMain);
+		String carId = concept.getConceptId();
+
+		// 2. Version International
+		codeSystem = codeSystemService.find("SNOMEDCT");
+		codeSystemService.createVersion(codeSystem, 20220131, "20220131");
+
+		// 3. Create Extension
+		codeSystemService.createCodeSystem(new CodeSystem("SNOMEDCT-TEST", extMain));
+		concept = conceptService.create(
+				new Concept()
+						.addDescription(new Description("Extension maintained module").setTypeId(FSN).setCaseSignificance(ci).setAcceptabilityMap(intPreferred))
+						.addDescription(new Description("Extension maintained").setTypeId(SYNONYM).setCaseSignificance(ci).setAcceptabilityMap(intPreferred))
+						.addDescription(new Description("Extension nrc").setTypeId(SYNONYM).setCaseSignificance(ci).setAcceptabilityMap(intAcceptable))
+						.addAxiom(new Relationship(ISA, MODULE)),
+				extMain
+		);
+		String extModule = concept.getConceptId();
+		branchService.updateMetadata(extMain, Map.of(Config.DEFAULT_MODULE_ID_KEY, extModule));
+
+		// 4. Create Extension project
+		String extProject = "MAIN/SNOMEDCT-TEST/projectA";
+		branchService.create(extProject);
+
+		// 5. Inactivate International Description
+		concept = conceptService.find(carId, intMain);
+		Description cars = getDescription(concept, "Cars");
+		Description car = getDescription(concept, "Car");
+		cars.setActive(false).updateEffectiveTime();
+		conceptService.update(concept, intMain);
+		ReferenceSetMember associationMember = memberService.createMember(
+				intMain,
+				new ReferenceSetMember(
+						CORE_MODULE, REFSET_SAME_AS_ASSOCIATION,
+						cars.getDescriptionId()
+				).setAdditionalField("targetComponentId", car.getDescriptionId())
+		);
+
+		// 6. Version International
+		codeSystem = codeSystemService.find("SNOMEDCT");
+		codeSystemService.createVersion(codeSystem, 20220228, "20220228");
+
+		// 7. Upgrade Extension
+		codeSystem = codeSystemService.find("SNOMEDCT-TEST");
+		codeSystemUpgradeService.upgrade(codeSystem, 20220228, false);
+
+		// 8. Rebase Extension project
+		review = getMergeReviewInCurrentState(extMain, extProject);
+		conflicts = reviewService.getMergeReviewConflictingConcepts(review.getId(), new ArrayList<>());
+		assertTrue(conflicts.isEmpty());
+		reviewService.applyMergeReview(review);
+
+		// 9. Create task A
+		String extTaskA = "MAIN/SNOMEDCT-TEST/projectA/taskA";
+		branchService.create(extTaskA);
+
+		// 10. Extension changes hierarchy of Car through classification, i.e. it is now top-level
+		concept = conceptService.find(carId, extTaskA);
+		concept.getClassAxioms().iterator().next().setActive(false);
+		concept.getRelationships().iterator().next().setActive(false);
+		concept.getClassAxioms().iterator().next().setRelationships(Set.of(new Relationship(ISA, SNOMEDCT_ROOT)));
+		concept.getRelationships().add(new Relationship(ISA, SNOMEDCT_ROOT));
+		conceptService.update(concept, extTaskA);
+
+		// 11. Promote task A
+		branchMergeService.mergeBranchSync(extTaskA, extProject, Collections.emptySet());
+
+		// 12. In International, inactivate association member
+		// Author decides to inactivate the member as strictly speaking plural does not necessarily mean SAME_AS
+		String associationMemberId = associationMember.getMemberId();
+		associationMember = memberService.findMember(intMain, associationMemberId);
+		associationMember.setActive(false).updateEffectiveTime();
+		memberService.updateMember(intMain, associationMember);
+
+		// 13. Version International
+		codeSystem = codeSystemService.find("SNOMEDCT");
+		codeSystemService.createVersion(codeSystem, 20220331, "20220331");
+
+		// 14. Upgrade Extension
+		codeSystem = codeSystemService.find("SNOMEDCT-TEST");
+		codeSystemUpgradeService.upgrade(codeSystem, 20220331, false);
+
+		// 15. Assert state of inactivated member before rebase
+		associationMember = memberService.findMember(intMain, associationMemberId);
+		assertFalse(associationMember.isActive());
+		assertEquals(CORE_MODULE, associationMember.getModuleId());
+		assertVersioned(associationMember, 20220331); // International has latest version
+
+		associationMember = memberService.findMember(extProject, associationMemberId);
+		assertTrue(associationMember.isActive());
+		assertEquals(CORE_MODULE, associationMember.getModuleId());
+		assertVersioned(associationMember, 20220228); // Not yet rebased latest version
+
+		// 16. Rebase Extension project
+		review = getMergeReviewInCurrentState(extMain, extProject);
+		conflicts = reviewService.getMergeReviewConflictingConcepts(review.getId(), new ArrayList<>());
+		assertTrue(conflicts.size() != 0);
+		// Doesn't matter which column is selected
+		for (MergeReviewConceptVersions conflict : conflicts) {
+			reviewService.persistManuallyMergedConcept(review, Long.parseLong(carId), conflict.getAutoMergedConcept());
+		}
+		reviewService.applyMergeReview(review);
+
+		// 17. Assert state of inactivated member after rebase
+		associationMember = memberService.findMember(extProject, associationMemberId);
+		assertFalse(associationMember.isActive());
+		assertEquals(CORE_MODULE, associationMember.getModuleId());
+		assertVersioned(associationMember, 20220331);
+	}
+
+	@Test
+	void testPromotionDoesNotResultInExtensionStealingAssociationMember() throws ServiceException, InterruptedException {
+		String intMain = "MAIN";
+		String extMain = "MAIN/SNOMEDCT-TEST";
+		Map<String, String> intPreferred = Map.of(US_EN_LANG_REFSET, descriptionAcceptabilityNames.get(PREFERRED), GB_EN_LANG_REFSET, descriptionAcceptabilityNames.get(PREFERRED));
+		Map<String, String> intAcceptable = Map.of(US_EN_LANG_REFSET, descriptionAcceptabilityNames.get(PREFERRED), GB_EN_LANG_REFSET, descriptionAcceptabilityNames.get(ACCEPTABLE));
+		String ci = "CASE_INSENSITIVE";
+		Concept concept;
+		CodeSystem codeSystem;
+		MergeReview review;
+		Collection<MergeReviewConceptVersions> conflicts;
+
+		// 1. Create International Concept
+		concept = new Concept()
+				.addDescription(new Description("Cinnamon bun (food)").setTypeId(FSN).setCaseSignificance(ci).setAcceptabilityMap(intPreferred))
+				.addDescription(new Description("Cinnamon bun").setTypeId(SYNONYM).setCaseSignificance(ci).setAcceptabilityMap(intPreferred))
+				.addDescription(new Description("Cinnamon roll").setTypeId(SYNONYM).setCaseSignificance(ci).setAcceptabilityMap(intAcceptable))
+				// Purposely plural. This will later be inactivated.
+				.addDescription(new Description("Cinnamon rolls").setTypeId(SYNONYM).setCaseSignificance(ci).setAcceptabilityMap(intAcceptable))
+				.addAxiom(new Relationship(ISA, SNOMEDCT_ROOT));
+		concept = conceptService.create(concept, intMain);
+		String cinnamonId = concept.getConceptId();
+
+		// 2. Version International
+		codeSystem = codeSystemService.find("SNOMEDCT");
+		codeSystemService.createVersion(codeSystem, 20220131, "20220131");
+
+		// 3. Inactivate Description
+		concept = conceptService.find(cinnamonId, intMain);
+		Description cinnamonRolls = getDescription(concept, "Cinnamon rolls");
+		Description cinnamonRoll = getDescription(concept, "Cinnamon roll");
+		cinnamonRolls.setActive(false).updateEffectiveTime();
+		conceptService.update(concept, intMain);
+		ReferenceSetMember associationMember = memberService.createMember(
+				intMain,
+				new ReferenceSetMember(
+						CORE_MODULE, REFSET_SAME_AS_ASSOCIATION,
+						cinnamonRolls.getDescriptionId()
+				).setAdditionalField("targetComponentId", cinnamonRoll.getDescriptionId())
+		);
+
+		// 4. Version International
+		codeSystem = codeSystemService.find("SNOMEDCT");
+		codeSystemService.createVersion(codeSystem, 20220228, "20220228");
+
+		// 5. Inactivate association member
+		// Author decides to inactivate the member as strictly speaking plural does not necessarily mean SAME_AS
+		String associationMemberId = associationMember.getMemberId();
+		associationMember = memberService.findMember(intMain, associationMemberId);
+		associationMember.setActive(false).updateEffectiveTime();
+		memberService.updateMember(intMain, associationMember);
+
+		// 6. Version International
+		codeSystem = codeSystemService.find("SNOMEDCT");
+		codeSystemService.createVersion(codeSystem, 20220331, "20220331");
+
+		// 7. Create Extension
+		codeSystemService.createCodeSystem(new CodeSystem("SNOMEDCT-TEST", extMain));
+		concept = conceptService.create(
+				new Concept()
+						.addDescription(new Description("Extension maintained module").setTypeId(FSN).setCaseSignificance(ci).setAcceptabilityMap(intPreferred))
+						.addDescription(new Description("Extension maintained").setTypeId(SYNONYM).setCaseSignificance(ci).setAcceptabilityMap(intPreferred))
+						.addDescription(new Description("Extension nrc").setTypeId(SYNONYM).setCaseSignificance(ci).setAcceptabilityMap(intAcceptable))
+						.addAxiom(new Relationship(ISA, MODULE)),
+				extMain
+		);
+		String extModule = concept.getConceptId();
+		branchService.updateMetadata(extMain, Map.of(Config.DEFAULT_MODULE_ID_KEY, extModule));
+
+		// 8. Create Extension project
+		String extProject = "MAIN/SNOMEDCT-TEST/projectA";
+		branchService.create(extProject);
+
+		// 9. Create task A
+		String extTaskA = "MAIN/SNOMEDCT-TEST/projectA/taskA";
+		branchService.create(extTaskA);
+
+		// 10. Add new top-level Concept to Extension
+		conceptService.create(
+				new Concept()
+						.addDescription(new Description("Vehicle (vehicle)").setTypeId(FSN).setCaseSignificance(ci).setAcceptabilityMap(intPreferred))
+						.addDescription(new Description("Vehicle").setTypeId(SYNONYM).setCaseSignificance(ci).setAcceptabilityMap(intPreferred))
+						.addAxiom(new Relationship(ISA, SNOMEDCT_ROOT)),
+				extTaskA
+		);
+
+		// 11. Create task B
+		String extTaskB = "MAIN/SNOMEDCT-TEST/projectA/taskB";
+		branchService.create(extTaskB);
+
+		// 12. Add translation to Cinnamon bun
+		concept = conceptService.find(cinnamonId, extTaskB);
+		concept.addDescription(new Description("Kanelbulle").setTypeId(FSN).setCaseSignificance(ci).setAcceptabilityMap(intAcceptable));
+		conceptService.update(concept, extTaskB);
+
+		// 13. Promote task A
+		review = getMergeReviewInCurrentState(extProject, extTaskA);
+		conflicts = reviewService.getMergeReviewConflictingConcepts(review.getId(), new ArrayList<>());
+		assertTrue(conflicts.isEmpty());
+		branchMergeService.mergeBranchSync(extTaskA, extProject, Collections.emptySet());
+
+		// 14. Prepare task B for promotion by rebasing
+		review = getMergeReviewInCurrentState(extProject, extTaskB);
+		conflicts = reviewService.getMergeReviewConflictingConcepts(review.getId(), new ArrayList<>());
+		assertTrue(conflicts.isEmpty());
+		reviewService.applyMergeReview(review);
+
+		// 15. Assert state of inactivated member before promotion
+		associationMember = memberService.findMember(intMain, associationMemberId);
+		assertEquals(CORE_MODULE, associationMember.getModuleId());
+		assertVersioned(associationMember, 20220331);
+
+		associationMember = memberService.findMember(extProject, associationMemberId);
+		assertEquals(CORE_MODULE, associationMember.getModuleId());
+		assertVersioned(associationMember, 20220331);
+
+		// 16. Promote task B
+		branchMergeService.mergeBranchSync(extTaskB, extProject, Collections.emptySet());
+
+		// 15. Assert state of inactivated member after promotion
+		associationMember = memberService.findMember(intMain, associationMemberId);
+		assertEquals(CORE_MODULE, associationMember.getModuleId());
+		assertVersioned(associationMember, 20220331);
+
+		associationMember = memberService.findMember(extProject, associationMemberId);
+		assertEquals(CORE_MODULE, associationMember.getModuleId());
+		assertVersioned(associationMember, 20220331);
+	}
+
+	private void assertNotVersioned(Description description) {
+		assertNull(description.getEffectiveTime());
+		assertFalse(description.isReleased());
+	}
+
+	private void assertNotVersioned(Set<Axiom> axioms) {
+		for (Axiom axiom : axioms) {
+			assertFalse(axiom.isReleased());
+			assertNull(axiom.getEffectiveTimeI());
+		}
+	}
+
+	private void assertVersionedButChanged(ReferenceSetMember referenceSetMember, Integer releaseEffectiveTime){
+		assertNull(referenceSetMember.getEffectiveTimeI());
+		assertTrue(referenceSetMember.isReleased());
+		assertEquals(referenceSetMember.getReleasedEffectiveTime(), releaseEffectiveTime);
+	}
+
+	private void assertVersioned(Concept concept, Integer version) {
+		assertNotNull(concept);
+		assertEquals(concept.getEffectiveTimeI(), version);
+		assertTrue(concept.isReleased());
+	}
+
+	private void assertVersioned(Description description, Integer version) {
+		assertNotNull(description);
+		assertEquals(description.getEffectiveTimeI(), version);
+		assertTrue(description.isReleased());
+	}
+
+	private void assertVersioned(Set<Axiom> axioms, Integer version) {
+		assertNotNull(axioms);
+		for (Axiom axiom : axioms) {
+			assertEquals(version, axiom.getEffectiveTimeI());
+			assertTrue(axiom.isReleased());
+		}
+	}
+
+	private void assertVersioned(ReferenceSetMember referenceSetMember, Integer version) {
+		assertNotNull(referenceSetMember);
+		assertEquals(version, referenceSetMember.getEffectiveTimeI());
+		assertTrue(referenceSetMember.isReleased());
+	}
+
+	private Set<Axiom> getAxioms(Concept concept, boolean released) {
+		Set<Axiom> axioms = new HashSet<>();
+		for (Axiom classAxiom : concept.getClassAxioms()) {
+			if (classAxiom.isReleased() == released) {
+				axioms.add(classAxiom);
+			}
+		}
+
+		return axioms;
+	}
+
+	private Description getDescription(Concept concept, String term) {
+		if (concept == null || concept.getDescriptions() == null || concept.getDescriptions().isEmpty()) {
+			return null;
+		}
+
+
+		Set<Description> descriptions = concept.getDescriptions();
+		for (Description description : descriptions) {
+			if (term.equals(description.getTerm())) {
+				return description;
+			}
+		}
+
+		return null;
+	}
+
+	private ReferenceSetMember getMember(Page<ReferenceSetMember> page){
+		return page.getContent().iterator().next();
 	}
 
 	private MergeReview getMergeReviewInCurrentState(String source, String target) throws InterruptedException {

@@ -1,9 +1,9 @@
 package org.snomed.snowstorm.rest;
 
 import io.kaicode.rest.util.branchpathrewrite.BranchPathUriUtil;
-import io.swagger.annotations.Api;
-import io.swagger.annotations.ApiOperation;
-import io.swagger.annotations.ApiParam;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.elasticsearch.common.Strings;
 import org.snomed.snowstorm.core.data.domain.CodeSystem;
 import org.snomed.snowstorm.core.data.domain.CodeSystemVersion;
@@ -26,7 +26,7 @@ import static java.lang.Boolean.TRUE;
 import static org.snomed.snowstorm.rest.ImportController.CODE_SYSTEM_INTERNAL_RELEASE_FLAG_README;
 
 @RestController
-@Api(tags = "Code Systems", description = "-")
+@Tag(name = "Code Systems", description = "-")
 @RequestMapping(value = "/codesystems", produces = "application/json")
 public class CodeSystemController {
 
@@ -54,8 +54,8 @@ public class CodeSystemController {
 	@Value("${codesystem.all.latest-version.allow-internal-release}")
 	private boolean showInteralReleasesByDefault;
 
-	@ApiOperation(value = "Create a code system",
-			notes = "Required fields are shortName and branch.\n" +
+	@Operation(summary = "Create a code system",
+			description = "Required fields are shortName and branch.\n" +
 					"shortName should use format SNOMEDCT-XX where XX is the country code for national extensions.\n" +
 					"dependantVersion uses effectiveTime format and can be used if the new code system depends on an older version of the parent code system, " +
 					"otherwise the latest version will be selected automatically.\n" +
@@ -63,17 +63,17 @@ public class CodeSystemController {
 					"otherwise these are sorted by the number of active translated terms.\n" +
 					"maintainerType has no effect on API behaviour but can be used in frontend applications for extension categorisation.\n" +
 					"defaultLanguageReferenceSet has no effect API behaviour but can be used by browsers to reflect extension preferences. ")
-	@RequestMapping(method = RequestMethod.POST)
+	@PostMapping
 	@PreAuthorize("hasPermission('ADMIN', #codeSystem.branchPath)")
 	public ResponseEntity<Void> createCodeSystem(@RequestBody CodeSystemCreate codeSystem) {
 		codeSystemService.createCodeSystem((CodeSystem) codeSystem);
 		return ControllerHelper.getCreatedResponse(codeSystem.getShortName());
 	}
 
-	@ApiOperation(value = "List code systems",
-			notes = "List all code systems.\n" +
+	@Operation(summary = "List code systems",
+			description = "List all code systems.\n" +
 			"forBranch is an optional parameter to find the code system which the specified branch is within.")
-	@RequestMapping(method = RequestMethod.GET)
+	@GetMapping
 	public ItemsPage<CodeSystem> listCodeSystems(@RequestParam(required = false) String forBranch) {
 		if (!Strings.isNullOrEmpty(forBranch)) {
 			CodeSystem codeSystem = codeSystemService.findClosestCodeSystemUsingAnyBranch(forBranch, true);
@@ -87,37 +87,37 @@ public class CodeSystemController {
 		}
 	}
 
-	@ApiOperation("Retrieve a code system")
-	@RequestMapping(value = "/{shortName}", method = RequestMethod.GET)
+	@Operation(summary = "Retrieve a code system")
+	@GetMapping(value = "/{shortName}")
 	public CodeSystem findCodeSystem(@PathVariable String shortName) {
 		return joinUserPermissionsInfo(ControllerHelper.throwIfNotFound("Code System", codeSystemService.find(shortName)));
 	}
 
-	@ApiOperation("Update a code system")
-	@RequestMapping(value = "/{shortName}", method = RequestMethod.PUT)
+	@Operation(summary = "Update a code system")
+	@PutMapping(value = "/{shortName}")
 	public CodeSystem updateCodeSystem(@PathVariable String shortName, @RequestBody CodeSystemUpdateRequest updateRequest) {
 		CodeSystem codeSystem = findCodeSystem(shortName);
 		codeSystemService.update(codeSystem, updateRequest);
 		return joinUserPermissionsInfo(findCodeSystem(shortName));
 	}
 
-	@ApiOperation(value = "Delete a code system", notes = "This function deletes the code system and its versions but it does not delete the branches or the content.")
-	@RequestMapping(value = "/{shortName}", method = RequestMethod.DELETE)
+	@Operation(summary = "Delete a code system", description = "This function deletes the code system and its versions but it does not delete the branches or the content.")
+	@DeleteMapping(value = "/{shortName}")
 	public void deleteCodeSystem(@PathVariable String shortName) {
 		CodeSystem codeSystem = findCodeSystem(shortName);
 		codeSystemService.deleteCodeSystemAndVersions(codeSystem);
 	}
 
-	@ApiOperation("Retrieve versions of a code system")
-	@RequestMapping(value = "/{shortName}/versions", method = RequestMethod.GET)
+	@Operation(summary = "Retrieve versions of a code system")
+	@GetMapping(value = "/{shortName}/versions")
 	public ItemsPage<CodeSystemVersion> findAllVersions(
-			@ApiParam("Code system short name.")
+			@Parameter(description = "Code system short name.")
 			@PathVariable String shortName,
 
-			@ApiParam("Should versions with a future effective-time be shown.")
+			@Parameter(description = "Should versions with a future effective-time be shown.")
 			@RequestParam(required = false) Boolean showFutureVersions,
 
-			@ApiParam("Should versions marked as 'internalRelease' be shown.")
+			@Parameter(description = "Should versions marked as 'internalRelease' be shown.")
 			@RequestParam(required = false) Boolean showInternalReleases) {
 
 		if (showFutureVersions == null) {
@@ -134,9 +134,9 @@ public class CodeSystemController {
 		return new ItemsPage<>(codeSystemVersions);
 	}
 
-	@ApiOperation(value = "Create a new code system version",
-			notes = CODE_SYSTEM_INTERNAL_RELEASE_FLAG_README)
-	@RequestMapping(value = "/{shortName}/versions", method = RequestMethod.POST)
+	@Operation(summary = "Create a new code system version",
+			description = CODE_SYSTEM_INTERNAL_RELEASE_FLAG_README)
+	@PostMapping(value = "/{shortName}/versions")
 	public ResponseEntity<Void> createVersion(@PathVariable String shortName, @RequestBody CreateCodeSystemVersionRequest input) {
 		CodeSystem codeSystem = codeSystemService.find(shortName);
 		ControllerHelper.throwIfNotFound("CodeSystem", codeSystem);
@@ -145,13 +145,13 @@ public class CodeSystemController {
 		return ControllerHelper.getCreatedResponse(versionId);
 	}
 
-	@ApiOperation(value = "Update the release package in an existing code system version",
-			notes = "This function is used to update the release package for a given version." +
+	@Operation(summary = "Update the release package in an existing code system version",
+			description = "This function is used to update the release package for a given version." +
 					"The shortName is the code system short name e.g SNOMEDCT" +
 					"The effectiveDate is the release date e.g 20210131" +
 					"The releasePackage is the release zip file package name. e.g SnomedCT_InternationalRF2_PRODUCTION_20210131T120000Z.zip"
 				)
-	@RequestMapping(value = "/{shortName}/versions/{effectiveDate}", method = RequestMethod.PUT)
+	@PutMapping(value = "/{shortName}/versions/{effectiveDate}")
 	public CodeSystemVersion updateVersion(@PathVariable String shortName, @PathVariable Integer effectiveDate, @RequestParam String releasePackage) {
 		// release package and effective date checking
 		ControllerHelper.requiredParam(releasePackage, "releasePackage");
@@ -167,8 +167,8 @@ public class CodeSystemController {
 		return codeSystemService.updateCodeSystemVersionPackage(codeSystemVersion, releasePackage);
 	}
 
-	@ApiOperation(value = "Upgrade code system to a different dependant version.",
-			notes = "This operation can be used to upgrade an extension to a new version of the parent code system. \n\n" +
+	@Operation(summary = "Upgrade code system to a different dependant version.",
+			description = "This operation can be used to upgrade an extension to a new version of the parent code system. \n\n" +
 					"If daily build is enabled for this code system that will be temporarily disabled and the daily build content will be rolled back automatically. \n\n" +
 					"\n\n" +
 					"The extension must have been imported on a branch which is a direct child of MAIN. \n\n" +
@@ -177,33 +177,49 @@ public class CodeSystemController {
 					"_contentAutomations_ should be set to false unless you are the extension maintainer and would like some automatic content changes made " +
 					"to support creating a new version of the extension. \n\n" +
 					"If you are the extension maintainer an integrity check should be run after this operation to find content that needs fixing. ")
-	@RequestMapping(value = "/{shortName}/upgrade", method = RequestMethod.POST)
+	@PostMapping(value = "/{shortName}/upgrade")
 	public void upgradeCodeSystem(@PathVariable String shortName, @RequestBody CodeSystemUpgradeRequest request) throws ServiceException {
 		CodeSystem codeSystem = codeSystemService.findOrThrow(shortName);
 		codeSystemUpgradeService.upgrade(codeSystem, request.getNewDependantVersion(), TRUE.equals(request.getContentAutomations()));
 	}
 
-	@ApiOperation(value = "Rollback daily build commits.",
-			notes = "If you have a daily build set up for a code system this operation should be used to revert/rollback the daily build content " +
+	@Operation(summary = "Check if daily build import matches today's date.")
+	@GetMapping(value = "/{shortName}/daily-build/check")
+	public boolean getLatestDailyBuild(@PathVariable String shortName) {
+		return dailyBuildService.hasLatestDailyBuild(shortName);
+	}
+
+	@Operation(summary = "Rollback daily build commits.",
+			description = "If you have a daily build set up for a code system this operation should be used to revert/rollback the daily build content " +
 					"before importing any versioned content. Be sure to disable the daily build too.")
-	@RequestMapping(value = "/{shortName}/daily-build/rollback", method = RequestMethod.POST)
+	@PostMapping(value = "/{shortName}/daily-build/rollback")
 	public void rollbackDailyBuildContent(@PathVariable String shortName) {
 		CodeSystem codeSystem = codeSystemService.find(shortName);
 		dailyBuildService.rollbackDailyBuildContent(codeSystem);
 	}
 
-	@ApiOperation(value = "Generate additional english language refset",
-			notes = "Before running this extensions must be upgraded already. " +
+	@Operation(summary = "Trigger scheduled daily build import.",
+		description = "The daily build import is scheduled to perform at a configured time interval per default." +
+				"This operation manually triggers the scheduled daily build import service to perform.")
+	@RequestMapping(value = "/{shortName}/daily-build/import", method = RequestMethod.POST)
+	public void triggerScheduledImport(@PathVariable String shortName) {
+			CodeSystem codeSystem = codeSystemService.find(shortName);
+			dailyBuildService.triggerScheduledImport(codeSystem);
+	}
+
+
+	@Operation(summary = "Generate additional english language refset",
+			description = "Before running this extensions must be upgraded already. " +
 					"You must specify the branch path(e.g MAIN/SNOMEDCT-NZ/{project}/{task}) of the task for the delta to be added. " +
 					"When completeCopy flag is set to true, all active en-gb language refset components will be copied into the extension module. " +
 					"When completeCopy flag is set to false, only the changes from the latest international release will be copied/updated in the extension module. " +
 					"Currently you only need to run this when upgrading SNOMEDCT-IE and SNOMEDCT-NZ")
-	@RequestMapping(value = "/{shortName}/additional-en-language-refset-delta", method = RequestMethod.POST)
+	@PostMapping(value = "/{shortName}/additional-en-language-refset-delta")
 	public void generateAdditionalLanguageRefsetDelta(@PathVariable String shortName,
 													  @RequestParam String branchPath,
-													  @ApiParam("The language refset to copy from e.g 900000000000508004 | Great Britain English language reference set (foundation metadata concept) ")
+													  @Parameter(description = "The language refset to copy from e.g 900000000000508004 | Great Britain English language reference set (foundation metadata concept) ")
 													  @RequestParam (defaultValue = "900000000000508004") String languageRefsetToCopyFrom,
-													  @ApiParam("Set completeCopy to true to copy all active components and false to copy only changes from the latest release.")
+													  @Parameter(description = "Set completeCopy to true to copy all active components and false to copy only changes from the latest release.")
 													  @RequestParam (defaultValue = "false") Boolean completeCopy) {
 
 		ControllerHelper.requiredParam(shortName, "shortName");
@@ -217,26 +233,28 @@ public class CodeSystemController {
 		extensionAdditionalLanguageRefsetUpgradeService.generateAdditionalLanguageRefsetDelta(codeSystem, BranchPathUriUtil.decodePath(branchPath), languageRefsetToCopyFrom, completeCopy);
 	}
 
-	@ApiOperation("Clear cache of code system calculated/aggregated information.")
-	@RequestMapping(value = "/clear-cache", method = RequestMethod.POST)
+	@Operation(summary = "Clear cache of code system calculated/aggregated information.")
+	@PostMapping(value = "/clear-cache")
 	@PreAuthorize("hasPermission('ADMIN', 'global')")
 	public void clearCodeSystemInformationCache() {
 		codeSystemService.clearCache();
 		codeSystemVersionService.clearCache();
 	}
 
-	@ApiOperation("Update details from config. For each existing Code System the name, country code and owner are set using the values in configuration.")
-	@RequestMapping(value = "/update-details-from-config", method = RequestMethod.POST)
+	@Operation(summary = "Update details from config. For each existing Code System the name, country code and owner are set using the values in configuration.")
+	@PostMapping(value = "/update-details-from-config")
 	@PreAuthorize("hasPermission('ADMIN', 'global')")
 	public void updateDetailsFromConfig() {
 		codeSystemService.updateDetailsFromConfig();
 	}
 
-	@ApiOperation("Start new authoring cycle for given code system")
-	@RequestMapping(value = "/{shortName}/new-authoring-cycle", method = RequestMethod.POST)
-	public void startNewAuthoringCycle(@PathVariable String shortName, @RequestBody CodeSystemNewAuthoringCycleRequest updateRequest) {
+
+	@Operation(summary = "Start new authoring cycle for given code system")
+	@PostMapping(value = "/{shortName}/new-authoring-cycle")
+	@PreAuthorize("hasPermission('ADMIN', 'global')")
+	public void startNewAuthoringCycle(@PathVariable String shortName) {
 		CodeSystem codeSystem = ControllerHelper.throwIfNotFound("Code System", codeSystemService.find(shortName));
-		codeSystemService.updateCodeSystemBranchMetadata(codeSystem, updateRequest);
+		codeSystemService.updateCodeSystemBranchMetadata(codeSystem);
 	}
 
 	private CodeSystem joinUserPermissionsInfo(CodeSystem codeSystem) {

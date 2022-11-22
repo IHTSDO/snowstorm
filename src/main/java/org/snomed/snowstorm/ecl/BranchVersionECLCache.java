@@ -31,7 +31,9 @@ public class BranchVersionECLCache {
 	}
 
 	public Page<Long> get(String ecl, boolean stated, PageRequest pageRequest) {
-		return eclToConceptsCache.get(new ECLCacheEntry(ecl, stated, pageRequest));
+		ECLCacheEntry key = new ECLCacheEntry(ecl, stated, pageRequest);
+		Page<Long> longs = eclToConceptsCache.get(key);
+		return longs;
 	}
 
 	public void put(String ecl, boolean stated, PageRequest pageRequest, Page<Long> page) {
@@ -39,7 +41,7 @@ public class BranchVersionECLCache {
 	}
 
 	static String normaliseEclString(String ecl) {
-		return ecl.toLowerCase().replaceAll("\\|[^|]*\\|", "").replace("and", ",").replace(" ", "");
+		return ecl.toLowerCase().replaceAll("\\|[^|]*\\|", "").replace("  ", " ").replace(" and ", ", ").trim();
 	}
 
 	public void recordHit() {

@@ -1,10 +1,12 @@
 package org.snomed.snowstorm.ecl.validation;
 
-import com.google.common.base.Functions;
+import io.kaicode.elasticvc.api.BranchCriteria;
 import io.kaicode.elasticvc.api.CommitListener;
 import io.kaicode.elasticvc.api.VersionControlHelper;
 import io.kaicode.elasticvc.domain.Commit;
 import org.snomed.langauges.ecl.domain.expressionconstraint.SubExpressionConstraint;
+import org.snomed.langauges.ecl.domain.filter.SearchType;
+import org.snomed.langauges.ecl.domain.filter.TypedSearchTerm;
 import org.snomed.langauges.ecl.domain.refinement.EclAttributeGroup;
 import org.snomed.langauges.ecl.domain.refinement.EclRefinement;
 import org.snomed.langauges.ecl.domain.refinement.SubAttributeSet;
@@ -19,6 +21,7 @@ import org.snomed.snowstorm.ecl.domain.refinement.SEclAttributeSet;
 import org.snomed.snowstorm.ecl.domain.refinement.SSubAttributeSet;
 import org.snomed.snowstorm.ecl.domain.refinement.SSubRefinement;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 
@@ -26,8 +29,12 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 import static org.snomed.snowstorm.core.data.domain.Concepts.CONCEPT_MODEL_DATA_ATTRIBUTE;
-import static org.snomed.snowstorm.ecl.domain.expressionconstraint.SExpressionConstraintHelper.MISSING;
+import static org.snomed.snowstorm.ecl.ConceptSelectorHelper.MISSING;
 
+/**
+ * This service checks ECL queries for concrete values being used against non-concrete attribute types.
+ * // TODO - this service is no longer needed since separating concrete values from concept ids in the semantic index, including the 'all_numeric' field.
+ */
 @Service
 public class ECLPreprocessingService implements CommitListener {
 
@@ -89,8 +96,8 @@ public class ECLPreprocessingService implements CommitListener {
 	private void setPlaceholder(final SEclAttribute sEclAttribute) {
 		if (sEclAttribute.getNumericValue() != null) {
 			sEclAttribute.setNumericValue(String.valueOf(Float.MAX_VALUE));
-		} else if (sEclAttribute.getStringValue() != null) {
-			sEclAttribute.setStringValue(MISSING);
+		} else if (sEclAttribute.getStringValues() != null) {
+			sEclAttribute.setStringValues(Collections.singletonList(new TypedSearchTerm(SearchType.MATCH, MISSING)));
 		}
 	}
 
@@ -165,8 +172,9 @@ public class ECLPreprocessingService implements CommitListener {
 	}
 
 	private void cacheConcreteConceptIds(final String branch) {
-		CACHED_CONCRETE_CONCEPT_IDS.put(branch, eclQueryService.doSelectConceptIds(RETURN_ALL_CONCRETE_ATTRIBUTES_ECL_QUERY,
-				versionControlHelper.getBranchCriteria(branch), branch, false, null, PageRequest.of(0, 100), null)
-				.toList().stream().map(Functions.toStringFunction()).collect(Collectors.toList()));
+		BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(branch);
+		Page<Long> conceptIds = eclQueryService.selectConceptIds(RETURN_ALL_CONCRETE_ATTRIBUTES_ECL_QUERY,
+				branchCriteria, false, null, PageRequest.of(0, 100), true);
+		CACHED_CONCRETE_CONCEPT_IDS.put(branch, conceptIds.stream().map(Object::toString).collect(Collectors.toList()));
 	}
 }

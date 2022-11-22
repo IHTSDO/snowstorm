@@ -3,7 +3,7 @@ package org.snomed.snowstorm.ecl.domain;
 import io.kaicode.elasticvc.api.BranchCriteria;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.snomed.snowstorm.core.data.domain.QueryConcept;
-import org.snomed.snowstorm.core.data.services.QueryService;
+import org.snomed.snowstorm.ecl.ECLContentService;
 
 import java.util.function.Function;
 
@@ -48,8 +48,8 @@ public class SubRefinementBuilder implements RefinementBuilder {
 	}
 
 	@Override
-	public QueryService getQueryService() {
-		return refinementBuilder.getQueryService();
+	public ECLContentService getEclContentService() {
+		return refinementBuilder.getEclContentService();
 	}
 
 	@Override

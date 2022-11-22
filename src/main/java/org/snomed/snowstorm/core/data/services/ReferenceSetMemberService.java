@@ -4,10 +4,7 @@ import com.google.common.base.Strings;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.Iterables;
-import io.kaicode.elasticvc.api.BranchCriteria;
-import io.kaicode.elasticvc.api.BranchService;
-import io.kaicode.elasticvc.api.ComponentService;
-import io.kaicode.elasticvc.api.VersionControlHelper;
+import io.kaicode.elasticvc.api.*;
 import io.kaicode.elasticvc.domain.Commit;
 import io.kaicode.elasticvc.domain.Metadata;
 import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
@@ -17,10 +14,12 @@ import it.unimi.dsi.fastutil.longs.LongSet;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.index.query.RegexpQueryBuilder;
+import org.elasticsearch.index.query.TermsQueryBuilder;
 import org.elasticsearch.search.aggregations.AggregationBuilders;
 import org.elasticsearch.search.sort.FieldSortBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.snomed.langauges.ecl.domain.filter.*;
 import org.snomed.snowstorm.config.Config;
 import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.repositories.ReferenceSetMemberRepository;
@@ -31,9 +30,14 @@ import org.snomed.snowstorm.core.data.services.pojo.MemberSearchRequest;
 import org.snomed.snowstorm.core.data.services.pojo.PageWithBucketAggregations;
 import org.snomed.snowstorm.core.data.services.pojo.PageWithBucketAggregationsFactory;
 import org.snomed.snowstorm.core.util.PageHelper;
+import org.snomed.snowstorm.core.util.SearchAfterPage;
+import org.snomed.snowstorm.ecl.ECLContentService;
 import org.snomed.snowstorm.ecl.ECLQueryService;
+import org.snomed.snowstorm.ecl.domain.RefinementBuilder;
+import org.snomed.snowstorm.ecl.domain.expressionconstraint.SSubExpressionConstraint;
 import org.snomed.snowstorm.rest.converter.SearchAfterHelper;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
@@ -48,6 +52,7 @@ import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
+import java.io.Serializable;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
@@ -59,6 +64,7 @@ import static org.elasticsearch.index.query.QueryBuilders.*;
 import static org.snomed.snowstorm.config.Config.AGGREGATION_SEARCH_SIZE;
 import static org.snomed.snowstorm.core.data.domain.Concepts.inactivationAndAssociationRefsets;
 import static org.snomed.snowstorm.core.data.services.CodeSystemService.MAIN;
+import static org.snomed.snowstorm.core.util.CollectionUtils.orEmpty;
 
 @Service
 public class ReferenceSetMemberService extends ComponentService {
@@ -101,13 +107,24 @@ public class ReferenceSetMemberService extends ComponentService {
 	@Autowired
 	private ECLQueryService eclQueryService;
 
+	@Value("${refset-types.initial-branch}")
+	private String refsetsBranchPath;
+
 	private final Cache<String, AsyncRefsetMemberChangeBatch> batchChanges = CacheBuilder.newBuilder().expireAfterWrite(2, TimeUnit.HOURS).build();
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
+	public void init() {
+		Set<ReferenceSetType> configuredTypes = referenceSetTypesConfigurationService.getConfiguredTypes();
+		setupTypes(configuredTypes);
+	}
+
 	public Page<ReferenceSetMember> findMembers(String branch,
 			String referencedComponentId,
 			PageRequest pageRequest) {
+		if (branch == null || referencedComponentId == null || pageRequest == null) {
+			return Page.empty();
+		}
 
 		return findMembers(branch, new MemberSearchRequest().referencedComponentId(referencedComponentId), pageRequest);
 	}
@@ -159,7 +176,7 @@ public class ReferenceSetMemberService extends ComponentService {
 			List<Long> conceptIds = getConceptIds(branch, branchCriteria, module);
 			query.must(termsQuery(ReferenceSetMember.Fields.MODULE_ID, conceptIds));
 		}
-		Set<String> referencedComponentIds = searchRequest.getReferencedComponentIds();
+		Collection<? extends Serializable> referencedComponentIds = searchRequest.getReferencedComponentIds();
 		if (referencedComponentIds != null && referencedComponentIds.size() > 0) {
 			query.must(termsQuery(ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID, referencedComponentIds));
 		}
@@ -203,7 +220,7 @@ public class ReferenceSetMemberService extends ComponentService {
 		if (conceptIdOrECL.matches("\\d+")) {
 			conceptIds = Collections.singletonList(parseLong(conceptIdOrECL));
 		} else {
-			conceptIds = eclQueryService.selectConceptIds(conceptIdOrECL, branchCriteria, branch, true, LARGE_PAGE).getContent();
+			conceptIds = eclQueryService.selectConceptIds(conceptIdOrECL, branchCriteria, true, LARGE_PAGE).getContent();
 		}
 		return conceptIds;
 	}
@@ -245,7 +262,9 @@ public class ReferenceSetMemberService extends ComponentService {
 			final Metadata metadata = branchService.findBranchOrThrow(commit.getBranch().getPath(), true).getMetadata();
 			String defaultModuleId = metadata.getString(Config.DEFAULT_MODULE_ID_KEY);
 			members.forEach(member -> {
-				member.setMemberId(UUID.randomUUID().toString());
+				if (member.getMemberId() == null) {
+					member.setMemberId(UUID.randomUUID().toString());
+				}
 				if (member.getModuleId() == null) {
 					member.setModuleId(defaultModuleId);
 				}
@@ -350,7 +369,7 @@ public class ReferenceSetMemberService extends ComponentService {
 			changeBatch.setMemberIds(StreamSupport.stream(savedMembers.spliterator(), false).map(ReferenceSetMember::getMemberId).collect(Collectors.toList()));
 			changeBatch.setStatus(AsyncRefsetMemberChangeBatch.Status.COMPLETED);
 
-		} catch (IllegalArgumentException | IllegalStateException e) {
+		} catch (IllegalArgumentException | IllegalStateException | ElasticVCRuntimeException e) {
 			changeBatch.setStatus(AsyncRefsetMemberChangeBatch.Status.FAILED);
 			changeBatch.setMessage(e.getMessage());
 			logger.error("Batch member change failed, id:{}, branch:{}", changeBatch.getId(), branch, e);
@@ -430,21 +449,52 @@ public class ReferenceSetMemberService extends ComponentService {
 		return doSaveBatchComponents(members, commit, ReferenceSetMember.Fields.MEMBER_ID, memberRepository);
 	}
 
-	Set<Long> findConceptsInReferenceSet(BranchCriteria branchCriteria, String referenceSetId) {
-		// Build query
+	public SearchAfterPage<ReferenceSetMember> findMembersForECLResponse(BoolQueryBuilder memberQuery, List<MemberFilterConstraint> memberFilterConstraints,
+			List<String> memberFieldsToReturn, boolean stated, BranchCriteria branchCriteria, PageRequest pageRequest, ECLContentService eclContentService) {
 
-		BoolQueryBuilder boolQuery = boolQuery().must(branchCriteria.getEntityBranchCriteria(ReferenceSetMember.class))
-				.must(termQuery(SnomedComponent.Fields.ACTIVE, true))
-				.must(regexpQuery(ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID, ".*0."));// Matches the concept partition identifier
+		addECLMemberConstraints(memberQuery, memberFilterConstraints, stated, branchCriteria, eclContentService);
+
+		NativeSearchQueryBuilder queryBuilder = new NativeSearchQueryBuilder()
+				.withQuery(memberQuery)
+				.withPageable(pageRequest);
+
+		if (memberFieldsToReturn != null) {
+			Set<String> elasticFieldNames = new HashSet<>();
+			elasticFieldNames.add(ReferenceSetMember.Fields.ACTIVE);
+			for (String eclFieldName : memberFieldsToReturn) {
+				if (!eclFieldName.equals(ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID)) {
+					eclFieldName = ReferenceSetMember.Fields.getAdditionalFieldTextTypeMapping(eclFieldName);
+				}
+				elasticFieldNames.add(eclFieldName);
+			}
+			queryBuilder.withFields(elasticFieldNames.toArray(new String[]{}));
+		}
+
+		NativeSearchQuery query = queryBuilder.build();
+		query.setTrackTotalHits(true);
+		SearchHits<ReferenceSetMember> searchHits = elasticsearchTemplate.search(query, ReferenceSetMember.class);
+		return PageHelper.toSearchAfterPage(searchHits, pageRequest);
+	}
+
+	public Set<Long> findConceptsInReferenceSet(Collection<Long> referenceSetIds, List<MemberFilterConstraint> memberFilterConstraints, RefinementBuilder refinementBuilder,
+			BoolQueryBuilder masterMemberQuery) {
+
+		BranchCriteria branchCriteria = refinementBuilder.getBranchCriteria();
+		BoolQueryBuilder memberQuery = boolQuery().must(branchCriteria.getEntityBranchCriteria(ReferenceSetMember.class));
+		memberQuery.must(masterMemberQuery);
+		memberQuery.must(regexpQuery(ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID, ".*0."));// Matches concept SCTIDs only
+
+		addECLMemberConstraints(memberQuery, memberFilterConstraints, refinementBuilder.isStated(), branchCriteria, refinementBuilder.getEclContentService());
+
 		// Allow searching across all refsets
-		if (referenceSetId != null) {
-			boolQuery.must(termQuery(ReferenceSetMember.Fields.REFSET_ID, referenceSetId));
+		if (referenceSetIds != null) {
+			memberQuery.must(termsQuery(ReferenceSetMember.Fields.REFSET_ID, referenceSetIds));
 		}
 
 		// Build search query
 		NativeSearchQuery query = new NativeSearchQueryBuilder()
-				.withQuery(boolQuery)
-				.withFields(ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID)// Triggers FastResultsMapper
+				.withQuery(memberQuery)
+				.withFields(ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID)
 				.withSort(new FieldSortBuilder("_doc"))// Fastest unordered sort
 				.withPageable(LARGE_PAGE)
 				.build();
@@ -457,16 +507,68 @@ public class ReferenceSetMemberService extends ComponentService {
 		return conceptIds;
 	}
 
-	public void init() {
-		Set<ReferenceSetType> configuredTypes = referenceSetTypesConfigurationService.getConfiguredTypes();
-		setupTypes(configuredTypes);
+	private void addECLMemberConstraints(BoolQueryBuilder memberQuery, List<MemberFilterConstraint> memberFilterConstraints, boolean stated,
+			BranchCriteria branchCriteria, ECLContentService eclContentService) {
+
+		if (memberFilterConstraints != null) {
+			for (MemberFilterConstraint memberFilterConstraint : memberFilterConstraints) {
+				for (MemberFieldFilter fieldFilter : orEmpty(memberFilterConstraint.getMemberFieldFilters())) {
+					String fieldName = fieldFilter.getFieldName();
+					fieldName = fieldName.equals(ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID) ?
+							fieldName : "additionalFields." + fieldName + ".keyword";
+
+					if (fieldFilter.getExpressionComparisonOperator() != null) {
+						SSubExpressionConstraint subExpressionConstraint = (SSubExpressionConstraint) fieldFilter.getSubExpressionConstraint();
+						List<Long> conceptIds = eclContentService
+								.fetchAllIdsWithCaching(subExpressionConstraint, branchCriteria, stated);
+						TermsQueryBuilder termsQuery = termsQuery(fieldName, conceptIds);
+						if (fieldFilter.getExpressionComparisonOperator().equals("=")) {
+							memberQuery.filter(termsQuery);
+						} else {
+							memberQuery.filter(boolQuery().mustNot(termsQuery));
+						}
+					} else if (fieldFilter.getNumericComparisonOperator() != null) {
+						NumericComparisonOperator operator = fieldFilter.getNumericComparisonOperator();
+						if (operator == NumericComparisonOperator.EQUAL) {
+							memberQuery.must(termQuery(fieldName, fieldFilter.getNumericValue()));
+						} else if (operator == NumericComparisonOperator.NOT_EQUAL) {
+							memberQuery.mustNot(termQuery(fieldName, fieldFilter.getNumericValue()));
+						} else {
+							float value = Float.parseFloat(fieldFilter.getNumericValue());
+							ECLContentService.addNumericConstraint(operator, fieldName, Collections.singleton(value), memberQuery);
+						}
+					} else if (fieldFilter.getStringComparisonOperator() != null) {
+						boolean must = fieldFilter.getStringComparisonOperator().equals("=");
+						for (TypedSearchTerm searchTerm : fieldFilter.getSearchTerms()) {
+							QueryBuilder query;
+							if (searchTerm.getType() == SearchType.WILDCARD) {
+								// There will only be one term for wildcard
+								String regex = searchTerm.getTerm().replace("*", ".*");
+								query = regexpQuery(fieldName, regex);
+							} else {
+								// Prefix query
+								query = wildcardQuery(fieldName, searchTerm.getTerm() + "*");
+							}
+							if (must) {
+								memberQuery.must(query);
+							} else {
+								memberQuery.mustNot(query);
+							}
+						}
+					} else if (fieldFilter.getTimeComparisonOperator() != null) {
+						ECLContentService.addNumericConstraint(fieldFilter.getTimeComparisonOperator(), fieldName, fieldFilter.getTimeValues(), memberQuery);
+					}
+				}
+			}
+		}
 	}
 
 	private void setupTypes(Set<ReferenceSetType> referenceSetTypes) {
-		String path = MAIN;
-		if (!branchService.exists(path)) {
-			sBranchService.create(path);
+		String path = refsetsBranchPath;
+		if (!branchService.exists(MAIN)) {
+			sBranchService.create(MAIN);
 		}
+		logger.info("Reference set types are configured against branch: '{}'.", path);
 		List<ReferenceSetType> existingTypes = findConfiguredReferenceSetTypes(path);
 		Set<ReferenceSetType> typesToRemove = new HashSet<>(existingTypes);
 		typesToRemove.removeAll(referenceSetTypes);
@@ -497,8 +599,8 @@ public class ReferenceSetMemberService extends ComponentService {
 		NativeSearchQuery query = new NativeSearchQueryBuilder().withQuery(branchCriteria).withPageable(LARGE_PAGE).build();
 		return elasticsearchTemplate.search(query, ReferenceSetType.class).stream().map(SearchHit::getContent).collect(Collectors.toList());
 	}
-
 	//TODO If this could be called during a rebase, include the source branch and pass existingRebaseSourceMember into copyReleaseDetails
+
 	public ReferenceSetMember updateMember(String branch, ReferenceSetMember member) {
 
 		ReferenceSetMember existingMember = findMember(branch, member.getMemberId());
@@ -534,7 +636,7 @@ public class ReferenceSetMemberService extends ComponentService {
 	}
 
 	public Map<String, String> findRefsetTypes(Set<String> referenceSetIds, BranchCriteria branchCriteria, String branch) {
-		List<Long> allRefsetTypes = eclQueryService.selectConceptIds("<!" + Concepts.REFSET, branchCriteria, branch, false, LARGE_PAGE).getContent();
+		List<Long> allRefsetTypes = eclQueryService.selectConceptIds("<!" + Concepts.REFSET, branchCriteria, false, LARGE_PAGE).getContent();
 
 		final NativeSearchQuery searchQuery = new NativeSearchQueryBuilder()
 				.withQuery(boolQuery()

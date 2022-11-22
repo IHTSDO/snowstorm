@@ -35,6 +35,7 @@ import java.util.stream.Collectors;
 
 import static io.kaicode.elasticvc.api.VersionControlHelper.LARGE_PAGE;
 import static org.elasticsearch.index.query.QueryBuilders.*;
+import static org.snomed.snowstorm.core.data.domain.SnomedComponent.Fields.*;
 import static org.snomed.snowstorm.core.data.services.BranchMetadataHelper.INTERNAL_METADATA_KEY;
 import static org.snomed.snowstorm.core.data.services.IntegrityService.INTEGRITY_ISSUE_METADATA_KEY;
 import static org.snomed.snowstorm.core.util.PredicateUtil.not;
@@ -229,6 +230,8 @@ public class BranchMergeService {
 				removeRebaseDuplicateVersions(Description.class, boolQuery(), changesOnBranchIncludingOpenCommit, branchCriteriaIncludingOpenCommit, commit);
 				// Merge non-concept reference set members
 				removeRebaseDuplicateVersions(ReferenceSetMember.class, boolQuery().mustNot(existsQuery(ReferenceSetMember.Fields.CONCEPT_ID)), changesOnBranchIncludingOpenCommit, branchCriteriaIncludingOpenCommit, commit);
+				// Prefer latest edited versioned content
+				removeRebaseDivergedVersions(ReferenceSetMember.class, ReferenceSetMember.Fields.MEMBER_ID, changesOnBranchIncludingOpenCommit, branchCriteriaIncludingOpenCommit, commit);
 
 				// add integrity metadata in target branch if integrity issue found in source.
 				updateIntegrityMetadata(sourceBranch, commit.getBranch());
@@ -266,7 +269,85 @@ public class BranchMergeService {
 		}
 	}
 
-	private <T extends SnomedComponent<?>> void removeRebaseDuplicateVersions(Class<T> componentClass, QueryBuilder clause,
+	private <T extends SnomedComponent<T>> void removeRebaseDivergedVersions(Class<T> componentClass, String idField, BranchCriteria changesOnBranchIncludingOpenCommit, BranchCriteria branchCriteriaIncludingOpenCommit, Commit commit) {
+		// Find edited versioned content on branch
+		String path = commit.getBranch().getPath();
+		Map<String, T> editedVersionedContent = new HashMap<>(); // K => Id, V => Content
+		NativeSearchQueryBuilder editedVersionedContentQuery = new NativeSearchQueryBuilder();
+		editedVersionedContentQuery
+				.withQuery(changesOnBranchIncludingOpenCommit.getEntityBranchCriteria(componentClass))
+				.withQuery(branchCriteriaIncludingOpenCommit.getEntityBranchCriteria(componentClass))
+				.withQuery(
+						boolQuery()
+								.must(existsQuery(RELEASE_HASH))
+								.must(termQuery(PATH, path))
+								.mustNot(existsQuery(END))
+				)
+				.withFields(
+						PATH, RELEASED, RELEASED_EFFECTIVE_TIME,
+						ReferenceSetMember.Fields.MEMBER_ID, ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID,
+						ReferenceSetMember.Fields.REFSET_ID
+				)
+				.withPageable(LARGE_PAGE);
+		try (SearchHitsIterator<T> stream = elasticsearchTemplate.searchForStream(editedVersionedContentQuery.build(), componentClass)) {
+			stream.forEachRemaining(hit -> {
+				T content = hit.getContent();
+				editedVersionedContent.put(content.getId(), content);
+			});
+		}
+
+		// Find equivalent versioned content on parent
+		Map<String, T> equivalentVersionedContentOnParent = new HashMap<>(); // K => Id, V => Content
+		if (!editedVersionedContent.isEmpty()) {
+			for (Map.Entry<String, T> entrySet : editedVersionedContent.entrySet()) {
+				String componentId = entrySet.getKey();
+				T component = entrySet.getValue();
+				String componentPath = component.getPath();
+				String componentParentPath = PathUtil.getParentPath(componentPath);
+
+				if (componentParentPath != null && !componentParentPath.equals(componentPath)) {
+					NativeSearchQueryBuilder equivalentVersionedContentOnParentQuery = new NativeSearchQueryBuilder();
+					equivalentVersionedContentOnParentQuery
+							.withQuery(
+									boolQuery()
+											.must(existsQuery(RELEASE_HASH))
+											.must(termQuery(PATH, componentParentPath))
+											.must(termQuery(idField, componentId))
+											.mustNot(existsQuery(END))
+							)
+							.withFields(
+									PATH, RELEASED, RELEASED_EFFECTIVE_TIME,
+									ReferenceSetMember.Fields.MEMBER_ID, ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID,
+									ReferenceSetMember.Fields.REFSET_ID
+							)
+							.withPageable(LARGE_PAGE);
+					try (SearchHitsIterator<T> stream = elasticsearchTemplate.searchForStream(equivalentVersionedContentOnParentQuery.build(), componentClass)) {
+						stream.forEachRemaining(hit -> equivalentVersionedContentOnParent.put(hit.getContent().getId(), hit.getContent()));
+					}
+				}
+			}
+		}
+
+		// End versions on branch if parent has a newer versioned date
+		for (Map.Entry<String, T> entrySet : equivalentVersionedContentOnParent.entrySet()) {
+			String componentId = entrySet.getKey();
+			T parent = entrySet.getValue();
+			T child = editedVersionedContent.get(componentId);
+
+			boolean childIsDiverged = parent.isReleasedMoreRecentlyThan(child);
+			if (childIsDiverged) {
+				Date timepoint = commit.getTimepoint();
+				child.setEnd(timepoint);
+				ElasticsearchRepository repository = domainEntityConfiguration.getComponentTypeRepositoryMap().get(componentClass);
+				repository.save(child);
+
+				logger.info("Component {} on branch {} ({}) has different releasedEffectiveTime from parent branch ({}).", componentId, path, child.getReleasedEffectiveTime(), parent.getReleasedEffectiveTime());
+				logger.info("Ended component {} on {} at timepoint {} to match current commit.", componentId, path, timepoint);
+			}
+		}
+	}
+
+	private <T extends SnomedComponent<T>> void removeRebaseDuplicateVersions(Class<T> componentClass, QueryBuilder clause,
 			BranchCriteria changesOnBranchCriteria, BranchCriteria branchCriteriaIncludingOpenCommit, Commit commit) throws ServiceException {
 
 		String idField;
@@ -373,7 +454,6 @@ public class BranchMergeService {
 
 		// Hide duplicate components in extension module if extension components have the most recent released effective time
 		// End duplicate components in extension module if international components have the most recent released effective time
-		List<String> internalIdsToHide = new ArrayList<>();
 		for (List<String> duplicateIdsBatch : Iterables.partition(duplicateIds, 10_000)) {
 			// International versions
 			List<? extends SnomedComponent<?>> intVersions = elasticsearchTemplate.search(new NativeSearchQueryBuilder()
@@ -403,11 +483,11 @@ public class BranchMergeService {
 					// End duplicate components in extension module
 					extensionVersion.setEnd(commit.getTimepoint());
 					repository.save(extensionVersion);
+					BranchMetadataHelper.getRebaseDuplicatesRemoved(commit).put(extensionVersion.getClass().getSimpleName(), Set.of(extensionVersion.getId()));
 					logger.info("Ended {} on {} at timepoint {} to match current commit.", duplicateId, branch, commit.getTimepoint());
 				} else {
 					// Hide parent version
 					commit.addVersionsReplaced(Collections.singleton(intVersion.getInternalId()), clazz);
-					internalIdsToHide.add(intVersion.getInternalId());
 				}
 			}
 		}
@@ -472,7 +552,7 @@ public class BranchMergeService {
 		copyChangesOnBranchToCommit(source, commit, entityClass, entityRepository, "Promoting", true);
 	}
 
-	private <T extends DomainEntity<?>> void copyChangesOnBranchToCommit(String source, Commit commit, Class<T> entityClass,
+	private <T extends DomainEntity<T>> void copyChangesOnBranchToCommit(String source, Commit commit, Class<T> entityClass,
 			ElasticsearchRepository<T, String> entityRepository, String logAction, boolean endEntitiesOnSource) {
 
 		// Load all entities on source

@@ -18,8 +18,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import static com.google.common.collect.Sets.newHashSet;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.*;
 
 class PermissionServiceTest extends AbstractTest {
 
@@ -108,6 +107,14 @@ class PermissionServiceTest extends AbstractTest {
 		assertNotNull(results);
 		assertEquals(1, results.size());
 		assertEquals("abc-author", results.get(0).getUserGroups().iterator().next());
+	}
+
+	@Test
+	public void testListUserGroupPermissions() {
+		List<PermissionRecord> results = permissionService.findUserGroupPermissions("int-reviewer");
+		assertNotNull(results);
+		assertEquals(3, results.size());
+		results.forEach( g -> assertTrue(g.getUserGroups().contains("int-reviewer")));
 	}
 
 	private Set<String> getRolesForBranch(String branchPath, String... userGroups) {

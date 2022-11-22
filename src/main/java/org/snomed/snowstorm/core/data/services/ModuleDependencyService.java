@@ -127,7 +127,7 @@ public class ModuleDependencyService extends ComponentService {
 		
 		//What modules are known to this code system?
 		CodeSystem cs = codeSystemService.findClosestCodeSystemUsingAnyBranch(branchPath, true);
-		Branch branch = branchService.findBranchOrThrow(branchPath);
+		Branch branch = branchService.findBranchOrThrow(branchPath, true);  //Include Inherited Metadata
 		
 		//Do I have a dependency release?  If so, what's its effective time?
 		boolean isEdition = true;
@@ -171,6 +171,18 @@ public class ModuleDependencyService extends ComponentService {
 			modulesRequired = modulesWithContent;
 		}
 		
+		//Having said that, NZ for example defines a module with no content
+		//So add modules from existing active MDRS members
+		Set<String> activeModules = rmPage.getContent().stream()
+				.filter(rm -> rm.isActive())
+				.map(rm -> rm.getModuleId())
+				.collect(Collectors.toSet());
+		modulesRequired.addAll(activeModules);
+		
+		//And also as seen in NZ, make a particular note of existing mutual dependencies
+		Map<String, Set<String>> mutualDependencies = detectMutualDependencies(rmPage.getContent());
+		modulesRequired.addAll(mutualDependencies.keySet());
+		
 		//If we're not an Edition, remove all international modules
 		if (!isEdition) {
 			modulesRequired.removeAll(cachedInternationalModules);
@@ -180,7 +192,7 @@ public class ModuleDependencyService extends ComponentService {
 		//Generally, refset type modules are defined in the main extension module
 		Map<String, String> moduleHierarchyMap = getModuleOfModule(branchPath, new HashSet<>(modulesRequired));
 		if (!isInternational) {
-			mapTopLevelExtensionModuleToCore(moduleCountMap, moduleHierarchyMap, moduleMap);
+			mapTopLevelExtensionModuleToCore(moduleCountMap, moduleHierarchyMap, moduleMap, mutualDependencies);
 		}
 
 		//Remove any map entries that we don't need
@@ -188,7 +200,6 @@ public class ModuleDependencyService extends ComponentService {
 		logger.info("Generating MDRS for {}, {} modules [{}]", branchPath, isInternational ? "international" : "extension", String.join(", ", modulesRequired));
 		
 		//Update or augment module dependencies as required
-		int recursionLimit = 0;
 		for (String moduleId : modulesRequired) {
 			boolean isExtensionMod = !cachedInternationalModules.contains(moduleId);
 
@@ -199,6 +210,7 @@ public class ModuleDependencyService extends ComponentService {
 			}
 			
 			String thisLevel = moduleId;
+			int recursionLimit = 0;
 			while (!thisLevel.equals(Concepts.MODEL_MODULE)){
 				thisLevel = updateOrCreateModuleDependency(moduleId, 
 						thisLevel, 
@@ -207,9 +219,22 @@ public class ModuleDependencyService extends ComponentService {
 						effectiveDate,
 						dependencyET,
 						branchPath,
-						isInternational);
+						isInternational,
+						mutualDependencies);
 				if (++recursionLimit > RECURSION_LIMIT) {
-					throw new IllegalStateException ("Recursion limit reached calculating MDRS in " + branchPath + " for module " + thisLevel);
+					logger.warn("Recursion limit reached calculating MDRS in " + branchPath + " for module " + thisLevel + ". Falling back to assume dependency on Core Module");
+					Map<String, String> assumptionMap = new HashMap<>();
+					assumptionMap.put(thisLevel, Concepts.CORE_MODULE);
+					updateOrCreateModuleDependency(moduleId, 
+							thisLevel, 
+							assumptionMap, 
+							moduleDependencies,
+							effectiveDate,
+							dependencyET,
+							branchPath,
+							isInternational,
+							mutualDependencies);
+					break;
 				}
 			}
 		}
@@ -232,8 +257,40 @@ public class ModuleDependencyService extends ComponentService {
 		return isDelta ? updatedMDRmembers : mdrMembers;
 	}
 
+	private Map<String, Set<String>> detectMutualDependencies(List<ReferenceSetMember> mdrsMembers) {
+		Map<String, Set<String>> mutualDependencies = new HashMap<>();
+		for (ReferenceSetMember rm : mdrsMembers) {
+			//Check through all other active members to see if the target also references our source
+			if (rm.isActive()) {
+				String sourceModule = rm.getModuleId();
+				String targetModule = rm.getReferencedComponentId();
+				if (mdrsMembers.stream()
+						.filter(rm2 -> rm2.isActive())
+						.filter(rm2 -> rm2.getModuleId().equals(targetModule))
+						.anyMatch(rm2 -> rm2.getReferencedComponentId().contentEquals(sourceModule))) {
+					populateMutualDependency(mutualDependencies, sourceModule, targetModule);
+					populateMutualDependency(mutualDependencies, targetModule, sourceModule);
+				}
+			}
+		}
+		if (!mutualDependencies.isEmpty()) {
+			logger.debug("Detected mutual dependencies between modules:" + mutualDependencies.toString());
+		}
+		return mutualDependencies;
+	}
+
+	private void populateMutualDependency(Map<String, Set<String>> mutualDependencies, String sourceModule,
+			String targetModule) {
+		Set<String> dependencies = mutualDependencies.get(sourceModule);
+		if (dependencies == null) {
+			dependencies = new HashSet<>();
+			mutualDependencies.put(sourceModule, dependencies);
+		}
+		dependencies.add(targetModule);
+	}
+
 	private void mapTopLevelExtensionModuleToCore(Map<String, Map<String, Long>> moduleCountMap,
-			Map<String, String> moduleHierarchyMap, Map<String, Set<ReferenceSetMember>> moduleMap) {
+			Map<String, String> moduleHierarchyMap, Map<String, Set<ReferenceSetMember>> moduleMap, Map<String, Set<String>> mutualDependencies) {
 		//If we have multiple modules that are defined in themselves, then we must have existing 
 		//records supplied
 		List<String> selfMappedModules = getSelfMappedModules(moduleHierarchyMap);
@@ -263,6 +320,12 @@ public class ModuleDependencyService extends ComponentService {
 		
 		if (firstSolutionSuccess && selfMappedModule != null) {
 			moduleHierarchyMap.put(selfMappedModule, Concepts.CORE_MODULE);
+			//If this module has mutual dependencies, they will also all be dependent on the core module
+			if (mutualDependencies.containsKey(selfMappedModule)) {
+				for (String mutalDependency : mutualDependencies.get(selfMappedModule)) {
+					moduleHierarchyMap.put(mutalDependency, Concepts.CORE_MODULE);
+				}
+			}
 			return;
 		}
 		
@@ -324,13 +387,49 @@ public class ModuleDependencyService extends ComponentService {
 	}
 
 	private String updateOrCreateModuleDependency(String moduleId, String thisLevel, Map<String, String> moduleParents,
-			Set<ReferenceSetMember> moduleDependencies, String effectiveDate, Integer dependencyET, String branchPath, boolean isInternational) {
+			Set<ReferenceSetMember> moduleDependencies, String effectiveDate, Integer dependencyET, String branchPath, boolean isInternational, Map<String, Set<String>> mutualDependencies) {
 		//Take us up a level
 		String nextLevel = moduleParents.get(thisLevel);
 		if (nextLevel == null) {
 			throw new IllegalStateException("Unable to calculate module dependency via parent module of " + thisLevel + " in " + branchPath + " due to no parent mapped for module " + thisLevel);
 		}
-		ReferenceSetMember rm = findOrCreateModuleDependency(moduleId, moduleDependencies, nextLevel);
+		
+		findOrCreateModuleDependency(moduleId, moduleDependencies, nextLevel, isInternational, effectiveDate, dependencyET);
+		
+		//Now if this module is mutually dependent on other modules, they should be included at the same time, since we won't encounter them in a hierarchy
+		if (mutualDependencies.get(moduleId) != null) {
+			for (String mutuallyDependentModule : mutualDependencies.get(moduleId)) {
+				findOrCreateModuleDependency(moduleId, moduleDependencies, mutuallyDependentModule, isInternational, effectiveDate, dependencyET);
+			}
+		}
+		
+		return nextLevel;
+	}
+
+	//TODO Look out for inactive reference set members and use active by preference
+	//or reactive inactive if required.
+	private void findOrCreateModuleDependency(String moduleId, Set<ReferenceSetMember> moduleDependencies,
+			String targetModuleId, boolean isInternational, String effectiveDate, Integer dependencyET) {
+		ReferenceSetMember rm = null;
+		
+		for (ReferenceSetMember thisMember : moduleDependencies) {
+			if (thisMember.getReferencedComponentId().equals(targetModuleId)) {
+				rm = thisMember;
+				break;
+			}
+		}
+		
+		if (rm == null) {
+			//Create if not found
+			rm = new ReferenceSetMember();
+			rm.setMemberId(UUID.randomUUID().toString());
+			rm.setModuleId(moduleId);
+			rm.setReferencedComponentId(targetModuleId);
+			rm.setActive(true);
+			rm.setCreating(true);
+		}
+		
+		//Add to our list and configure appropriate dates
 		moduleDependencies.add(rm);
 		rm.setRefsetId(Concepts.REFSET_MODULE_DEPENDENCY);
 		if (!isInternational && cachedInternationalModules.contains(moduleId)) {
@@ -347,31 +446,11 @@ public class ModuleDependencyService extends ComponentService {
 		
 		//Now is this module part of our dependency, or is it unique part of this CodeSystem?
 		//For now, we'll assume the International Edition is the dependency
-		if (cachedInternationalModules.contains(nextLevel)) {
+		if (cachedInternationalModules.contains(targetModuleId)) {
 			rm.setAdditionalField(TARGET_ET, dependencyET.toString());
 		} else {
 			rm.setAdditionalField(TARGET_ET, effectiveDate);
 		}
-		return nextLevel;
-	}
-
-	//TODO Look out for inactive reference set members and use active by preference
-	//or reactive inactive if required.
-	private ReferenceSetMember findOrCreateModuleDependency(String moduleId, Set<ReferenceSetMember> moduleDependencies,
-			String targetModuleId) {
-		for (ReferenceSetMember thisMember : moduleDependencies) {
-			if (thisMember.getReferencedComponentId().equals(targetModuleId)) {
-				return thisMember;
-			}
-		}
-		//Create if not found
-		ReferenceSetMember rm = new ReferenceSetMember();
-		rm.setMemberId(UUID.randomUUID().toString());
-		rm.setModuleId(moduleId);
-		rm.setReferencedComponentId(targetModuleId);
-		rm.setActive(true);
-		rm.setCreating(true);
-		return rm;
 	}
 
 	private Map<String, String> getModuleOfModule(String branchPath, Set<String> moduleIds) {
@@ -394,7 +473,7 @@ public class ModuleDependencyService extends ComponentService {
 		
 		
 		int recursionDepth = 0;
-		//Repeat lookup of parents until all modules encountered are populated in the map
+		//Repeat lookup of parents (that is, the module they are declared in) until all modules encountered are populated in the map
 		while (!conceptIds.isEmpty()) {
 			Page<Concept> modulePage = conceptService.find(new ArrayList<>(conceptIds), null, branchPath, LARGE_PAGE);
 			Map<String, String> partialParentMap = modulePage.getContent().stream()

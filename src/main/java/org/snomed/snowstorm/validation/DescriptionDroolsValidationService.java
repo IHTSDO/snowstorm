@@ -135,17 +135,10 @@ public class DescriptionDroolsValidationService implements org.ihtsdo.drools.ser
 			}
 		}
 
-		NativeSearchQuery query = new NativeSearchQueryBuilder()
-				.withQuery(boolQuery()
-						.must(branchCriteria.getEntityBranchCriteria(org.snomed.snowstorm.core.data.domain.Description.class))
-						.must(termsQuery(org.snomed.snowstorm.core.data.domain.Description.Fields.CONCEPT_ID, statedParents))
-						.must(termQuery(org.snomed.snowstorm.core.data.domain.SnomedComponent.Fields.ACTIVE, true))
-						.must(termQuery(org.snomed.snowstorm.core.data.domain.Description.Fields.TYPE_ID, Concepts.FSN))
-						.mustNot(termQuery(org.snomed.snowstorm.core.data.domain.Description.Fields.TAG, termSemanticTag))
-				)
-				.build();
-		List<Description> descriptions = elasticsearchTemplate.search(query, Description.class).get().map(SearchHit::getContent).collect(Collectors.toList());
-		return descriptions.stream().map(Description::getConceptId).collect(Collectors.toSet());
+		return descriptionService.findDescriptionsByConceptId(branchPath, statedParents, languageRefsetIds.length > 0 ? true : false).stream()
+				.filter(d -> d.isActive() && d.getTypeId().equals(Concepts.FSN) && !d.getTag().equals(termSemanticTag) && (languageRefsetIds.length == 0 || d.getLangRefsetMembersMap().keySet().stream().anyMatch(k -> Arrays.asList(languageRefsetIds).contains(k))))
+				.map(Description::getConceptId)
+				.collect(Collectors.toSet());
 	}
 
 	@Override

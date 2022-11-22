@@ -1,20 +1,25 @@
 package org.snomed.snowstorm.rest.pojo;
 
-import io.swagger.annotations.ApiModelProperty;
+import io.swagger.v3.oas.annotations.media.Schema;
 import org.snomed.snowstorm.core.rf2.RF2Type;
+
+import java.util.List;
 
 public class ImportCreationRequest {
 
 	private RF2Type type;
 
-	@ApiModelProperty(example = "MAIN", required = true)
+	@Schema(example = "MAIN", required = true)
 	private String branchPath;
 
-	@ApiModelProperty(value = "false")
+	@Schema(defaultValue = "false")
 	private boolean createCodeSystemVersion;
 
-	@ApiModelProperty(value = "false")
+	@Schema(defaultValue = "false")
 	private boolean internalRelease;
+
+	@Schema(defaultValue = "[]")
+	List<String> filterModuleIds;
 
 	public RF2Type getType() {
 		return type;
@@ -46,5 +51,13 @@ public class ImportCreationRequest {
 
 	public void setInternalRelease(boolean internalRelease) {
 		this.internalRelease = internalRelease;
+	}
+
+	public List<String> getFilterModuleIds() {
+		return filterModuleIds;
+	}
+
+	public void setFilterModuleIds(List<String> filterModuleIds) {
+		this.filterModuleIds = filterModuleIds;
 	}
 }

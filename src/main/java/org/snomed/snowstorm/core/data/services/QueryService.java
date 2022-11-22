@@ -4,8 +4,6 @@ import com.google.common.collect.Iterables;
 import io.kaicode.elasticvc.api.BranchCriteria;
 import io.kaicode.elasticvc.api.VersionControlHelper;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
-import it.unimi.dsi.fastutil.longs.LongArraySet;
-import it.unimi.dsi.fastutil.longs.LongComparators;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.search.sort.SortBuilders;
 import org.slf4j.Logger;
@@ -20,21 +18,19 @@ import org.snomed.snowstorm.core.util.PageHelper;
 import org.snomed.snowstorm.core.util.SearchAfterPage;
 import org.snomed.snowstorm.core.util.StreamUtil;
 import org.snomed.snowstorm.core.util.TimerUtil;
+import org.snomed.snowstorm.ecl.ConceptSelectorHelper;
 import org.snomed.snowstorm.ecl.ECLQueryService;
-import org.snomed.snowstorm.rest.converter.SearchAfterHelper;
+import org.snomed.snowstorm.ecl.domain.expressionconstraint.SExpressionConstraint;
+import org.snomed.snowstorm.ecl.domain.expressionconstraint.SSubExpressionConstraint;
 import org.springframework.beans.BeansException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationContextAware;
-import org.springframework.context.annotation.Lazy;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
-import org.springframework.data.elasticsearch.core.ElasticsearchRestTemplate;
-import org.springframework.data.elasticsearch.core.SearchHit;
-import org.springframework.data.elasticsearch.core.SearchHits;
-import org.springframework.data.elasticsearch.core.SearchHitsIterator;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.elasticsearch.core.*;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQuery;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
 import org.springframework.stereotype.Service;
@@ -47,11 +43,14 @@ import java.util.stream.Collectors;
 
 import static io.kaicode.elasticvc.api.ComponentService.CLAUSE_LIMIT;
 import static io.kaicode.elasticvc.api.ComponentService.LARGE_PAGE;
-import static java.lang.Long.parseLong;
 import static org.elasticsearch.index.query.QueryBuilders.*;
 import static org.snomed.snowstorm.config.Config.DEFAULT_LANGUAGE_DIALECTS;
+import static org.snomed.snowstorm.ecl.ConceptSelectorHelper.CONCEPT_ID_SEARCH_AFTER_EXTRACTOR;
 import static org.snomed.snowstorm.ecl.ConceptSelectorHelper.getDefaultSortForConcept;
 
+/**
+ * High level service to query SNOMED CT content using terms, ECL or a combination of both.
+ */
 @Service
 public class QueryService implements ApplicationContextAware {
 
@@ -67,19 +66,9 @@ public class QueryService implements ApplicationContextAware {
 	private ECLQueryService eclQueryService;
 
 	@Autowired
-	@Lazy
-	private ReferenceSetMemberService memberService;
-
-	@Autowired
-	private RelationshipService relationshipService;
-
-	@Autowired
 	private DescriptionService descriptionService;
 
 	private ConceptService conceptService;
-
-	private static final Function<Long, Object[]> CONCEPT_ID_SEARCH_AFTER_EXTRACTOR =
-			conceptId -> conceptId == null ? null : SearchAfterHelper.convertToTokenAndBack(new Object[]{conceptId});
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
@@ -88,8 +77,66 @@ public class QueryService implements ApplicationContextAware {
 	}
 
 	public Page<ConceptMini> search(ConceptQueryBuilder conceptQuery, String branchPath, PageRequest pageRequest) {
+
 		BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(branchPath);
-		Optional<SearchAfterPage<Long>> conceptIdPageOptional = doSearchForIds(conceptQuery, branchPath, branchCriteria, pageRequest);
+
+		String ecl = conceptQuery.getEcl();
+		if (ecl != null) {
+
+			// Add concept query params to ECL
+			if (conceptQuery.activeFilter != null) {
+				ecl = String.format("(%s) {{ C active = %s }}", ecl, conceptQuery.activeFilter ? "true" : "false");
+				conceptQuery.ecl = ecl;
+			}
+
+			SExpressionConstraint expressionConstraint = (SExpressionConstraint) eclQueryService.createQuery(ecl);
+			if (ECLQueryService.isMemberFieldsSearch(expressionConstraint)) {
+				pageRequest = updatePageRequestSort(pageRequest, Sort.sort(ReferenceSetMember.class).by(ReferenceSetMember::getMemberId).descending());
+				SearchAfterPage<ReferenceSetMember> members = eclQueryService.findReferenceSetMembersWithSpecificFields(ecl, conceptQuery.stated, branchCriteria, pageRequest);
+				SSubExpressionConstraint subExpressionConstraint = (SSubExpressionConstraint) expressionConstraint;
+				List<String> memberFieldsToReturn = subExpressionConstraint.getMemberFieldsToReturn();
+
+				List<ConceptMini> minis = new ArrayList<>();
+				if (memberFieldsToReturn != null) {
+					for (ReferenceSetMember member : members) {
+						ConceptMini mini = new ConceptMini();
+						mini.setActive(member.isActive());
+						Map<String, Object> fields = new LinkedHashMap<>();
+						for (String fieldName : memberFieldsToReturn) {
+							if (fieldName.equals(ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID)) {
+								fields.put(fieldName, member.getReferencedComponentId());
+							} else {
+								fields.put(fieldName, member.getAdditionalField(fieldName));
+							}
+						}
+						fields.put("fields", memberFieldsToReturn);
+						mini.setExtraFields(fields);
+						minis.add(mini);
+					}
+				} else {
+					List<String> fieldNames = new ArrayList<>();
+					Set<String> allFieldNames = new HashSet<>();
+					for (ReferenceSetMember member : members) {
+						ConceptMini mini = new ConceptMini();
+						mini.setActive(member.isActive());
+						Map<String, Object> fields = new LinkedHashMap<>();
+						fields.put("fields", fieldNames);// Same list for all minis
+						allFieldNames.addAll(member.getAdditionalFields().keySet().stream().sorted().collect(Collectors.toList()));
+						fields.put(ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID, member.getReferencedComponentId());
+						fields.putAll(member.getAdditionalFields());
+						mini.setExtraFields(fields);
+						minis.add(mini);
+					}
+					fieldNames.addAll(allFieldNames);
+					fieldNames.sort(null);
+					fieldNames.add(0, ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID);
+				}
+
+				return PageHelper.toSearchAfterPage(minis, members);
+			}
+		}
+
+		Optional<SearchAfterPage<Long>> conceptIdPageOptional = doSearchForIds(conceptQuery, branchCriteria, pageRequest);
 
 		if (conceptIdPageOptional.isPresent()) {
 			SearchAfterPage<Long> conceptIdPage = conceptIdPageOptional.get();
@@ -103,13 +150,21 @@ public class QueryService implements ApplicationContextAware {
 		}
 	}
 
-	public SearchAfterPage<Long> searchForIds(ConceptQueryBuilder conceptQuery, String branchPath, PageRequest pageRequest) {
-		BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(branchPath);
-		return searchForIds(conceptQuery, branchPath, branchCriteria, pageRequest);
+	private PageRequest updatePageRequestSort(PageRequest pageRequest, Sort newSort) {
+		if (pageRequest instanceof SearchAfterPageRequest) {
+			SearchAfterPageRequest searchAfterPageRequest = (SearchAfterPageRequest) pageRequest;
+			return SearchAfterPageRequest.of(searchAfterPageRequest.getSearchAfter(), searchAfterPageRequest.getPageSize(), newSort);
+		}
+		return PageRequest.of(pageRequest.getPageNumber(), pageRequest.getPageSize(), newSort);
 	}
 
-	public SearchAfterPage<Long> searchForIds(ConceptQueryBuilder conceptQuery, String branchPath, BranchCriteria branchCriteria, PageRequest pageRequest) {
-		Optional<SearchAfterPage<Long>> conceptIdPageOptional = doSearchForIds(conceptQuery, branchPath, branchCriteria, pageRequest);
+	public SearchAfterPage<Long> searchForIds(ConceptQueryBuilder conceptQuery, String branchPath, PageRequest pageRequest) {
+		BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(branchPath);
+		return searchForIds(conceptQuery, branchCriteria, pageRequest);
+	}
+
+	public SearchAfterPage<Long> searchForIds(ConceptQueryBuilder conceptQuery, BranchCriteria branchCriteria, PageRequest pageRequest) {
+		Optional<SearchAfterPage<Long>> conceptIdPageOptional = doSearchForIds(conceptQuery, branchCriteria, pageRequest);
 		return conceptIdPageOptional.orElseGet(() -> {
 			// No ids - return page of all concept ids
 			NativeSearchQuery query = new NativeSearchQueryBuilder()
@@ -122,7 +177,7 @@ public class QueryService implements ApplicationContextAware {
 		});
 	}
 
-	private Optional<SearchAfterPage<Long>> doSearchForIds(ConceptQueryBuilder conceptQuery, String branchPath, BranchCriteria branchCriteria, PageRequest pageRequest) {
+	private Optional<SearchAfterPage<Long>> doSearchForIds(ConceptQueryBuilder conceptQuery, BranchCriteria branchCriteria, PageRequest pageRequest) {
 
 		// Validate Lexical criteria
 		DescriptionCriteria descriptionCriteria = conceptQuery.getDescriptionCriteria();
@@ -145,7 +200,7 @@ public class QueryService implements ApplicationContextAware {
 
 			if (conceptQuery.getEcl() != null) {
 				// ECL search
-				conceptIdPage = doEclSearchAndConceptPropertyFilters(conceptQuery, branchPath, pageRequest, branchCriteria);
+				conceptIdPage = doEclSearchAndConceptPropertyFilters(conceptQuery, pageRequest, branchCriteria);
 			} else {
 				// Concept id search
 				BoolQueryBuilder conceptBoolQuery = getSearchByConceptIdQuery(conceptQuery, branchCriteria);
@@ -180,7 +235,7 @@ public class QueryService implements ApplicationContextAware {
 			// ECL, QueryConcept and Concept searches are filtered by the conceptIds gathered from the lexical search
 			List<Long> allFilteredLogicalMatches;
 			if (conceptQuery.getEcl() != null) {
-				List<Long> eclMatches = doEclSearch(conceptQuery, branchPath, branchCriteria, allConceptIdsSortedByTermOrder);
+				List<Long> eclMatches = doEclSearch(conceptQuery, branchCriteria, allConceptIdsSortedByTermOrder);
 				allFilteredLogicalMatches = applyConceptPropertyFilters(eclMatches, conceptQuery, branchCriteria, new LongArrayList());
 			} else {
 				allFilteredLogicalMatches = new LongArrayList();
@@ -268,7 +323,7 @@ public class QueryService implements ApplicationContextAware {
 		return filteredConceptIds;
 	}
 
-	private SearchAfterPage<Long> doEclSearchAndConceptPropertyFilters(ConceptQueryBuilder conceptQuery, String branchPath, PageRequest pageRequest, BranchCriteria branchCriteria) {
+	private SearchAfterPage<Long> doEclSearchAndConceptPropertyFilters(ConceptQueryBuilder conceptQuery, PageRequest pageRequest, BranchCriteria branchCriteria) {
 		String ecl = conceptQuery.getEcl();
 		logger.debug("ECL Search {}", ecl);
 		Collection<Long> conceptIdFilter = null;
@@ -276,34 +331,23 @@ public class QueryService implements ApplicationContextAware {
 			conceptIdFilter = conceptQuery.conceptIds.stream().map(Long::valueOf).collect(Collectors.toSet());
 		}
 		if (conceptQuery.hasPropertyFilter()) {
-			Page<Long> allConceptIds = eclQueryService.selectConceptIds(ecl, branchCriteria, branchPath, conceptQuery.isStated(), conceptIdFilter, null);
+			Page<Long> allConceptIds = eclQueryService.selectConceptIds(ecl, branchCriteria, conceptQuery.isStated(), conceptIdFilter, null);
 			List<Long> filteredConceptIds = applyConceptPropertyFilters(allConceptIds.getContent(), conceptQuery, branchCriteria, new LongArrayList());
 			return PageHelper.fullListToPage(filteredConceptIds, pageRequest, CONCEPT_ID_SEARCH_AFTER_EXTRACTOR);
 		} else {
-			Page<Long> conceptIds = eclQueryService.selectConceptIds(ecl, branchCriteria, branchPath, conceptQuery.isStated(), conceptIdFilter, pageRequest);
+			Page<Long> conceptIds = eclQueryService.selectConceptIds(ecl, branchCriteria, conceptQuery.isStated(), conceptIdFilter, pageRequest);
 			return PageHelper.toSearchAfterPage(conceptIds, CONCEPT_ID_SEARCH_AFTER_EXTRACTOR);
 		}
 	}
 
-	private List<Long> doEclSearch(ConceptQueryBuilder conceptQuery, String branchPath, BranchCriteria branchCriteria, Collection<Long> conceptIdFilter) {
+	private List<Long> doEclSearch(ConceptQueryBuilder conceptQuery, BranchCriteria branchCriteria, Collection<Long> conceptIdFilter) {
 		String ecl = conceptQuery.getEcl();
 		logger.debug("ECL Search {}", ecl);
-		return eclQueryService.selectConceptIds(ecl, branchCriteria, branchPath, conceptQuery.isStated(), conceptIdFilter).getContent();
+		return eclQueryService.selectConceptIds(ecl, branchCriteria, conceptQuery.isStated(), conceptIdFilter).getContent();
 	}
 
 	private List<ConceptMini> sortConceptMinisByTermOrder(List<Long> termConceptIds, Map<String, ConceptMini> conceptMiniMap) {
 		return termConceptIds.stream().filter(id -> conceptMiniMap.containsKey(id.toString())).map(id -> conceptMiniMap.get(id.toString())).collect(Collectors.toList());
-	}
-
-	public Page<QueryConcept> queryForPage(NativeSearchQuery searchQuery) {
-		searchQuery.setTrackTotalHits(true);
-		Pageable pageable = searchQuery.getPageable();
-		SearchHits<QueryConcept> searchHits = elasticsearchTemplate.search(searchQuery, QueryConcept.class);
-		return PageHelper.toSearchAfterPage(searchHits, pageable);
-	}
-
-	public SearchHitsIterator<QueryConcept> streamQueryResults(NativeSearchQuery searchQuery) {
-		return elasticsearchTemplate.searchForStream(searchQuery, QueryConcept.class);
 	}
 
 	public Set<Long> findAncestorIds(String conceptId, String path, boolean stated) {
@@ -360,6 +404,24 @@ public class QueryService implements ApplicationContextAware {
 		return allAncestors;
 	}
 
+	public Set<Long> findParentIdsAsUnion(BranchCriteria branchCriteria, boolean stated, Collection<Long> conceptId) {
+		final NativeSearchQuery searchQuery = new NativeSearchQueryBuilder()
+				.withQuery(boolQuery()
+						.must(branchCriteria.getEntityBranchCriteria(QueryConcept.class))
+						.must(termsQuery(QueryConcept.Fields.CONCEPT_ID, conceptId))
+						.must(termQuery(QueryConcept.Fields.STATED, stated))
+				)
+				.withPageable(LARGE_PAGE)
+				.build();
+		final List<QueryConcept> concepts = elasticsearchTemplate.search(searchQuery, QueryConcept.class)
+				.stream().map(SearchHit::getContent).collect(Collectors.toList());
+		Set<Long> allParents = new HashSet<>();
+		for (QueryConcept concept : concepts) {
+			allParents.addAll(concept.getParents());
+		}
+		return allParents;
+	}
+
 	public Set<Long> findDescendantIdsAsUnion(BranchCriteria branchCriteria, boolean stated, Collection<Long> conceptIds) {
 		final NativeSearchQuery searchQuery = new NativeSearchQueryBuilder()
 				.withQuery(boolQuery()
@@ -388,76 +450,6 @@ public class QueryService implements ApplicationContextAware {
 				.build();
 		SearchHits<QueryConcept> searchHits = elasticsearchTemplate.search(searchQuery, QueryConcept.class);
 		return searchHits.stream().map(SearchHit::getContent).map(QueryConcept::getConceptIdL).collect(Collectors.toSet());
-	}
-
-	public Set<Long> findConceptIdsInReferenceSet(BranchCriteria branchCriteria, String referenceSetId) {
-		return memberService.findConceptsInReferenceSet(branchCriteria, referenceSetId);
-	}
-
-	public List<Long> findRelationshipDestinationIds(Collection<Long> sourceConceptIds, List<Long> attributeTypeIds, BranchCriteria branchCriteria, boolean stated) {
-		if (!stated) {
-			// Use relationships - it's faster
-			return relationshipService.findRelationshipDestinationIds(sourceConceptIds, attributeTypeIds, branchCriteria, false);
-		}
-
-		// For the stated view we'll use the semantic index to access relationships from both stated relationships or axioms.
-
-		if (attributeTypeIds != null && attributeTypeIds.isEmpty()) {
-			return Collections.emptyList();
-		}
-
-		BoolQueryBuilder boolQuery = boolQuery()
-				.must(branchCriteria.getEntityBranchCriteria(QueryConcept.class))
-				.must(termsQuery(QueryConcept.Fields.STATED, stated));
-
-		if (attributeTypeIds != null) {
-			BoolQueryBuilder shoulds = boolQuery();
-			boolQuery.must(shoulds);
-			for (Long attributeTypeId : attributeTypeIds) {
-				if (!attributeTypeId.equals(Concepts.IS_A_LONG)) {
-					shoulds.should(existsQuery(QueryConcept.Fields.ATTR + "." + attributeTypeId));
-				}
-			}
-		}
-
-		if (sourceConceptIds != null) {
-			boolQuery.must(termsQuery(QueryConcept.Fields.CONCEPT_ID, sourceConceptIds));
-		}
-
-		NativeSearchQuery query = new NativeSearchQueryBuilder()
-				.withQuery(boolQuery)
-				.withPageable(LARGE_PAGE)
-				.build();
-
-		Set<Long> destinationIds = new LongArraySet();
-		try (SearchHitsIterator<QueryConcept> stream = elasticsearchTemplate.searchForStream(query, QueryConcept.class)) {
-			stream.forEachRemaining(hit -> {
-				QueryConcept queryConcept = hit.getContent();
-				if (attributeTypeIds != null) {
-					for (Long attributeTypeId : attributeTypeIds) {
-						if (attributeTypeId.equals(Concepts.IS_A_LONG)) {
-							destinationIds.addAll(queryConcept.getParents());
-						} else {
-							queryConcept.getAttr().getOrDefault(attributeTypeId.toString(), Collections.emptySet()).forEach(id -> addDestinationId(id, destinationIds));
-						}
-					}
-				} else {
-					queryConcept.getAttr().values().forEach(destinationSet -> destinationSet.forEach(destinationId -> addDestinationId(destinationId, destinationIds)));
-				}
-			});
-		}
-
-		// Stream search doesn't sort for us
-		// Sorting meaningless but supports deterministic pagination
-		List<Long> sortedIds = new LongArrayList(destinationIds);
-		sortedIds.sort(LongComparators.OPPOSITE_COMPARATOR);
-		return sortedIds;
-	}
-
-	private void addDestinationId(Object destinationId, Set<Long> destinationIds) {
-		if (destinationId instanceof String) {
-			destinationIds.add(parseLong((String)destinationId));
-		}
 	}
 
 	/**
@@ -510,13 +502,13 @@ public class QueryService implements ApplicationContextAware {
 		}
 	}
 
-	public void joinDescendantCountAndLeafFlag(Collection<ConceptMini> concepts, Relationship.CharacteristicType form, String branchPath, BranchCriteria branchCriteria) {
+	public void joinDescendantCountAndLeafFlag(Collection<ConceptMini> concepts, Relationship.CharacteristicType form, BranchCriteria branchCriteria) {
 		if (concepts.isEmpty()) {
 			return;
 		}
 
 		for (ConceptMini concept : concepts) {
-			SearchAfterPage<Long> page = searchForIds(createQueryBuilder(form).ecl("<" + concept.getId()), branchPath, branchCriteria, PAGE_OF_ONE);
+			SearchAfterPage<Long> page = searchForIds(createQueryBuilder(form).ecl("<" + concept.getId()), branchCriteria, PAGE_OF_ONE);
 			concept.setDescendantCount(page.getTotalElements());
 			concept.setLeaf(form, page.getTotalElements() == 0);
 		}
@@ -528,7 +520,7 @@ public class QueryService implements ApplicationContextAware {
 		}
 		BranchCriteria branchCriteria = conceptService.getBranchCriteria(branchTimepoint);
 		ConceptMini mini = new ConceptMini(concept, languageDialects);
-		joinDescendantCountAndLeafFlag(Collections.singleton(mini), form, branchTimepoint.getBranchPath(), branchCriteria);
+		joinDescendantCountAndLeafFlag(Collections.singleton(mini), form, branchCriteria);
 		concept.setDescendantCount(mini.getDescendantCount());
 	}
 
@@ -569,7 +561,7 @@ public class QueryService implements ApplicationContextAware {
 			this.ecl = ecl;
 			return this;
 		}
-		
+
 		public ConceptQueryBuilder effectiveTime(Integer effectiveTime) {
 			this.effectiveTime = effectiveTime;
 			return this;
@@ -680,6 +672,9 @@ public class QueryService implements ApplicationContextAware {
 		}
 		
 		public void applyConceptClauses(BoolQueryBuilder conceptClauses) {
+			if (activeFilter != null) {
+				conceptClauses.must(termQuery(Concept.Fields.ACTIVE, activeFilter));
+			}
 			if (definitionStatusFilter != null) {
 				conceptClauses.must(termQuery(Concept.Fields.DEFINITION_STATUS_ID, definitionStatusFilter));
 			}

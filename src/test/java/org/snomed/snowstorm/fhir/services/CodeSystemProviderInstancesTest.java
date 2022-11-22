@@ -1,8 +1,5 @@
 package org.snomed.snowstorm.fhir.services;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertTrue;
 
 import org.hl7.fhir.r4.model.Bundle;
 import org.hl7.fhir.r4.model.Bundle.BundleEntryComponent;
@@ -10,6 +7,8 @@ import org.hl7.fhir.r4.model.CodeSystem;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
+
+import static org.junit.jupiter.api.Assertions.*;
 
 class CodeSystemProviderInstancesTest extends AbstractFHIRTest {
 

@@ -3,17 +3,21 @@ package org.snomed.snowstorm.core.data.services;
 import com.fasterxml.jackson.databind.DeserializationConfig;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.api.ComponentService;
 import io.kaicode.elasticvc.domain.Branch;
+import io.kaicode.elasticvc.domain.Commit;
+import org.assertj.core.util.Maps;
 import org.elasticsearch.common.collect.MapBuilder;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.AbstractTest;
+import org.snomed.snowstorm.config.Config;
 import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.services.pojo.AsyncConceptChangeBatch;
 import org.snomed.snowstorm.core.data.services.pojo.DescriptionCriteria;
@@ -35,6 +39,7 @@ import java.util.*;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
+import static io.kaicode.elasticvc.api.ComponentService.LARGE_PAGE;
 import static org.elasticsearch.index.query.QueryBuilders.termQuery;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.snomed.snowstorm.config.Config.DEFAULT_LANGUAGE_DIALECTS;
@@ -438,6 +443,44 @@ class ConceptServiceTest extends AbstractTest {
 		assertEquals("10000222", conceptService.find("100001", "MAIN/A/A2").getModuleId());
 	}
 
+
+	@Test
+	void testGetExistingConceptsForSaveDuringRebaseCommit() throws ServiceException {
+		conceptService.create(new Concept("100001"), "MAIN");
+		conceptService.create(new Concept("100002"), "MAIN");
+		conceptService.create(new Concept("100003"), "MAIN");
+
+		branchService.create("MAIN/A");
+		branchService.create("MAIN/A/A1");
+		branchService.create("MAIN/A/A2");
+
+		// Create a new version on MAIN/A/A1
+		conceptService.update(new Concept("100003", "10000111"), "MAIN/A/A1");
+
+		// Create a new version on MAIN/A/A2 and promote to project
+		conceptService.update(new Concept("100003", "10000222"), "MAIN/A/A2");
+		branchMergeService.mergeBranchSync("MAIN/A/A2", "MAIN/A", Arrays.asList(conceptService.find("100003", "MAIN/A/A2")));
+
+		final List<Long> conceptIds = Arrays.asList(100003L, 100001L, 100002L);
+		final Page<Concept> conceptsOnProject = conceptService.find(conceptIds, DEFAULT_LANGUAGE_DIALECTS, "MAIN/A", ServiceTestUtil.PAGE_REQUEST);
+		assertEquals(conceptIds.size(), conceptsOnProject.getTotalElements());
+		assertEquals(conceptIds.size(), conceptsOnProject.get().collect(Collectors.toSet()).size());
+
+		final Page<Concept> conceptsOnTaskA1 = conceptService.find(conceptIds, DEFAULT_LANGUAGE_DIALECTS, "MAIN/A/A1", ServiceTestUtil.PAGE_REQUEST);
+		assertEquals(conceptIds.size(), conceptsOnTaskA1.getTotalElements());
+		Collection<Concept> concepts = conceptsOnTaskA1.get().collect(Collectors.toSet());
+		assertEquals(conceptIds.size(), concepts.size());
+
+		// Rebase commit updates existing target branch(task A1) base timestamp to the latest source branch(project A) head timestamp
+		// Because of this when searching during rebase commit, there are multiple version of documents for concept 100003.
+		// One is from project (newly promoted from task A2) and the other is from task A1
+		// This can cause concepts to be missing due to a bug found in getExistingConceptsForSave method.
+		Commit commit = branchService.openRebaseCommit("MAIN/A/A1", "Rebase task A1 with project A");
+		Map<String, Concept> conceptMap = conceptService.getExistingConceptsForSave(concepts, commit);
+		assertEquals(conceptIds.size(), conceptMap.keySet().size());
+	}
+
+
 	@Test
 	void testSaveConceptWithDescription() throws ServiceException {
 		final Concept concept = new Concept("50960005", 20020131, true, "900000000000207008", "900000000000074008");
@@ -660,6 +703,92 @@ class ConceptServiceTest extends AbstractTest {
 		inactiveConcept = conceptService.find(inactiveConcept.getId(), path);
 		assertEquals("OUTDATED", inactiveConcept.getInactivationIndicator());
 	}
+	
+	@Test
+	void testConceptReactivationInExtension() throws ServiceException {
+		String path = "MAIN";
+		String extensionModule = "45991000052106";
+		conceptService.batchCreate(Lists.newArrayList(new Concept("107658001"), new Concept("116680003")), path);
+		final Concept concept = new Concept("50960005", 20020131, true, "900000000000207008", "900000000000074008");
+		Description desc = new Description("84923010", 20020131, true, "900000000000207008", "50960005", "en", "900000000000013009", "Bleeding", "900000000000020002");
+		
+		concept.addDescription(desc);
+		concept.addAxiom(new Relationship(ISA, "107658001"));
+		Concept savedConcept = conceptService.create(concept, path);
+
+		// Make concept inactive
+		savedConcept.setActive(false);
+
+		// Set inactivation indicators using strings
+		savedConcept.setInactivationIndicator(Concepts.inactivationIndicatorNames.get(Concepts.DUPLICATE));
+		desc.setInactivationIndicator(Concepts.inactivationIndicatorNames.get(Concepts.CONCEPT_NON_CURRENT));
+
+		// Set association target using strings
+		HashMap<String, Set<String>> associationTargetStrings = new HashMap<>();
+		associationTargetStrings.put(Concepts.historicalAssociationNames.get(Concepts.REFSET_SAME_AS_ASSOCIATION), Collections.singleton("87100004"));
+		savedConcept.setAssociationTargets(associationTargetStrings);
+		assertTrue(savedConcept.getAssociationTargetMembers().isEmpty());
+		savedConcept.setInactivationIndicator("OUTDATED");
+		
+		Concept transferredConcept = simulateRestTransfer(savedConcept);
+		conceptService.update(transferredConcept, path);
+		
+		//Check that the inactivation indicator and hist assoc got created
+		Page<ReferenceSetMember> page = referenceSetMemberService.findMembers("MAIN", transferredConcept.getConceptId(), LARGE_PAGE);
+		assertEquals(2, page.getContent().size());
+		
+		codeSystemService.createVersion(codeSystem, 20200131, "");
+		
+		//Now create an extension code system based off this 
+		String extensionBranchPath = "MAIN/SNOMEDCT-SE";
+		codeSystemService.createCodeSystem(new CodeSystem("SNOMEDCT-SE", extensionBranchPath));
+		branchService.updateMetadata(extensionBranchPath, ImmutableMap.of(Config.DEFAULT_MODULE_ID_KEY, extensionModule, Config.DEFAULT_NAMESPACE_KEY, "1000052"));
+
+		//Now we're going to REactivate that concept in an extension, so the concept itself will move module
+		//as will the inactivation indicators which will themselves be INactivated.
+
+		//First verify we can find our concept
+		Concept foundInactiveConcept = conceptService.find(savedConcept.getConceptId(), extensionBranchPath);
+		assertFalse(foundInactiveConcept.isActive());
+		
+		//Now let's reactivate that concept on the extension branch
+		foundInactiveConcept.setActive(true);
+		foundInactiveConcept.setInactivationIndicator(null);
+		foundInactiveConcept.setAssociationTargets(null);
+		foundInactiveConcept.setModuleId(extensionModule);
+		
+		//We need to do this REST simulation otherwise the refsetMembers are still on the concept and 
+		//take priority over, say, the inactivation indicator String value.
+		transferredConcept = simulateRestTransfer(foundInactiveConcept);
+		conceptService.update(transferredConcept, extensionBranchPath);
+		
+		//Now pick it up again
+		Concept foundReactivatedConcept = conceptService.find(savedConcept.getConceptId(), extensionBranchPath);
+		assertEquals(extensionModule, foundReactivatedConcept.getModuleId());
+		
+		//Now the inactivation indicator and historical association should have been INACTIVED (since the concept is now active)
+		//And that change should have happened in the extension module
+		page = referenceSetMemberService.findMembers(extensionBranchPath, savedConcept.getConceptId(), LARGE_PAGE);
+		assertEquals(2, page.getContent().size());
+		for (ReferenceSetMember rm : page.getContent()) {
+			assertFalse(rm.isActive());
+			assertEquals(extensionModule, rm.getModuleId());
+		}
+		
+		//Now the description itself will stay active in the international module,
+		//but it's Concept Non Current indicator will inactive, again in the extension module
+		for (Description d : foundReactivatedConcept.getDescriptions()) {
+			assertTrue(d.isActive());
+			assertEquals(Concepts.CORE_MODULE, d.getModuleId());
+			page = referenceSetMemberService.findMembers(extensionBranchPath, d.getDescriptionId(), LARGE_PAGE);
+			assertEquals(1, page.getContent().size());
+			for (ReferenceSetMember rm : page.getContent()) {
+				//This is just the CNC indicator.  We didn't set any LangRefset members.
+				assertFalse(rm.isActive());
+				assertEquals(extensionModule, rm.getModuleId());
+			}
+		}
+	}
 
 	@Test
 	void testConceptReinactivationOfVersionedConceptWithSameReasonAndAssociation() throws ServiceException, IOException {
@@ -776,6 +905,195 @@ class ConceptServiceTest extends AbstractTest {
 		assertEquals(descriptionInactivationIndicatorMember.getId(), secondTimeDescriptionInactivationIndicatorMember.getId(),
 				"Original inactivation indicator refset member must be reused because the value is the same.");
 	}
+	
+	@Test
+	void testPreviouslyUsedIndicatorAndAssociationAreReusedWherePossible() throws ServiceException, IOException {
+		/* When a refeset member is available to be reused, Snowstorm should pick this up and make that member active
+		 * rather than creating a new one (which then shows up as an unnecessary duplicate to our validation).
+		 * Now the value in attribute value is (probably) mutable so those can be picked up and modified for inactivation indicators
+		 * but refsetId is not mutable, so historical associations can only be reused if they are of the same association type */
+		
+		String path = "MAIN";
+		conceptService.batchCreate(Lists.newArrayList(new Concept("107658001"), new Concept("116680003")), path);
+		Concept concept = new Concept("50960005", 20020131, true, "900000000000207008", "900000000000074008");
+		concept.addDescription(new Description("84923010", 20020131, true, "900000000000207008", "50960005", "en", "900000000000013009", "Bleeding", "900000000000020002"));
+		concept.addAxiom(new Relationship(ISA, "107658001"));
+		concept = conceptService.create(concept, path);
+
+		// Version code system
+		codeSystemService.createVersion(codeSystem, 20190731, "");
+
+		// Make concept inactive
+		concept.setActive(false);
+		concept.setInactivationIndicator(Concepts.inactivationIndicatorNames.get(Concepts.DUPLICATE));
+		HashMap<String, Set<String>> associationTargetStrings = new HashMap<>();
+		associationTargetStrings.put(Concepts.historicalAssociationNames.get(Concepts.REFSET_SAME_AS_ASSOCIATION), Collections.singleton("87100004"));
+		concept.setAssociationTargets(associationTargetStrings);
+		concept = conceptService.update(concept, path);
+
+		// Check inactivation indicator string
+		concept = conceptService.find(concept.getId(), path);
+		assertEquals("DUPLICATE", concept.getInactivationIndicator());
+
+		// Check inactivation indicator reference set member was created
+		ReferenceSetMember inactivationIndicatorMember = concept.getInactivationIndicatorMember();
+		assertNotNull(inactivationIndicatorMember);
+		assertEquals(Concepts.DUPLICATE, inactivationIndicatorMember.getAdditionalField("valueId"));
+
+		// Check association target reference set member was created
+		Collection<ReferenceSetMember> associationTargetMembers = concept.getAssociationTargetMembers();
+		assertNotNull(associationTargetMembers);
+		assertEquals(1, associationTargetMembers.size());
+		ReferenceSetMember associationTargetMember = associationTargetMembers.iterator().next();
+		assertEquals(Concepts.REFSET_SAME_AS_ASSOCIATION, associationTargetMember.getRefsetId());
+
+		// Version code system
+		codeSystemService.createVersion(codeSystem, 20200131, "");
+		
+		// Now change the inactivation reason and association.
+		// We expect to change the refset member for the inactivation indicator, but will need
+		// a new historical association
+		concept = simulateRestTransfer(conceptService.find(concept.getId(), path));
+		concept.setInactivationIndicator(Concepts.inactivationIndicatorNames.get(Concepts.ERRONEOUS));
+		associationTargetStrings = new HashMap<>();
+		associationTargetStrings.put(Concepts.historicalAssociationNames.get(Concepts.REFSET_ALTERNATIVE_ASSOCIATION), Collections.singleton("87100004"));
+		concept.setAssociationTargets(associationTargetStrings);
+		concept = conceptService.update(concept, path);
+		
+		// Test that we still have the same inactivation indicator, but we should have a new association
+		ReferenceSetMember inactivationIndicatorMember2 = concept.getInactivationIndicatorMember();
+		assertEquals(inactivationIndicatorMember.getId(), inactivationIndicatorMember2.getId(), "Inactivation indicator refset member should be re-used.");
+		
+		//Recover the concept afresh because the update method only re-connects active refset members
+		concept = conceptService.find(concept.getId(), path);
+		
+		associationTargetMembers = concept.getAssociationTargetMembers();
+		assertNotNull(associationTargetMembers);
+		assertEquals(2, associationTargetMembers.size(), "Existing associations should be reused.  Expect 1 per refsetId");
+		for (ReferenceSetMember assoc : associationTargetMembers)  {
+			//Is the the old one we've replaced or the new one?
+			if (assoc.getRefsetId().equals(Concepts.REFSET_SAME_AS_ASSOCIATION)) {
+				assertFalse(assoc.isActive());
+				assertEquals(associationTargetMember.getId(), assoc.getId());
+			} else if (assoc.getRefsetId().equals(Concepts.REFSET_ALTERNATIVE_ASSOCIATION)) {
+				assertTrue(assoc.isActive());
+				assertNotEquals(associationTargetMember.getId(), assoc.getId());
+			} else {
+				assertTrue(false, "Association of unexpected type.  Only created SameAs and Alternative");
+			}
+		}
+		
+		// Version code system
+		codeSystemService.createVersion(codeSystem, 20200731, "");
+		
+		//NOW, lets version that and put the original values back and confirm that we reuse the original refset members
+		concept = simulateRestTransfer(conceptService.find(concept.getId(), path));
+		concept.setInactivationIndicator(Concepts.inactivationIndicatorNames.get(Concepts.DUPLICATE));
+		associationTargetStrings = new HashMap<>();
+		associationTargetStrings.put(Concepts.historicalAssociationNames.get(Concepts.REFSET_SAME_AS_ASSOCIATION), Collections.singleton("87100004"));
+		concept.setAssociationTargets(associationTargetStrings);
+		concept = conceptService.update(concept, path);
+		
+		//Recover the concept afresh because the update method only re-connects active refset members
+		concept = conceptService.find(concept.getId(), path);
+
+		// Test that we still (again) have the same inactivation indicator, and we haven't gained a new association
+		// Furthermore, the association that's now active should be the same one that we originally had way up above
+		ReferenceSetMember inactivationIndicatorMember3 = concept.getInactivationIndicatorMember();
+		assertEquals(inactivationIndicatorMember.getId(), inactivationIndicatorMember3.getId(), "Inactivation indicator refset member should always be re-used.");
+		
+		associationTargetMembers = concept.getAssociationTargetMembers();
+		assertNotNull(associationTargetMembers);
+		assertEquals(2, associationTargetMembers.size(), "No need to create a new association refset member if one can be re-used");
+		for (ReferenceSetMember assoc : associationTargetMembers)  {
+			//The original association should now be active
+			if (assoc.getRefsetId().equals(Concepts.REFSET_SAME_AS_ASSOCIATION)) {
+				assertTrue(assoc.isActive());
+				assertEquals(associationTargetMember.getId(), assoc.getId());
+			} else if (assoc.getRefsetId().equals(Concepts.REFSET_ALTERNATIVE_ASSOCIATION)) {
+				assertFalse(assoc.isActive());
+				assertNotEquals(associationTargetMember.getId(), assoc.getId());
+			} else {
+				assertTrue(false, "Association of unexpected type.  Only created SameAs and Alternative");
+			}
+		}
+	}
+
+	@Test
+	void testPreviouslyUsedIndicatorFromMultipleExistingInactiveInactivationIndicatorMembers() throws ServiceException {
+		/* When multiple refeset member are available to be reused, Snowstorm should pick only one up and make that member active
+		 * rather than creating a new one (which then shows up as an unnecessary duplicate to our validation). */
+
+		String path = "MAIN";
+		conceptService.batchCreate(Lists.newArrayList(new Concept("107658001"), new Concept("116680003")), path);
+		Concept concept = new Concept("50960005", 20020131, true, "900000000000207008", "900000000000074008");
+		concept.addDescription(new Description("84923010", 20020131, true, "900000000000207008", "50960005", "en", "900000000000013009", "Bleeding", "900000000000020002"));
+		concept.addAxiom(new Relationship(ISA, "107658001"));
+		concept = conceptService.create(concept, path);
+
+
+		// Version code system
+		codeSystemService.createVersion(codeSystem, 20190731, "");
+		concept = conceptService.find("107658001", path);
+
+		// Assume there are multiple existing inactive Inactivation Indicator Refset Members
+		ReferenceSetMember inactiveInactivationIndicatorRefsetMember1 = new ReferenceSetMember();
+		inactiveInactivationIndicatorRefsetMember1.setMemberId("2c1fd4bc-8504-46e9-a78c-0a854574f943");
+		inactiveInactivationIndicatorRefsetMember1.setReleaseHash(concept.getReleaseHash());
+		inactiveInactivationIndicatorRefsetMember1.setReleased(true);
+		inactiveInactivationIndicatorRefsetMember1.setActive(false);
+		inactiveInactivationIndicatorRefsetMember1.setRefsetId("900000000000489007");
+		inactiveInactivationIndicatorRefsetMember1.setAdditionalField(ReferenceSetMember.AttributeValueFields.VALUE_ID, OUTDATED);
+		inactiveInactivationIndicatorRefsetMember1.setReferencedComponentId("107658001");
+		referenceSetMemberService.createMember(path, inactiveInactivationIndicatorRefsetMember1);
+
+		ReferenceSetMember inactiveInactivationIndicatorRefsetMember2 = new ReferenceSetMember();
+		inactiveInactivationIndicatorRefsetMember2.setMemberId("f4738dfe-82f2-421e-bff7-7eb55fd71af5");
+		inactiveInactivationIndicatorRefsetMember2.setReleaseHash(concept.getReleaseHash());
+		inactiveInactivationIndicatorRefsetMember2.setReleased(true);
+		inactiveInactivationIndicatorRefsetMember2.setActive(false);
+		inactiveInactivationIndicatorRefsetMember2.setRefsetId("900000000000489007");
+		inactiveInactivationIndicatorRefsetMember2.setAdditionalField(ReferenceSetMember.AttributeValueFields.VALUE_ID, DUPLICATE);
+		inactiveInactivationIndicatorRefsetMember2.setReferencedComponentId("107658001");
+		referenceSetMemberService.createMember(path, inactiveInactivationIndicatorRefsetMember2);
+
+		// Make concept inactive
+		concept.setActive(false);
+		concept.setInactivationIndicator(Concepts.inactivationIndicatorNames.get(CONCEPT_NON_CURRENT));
+		concept = conceptService.update(concept, path);
+
+		// Check inactivation indicator string
+		concept = conceptService.find(concept.getId(), path);
+		assertEquals("CONCEPT_NON_CURRENT", concept.getInactivationIndicator());
+
+		// Check inactivation indicator reference set member was re-used
+		assertEquals(2, concept.getInactivationIndicatorMembers().size());
+		ReferenceSetMember newlyActiveinactivationIndicatorMember = concept.getInactivationIndicatorMembers().stream().filter(member -> member.isActive()).findFirst().orElse(null);
+		assertNotNull(newlyActiveinactivationIndicatorMember);
+		assertEquals(Concepts.CONCEPT_NON_CURRENT, newlyActiveinactivationIndicatorMember.getAdditionalField("valueId"));
+
+		// Check the newly active one must be one of inactive inactivation indicator reference set members
+		assertTrue("2c1fd4bc-8504-46e9-a78c-0a854574f943".equals(newlyActiveinactivationIndicatorMember.getMemberId()) || "f4738dfe-82f2-421e-bff7-7eb55fd71af5".equals(newlyActiveinactivationIndicatorMember.getMemberId()));
+
+		// Check the remaining inactive inactivation indicator reference set member stays the same as original
+		ReferenceSetMember remainingInactiveInactivationIndicatorMember = concept.getInactivationIndicatorMembers().stream().filter(member -> !member.isActive()).findFirst().orElse(null);
+		if("2c1fd4bc-8504-46e9-a78c-0a854574f943".equals(remainingInactiveInactivationIndicatorMember.getMemberId())) {
+			assertEquals(inactiveInactivationIndicatorRefsetMember1.getReleaseHash(), remainingInactiveInactivationIndicatorMember.getReleaseHash());
+			assertEquals(inactiveInactivationIndicatorRefsetMember1.isActive(), remainingInactiveInactivationIndicatorMember.isActive());
+			assertEquals(inactiveInactivationIndicatorRefsetMember1.isReleased(), remainingInactiveInactivationIndicatorMember.isReleased());
+			assertEquals(inactiveInactivationIndicatorRefsetMember1.getAdditionalField(ReferenceSetMember.AttributeValueFields.VALUE_ID), remainingInactiveInactivationIndicatorMember.getAdditionalField(ReferenceSetMember.AttributeValueFields.VALUE_ID));
+			assertEquals(inactiveInactivationIndicatorRefsetMember1.getReferencedComponentId(), remainingInactiveInactivationIndicatorMember.getReferencedComponentId());
+			assertEquals(inactiveInactivationIndicatorRefsetMember1.getRefsetId(), remainingInactiveInactivationIndicatorMember.getRefsetId());
+		} else {
+			assertEquals(inactiveInactivationIndicatorRefsetMember2.getReleaseHash(), remainingInactiveInactivationIndicatorMember.getReleaseHash());
+			assertEquals(inactiveInactivationIndicatorRefsetMember2.isActive(), remainingInactiveInactivationIndicatorMember.isActive());
+			assertEquals(inactiveInactivationIndicatorRefsetMember2.isReleased(), remainingInactiveInactivationIndicatorMember.isReleased());
+			assertEquals(inactiveInactivationIndicatorRefsetMember2.getAdditionalField(ReferenceSetMember.AttributeValueFields.VALUE_ID), remainingInactiveInactivationIndicatorMember.getAdditionalField(ReferenceSetMember.AttributeValueFields.VALUE_ID));
+			assertEquals(inactiveInactivationIndicatorRefsetMember2.getReferencedComponentId(), remainingInactiveInactivationIndicatorMember.getReferencedComponentId());
+			assertEquals(inactiveInactivationIndicatorRefsetMember2.getRefsetId(), remainingInactiveInactivationIndicatorMember.getRefsetId());
+		}
+	}
+
 
 	@Test
 	void testCreateObjectAttribute() throws ServiceException {
@@ -1482,6 +1800,418 @@ class ConceptServiceTest extends AbstractTest {
 		AsyncConceptChangeBatch batchConceptChange = conceptService.getBatchConceptChange(batchId);
 		assertEquals(AsyncConceptChangeBatch.Status.FAILED, batchConceptChange.getStatus());
 		assertEquals("Failed to convert axiom to an OWL expression.", batchConceptChange.getMessage());
+	}
+
+	// Effective time and module ID tests
+	@Test
+	public void testUpdateExistingDescriptionThenRevert_ShouldNotChangeEffectiveTime() throws ServiceException {
+		// Create a concept with a description on MAIN
+		conceptService.create(new Concept("100001")
+				.addDescription(new Description("100001","caseSignificanceId")
+						.setCaseSignificanceId(CASE_INSENSITIVE)), "MAIN");
+
+		// Version MAIN
+		codeSystemService.createVersion(codeSystem, 20220131, "January 2022");
+
+		// Create a task under MAIN
+		branchService.create("MAIN/A");
+
+		Concept concept = conceptService.find("100001", "MAIN/A");
+		Description description = concept.getDescription("100001");
+		assertEquals(CASE_INSENSITIVE, description.getCaseSignificanceId());
+		assertNotNull(description.getEffectiveTime());
+
+		// Change the caseSignificanceId for a description and save on task.
+		description.setCaseSignificanceId(ENTIRE_TERM_CASE_SENSITIVE);
+		conceptService.update(concept, "MAIN/A");
+
+		// The effective time should be cleared.
+		concept = conceptService.find("100001", "MAIN/A");
+		description = concept.getDescription("100001");
+		assertEquals(ENTIRE_TERM_CASE_SENSITIVE, description.getCaseSignificanceId());
+		assertNull(description.getEffectiveTime());
+
+		// Revert the change.
+		description.setCaseSignificanceId(CASE_INSENSITIVE);
+		conceptService.update(concept, "MAIN/A");
+
+		// The effective time should NOT be cleared.
+		concept = conceptService.find("100001", "MAIN/A");
+		description = concept.getDescription("100001");
+		assertEquals(CASE_INSENSITIVE, description.getCaseSignificanceId());
+		assertNotNull(description.getEffectiveTime());
+	}
+
+	@Test
+	void testUpdateExistingDescriptionInExtensionThenRevert_ShouldNotChangeEffectiveTime() throws ServiceException {
+		// Create a concept on MAIN
+		conceptService.create(new Concept("100001"), "MAIN");
+
+		// Version MAIN
+		codeSystemService.createVersion(codeSystem, 20220131, "January 2022");
+
+		// Create extension code system SNOMEDCT-BE
+		CodeSystem extension = codeSystemService.createCodeSystem(new CodeSystem("SNOMEDCT-BE", "MAIN/SNOMEDCT-BE"));
+		branchService.updateMetadata("MAIN/SNOMEDCT-BE", ImmutableMap.of(Config.DEFAULT_MODULE_ID_KEY, "11000172109", Config.DEFAULT_NAMESPACE_KEY, "1000172"));
+
+		// Add a description in extension
+		Concept concept = conceptService.find("100001", "MAIN/SNOMEDCT-BE");
+		Description description = new Description("100001","caseSignificanceId")
+				.setModuleId("11000172109")
+				.setLanguageCode("fr")
+				.setCaseSignificanceId(CASE_INSENSITIVE);
+		conceptService.update(concept.addDescription(description), "MAIN/SNOMEDCT-BE");
+
+		// Version extension
+		codeSystemService.createVersion(extension, 20220228, "February 2022");
+
+		// Create a task under MAIN/SNOMEDCT-BE
+		branchService.create("MAIN/SNOMEDCT-BE/BE");
+
+		concept = conceptService.find("100001", "MAIN/SNOMEDCT-BE/BE");
+		description = concept.getDescription("100001");
+		assertEquals(CASE_INSENSITIVE, description.getCaseSignificanceId());
+		assertNotNull(description.getEffectiveTime());
+
+		// Change the caseSignificanceId for a description and save on task.
+		description.setCaseSignificanceId(ENTIRE_TERM_CASE_SENSITIVE);
+		conceptService.update(concept, "MAIN/SNOMEDCT-BE/BE");
+
+		// The effective time should be cleared.
+		concept = conceptService.find("100001", "MAIN/SNOMEDCT-BE/BE");
+		description = concept.getDescription("100001");
+		assertEquals(ENTIRE_TERM_CASE_SENSITIVE, description.getCaseSignificanceId());
+		assertNull(description.getEffectiveTime());
+
+		// Revert the change.
+		description.setCaseSignificanceId(CASE_INSENSITIVE);
+		conceptService.update(concept, "MAIN/SNOMEDCT-BE/BE");
+
+		// The effective time should NOT be cleared.
+		concept = conceptService.find("100001", "MAIN/SNOMEDCT-BE/BE");
+		description = concept.getDescription("100001");
+		assertEquals(CASE_INSENSITIVE, description.getCaseSignificanceId());
+		assertNotNull(description.getEffectiveTime());
+	}
+
+	@Test
+	void testUpdatePublishedInternationalInferredRelationshipInExtension_ShouldClearEffectiveTime_ShouldChangeModuleId() throws ServiceException {
+		// Create a new relationship on MAIN
+		conceptService.create(new Concept(ISA).setDefinitionStatusId(PRIMITIVE).addDescription(fsn("Is a (attribute)")), "MAIN");
+		conceptService.create(new Concept(SNOMEDCT_ROOT).setDefinitionStatusId(PRIMITIVE).addDescription(fsn("SNOMED CT Concept")), "MAIN");
+		conceptService.create(new Concept("100001").addRelationship(new Relationship("100001", ISA, SNOMEDCT_ROOT)), "MAIN");
+
+		// Version MAIN
+		codeSystemService.createVersion(codeSystem, 20220131, "January 2022");
+
+		// Create extension code system SNOMEDCT-BE
+		CodeSystem extension = codeSystemService.createCodeSystem(new CodeSystem("SNOMEDCT-BE", "MAIN/SNOMEDCT-BE"));
+		branchService.updateMetadata("MAIN/SNOMEDCT-BE", ImmutableMap.of(Config.DEFAULT_MODULE_ID_KEY, "11000172109", Config.DEFAULT_NAMESPACE_KEY, "1000172"));
+
+		// Version extension
+		codeSystemService.createVersion(extension, 20220228, "February 2022");
+
+		// Create a task under MAIN/SNOMEDCT-BE
+		branchService.create("MAIN/SNOMEDCT-BE/BE");
+
+		Concept concept = conceptService.find("100001", "MAIN/SNOMEDCT-BE/BE");
+		Relationship relationship = concept.getRelationships().iterator().next();
+
+		assertEquals(relationship.getReleasedEffectiveTime(), relationship.getEffectiveTimeI());
+		assertEquals(concept.getModuleId(), relationship.getModuleId());
+
+		// Inactivate the relationship
+		relationship.setActive(false);
+		conceptService.update(concept, "MAIN/SNOMEDCT-BE/BE");
+
+		concept = conceptService.find("100001", "MAIN/SNOMEDCT-BE/BE");
+		relationship = concept.getRelationships().iterator().next();
+
+		assertNull(relationship.getEffectiveTimeI());
+		assertEquals("11000172109", relationship.getModuleId());
+	}
+
+	@Test
+	void testRevertPublishedInternationalInferredRelationshipInExtension_ShouldNotChangeEffectiveTimeOrModuleId() throws ServiceException {
+		// Create a new relationship on MAIN
+		conceptService.create(new Concept(ISA).setDefinitionStatusId(PRIMITIVE).addDescription(fsn("Is a (attribute)")), "MAIN");
+		conceptService.create(new Concept(SNOMEDCT_ROOT).setDefinitionStatusId(PRIMITIVE).addDescription(fsn("SNOMED CT Concept")), "MAIN");
+		conceptService.create(new Concept("100001").addRelationship(new Relationship("100001", ISA, SNOMEDCT_ROOT)), "MAIN");
+
+		// Version MAIN
+		codeSystemService.createVersion(codeSystem, 20220131, "January 2022");
+
+		// Create extension code system SNOMEDCT-BE
+		CodeSystem extension = codeSystemService.createCodeSystem(new CodeSystem("SNOMEDCT-BE", "MAIN/SNOMEDCT-BE"));
+		branchService.updateMetadata("MAIN/SNOMEDCT-BE", ImmutableMap.of(Config.DEFAULT_MODULE_ID_KEY, "11000172109", Config.DEFAULT_NAMESPACE_KEY, "1000172"));
+
+		// Version extension
+		codeSystemService.createVersion(extension, 20220228, "February 2022");
+
+		// Create a task under MAIN/SNOMEDCT-BE
+		branchService.create("MAIN/SNOMEDCT-BE/BE");
+
+		Concept concept = conceptService.find("100001", "MAIN/SNOMEDCT-BE/BE");
+		Relationship relationship = concept.getRelationships().iterator().next();
+
+		assertEquals(relationship.getReleasedEffectiveTime(), relationship.getEffectiveTimeI());
+		assertEquals(concept.getModuleId(), relationship.getModuleId());
+
+		// Inactivate the relationship
+		relationship.setActive(false);
+		conceptService.update(concept, "MAIN/SNOMEDCT-BE/BE");
+
+		// Revert the change
+		relationship.setActive(true);
+		conceptService.update(concept, "MAIN/SNOMEDCT-BE/BE");
+
+		concept = conceptService.find("100001", "MAIN/SNOMEDCT-BE/BE");
+		relationship = concept.getRelationships().iterator().next();
+
+		assertEquals(relationship.getReleasedEffectiveTime(), relationship.getEffectiveTimeI());
+		assertEquals(concept.getModuleId(), relationship.getModuleId());
+	}
+
+	@Test
+	void testUpdatePublishedInternationalComponent_ShouldClearEffectiveTime_ShouldNotChangeModuleId() throws ServiceException {
+		// Create a concept on MAIN
+		conceptService.create(new Concept("100001"), "MAIN");
+
+		// Version MAIN
+		codeSystemService.createVersion(codeSystem, 20220131, "January 2022");
+
+		// Create a task under MAIN
+		branchService.create("MAIN/A");
+
+		Concept concept = conceptService.find("100001", "MAIN/A");
+		assertEquals(concept.getReleasedEffectiveTime(), concept.getEffectiveTimeI());
+		assertEquals(CORE_MODULE, concept.getModuleId());
+
+		// Inactivate the concept
+		concept.setActive(false);
+		conceptService.update(concept, "MAIN/A");
+
+		// Effective time should be cleared, module ID should not change
+		concept = conceptService.find("100001", "MAIN/A");
+		assertNull(concept.getEffectiveTimeI());
+		assertEquals(CORE_MODULE, concept.getModuleId());
+	}
+
+	@Test
+	void testRevertPublishedInternationalComponent_ShoulNotChangeEffectiveTimeOrModuleId() throws ServiceException {
+		// Create a concept on MAIN
+		conceptService.create(new Concept("100001"), "MAIN");
+
+		// Version MAIN
+		codeSystemService.createVersion(codeSystem, 20220131, "January 2022");
+
+		// Create a task under MAIN
+		branchService.create("MAIN/A");
+
+		Concept concept = conceptService.find("100001", "MAIN/A");
+		assertEquals(concept.getReleasedEffectiveTime(), concept.getEffectiveTimeI());
+		assertEquals(CORE_MODULE, concept.getModuleId());
+
+		// Inactivate the concept
+		concept.setActive(false);
+		conceptService.update(concept, "MAIN/A");
+
+		// Revert the change
+		concept.setActive(true);
+		conceptService.update(concept, "MAIN/A");
+
+		// Effective time should be cleared, module ID should not change
+		concept = conceptService.find("100001", "MAIN/A");
+		assertEquals(concept.getReleasedEffectiveTime(), concept.getEffectiveTimeI());
+		assertEquals(CORE_MODULE, concept.getModuleId());
+	}
+
+	@Test
+	void testUpdatePublishedExtensionComponent_ShouldClearEffectiveTime_ShouldNotChangeModuleId() throws ServiceException {
+		// Create extension code system SNOMEDCT-BE
+		CodeSystem extension = codeSystemService.createCodeSystem(new CodeSystem("SNOMEDCT-BE", "MAIN/SNOMEDCT-BE"));
+		branchService.updateMetadata("MAIN/SNOMEDCT-BE", ImmutableMap.of(Config.DEFAULT_MODULE_ID_KEY, "11000172109", Config.DEFAULT_NAMESPACE_KEY, "1000172"));
+
+		// Create a concept on MAIN/SNOMEDCT-BE
+		conceptService.create(new Concept("100001", "11000172109"), "MAIN/SNOMEDCT-BE");
+
+		// Version extension
+		codeSystemService.createVersion(extension, 20220228, "February 2022");
+
+		// Create a task under MAIN/SNOMEDCT-BE
+		branchService.create("MAIN/SNOMEDCT-BE/BE");
+
+		Concept concept = conceptService.find("100001", "MAIN/SNOMEDCT-BE/BE");
+		assertEquals(concept.getReleasedEffectiveTime(), concept.getEffectiveTimeI());
+		assertEquals("11000172109", concept.getModuleId());
+
+		// Inactivate the concept
+		concept.setActive(false);
+		conceptService.update(concept, "MAIN/SNOMEDCT-BE/BE");
+
+		// Effective time should be cleared, module ID should change to the default module ID of the extension branch
+		concept = conceptService.find("100001", "MAIN/SNOMEDCT-BE/BE");
+		assertNull(concept.getEffectiveTimeI());
+		assertEquals("11000172109", concept.getModuleId());
+	}
+
+	@Test
+	void testRevertPublishedExtensionComponent_ShoulNotChangeEffectiveTimeOrModuleId() throws ServiceException {
+		// Create extension code system SNOMEDCT-BE
+		CodeSystem extension = codeSystemService.createCodeSystem(new CodeSystem("SNOMEDCT-BE", "MAIN/SNOMEDCT-BE"));
+		branchService.updateMetadata("MAIN/SNOMEDCT-BE", ImmutableMap.of(Config.DEFAULT_MODULE_ID_KEY, "11000172109", Config.DEFAULT_NAMESPACE_KEY, "1000172"));
+
+		// Create a concept on MAIN/SNOMEDCT-BE
+		conceptService.create(new Concept("100001", "11000172109"), "MAIN/SNOMEDCT-BE");
+
+		// Version extension
+		codeSystemService.createVersion(extension, 20220228, "February 2022");
+
+		// Create a task under MAIN/SNOMEDCT-BE
+		branchService.create("MAIN/SNOMEDCT-BE/BE");
+
+		Concept concept = conceptService.find("100001", "MAIN/SNOMEDCT-BE/BE");
+		assertEquals(concept.getReleasedEffectiveTime(), concept.getEffectiveTimeI());
+		assertEquals("11000172109", concept.getModuleId());
+
+		// Inactivate the concept
+		concept.setActive(false);
+		conceptService.update(concept, "MAIN/SNOMEDCT-BE/BE");
+
+		// Revert the change
+		concept.setActive(true);
+		conceptService.update(concept, "MAIN/SNOMEDCT-BE/BE");
+
+		// Effective time should be cleared, module ID should not change
+		concept = conceptService.find("100001", "MAIN/SNOMEDCT-BE/BE");
+		assertEquals(concept.getReleasedEffectiveTime(), concept.getEffectiveTimeI());
+		assertEquals("11000172109", concept.getModuleId());
+	}
+
+	@Test
+	void testUpdateUnpublishedInternationalComponent_ShouldNotChangeEffectiveTimeOrModuleId() throws ServiceException {
+		// Create a concept on MAIN
+		conceptService.create(new Concept("100001"), "MAIN");
+
+		// Create a task under MAIN
+		branchService.create("MAIN/A");
+
+		Concept concept = conceptService.find("100001", "MAIN/A");
+
+		// Inactivate the concept
+		concept.setActive(false);
+		conceptService.update(concept, "MAIN/A");
+
+		// Effective time and module ID should not change
+		concept = conceptService.find("100001", "MAIN/A");
+		assertNull(concept.getEffectiveTimeI());
+		assertEquals(CORE_MODULE, concept.getModuleId());
+	}
+
+	@Test
+	void testRevertUnpublishedInternationalComponent_ShouldNotChangeEffectiveTimeOrModuleId() throws ServiceException {
+		// Create a concept on MAIN
+		conceptService.create(new Concept("100001"), "MAIN");
+
+		// Create a task under MAIN
+		branchService.create("MAIN/A");
+
+		Concept concept = conceptService.find("100001", "MAIN/A");
+
+		// Inactivate the concept
+		concept.setActive(false);
+		conceptService.update(concept, "MAIN/A");
+
+		// Revert the change
+		concept.setActive(true);
+		conceptService.update(concept, "MAIN/A");
+
+		// Effective time and module ID should not change
+		concept = conceptService.find("100001", "MAIN/A");
+		assertNull(concept.getEffectiveTimeI());
+		assertEquals(CORE_MODULE, concept.getModuleId());
+	}
+
+	@Test
+	void testUpdateUnpublishedExtensionComponent_ShouldNotChangeEffectiveTimeOrModuleId() throws ServiceException {
+		// Create extension code system SNOMEDCT-BE
+		codeSystemService.createCodeSystem(new CodeSystem("SNOMEDCT-BE", "MAIN/SNOMEDCT-BE"));
+		branchService.updateMetadata("MAIN/SNOMEDCT-BE", ImmutableMap.of(Config.DEFAULT_MODULE_ID_KEY, "11000172109", Config.DEFAULT_NAMESPACE_KEY, "1000172"));
+
+		// Create a concept on MAIN/SNOMEDCT-BE
+		conceptService.create(new Concept("100001", "11000172109"), "MAIN/SNOMEDCT-BE");
+
+		// Create a task under MAIN/SNOMEDCT-BE
+		branchService.create("MAIN/SNOMEDCT-BE/BE");
+
+		Concept concept = conceptService.find("100001", "MAIN/SNOMEDCT-BE/BE");
+
+		// Inactivate the concept
+		concept.setActive(false);
+		conceptService.update(concept, "MAIN/SNOMEDCT-BE/BE");
+
+		// Effective time should be cleared, module ID should change to the default module ID of the extension branch
+		concept = conceptService.find("100001", "MAIN/SNOMEDCT-BE/BE");
+		assertNull(concept.getEffectiveTimeI());
+		assertEquals("11000172109", concept.getModuleId());
+	}
+
+	@Test
+	void testRevertUnpublishedExtensionComponent_ShoulNotChangeEffectiveTimeOrModuleId() throws ServiceException {
+		// Create extension code system SNOMEDCT-BE
+		codeSystemService.createCodeSystem(new CodeSystem("SNOMEDCT-BE", "MAIN/SNOMEDCT-BE"));
+		branchService.updateMetadata("MAIN/SNOMEDCT-BE", ImmutableMap.of(Config.DEFAULT_MODULE_ID_KEY, "11000172109", Config.DEFAULT_NAMESPACE_KEY, "1000172"));
+
+		// Create a concept on MAIN/SNOMEDCT-BE
+		conceptService.create(new Concept("100001", "11000172109"), "MAIN/SNOMEDCT-BE");
+
+		// Create a task under MAIN/SNOMEDCT-BE
+		branchService.create("MAIN/SNOMEDCT-BE/BE");
+
+		Concept concept = conceptService.find("100001", "MAIN/SNOMEDCT-BE/BE");
+
+		// Inactivate the concept
+		concept.setActive(false);
+		conceptService.update(concept, "MAIN/SNOMEDCT-BE/BE");
+
+		// Revert the change
+		concept.setActive(true);
+		conceptService.update(concept, "MAIN/SNOMEDCT-BE/BE");
+
+		// Effective time and module ID should not change
+		concept = conceptService.find("100001", "MAIN/SNOMEDCT-BE/BE");
+		assertNull(concept.getEffectiveTimeI());
+		assertEquals("11000172109", concept.getModuleId());
+	}
+
+	@Test
+	void testCreateNewInternationalComponent_EffectiveTimeIsNull_CoreModuleId() throws ServiceException {
+		// Create a concept on MAIN
+		conceptService.create(new Concept("100001"), "MAIN");
+
+		// Create a task under MAIN
+		branchService.create("MAIN/A");
+
+		Concept concept = conceptService.find("100001", "MAIN/A");
+		assertNull(concept.getEffectiveTimeI());
+		assertEquals(CORE_MODULE, concept.getModuleId());
+	}
+
+	@Test
+	void testCreateNewExtensionComponent_EffectiveTimeIsNull_DefaultModuleId() throws ServiceException {
+		// Create extension code system SNOMEDCT-BE
+		codeSystemService.createCodeSystem(new CodeSystem("SNOMEDCT-BE", "MAIN/SNOMEDCT-BE"));
+		branchService.updateMetadata("MAIN/SNOMEDCT-BE", ImmutableMap.of(Config.DEFAULT_MODULE_ID_KEY, "11000172109", Config.DEFAULT_NAMESPACE_KEY, "1000172"));
+
+		// Create a concept on MAIN/SNOMEDCT-BE
+		conceptService.create(new Concept("100001", "11000172109"), "MAIN/SNOMEDCT-BE");
+
+		// Create a task under MAIN/SNOMEDCT-BE
+		branchService.create("MAIN/SNOMEDCT-BE/BE");
+
+		Concept concept = conceptService.find("100001", "MAIN/SNOMEDCT-BE/BE");
+		assertNull(concept.getEffectiveTimeI());
+		assertEquals("11000172109", concept.getModuleId());
 	}
 
 	private boolean waitUntil(Supplier<Boolean> supplier, int maxSecondsToWait) {

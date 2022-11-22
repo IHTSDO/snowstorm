@@ -21,6 +21,7 @@ import org.apache.lucene.analysis.tokenattributes.CharTermAttribute;
 import org.elasticsearch.common.Strings;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.Operator;
+import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.search.aggregations.Aggregation;
 import org.elasticsearch.search.aggregations.AggregationBuilders;
 import org.elasticsearch.search.aggregations.Aggregations;
@@ -29,6 +30,9 @@ import org.elasticsearch.search.aggregations.bucket.terms.Terms;
 import org.elasticsearch.search.sort.SortBuilders;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.snomed.langauges.ecl.domain.ConceptReference;
+import org.snomed.langauges.ecl.domain.expressionconstraint.SubExpressionConstraint;
+import org.snomed.langauges.ecl.domain.filter.*;
 import org.snomed.snowstorm.config.SearchLanguagesConfiguration;
 import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.services.identifier.IdentifierService;
@@ -38,6 +42,8 @@ import org.snomed.snowstorm.core.data.services.pojo.PageWithBucketAggregationsFa
 import org.snomed.snowstorm.core.data.services.pojo.SimpleAggregation;
 import org.snomed.snowstorm.core.util.DescriptionHelper;
 import org.snomed.snowstorm.core.util.TimerUtil;
+import org.snomed.snowstorm.ecl.ECLQueryService;
+import org.snomed.snowstorm.ecl.domain.expressionconstraint.SExpressionConstraint;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
@@ -57,14 +63,20 @@ import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 import static java.lang.Long.parseLong;
 import static org.elasticsearch.index.query.QueryBuilders.*;
 import static org.snomed.snowstorm.config.Config.*;
+import static org.snomed.snowstorm.core.data.domain.ReferenceSetMember.Fields.REFSET_ID;
+import static org.snomed.snowstorm.core.data.domain.ReferenceSetMember.LanguageFields.ACCEPTABILITY_ID_FIELD_PATH;
 
 @Service
 public class DescriptionService extends ComponentService {
+
+	// Query value used to prevent matching
+	private static final String NO_MATCH = "no-match";
 
 	@Autowired
 	private SearchLanguagesConfiguration searchLanguagesConfiguration;
@@ -81,13 +93,16 @@ public class DescriptionService extends ComponentService {
 	@Autowired
 	private ConceptUpdateHelper conceptUpdateHelper;
 
+	@Autowired
+	private DialectConfigurationService dialectConfigurationService;
+
 	private final Map<String, SemanticTagCacheEntry> semanticTagAggregationCache = new ConcurrentHashMap<>();
 
 	@Value("${search.description.aggregation.maxProcessableResultsSize}")
 	private int aggregationMaxProcessableResultsSize;
 
 	public enum SearchMode {
-		STANDARD, REGEX, WHOLE_WORD
+		STANDARD, REGEX, WHOLE_WORD, WILDCARD;
 	}
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
@@ -97,7 +112,7 @@ public class DescriptionService extends ComponentService {
 		BoolQueryBuilder query = boolQuery().must(branchCriteria.getEntityBranchCriteria(Description.class))
 				.must(termsQuery("descriptionId", descriptionId));
 		List<Description> descriptions = elasticsearchTemplate.search(
-				new NativeSearchQueryBuilder().withQuery(query).build(), Description.class)
+						new NativeSearchQueryBuilder().withQuery(query).build(), Description.class)
 				.get().map(SearchHit::getContent).collect(Collectors.toList());
 		if (descriptions.size() > 1) {
 			String message = String.format("More than one description found for id %s on branch %s.", descriptionId, path);
@@ -252,7 +267,7 @@ public class DescriptionService extends ComponentService {
 						.filter(termsQuery(ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID, conceptIds))
 				)
 				.withPageable(PAGE_OF_ONE)
-				.addAggregation(AggregationBuilders.terms("membership").field(ReferenceSetMember.Fields.REFSET_ID))
+				.addAggregation(AggregationBuilders.terms("membership").field(REFSET_ID))
 				.build(), ReferenceSetMember.class);
 		allAggregations.add(membershipResults.getAggregations().get("membership"));
 		timer.checkpoint("Concept refset membership aggregation");
@@ -295,8 +310,8 @@ public class DescriptionService extends ComponentService {
 		Map<String, Description> descriptionIdMap = new HashMap<>();
 		for (List<String> conceptIds : Iterables.partition(allConceptIds, CLAUSE_LIMIT)) {
 			queryBuilder.withQuery(boolQuery()
-					.must(branchCriteria.getEntityBranchCriteria(Description.class))
-					.must(termsQuery("conceptId", conceptIds)))
+							.must(branchCriteria.getEntityBranchCriteria(Description.class))
+							.must(termsQuery("conceptId", conceptIds)))
 					.withPageable(LARGE_PAGE);
 			try (final SearchHitsIterator<Description> descriptions = elasticsearchTemplate.searchForStream(queryBuilder.build(), Description.class)) {
 				descriptions.forEachRemaining(hit -> {
@@ -396,9 +411,9 @@ public class DescriptionService extends ComponentService {
 		final NativeSearchQueryBuilder queryBuilder = new NativeSearchQueryBuilder();
 		for (List<String> componentIdsSegment : Iterables.partition(componentIds, CLAUSE_LIMIT)) {
 			queryBuilder.withQuery(boolQuery()
-					.must(branchCriteria.getEntityBranchCriteria(ReferenceSetMember.class))
-					.must(termsQuery("refsetId", Concepts.inactivationAndAssociationRefsets))
-					.must(termsQuery("referencedComponentId", componentIdsSegment)))
+							.must(branchCriteria.getEntityBranchCriteria(ReferenceSetMember.class))
+							.must(termsQuery("refsetId", Concepts.inactivationAndAssociationRefsets))
+							.must(termsQuery("referencedComponentId", componentIdsSegment)))
 					.withPageable(LARGE_PAGE);
 			// Join Members
 			try (final SearchHitsIterator<ReferenceSetMember> members = elasticsearchTemplate.searchForStream(queryBuilder.build(), ReferenceSetMember.class)) {
@@ -445,9 +460,9 @@ public class DescriptionService extends ComponentService {
 		for (List<String> conceptIds : Iterables.partition(allConceptIds, CLAUSE_LIMIT)) {
 
 			queryBuilder.withQuery(boolQuery()
-					.must(branchCriteria.getEntityBranchCriteria(ReferenceSetMember.class))
-					.must(termsQuery(ReferenceSetMember.LanguageFields.ACCEPTABILITY_ID_FIELD_PATH, Concepts.PREFERRED, Concepts.ACCEPTABLE))
-					.must(termsQuery("conceptId", conceptIds)))
+							.must(branchCriteria.getEntityBranchCriteria(ReferenceSetMember.class))
+							.must(termsQuery(ACCEPTABILITY_ID_FIELD_PATH, Concepts.PREFERRED, Concepts.ACCEPTABLE))
+							.must(termsQuery("conceptId", conceptIds)))
 					.withPageable(LARGE_PAGE);
 			// Join Lang Refset Members
 			try (final SearchHitsIterator<ReferenceSetMember> langRefsetMembers = elasticsearchTemplate.searchForStream(queryBuilder.build(), ReferenceSetMember.class)) {
@@ -481,13 +496,156 @@ public class DescriptionService extends ComponentService {
 		joinLangRefsetMembers(branchCriteria, conceptMiniMap.keySet(), descriptionIdMap);
 	}
 
+	public SortedMap<Long, Long> applyDescriptionFilter(Collection<Long> conceptIds, List<TermFilter> termFilters, List<LanguageFilter> languageFilters,
+			List<DescriptionTypeFilter> descriptionTypeFilters, List<DialectFilter> dialectFilters,
+			BranchCriteria branchCriteria, ECLQueryService eclQueryService, BoolQueryBuilder masterDescriptionQuery) {
+
+		for (TermFilter termFilter : termFilters) {
+			BoolQueryBuilder termFilterQuery = boolQuery();
+			boolean termEquals = isEquals(termFilter.getBooleanComparisonOperator());
+			for (TypedSearchTerm typedSearchTerm : termFilter.getTypedSearchTermSet()) {
+				BoolQueryBuilder typedSearchTermQuery = boolQuery();
+				SearchMode searchMode = typedSearchTerm.getType() == SearchType.WILDCARD ? SearchMode.WILDCARD : SearchMode.STANDARD;
+				addTermClauses(typedSearchTerm.getTerm(), searchMode, typedSearchTermQuery);
+				termFilterQuery.should(typedSearchTermQuery);// Logical OR
+			}
+			addClause(termFilterQuery, masterDescriptionQuery, termEquals);
+		}
+
+		for (LanguageFilter languageFilter : languageFilters) {
+			addClause(termsQuery(Description.Fields.LANGUAGE_CODE, languageFilter.getLanguageCodes().stream().map(String::toLowerCase).collect(Collectors.toList())),
+					masterDescriptionQuery, isEquals(languageFilter.getBooleanComparisonOperator()));
+		}
+
+		for (DescriptionTypeFilter descriptionTypeFilter : descriptionTypeFilters) {
+			Set<String> typeIds;
+			if (descriptionTypeFilter.getSubExpressionConstraint() != null) {
+				typeIds = runExpressionConstraint(branchCriteria, eclQueryService, descriptionTypeFilter.getSubExpressionConstraint());
+				if (typeIds.isEmpty()) {
+					typeIds.add(NO_MATCH);
+				}
+			} else {
+				typeIds = descriptionTypeFilter.getTypes().stream().map(DescriptionType::getTypeId).collect(Collectors.toSet());
+			}
+			addClause(termsQuery(Description.Fields.TYPE_ID, typeIds), masterDescriptionQuery, isEquals(descriptionTypeFilter.getBooleanComparisonOperator()));
+		}
+
+		BoolQueryBuilder criteria = branchCriteria.getEntityBranchCriteria(Description.class)
+				.filter(termsQuery(Description.Fields.CONCEPT_ID, conceptIds))
+				.must(masterDescriptionQuery);
+
+		final SortedMap<Long, Long> descriptionToConceptMap = new Long2ObjectLinkedOpenHashMap<>();
+		NativeSearchQueryBuilder searchQueryBuilder = new NativeSearchQueryBuilder()
+				.withQuery(criteria)
+				.withFields(Description.Fields.DESCRIPTION_ID, Description.Fields.CONCEPT_ID)
+				.withPageable(LARGE_PAGE);
+		try (SearchHitsIterator<Description> stream = elasticsearchTemplate.searchForStream(searchQueryBuilder.build(), Description.class)) {
+			stream.forEachRemaining(hit -> {
+				Description description = hit.getContent();
+				descriptionToConceptMap.put(Long.parseLong(description.getDescriptionId()), Long.parseLong(description.getConceptId()));
+			});
+		}
+
+		if (!descriptionToConceptMap.isEmpty() && !dialectFilters.isEmpty()) {
+			for (DialectFilter dialectFilter : dialectFilters) {
+				BoolQueryBuilder masterLangRefsetQuery = branchCriteria.getEntityBranchCriteria(ReferenceSetMember.class);
+				masterLangRefsetQuery.must(termQuery(SnomedComponent.Fields.ACTIVE, true));
+				masterLangRefsetQuery.filter(termsQuery(ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID, descriptionToConceptMap.keySet()));
+
+				boolean equals = isEquals(dialectFilter.getBooleanComparisonOperator());
+				BoolQueryBuilder acceptabilityQuery = boolQuery();
+				if (dialectFilter.getSubExpressionConstraint() != null) {
+					Set<String> dialects = runExpressionConstraint(branchCriteria, eclQueryService, dialectFilter.getSubExpressionConstraint());
+					if (dialects.isEmpty()) {
+						dialects.add(NO_MATCH);
+					}
+					acceptabilityQuery.must(termsQuery(REFSET_ID, dialects));
+				} else {
+					Map<String, Set<String>> acceptabilityMap = dialectAcceptabilitiesToMap(dialectFilter.getDialectAcceptabilities(), branchCriteria, eclQueryService);
+					for (Map.Entry<String, Set<String>> stringSetEntry : acceptabilityMap.entrySet()) {
+						BoolQueryBuilder langRefsetQuery = boolQuery();
+						langRefsetQuery.must(termQuery(REFSET_ID, stringSetEntry.getKey()));
+						if (!stringSetEntry.getValue().isEmpty()) {
+							langRefsetQuery.must(termsQuery(ACCEPTABILITY_ID_FIELD_PATH, stringSetEntry.getValue()));
+						}
+						acceptabilityQuery.should(langRefsetQuery);
+					}
+				}
+				addClause(acceptabilityQuery, masterLangRefsetQuery, equals);
+
+				NativeSearchQueryBuilder langRefsetSearch = new NativeSearchQueryBuilder()
+						.withQuery(masterLangRefsetQuery)
+						.withFields(ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID)
+						.withPageable(LARGE_PAGE);
+				Set<Long> acceptableDescriptions = new LongOpenHashSet();
+				try (SearchHitsIterator<ReferenceSetMember> stream = elasticsearchTemplate.searchForStream(langRefsetSearch.build(), ReferenceSetMember.class)) {
+					stream.forEachRemaining(hit -> acceptableDescriptions.add(Long.parseLong(hit.getContent().getReferencedComponentId())));
+				}
+
+				Set<Long> notAcceptableDescriptions =
+						descriptionToConceptMap.keySet().stream().filter(Predicate.not(acceptableDescriptions::contains)).collect(Collectors.toSet());
+				for (Long notAcceptableDescription : notAcceptableDescriptions) {
+					descriptionToConceptMap.remove(notAcceptableDescription);
+				}
+			}
+		}
+
+		return descriptionToConceptMap;
+	}
+
+	private boolean isEquals(String booleanComparisonOperator) {
+		return booleanComparisonOperator.equals("=");
+	}
+
+	private Map<String, Set<String>> dialectAcceptabilitiesToMap(List<DialectAcceptability> dialectAcceptabilities, BranchCriteria branchCriteria, ECLQueryService eclQueryService) {
+		Map<String, Set<String>> acceptabilityMap = new HashMap<>();
+		for (DialectAcceptability dialectAcceptability : dialectAcceptabilities) {
+			Set<String> dialectIds;
+			if (dialectAcceptability.getSubExpressionConstraint() != null) {
+				dialectIds = runExpressionConstraint(branchCriteria, eclQueryService, dialectAcceptability.getSubExpressionConstraint());
+				if (dialectIds.isEmpty()) {
+					dialectIds.add(NO_MATCH);
+				}
+			} else {
+				String dialectAlias = dialectAcceptability.getDialectAlias();
+				Long refsetForDialect = dialectConfigurationService.findRefsetForDialect(dialectAlias);
+				if (refsetForDialect == null) {
+					throw new IllegalArgumentException(String.format("Dialect alias not recognised '%s'", dialectAlias));
+				}
+				dialectIds = Collections.singleton(refsetForDialect.toString());
+			}
+			Set<String> acceptability = new HashSet<>();
+
+			for (ConceptReference conceptReference : orEmpty(dialectAcceptability.getAcceptabilityIdSet())) {
+				acceptability.add(conceptReference.getConceptId());
+			}
+			for (Acceptability acceptabilityToken : orEmpty(dialectAcceptability.getAcceptabilityTokenSet())) {
+				acceptability.add(acceptabilityToken.getAcceptabilityId());
+			}
+
+			for (String dialectId : dialectIds) {
+				acceptabilityMap.put(dialectId, acceptability);
+			}
+		}
+		return acceptabilityMap;
+	}
+
+	private Set<String> runExpressionConstraint(BranchCriteria branchCriteria, ECLQueryService eclQueryService, SubExpressionConstraint subExpressionConstraint) {
+		return eclQueryService.doSelectConceptIds((SExpressionConstraint) subExpressionConstraint, branchCriteria, false, null, null)
+				.stream().map(Object::toString).collect(Collectors.toSet());
+	}
+
+	private <T> Collection<T> orEmpty(Collection<T> collection) {
+		return collection != null ? collection : Collections.emptySet();
+	}
+
 	DescriptionMatches findDescriptionAndConceptIds(DescriptionCriteria criteria, Set<Long> conceptIdsCriteria, BranchCriteria branchCriteria, TimerUtil timer) throws TooCostlyException {
 
 		// Build up the description criteria
 		final BoolQueryBuilder descriptionQuery = boolQuery();
 		BoolQueryBuilder descriptionBranchCriteria = branchCriteria.getEntityBranchCriteria(Description.class);
 		descriptionQuery.must(descriptionBranchCriteria);
-		addTermClauses(criteria.getTerm(), criteria.getSearchLanguageCodes(), criteria.getType(), descriptionQuery, criteria.getSearchMode());
+		addTermClauses(criteria.getTerm(), criteria.getSearchMode(), criteria.getSearchLanguageCodes(), criteria.getType(), descriptionQuery);
 
 		Boolean active = criteria.getActive();
 		if (active != null) {
@@ -537,7 +695,8 @@ public class DescriptionService extends ComponentService {
 		Set<Long> acceptableIn = criteria.getAcceptableIn();
 		Set<Long> preferredOrAcceptableIn = criteria.getPreferredOrAcceptableIn();
 		Set<Long> conceptIds;
-		if (!CollectionUtils.isEmpty(preferredIn) || !CollectionUtils.isEmpty(acceptableIn) || !CollectionUtils.isEmpty(preferredOrAcceptableIn)) {
+		if (!CollectionUtils.isEmpty(preferredIn) || !CollectionUtils.isEmpty(acceptableIn)
+				|| !CollectionUtils.isEmpty(preferredOrAcceptableIn) || !CollectionUtils.isEmpty(criteria.getDisjunctionAcceptabilityCriteria())) {
 
 			BoolQueryBuilder queryBuilder = boolQuery()
 					.must(branchCriteria.getEntityBranchCriteria(ReferenceSetMember.class))
@@ -545,18 +704,46 @@ public class DescriptionService extends ComponentService {
 
 			if (!CollectionUtils.isEmpty(preferredIn)) {
 				queryBuilder
-						.must(termsQuery(ReferenceSetMember.Fields.REFSET_ID, preferredIn))
-						.must(termQuery(ReferenceSetMember.LanguageFields.ACCEPTABILITY_ID_FIELD_PATH, Concepts.PREFERRED));
+						.must(termsQuery(REFSET_ID, preferredIn))
+						.must(termQuery(ACCEPTABILITY_ID_FIELD_PATH, Concepts.PREFERRED));
 			}
 			if (!CollectionUtils.isEmpty(acceptableIn)) {
 				queryBuilder
-						.must(termsQuery(ReferenceSetMember.Fields.REFSET_ID, acceptableIn))
-						.must(termQuery(ReferenceSetMember.LanguageFields.ACCEPTABILITY_ID_FIELD_PATH, Concepts.ACCEPTABLE));
+						.must(termsQuery(REFSET_ID, acceptableIn))
+						.must(termQuery(ACCEPTABILITY_ID_FIELD_PATH, Concepts.ACCEPTABLE));
 			}
 			if (!CollectionUtils.isEmpty(preferredOrAcceptableIn)) {
 				queryBuilder
-						.must(termsQuery(ReferenceSetMember.Fields.REFSET_ID, preferredOrAcceptableIn))
-						.must(termsQuery(ReferenceSetMember.LanguageFields.ACCEPTABILITY_ID_FIELD_PATH, Sets.newHashSet(Concepts.PREFERRED, Concepts.ACCEPTABLE)));
+						.must(termsQuery(REFSET_ID, preferredOrAcceptableIn))
+						.must(termsQuery(ACCEPTABILITY_ID_FIELD_PATH, Sets.newHashSet(Concepts.PREFERRED, Concepts.ACCEPTABLE)));
+			}
+			// processing DisjunctionAcceptabilityCriteria
+			if (criteria.getDisjunctionAcceptabilityCriteria() != null) {
+				for (DescriptionCriteria.DisjunctionAcceptabilityCriteria disjunctionCriteria : criteria.getDisjunctionAcceptabilityCriteria()) {
+					BoolQueryBuilder shouldClause = boolQuery();
+					if (!CollectionUtils.isEmpty(disjunctionCriteria.getPreferred())) {
+						disjunctionCriteria.getPreferred().forEach(refsetId -> {
+							shouldClause.should(boolQuery()
+									.must(termQuery(REFSET_ID, refsetId))
+									.must(termQuery(ACCEPTABILITY_ID_FIELD_PATH, Concepts.PREFERRED)));
+						});
+					}
+					if (!CollectionUtils.isEmpty(acceptableIn)) {
+						disjunctionCriteria.getPreferred().forEach(refsetId -> {
+							shouldClause.should(boolQuery()
+									.must(termQuery(REFSET_ID, refsetId))
+									.must(termQuery(ACCEPTABILITY_ID_FIELD_PATH, Concepts.ACCEPTABLE)));
+						});
+					}
+					if (!CollectionUtils.isEmpty(preferredOrAcceptableIn)) {
+						shouldClause.should(boolQuery()
+								.must(termsQuery(REFSET_ID, preferredOrAcceptableIn))
+								.must(termsQuery(ACCEPTABILITY_ID_FIELD_PATH, Sets.newHashSet(Concepts.PREFERRED, Concepts.ACCEPTABLE))));
+					}
+					if (!shouldClause.should().isEmpty()) {
+						queryBuilder.must(shouldClause);
+					}
+				}
 			}
 
 			NativeSearchQuery nativeSearchQuery = new NativeSearchQueryBuilder()
@@ -612,7 +799,7 @@ public class DescriptionService extends ComponentService {
 				try (SearchHitsIterator<ReferenceSetMember> stream = elasticsearchTemplate.searchForStream(
 						new NativeSearchQueryBuilder()
 								.withQuery(boolQuery()
-										.must(termQuery(ReferenceSetMember.Fields.REFSET_ID, criteria.getConceptRefset()))
+										.must(termQuery(REFSET_ID, criteria.getConceptRefset()))
 										.filter(branchCriteria.getEntityBranchCriteria(ReferenceSetMember.class))
 										.filter(termsQuery(ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID, conceptIds))
 								)
@@ -653,72 +840,95 @@ public class DescriptionService extends ComponentService {
 		return newSet;
 	}
 
-	void addTermClauses(String term, Collection<String> languageCodes, Collection<Long> descriptionTypes, BoolQueryBuilder boolBuilder, SearchMode searchMode) {
-		if (IdentifierService.isConceptId(term)) {
-			boolBuilder.must(termQuery(Description.Fields.CONCEPT_ID, term));
-		} else {
-			if (!Strings.isNullOrEmpty(term)) {
-				BoolQueryBuilder termFilter = new BoolQueryBuilder();
-				boolBuilder.filter(termFilter);
-				boolean allLanguages = CollectionUtils.isEmpty(languageCodes);
-				if (searchMode == SearchMode.REGEX) {
-					// https://www.elastic.co/guide/en/elasticsearch/reference/master/query-dsl-query-string-query.html#_regular_expressions
-					if (term.startsWith("^")) {
-						term = term.substring(1);
-					}
-					if (term.endsWith("$")) {
-						term = term.substring(0, term.length()-1);
-					}
-					termFilter.must(regexpQuery(Description.Fields.TERM, term));
-					// Must match the requested languages
-					if (!allLanguages) {
-						boolBuilder.must(termsQuery(Description.Fields.LANGUAGE_CODE, languageCodes));
-					}
-				} else {
-					// Must match at least one of the following 'should' clauses:
-					BoolQueryBuilder shouldClauses = boolQuery();
-					// All prefixes given. Simple Query String Query: https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-simple-query-string-query.html
-					// e.g. 'Clin Fin' converts to 'clin* fin*' and matches 'Clinical Finding'
-					// Put search term through character folding for each requested language
-					Map<String, Set<Character>> charactersNotFoldedSets = searchLanguagesConfiguration.getCharactersNotFoldedSets();
-					if (allLanguages) {
-						Set<String> allLanguageCodes = new HashSet<>(charactersNotFoldedSets.keySet());
+	void addTermClauses(String term, SearchMode searchMode, Collection<String> languageCodes, Collection<Long> descriptionTypes, BoolQueryBuilder boolBuilder) {
+		if (term != null) {
+			addTermClauses(term, searchMode, boolBuilder);
+		}
 
-						// Any language - fully folded
-						allLanguageCodes.add("");
-
-						languageCodes = allLanguageCodes;
-					}
-					for (String languageCode : languageCodes) {
-						Set<Character> charactersNotFoldedForLanguage = charactersNotFoldedSets.getOrDefault(languageCode, Collections.emptySet());
-						String foldedSearchTerm = DescriptionHelper.foldTerm(term, charactersNotFoldedForLanguage);
-						foldedSearchTerm = constructSearchTerm(analyze(foldedSearchTerm, new StandardAnalyzer(CharArraySet.EMPTY_SET)));
-						if (foldedSearchTerm.isEmpty()) {
-							continue;
-						}
-						BoolQueryBuilder languageQuery = boolQuery();
-						if (SearchMode.WHOLE_WORD == searchMode) {
-							languageQuery.filter(matchQuery(Description.Fields.TERM_FOLDED, foldedSearchTerm).operator(Operator.AND));
-						} else {
-							languageQuery.filter(simpleQueryStringQuery(constructSimpleQueryString(foldedSearchTerm))
-											.field(Description.Fields.TERM_FOLDED).defaultOperator(Operator.AND));
-						}
-						if (!languageCode.isEmpty()) {
-							languageQuery.must(termQuery(Description.Fields.LANGUAGE_CODE, languageCode));
-						}
-						shouldClauses.should(languageQuery);
-					}
-
-					if (containingNonAlphanumeric(term)) {
-						String regexString = constructRegexQuery(term);
-						termFilter.must(regexpQuery(Description.Fields.TERM, regexString));
-					}
-					termFilter.must(shouldClauses);
-				}
-			}
+		if (!CollectionUtils.isEmpty(languageCodes)) {
+			boolBuilder.must(termsQuery(Description.Fields.LANGUAGE_CODE, languageCodes));
 		}
 		if (descriptionTypes != null && !descriptionTypes.isEmpty()) {
 			boolBuilder.must(termsQuery(Description.Fields.TYPE_ID, descriptionTypes));
+		}
+	}
+
+	void addTermClauses(String term, SearchMode searchMode, BoolQueryBuilder typedSearchTermQuery) {
+		if (IdentifierService.isConceptId(term)) {
+			typedSearchTermQuery.must(termQuery(Description.Fields.CONCEPT_ID, term));
+		} else {
+			BoolQueryBuilder termFilter = new BoolQueryBuilder();
+			if (searchMode == SearchMode.REGEX) {
+				// https://www.elastic.co/guide/en/elasticsearch/reference/master/query-dsl-query-string-query.html#_regular_expressions
+				if (term.startsWith("^")) {
+					term = term.substring(1);
+				}
+				if (term.endsWith("$")) {
+					term = term.substring(0, term.length()-1);
+				}
+				termFilter.must(regexpQuery(Description.Fields.TERM, term));
+			} else {
+				Map<String, Set<Character>> charactersNotFoldedSets = searchLanguagesConfiguration.getCharactersNotFoldedSets();
+				Set<String> languageFoldingStrategies = new HashSet<>(charactersNotFoldedSets.keySet());
+				languageFoldingStrategies.add("");
+
+				// All prefixes given. Simple Query String Query: https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-simple-query-string-query.html
+				// e.g. 'Clin Fin' converts to 'clin* fin*' and matches 'Clinical Finding'
+				// Put search term through character folding for each requested language
+				BoolQueryBuilder foldedTermsQuery = boolQuery();
+				Set<BoolQueryBuilder> uniqueTermQueries = new HashSet<>();
+				for (String languageFoldingStrategy : languageFoldingStrategies) {
+					BoolQueryBuilder termQuery = getTermQuery(term, searchMode, charactersNotFoldedSets, languageFoldingStrategy);
+					uniqueTermQueries.add(termQuery);
+				}
+				for (BoolQueryBuilder uniqueTermQuery : uniqueTermQueries) {
+					foldedTermsQuery.should(uniqueTermQuery);// Logical OR
+				}
+				termFilter.must(foldedTermsQuery);
+
+				if (SearchMode.WILDCARD == searchMode) {
+					String replace = DescriptionHelper.wildcardToCaseInsensitiveRegex(term);
+					termFilter.must(regexpQuery(Description.Fields.TERM, replace));
+				} else if (containingNonAlphanumeric(term)) {
+					// Apply second constraint against non-folded term
+					String regexString = constructRegexQuery(term);
+					termFilter.must(regexpQuery(Description.Fields.TERM, regexString));
+				}
+			}
+			typedSearchTermQuery.filter(termFilter);
+		}
+	}
+
+	private BoolQueryBuilder getTermQuery(String term, SearchMode searchMode, Map<String, Set<Character>> charactersNotFoldedSets, String languageCodeToMatch) {
+		BoolQueryBuilder termQuery = boolQuery();
+		Set<Character> charactersNotFoldedForLanguage = charactersNotFoldedSets.getOrDefault(languageCodeToMatch, Collections.emptySet());
+		String foldedSearchTerm = DescriptionHelper.foldTerm(term, charactersNotFoldedForLanguage);
+		if (searchMode != SearchMode.WILDCARD) {
+			foldedSearchTerm = constructSearchTerm(analyze(foldedSearchTerm, new StandardAnalyzer(CharArraySet.EMPTY_SET)));
+		}
+		if (foldedSearchTerm.isEmpty()) {
+			return termQuery;
+		}
+		if (SearchMode.WHOLE_WORD == searchMode) {
+			termQuery.filter(matchQuery(Description.Fields.TERM_FOLDED, foldedSearchTerm).operator(Operator.AND));
+		} else if (SearchMode.WILDCARD == searchMode) {
+			for (String part : foldedSearchTerm.replaceAll("(.)\\*(.)", "$1* *$2").split(" ")) {
+				if (!part.isEmpty() && !part.equals("*")) {
+					termQuery.filter(wildcardQuery(Description.Fields.TERM_FOLDED, part));
+				}
+			}
+		} else {
+			termQuery.filter(simpleQueryStringQuery(constructSimpleQueryString(foldedSearchTerm))
+					.field(Description.Fields.TERM_FOLDED).defaultOperator(Operator.AND));
+		}
+		return termQuery;
+	}
+
+	private void addClause(QueryBuilder queryClause, BoolQueryBuilder boolBuilder, boolean equals) {
+		if (equals) {
+			boolBuilder.must(queryClause);
+		} else {
+			boolBuilder.mustNot(queryClause);
 		}
 	}
 
@@ -742,7 +952,7 @@ public class DescriptionService extends ComponentService {
 	}
 
 	private boolean containingNonAlphanumeric(String term) {
-		String[] words = term.split(" ", -1);
+		String[] words = term.split(" ");
 		for (String word : words) {
 			if (!StringUtils.isAlphanumeric(word)) {
 				return true;

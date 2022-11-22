@@ -199,6 +199,8 @@ class ClassificationServiceTest extends AbstractTest {
 
 	@Test
 	void testSaveRelationshipChangesInExtension() throws IOException, ServiceException, InterruptedException {
+		String testExtModuleId = "45991000052106";
+		
 		// Create concept with some stated modeling in an axiom
 		conceptService.create(
 				new Concept("123123123001")
@@ -209,7 +211,7 @@ class ClassificationServiceTest extends AbstractTest {
 
 		String extensionBranchPath = "MAIN/SNOMEDCT-SE";
 		codeSystemService.createCodeSystem(new CodeSystem("SNOMEDCT-SE", extensionBranchPath));
-		branchService.updateMetadata(extensionBranchPath, ImmutableMap.of(Config.DEFAULT_MODULE_ID_KEY, "45991000052106", Config.DEFAULT_NAMESPACE_KEY, "1000052"));
+		branchService.updateMetadata(extensionBranchPath, ImmutableMap.of(Config.DEFAULT_MODULE_ID_KEY, testExtModuleId, Config.DEFAULT_NAMESPACE_KEY, "1000052"));
 
 		// Save mock classification results
 		Classification classification = createClassification(extensionBranchPath, UUID.randomUUID().toString());
@@ -243,6 +245,8 @@ class ClassificationServiceTest extends AbstractTest {
 	
 	@Test
 	void testSaveExtensionChangesToInternationalConcept() throws IOException, ServiceException, InterruptedException {
+		String testExtModuleId = "45991000052106";
+		
 		// Create concept with some stated modeling in an axiom
 		Relationship r = new Relationship("123456020", Concepts.ISA, Concepts.SNOMEDCT_ROOT);
 		r.setModuleId(Concepts.CORE_MODULE);
@@ -255,11 +259,20 @@ class ClassificationServiceTest extends AbstractTest {
 						.addRelationship(r)
 						.setModuleId(Concepts.CORE_MODULE),
 						"MAIN");
+		
+		//Make sure we version these components, otherwise the relationship to be inactivated actually gets deleted
+		//and we end up not checking its moduleId
+		CodeSystem international = codeSystemService.createCodeSystem(new CodeSystem("SNOMEDCT", "MAIN"));
+		codeSystemService.createVersion(international, 20210812, "20210812");
 
 		String extensionBranchPath = "MAIN/SNOMEDCT-SE";
 		codeSystemService.createCodeSystem(new CodeSystem("SNOMEDCT-SE", extensionBranchPath));
-		branchService.updateMetadata(extensionBranchPath, ImmutableMap.of(Config.DEFAULT_MODULE_ID_KEY, "45991000052106", Config.DEFAULT_NAMESPACE_KEY, "1000052"));
+		branchService.updateMetadata(extensionBranchPath, ImmutableMap.of(Config.DEFAULT_MODULE_ID_KEY, testExtModuleId, Config.DEFAULT_NAMESPACE_KEY, "1000052"));
 
+		// Check to ensure that we have the expected metadata
+		Metadata metadata = branchService.findBranchOrThrow(extensionBranchPath, true).getMetadata();
+		assertNotNull(metadata.getAsMap().get(Config.DEFAULT_MODULE_ID_KEY));
+		
 		// Save mock classification results - an extension inactivation of an international relationship
 		Classification classification = createClassification(extensionBranchPath, UUID.randomUUID().toString());
 		classificationService.saveRelationshipChanges(classification, new ByteArrayInputStream(("" +
@@ -271,7 +284,7 @@ class ClassificationServiceTest extends AbstractTest {
 	
 		Concept concept = conceptService.find("123123123001", extensionBranchPath);
 		for (Relationship relationship : concept.getRelationships()) {
-			assertEquals(relationship.getModuleId(), "45991000052106", "Modified relationships have the extension module applied.");
+			assertEquals(testExtModuleId, relationship.getModuleId(), "Modified relationships have the extension module applied.");
 		}
 	}
 

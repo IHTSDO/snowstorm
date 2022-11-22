@@ -7,9 +7,12 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.snomed.snowstorm.AbstractTest;
 import org.snomed.snowstorm.TestConfig;
 import org.snomed.snowstorm.core.data.domain.*;
+import org.snomed.snowstorm.rest.pojo.ItemsPage;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.elasticsearch.core.SearchAfterPageRequest;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
 
@@ -17,9 +20,10 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import static java.lang.Long.parseLong;
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.*;
 import static org.snomed.snowstorm.core.data.domain.Concepts.*;
 
 @ExtendWith(SpringExtension.class)
@@ -143,7 +147,7 @@ class QueryServiceTest extends AbstractTest {
 	void testDefinitionStatusFilter() {
 		QueryService.ConceptQueryBuilder query = service.createQueryBuilder(false)
 				.ecl(pizza_2.getConceptId())
-				.definitionStatusFilter(Concepts.SUFFICIENTLY_DEFINED);
+				.definitionStatusFilter(Concepts.DEFINED);
 		assertEquals(0, service.search(query, PATH, PAGE_REQUEST).getTotalElements());
 		QueryService.ConceptQueryBuilder query2 = service.createQueryBuilder(false)
 				.ecl(pizza_2.getConceptId())
@@ -234,38 +238,7 @@ class QueryServiceTest extends AbstractTest {
 
 	@Test
 	void testDotNotationEclQuery() throws ServiceException {
-		List<Concept> allConcepts = new ArrayList<>();
-		allConcepts.add(new Concept(ISA).addRelationship(new Relationship(ISA, SNOMEDCT_ROOT)));
-		allConcepts.add(new Concept(MODEL_COMPONENT).addRelationship(new Relationship(ISA, SNOMEDCT_ROOT)));
-		allConcepts.add(new Concept(CONCEPT_MODEL_ATTRIBUTE).addRelationship(new Relationship(ISA, MODEL_COMPONENT)));
-		allConcepts.add(new Concept(CONCEPT_MODEL_OBJECT_ATTRIBUTE).addRelationship(new Relationship(ISA, CONCEPT_MODEL_ATTRIBUTE)));
-		allConcepts.add(new Concept(FINDING_SITE).addRelationship(new Relationship(ISA, CONCEPT_MODEL_OBJECT_ATTRIBUTE)));
-		allConcepts.add(new Concept(BODY_STRUCTURE).addRelationship(new Relationship(ISA, SNOMEDCT_ROOT)));
-		allConcepts.add(new Concept(CLINICAL_FINDING).addRelationship(new Relationship(ISA, SNOMEDCT_ROOT)));
-		allConcepts.add(new Concept(DISORDER).addRelationship(new Relationship(ISA, CLINICAL_FINDING)));
-		allConcepts.add(new Concept(ASSOCIATED_MORPHOLOGY).addRelationship(new Relationship(ISA, CONCEPT_MODEL_OBJECT_ATTRIBUTE)));
-
-		allConcepts.add(new Concept(RIGHT_VENTRICULAR_STRUCTURE)
-				.addFSN("Right cardiac ventricular structure (body structure)")
-				.addRelationship(new Relationship(ISA, BODY_STRUCTURE))
-				.addRelationship(new Relationship(LATERALITY, RIGHT))
-		);
-		allConcepts.add(new Concept(PULMONARY_VALVE_STRUCTURE)
-				.addFSN("Pulmonary valve structure (body structure)")
-				.addRelationship(new Relationship(ISA, BODY_STRUCTURE)));
-
-		allConcepts.add(new Concept(STENOSIS).addRelationship(new Relationship(ISA, BODY_STRUCTURE)));
-		allConcepts.add(new Concept(HYPERTROPHY).addRelationship(new Relationship(ISA, BODY_STRUCTURE)));
-
-		allConcepts.add(new Concept(PENTALOGY_OF_FALLOT)
-				.addRelationship(new Relationship(ISA, DISORDER))
-				.addRelationship(new Relationship(FINDING_SITE, PULMONARY_VALVE_STRUCTURE).setGroupId(1))
-				.addRelationship(new Relationship(ASSOCIATED_MORPHOLOGY, STENOSIS).setGroupId(1))
-				.addRelationship(new Relationship(FINDING_SITE, RIGHT_VENTRICULAR_STRUCTURE).setGroupId(2))
-				.addRelationship(new Relationship(ASSOCIATED_MORPHOLOGY, HYPERTROPHY).setGroupId(2))
-		);
-
-		conceptService.batchCreate(allConcepts, MAIN);
+		createConceptsForDotNotationTests();
 
 		QueryService.ConceptQueryBuilder queryBuilder = service.createQueryBuilder(false).activeFilter(true);
 		// Dot notation
@@ -291,6 +264,64 @@ class QueryServiceTest extends AbstractTest {
 		System.out.println("Reverse flag query results:");
 		results.forEach(ConceptMini::getFsnTerm);
 		assertEquals(2, results.size());
+	}
+
+	@Test
+	void testDotNotationEclQueryWithSearchAfter() throws ServiceException {
+		createConceptsForDotNotationTests();
+
+		QueryService.ConceptQueryBuilder queryBuilder = service.createQueryBuilder(false).activeFilter(true);
+		String ecl = "( *: 116676008 |Associated morphology (attribute)|= 415582006 |Stenosis (morphologic abnormality)|). 363698007 |Finding site (attribute)|";
+		queryBuilder.ecl(ecl);
+
+		Sort sort = Sort.sort(QueryConcept.class).by(QueryConcept::getConceptIdL).descending();
+
+		ItemsPage<ConceptMini> resultsPageOne = new ItemsPage<>(service.search(queryBuilder, PATH, SearchAfterPageRequest.of(0, 1, sort)));
+		assertEquals(1, resultsPageOne.getItems().size());
+		ConceptMini conceptPageOne = resultsPageOne.getItems().stream().collect(Collectors.toList()).get(0);
+		assertEquals(RIGHT_VENTRICULAR_STRUCTURE, conceptPageOne.getConceptId());
+
+		ItemsPage<ConceptMini> resultsPageTwo = new ItemsPage<>(service.search(queryBuilder, PATH, SearchAfterPageRequest.of(resultsPageOne.getSearchAfterArray(), 1, sort)));
+		assertEquals(1, resultsPageTwo.getItems().size());
+		ConceptMini conceptPageTwo = resultsPageTwo.getItems().stream().collect(Collectors.toList()).get(0);
+		assertEquals(PULMONARY_VALVE_STRUCTURE, conceptPageTwo.getConceptId());
+
+		assertNotEquals(resultsPageOne.getSearchAfter(), resultsPageTwo.getSearchAfter());
+	}
+
+	private void createConceptsForDotNotationTests() throws ServiceException {
+		List<Concept> allConcepts = new ArrayList<>();
+		allConcepts.add(new Concept(ISA).addRelationship(new Relationship(ISA, SNOMEDCT_ROOT)));
+		allConcepts.add(new Concept(MODEL_COMPONENT).addRelationship(new Relationship(ISA, SNOMEDCT_ROOT)));
+		allConcepts.add(new Concept(CONCEPT_MODEL_ATTRIBUTE).addRelationship(new Relationship(ISA, MODEL_COMPONENT)));
+		allConcepts.add(new Concept(CONCEPT_MODEL_OBJECT_ATTRIBUTE).addRelationship(new Relationship(ISA, CONCEPT_MODEL_ATTRIBUTE)));
+		allConcepts.add(new Concept(FINDING_SITE).addRelationship(new Relationship(ISA, CONCEPT_MODEL_OBJECT_ATTRIBUTE)));
+		allConcepts.add(new Concept(ASSOCIATED_MORPHOLOGY).addRelationship(new Relationship(ISA, CONCEPT_MODEL_OBJECT_ATTRIBUTE)));
+		allConcepts.add(new Concept(BODY_STRUCTURE).addRelationship(new Relationship(ISA, SNOMEDCT_ROOT)));
+		allConcepts.add(new Concept(CLINICAL_FINDING).addRelationship(new Relationship(ISA, SNOMEDCT_ROOT)));
+		allConcepts.add(new Concept(DISORDER).addRelationship(new Relationship(ISA, CLINICAL_FINDING)));
+
+		allConcepts.add(new Concept(RIGHT_VENTRICULAR_STRUCTURE)
+				.addFSN("Right cardiac ventricular structure (body structure)")
+				.addRelationship(new Relationship(ISA, BODY_STRUCTURE))
+				.addRelationship(new Relationship(LATERALITY, RIGHT))
+		);
+		allConcepts.add(new Concept(PULMONARY_VALVE_STRUCTURE)
+				.addFSN("Pulmonary valve structure (body structure)")
+				.addRelationship(new Relationship(ISA, BODY_STRUCTURE)));
+
+		allConcepts.add(new Concept(STENOSIS).addRelationship(new Relationship(ISA, BODY_STRUCTURE)));
+		allConcepts.add(new Concept(HYPERTROPHY).addRelationship(new Relationship(ISA, BODY_STRUCTURE)));
+
+		allConcepts.add(new Concept(PENTALOGY_OF_FALLOT)
+				.addRelationship(new Relationship(ISA, DISORDER))
+				.addRelationship(new Relationship(FINDING_SITE, PULMONARY_VALVE_STRUCTURE).setGroupId(1))
+				.addRelationship(new Relationship(ASSOCIATED_MORPHOLOGY, STENOSIS).setGroupId(1))
+				.addRelationship(new Relationship(FINDING_SITE, RIGHT_VENTRICULAR_STRUCTURE).setGroupId(2))
+				.addRelationship(new Relationship(ASSOCIATED_MORPHOLOGY, HYPERTROPHY).setGroupId(2))
+		);
+
+		conceptService.batchCreate(allConcepts, MAIN);
 	}
 
 }

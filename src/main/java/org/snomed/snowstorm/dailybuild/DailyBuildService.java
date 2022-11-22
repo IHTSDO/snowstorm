@@ -23,6 +23,7 @@ import org.springframework.core.io.support.ResourcePatternResolver;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
+import org.snomed.snowstorm.core.data.repositories.CodeSystemRepository;
 
 import javax.annotation.PostConstruct;
 import java.io.FileNotFoundException;
@@ -39,6 +40,9 @@ public class DailyBuildService {
 	private static final String DAILY_BUILD_DATE_FORMAT = "yyyy-MM-dd-HHmmss";
 	private static final String LOCK_MESSAGE = "Branch locked for daily build import.";
 
+	@Autowired
+	private CodeSystemRepository codeSystemRepository;
+	
 	@Autowired
 	private DailyBuildResourceConfig dailyBuildResourceConfig;
 
@@ -72,6 +76,24 @@ public class DailyBuildService {
 		resourceManager = new ResourceManager(dailyBuildResourceConfig, resourceLoader);
 	}
 
+	public boolean hasLatestDailyBuild(String shortName) {
+		CodeSystem codeSystem = codeSystemService.findOrThrow(shortName);
+		String latestDailyBuild = codeSystem.getLatestDailyBuild();         
+		if (latestDailyBuild == null || latestDailyBuild.length() == 0) {
+			return false;
+		}  
+		latestDailyBuild = latestDailyBuild.substring(0, latestDailyBuild.lastIndexOf("-"));
+		SimpleDateFormat formatter = new SimpleDateFormat("yyyy-MM-dd");
+		return latestDailyBuild.equals(formatter.format(new Date()));
+	}
+	public void triggerScheduledImport(CodeSystem codeSystem) {
+		try {
+			performScheduledImport(codeSystem);
+		} catch (Exception e) {
+			logger.error("Failed to import daily build for code system {}", codeSystem.getShortName(), e);
+		}
+	}
+
 	void performScheduledImport(CodeSystem codeSystem) throws IOException, ReleaseImportException {
 		String branchPath = codeSystem.getBranchPath();
 		Branch codeSystemBranch = branchService.findBranchOrThrow(branchPath);
@@ -103,6 +125,8 @@ public class DailyBuildService {
 			importService.importArchive(importId, dailyBuildStream);
 		}
 		logger.info("Daily build delta import completed for code system {}", codeSystem.getShortName());
+		codeSystem.setLatestDailyBuild(dailyBuildFilename.substring(0, dailyBuildFilename.lastIndexOf(".")));
+		codeSystemRepository.save(codeSystem);
 	}
 
 	@PreAuthorize("hasPermission('ADMIN', #codeSystem.branchPath)")
@@ -170,6 +194,8 @@ public class DailyBuildService {
 		Collections.reverse(commitsToRollback);
 
 		rollbackCommits(branchPath, commitsToRollback);
+		codeSystem.setLatestDailyBuild("");
+		codeSystemRepository.save(codeSystem);
 	}
 
 	private void rollbackCommits(String path, List<Branch> rollbackList) {

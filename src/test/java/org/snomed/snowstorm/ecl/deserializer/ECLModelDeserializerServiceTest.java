@@ -5,7 +5,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import org.snomed.langauges.ecl.ECLQueryBuilder;
 import org.snomed.langauges.ecl.domain.expressionconstraint.ExpressionConstraint;
+import org.snomed.langauges.ecl.domain.filter.MemberFilterConstraint;
 import org.snomed.snowstorm.ecl.SECLObjectFactory;
+import org.snomed.snowstorm.ecl.domain.expressionconstraint.SSubExpressionConstraint;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -186,6 +188,72 @@ class ECLModelDeserializerServiceTest {
 		// # Attribute Values
 		assertConversionTest("< 404684003 |Clinical finding| : 47429007 |Associated with| = ( " +
 				"< 404684003 |Clinical finding| : 116676008 |Associated morphology| = << 55641003 |Infarct| )");
+
+		// All concrete values
+		assertConversionTest("< 404684003 |Clinical finding| : 1000000 = true");
+		assertConversionTest("< 404684003 |Clinical finding| : 2000000 = #10");
+		assertConversionTest("< 404684003 |Clinical finding| : 3000000 = \"Supplier A\"");
+		assertConversionTest("< 404684003 |Clinical finding| : 3000000 = (\"Supplier A\" \"Supplier Z\")");
+
+		// Concept filters
+		assertConversionTest("< 404684003 |Clinical finding| {{ C active = true }}");
+		assertConversionTest("< 56265001 |Heart disease| {{ C definitionStatusId = 900000000000074008 |Primitive| }}");
+		assertConversionTest("< 64572001 |Disease| {{ C definitionStatus = primitive }} {{ D term = \"heart\" }}",
+				"< 64572001 |Disease| {{ C definitionStatusId = 900000000000074008 |Primitive| }} {{ D term = \"heart\" }}");
+		assertConversionTest("< 195967001 |Asthma| {{ C definitionStatus = primitive, moduleId = 900000000000207008 |SNOMED CT core module| }}",
+				"< 195967001 |Asthma| {{ C definitionStatusId = 900000000000074008 |Primitive| moduleId = 900000000000207008 |SNOMED CT core module| }}");
+		assertConversionTest("< 125605004 |Fracture of bone| {{ C effectiveTime >= \"20190731\" }}");
+		assertConversionTest("< 125605004 |Fracture of bone| {{ C effectiveTime != (\"20190131\" \"20190731\" \"20200131\" \"20200731\") }}");
+		assertConversionTest("^ 816080008 |International Patient Summary| {{ C active = 1 }}",
+				"^ 816080008 |International Patient Summary| {{ C active = true }}");
+		assertConversionTest("^ 816080008 |International Patient Summary| {{ C active = false }}");
+
+		// Description filters
+		assertConversionTest("< 64572001 |Disease| {{ D term = \"box\", type = syn, dialect = en-us (prefer) }}");
+		assertConversionTest("< 404684003 |Clinical finding| {{ D term = \"heart\" }}");
+		assertConversionTest("< 64572001 |Disease| {{ D term = \"hjärt\", language = sv }} {{ D term = \"heart\", language = en }}");
+		assertConversionTest("< 125605004 |Fracture of bone| minus < 125605004 |Fracture of bone| {{ D term != \"fracture\" }}");
+		assertConversionTest("< 64572001 |Disease| {{ term = \"heart\", term = \"att\" }}",
+				"< 64572001 |Disease| {{ D term = \"heart\", term = \"att\" }}");
+		assertConversionTest("< 64572001 |Disease| {{ D term = match:\"heart att\" }}",
+				"< 64572001 |Disease| {{ D term = \"heart att\" }}");
+		assertConversionTest("< 64572001 |Disease| {{ D term = (\"heart\" \"card\") }}");
+		assertConversionTest("< 64572001 |Disease| {{ D term = wild:\"cardi*opathy\" }}");
+		assertConversionTest("< 64572001 |Disease| {{ D term = (match:\"gas\" wild:\"*itis\") }}");
+		assertConversionTest("< 64572001 |Disease| {{ D term = \"eye\" }} {{ D term = wild:\"*itis\" }}");
+		assertConversionTest("< 56265001 |Heart disease| {{ D term = \"hjärt\", language = SV, type = syn }}");
+		assertConversionTest("< 56265001 |Heart disease| {{ D term = \"heart\", typeId = ( 900000000000013009 |Synonym| 900000000000003001 |Fully specified name| ) }}",
+				"< 56265001 |Heart disease| {{ D term = \"heart\", type = (syn fsn) }}");
+		assertConversionTest("< 64572001 |Disease| {{ D dialect = en-au }}");
+		assertConversionTest("< 64572001 |Disease| {{ D term = \"card\", dialect = (en-nhs-clinical en-nhs-pharmacy) }}");
+		assertConversionTest("< 64572001 |Disease| {{ D term = \"box\", type = syn, dialect = en-nhs-clinical (prefer), dialect = en-gb (accept) }}");
+		assertConversionTest("< 404684003 |Clinical finding| {{ D type = def, moduleId = 900000000000207008 |SNOMED CT core module| }}");
+		assertConversionTest("< 125605004 |Fracture of bone| {{ D effectiveTime <= \"20190731\" }}");
+		assertConversionTest("< 125605004 |Fracture of bone| {{ D effectiveTime != (\"20190131\" \"20190731\" \"20200131\" \"20200731\") }}");
+		assertConversionTest("^ 816080008 |International Patient Summary| {{ D active = 1 }}",
+				"^ 816080008 |International Patient Summary| {{ D active = true }}");
+		assertConversionTest("^ 816080008 |International Patient Summary| {{ D active = false }}");
+
+		// Member filters
+		assertConversionTest("^ 447562003 |ICD-10 complex map reference set| {{ M mapTarget = \"J45.9\" }}");
+		assertConversionTest("^ 447562003 |ICD-10 complex map reference set| {{ M active = true }}");
+		assertConversionTest("^ 447562003 |ICD-10 complex map reference set| {{ M active = false }}");
+		assertConversionTest("^ 447562003 |ICD-10 complex map reference set| {{ M mapTarget = wild:\"J45.9\" }}");
+		assertConversionTest("^ 447562003 |ICD-10 complex map reference set| {{ M mapGroup = #2, mapPriority = #1, mapTarget = \"J45.9\" }}");
+		assertConversionTest("^ [targetComponentId] 900000000000527005 |SAME AS association reference set| {{ M referencedComponentId = 67415000 |Hay asthma| }}");
+
+		final SSubExpressionConstraint eclModel = (SSubExpressionConstraint) eclQueryBuilder.createQuery("^ 447562003 |ICD-10 complex map reference set| {{ M active = false }}");
+		MemberFilterConstraint memberFilterConstraint = eclModel.getMemberFilterConstraints().get(0);
+		assertNull(memberFilterConstraint.getMemberFieldFilters());
+		assertNotNull(memberFilterConstraint.getActiveFilters());
+		assertEquals(1, memberFilterConstraint.getActiveFilters().size());
+		assertFalse(memberFilterConstraint.getActiveFilters().get(0).isActive());
+
+		// History supplement filters
+		assertConversionTest("195967001 |Asthma| {{ + HISTORY-MIN }}");
+		assertConversionTest("195967001 |Asthma| {{ + HISTORY-MOD }}");
+		assertConversionTest("195967001 |Asthma| {{ + HISTORY-MAX }}");
+		assertConversionTest("195967001 |Asthma| {{ + HISTORY }}");
 	}
 
 	private void assertConversionTest(String inputEcl) throws JsonProcessingException {

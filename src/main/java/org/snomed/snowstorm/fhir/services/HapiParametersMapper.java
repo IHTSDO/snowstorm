@@ -165,7 +165,7 @@ public class HapiParametersMapper implements FHIRConstants {
 	}
 
 	private void addProperties(Parameters parameters, Concept c, Set<FhirSctProperty> properties) {
-		Boolean sufficientlyDefined = c.getDefinitionStatusId().equals(Concepts.SUFFICIENTLY_DEFINED);
+		Boolean sufficientlyDefined = c.getDefinitionStatusId().equals(Concepts.DEFINED);
 		parameters.addParameter(createProperty(EFFECTIVE_TIME, c.getEffectiveTime(), false))
 			.addParameter(createProperty(MODULE_ID, c.getModuleId(), true));
 		

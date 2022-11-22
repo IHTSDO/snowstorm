@@ -3,20 +3,23 @@ package org.snomed.snowstorm.ecl.domain.refinement;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import io.kaicode.elasticvc.api.BranchCriteria;
 import org.elasticsearch.index.query.BoolQueryBuilder;
+import org.snomed.langauges.ecl.domain.filter.SearchType;
+import org.snomed.langauges.ecl.domain.filter.TypedSearchTerm;
 import org.snomed.langauges.ecl.domain.refinement.EclAttribute;
 import org.snomed.langauges.ecl.domain.refinement.EclAttributeGroup;
 import org.snomed.snowstorm.core.data.domain.QueryConcept;
+import org.snomed.snowstorm.ecl.ConceptSelectorHelper;
 import org.snomed.snowstorm.ecl.deserializer.ECLModelDeserializer;
 import org.snomed.snowstorm.ecl.domain.RefinementBuilder;
 import org.snomed.snowstorm.ecl.domain.SRefinement;
 import org.snomed.snowstorm.ecl.domain.expressionconstraint.MatchContext;
-import org.snomed.snowstorm.ecl.domain.expressionconstraint.SExpressionConstraintHelper;
 import org.snomed.snowstorm.ecl.domain.expressionconstraint.SSubExpressionConstraint;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Slice;
 
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 import static com.google.common.collect.Sets.newHashSet;
@@ -28,6 +31,10 @@ public class SEclAttribute extends EclAttribute implements SRefinement {
 	private RefinementBuilder refinementBuilder;
 
 	@Override
+	public void addCriteria(RefinementBuilder refinementBuilder, Consumer<List<Long>> filteredOrSupplementedContentCallback, boolean triedCache) {
+		addCriteria(refinementBuilder);
+	}
+
 	public void addCriteria(RefinementBuilder refinementBuilder) {
 		this.refinementBuilder = refinementBuilder;
 		// Input validation
@@ -47,7 +54,7 @@ public class SEclAttribute extends EclAttribute implements SRefinement {
 			if (range.getPossibleAttributeValues() == null) {
 				throw new UnsupportedOperationException("Returning the attribute values of all concepts is not supported.");
 			}
-			Collection<Long> destinationConceptIds = refinementBuilder.getQueryService()
+			Collection<Long> destinationConceptIds = refinementBuilder.getEclContentService()
 					.findRelationshipDestinationIds(range.getPossibleAttributeValues().stream().map(Long::parseLong)
 							.collect(Collectors.toList()), range.getAttributeTypeIds(), branchCriteria, stated);
 			query.must(termsQuery(QueryConcept.Fields.CONCEPT_ID, destinationConceptIds));
@@ -145,38 +152,36 @@ public class SEclAttribute extends EclAttribute implements SRefinement {
 	}
 
 	private void updateQueryWithConcreteValue(BoolQueryBuilder query, List<String> possibleAttributeValues, Set<String> attributeTypeProperties) {
-		// should just have one concrete value
-		String value = possibleAttributeValues.get(0);
 		if (isEqualOperator()) {
 			// One of the attributes in the range must have a value in the range
 			BoolQueryBuilder oneOf = boolQuery();
 			query.must(oneOf);
 			for (String attributeTypeProperty : attributeTypeProperties) {
-				oneOf.should(termQuery(getAttributeTypeField(attributeTypeProperty), value));
+				oneOf.should(termsQuery(getAttributeTypeField(attributeTypeProperty), possibleAttributeValues));
 			}
 		} else {
 			BoolQueryBuilder oneOf = boolQuery();
 			query.must(oneOf);
-			// concrete domain logic here
 			String comparisonOperator = getAttributeRange().getOperator();
 			for (String attributeTypeProperty : attributeTypeProperties) {
 				if (getAttributeRange().isNumericQuery()) {
+					String numericValue = possibleAttributeValues.get(0);// Restricted to single value in ECL language.
 					if (">=".equals(comparisonOperator)) {
-						oneOf.must(rangeQuery(getAttributeTypeField(attributeTypeProperty)).gte(value));
+						oneOf.must(rangeQuery(getAttributeTypeField(attributeTypeProperty)).gte(numericValue));
 					} else if (">".equals(comparisonOperator)) {
-						oneOf.must(rangeQuery(getAttributeTypeField(attributeTypeProperty)).gt(value));
+						oneOf.must(rangeQuery(getAttributeTypeField(attributeTypeProperty)).gt(numericValue));
 					} else if ("<=".equals(comparisonOperator)) {
-						oneOf.must(rangeQuery(getAttributeTypeField(attributeTypeProperty)).lte(value));
+						oneOf.must(rangeQuery(getAttributeTypeField(attributeTypeProperty)).lte(numericValue));
 					} else if ("<".equals(comparisonOperator)) {
-						oneOf.must(rangeQuery(getAttributeTypeField(attributeTypeProperty)).lt(value));
+						oneOf.must(rangeQuery(getAttributeTypeField(attributeTypeProperty)).lt(numericValue));
 					} else if ("!=".equals(comparisonOperator)) {
 						oneOf.must(existsQuery(getAttributeTypeField(attributeTypeProperty)));
-						oneOf.mustNot(termQuery(getAttributeTypeField(attributeTypeProperty), value));
+						oneOf.mustNot(termQuery(getAttributeTypeField(attributeTypeProperty), numericValue));
 					}
 				} else {
 					if ("!=".equals(comparisonOperator)) {
 						oneOf.must(existsQuery(getAttributeTypeField(attributeTypeProperty)));
-						oneOf.mustNot(termQuery(getAttributeTypeField(attributeTypeProperty), value));
+						oneOf.mustNot(termsQuery(getAttributeTypeField(attributeTypeProperty), possibleAttributeValues));
 					}
 				}
 			}
@@ -186,6 +191,7 @@ public class SEclAttribute extends EclAttribute implements SRefinement {
 	private boolean isEqualOperator() {
 		return "=".equals(expressionComparisonOperator)
 				|| "=".equals(getNumericComparisonOperator())
+				|| "=".equals(getBooleanComparisonOperator())
 				|| "=".equals(getStringComparisonOperator());
 	}
 
@@ -215,7 +221,7 @@ public class SEclAttribute extends EclAttribute implements SRefinement {
 				if (attributeTypeProperties.isEmpty()) {
 					// Attribute type is not a wildcard but empty selection
 					// Force query to return nothing
-					attributeTypeProperties.add(SExpressionConstraintHelper.MISSING);
+					attributeTypeProperties.add(ConceptSelectorHelper.MISSING);
 				}
 			}
 
@@ -234,7 +240,11 @@ public class SEclAttribute extends EclAttribute implements SRefinement {
 
 				} else if (getStringComparisonOperator() != null) {
 					attributeRange = AttributeRange.newConcreteStringRange(attributeTypeWildcard, attributeTypeIds, attributeTypeProperties, getStringComparisonOperator(),
-							getStringValue(), cardinalityMin, cardinalityMax);
+							getStringValues(), cardinalityMin, cardinalityMax);
+				} else if (getBooleanComparisonOperator() != null) {
+					// Treat boolean value ECL as string because all attribute values are stored as strings in the semantic index.
+					attributeRange = AttributeRange.newConcreteStringRange(attributeTypeWildcard, attributeTypeIds, attributeTypeProperties, getBooleanComparisonOperator(),
+							Collections.singletonList(new TypedSearchTerm(SearchType.MATCH, getBooleanValue() ? "true" : "false")), cardinalityMin, cardinalityMax);
 				}
 			}
 		}
@@ -272,7 +282,6 @@ public class SEclAttribute extends EclAttribute implements SRefinement {
 			for (Integer group : groupAttributeMatchCounts.keySet()) {
 				if (group == 0) {
 					continue; // Group 0 is not a group
-					// TODO: Should we let MRCM self-grouped attributes through here?
 				}
 				AtomicInteger inGroupAttributeMatchCount = groupAttributeMatchCounts.get(group);
 				if ((range.getCardinalityMin() == null || range.getCardinalityMin() <= inGroupAttributeMatchCount.get())
@@ -298,7 +307,7 @@ public class SEclAttribute extends EclAttribute implements SRefinement {
 
 	@JsonIgnore
 	public boolean isConcreteValueQuery() {
-		return getNumericComparisonOperator() != null || getStringComparisonOperator() != null;
+		return getNumericComparisonOperator() != null || getStringComparisonOperator() != null || getBooleanComparisonOperator() != null;
 	}
 
 	public void toString(StringBuffer buffer) {
@@ -320,7 +329,23 @@ public class SEclAttribute extends EclAttribute implements SRefinement {
 			buffer.append(" ").append(getNumericComparisonOperator()).append(" #").append(getNumericValue());
 		}
 		if (getStringComparisonOperator() != null) {
-			buffer.append(getStringComparisonOperator()).append(" \"").append(getStringValue()).append("\"");
+			buffer.append(" ").append(getStringComparisonOperator()).append(" ");
+			if (getStringValues().size() > 1) {
+				buffer.append("(");
+			}
+			int i = 0;
+			for (TypedSearchTerm stringValue : getStringValues()) {
+				if (i++ > 0) {
+					buffer.append(" ");
+				}
+				buffer.append("\"").append(stringValue.getTerm()).append("\"");
+			}
+			if (getStringValues().size() > 1) {
+				buffer.append(")");
+			}
+		}
+		if (getBooleanComparisonOperator() != null) {
+			buffer.append(" ").append(getBooleanComparisonOperator()).append(" ").append(getBooleanValue());
 		}
 	}
 
