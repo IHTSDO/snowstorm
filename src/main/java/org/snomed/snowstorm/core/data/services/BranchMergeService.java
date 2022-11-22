@@ -6,7 +6,6 @@ import io.kaicode.elasticvc.domain.Branch;
 import io.kaicode.elasticvc.domain.Commit;
 import io.kaicode.elasticvc.domain.DomainEntity;
 import io.kaicode.elasticvc.domain.Entity;
-import io.kaicode.elasticvc.repositories.BranchRepository;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.search.sort.FieldSortBuilder;
@@ -84,9 +83,6 @@ public class BranchMergeService {
 
 	@Autowired
 	private ReferenceSetMemberRepository referenceSetMemberRepository;
-
-	@Autowired
-	private BranchRepository branchRepository;
 
 	private BranchReviewService branchReviewService;
 
@@ -255,7 +251,7 @@ public class BranchMergeService {
 
 				logger.info("Performing promotion {} -> {}", source, target);
 				final Map<String, Set<String>> versionsReplaced = sourceBranch.getVersionsReplaced();
-				final Map<Class<? extends DomainEntity>, ElasticsearchRepository> componentTypeRepoMap = domainEntityConfiguration.getAllTypeRepositoryMap();
+				final Map<Class<? extends DomainEntity<?>>, ElasticsearchRepository> componentTypeRepoMap = domainEntityConfiguration.getAllTypeRepositoryMap();
 				componentTypeRepoMap.entrySet().parallelStream().forEach(entry -> promoteEntities(source, commit, entry.getKey(), entry.getValue(), versionsReplaced));
 
 				commit.markSuccessful();
@@ -270,7 +266,7 @@ public class BranchMergeService {
 		}
 	}
 
-	private <T extends SnomedComponent> void removeRebaseDuplicateVersions(Class<T> componentClass, QueryBuilder clause,
+	private <T extends SnomedComponent<?>> void removeRebaseDuplicateVersions(Class<T> componentClass, QueryBuilder clause,
 			BranchCriteria changesOnBranchCriteria, BranchCriteria branchCriteriaIncludingOpenCommit, Commit commit) throws ServiceException {
 
 		String idField;
@@ -340,7 +336,7 @@ public class BranchMergeService {
 		fixDuplicateComponentsOfType(branch, commit, branchCriteria, ReferenceSetMember.class, ReferenceSetMember.Fields.MEMBER_ID, referenceSetMemberRepository, endThisVersion, fixesApplied);
 	}
 
-	private void fixDuplicateComponentsOfType(String branch, Commit commit, BranchCriteria branchCriteria, Class<? extends SnomedComponent> clazz, String idField,
+	private void fixDuplicateComponentsOfType(String branch, Commit commit, BranchCriteria branchCriteria, Class<? extends SnomedComponent<?>> clazz, String idField,
 											  ElasticsearchRepository repository, boolean endThisVersion, Map<Class, Set<String>> fixesApplied) {
 
 		logger.info("Searching for duplicate {} records on {}", clazz.getSimpleName(), branch);
@@ -348,7 +344,7 @@ public class BranchMergeService {
 
 		// Find components on extension branch
 		Set<String> ids = new HashSet<>();
-		try (SearchHitsIterator<? extends SnomedComponent> conceptStream = elasticsearchTemplate.searchForStream(new NativeSearchQueryBuilder()
+		try (SearchHitsIterator<? extends SnomedComponent<?>> conceptStream = elasticsearchTemplate.searchForStream(new NativeSearchQueryBuilder()
 				.withQuery(boolQuery().must(entityBranchCriteria)
 						.must(termQuery("path", branch)))
 				.withPageable(ComponentService.LARGE_PAGE)
@@ -359,7 +355,7 @@ public class BranchMergeService {
 		// Find donated components where the extension version is not ended
 		Set<String> duplicateIds = new HashSet<>();
 		for (List<String> idsBatch : Iterables.partition(ids, 10_000)) {
-			try (SearchHitsIterator<? extends SnomedComponent> conceptStream = elasticsearchTemplate.searchForStream(new NativeSearchQueryBuilder()
+			try (SearchHitsIterator<? extends SnomedComponent<?>> conceptStream = elasticsearchTemplate.searchForStream(new NativeSearchQueryBuilder()
 					.withQuery(boolQuery().must(entityBranchCriteria)
 							.mustNot(termQuery("path", branch)))
 					.withFilter(termsQuery(idField, idsBatch))
@@ -380,7 +376,7 @@ public class BranchMergeService {
 		List<String> internalIdsToHide = new ArrayList<>();
 		for (List<String> duplicateIdsBatch : Iterables.partition(duplicateIds, 10_000)) {
 			// International versions
-			List<? extends SnomedComponent> intVersions = elasticsearchTemplate.search(new NativeSearchQueryBuilder()
+			List<? extends SnomedComponent<?>> intVersions = elasticsearchTemplate.search(new NativeSearchQueryBuilder()
 					.withQuery(boolQuery().must(entityBranchCriteria)
 							.must(termsQuery(idField, duplicateIdsBatch))
 							.mustNot(termQuery("path", branch)))
@@ -389,9 +385,9 @@ public class BranchMergeService {
 					.stream().map(SearchHit::getContent)
 					.collect(Collectors.toList());
 
-			for (SnomedComponent intVersion : intVersions) {
+			for (SnomedComponent<?> intVersion : intVersions) {
 				String duplicateId = intVersion.getId();
-				List<? extends SnomedComponent> extensionVersionList = elasticsearchTemplate.search(new NativeSearchQueryBuilder()
+				List<? extends SnomedComponent<?>> extensionVersionList = elasticsearchTemplate.search(new NativeSearchQueryBuilder()
 						.withQuery(boolQuery().must(entityBranchCriteria)
 								.must(termQuery(idField, duplicateId))
 								.must(termQuery("path", branch)))
@@ -402,7 +398,7 @@ public class BranchMergeService {
 					throw new IllegalStateException(String.format("During fix stage expecting 1 extension version but found %s for id %s", extensionVersionList.size(), clazz));
 				}
 
-				SnomedComponent extensionVersion = extensionVersionList.get(0);
+				SnomedComponent<?> extensionVersion = extensionVersionList.get(0);
 				if (endThisVersion && intVersion.isReleasedMoreRecentlyThan(extensionVersion)) {
 					// End duplicate components in extension module
 					extensionVersion.setEnd(commit.getTimepoint());
@@ -476,7 +472,7 @@ public class BranchMergeService {
 		copyChangesOnBranchToCommit(source, commit, entityClass, entityRepository, "Promoting", true);
 	}
 
-	private <T extends DomainEntity> void copyChangesOnBranchToCommit(String source, Commit commit, Class<T> entityClass,
+	private <T extends DomainEntity<?>> void copyChangesOnBranchToCommit(String source, Commit commit, Class<T> entityClass,
 			ElasticsearchRepository<T, String> entityRepository, String logAction, boolean endEntitiesOnSource) {
 
 		// Load all entities on source

@@ -31,11 +31,11 @@ public class DomainEntityConfiguration {
 	@Autowired
 	private ReferenceSetTypeRepository referenceSetTypeRepository;
 
-	private Map<Class<? extends SnomedComponent>, ElasticsearchRepository> componentTypeRepositoryMap;
-	private Map<Class<? extends DomainEntity>, ElasticsearchRepository> allTypeRepositoryMap;
+	private Map<Class<? extends SnomedComponent<?>>, ElasticsearchRepository> componentTypeRepositoryMap;
+	private Map<Class<? extends DomainEntity<?>>, ElasticsearchRepository> allTypeRepositoryMap;
 
-	private Set<Class<? extends DomainEntity>> allTypes;
-	private Map<Class<? extends DomainEntity>, String> allIdFields;
+	private Set<Class<? extends DomainEntity<?>>> allTypes;
+	private Map<Class<? extends DomainEntity<?>>, String> allIdFields;
 
 	@PostConstruct
 	public void init() {
@@ -67,19 +67,19 @@ public class DomainEntityConfiguration {
 		allIdFields = Collections.unmodifiableMap(allIdFields);
 	}
 
-	public Map<Class<? extends SnomedComponent>, ElasticsearchRepository> getComponentTypeRepositoryMap() {
+	public Map<Class<? extends SnomedComponent<?>>, ElasticsearchRepository> getComponentTypeRepositoryMap() {
 		return componentTypeRepositoryMap;
 	}
 
-	public Map<Class<? extends DomainEntity>, ElasticsearchRepository> getAllTypeRepositoryMap() {
+	public Map<Class<? extends DomainEntity<?>>, ElasticsearchRepository> getAllTypeRepositoryMap() {
 		return allTypeRepositoryMap;
 	}
 
-	public Set<Class<? extends DomainEntity>> getAllDomainEntityTypes() {
+	public Set<Class<? extends DomainEntity<?>>> getAllDomainEntityTypes() {
 		return allTypes;
 	}
 
-	public Map<Class<? extends DomainEntity>, String> getAllIdFields() {
+	public Map<Class<? extends DomainEntity<?>>, String> getAllIdFields() {
 		return allIdFields;
 	}
 }

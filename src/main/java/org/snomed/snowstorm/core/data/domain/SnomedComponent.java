@@ -72,7 +72,7 @@ public abstract class SnomedComponent<C> extends DomainEntity<C> implements IdAn
 		}
 	}
 
-	public void copyReleaseDetails(SnomedComponent<C> component) {
+	public void copyReleaseDetails(SnomedComponent<?> component) {
 		setEffectiveTimeI(component.getEffectiveTimeI());
 		setReleased(component.isReleased());
 		setReleaseHash(component.getReleaseHash());
