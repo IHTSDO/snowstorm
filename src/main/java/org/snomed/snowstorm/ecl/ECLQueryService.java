@@ -206,7 +206,7 @@ public class ECLQueryService {
 	public Boolean hasAnyResults (String ecl, String branch, BranchCriteria branchCriteria, boolean stated, Collection<Long> conceptIdFilter) {
 		
 		SExpressionConstraint expressionConstraint = (SExpressionConstraint) eclQueryBuilder.createQuery(ecl);
-		Optional<Page<Long>> pageOptional = expressionConstraint.select(branch, branchCriteria, stated, conceptIdFilter, ControllerHelper.getPageRequest(0,1), queryService);
+		Optional<Page<Long>> pageOptional = expressionConstraint.select(branchCriteria, stated, conceptIdFilter, ControllerHelper.getPageRequest(0,1), eclContentService, true);
 		
 		return pageOptional.get().hasContent();
 	}

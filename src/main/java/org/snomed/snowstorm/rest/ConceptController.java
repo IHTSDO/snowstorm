@@ -19,6 +19,7 @@ import org.snomed.snowstorm.core.data.services.pojo.*;
 import org.snomed.snowstorm.core.pojo.BranchTimepoint;
 import org.snomed.snowstorm.core.pojo.LanguageDialect;
 import org.snomed.snowstorm.core.util.PageHelper;
+import org.snomed.snowstorm.core.util.SearchAfterPage;
 import org.snomed.snowstorm.core.util.SearchAfterPageImpl;
 import org.snomed.snowstorm.core.util.TimerUtil;
 import org.snomed.snowstorm.ecl.ECLQueryService;
@@ -28,7 +29,6 @@ import org.snomed.snowstorm.rest.pojo.*;
 import org.snomed.snowstorm.validation.ConceptValidationHelper;
 import org.snomed.snowstorm.validation.ConceptValidationHelper.InvalidContentWithSeverityStatus;
 import org.snomed.snowstorm.validation.DroolsValidationService;
-import org.snomed.snowstorm.validation.InvalidContentWithSeverityStatus;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
@@ -521,7 +521,6 @@ public class ConceptController {
 			@PathVariable String conceptId,
 			@RequestParam(defaultValue = "inferred") Relationship.CharacteristicType form,
 			@RequestParam(required = false, defaultValue = "false") Boolean includeDescendantCount,
-			@ApiParam("If a refsetId is specified, new field \"descendantsAreMemberOfRefset\" will indicate whether each child has any descendents in that refset.")
 			@RequestParam(required = false) String checkDescendantsWithinRefsetId,
 			@RequestHeader(value = "Accept-Language", defaultValue = Config.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) throws ServiceException {
 
@@ -542,7 +541,7 @@ public class ConceptController {
 			// Calculate refset membership once, and pass in as a filter for each
 			// child-descendents query
 			Collection<Long> refsetMemberIds = eclQueryService.selectConceptIds("^" + checkDescendantsWithinRefsetId,
-					branchCriteria, branch, true, null, null).getContent();
+					branchCriteria, true, null, null).getContent();
 
 			for (ConceptMini child : children) {
 
@@ -594,8 +593,6 @@ public class ConceptController {
 		return findConceptsWithECL(">" + conceptId, form == Relationship.CharacteristicType.stated, branch, acceptLanguageHeader, 0, LARGE_PAGE.getPageSize()).getItems();
 	}
 
-	@ApiOperation(value = "Return concepts, and a path of each concept's ancestors to the top-level.",
-			notes = "Note: The output is intended to be displayed in a list view.  If there are multiple ancestor paths, only a single path will be returned per concept.")
 	@GetMapping(value = "/browser/{branch}/concepts/ancestor-paths")
 	@JsonView(value = View.Component.class)
 	public Collection<ConceptMini> findConceptAncestorPaths(@PathVariable String branch,
