@@ -57,6 +57,9 @@ public class FHIRCodeSystemVersion {
 	@Transient
 	private String snomedBranch;
 
+	@Transient
+	private org.snomed.snowstorm.core.data.domain.CodeSystem snomedCodeSystem;
+
 	private static final DateTimeFormatter dateFormat = DateTimeFormat.forPattern("yyyyMMdd");
 	private static final Logger logger = LoggerFactory.getLogger(FHIRCodeSystemVersion.class);
 
@@ -107,6 +110,7 @@ public class FHIRCodeSystemVersion {
 			logger.warn("Failed to parse effective time of code system version {}", snomedVersion);
 		}
 		snomedBranch = snomedVersion.getBranchPath();
+		snomedCodeSystem = snomedVersion.getCodeSystem();
 	}
 
 	public FHIRCodeSystemVersion(org.snomed.snowstorm.core.data.domain.CodeSystem snomedCodeSystem) {
@@ -129,6 +133,7 @@ public class FHIRCodeSystemVersion {
 			version = SNOMED_URI_UNVERSIONED + "/" + moduleId;
 			snomedBranch = snomedCodeSystem.getBranchPath();
 		}
+		this.snomedCodeSystem = snomedCodeSystem;
 	}
 
 	public CodeSystem toHapiCodeSystem() {
@@ -151,7 +156,7 @@ public class FHIRCodeSystemVersion {
 		return codeSystem;
 	}
 
-	public boolean isSnomed() {
+	public boolean isOnSnomedBranch() {
 		return snomedBranch != null;
 	}
 
@@ -256,8 +261,9 @@ public class FHIRCodeSystemVersion {
 		return snomedBranch;
 	}
 
-	public void setSnomedBranch(String snomedBranch) {
-		this.snomedBranch = snomedBranch;
+	@JsonIgnore
+	public org.snomed.snowstorm.core.data.domain.CodeSystem getSnomedCodeSystem() {
+		return snomedCodeSystem;
 	}
 
 	@Override
