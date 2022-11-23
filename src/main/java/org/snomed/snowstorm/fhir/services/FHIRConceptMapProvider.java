@@ -15,6 +15,7 @@ import org.snomed.snowstorm.fhir.repositories.FHIRConceptMapRepository;
 import org.snomed.snowstorm.fhir.repositories.FHIRMapElementRepository;
 import org.snomed.snowstorm.rest.ControllerHelper;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -29,6 +30,9 @@ import static org.snomed.snowstorm.fhir.services.FHIRHelper.*;
 
 @Component
 public class FHIRConceptMapProvider implements IResourceProvider, FHIRConstants {
+
+	@Value("${snowstorm.rest-api.readonly}")
+	private boolean readOnlyMode;
 
 	@Autowired
 	private FHIRConceptMapService service;
@@ -177,7 +181,8 @@ public class FHIRConceptMapProvider implements IResourceProvider, FHIRConstants 
 	}
 
 	public void createMap(FHIRConceptMap conceptMap) {
-		// TODO: Delete existing map?
+		FHIRHelper.readOnlyCheck(readOnlyMode);
+
 		// Save concept map and groups
 		conceptMapRepository.save(conceptMap);
 		for (FHIRConceptMapGroup mapGroup : conceptMap.getGroup()) {

@@ -38,7 +38,7 @@ public class FHIRValueSetProviderExpandGenericTest extends AbstractFHIRTest {
 		assertTrue(codeSystemFile.isFile());
 		String codeSystemString = StreamUtils.copyToString(new FileInputStream(codeSystemFile), StandardCharsets.UTF_8);
 		CodeSystem codeSystem = fhirJsonParser.parseResource(CodeSystem.class, codeSystemString);
-		codeSystemVersion = codeSystemService.save(codeSystem);
+		codeSystemVersion = codeSystemService.createUpdate(codeSystem);
 		conceptService.saveAllConceptsOfCodeSystemVersion(codeSystem.getConcept(), codeSystemVersion);
 
 		// Create ValueSet that is included in a test

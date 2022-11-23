@@ -192,7 +192,7 @@ public class FHIRValueSetService {
 
 		// Restrict expansion of ValueSets with multiple code system versions if any are SNOMED CT, to simplify pagination.
 		Set<FHIRCodeSystemVersion> allInclusionVersions = codeSelectionCriteria.gatherAllInclusionVersions();
-		boolean isSnomed = allInclusionVersions.stream().anyMatch(FHIRCodeSystemVersion::isSnomed);
+		boolean isSnomed = allInclusionVersions.stream().anyMatch(FHIRCodeSystemVersion::isOnSnomedBranch);
 		if (isSnomed) {
 			if (allInclusionVersions.size() > 1) {
 				throw exception("This server does not yet support ValueSet$expand on ValueSets with multiple code systems if any are SNOMED CT, " +
@@ -736,7 +736,7 @@ public class FHIRValueSetService {
 					(coding.getVersion() == null || coding.getVersion().equals(codeSystemVersionForExpansion.getVersion())) ||
 					(FHIRHelper.isSnomedUri(coding.getSystem()) && codeSystemVersionForExpansion.getVersion().contains(coding.getVersion()))) {
 
-				if (codeSystemVersionForExpansion.isSnomed()) {
+				if (codeSystemVersionForExpansion.isOnSnomedBranch()) {
 					snomedVersions.add(codeSystemVersionForExpansion);
 				} else {
 					genericVersions.add(codeSystemVersionForExpansion);
@@ -826,7 +826,7 @@ public class FHIRValueSetService {
 				String property = filter.getProperty();
 				ValueSet.FilterOperator op = filter.getOp();
 				String value = filter.getValue();
-				if (codeSystemVersion.isSnomed()) {
+				if (codeSystemVersion.isOnSnomedBranch()) {
 					// SNOMED CT filters:
 					// concept, is-a, [conceptId]
 					// concept, in, [refset]
