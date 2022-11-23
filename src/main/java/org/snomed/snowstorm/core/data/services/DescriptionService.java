@@ -852,6 +852,8 @@ public class DescriptionService extends ComponentService {
 	void addTermClauses(String term, SearchMode searchMode, BoolQueryBuilder typedSearchTermQuery) {
 		if (IdentifierService.isConceptId(term)) {
 			typedSearchTermQuery.must(termQuery(Description.Fields.CONCEPT_ID, term));
+		} else if (IdentifierService.isDescriptionId(term)) {
+			typedSearchTermQuery.must(termQuery(Description.Fields.DESCRIPTION_ID, term));
 		} else {
 			BoolQueryBuilder termFilter = new BoolQueryBuilder();
 			if (searchMode == SearchMode.REGEX) {
