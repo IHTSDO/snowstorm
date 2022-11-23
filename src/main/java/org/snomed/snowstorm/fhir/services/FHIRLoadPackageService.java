@@ -88,7 +88,7 @@ public class FHIRLoadPackageService {
 				}
 				List<CodeSystem.ConceptDefinitionComponent> concepts = codeSystem.getConcept();
 				logger.info("Importing CodeSystem {} with {} concepts from package", codeSystem.getUrl(), concepts != null ? concepts.size() : 0);
-				FHIRCodeSystemVersion codeSystemVersion = codeSystemService.save(codeSystem);
+				FHIRCodeSystemVersion codeSystemVersion = codeSystemService.createUpdate(codeSystem);
 				if (concepts != null) {
 					fhirConceptService.saveAllConceptsOfCodeSystemVersion(concepts, codeSystemVersion);
 				}
