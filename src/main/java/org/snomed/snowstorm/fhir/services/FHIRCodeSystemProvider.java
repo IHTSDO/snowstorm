@@ -5,6 +5,7 @@ import ca.uhn.fhir.jpa.provider.TerminologyUploaderProvider;
 import ca.uhn.fhir.jpa.term.TermLoaderSvcImpl;
 import ca.uhn.fhir.jpa.term.api.ITermLoaderSvc;
 import ca.uhn.fhir.rest.annotation.*;
+import ca.uhn.fhir.rest.api.MethodOutcome;
 import ca.uhn.fhir.rest.api.server.RequestDetails;
 import ca.uhn.fhir.rest.param.QuantityParam;
 import ca.uhn.fhir.rest.param.StringParam;
@@ -16,6 +17,7 @@ import org.hl7.fhir.instance.model.api.ICompositeType;
 import org.hl7.fhir.instance.model.api.IPrimitiveType;
 import org.hl7.fhir.r4.model.*;
 import org.hl7.fhir.r4.model.OperationOutcome.IssueType;
+import org.jetbrains.annotations.NotNull;
 import org.snomed.snowstorm.core.data.domain.Concept;
 import org.snomed.snowstorm.core.data.services.MultiSearchService;
 import org.snomed.snowstorm.core.pojo.LanguageDialect;
@@ -184,15 +186,53 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants 
 		throw FHIRHelper.exception("Code System " + idPart + " not found", IssueType.NOTFOUND, 404);
 	}
 
-	@Delete
-	public void deleteCodeSystem(@IdParam IdType id) {
+	@Create
+	public MethodOutcome createCodeSystem(@ResourceParam CodeSystem codeSystem) {
+		// HAPI clears the id in the codeSystem when using this POST method
+		return doCreateUpdate(codeSystem);
+	}
+
+	@Update
+	public MethodOutcome createUpdateCodeSystem(@IdParam IdType id, @ResourceParam CodeSystem codeSystem) {
+		// HAPI keeps the id in the codeSystem when using this PUT method. It also ensures that the id in the resource and URL match.
+		return doCreateUpdate(codeSystem);
+	}
+
+	@NotNull
+	private MethodOutcome doCreateUpdate(CodeSystem codeSystem) {
 		FHIRHelper.readOnlyCheck(readOnlyMode);
-		CodeSystem codeSystem = getCodeSystem(id);
-		if (FHIRHelper.isSnomedUri(codeSystem.getUrl())) {
+
+		MethodOutcome outcome = new MethodOutcome();
+		FHIRCodeSystemVersion codeSystemVersion = fhirCodeSystemService.createUpdate(codeSystem);
+		outcome.setId(new IdType("CodeSystem", codeSystemVersion.getId(), codeSystemVersion.getVersion()));
+		return outcome;
+	}
+
+	@Delete
+	public void deleteCodeSystem(
+			@IdParam IdType id,
+			@OptionalParam(name="url") UriType url,
+			@OptionalParam(name="version") String version) {
+
+		FHIRHelper.readOnlyCheck(readOnlyMode);
+		CodeSystem codeSystem;
+		if (id != null) {
+			codeSystem = getCodeSystem(id);
+		} else {
+			FHIRHelper.required("url", url);
+			FHIRHelper.required("version", version);
+			FHIRCodeSystemVersion codeSystemVersion = fhirCodeSystemService.findCodeSystemVersion(new FHIRCodeSystemVersionParams(url.getValueAsString()).setVersion(version));
+			codeSystem = codeSystemVersion != null ? codeSystemVersion.toHapiCodeSystem() : null;
+		}
+		if (codeSystem != null && FHIRHelper.isSnomedUri(codeSystem.getUrl())) {
 			throw FHIRHelper.exception("Please use the native API to maintain SNOMED CT code systems.",
 					IssueType.NOTSUPPORTED, 400);
 		}
-		fhirCodeSystemService.deleteCodeSystemVersion(id.getIdPart());
+		if (codeSystem == null) {
+			throw FHIRHelper.exception("Code system not found.",
+					IssueType.NOTFOUND, 404);
+		}
+		fhirCodeSystemService.deleteCodeSystemVersion(codeSystem.getId());
 	}
 
 	@Operation(name="$lookup", idempotent=true)

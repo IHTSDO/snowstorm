@@ -37,6 +37,7 @@ import static org.junit.jupiter.api.Assertions.*;
 @ActiveProfiles({"test", "fhir-test"})
 public class AbstractFHIRTest {
 
+	public static final String SHOULD_HAVE_THROWN_EXCEPTION_BEFORE_THIS_LINE = "Should have thrown exception before this line.";
 	@LocalServerPort
 	protected int port = 8080;
 

@@ -23,6 +23,7 @@ import java.util.regex.Pattern;
 public class IdentifierService {
 	
 	public static final Pattern SCTID_PATTERN = Pattern.compile("\\d{6,18}");
+	public static final String EXTENSION_CONCEPT_PARTITION_ID = "10";
 
 	private static final String PARTITION_PART1_INTERNATIONAL = "0";
 	private static final String PARTITION_PART1_EXTENSION = "1";
