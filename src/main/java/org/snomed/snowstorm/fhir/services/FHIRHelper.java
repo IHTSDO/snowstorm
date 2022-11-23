@@ -40,8 +40,6 @@ public class FHIRHelper implements FHIRConstants {
 	private static final Pattern SNOMED_URI_MODULE_AND_VERSION_PATTERN = Pattern.compile("http://snomed.info/x?sct/(\\d+)/version/([\\d]{8})");
 	private static final Pattern SCT_ID_PATTERN = Pattern.compile("sct_(\\d)+_(\\d){8}");
 
-	private static final SimpleDateFormat sdf = new SimpleDateFormat("yyyyMMdd"); // TODO: This is not thread safe!
-
 	@Autowired
 	private DialectConfigurationService dialectService;
 
@@ -285,7 +283,15 @@ public class FHIRHelper implements FHIRConstants {
 		return coding.getCode();
 	}
 
-	public FHIRCodeSystemVersionParams getCodeSystemVersionParams(UriType codeSystemParam, StringType versionParam, Coding coding) {
+	public static FHIRCodeSystemVersionParams getCodeSystemVersionParams(String systemId, String version) {
+		return getCodeSystemVersionParams(null, systemId, version, null);
+	}
+
+	public static FHIRCodeSystemVersionParams getCodeSystemVersionParams(CanonicalUri systemCanonicalUri) {
+		return getCodeSystemVersionParams(null, systemCanonicalUri.getSystem(), systemCanonicalUri.getVersion(), null);
+	}
+
+	public static FHIRCodeSystemVersionParams getCodeSystemVersionParams(UriType codeSystemParam, StringType versionParam, Coding coding) {
 		return getCodeSystemVersionParams(null, codeSystemParam, versionParam, coding);
 	}
 
@@ -296,10 +302,10 @@ public class FHIRHelper implements FHIRConstants {
 
 	public static FHIRCodeSystemVersionParams getCodeSystemVersionParams(String systemId, String codeSystemParam, String versionParam, Coding coding) {
 		if (codeSystemParam != null && coding != null && coding.getSystem() != null && !codeSystemParam.equals(coding.getSystem())) {
-			throw exception("Code system defined in system and coding do not match.", IssueType.CONFLICT, 400);
+			throw exception("Code system defined in system and coding do not match.", IssueType.INVARIANT, 400);
 		}
 		if (versionParam != null && coding != null && coding.getVersion() != null && !versionParam.equals(coding.getVersion())) {
-			throw exception("Version defined in version and coding do not match.", IssueType.CONFLICT, 400);
+			throw exception("Version defined in version and coding do not match.", IssueType.INVARIANT, 400);
 		}
 
 		String codeSystemUrl = null;
@@ -309,7 +315,7 @@ public class FHIRHelper implements FHIRConstants {
 			codeSystemUrl = coding.getSystem();
 		}
 		if (codeSystemUrl == null && systemId == null) {
-			throw exception("Code system not defined in any parameter.", IssueType.CONFLICT, 400);
+			throw exception("Code system not defined in any parameter.", IssueType.INVARIANT, 400);
 		}
 
 		String version = null;
@@ -334,13 +340,14 @@ public class FHIRHelper implements FHIRConstants {
 				} else if ((matcher = SNOMED_URI_MODULE_AND_VERSION_PATTERN.matcher(versionWithoutParams)).matches()) {
 					if (codeSystemParams.isUnversionedSnomed()) {
 						throw exception("A specific version can not be requested when using " +
-								"the '" + SNOMED_URI_UNVERSIONED + "' code system.", IssueType.CONFLICT, 400);
+								"the '" + SNOMED_URI_UNVERSIONED + "' code system.", IssueType.INVARIANT, 400);
 					}
 					codeSystemParams.setSnomedModule(matcher.group(1));
 					codeSystemParams.setVersion(matcher.group(2));
 				} else {
 					throw exception(format("The version parameter for the '" + SNOMED_URI + "' system must use the format " +
-							"'http://snomed.info/sct/[sctid]' or http://snomed.info/sct/[sctid]/version/[YYYYMMDD]. Version provided does not match: '%s'.", versionWithoutParams), IssueType.CONFLICT, 400);
+							"'http://snomed.info/sct/[sctid]' or http://snomed.info/sct/[sctid]/version/[YYYYMMDD]. Version provided does not match: '%s'.", versionWithoutParams),
+							IssueType.INVARIANT, 400);
 				}
 			} else {
 				// Take version param literally
@@ -426,7 +433,7 @@ public class FHIRHelper implements FHIRConstants {
 		}
 		String value = obj.toString();
 		if (obj instanceof Date) {
-			value = sdf.format((Date)obj);
+			value = new SimpleDateFormat("yyyyMMdd").format((Date)obj);
 		}
 		return stringMatches(value, searchTerm);
 	}
