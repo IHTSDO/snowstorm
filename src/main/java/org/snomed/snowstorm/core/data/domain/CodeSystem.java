@@ -17,13 +17,15 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 
+import static org.snomed.snowstorm.fhir.config.FHIRConstants.SNOMED_URI;
+
 /**
  * Represents an edition or extension of SNOMED-CT
  */
 @Document(indexName = "#{@indexNameProvider.indexName('codesystem')}", createIndex = false)
-@JsonPropertyOrder({"name", "owner", "shortName", "branchPath", "dependantVersionEffectiveTime", "dailyBuildAvailable", "latestDailyBuild",
-		"postcoordinated", "postcoordinationLevel", "countryCode", "defaultLanguageCode", "defaultLanguageReferenceSets", "maintainerType",
-		"latestVersion", "languages", "modules"})
+@JsonPropertyOrder({"name", "owner", "shortName", "branchPath", "uriModuleId", "uri", "dependantVersionEffectiveTime", "dailyBuildAvailable",
+		"latestDailyBuild", "postcoordinated", "postcoordinationLevel", "countryCode", "defaultLanguageCode", "defaultLanguageReferenceSets",
+		"maintainerType", "latestVersion", "languages", "modules"})
 public class CodeSystem implements CodeSystemCreate {
 
 	public interface Fields {
@@ -35,6 +37,9 @@ public class CodeSystem implements CodeSystemCreate {
 	@Field(type = FieldType.Keyword)
 	@NotNull
 	private String shortName;
+
+	@Field(type = FieldType.Keyword)
+	private String uriModuleId;
 
 	@Field(type = FieldType.Keyword)
 	private String name;
@@ -67,9 +72,6 @@ public class CodeSystem implements CodeSystemCreate {
 
 	@Field(type = FieldType.Short)
 	private short postcoordinationLevel;
-
-	@Transient
-	private String defaultModuleId;
 
 	@Transient
 	private Integer dependantVersionEffectiveTime;
@@ -115,6 +117,22 @@ public class CodeSystem implements CodeSystemCreate {
 
 	public void setShortName(String shortName) {
 		this.shortName = shortName;
+	}
+
+	public String getUriModuleId() {
+		return uriModuleId;
+	}
+
+	public void setUriModuleId(String uriModuleId) {
+		this.uriModuleId = uriModuleId;
+	}
+
+	/**
+	 * SNOMED CT Edition URI, this is generated from the URI Module ID if that is set.
+	 * @return SNOMED CT Edition URI or null if the URI Module ID is not set.
+	 */
+	public String getUri() {
+		return uriModuleId != null ? String.join("/", SNOMED_URI, uriModuleId) : null;
 	}
 
 	public String getName() {
@@ -210,15 +228,6 @@ public class CodeSystem implements CodeSystemCreate {
 
 	public Boolean isPostcoordinated() {
 		return postcoordinationLevel != 0 ? true : null;
-	}
-
-	@JsonIgnore
-	public String getDefaultModuleId() {
-		return defaultModuleId;
-	}
-
-	public void setDefaultModuleId(String defaultModuleId) {
-		this.defaultModuleId = defaultModuleId;
 	}
 
 	public Integer getDependantVersionEffectiveTime() {
