@@ -227,8 +227,8 @@ public abstract class Config extends ElasticsearchConfig {
 
 	@Bean
 	@ConfigurationProperties(prefix = "codesystem")
-	public CodeSystemConfigurationService getCodeSystemConfigurationService() {
-		return new CodeSystemConfigurationService();
+	public CodeSystemDefaultConfigurationService getCodeSystemConfigurationService() {
+		return new CodeSystemDefaultConfigurationService();
 	}
 	
 	@Bean

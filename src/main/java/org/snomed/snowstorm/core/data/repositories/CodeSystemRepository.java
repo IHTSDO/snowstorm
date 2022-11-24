@@ -5,4 +5,6 @@ import org.springframework.data.elasticsearch.repository.ElasticsearchRepository
 
 public interface CodeSystemRepository extends ElasticsearchRepository<CodeSystem, String> {
 
+	CodeSystem findByUriModuleId(String moduleId);
+
 }
