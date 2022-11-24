@@ -3,6 +3,12 @@ All notable changes to this project will be documented in this file.
 
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 8.x.x Release (FUTURE RELEASE)
+
+### Breaking
+- ECL Dialect aliases have been updated to match the new agreed format, see [ECL spec Appendix C](https://confluence.ihtsdotools.org/display/DOCECL/Appendix+C+-+Dialect+Aliases).  
+  (Affected aliases are en-int-gmdn, en-nhs-X, en-uk-X). 
+
 ## 7.12.0 Release (November 2022)
 Maintenance release with bug fixes and improvements.
 ### Improvements
@@ -13,6 +19,7 @@ Maintenance release with bug fixes and improvements.
 - MAINT-2071 Remove communication with Authoring Acceptance Gateway when completing classifications.
 - MAINT-1940 Stop inactive historical associations switching module when rebasing.
 - FRI-565 Correct Extension's traceability log when performing rebase after upgrading dependency.
+
 
 ## 7.11.0 Release (October 2022)
 Maintenance release with bug fixes and improvements.
@@ -33,6 +40,7 @@ Maintenance release with bug fixes and improvements.
 - MAINT-1969 Fix published components from losing their released flags during rebase
 - MAINT-1862 Fix `searchAfter` request parameter to work with ECL dot notation
 - MAINT-2051 Fix the changing of a Concept's inactivation reason from resulting in duplicate ReferenceSetMembers
+
 
 ## 7.10.0 Release (September 2022)
 Maintenance release with integration support for [Consul](https://www.consul.io/) and [Vault](https://www.vaultproject.io/)
@@ -59,7 +67,6 @@ Maintenance release with integration support for [Consul](https://www.consul.io/
   - MAINT-1743 Fix loss of effective time in components saved during rebase.
   - MAINT-1999 Avoid persisting refset members unnecessarily when saving concepts.
   - MAINT-2003 Correct default language refset configuration for `es`
-
 
 
 ## 7.9.3 Release (June 2022)
