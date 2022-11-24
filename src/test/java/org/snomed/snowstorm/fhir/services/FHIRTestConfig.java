@@ -7,8 +7,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.TestConfig;
 import org.snomed.snowstorm.core.data.domain.*;
-import org.snomed.snowstorm.core.data.services.*;
-import org.snomed.snowstorm.core.data.services.pojo.CodeSystemConfiguration;
+import org.snomed.snowstorm.core.data.services.CodeSystemService;
+import org.snomed.snowstorm.core.data.services.ConceptService;
+import org.snomed.snowstorm.core.data.services.ReferenceSetMemberService;
+import org.snomed.snowstorm.core.data.services.ServiceException;
 import org.snomed.snowstorm.fhir.repositories.FHIRCodeSystemRepository;
 import org.snomed.snowstorm.fhir.repositories.FHIRConceptRepository;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -45,9 +47,6 @@ public class FHIRTestConfig extends TestConfig {
 
 	@Autowired
 	protected ReferenceSetMemberService memberService;
-
-	@Autowired
-	protected CodeSystemConfigurationService codeSystemConfigurationService;
 
 	@Autowired
 	private FHIRTermCodeSystemStorage fhirTermCodeSystemStorage;
@@ -95,11 +94,8 @@ public class FHIRTestConfig extends TestConfig {
 		String releaseBranch = MAIN + "/" + versionBranch;
 		String branchWK = releaseBranch + "/SNOMEDCT-WK";
 		CodeSystem codeSystemWK = new CodeSystem("SNOMEDCT-WK", branchWK);
+		codeSystemWK.setUriModuleId(sampleModuleId);
 		codeSystemService.createCodeSystem(codeSystemWK);
-
-		//And tell the configuration about that new module
-		CodeSystemConfiguration config = new CodeSystemConfiguration("SNOMEDCT-WK", "SNOMEDCT-WK", sampleModuleId, null, null);
-		codeSystemConfigurationService.getConfigurations().add(config);
 
 		concepts.clear();
 		//The new module will inherit the 10 concepts from MAIN.  Add two new unqique to MAIN/SNOMEDCT-WK
