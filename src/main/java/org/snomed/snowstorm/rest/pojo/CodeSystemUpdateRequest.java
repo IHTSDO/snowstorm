@@ -2,7 +2,7 @@ package org.snomed.snowstorm.rest.pojo;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import org.snomed.snowstorm.core.data.domain.CodeSystem;
-import org.snomed.snowstorm.core.data.services.pojo.CodeSystemConfiguration;
+import org.snomed.snowstorm.core.data.services.pojo.CodeSystemDefaultConfiguration;
 
 public class CodeSystemUpdateRequest {
 
@@ -38,7 +38,7 @@ public class CodeSystemUpdateRequest {
 		this.owner = owner;
 	}
 
-	public CodeSystemUpdateRequest populate(CodeSystemConfiguration configuration) {
+	public CodeSystemUpdateRequest populate(CodeSystemDefaultConfiguration configuration) {
 		if (configuration.getName() != null) {
 			name = configuration.getName();
 		}

@@ -1,6 +1,6 @@
 package org.snomed.snowstorm.core.data.services.pojo;
 
-public class CodeSystemConfiguration {
+public class CodeSystemDefaultConfiguration {
 
 	private final String name;
 	private final String shortName;
@@ -8,7 +8,7 @@ public class CodeSystemConfiguration {
 	private final String countryCode;
 	private final String owner;
 
-	public CodeSystemConfiguration(String name, String shortName, String module, String countryCode, String owner) {
+	public CodeSystemDefaultConfiguration(String name, String shortName, String module, String countryCode, String owner) {
 		this.name = name;
 		this.shortName = shortName;
 		this.module = module;
