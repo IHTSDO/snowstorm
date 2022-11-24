@@ -250,7 +250,8 @@ public class CodeSystemController {
 		codeSystemVersionService.clearCache();
 	}
 
-	@Operation(summary = "Update details from config. For each existing Code System the name, country code and owner are set using the values in configuration.")
+	@Operation(summary = "Update details from application configuration. " +
+			"For each existing Code System the name, country code and owner are set using the values in the application configuration.")
 	@PostMapping(value = "/update-details-from-config")
 	@PreAuthorize("hasPermission('ADMIN', 'global')")
 	public void updateDetailsFromConfig() {

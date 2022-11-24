@@ -97,7 +97,7 @@ public class FHIRCodeSystemVersion {
 	public FHIRCodeSystemVersion(CodeSystemVersion snomedVersion) {
 		this(snomedVersion.getCodeSystem());
 
-		String moduleId = snomedVersion.getCodeSystem().getDefaultModuleId();
+		String moduleId = snomedVersion.getCodeSystem().getUriModuleId();
 		id = FHIRCodeSystemService.SCT_ID_PREFIX + moduleId + "_" + snomedVersion.getEffectiveDate();
 		version = SNOMED_URI + "/" + moduleId + VERSION + snomedVersion.getEffectiveDate();
 		if (title == null) {
@@ -128,7 +128,7 @@ public class FHIRCodeSystemVersion {
 		content = CodeSystem.CodeSystemContentMode.COMPLETE.toCode();
 		if (unversioned) {
 			url = SNOMED_URI_UNVERSIONED;
-			String moduleId = snomedCodeSystem.getDefaultModuleId();
+			String moduleId = snomedCodeSystem.getUriModuleId();
 			id = FHIRCodeSystemService.SCT_ID_PREFIX + moduleId + UNVERSIONED;
 			version = SNOMED_URI_UNVERSIONED + "/" + moduleId;
 			snomedBranch = snomedCodeSystem.getBranchPath();
