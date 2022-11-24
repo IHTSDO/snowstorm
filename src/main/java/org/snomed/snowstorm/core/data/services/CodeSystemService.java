@@ -12,6 +12,7 @@ import org.elasticsearch.search.aggregations.AggregationBuilders;
 import org.elasticsearch.search.aggregations.bucket.MultiBucketsAggregation;
 import org.elasticsearch.search.aggregations.bucket.terms.ParsedStringTerms;
 import org.elasticsearch.search.aggregations.bucket.terms.Terms;
+import org.ihtsdo.drools.helper.IdentifierHelper;
 import org.modelmapper.ModelMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -21,7 +22,7 @@ import org.snomed.snowstorm.core.data.domain.Description;
 import org.snomed.snowstorm.core.data.domain.ReferenceSetMember;
 import org.snomed.snowstorm.core.data.repositories.CodeSystemRepository;
 import org.snomed.snowstorm.core.data.repositories.CodeSystemVersionRepository;
-import org.snomed.snowstorm.core.data.services.pojo.CodeSystemConfiguration;
+import org.snomed.snowstorm.core.data.services.pojo.CodeSystemDefaultConfiguration;
 import org.snomed.snowstorm.core.data.services.pojo.PageWithBucketAggregationsFactory;
 import org.snomed.snowstorm.core.pojo.LanguageDialect;
 import org.snomed.snowstorm.core.util.DateUtil;
@@ -73,7 +74,7 @@ public class CodeSystemService {
 	private CodeSystemVersionRepository versionRepository;
 
 	@Autowired
-	private CodeSystemConfigurationService codeSystemConfigurationService;
+	private CodeSystemDefaultConfigurationService codeSystemDefaultConfigurationService;
 
 	@Autowired
 	private BranchService branchService;
@@ -122,10 +123,6 @@ public class CodeSystemService {
 		// Create default code system if it does not yet exist
 		if (repository.findById(SNOMEDCT).isEmpty()) {
 			createCodeSystem(new CodeSystem(SNOMEDCT, MAIN));
-		}
-		logger.info("{} code system configurations available.", codeSystemConfigurationService.getConfigurations().size());
-		for (CodeSystemConfiguration configuration : codeSystemConfigurationService.getConfigurations()) {
-			System.out.println(configuration);
 		}
 	}
 
@@ -351,7 +348,17 @@ public class CodeSystemService {
 			codeSystem.setLatestVersion(findLatestVisibleVersion(codeSystem.getShortName()));
 
 			// Set default module to help FHIR API
-			codeSystem.setDefaultModuleId(codeSystemConfigurationService.getDefaultModuleId(codeSystem.getShortName()));
+			if (codeSystem.getUriModuleId() == null) {
+				String moduleId = codeSystemDefaultConfigurationService.getDefaultModuleId(codeSystem.getShortName());
+				if (moduleId == null) {
+					moduleId = latestBranch.getMetadata().getString(DEFAULT_MODULE_ID);
+				}
+				if (IdentifierHelper.isConceptId(moduleId)) {
+					logger.info("Automatically setting URI Module ID for CodeSystem {} to {}", codeSystem.getShortCode(), moduleId);
+					codeSystem.setUriModuleId(moduleId);
+					doUpdate(codeSystem);
+				}
+			}
 
 			// Pull from cache
 			Pair<Date, CodeSystem> dateCodeSystemPair = contentInformationCache.get(branchPath);
@@ -502,11 +509,11 @@ public class CodeSystemService {
 	}
 
 	public CodeSystem findByDefaultModule(String moduleId) {
-		CodeSystemConfiguration codeSystemConfiguration = codeSystemConfigurationService.findByModule(moduleId);
-		if (codeSystemConfiguration == null) {
+		CodeSystemDefaultConfiguration codeSystemDefaultConfiguration = codeSystemDefaultConfigurationService.findByModule(moduleId);
+		if (codeSystemDefaultConfiguration == null) {
 			return null;
 		}
-		return find(codeSystemConfiguration.shortName());
+		return find(codeSystemDefaultConfiguration.shortName());
 	}
 
 	public CodeSystemVersion findVersion(String shortName, int effectiveTime) {
@@ -585,9 +592,13 @@ public class CodeSystemService {
 	public CodeSystem update(CodeSystem codeSystem, CodeSystemUpdateRequest updateRequest) {
 		modelMapper.map(updateRequest, codeSystem);
 		validatorService.validate(codeSystem);
+		doUpdate(codeSystem);
+		return codeSystem;
+	}
+
+	private void doUpdate(CodeSystem codeSystem) {
 		repository.save(codeSystem);
 		contentInformationCache.remove(codeSystem.getBranchPath());
-		return codeSystem;
 	}
 
 	@PreAuthorize("hasPermission('ADMIN', #codeSystem.branchPath)")
@@ -617,11 +628,11 @@ public class CodeSystemService {
 	}
 
 	public void updateDetailsFromConfig() {
-		logger.info("Updating the details of all code systems using values from configuration.");
-		final Map<String, CodeSystemConfiguration> configurationsMap = codeSystemConfigurationService.getConfigurations().stream()
-				.collect(Collectors.toMap(CodeSystemConfiguration::shortName, Function.identity()));
+		logger.info("Updating the details of all code systems using values from default configuration.");
+		final Map<String, CodeSystemDefaultConfiguration> configurationsMap = codeSystemDefaultConfigurationService.getConfigurations().stream()
+				.collect(Collectors.toMap(CodeSystemDefaultConfiguration::shortName, Function.identity()));
 		for (CodeSystem codeSystem : findAll()) {
-			final CodeSystemConfiguration configuration = configurationsMap.get(codeSystem.getShortName());
+			final CodeSystemDefaultConfiguration configuration = configurationsMap.get(codeSystem.getShortName());
 			if (configuration != null) {
 				logger.info("Updating code system {}", codeSystem.getShortName());
 				update(codeSystem, new CodeSystemUpdateRequest(codeSystem).populate(configuration));
