@@ -104,6 +104,7 @@ class FHIRCodeSystemServiceTest extends AbstractFHIRTest {
 		codeSystem.setContent(CodeSystem.CodeSystemContentMode.SUPPLEMENT);
 		FHIRCodeSystemVersion saved = codeSystemService.createUpdate(codeSystem);
 		assertNull(saved.getVersion());
+		assertEquals("11234007108", saved.getSnomedCodeSystem().getUriModuleId());
 	}
 
 	@Test

@@ -126,7 +126,7 @@ public class FHIRCodeSystemService {
 			org.snomed.snowstorm.core.data.domain.CodeSystem dependentCodeSystem = dependantVersion.getSnomedCodeSystem();
 			newCodeSystem.setShortName(dependentCodeSystem.getShortName() + "-EXP");
 			newCodeSystem.setBranchPath(dependentCodeSystem.getBranchPath() + "/" + newCodeSystem.getShortName());
-			newCodeSystem.setDefaultModuleId(snomedModule);
+			newCodeSystem.setUriModuleId(snomedModule);
 			org.snomed.snowstorm.core.data.domain.CodeSystem savedCodeSystem = snomedCodeSystemService.createCodeSystem(newCodeSystem);
 			return new FHIRCodeSystemVersion(savedCodeSystem);
 		} else {
