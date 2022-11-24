@@ -1,25 +1,25 @@
 package org.snomed.snowstorm.core.data.services;
 
-import org.snomed.snowstorm.core.data.services.pojo.CodeSystemConfiguration;
-
 import jakarta.annotation.PostConstruct;
+import org.snomed.snowstorm.core.data.services.pojo.CodeSystemDefaultConfiguration;
+
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
-public class CodeSystemConfigurationService {
+public class CodeSystemDefaultConfigurationService {
 
-	private Map<String, String> config = new HashMap<>();
+	private final Map<String, String> config = new HashMap<>();
 
-	private Set<CodeSystemConfiguration> configurations;
+	private Set<CodeSystemDefaultConfiguration> configurations;
 
 	public Map<String, String> getConfig() {
 		return config;
 	}
 
-	public CodeSystemConfiguration findByModule(String moduleId) {
-		for (CodeSystemConfiguration codeSystemConfiguration : configurations) {
+	public CodeSystemDefaultConfiguration findByModule(String moduleId) {
+		for (CodeSystemDefaultConfiguration codeSystemConfiguration : configurations) {
 			if (codeSystemConfiguration.module().equals(moduleId)) {
 				return codeSystemConfiguration;
 			}
@@ -28,7 +28,7 @@ public class CodeSystemConfigurationService {
 	}
 	
 	public String getDefaultModuleId(String codeSystemShortName) {
-		for (CodeSystemConfiguration codeSystemConfiguration : configurations) {
+		for (CodeSystemDefaultConfiguration codeSystemConfiguration : configurations) {
 			if (codeSystemConfiguration.shortName().equalsIgnoreCase(codeSystemShortName)) {
 				return codeSystemConfiguration.module();
 			}
@@ -47,11 +47,11 @@ public class CodeSystemConfigurationService {
 			String moduleId = split[1];
 			String countryCode = split.length > 2 ? split[2] : null;
 			String owner = split.length > 3 ? split[3] : null;
-			configurations.add(new CodeSystemConfiguration(name, codeSystemShortName, moduleId, countryCode, owner));
+			configurations.add(new CodeSystemDefaultConfiguration(name, codeSystemShortName, moduleId, countryCode, owner));
 		}
 	}
 
-	public Set<CodeSystemConfiguration> getConfigurations() {
+	public Set<CodeSystemDefaultConfiguration> getConfigurations() {
 		return configurations;
 	}
 }
