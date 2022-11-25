@@ -21,6 +21,7 @@ import org.snomed.snowstorm.fhir.pojo.ConceptAndSystemResult;
 import org.snomed.snowstorm.fhir.pojo.FHIRCodeSystemVersionParams;
 import org.snomed.snowstorm.fhir.repositories.FHIRCodeSystemRepository;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 
@@ -70,7 +71,7 @@ public class FHIRCodeSystemService {
 			 */
 			// if not SNOMED
 			if (!FHIRHelper.isSnomedUri(fhirCodeSystemVersion.getUrl())) {
-				throw exception("At this time this server only supports CodeSystem supplements that supplement SNOMED CT and contain postcoordinated expressions.",
+				throw exception("At this time this server only supports CodeSystem supplements that supplement SNOMED CT",
 						OperationOutcome.IssueType.NOTSUPPORTED, 400);
 			}
 			// if no dependency
@@ -117,7 +118,7 @@ public class FHIRCodeSystemService {
 							OperationOutcome.IssueType.INVARIANT,	400);
 				}
 			}
-			org.snomed.snowstorm.core.data.domain.CodeSystem existingCodeSystem = snomedCodeSystemService.findByDefaultModule(snomedModule);
+			org.snomed.snowstorm.core.data.domain.CodeSystem existingCodeSystem = snomedCodeSystemService.findByUriModule(snomedModule);
 			if (existingCodeSystem != null) {
 				throw exception("Updating SNOMED CT code system supplements is not yet supported.", OperationOutcome.IssueType.NOTSUPPORTED, 400);
 			}
@@ -125,10 +126,10 @@ public class FHIRCodeSystemService {
 			org.snomed.snowstorm.core.data.domain.CodeSystem newCodeSystem = new org.snomed.snowstorm.core.data.domain.CodeSystem();
 			org.snomed.snowstorm.core.data.domain.CodeSystem dependentCodeSystem = dependantVersion.getSnomedCodeSystem();
 			newCodeSystem.setShortName(dependentCodeSystem.getShortName() + "-EXP");
-			newCodeSystem.setBranchPath(dependentCodeSystem.getBranchPath() + "/" + newCodeSystem.getShortName());
+			newCodeSystem.setBranchPath(String.join("/", dependentCodeSystem.getBranchPath(), newCodeSystem.getShortName()));
 			newCodeSystem.setUriModuleId(snomedModule);
 			org.snomed.snowstorm.core.data.domain.CodeSystem savedCodeSystem = snomedCodeSystemService.createCodeSystem(newCodeSystem);
-			return new FHIRCodeSystemVersion(savedCodeSystem);
+			return new FHIRCodeSystemVersion(savedCodeSystem, false);
 		} else {
 			// Check not SNOMED id
 			if (fhirCodeSystemVersion.getId().startsWith(SCT_ID_PREFIX)) {
@@ -215,7 +216,7 @@ public class FHIRCodeSystemService {
 		org.snomed.snowstorm.core.data.domain.CodeSystem snomedCodeSystem;
 		String snomedModule = params.getSnomedModule();
 		if (snomedModule != null) {
-			snomedCodeSystem = snomedCodeSystemService.findByDefaultModule(snomedModule);
+			snomedCodeSystem = snomedCodeSystemService.findByUriModule(snomedModule);
 		} else {
 			// Use root code system
 			snomedCodeSystem = snomedCodeSystemService.find(CodeSystemService.SNOMEDCT);
@@ -275,6 +276,7 @@ public class FHIRCodeSystemService {
 	public void deleteCodeSystemVersion(String idWithVersion) {
 		Optional<FHIRCodeSystemVersion> version = codeSystemRepository.findById(idWithVersion);
 		if (version.isPresent()) {
+			logger.info("Deleting code system (version) {}", idWithVersion);
 			conceptService.deleteExistingCodes(idWithVersion);
 			codeSystemRepository.deleteById(idWithVersion);
 		}
