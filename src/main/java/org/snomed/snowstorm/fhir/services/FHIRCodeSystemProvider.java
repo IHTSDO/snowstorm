@@ -19,6 +19,7 @@ import org.hl7.fhir.r4.model.*;
 import org.hl7.fhir.r4.model.OperationOutcome.IssueType;
 import org.jetbrains.annotations.NotNull;
 import org.snomed.snowstorm.core.data.domain.Concept;
+import org.snomed.snowstorm.core.data.services.CodeSystemService;
 import org.snomed.snowstorm.core.data.services.MultiSearchService;
 import org.snomed.snowstorm.core.pojo.LanguageDialect;
 import org.snomed.snowstorm.fhir.config.FHIRConstants;
@@ -40,6 +41,8 @@ import java.util.stream.StreamSupport;
 
 import static io.kaicode.elasticvc.api.ComponentService.LARGE_PAGE;
 import static java.lang.String.format;
+import static java.util.stream.Stream.concat;
+import static org.snomed.snowstorm.fhir.services.FHIRCodeSystemService.SCT_ID_PREFIX;
 import static org.snomed.snowstorm.fhir.services.FHIRHelper.*;
 
 @Component
@@ -50,6 +53,12 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants 
 
 	@Value("${snowstorm.rest-api.readonly}")
 	private boolean readOnlyMode;
+
+	@Autowired
+	private FHIRCodeSystemService fhirCodeSystemService;
+
+	@Autowired
+	private CodeSystemService snomedCodeSystemService;
 
 	@Autowired
 	private MultiSearchService snomedMultiSearchService;
@@ -65,9 +74,6 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants 
 
 	@Autowired
 	private FHIRTermCodeSystemStorage termCodeSystemStorage;
-
-	@Autowired
-	private FHIRCodeSystemService fhirCodeSystemService;
 
 	@Autowired
 	private FHIRConceptService fhirConceptService;
@@ -156,12 +162,12 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants 
 				sortOn.stream().map(comparatorMap::get).reduce(Comparator::thenComparing).orElseGet(() -> Comparator.comparing(CodeSystem::getId));
 
 		Stream<CodeSystem> snomedCodeSystemStream = snomedMultiSearchService.getAllPublishedVersions().stream()
-				.map(cv -> new FHIRCodeSystemVersion(cv).toHapiCodeSystem());
+				.map(snomedSystemVersion -> new FHIRCodeSystemVersion(snomedSystemVersion).toHapiCodeSystem());
 
 		Stream<CodeSystem> fhirCodeSystemStream = StreamSupport.stream(fhirCodeSystemService.findAll().spliterator(), false)
 				.map(FHIRCodeSystemVersion::toHapiCodeSystem);
 
-		return Stream.concat(snomedCodeSystemStream, fhirCodeSystemStream)
+		return concat(snomedCodeSystemStream, fhirCodeSystemStream)
 				.filter(cs -> csFilter.apply(cs, fhirHelper))
 				.sorted(chainedComparator)
 				.collect(Collectors.toList());
@@ -170,12 +176,16 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants 
 	@Read()
 	public CodeSystem getCodeSystem(@IdParam IdType id) {
 		String idPart = id.getIdPart();
-		Optional<FHIRCodeSystemVersion> fhirCodeSystem = fhirCodeSystemService.findById(idPart);
-		if (fhirCodeSystem.isPresent()) {
-			return fhirCodeSystem.get().toHapiCodeSystem();
+		if (!idPart.startsWith(SCT_ID_PREFIX)) {
+			Optional<FHIRCodeSystemVersion> fhirCodeSystem = fhirCodeSystemService.findById(idPart);
+			if (fhirCodeSystem.isPresent()) {
+				return fhirCodeSystem.get().toHapiCodeSystem();
+			}
 		} else {
-			Optional<CodeSystem> snomedCodeSystem = snomedMultiSearchService.getAllPublishedVersions().stream()
-					.map(cv -> new FHIRCodeSystemVersion(cv).toHapiCodeSystem())
+			Stream<CodeSystem> snomedPublished = snomedMultiSearchService.getAllPublishedVersions().stream()
+					.map(cv -> new FHIRCodeSystemVersion(cv).toHapiCodeSystem());
+
+			Optional<CodeSystem> snomedCodeSystem = snomedPublished
 					.filter(cs -> cs.getId().equals(idPart))
 					.findAny();
 
@@ -207,6 +217,13 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants 
 		outcome.setId(new IdType("CodeSystem", codeSystemVersion.getId(), codeSystemVersion.getVersion()));
 		return outcome;
 	}
+
+//	@Patch
+//	public void addConcept(@IdParam IdType id, @ResourceParam CodeSystem codeSystem) {
+//		CodeSystem existingCodeSystem = getCodeSystem(id);
+//
+////		codeSystem.getConcept()
+//	}
 
 	@Delete
 	public void deleteCodeSystem(
