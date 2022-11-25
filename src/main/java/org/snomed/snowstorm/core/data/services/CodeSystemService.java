@@ -352,8 +352,23 @@ public class CodeSystemService {
 		return codeSystems;
 	}
 
-	public List<CodeSystem> findAllBrief() {
-		return repository.findAll(PageRequest.of(0, 10_000, Sort.by(CodeSystem.Fields.SHORT_NAME))).getContent();
+	public List<CodeSystem> findAllPostcoordinatedBrief() {
+		List<CodeSystem> allCodeSystems = repository.findAll(PageRequest.of(0, 10_000, Sort.by(CodeSystem.Fields.SHORT_NAME))).getContent();
+		return allCodeSystems.stream()
+				.filter(CodeSystem::isPostcoordinatedNullSafe)
+				.peek(codeSystem -> {
+					codeSystem.setParentUriModuleId(getParentUriModule(codeSystem, allCodeSystems));
+					String branchPath = codeSystem.getBranchPath();
+					Branch workingBranch = branchService.findLatest(branchPath);
+					doJoinDependentVersionEffectiveTime(codeSystem, branchPath, workingBranch);
+				})
+				.collect(Collectors.toList());
+	}
+
+	private String getParentUriModule(CodeSystem codeSystem, List<CodeSystem> allCodeSystems) {
+		String parentPath = PathUtil.getParentPath(codeSystem.getBranchPath());
+		Optional<CodeSystem> parent = allCodeSystems.stream().filter(parentCandidate -> parentCandidate.getBranchPath().equals(parentPath)).findFirst();
+		return parent.map(CodeSystem::getUriModuleId).orElse(null);
 	}
 
 	@Cacheable("code-system-branches")
@@ -403,16 +418,7 @@ public class CodeSystemService {
 			return;
 		}
 
-		// Set dependant version effectiveTime (transient field)
-		if (!PathUtil.isRoot(branchPath)) {
-			Integer effectiveTime = getVersionEffectiveTime(PathUtil.getParentPath(branchPath), workingBranch.getBase(), codeSystem.getShortName());
-			if (effectiveTime == null) {
-				logger.warn("Code System {} is not dependant on a specific version of the parent Code System. " +
-								"The working branch {} has a base timepoint of {} which does not match the base of any version branches of {}.",
-						codeSystem, branchPath, workingBranch.getBase(), PathUtil.getParentPath(branchPath));
-			}
-			codeSystem.setDependantVersionEffectiveTime(effectiveTime);
-		}
+		doJoinDependentVersionEffectiveTime(codeSystem, branchPath, workingBranch);
 
 		BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(workingBranch);
 
@@ -477,6 +483,19 @@ public class CodeSystemService {
 
 		// Add to cache
 		contentInformationCache.put(branchPath, Pair.of(workingBranch.getHead(), codeSystem));
+	}
+
+	// Set dependant version effectiveTime (transient field)
+	private void doJoinDependentVersionEffectiveTime(CodeSystem codeSystem, String branchPath, Branch workingBranch) {
+		if (!PathUtil.isRoot(branchPath)) {
+			Integer effectiveTime = getVersionEffectiveTime(PathUtil.getParentPath(branchPath), workingBranch.getBase(), codeSystem.getShortName());
+			if (effectiveTime == null) {
+				logger.warn("Code System {} is not dependant on a specific version of the parent Code System. " +
+								"The working branch {} has a base timepoint of {} which does not match the base of any version branches of {}.",
+						codeSystem, branchPath, workingBranch.getBase(), PathUtil.getParentPath(branchPath));
+			}
+			codeSystem.setDependantVersionEffectiveTime(effectiveTime);
+		}
 	}
 
 	public synchronized Integer getVersionEffectiveTime(String codeSystemBranch, Date timepoint, String forChildCodeSystem) {

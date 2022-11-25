@@ -75,6 +75,10 @@ public class CodeSystem implements CodeSystemCreate {
 	private Integer dependantVersionEffectiveTime;
 
 	@Transient
+	@JsonIgnore
+	private String parentUriModuleId;
+
+	@Transient
 	private CodeSystemVersion latestVersion;
 
 	@Transient
@@ -222,6 +226,14 @@ public class CodeSystem implements CodeSystemCreate {
 
 	public void setDependantVersionEffectiveTime(Integer dependantVersionEffectiveTime) {
 		this.dependantVersionEffectiveTime = dependantVersionEffectiveTime;
+	}
+
+	public String getParentUriModuleId() {
+		return parentUriModuleId;
+	}
+
+	public void setParentUriModuleId(String parentUriModuleId) {
+		this.parentUriModuleId = parentUriModuleId;
 	}
 
 	public Map<String, String> getLanguages() {
