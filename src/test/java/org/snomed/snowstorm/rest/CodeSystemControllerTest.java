@@ -36,6 +36,7 @@ import static org.snomed.snowstorm.core.data.domain.ReferenceSetMember.MDRSField
 @ActiveProfiles("test")
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, classes = TestConfig.class)
 class CodeSystemControllerTest extends AbstractTest {
+
     @LocalServerPort
     private int port;
 
