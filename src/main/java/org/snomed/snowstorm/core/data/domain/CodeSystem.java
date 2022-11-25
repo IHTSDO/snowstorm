@@ -2,15 +2,14 @@ package org.snomed.snowstorm.core.data.domain;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonPropertyOrder;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
 import org.snomed.snowstorm.core.data.domain.fieldpermissions.CodeSystemCreate;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.annotation.Transient;
 import org.springframework.data.elasticsearch.annotations.Document;
 import org.springframework.data.elasticsearch.annotations.Field;
 import org.springframework.data.elasticsearch.annotations.FieldType;
-
-import jakarta.validation.constraints.NotNull;
-import jakarta.validation.constraints.Pattern;
 
 import java.util.Collection;
 import java.util.Map;
@@ -122,8 +121,9 @@ public class CodeSystem implements CodeSystemCreate {
 		return uriModuleId;
 	}
 
-	public void setUriModuleId(String uriModuleId) {
+	public CodeSystem setUriModuleId(String uriModuleId) {
 		this.uriModuleId = uriModuleId;
+		return this;
 	}
 
 	/**
