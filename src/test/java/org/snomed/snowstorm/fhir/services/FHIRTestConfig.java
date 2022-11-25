@@ -85,7 +85,7 @@ public class FHIRTestConfig extends TestConfig {
 		fhirTermCodeSystemStorage.storeNewCodeSystemVersion(icdCodeSystem, termCodeSystemVersion, null, null, null);
 
 		// Version content to fill effectiveTime fields
-		CodeSystem codeSystem = new CodeSystem("SNOMEDCT", MAIN);
+		CodeSystem codeSystem = new CodeSystem("SNOMEDCT", MAIN).setUriModuleId(Concepts.CORE_MODULE);
 
 		codeSystemService.createCodeSystem(codeSystem);
 		String versionBranch = codeSystemService.createVersion(codeSystem, 20190131, "");
@@ -93,8 +93,7 @@ public class FHIRTestConfig extends TestConfig {
 		//Now create a new branch to hold a new edition
 		String releaseBranch = MAIN + "/" + versionBranch;
 		String branchWK = releaseBranch + "/SNOMEDCT-WK";
-		CodeSystem codeSystemWK = new CodeSystem("SNOMEDCT-WK", branchWK);
-		codeSystemWK.setUriModuleId(sampleModuleId);
+		CodeSystem codeSystemWK = new CodeSystem("SNOMEDCT-WK", branchWK).setUriModuleId(sampleModuleId);
 		codeSystemService.createCodeSystem(codeSystemWK);
 
 		concepts.clear();
@@ -108,7 +107,7 @@ public class FHIRTestConfig extends TestConfig {
 		conceptService.batchCreate(concepts, branchWK);
 		codeSystemService.createVersion(codeSystemWK, sampleVersion, "Unit Test Version");
 
-		assertNotNull(codeSystemService.findByDefaultModule(sampleModuleId));
+		assertNotNull(codeSystemService.findByUriModule(sampleModuleId));
 
 		logger.info("FHIR test data setup complete");
 	}

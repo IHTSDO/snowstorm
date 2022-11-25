@@ -103,7 +103,7 @@ class FHIRCodeSystemServiceTest extends AbstractFHIRTest {
 		codeSystem.setSupplements("http://snomed.info/sct|http://snomed.info/sct/1234000008/version/20190731");
 		codeSystem.setContent(CodeSystem.CodeSystemContentMode.SUPPLEMENT);
 		FHIRCodeSystemVersion saved = codeSystemService.createUpdate(codeSystem);
-		assertNull(saved.getVersion());
+		assertEquals("http://snomed.info/xsct/11234007108", saved.getVersion());
 		assertEquals("11234007108", saved.getSnomedCodeSystem().getUriModuleId());
 	}
 

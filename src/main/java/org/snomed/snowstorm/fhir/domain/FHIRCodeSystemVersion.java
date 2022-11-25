@@ -10,6 +10,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.core.data.domain.CodeSystemVersion;
 import org.snomed.snowstorm.fhir.services.FHIRCodeSystemService;
+import org.snomed.snowstorm.fhir.services.FHIRHelper;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.annotation.Transient;
 import org.springframework.data.elasticsearch.annotations.*;
@@ -96,6 +97,7 @@ public class FHIRCodeSystemVersion {
 
 	public FHIRCodeSystemVersion(CodeSystemVersion snomedVersion) {
 		this(snomedVersion.getCodeSystem());
+		url = SNOMED_URI;
 
 		String moduleId = snomedVersion.getCodeSystem().getUriModuleId();
 		id = FHIRCodeSystemService.SCT_ID_PREFIX + moduleId + "_" + snomedVersion.getEffectiveDate();
@@ -114,25 +116,26 @@ public class FHIRCodeSystemVersion {
 	}
 
 	public FHIRCodeSystemVersion(org.snomed.snowstorm.core.data.domain.CodeSystem snomedCodeSystem) {
-		this(snomedCodeSystem, false);
-	}
-
-	public FHIRCodeSystemVersion(org.snomed.snowstorm.core.data.domain.CodeSystem snomedCodeSystem, boolean unversioned) {
 		name = SNOMED_CT;
-		url = SNOMED_URI;
 		title = snomedCodeSystem.getName();
 		status = Enumerations.PublicationStatus.ACTIVE.toCode();
 		publisher = snomedCodeSystem.getOwner() != null ? snomedCodeSystem.getOwner() : SNOMED_INTERNATIONAL;
 		hierarchyMeaning = CodeSystem.CodeSystemHierarchyMeaning.ISA.toCode();
 		compositional = true;
-		content = CodeSystem.CodeSystemContentMode.COMPLETE.toCode();
-		if (unversioned) {
-			url = SNOMED_URI_UNVERSIONED;
-			String moduleId = snomedCodeSystem.getUriModuleId();
-			id = FHIRCodeSystemService.SCT_ID_PREFIX + moduleId + UNVERSIONED;
+		String moduleId = snomedCodeSystem.getUriModuleId();
+		if (snomedCodeSystem.isPostcoordinatedNullSafe()) {
+			id = FHIRCodeSystemService.SCT_ID_PREFIX + moduleId + "_EXP";
+			url = SNOMED_URI;
 			version = SNOMED_URI_UNVERSIONED + "/" + moduleId;
-			snomedBranch = snomedCodeSystem.getBranchPath();
+			content = CodeSystem.CodeSystemContentMode.SUPPLEMENT.toCode();
+//			snomedCodeSystem.getDependantVersionEffectiveTime()
+		} else {
+			id = FHIRCodeSystemService.SCT_ID_PREFIX + moduleId + "_" + UNVERSIONED;
+			url = SNOMED_URI_UNVERSIONED;
+			version = SNOMED_URI + "/" + moduleId;
+			content = CodeSystem.CodeSystemContentMode.COMPLETE.toCode();
 		}
+		snomedBranch = snomedCodeSystem.getBranchPath();
 		this.snomedCodeSystem = snomedCodeSystem;
 	}
 
@@ -162,6 +165,11 @@ public class FHIRCodeSystemVersion {
 
 	public boolean isSnomedUnversioned() {
 		return SNOMED_URI_UNVERSIONED.equals(url);
+	}
+
+	public boolean isVersionMatch(String requestedVersion) {
+		if (requestedVersion == null || requestedVersion.equals(version)) return true;
+		return FHIRHelper.isSnomedUri(getUrl()) && version.substring(0, version.indexOf(VERSION)).equals(requestedVersion);
 	}
 
 	public String getCanonical() {

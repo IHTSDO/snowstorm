@@ -49,14 +49,14 @@ class CodeSystemServiceTest extends AbstractTest {
 
 	@Test
 	void createPostcoordinatedCodeSystemInRoot() {
-		CodeSystem codeSystemPCE = new CodeSystem("SNOMEDCT", "MAIN").setPostcoordinationLevel((short) 1);
+		CodeSystem codeSystemPCE = new CodeSystem("SNOMEDCT", "MAIN").setMaximumPostcoordinationLevel((short) 1);
 		assertThrows(IllegalArgumentException.class, () -> codeSystemService.createCodeSystem(codeSystemPCE));
 	}
 
 	@Test
 	void createPostcoordinatedCodeSystem() {
 		codeSystemService.createCodeSystem(new CodeSystem("SNOMEDCT", "MAIN"));
-		CodeSystem codeSystemPCE = new CodeSystem("SNOMEDCT-PCETEST", "MAIN/PCETEST").setPostcoordinationLevel((short) 1);
+		CodeSystem codeSystemPCE = new CodeSystem("SNOMEDCT-PCETEST", "MAIN/PCETEST").setMaximumPostcoordinationLevel((short) 1);
 		codeSystemService.createCodeSystem(codeSystemPCE);
 	}
 
