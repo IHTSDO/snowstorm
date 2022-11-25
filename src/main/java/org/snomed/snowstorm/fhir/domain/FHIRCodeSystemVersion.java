@@ -9,6 +9,7 @@ import org.joda.time.format.DateTimeFormatter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.core.data.domain.CodeSystemVersion;
+import org.snomed.snowstorm.fhir.config.FHIRConstants;
 import org.snomed.snowstorm.fhir.services.FHIRCodeSystemService;
 import org.snomed.snowstorm.fhir.services.FHIRHelper;
 import org.springframework.data.annotation.Id;
@@ -128,7 +129,6 @@ public class FHIRCodeSystemVersion {
 			url = SNOMED_URI;
 			version = SNOMED_URI_UNVERSIONED + "/" + moduleId;
 			content = CodeSystem.CodeSystemContentMode.SUPPLEMENT.toCode();
-//			snomedCodeSystem.getDependantVersionEffectiveTime()
 		} else {
 			id = FHIRCodeSystemService.SCT_ID_PREFIX + moduleId + "_" + UNVERSIONED;
 			url = SNOMED_URI_UNVERSIONED;
@@ -155,6 +155,11 @@ public class FHIRCodeSystemVersion {
 		codeSystem.setCompositional(compositional);
 		if (content != null) {
 			codeSystem.setContent(CodeSystem.CodeSystemContentMode.fromCode(content));
+		}
+		if (snomedCodeSystem != null && snomedCodeSystem.isPostcoordinatedNullSafe() && snomedCodeSystem.getParentUriModuleId() != null) {
+			// http://snomed.info/sct|http://snomed.info/sct/900000000000207008/version/20220630
+			String supplements = SNOMED_URI + "|" + SNOMED_URI + "/" + snomedCodeSystem.getParentUriModuleId() + VERSION + snomedCodeSystem.getDependantVersionEffectiveTime();
+			codeSystem.setSupplements(supplements);
 		}
 		return codeSystem;
 	}

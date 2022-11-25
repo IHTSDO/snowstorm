@@ -18,7 +18,6 @@ import org.hl7.fhir.instance.model.api.IPrimitiveType;
 import org.hl7.fhir.r4.model.*;
 import org.hl7.fhir.r4.model.OperationOutcome.IssueType;
 import org.jetbrains.annotations.NotNull;
-import org.snomed.snowstorm.core.data.domain.CodeSystemVersion;
 import org.snomed.snowstorm.core.data.domain.Concept;
 import org.snomed.snowstorm.core.data.services.CodeSystemService;
 import org.snomed.snowstorm.core.data.services.MultiSearchService;
@@ -165,8 +164,7 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants 
 		Stream<CodeSystem> snomedCodeSystemStream = snomedMultiSearchService.getAllPublishedVersions().stream()
 				.map(snomedSystemVersion -> new FHIRCodeSystemVersion(snomedSystemVersion).toHapiCodeSystem());
 
-		Stream<CodeSystem> snomedPostcoordinatedStream = snomedCodeSystemService.findAllBrief().stream()
-				.filter(org.snomed.snowstorm.core.data.domain.CodeSystem::isPostcoordinatedNullSafe)
+		Stream<CodeSystem> snomedPostcoordinatedStream = snomedCodeSystemService.findAllPostcoordinatedBrief().stream()
 				.map(snomedSystem -> new FHIRCodeSystemVersion(snomedSystem).toHapiCodeSystem());
 
 		Stream<CodeSystem> fhirCodeSystemStream = StreamSupport.stream(fhirCodeSystemService.findAll().spliterator(), false)
@@ -189,8 +187,7 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants 
 		} else {
 			Stream<CodeSystem> snomedPublished = snomedMultiSearchService.getAllPublishedVersions().stream()
 					.map(cv -> new FHIRCodeSystemVersion(cv).toHapiCodeSystem());
-			Stream<CodeSystem> snomedPostcoordinated = snomedCodeSystemService.findAllBrief().stream()
-					.filter(org.snomed.snowstorm.core.data.domain.CodeSystem::isPostcoordinatedNullSafe)
+			Stream<CodeSystem> snomedPostcoordinated = snomedCodeSystemService.findAllPostcoordinatedBrief().stream()
 					.map(snomedSystem -> new FHIRCodeSystemVersion(snomedSystem).toHapiCodeSystem());
 
 			Optional<CodeSystem> snomedCodeSystem = Stream.concat(snomedPublished, snomedPostcoordinated)
