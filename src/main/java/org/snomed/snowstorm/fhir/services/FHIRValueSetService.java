@@ -740,9 +740,10 @@ public class FHIRValueSetService {
 		for (FHIRCodeSystemVersion codeSystemVersionForExpansion : codeSystemVersionsForExpansion) {
 
 			// Check system and version match
-			if (coding.getSystem().equals(codeSystemVersionForExpansion.getUrl()) &&
-					(coding.getVersion() == null || coding.getVersion().equals(codeSystemVersionForExpansion.getVersion())) ||
-					(FHIRHelper.isSnomedUri(coding.getSystem()) && codeSystemVersionForExpansion.getVersion().contains(coding.getVersion()))) {
+			String system = coding.getSystem();
+			String url = codeSystemVersionForExpansion.getUrl();
+			if (system.equals(url) &&
+					(coding.getVersion() == null || codeSystemVersionForExpansion.isVersionMatch(coding.getVersion()))) {
 
 				if (codeSystemVersionForExpansion.isOnSnomedBranch()) {
 					snomedVersions.add(codeSystemVersionForExpansion);

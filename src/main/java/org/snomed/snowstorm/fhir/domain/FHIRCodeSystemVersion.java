@@ -10,6 +10,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.core.data.domain.CodeSystemVersion;
 import org.snomed.snowstorm.fhir.services.FHIRCodeSystemService;
+import org.snomed.snowstorm.fhir.services.FHIRHelper;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.annotation.Transient;
 import org.springframework.data.elasticsearch.annotations.*;
@@ -95,7 +96,8 @@ public class FHIRCodeSystemVersion {
 	}
 
 	public FHIRCodeSystemVersion(CodeSystemVersion snomedVersion) {
-		this(snomedVersion.getCodeSystem());
+		this(snomedVersion.getCodeSystem(), false);
+		url = SNOMED_URI;
 
 		String moduleId = snomedVersion.getCodeSystem().getUriModuleId();
 		id = FHIRCodeSystemService.SCT_ID_PREFIX + moduleId + "_" + snomedVersion.getEffectiveDate();
@@ -113,10 +115,6 @@ public class FHIRCodeSystemVersion {
 		snomedCodeSystem = snomedVersion.getCodeSystem();
 	}
 
-	public FHIRCodeSystemVersion(org.snomed.snowstorm.core.data.domain.CodeSystem snomedCodeSystem) {
-		this(snomedCodeSystem, false);
-	}
-
 	public FHIRCodeSystemVersion(org.snomed.snowstorm.core.data.domain.CodeSystem snomedCodeSystem, boolean unversioned) {
 		name = SNOMED_CT;
 		url = SNOMED_URI;
@@ -128,11 +126,11 @@ public class FHIRCodeSystemVersion {
 		content = CodeSystem.CodeSystemContentMode.COMPLETE.toCode();
 		if (unversioned) {
 			url = SNOMED_URI_UNVERSIONED;
-			String moduleId = snomedCodeSystem.getUriModuleId();
+			String moduleId = snomedCodeSystem.getDefaultModuleId();
 			id = FHIRCodeSystemService.SCT_ID_PREFIX + moduleId + UNVERSIONED;
 			version = SNOMED_URI_UNVERSIONED + "/" + moduleId;
-			snomedBranch = snomedCodeSystem.getBranchPath();
 		}
+		snomedBranch = snomedCodeSystem.getBranchPath();
 		this.snomedCodeSystem = snomedCodeSystem;
 	}
 
@@ -162,6 +160,11 @@ public class FHIRCodeSystemVersion {
 
 	public boolean isSnomedUnversioned() {
 		return SNOMED_URI_UNVERSIONED.equals(url);
+	}
+
+	public boolean isVersionMatch(String requestedVersion) {
+		if (requestedVersion == null || requestedVersion.equals(version)) return true;
+		return FHIRHelper.isSnomedUri(getUrl()) && version.substring(0, version.indexOf(VERSION)).equals(requestedVersion);
 	}
 
 	public String getCanonical() {
