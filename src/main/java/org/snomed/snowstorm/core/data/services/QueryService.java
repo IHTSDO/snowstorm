@@ -18,7 +18,6 @@ import org.snomed.snowstorm.core.util.PageHelper;
 import org.snomed.snowstorm.core.util.SearchAfterPage;
 import org.snomed.snowstorm.core.util.StreamUtil;
 import org.snomed.snowstorm.core.util.TimerUtil;
-import org.snomed.snowstorm.ecl.ConceptSelectorHelper;
 import org.snomed.snowstorm.ecl.ECLQueryService;
 import org.snomed.snowstorm.ecl.domain.expressionconstraint.SExpressionConstraint;
 import org.snomed.snowstorm.ecl.domain.expressionconstraint.SSubExpressionConstraint;
@@ -736,6 +735,7 @@ public class QueryService implements ApplicationContextAware {
 			return Objects.hash(stated, activeFilter, definitionStatusFilter, module, resultLanguageDialects, ecl,
 					conceptIds, descriptionCriteria, effectiveTime, isNullEffectiveTime, isReleased);
 		}
+
 	}
 
 }

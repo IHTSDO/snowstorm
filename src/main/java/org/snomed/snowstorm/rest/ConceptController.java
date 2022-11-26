@@ -22,6 +22,7 @@ import org.snomed.snowstorm.core.util.PageHelper;
 import org.snomed.snowstorm.core.util.SearchAfterPage;
 import org.snomed.snowstorm.core.util.SearchAfterPageImpl;
 import org.snomed.snowstorm.core.util.TimerUtil;
+import org.snomed.snowstorm.ecl.ECLQueryService;
 import org.snomed.snowstorm.ecl.validation.ECLValidator;
 import org.snomed.snowstorm.rest.converter.SearchAfterHelper;
 import org.snomed.snowstorm.rest.pojo.*;
@@ -84,6 +85,9 @@ public class ConceptController {
 	private ECLValidator eclValidator;
 
 	@Autowired
+	private ECLQueryService eclQueryService;
+	
+	@Autowired
 	private DroolsValidationService validationService;
 
 	@Autowired
@@ -133,6 +137,8 @@ public class ConceptController {
 			@RequestParam(required = false) Boolean isNullEffectiveTime,
 			@RequestParam(required = false) Boolean isPublished,
 			@RequestParam(required = false) String statedEcl,
+			@RequestParam(required = false, defaultValue = "false") Boolean includeLeafFlag,
+			@RequestParam(defaultValue = "inferred") Relationship.CharacteristicType form,
 			@RequestParam(required = false) Set<String> conceptIds,
 			@RequestParam(required = false) boolean returnIdOnly,
 			
@@ -140,7 +146,7 @@ public class ConceptController {
 			@RequestParam(required = false, defaultValue = "50") int limit,
 			@RequestParam(required = false) String searchAfter,
 			@Parameter(description = "Accept-Language header can take the format en-x-900000000000508004 which sets the language reference set to use in the results.")
-			@RequestHeader(value = "Accept-Language", defaultValue = Config.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) {
+			@RequestHeader(value = "Accept-Language", defaultValue = Config.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) throws ServiceException {
 
 		branch = BranchPathUriUtil.decodePath(branch);
 
@@ -192,7 +198,12 @@ public class ConceptController {
 					longsPage.getPageable(), longsPage.getTotalElements(), longsPage.getSearchAfter());
 			return new ItemsPage<>(stringPage);
 		} else {
-			return new ItemsPage<>(queryService.search(queryBuilder, branch, pageRequest));
+			Page<ConceptMini> miniConcepts = queryService.search(queryBuilder, branch, pageRequest);
+			final BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(branch);
+			if (Boolean.TRUE.equals(includeLeafFlag)) {
+				queryService.joinIsLeafFlag(miniConcepts.getContent(), form, branchCriteria, branch);
+			}
+			return new ItemsPage<>(miniConcepts);
 		}
 	}
 
@@ -213,7 +224,7 @@ public class ConceptController {
 	public ItemsPage<?> search(
 			@PathVariable String branch,
 			@RequestBody ConceptSearchRequest searchRequest,
-			@RequestHeader(value = "Accept-Language", defaultValue = Config.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) {
+			@RequestHeader(value = "Accept-Language", defaultValue = Config.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) throws ServiceException {
 
 		return findConcepts(BranchPathUriUtil.decodePath(branch),
 				searchRequest.getActiveFilter(),
@@ -231,6 +242,8 @@ public class ConceptController {
 				searchRequest.isNullEffectiveTime(),
 				searchRequest.isPublished(),
 				searchRequest.getStatedEclFilter(),
+				searchRequest.getIncludeLeafFlag(),
+				searchRequest.getForm(),
 				searchRequest.getConceptIds(),
 				searchRequest.isReturnIdOnly(),
 				searchRequest.getOffset(),
@@ -344,12 +357,12 @@ public class ConceptController {
 			@RequestParam(required = false, defaultValue = "false") boolean stated,
 			@RequestParam(required = false, defaultValue = "0") int offset,
 			@RequestParam(required = false, defaultValue = "50") int limit,
-			@RequestHeader(value = "Accept-Language", defaultValue = Config.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) {
+			@RequestHeader(value = "Accept-Language", defaultValue = Config.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) throws ServiceException {
 
 		return findConceptsWithECL("<" + conceptId, stated, branch, acceptLanguageHeader, offset, limit);
 	}
 
-	private ItemsPage<?> findConceptsWithECL(String ecl, boolean stated, String branch, String acceptLanguageHeader, int offset, int limit) {
+	private ItemsPage<?> findConceptsWithECL(String ecl, boolean stated, String branch, String acceptLanguageHeader, int offset, int limit) throws ServiceException {
 		final ConceptSearchRequest searchRequest = new ConceptSearchRequest();
 		if (stated) {
 			searchRequest.setStatedEclFilter(ecl);
@@ -508,16 +521,36 @@ public class ConceptController {
 			@PathVariable String conceptId,
 			@RequestParam(defaultValue = "inferred") Relationship.CharacteristicType form,
 			@RequestParam(required = false, defaultValue = "false") Boolean includeDescendantCount,
+			@RequestParam(required = false) String checkDescendantsWithinRefsetId,
 			@RequestHeader(value = "Accept-Language", defaultValue = Config.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) throws ServiceException {
 
 		branch = BranchPathUriUtil.decodePath(branch);
 		TimerUtil timer = new TimerUtil("Child listing: " + conceptId, Level.INFO, 5);
 
+		@SuppressWarnings("unchecked")
 		List<ConceptMini> children = (List<ConceptMini>) findConceptsWithECL("<!" + conceptId, form == Relationship.CharacteristicType.stated, branch, acceptLanguageHeader,
 				0, LARGE_PAGE.getPageSize()).getItems();
 
 		timer.checkpoint("Find children");
 
+		// For each child, determine if any its descendants are members of the passed-in
+		// refset
+		if (checkDescendantsWithinRefsetId != null) {
+			final BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(branch);
+			
+			// Calculate refset membership once, and pass in as a filter for each
+			// child-descendents query
+			Collection<Long> refsetMemberIds = eclQueryService.selectConceptIds("^" + checkDescendantsWithinRefsetId,
+					branchCriteria, true, null, null).getContent();
+
+			for (ConceptMini child : children) {
+
+				boolean childHasDescendantMembers = eclQueryService.hasAnyResults("<< " + child.getConceptId(), branch,
+						branchCriteria, true, refsetMemberIds);
+				child.addExtraField("descendantsAreMemberOfRefset", childHasDescendantMembers);
+			}
+		}
+		
 		BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(branch);
 		if (!includeDescendantCount) {
 			queryService.joinIsLeafFlag(children, form, branchCriteria, branch);
@@ -535,7 +568,7 @@ public class ConceptController {
 			@PathVariable String conceptId,
 			@RequestParam(defaultValue = "inferred") Relationship.CharacteristicType form,
 			@RequestParam(required = false, defaultValue = "false") Boolean includeDescendantCount,
-			@RequestHeader(value = "Accept-Language", defaultValue = Config.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) {
+			@RequestHeader(value = "Accept-Language", defaultValue = Config.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) throws ServiceException {
 
 		branch = BranchPathUriUtil.decodePath(branch);
 
@@ -554,12 +587,50 @@ public class ConceptController {
 	public Collection<?> findConceptAncestors(@PathVariable String branch,
 			@PathVariable String conceptId,
 			@RequestParam(defaultValue = "inferred") Relationship.CharacteristicType form,
-			@RequestHeader(value = "Accept-Language", defaultValue = Config.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) {
+			@RequestHeader(value = "Accept-Language", defaultValue = Config.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) throws ServiceException {
 
 		branch = BranchPathUriUtil.decodePath(branch);
 		return findConceptsWithECL(">" + conceptId, form == Relationship.CharacteristicType.stated, branch, acceptLanguageHeader, 0, LARGE_PAGE.getPageSize()).getItems();
 	}
 
+	@GetMapping(value = "/browser/{branch}/concepts/ancestor-paths")
+	@JsonView(value = View.Component.class)
+	public Collection<ConceptMini> findConceptAncestorPaths(@PathVariable String branch,
+			@RequestParam(required = false) List<Long> conceptIds,		
+			@RequestParam(defaultValue = "inferred") Relationship.CharacteristicType form,
+			@RequestHeader(value = "Accept-Language", defaultValue = Config.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) throws ServiceException {
+
+		branch = BranchPathUriUtil.decodePath(branch);	
+		
+		Map<String, ConceptMini> conceptMiniMap = conceptService.findConceptMinis(branch, conceptIds, ControllerHelper.parseAcceptLanguageHeaderWithDefaultFallback(acceptLanguageHeader)).getResultsMap();
+		
+		// For each concept, lookup a single ancestor-path from it to the top-level concept, and add the path to the result output.
+		Collection<ConceptMini> conceptsWithAncestorPaths = new ArrayList<>();
+		
+		for(final String conceptId : conceptMiniMap.keySet()) {
+			ArrayList<ConceptMini> ancestorPath = ancestorPathHelper(branch, form, conceptId, new ArrayList(), acceptLanguageHeader);
+			conceptMiniMap.get(conceptId).addExtraField("descriptions", conceptMiniMap.get(conceptId).getActiveDescriptions());
+			conceptMiniMap.get(conceptId).addExtraField("ancestorPath", ancestorPath);
+			conceptsWithAncestorPaths.add(conceptMiniMap.get(conceptId));
+		}
+		
+		return conceptsWithAncestorPaths;
+	}	
+	
+	private ArrayList<ConceptMini> ancestorPathHelper(String branch, Relationship.CharacteristicType form, String conceptId, ArrayList<ConceptMini> pathSoFar, String acceptLanguageHeader) throws ServiceException {
+		Collection<ConceptMini> conceptParents = findConceptParents(branch, conceptId, form, false, acceptLanguageHeader);
+		
+		if(conceptParents.isEmpty()) {
+			return pathSoFar;
+		}
+		else {
+			ConceptMini conceptParent = conceptParents.iterator().next();
+			conceptParent.addExtraField("descriptions", conceptParent.getActiveDescriptions());
+			pathSoFar.add(conceptParent);
+			return ancestorPathHelper(branch, form, conceptParent.getConceptId(), pathSoFar, acceptLanguageHeader);
+		}
+	}
+	
 	@GetMapping(value = "/{branch}/concepts/{conceptId}/authoring-form")
 	public Expression getConceptAuthoringForm(
 			@PathVariable String branch,
