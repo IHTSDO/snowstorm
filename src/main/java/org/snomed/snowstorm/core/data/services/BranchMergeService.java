@@ -6,7 +6,6 @@ import io.kaicode.elasticvc.domain.Branch;
 import io.kaicode.elasticvc.domain.Commit;
 import io.kaicode.elasticvc.domain.DomainEntity;
 import io.kaicode.elasticvc.domain.Entity;
-import io.kaicode.elasticvc.repositories.BranchRepository;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.search.sort.FieldSortBuilder;
@@ -85,9 +84,6 @@ public class BranchMergeService {
 
 	@Autowired
 	private ReferenceSetMemberRepository referenceSetMemberRepository;
-
-	@Autowired
-	private BranchRepository branchRepository;
 
 	private BranchReviewService branchReviewService;
 
@@ -258,7 +254,7 @@ public class BranchMergeService {
 
 				logger.info("Performing promotion {} -> {}", source, target);
 				final Map<String, Set<String>> versionsReplaced = sourceBranch.getVersionsReplaced();
-				final Map<Class<? extends DomainEntity>, ElasticsearchRepository> componentTypeRepoMap = domainEntityConfiguration.getAllTypeRepositoryMap();
+				final Map<Class<? extends DomainEntity<?>>, ElasticsearchRepository> componentTypeRepoMap = domainEntityConfiguration.getAllTypeRepositoryMap();
 				componentTypeRepoMap.entrySet().parallelStream().forEach(entry -> promoteEntities(source, commit, entry.getKey(), entry.getValue(), versionsReplaced));
 
 				commit.markSuccessful();
@@ -429,7 +425,7 @@ public class BranchMergeService {
 
 		// Find components on extension branch
 		Set<String> ids = new HashSet<>();
-		try (SearchHitsIterator<? extends SnomedComponent> conceptStream = elasticsearchTemplate.searchForStream(new NativeSearchQueryBuilder()
+		try (SearchHitsIterator<? extends SnomedComponent<?>> conceptStream = elasticsearchTemplate.searchForStream(new NativeSearchQueryBuilder()
 				.withQuery(boolQuery().must(entityBranchCriteria)
 						.must(termQuery("path", branch)))
 				.withPageable(ComponentService.LARGE_PAGE)
@@ -440,7 +436,7 @@ public class BranchMergeService {
 		// Find donated components where the extension version is not ended
 		Set<String> duplicateIds = new HashSet<>();
 		for (List<String> idsBatch : Iterables.partition(ids, 10_000)) {
-			try (SearchHitsIterator<? extends SnomedComponent> conceptStream = elasticsearchTemplate.searchForStream(new NativeSearchQueryBuilder()
+			try (SearchHitsIterator<? extends SnomedComponent<?>> conceptStream = elasticsearchTemplate.searchForStream(new NativeSearchQueryBuilder()
 					.withQuery(boolQuery().must(entityBranchCriteria)
 							.mustNot(termQuery("path", branch)))
 					.withFilter(termsQuery(idField, idsBatch))
@@ -460,7 +456,7 @@ public class BranchMergeService {
 		// End duplicate components in extension module if international components have the most recent released effective time
 		for (List<String> duplicateIdsBatch : Iterables.partition(duplicateIds, 10_000)) {
 			// International versions
-			List<? extends SnomedComponent> intVersions = elasticsearchTemplate.search(new NativeSearchQueryBuilder()
+			List<? extends SnomedComponent<?>> intVersions = elasticsearchTemplate.search(new NativeSearchQueryBuilder()
 					.withQuery(boolQuery().must(entityBranchCriteria)
 							.must(termsQuery(idField, duplicateIdsBatch))
 							.mustNot(termQuery("path", branch)))
@@ -469,9 +465,9 @@ public class BranchMergeService {
 					.stream().map(SearchHit::getContent)
 					.collect(Collectors.toList());
 
-			for (SnomedComponent intVersion : intVersions) {
+			for (SnomedComponent<?> intVersion : intVersions) {
 				String duplicateId = intVersion.getId();
-				List<? extends SnomedComponent> extensionVersionList = elasticsearchTemplate.search(new NativeSearchQueryBuilder()
+				List<? extends SnomedComponent<?>> extensionVersionList = elasticsearchTemplate.search(new NativeSearchQueryBuilder()
 						.withQuery(boolQuery().must(entityBranchCriteria)
 								.must(termQuery(idField, duplicateId))
 								.must(termQuery("path", branch)))
@@ -482,7 +478,7 @@ public class BranchMergeService {
 					throw new IllegalStateException(String.format("During fix stage expecting 1 extension version but found %s for id %s", extensionVersionList.size(), clazz));
 				}
 
-				SnomedComponent extensionVersion = extensionVersionList.get(0);
+				SnomedComponent<?> extensionVersion = extensionVersionList.get(0);
 				if (endThisVersion && intVersion.isReleasedMoreRecentlyThan(extensionVersion)) {
 					// End duplicate components in extension module
 					extensionVersion.setEnd(commit.getTimepoint());

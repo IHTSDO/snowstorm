@@ -30,6 +30,7 @@ public class DescriptionCriteria {
 	private Set<Long> acceptableIn;
 	private Set<Long> preferredOrAcceptableIn;
 	private List<DisjunctionAcceptabilityCriteria> disjunctionAcceptabilityCriteria;
+	private Collection<Long> conceptIds;
 
 	public static void configure(int searchTermMinimumLength, int searchTermMaximumLength) {
 		searchTermMinLength = searchTermMinimumLength;
@@ -205,6 +206,14 @@ public class DescriptionCriteria {
 
 	public List<DisjunctionAcceptabilityCriteria> getDisjunctionAcceptabilityCriteria() {
 		return disjunctionAcceptabilityCriteria;
+	}
+
+	public void conceptIds(Collection<Long> conceptIds) {
+		this.conceptIds = conceptIds;
+	}
+
+	public Collection<Long> getConceptIds() {
+		return conceptIds;
 	}
 
 	@Override

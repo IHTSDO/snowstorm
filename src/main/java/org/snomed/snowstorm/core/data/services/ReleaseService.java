@@ -57,7 +57,7 @@ public class ReleaseService {
 			BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(path);
 
 			Set<Class<? extends SnomedComponent<?>>> componentTypes = domainEntityConfiguration.getComponentTypeRepositoryMap().keySet();
-			for (Class<? extends SnomedComponent> componentType : componentTypes) {
+			for (Class<? extends SnomedComponent<?>> componentType : componentTypes) {
 				releaseComponentsOfType(componentType, effectiveTime, commit, branchCriteria);
 			}
 

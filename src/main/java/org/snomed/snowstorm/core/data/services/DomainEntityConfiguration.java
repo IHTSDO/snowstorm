@@ -32,10 +32,10 @@ public class DomainEntityConfiguration {
 	private ReferenceSetTypeRepository referenceSetTypeRepository;
 
 	private Map<Class<? extends SnomedComponent<?>>, ElasticsearchRepository> componentTypeRepositoryMap;
-	private Map<Class<? extends DomainEntity>, ElasticsearchRepository> allTypeRepositoryMap;
+	private Map<Class<? extends DomainEntity<?>>, ElasticsearchRepository> allTypeRepositoryMap;
 
 	private Set<Class<? extends DomainEntity<?>>> allTypes;
-	private Map<Class<? extends DomainEntity>, String> allIdFields;
+	private Map<Class<? extends DomainEntity<?>>, String> allIdFields;
 
 	@PostConstruct
 	public void init() {
@@ -71,7 +71,7 @@ public class DomainEntityConfiguration {
 		return componentTypeRepositoryMap;
 	}
 
-	public Map<Class<? extends DomainEntity>, ElasticsearchRepository> getAllTypeRepositoryMap() {
+	public Map<Class<? extends DomainEntity<?>>, ElasticsearchRepository> getAllTypeRepositoryMap() {
 		return allTypeRepositoryMap;
 	}
 
@@ -79,7 +79,7 @@ public class DomainEntityConfiguration {
 		return allTypes;
 	}
 
-	public Map<Class<? extends DomainEntity>, String> getAllIdFields() {
+	public Map<Class<? extends DomainEntity<?>>, String> getAllIdFields() {
 		return allIdFields;
 	}
 }
