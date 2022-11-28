@@ -1,15 +1,11 @@
 package org.snomed.snowstorm.ecl.deserializer;
 
 import com.fasterxml.jackson.core.JsonParser;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.core.TreeNode;
 import com.fasterxml.jackson.databind.DeserializationContext;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.deser.std.StdDeserializer;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.snomed.langauges.ecl.domain.expressionconstraint.*;
+import org.snomed.langauges.ecl.domain.expressionconstraint.ExpressionConstraint;
 import org.snomed.langauges.ecl.domain.refinement.Refinement;
 import org.snomed.snowstorm.core.data.services.RuntimeServiceException;
 import org.snomed.snowstorm.ecl.domain.expressionconstraint.SCompoundExpressionConstraint;
@@ -40,7 +36,7 @@ public class ECLModelDeserializer extends StdDeserializer<ExpressionConstraint> 
 		}
 		if (node.get("conjunctionExpressionConstraints") != null ||
 				node.get("disjunctionExpressionConstraints") != null ||
-				node.get("exclusionExpressionConstraint") != null) {
+				node.get("exclusionExpressionConstraints") != null) {
 			return mapper.readValue(node.toString(), SCompoundExpressionConstraint.class);
 		}
 		return mapper.readValue(node.toString(), SSubExpressionConstraint.class);
