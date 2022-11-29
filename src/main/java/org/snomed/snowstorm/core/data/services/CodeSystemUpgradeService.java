@@ -16,6 +16,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.context.SecurityContext;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
 import java.util.Date;
@@ -93,7 +95,8 @@ public class CodeSystemUpgradeService {
 
 	@PreAuthorize("hasPermission('ADMIN', #codeSystem.branchPath)")
 	@Async
-	public void upgradeAsync(String id, CodeSystem codeSystem, Integer newDependantVersion, boolean contentAutomations) throws  ServiceException {
+	public void upgradeAsync(String id, CodeSystem codeSystem, Integer newDependantVersion, boolean contentAutomations, SecurityContext securityContext) throws  ServiceException {
+		SecurityContextHolder.setContext(securityContext);
 		upgrade(id, codeSystem, newDependantVersion, contentAutomations);
 	}
 

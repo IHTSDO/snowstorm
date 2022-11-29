@@ -18,6 +18,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Collection;
@@ -186,7 +187,7 @@ public class CodeSystemController {
 			String id = codeSystemUpgradeService.findRunningJob(shortName, request.getNewDependantVersion());
 			if (id == null) {
 				id = codeSystemUpgradeService.createJob(shortName, request.getNewDependantVersion());
-				codeSystemUpgradeService.upgradeAsync(id, codeSystem, request.getNewDependantVersion(), TRUE.equals(request.getContentAutomations()));
+				codeSystemUpgradeService.upgradeAsync(id, codeSystem, request.getNewDependantVersion(), TRUE.equals(request.getContentAutomations()), SecurityContextHolder.getContext());
 			}
 			return ControllerHelper.getCreatedResponse(id, "/" + shortName);
 		} else {
