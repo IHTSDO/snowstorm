@@ -31,8 +31,6 @@ public class CodeSystemUpgradeService {
 	private static final long ONE_HOUR_IN_MILLI_SEC = 3600 * 1000;
 	private static final long ONE_DAY_IN_MILLI_SEC = 24 * ONE_HOUR_IN_MILLI_SEC;
 
-	private Timer crunchifyTimer;
-
 	@Autowired
 	private CodeSystemService codeSystemService;
 
@@ -62,10 +60,10 @@ public class CodeSystemUpgradeService {
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
 	public CodeSystemUpgradeService() {
-		crunchifyTimer = new Timer();
+		Timer timer = new Timer();
 
 		// Schedules the specified task for repeated fixed-delay execution
-		crunchifyTimer.schedule(new CrunchifyReminder(), 0, ONE_HOUR_IN_MILLI_SEC);
+		timer.schedule(new CodeSystemUpgradeJobReminder(), 0, ONE_HOUR_IN_MILLI_SEC);
 	}
 
 	public String findRunningJob(String codeSystemShortname, Integer newDependantVersion) {
@@ -106,7 +104,7 @@ public class CodeSystemUpgradeService {
 	}
 
 	@PreAuthorize("hasPermission('ADMIN', #codeSystem.branchPath)")
-	public void upgrade(String id, CodeSystem codeSystem, Integer newDependantVersion, boolean contentAutomations) throws  ServiceException {
+	public synchronized void upgrade(String id, CodeSystem codeSystem, Integer newDependantVersion, boolean contentAutomations) throws  ServiceException {
 		CodeSystemUpgradeJob job = null;
 		if (id != null) {
 			job = getJob(id);
@@ -219,25 +217,25 @@ public class CodeSystemUpgradeService {
 		branchService.updateMetadata(branchPath, metadata);
 	}
 
-	class CrunchifyReminder extends TimerTask {
+	class CodeSystemUpgradeJobReminder extends TimerTask {
 		public void run() {
-			crunchifyClearExpiredElementsFromMap();
+			clearExpiredElementsFromMap();
 		}
 	}
 
 	// Check for element's expired time. If element is > 1 day old then remove it
-	private static void crunchifyClearExpiredElementsFromMap() {
+	private static void clearExpiredElementsFromMap() {
 
 		long currentTimestamp = System.currentTimeMillis();
 
-		Iterator<Entry<String, CodeSystemUpgradeJob>> crunchifyIterator = CodeSystemUpgradeService.upgradeJobMap.entrySet().iterator();
+		Iterator<Entry<String, CodeSystemUpgradeJob>> iterator = CodeSystemUpgradeService.upgradeJobMap.entrySet().iterator();
 
-		while (crunchifyIterator.hasNext()) {
-			Entry<String, CodeSystemUpgradeJob> entry = crunchifyIterator.next();
-			CodeSystemUpgradeJob crunchifyElement = entry.getValue();
+		while (iterator.hasNext()) {
+			Entry<String, CodeSystemUpgradeJob> entry = iterator.next();
+			CodeSystemUpgradeJob value = entry.getValue();
 
-			if (currentTimestamp - crunchifyElement.getCreationTimestamp() >= ONE_DAY_IN_MILLI_SEC) {
-				crunchifyIterator.remove();
+			if ((currentTimestamp - value.getCreationTimestamp()) >= ONE_DAY_IN_MILLI_SEC) {
+				iterator.remove();
 			}
 		}
 	}
