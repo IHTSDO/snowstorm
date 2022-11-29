@@ -100,7 +100,7 @@ class CodeSystemServiceIntegrationTest extends AbstractTest {
 		assertEquals("900101001", conceptService.find("18736003", "MAIN/SNOMEDCT-BE").getModuleId());
 
 		// Upgrade the extension to international version 20190131
-		codeSystemUpgradeService.upgrade(extensionCodeSystem, 20190131, true);
+		codeSystemUpgradeService.upgrade(null, extensionCodeSystem, 20190131, true);
 
 		extensionCodeSystem = codeSystemService.find("SNOMEDCT-BE");
 		assertEquals("MAIN/SNOMEDCT-BE", extensionCodeSystem.getBranchPath());
@@ -179,7 +179,7 @@ class CodeSystemServiceIntegrationTest extends AbstractTest {
 
 		// Upgrade the extension to the new international version
 		assertEquals(20180731, codeSystemService.find(extensionCodeSystem.getShortName()).getDependantVersionEffectiveTime().intValue());
-		codeSystemUpgradeService.upgrade(extensionCodeSystem, 20190131, true);
+		codeSystemUpgradeService.upgrade(null, extensionCodeSystem, 20190131, true);
 		assertEquals(20190131, codeSystemService.find(extensionCodeSystem.getShortName()).getDependantVersionEffectiveTime().intValue());
 
 		// check branch metadata
@@ -259,7 +259,7 @@ class CodeSystemServiceIntegrationTest extends AbstractTest {
 		assertEquals("731000124108", relationship.getModuleId());
 
 		// Upgrade the US code system
-		codeSystemUpgradeService.upgrade(usCodeSystem, 20210131, true);
+		codeSystemUpgradeService.upgrade(null, usCodeSystem, 20210131, true);
 
 		// Assert that the inferred relationship in the US branch is still inactive and still has the US version effectiveTime.
 		concept = conceptService.find(concept.getConceptId(), usCodeSystem.getBranchPath());
