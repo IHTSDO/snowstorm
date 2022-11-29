@@ -2227,7 +2227,7 @@ class BranchMergeServiceTest extends AbstractTest {
 
 		// 7. Upgrade Extension
 		codeSystem = codeSystemService.find("SNOMEDCT-TEST");
-		codeSystemUpgradeService.upgrade(codeSystem, 20220228, false);
+		codeSystemUpgradeService.upgrade(null, codeSystem, 20220228, false);
 
 		// 8. Rebase Extension task
 		MergeReview review = getMergeReviewInCurrentState(extMain, extTask);
@@ -2330,7 +2330,7 @@ class BranchMergeServiceTest extends AbstractTest {
 
 		// 7. Upgrade Extension
 		codeSystem = codeSystemService.find("SNOMEDCT-TEST");
-		codeSystemUpgradeService.upgrade(codeSystem, 20220228, false);
+		codeSystemUpgradeService.upgrade(null, codeSystem, 20220228, false);
 
 		// 8. Rebase Extension task
 		MergeReview review = getMergeReviewInCurrentState(extMain, extTask);
@@ -2463,7 +2463,7 @@ class BranchMergeServiceTest extends AbstractTest {
 
 		// 7. Upgrade Extension
 		codeSystem = codeSystemService.find("SNOMEDCT-TEST");
-		codeSystemUpgradeService.upgrade(codeSystem, 20220228, false);
+		codeSystemUpgradeService.upgrade(null, codeSystem, 20220228, false);
 
 		// 8. Someone sneaks in an authoring change to the CodeSystem
 		concept = conceptService.find(cinnamonId, extMain);
@@ -2603,7 +2603,7 @@ class BranchMergeServiceTest extends AbstractTest {
 
 		// 7. Upgrade Extension
 		codeSystem = codeSystemService.find("SNOMEDCT-TEST");
-		codeSystemUpgradeService.upgrade(codeSystem, 20220228, false);
+		codeSystemUpgradeService.upgrade(null, codeSystem, 20220228, false);
 
 		// 8. Someone sneaks in an authoring change to the CodeSystem
 		concept = conceptService.find(cinnamonId, extMain);
@@ -2751,7 +2751,7 @@ class BranchMergeServiceTest extends AbstractTest {
 
 		// 8. Upgrade Extension
 		codeSystem = codeSystemService.find("SNOMEDCT-TEST");
-		codeSystemUpgradeService.upgrade(codeSystem, 20220228, false);
+		codeSystemUpgradeService.upgrade(null, codeSystem, 20220228, false);
 
 		// 9 Rebase project
 		review = getMergeReviewInCurrentState(extMain, extProject);
@@ -2903,7 +2903,7 @@ class BranchMergeServiceTest extends AbstractTest {
 
 		// 8. Upgrade Extension
 		codeSystem = codeSystemService.find("SNOMEDCT-TEST");
-		codeSystemUpgradeService.upgrade(codeSystem, 20220228, false);
+		codeSystemUpgradeService.upgrade(null, codeSystem, 20220228, false);
 
 		// 9 Rebase project
 		review = getMergeReviewInCurrentState(extMain, extProject);
@@ -3692,7 +3692,7 @@ class BranchMergeServiceTest extends AbstractTest {
 
 		// 7. Upgrade Extension
 		codeSystem = codeSystemService.find("SNOMEDCT-TEST");
-		codeSystemUpgradeService.upgrade(codeSystem, 20220228, false);
+		codeSystemUpgradeService.upgrade(null, codeSystem, 20220228, false);
 
 		// 8. Rebase Extension project
 		review = getMergeReviewInCurrentState(extMain, extProject);
@@ -3732,7 +3732,7 @@ class BranchMergeServiceTest extends AbstractTest {
 
 		// 18. Upgrade Extension
 		codeSystem = codeSystemService.find("SNOMEDCT-TEST");
-		codeSystemUpgradeService.upgrade(codeSystem, 20220331, false);
+		codeSystemUpgradeService.upgrade(null, codeSystem, 20220331, false);
 
 		// 19. Assert state of inactivated member before rebase
 		associationMember = memberService.findMember(intMain, associationMemberId);
@@ -3831,7 +3831,7 @@ class BranchMergeServiceTest extends AbstractTest {
 
 		// 7. Upgrade Extension
 		codeSystem = codeSystemService.find("SNOMEDCT-TEST");
-		codeSystemUpgradeService.upgrade(codeSystem, 20220228, false);
+		codeSystemUpgradeService.upgrade(null, codeSystem, 20220228, false);
 
 		// 8. Rebase Extension project
 		review = getMergeReviewInCurrentState(extMain, extProject);
@@ -3867,7 +3867,7 @@ class BranchMergeServiceTest extends AbstractTest {
 
 		// 14. Upgrade Extension
 		codeSystem = codeSystemService.find("SNOMEDCT-TEST");
-		codeSystemUpgradeService.upgrade(codeSystem, 20220331, false);
+		codeSystemUpgradeService.upgrade(null, codeSystem, 20220331, false);
 
 		// 15. Assert state of inactivated member before rebase
 		associationMember = memberService.findMember(intMain, associationMemberId);
