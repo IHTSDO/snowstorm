@@ -260,7 +260,7 @@ class CodeSystemControllerTest extends AbstractTest {
     }
 
     private void givenCodeSystemUpgraded(String shortName, int newDependentOnVersion) throws ServiceException {
-        codeSystemUpgradeService.upgrade(codeSystemService.find(shortName), newDependentOnVersion, false);
+        codeSystemUpgradeService.upgrade(null, codeSystemService.find(shortName), newDependentOnVersion, false);
     }
 
     private void givenCodeSystemVersionExists(String shortName, int effectiveDate, String description, int dependsOn) {
