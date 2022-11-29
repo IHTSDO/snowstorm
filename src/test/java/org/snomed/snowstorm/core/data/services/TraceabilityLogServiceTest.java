@@ -716,7 +716,7 @@ class TraceabilityLogServiceTest extends AbstractTest {
 
 		// Extension upgrades to International's July content
 		codeSystem = codeSystemService.find("SNOMEDCT-TEST");
-		codeSystemUpgradeService.upgrade(codeSystem, 20220731, false);
+		codeSystemUpgradeService.upgrade(null, codeSystem, 20220731, false);
 
 		// Extension ends up with International version of inactivated Relationship post upgrade
 		relationship = relationshipService.findRelationship(extMain, relationshipToBeInactivated);

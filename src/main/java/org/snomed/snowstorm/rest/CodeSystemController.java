@@ -9,11 +9,13 @@ import org.snomed.snowstorm.core.data.domain.CodeSystem;
 import org.snomed.snowstorm.core.data.domain.CodeSystemVersion;
 import org.snomed.snowstorm.core.data.domain.fieldpermissions.CodeSystemCreate;
 import org.snomed.snowstorm.core.data.services.*;
+import org.snomed.snowstorm.core.data.services.pojo.CodeSystemUpgradeJob;
 import org.snomed.snowstorm.dailybuild.DailyBuildService;
 import org.snomed.snowstorm.extension.ExtensionAdditionalLanguageRefsetUpgradeService;
 import org.snomed.snowstorm.rest.pojo.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -178,9 +180,26 @@ public class CodeSystemController {
 					"to support creating a new version of the extension. \n\n" +
 					"If you are the extension maintainer an integrity check should be run after this operation to find content that needs fixing. ")
 	@PostMapping(value = "/{shortName}/upgrade")
-	public void upgradeCodeSystem(@PathVariable String shortName, @RequestBody CodeSystemUpgradeRequest request) throws ServiceException {
+	public ResponseEntity<Void> upgradeCodeSystem(@PathVariable String shortName, @RequestBody CodeSystemUpgradeRequest request) throws ServiceException {
 		CodeSystem codeSystem = codeSystemService.findOrThrow(shortName);
-		codeSystemUpgradeService.upgrade(codeSystem, request.getNewDependantVersion(), TRUE.equals(request.getContentAutomations()));
+		if (TRUE.equals(request.isAsyncRequest())) {
+			String id = codeSystemUpgradeService.findRunningJob(shortName, request.getNewDependantVersion());
+			if (id == null) {
+				id = codeSystemUpgradeService.createJob(shortName, request.getNewDependantVersion());
+				codeSystemUpgradeService.upgradeAsync(id, codeSystem, request.getNewDependantVersion(), TRUE.equals(request.getContentAutomations()));
+			}
+			return ControllerHelper.getCreatedResponse(id, "/" + shortName);
+		} else {
+			codeSystemUpgradeService.upgrade(null, codeSystem, request.getNewDependantVersion(), TRUE.equals(request.getContentAutomations()));
+			return new ResponseEntity<>(HttpStatus.OK);
+		}
+	}
+
+	@Operation(summary = "Retrieve an upgrade job.",
+			description = "Retrieves the state of an upgrade job. Used to view the upgrade configuration and check its status.")
+	@GetMapping(value = "/upgrade/{jobId}")
+	public CodeSystemUpgradeJob getUpgradeJob(@PathVariable String jobId) {
+		return codeSystemUpgradeService.getUpgradeJobOrThrow(jobId);
 	}
 
 	@Operation(summary = "Check if daily build import matches today's date.")

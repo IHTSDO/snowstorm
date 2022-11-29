@@ -4,6 +4,7 @@ public class CodeSystemUpgradeRequest {
 
 	private Integer newDependantVersion;
 	private Boolean contentAutomations;
+	private Boolean asyncRequest;
 
 	public CodeSystemUpgradeRequest() {
 	}
@@ -22,5 +23,13 @@ public class CodeSystemUpgradeRequest {
 
 	public Boolean getContentAutomations() {
 		return contentAutomations;
+	}
+
+	public void setAsyncRequest(Boolean asyncRequest) {
+		this.asyncRequest = asyncRequest;
+	}
+
+	public Boolean isAsyncRequest() {
+		return asyncRequest;
 	}
 }
