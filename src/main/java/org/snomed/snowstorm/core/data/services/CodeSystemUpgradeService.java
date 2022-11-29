@@ -8,7 +8,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.core.data.domain.CodeSystem;
 import org.snomed.snowstorm.core.data.domain.CodeSystemVersion;
-import org.snomed.snowstorm.core.data.domain.JobStatus;
 import org.snomed.snowstorm.core.data.repositories.CodeSystemRepository;
 import org.snomed.snowstorm.core.data.services.pojo.CodeSystemUpgradeJob;
 import org.snomed.snowstorm.core.data.services.pojo.IntegrityIssueReport;
@@ -101,17 +100,23 @@ public class CodeSystemUpgradeService {
 	}
 
 	@PreAuthorize("hasPermission('ADMIN', #codeSystem.branchPath)")
-	public void upgradeAsync(String id, CodeSystem codeSystem, Integer newDependantVersion, boolean contentAutomations) {
+	public String upgradeAsync(CodeSystem codeSystem, Integer newDependantVersion, boolean contentAutomations) {
+		String runningJobId = findRunningJob(codeSystem.getShortName(), newDependantVersion);
+		if (runningJobId != null) {
+			return runningJobId;
+		}
+		final String newJobId = createJob(codeSystem.getShortName(), newDependantVersion);
 		final SecurityContext securityContext = SecurityContextHolder.getContext();
 		executorService.submit(() -> {
 			// Bring user security context into new thread
 			SecurityContextHolder.setContext(securityContext);
 			try {
-				upgrade(id, codeSystem, newDependantVersion, contentAutomations);
+				upgrade(newJobId, codeSystem, newDependantVersion, contentAutomations);
 			} catch (ServiceException e) {
 				logger.error(e.getMessage(), e);
 			}
 		});
+		return newJobId;
 	}
 
 	@PreAuthorize("hasPermission('ADMIN', #codeSystem.branchPath)")
