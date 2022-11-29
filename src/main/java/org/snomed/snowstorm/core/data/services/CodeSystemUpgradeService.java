@@ -20,16 +20,18 @@ import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
-import java.util.Date;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
+import java.util.Map.Entry;
 
 import static org.snomed.snowstorm.core.data.services.BranchMetadataHelper.INTERNAL_METADATA_KEY;
 import static org.snomed.snowstorm.core.data.services.BranchMetadataKeys.*;
 
 @Service
 public class CodeSystemUpgradeService {
+	private static final long ONE_HOUR_IN_MILLI_SEC = 3600 * 1000;
+	private static final long ONE_DAY_IN_MILLI_SEC = 24 * ONE_HOUR_IN_MILLI_SEC;
+
+	private Timer crunchifyTimer;
 
 	@Autowired
 	private CodeSystemService codeSystemService;
@@ -55,12 +57,15 @@ public class CodeSystemUpgradeService {
 	@Value("${snowstorm.rest-api.readonly}")
 	private boolean isReadOnly;
 
-	private final Map<String, CodeSystemUpgradeJob> upgradeJobMap;
+	private static final Map<String, CodeSystemUpgradeJob> upgradeJobMap = new HashMap<>();
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
 	public CodeSystemUpgradeService() {
-		this.upgradeJobMap = new HashMap<>();
+		crunchifyTimer = new Timer();
+
+		// Schedules the specified task for repeated fixed-delay execution
+		crunchifyTimer.schedule(new CrunchifyReminder(), 0, ONE_HOUR_IN_MILLI_SEC);
 	}
 
 	public String findRunningJob(String codeSystemShortname, Integer newDependantVersion) {
@@ -212,5 +217,28 @@ public class CodeSystemUpgradeService {
 
 		// update branch metadata
 		branchService.updateMetadata(branchPath, metadata);
+	}
+
+	class CrunchifyReminder extends TimerTask {
+		public void run() {
+			crunchifyClearExpiredElementsFromMap();
+		}
+	}
+
+	// Check for element's expired time. If element is > 1 day old then remove it
+	private static void crunchifyClearExpiredElementsFromMap() {
+
+		long currentTimestamp = System.currentTimeMillis();
+
+		Iterator<Entry<String, CodeSystemUpgradeJob>> crunchifyIterator = CodeSystemUpgradeService.upgradeJobMap.entrySet().iterator();
+
+		while (crunchifyIterator.hasNext()) {
+			Entry<String, CodeSystemUpgradeJob> entry = crunchifyIterator.next();
+			CodeSystemUpgradeJob crunchifyElement = entry.getValue();
+
+			if (currentTimestamp - crunchifyElement.getCreationTimestamp() >= ONE_DAY_IN_MILLI_SEC) {
+				crunchifyIterator.remove();
+			}
+		}
 	}
 }

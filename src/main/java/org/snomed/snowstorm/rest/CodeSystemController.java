@@ -183,17 +183,12 @@ public class CodeSystemController {
 	@PostMapping(value = "/{shortName}/upgrade")
 	public ResponseEntity<Void> upgradeCodeSystem(@PathVariable String shortName, @RequestBody CodeSystemUpgradeRequest request) throws ServiceException {
 		CodeSystem codeSystem = codeSystemService.findOrThrow(shortName);
-		if (TRUE.equals(request.isAsyncRequest())) {
-			String id = codeSystemUpgradeService.findRunningJob(shortName, request.getNewDependantVersion());
-			if (id == null) {
-				id = codeSystemUpgradeService.createJob(shortName, request.getNewDependantVersion());
-				codeSystemUpgradeService.upgradeAsync(id, codeSystem, request.getNewDependantVersion(), TRUE.equals(request.getContentAutomations()), SecurityContextHolder.getContext());
-			}
-			return ControllerHelper.getCreatedResponse(id, "/" + shortName);
-		} else {
-			codeSystemUpgradeService.upgrade(null, codeSystem, request.getNewDependantVersion(), TRUE.equals(request.getContentAutomations()));
-			return new ResponseEntity<>(HttpStatus.OK);
+		String id = codeSystemUpgradeService.findRunningJob(shortName, request.getNewDependantVersion());
+		if (id == null) {
+			id = codeSystemUpgradeService.createJob(shortName, request.getNewDependantVersion());
+			codeSystemUpgradeService.upgradeAsync(id, codeSystem, request.getNewDependantVersion(), TRUE.equals(request.getContentAutomations()), SecurityContextHolder.getContext());
 		}
+		return ControllerHelper.getCreatedResponse(id, "/" + shortName);
 	}
 
 	@Operation(summary = "Retrieve an upgrade job.",

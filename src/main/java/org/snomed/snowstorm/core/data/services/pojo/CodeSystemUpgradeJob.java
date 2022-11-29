@@ -14,10 +14,13 @@ public class CodeSystemUpgradeJob {
 
 	private String errorMessage;
 
+	private long creationTimestamp;
+
 	public CodeSystemUpgradeJob(String codeSystemShortname, Integer newDependantVersion) {
 		this.newDependantVersion = newDependantVersion;
 		this.codeSystemShortname = codeSystemShortname;
 		this.status = UpgradeStatus.RUNNING;
+		this.creationTimestamp = System.currentTimeMillis();
 	}
 
 	public Integer getNewDependantVersion() {
@@ -42,5 +45,9 @@ public class CodeSystemUpgradeJob {
 
 	public void setErrorMessage(String errorMessage) {
 		this.errorMessage = errorMessage;
+	}
+
+	public long getCreationTimestamp() {
+		return creationTimestamp;
 	}
 }
