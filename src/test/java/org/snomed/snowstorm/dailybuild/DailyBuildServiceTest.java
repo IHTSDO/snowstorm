@@ -187,7 +187,7 @@ class DailyBuildServiceTest extends AbstractTest {
 		codeSystemService.createVersion(snomedct, 20200131, "");
 
 		// Upgrade the extension (rollback of previous daily build is automatic)
-		codeSystemUpgradeService.upgrade(snomedExtensionCodeSystem, 20200131, false);
+		codeSystemUpgradeService.upgrade(null, snomedExtensionCodeSystem, 20200131, false);
 		assertEquals("Assert extension upgraded", 20200131, codeSystemService.find(shortName).getDependantVersionEffectiveTime().intValue());
 		assertNull("Daily build 1 still not there.", conceptService.find(dailyBuild1Concept, branchPath));
 		assertNull("Daily build 2 Concept should have been reverted as part of the upgrade.", conceptService.find(dailyBuild2Concept, branchPath));
