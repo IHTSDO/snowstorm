@@ -6,7 +6,7 @@
 	<description>SNOMED CT Terminology Server Using Elasticsearch</description>
 
 	<groupId>org.snomed</groupId>
-	<artifactId>snowstorm</artifactId>
+	<artifactId>snowstorm-integration</artifactId>
 	<version>7.13.0-SNAPSHOT</version>
 	<parent>
 		<groupId>org.springframework.boot</groupId>
