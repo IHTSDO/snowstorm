@@ -1,6 +1,7 @@
 package org.snomed.snowstorm.rest;
 
 import org.junit.jupiter.api.Test;
+import org.snomed.snowstorm.core.data.services.pojo.CodeSystemUpgradeJob;
 import org.snomed.snowstorm.rest.pojo.CodeSystemUpdateRequest;
 import org.snomed.snowstorm.rest.pojo.CodeSystemUpgradeRequest;
 import org.snomed.snowstorm.rest.pojo.CreateCodeSystemVersionRequest;
@@ -14,6 +15,7 @@ import java.net.URISyntaxException;
 
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.snomed.snowstorm.rest.ControllerTestHelper.waitForStatus;
 
 class CodeSystemControllerSecurityTest extends AbstractControllerSecurityTest {
 
@@ -113,13 +115,13 @@ class CodeSystemControllerSecurityTest extends AbstractControllerSecurityTest {
 		testStatusCode(HttpStatus.FORBIDDEN, userWithoutRoleHeaders, requestMAIN);
 		testStatusCode(HttpStatus.FORBIDDEN, authorHeaders, requestMAIN);
 		testStatusCode(HttpStatus.FORBIDDEN, extensionAdminHeaders, requestMAIN);
-		testStatusCode(HttpStatus.BAD_REQUEST, globalAdminHeaders, requestMAIN);
+		waitForStatus(testStatusCode(HttpStatus.CREATED, globalAdminHeaders, requestMAIN), CodeSystemUpgradeJob.UpgradeStatus.FAILED.name(), CodeSystemUpgradeJob.UpgradeStatus.FAILED.name(), globalAdminHeaders, restTemplate);
 
 		RequestEntity<Object> requestA = new RequestEntity<>(new CodeSystemUpgradeRequest(20250101), HttpMethod.POST, new URI(url + "/codesystems/" + "SNOMEDCT-A" + "/upgrade"));
 		testStatusCode(HttpStatus.FORBIDDEN, userWithoutRoleHeaders, requestA);
 		testStatusCode(HttpStatus.FORBIDDEN, authorHeaders, requestA);
-		testStatusCode(HttpStatus.BAD_REQUEST, extensionAdminHeaders, requestA);
-		testStatusCode(HttpStatus.BAD_REQUEST, globalAdminHeaders, requestA);
+		waitForStatus(testStatusCode(HttpStatus.CREATED, extensionAdminHeaders, requestA), CodeSystemUpgradeJob.UpgradeStatus.FAILED.name(), CodeSystemUpgradeJob.UpgradeStatus.FAILED.name(), extensionAdminHeaders, restTemplate);
+		waitForStatus(testStatusCode(HttpStatus.CREATED, globalAdminHeaders, requestA), CodeSystemUpgradeJob.UpgradeStatus.FAILED.name(), CodeSystemUpgradeJob.UpgradeStatus.FAILED.name(), globalAdminHeaders, restTemplate);
 	}
 
 	@Test
