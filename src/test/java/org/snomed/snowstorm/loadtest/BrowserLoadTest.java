@@ -1,26 +1,17 @@
 package org.snomed.snowstorm.loadtest;
 
-import com.fasterxml.jackson.annotation.JsonInclude;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.core.data.domain.Concept;
 import org.snomed.snowstorm.core.data.services.DescriptionService;
 import org.springframework.boot.web.client.RestTemplateBuilder;
-import org.springframework.core.ParameterizedTypeReference;
-import org.springframework.http.HttpMethod;
-import org.springframework.http.MediaType;
-import org.springframework.http.ResponseEntity;
-import org.springframework.http.client.ClientHttpRequestInterceptor;
+import org.springframework.http.*;
 import org.springframework.http.client.ClientHttpResponse;
-import org.springframework.http.converter.json.Jackson2ObjectMapperBuilder;
 import org.springframework.util.StreamUtils;
 import org.springframework.web.client.RestTemplate;
+import org.springframework.web.util.UriComponentsBuilder;
 
-import java.io.UnsupportedEncodingException;
-import java.net.URLEncoder;
 import java.nio.charset.Charset;
-import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
@@ -39,30 +30,28 @@ import java.util.concurrent.Future;
  *
  */
 public class BrowserLoadTest {
-
-	private static final String SNOWSTORM_API_URI = "http://localhost:8080/snowstorm/snomed-ct";
+	private static final String SNOWSTORM_API_URI = "http://localhost:8080";
 	private static final String COOKIE = "IMS_COOKIE";
 	private static final int CONCURRENT_USERS = 1;
 	private static final float USER_START_STAGGER = 1f;
 	private static final int limit = 100;
 	private static final String[] BRANCHES_TO_SEARCH = {"MAIN"};
 
-	private static final ParameterizedTypeReference<ItemsPagePojo<ConceptResult>> PAGE_OF_CONCEPTS_TYPE = new ParameterizedTypeReference<ItemsPagePojo<ConceptResult>>() {};
-	private static final Logger LOGGER = LoggerFactory.getLogger(ManualLoadTest.class);
+	private static final Logger LOGGER = LoggerFactory.getLogger(BrowserLoadTest.class);
 	private static final int TOTAL_RUN = 1;
 
 	private RestTemplate restTemplate;
 
 	private String loadTestBranch;
 
-	private Map<String, List<Float>> searches = new LinkedHashMap<>();
+	private final Map<String, List<Float>> searches = new LinkedHashMap<>();
 
 	public static void main(String[] args) throws InterruptedException {
 		new BrowserLoadTest().run(CONCURRENT_USERS);
 	}
 
 	private void run(int concurrentUsers) throws InterruptedException {
-		restTemplate = new RestTemplateBuilder().additionalInterceptors((ClientHttpRequestInterceptor) (request, body, execution) -> {
+		restTemplate = new RestTemplateBuilder().additionalInterceptors((request, body, execution) -> {
 			request.getHeaders().setContentType(MediaType.APPLICATION_JSON);
 			request.getHeaders().add("Cookie", COOKIE);
 			ClientHttpResponse httpResponse = execution.execute(request, body);
@@ -74,8 +63,6 @@ public class BrowserLoadTest {
 			}
 			return httpResponse;
 		}).rootUri(SNOWSTORM_API_URI).build();
-
-		ObjectMapper objectMapper = Jackson2ObjectMapperBuilder.json().defaultViewInclusion(false).failOnUnknownProperties(false).serializationInclusion(JsonInclude.Include.NON_NULL).build();
 
 		ExecutorService executorService = Executors.newCachedThreadPool();
 		Set<Future> futures = new HashSet<>();
@@ -114,18 +101,18 @@ public class BrowserLoadTest {
 					}
 				}
 				float seconds = Math.round((sum * 100) / (float) operationTimes.size()) / 100f;
-				System.out.println(String.format("%s average = %s seconds, max = %s (%s searches)", operation, seconds, max, operationTimes.size()));
+				System.out.printf("%s average = %s seconds, max = %s (%s searches)%n", operation, seconds, max, operationTimes.size());
 				totalTime += sum;
 			}
 		}
-		System.out.println(String.format("average search time = %s seconds, total searches=%s", Math.round((totalTime * 100)/ (float) totalSearches/100f), totalSearches));
+		System.out.printf("average search time = %s seconds, total searches=%s%n", Math.round((totalTime * 100)/ (float) totalSearches/100f), totalSearches);
 		executorService.shutdown();
 	}
 
 
 	class Search implements Runnable {
 
-		private String username;
+		private final String username;
 		Search(String username) {
 			this.username = username;
 		}
@@ -133,7 +120,7 @@ public class BrowserLoadTest {
 		@Override
 		public void run() {
 			for (int i=0; i < TOTAL_RUN; i++) {
-				Arrays.stream(BRANCHES_TO_SEARCH).forEach(branch -> runSearchQueries(branch));
+				Arrays.stream(BRANCHES_TO_SEARCH).forEach(this::runSearchQueries);
 			}
 		}
 
@@ -164,7 +151,7 @@ public class BrowserLoadTest {
 			searchByECL("((<< 123037004 )) MINUS ((<< 442083009 ) OR (<< 118956008 ))", false);
 			searchByECL("^ 447562003 |ICD-10 complex map reference set (foundation metadata concept)|", false);
 			// ECl with concrete values
-			searchByECL(true,"*: 1142135004 |Has presentation strength numerator value (attribute)| < #50", false);
+			searchByECL("*: 1142135004 |Has presentation strength numerator value (attribute)| < #50", false);
 
 			List<String> conceptIds = Arrays.asList( "24526004", "57952007", "58944007", "62692004", "180047007",
 					"233734006", "254977002", "263079005", "263084004", "283677000", "283678005");
@@ -222,7 +209,7 @@ public class BrowserLoadTest {
 
 			String searchDescription = String.format(searchType + " for term %s", term);
 			if (withAggregation) {
-				String.format(searchType + " with aggregations on reference sets for term %s", term);
+				searchDescription = String.format(searchType + " with aggregations on reference sets for term %s", term);
 			}
 			LOGGER.info(searchDescription + " completed in {} seconds ", recordDuration(searchType, startMillis));
 		}
@@ -240,25 +227,15 @@ public class BrowserLoadTest {
 		LOGGER.info(searchDescription + " completed in {} seconds ", recordDuration(searchType, startMillis));
 	}
 
-
 	private void searchByECL(String ecl, boolean returnIdOnly) {
-		searchByECL(false, ecl, returnIdOnly);
-	}
-
-	private void searchByECL(boolean encodeECL, String ecl, boolean returnIdOnly) {
 		long startMillis = new Date().getTime();
-		String encoded = ecl;
-		if (encodeECL) {
-			try {
-				encoded = URLEncoder.encode(ecl, StandardCharsets.UTF_8.toString());
-			} catch(UnsupportedEncodingException e) {
-				throw new IllegalStateException(e);
-			}
-		}
+		String url = SNOWSTORM_API_URI + "/" + loadTestBranch + "/concepts";
+		UriComponentsBuilder uriComponentsBuilder = UriComponentsBuilder.fromUriString(url)
+				.queryParam("ecl", ecl)
+				.queryParam("returnIdOnly", returnIdOnly)
+				.queryParam("limit", limit);
 
-		String url = "/" + loadTestBranch + "/concepts?ecl=" + encoded + "&returnIdOnly=" + returnIdOnly + "&limit=" + limit;
-
-		ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.GET, null, String.class);
+		ResponseEntity<String> response = restTemplate.exchange(uriComponentsBuilder.build().toUri(), HttpMethod.GET, null, String.class);
 		if (!response.getStatusCode().is2xxSuccessful()) {
 			LOGGER.error("Search request not successful {} {}", url, response.getStatusCodeValue());
 		}
@@ -280,8 +257,8 @@ public class BrowserLoadTest {
 		LOGGER.info(searchDescription + " completed in {} seconds ", recordDuration("Description search", startMillis));
 	}
 
-	private synchronized float recordDuration(String operation, long startMilis) {
-		float seconds = Math.round((new Date().getTime() - startMilis) / 10f) / 100f;
+	private synchronized float recordDuration(String operation, long startMillis) {
+		float seconds = Math.round((new Date().getTime() - startMillis) / 10f) / 100f;
 		searches.computeIfAbsent(operation, i -> new ArrayList<>()).add(seconds);
 		return seconds;
 	}
@@ -296,7 +273,10 @@ public class BrowserLoadTest {
 				LOGGER.error("Search request not successful {} {}", url, conceptResponse.getStatusCodeValue());
 			}
 			Concept concept = conceptResponse.getBody();
-			LOGGER.info("Concept {} |{}| fetched in {} seconds.", conceptId, concept.getFsn().getTerm(), recordDuration("Loading concepts", startMillis));
+			if (concept != null) {
+				LOGGER.info("Concept {} |{}| fetched in {} seconds.", conceptId, concept.getFsn() != null ? concept.getFsn().getTerm() : "N/A",
+						recordDuration("Loading concepts", startMillis));
+			}
 		}
 	}
 }
