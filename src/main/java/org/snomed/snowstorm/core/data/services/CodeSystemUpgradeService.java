@@ -136,6 +136,14 @@ public class CodeSystemUpgradeService {
 			}
 			throw new IllegalArgumentException(errorMessage);
 		}
+		if (codeSystem.getDependantVersionEffectiveTime() != null && newDependantVersion.compareTo(codeSystem.getDependantVersionEffectiveTime()) <= 0) {
+			String errorMessage = "The new dependant version must be after the current dependant version.";
+			if (job != null) {
+				job.setStatus(CodeSystemUpgradeJob.UpgradeStatus.FAILED);
+				job.setErrorMessage(errorMessage);
+			}
+			throw new IllegalStateException(errorMessage);
+		}
 		CodeSystem parentCodeSystem = codeSystemService.findOneByBranchPath(parentPath);
 		if (parentCodeSystem == null) {
 			String errorMessage = String.format("The Code System to be upgraded must be on a branch which is the direct child of another Code System. " +
