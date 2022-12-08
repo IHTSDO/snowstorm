@@ -54,7 +54,6 @@ class MultiSearchServiceTest extends AbstractTest {
 		CodeSystem codeSystemBE = new CodeSystem("SNOMEDCT-BE", "MAIN/SNOMEDCT-BE");
 		codeSystemService.createCodeSystem(codeSystemBE);
 		testUtil.createConceptWithPathIdAndTerm("MAIN/SNOMEDCT-BE", "123123404684003", "Some finding");
-		codeSystemUpgradeService.upgrade(null, codeSystemBE, 20190731, true);
 
 		assertEquals("Only one found because SNOMEDCT-BE code system is not versioned yet", 1, runSearch(term).getTotalElements());
 		codeSystemService.createVersion(codeSystemBE, 20190931, "");
