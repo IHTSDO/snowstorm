@@ -267,6 +267,17 @@ public class Description extends SnomedComponent<Description> implements SnomedC
 		return langRefsetMembersMap.values().stream().flatMap(Collection::stream).collect(Collectors.toSet());
 	}
 
+	@JsonIgnore
+	public ReferenceSetMember getLangRefsetMember(String memberId) {
+		for (ReferenceSetMember referenceSetMember : langRefsetMembersMap.values().stream().flatMap(Collection::stream).collect(Collectors.toSet())) {
+			if (memberId.equals(referenceSetMember.getMemberId())) {
+				return referenceSetMember;
+			}
+		}
+
+		return null;
+	}
+
 		@JsonView(value = View.Component.class)
 	public Map<String, String> getAcceptabilityMap() {
 		if (!langRefsetMembersMap.isEmpty()) {
@@ -501,6 +512,31 @@ public class Description extends SnomedComponent<Description> implements SnomedC
 	 */
 	public boolean hasAcceptability(List<LanguageDialect> dialects) {
 		return dialects.stream().anyMatch(d -> hasAcceptability(null, d));
+	}
+
+	public void clone(Description description) {
+		setDescriptionId(description.getDescriptionId());
+		setActive(description.isActive());
+		setTerm(description.getTerm());
+		setConceptId(description.getConceptId());
+		setEffectiveTimeI(description.getEffectiveTimeI());
+		setReleasedEffectiveTime(description.getReleasedEffectiveTime());
+		setReleaseHash(description.getReleaseHash());
+		setReleased(description.isReleased());
+		setModuleId(description.getModuleId());
+		setLanguageCode(description.getLanguageCode());
+		setTypeId(description.getTypeId());
+		setCaseSignificanceId(description.getCaseSignificanceId());
+
+		Set<ReferenceSetMember> referenceSetMembers = new HashSet<>();
+		for (ReferenceSetMember langRefsetMember : description.getLangRefsetMembers()) {
+			ReferenceSetMember clone = new ReferenceSetMember();
+			clone.clone(langRefsetMember);
+			referenceSetMembers.add(clone);
+		}
+		this.setLanguageRefsetMembers(referenceSetMembers);
+
+		updateEffectiveTime();
 	}
 
 	@Override

@@ -432,6 +432,67 @@ public class Concept extends SnomedComponent<Concept> implements ConceptView, Sn
 		this.validationResults = validationResults;
 	}
 
+	public void clone(Concept concept) {
+		setConceptId(concept.getConceptId());
+		setEffectiveTimeI(concept.getEffectiveTimeI());
+		setReleaseHash(concept.getReleaseHash());
+		setReleasedEffectiveTime(concept.getReleasedEffectiveTime());
+		setReleased(concept.isReleased());
+		setActive(concept.isActive());
+		setInactivationIndicator(concept.getInactivationIndicator());
+		setModuleId(concept.getModuleId());
+		setDefinitionStatus(concept.getDefinitionStatus());
+
+		List<ReferenceSetMember> referenceSetMembers = new ArrayList<>();
+		for (ReferenceSetMember associationTargetMember : concept.getAssociationTargetMembers()) {
+			ReferenceSetMember clone = new ReferenceSetMember();
+			clone.clone(associationTargetMember);
+			referenceSetMembers.add(clone);
+		}
+
+		this.associationTargetMembers = referenceSetMembers;
+
+		// Descriptions
+		Set<Description> descriptions = new HashSet<>();
+		for (Description description : concept.getDescriptions()) {
+			Description clone = new Description();
+			clone.clone(description);
+			descriptions.add(clone);
+		}
+
+		setDescriptions(descriptions);
+
+		// Relationships
+		Set<Relationship> relationships = new HashSet<>();
+		for (Relationship relationship : concept.getRelationships()) {
+			Relationship clone = new Relationship();
+			clone.clone(relationship);
+			relationships.add(clone);
+		}
+
+		setRelationships(relationships);
+
+		// Class Axioms
+		Set<Axiom> classAxioms = new HashSet<>();
+		for (Axiom classAxiom : concept.getClassAxioms()) {
+			Axiom clone = new Axiom();
+			clone.clone(classAxiom);
+			classAxioms.add(clone);
+		}
+
+		setClassAxioms(classAxioms);
+
+		// GCI Axioms
+		Set<Axiom> gciAxioms = new HashSet<>();
+		for (Axiom gciAxiom : concept.getGciAxioms()) {
+			Axiom clone = new Axiom();
+			clone.clone(gciAxiom);
+			gciAxioms.add(clone);
+		}
+
+		setGciAxioms(gciAxioms);
+	}
+
 	@Override
 	public boolean equals(Object o) {
 		if (this == o) return true;

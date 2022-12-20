@@ -34,7 +34,7 @@ public class ReferenceSetMember extends SnomedComponent<ReferenceSetMember> impl
 			return ADDITIONAL_FIELDS_PREFIX + fieldname + ".keyword";
 		}
 	}
-	
+
 	public interface AttributeValueFields {
 		String VALUE_ID = "valueId";
 	}
@@ -101,7 +101,7 @@ public class ReferenceSetMember extends SnomedComponent<ReferenceSetMember> impl
 	}
 
 	public ReferenceSetMember(String memberId, Integer effectiveTime, boolean active, String moduleId, String refsetId,
-			String referencedComponentId) {
+							  String referencedComponentId) {
 		this();
 		this.memberId = memberId;
 		setEffectiveTimeI(effectiveTime);
@@ -209,16 +209,18 @@ public class ReferenceSetMember extends SnomedComponent<ReferenceSetMember> impl
 		return memberId;
 	}
 
-	public void setMemberId(String memberId) {
+	public ReferenceSetMember setMemberId(String memberId) {
 		this.memberId = memberId;
+		return this;
 	}
 
 	public String getRefsetId() {
 		return refsetId;
 	}
 
-	public void setRefsetId(String refsetId) {
+	public ReferenceSetMember setRefsetId(String refsetId) {
 		this.refsetId = refsetId;
+		return this;
 	}
 
 	public String getReferencedComponentId() {
@@ -249,6 +251,22 @@ public class ReferenceSetMember extends SnomedComponent<ReferenceSetMember> impl
 
 	public Coding getMapTargetCoding() {
 		return mapTargetCoding;
+	}
+
+	public void clone(ReferenceSetMember referenceSetMember) {
+		setMemberId(referenceSetMember.getMemberId());
+		setEffectiveTimeI(referenceSetMember.getEffectiveTimeI());
+		setReleasedEffectiveTime(referenceSetMember.getReleasedEffectiveTime());
+		setReleaseHash(referenceSetMember.getReleaseHash());
+		setReleased(referenceSetMember.isReleased());
+		setActive(referenceSetMember.isActive());
+		setModuleId(referenceSetMember.getModuleId());
+		setRefsetId(referenceSetMember.getRefsetId());
+		setReferencedComponentId(referenceSetMember.getReferencedComponentId());
+		setConceptId(referenceSetMember.getConceptId());
+		setAdditionalFields(new HashMap<>(referenceSetMember.getAdditionalFields()));
+
+		updateEffectiveTime();
 	}
 
 	@Override

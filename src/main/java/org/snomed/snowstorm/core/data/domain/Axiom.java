@@ -5,6 +5,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonView;
 import org.snomed.snowstorm.rest.View;
 
+import java.util.HashSet;
 import java.util.Set;
 
 @JsonView(value = View.Component.class)
@@ -127,4 +128,42 @@ public class Axiom implements IdAndEffectiveTimeComponent {
 	public void setReferenceSetMember(ReferenceSetMember referenceSetMember) {
 		this.referenceSetMember = referenceSetMember;
 	}
+
+    public void clone(Axiom axiom) {
+        setAxiomId(axiom.getAxiomId());
+        setModuleId(axiom.getModuleId());
+        setActive(axiom.isActive());
+        setReleased(axiom.isReleased());
+        setDefinitionStatusId(axiom.getDefinitionStatusId());
+
+        Set<Relationship> clonedRelationships = new HashSet<>();
+        Set<Relationship> relationships = axiom.getRelationships();
+        if (relationships != null && !relationships.isEmpty()) {
+            for (Relationship relationship : relationships) {
+                Relationship clone = new Relationship();
+				clone.clone(relationship);
+                clonedRelationships.add(clone);
+            }
+            setRelationships(clonedRelationships);
+        }
+
+        if (axiom.getReferenceSetMember() != null) {
+            ReferenceSetMember referenceSetMember = new ReferenceSetMember();
+            referenceSetMember.clone(axiom.getReferenceSetMember());
+            setReferenceSetMember(referenceSetMember);
+        }
+    }
+
+    @Override
+    public String toString() {
+        return "Axiom{" +
+                "axiomId='" + axiomId + '\'' +
+                ", moduleId='" + moduleId + '\'' +
+                ", active=" + active +
+                ", released=" + released +
+                ", definitionStatusId='" + definitionStatusId + '\'' +
+                ", relationships=" + relationships +
+                ", referenceSetMember=" + referenceSetMember +
+                '}';
+    }
 }
