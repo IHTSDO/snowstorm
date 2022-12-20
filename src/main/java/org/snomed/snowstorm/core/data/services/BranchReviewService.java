@@ -78,6 +78,9 @@ public class BranchReviewService {
 	@Autowired
 	private ExecutorService executorService;
 
+	@Autowired
+	private AutoMerger autoMerger;
+
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
 	@PostConstruct
@@ -169,7 +172,7 @@ public class BranchReviewService {
 				} else {
 					if (sourceVersion != null && targetVersion != null) {
 						// Neither deleted, auto-merge.
-						mergeVersion.setAutoMergedConcept(autoMergeConcept(sourceVersion, targetVersion));
+						mergeVersion.setAutoMergedConcept(autoMerger.autoMerge(sourceVersion, targetVersion, mergeReview.getTargetPath()));
 					}
 					conflicts.put(conceptId, mergeVersion);
 				}
@@ -214,7 +217,7 @@ public class BranchReviewService {
 				if (sourceConceptVersioned && concept == null) {
 					concept = sourceConcept;
 				} else if (sourceConceptVersioned && !concept.isReleased() && concept.getReleasedEffectiveTime() == null) {
-					concept = autoMergeConcept(sourceConcept, concept);
+					concept = autoMerger.autoMerge(sourceConcept, concept, mergeReview.getTargetPath());
 				} else if (manuallyMergedConcept.isDeleted()) {
 					concept = new Concept(manuallyMergedConcept.getConceptId().toString());
 					concept.markDeleted();
@@ -241,58 +244,6 @@ public class BranchReviewService {
 		Set<Long> sourceToTargetReviewChanges = sourceToTargetReview.getChangedConcepts();
 		Set<Long> targetToSourceReviewChanges = targetToSourceReview.getChangedConcepts();
 		return Sets.intersection(sourceToTargetReviewChanges, targetToSourceReviewChanges);
-	}
-
-	private Concept autoMergeConcept(Concept sourceConcept, Concept targetConcept) {
-		final Concept mergedConcept = new Concept();
-
-		// In each component favour the source version unless only the target is unpublished
-		Concept winningConcept = sourceConcept.getEffectiveTimeI() != null && targetConcept.getEffectiveTimeI() == null ? targetConcept : sourceConcept;
-
-		// Set directly owned values
-		mergedConcept.setConceptId(winningConcept.getConceptId());
-		mergedConcept.setActive(winningConcept.isActive());
-		mergedConcept.setDefinitionStatus(winningConcept.getDefinitionStatus());
-		mergedConcept.setEffectiveTimeI(winningConcept.getEffectiveTimeI());
-		mergedConcept.setModuleId(winningConcept.getModuleId());
-		mergedConcept.setReleased(winningConcept.isReleased());
-		mergedConcept.setReleaseHash(winningConcept.getReleaseHash());
-		mergedConcept.setReleasedEffectiveTime(winningConcept.getReleasedEffectiveTime());
-
-		mergedConcept.setInactivationIndicator(winningConcept.getInactivationIndicator());
-		mergedConcept.setAssociationTargets(winningConcept.getAssociationTargets());
-
-		// Merge Descriptions
-		mergedConcept.setDescriptions(mergeComponentSets(sourceConcept.getDescriptions(), targetConcept.getDescriptions()));
-
-		// Merge Relationships
-		mergedConcept.setRelationships(mergeComponentSets(sourceConcept.getRelationships(), targetConcept.getRelationships()));
-
-		// Merge Axioms
-		mergedConcept.setClassAxioms(mergeComponentSets(sourceConcept.getClassAxioms(), targetConcept.getClassAxioms()));
-		mergedConcept.setGciAxioms(mergeComponentSets(sourceConcept.getGciAxioms(), targetConcept.getGciAxioms()));
-
-		return mergedConcept;
-	}
-
-	private <T extends IdAndEffectiveTimeComponent> Set<T> mergeComponentSets(Set<T> sourceComponents, Set<T> targetComponents) {
-		final Set<T> mergedComponents = new HashSet<>(sourceComponents);
-		for (final T targetComponent : targetComponents) {
-			if (targetComponent.getEffectiveTimeI() == null) {
-				if (mergedComponents.contains(targetComponent)) {
-					Optional<T> sourceComponent = mergedComponents.stream()
-							.filter(otherComponent -> otherComponent.getId().equals(targetComponent.getId())).findFirst();
-					if (sourceComponent.isPresent() && sourceComponent.get().getEffectiveTimeI() != null) {
-						// Only target component is unpublished, replace.
-						mergedComponents.add(targetComponent);
-					}
-				} else {
-					// Target component is new and not yet promoted to source.
-					mergedComponents.add(targetComponent);
-				}
-			}
-		}
-		return mergedComponents;
 	}
 
 	public BranchReview getCreateReview(String source, String target) {
