@@ -430,6 +430,30 @@ public class Relationship extends SnomedComponent<Relationship> {
 		return target != null ? target.getFsnTerm() : null;
 	}
 
+	public void clone(Relationship relationship) {
+		setRelationshipId(relationship.getRelationshipId());
+		setEffectiveTimeI(relationship.getEffectiveTimeI());
+		setReleasedEffectiveTime(relationship.getReleasedEffectiveTime());
+		setReleaseHash(relationship.getReleaseHash());
+		setReleased(relationship.isReleased());
+		setActive(relationship.isActive());
+		setModuleId(relationship.getModuleId());
+		setSourceId(relationship.getSourceId());
+
+		if (relationship.getDestinationId() != null) {
+			setDestinationId(relationship.getDestinationId());
+		} else {
+			setValue(relationship.getValue());
+		}
+
+		setRelationshipGroup(relationship.getRelationshipGroup());
+		setTypeId(relationship.getTypeId());
+		setCharacteristicTypeId(relationship.getCharacteristicTypeId());
+		setModifier(relationship.getModifier());
+
+		updateEffectiveTime();
+	}
+
 	@Override
 	public boolean equals(Object o) {
 		if (this == o) return true;
