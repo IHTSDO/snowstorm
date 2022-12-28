@@ -24,6 +24,7 @@ import org.springframework.data.elasticsearch.core.SearchHits;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQuery;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -66,6 +67,10 @@ public class SBranchService {
 	}
 
 	public Branch create(String branchPath, Map<String, Object> metadataMap) {
+		if (StringUtils.hasLength(branchPath)) {
+			branchPath = branchPath.toUpperCase();
+		}
+
 		// Copy classification state from parent branch
 		final String parentPath = PathUtil.getParentPath(branchPath);
 		final Metadata metadata = new Metadata(metadataMap);
