@@ -273,12 +273,23 @@ public class FHIRCodeSystemService {
 		return codeSystemRepository.findById(id);
 	}
 
-	public void deleteCodeSystemVersion(String idWithVersion) {
-		Optional<FHIRCodeSystemVersion> version = codeSystemRepository.findById(idWithVersion);
-		if (version.isPresent()) {
-			logger.info("Deleting code system (version) {}", idWithVersion);
-			conceptService.deleteExistingCodes(idWithVersion);
-			codeSystemRepository.deleteById(idWithVersion);
+	public void deleteCodeSystemVersion(FHIRCodeSystemVersion codeSystemVersion) {
+		if (codeSystemVersion == null) {
+			return;
+		}
+		if (FHIRHelper.isSnomedUri(codeSystemVersion.getUrl())) {
+			// Only allow deletion of expression repositories
+			if (!codeSystemVersion.getSnomedCodeSystem().isPostcoordinatedNullSafe()) {
+				throw FHIRHelper.exception("Please use the native API to maintain SNOMED CT code systems.",
+						OperationOutcome.IssueType.NOTSUPPORTED, 400);
+			}
+			snomedCodeSystemService.deleteCodeSystemAndVersions(codeSystemVersion.getSnomedCodeSystem(), true);
+
+		} else {
+			String versionId = codeSystemVersion.getId();
+			logger.info("Deleting code system (version) {}", versionId);
+			conceptService.deleteExistingCodes(versionId);
+			codeSystemRepository.deleteById(versionId);
 		}
 	}
 
