@@ -36,13 +36,13 @@ public class JMSListenerClassificationStatusService implements ClassificationSta
 		LOGGER.info("Classification statuses will be retrieved via JMS.");
 	}
 
-	@JmsListener(destination = "${classification-service.message.status.destination}")
-	void messageConsumer(ActiveMQTextMessage activeMQTextMessage) throws JMSException, JsonProcessingException {
+	@JmsListener(destination = "${classification-service.message.status.destination}", containerFactory = "topicJmsListenerContainerFactory")
+	void messageConsumer(String content) throws JMSException, JsonProcessingException {
 		try {
-			ClassificationStatusResponse response = objectMapper.readValue(activeMQTextMessage.getText(), ClassificationStatusResponse.class);
+			ClassificationStatusResponse response = objectMapper.readValue(content, ClassificationStatusResponse.class);
 			classificationStatusChanges.put(response.getId(), response);
 		} catch (JsonParseException | JsonMappingException e) {
-			LOGGER.error("Failed to parse message. Message: {}.", activeMQTextMessage.getText());
+			LOGGER.error("Failed to parse message. Message: {}.", content);
 		}
 	}
 
