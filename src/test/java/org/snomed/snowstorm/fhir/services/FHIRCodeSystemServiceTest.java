@@ -1,20 +1,16 @@
 package org.snomed.snowstorm.fhir.services;
 
-import io.kaicode.elasticvc.api.BranchService;
 import org.hl7.fhir.r4.model.CodeSystem;
 import org.hl7.fhir.r4.model.OperationOutcome;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.snomed.snowstorm.core.data.services.AdminOperationsService;
 import org.snomed.snowstorm.core.data.services.CodeSystemService;
-import org.snomed.snowstorm.core.data.services.SBranchService;
 import org.snomed.snowstorm.fhir.domain.FHIRCodeSystemVersion;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import static org.hl7.fhir.r4.model.OperationOutcome.IssueType.INVARIANT;
 import static org.hl7.fhir.r4.model.OperationOutcome.IssueType.NOTFOUND;
 import static org.junit.jupiter.api.Assertions.*;
-import static org.junit.jupiter.api.Assertions.assertEquals;
 
 class FHIRCodeSystemServiceTest extends AbstractFHIRTest {
 
@@ -24,15 +20,11 @@ class FHIRCodeSystemServiceTest extends AbstractFHIRTest {
 	@Autowired
 	private CodeSystemService snomedCodeSystemService;
 
-	@Autowired
-	private AdminOperationsService adminOperationsService;
-
 	@BeforeEach
 	void beforeEachTest() {
 		org.snomed.snowstorm.core.data.domain.CodeSystem codeSystem = snomedCodeSystemService.find("SNOMEDCT-WK-EXP");
 		if (codeSystem != null) {
-			snomedCodeSystemService.deleteCodeSystemAndVersions(codeSystem);
-			adminOperationsService.hardDeleteBranch(codeSystem.getBranchPath());
+			snomedCodeSystemService.deleteCodeSystemAndVersions(codeSystem, true);
 		}
 	}
 
