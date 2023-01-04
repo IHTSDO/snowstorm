@@ -115,7 +115,7 @@ class CodeSystemServiceIntegrationTest extends AbstractTest {
 
 		// Test delete code system
 		assertEquals(1, codeSystemService.findAllVersions("SNOMEDCT-BE", true, false).size());
-		codeSystemService.deleteCodeSystemAndVersions(extensionCodeSystem);
+		codeSystemService.deleteCodeSystemAndVersions(extensionCodeSystem, false);
 		assertNull(codeSystemService.find("SNOMEDCT-BE"));
 		assertEquals(0, codeSystemService.findAllVersions("SNOMEDCT-BE", true, false).size());
 	}

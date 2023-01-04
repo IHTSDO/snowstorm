@@ -229,27 +229,12 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants 
 	public void deleteCodeSystem(
 			@IdParam IdType id,
 			@OptionalParam(name="url") UriType url,
-			@OptionalParam(name="version") String version) {
+			@OptionalParam(name="version") StringType version) {
 
 		FHIRHelper.readOnlyCheck(readOnlyMode);
-		CodeSystem codeSystem;
-		if (id != null) {
-			codeSystem = getCodeSystem(id);
-		} else {
-			FHIRHelper.required("url", url);
-			FHIRHelper.required("version", version);
-			FHIRCodeSystemVersion codeSystemVersion = fhirCodeSystemService.findCodeSystemVersion(new FHIRCodeSystemVersionParams(url.getValueAsString()).setVersion(version));
-			codeSystem = codeSystemVersion != null ? codeSystemVersion.toHapiCodeSystem() : null;
-		}
-		if (codeSystem != null && FHIRHelper.isSnomedUri(codeSystem.getUrl())) {
-			throw FHIRHelper.exception("Please use the native API to maintain SNOMED CT code systems.",
-					IssueType.NOTSUPPORTED, 400);
-		}
-		if (codeSystem == null) {
-			throw FHIRHelper.exception("Code system not found.",
-					IssueType.NOTFOUND, 404);
-		}
-		fhirCodeSystemService.deleteCodeSystemVersion(codeSystem.getId());
+		FHIRCodeSystemVersionParams codeSystemVersionParams = getCodeSystemVersionParams(id, url, version, null);
+		FHIRCodeSystemVersion codeSystemVersion = fhirCodeSystemService.findCodeSystemVersionOrThrow(codeSystemVersionParams);
+		fhirCodeSystemService.deleteCodeSystemVersion(codeSystemVersion);
 	}
 
 	@Operation(name="$lookup", idempotent=true)

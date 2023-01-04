@@ -106,7 +106,7 @@ public class CodeSystemController {
 	@DeleteMapping(value = "/{shortName}")
 	public void deleteCodeSystem(@PathVariable String shortName) {
 		CodeSystem codeSystem = findCodeSystem(shortName);
-		codeSystemService.deleteCodeSystemAndVersions(codeSystem);
+		codeSystemService.deleteCodeSystemAndVersions(codeSystem, false);
 	}
 
 	@Operation(summary = "Retrieve versions of a code system")
