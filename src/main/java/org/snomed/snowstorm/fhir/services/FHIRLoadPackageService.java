@@ -83,7 +83,7 @@ public class FHIRLoadPackageService {
 						logger.info("Skipping import of CodeSystem %s with 'content:not-present' because a CodeSystem with the same url and version already exists.");
 					} else {
 						logger.info("Deleting existing CodeSystem and concepts for url:{}, version:{}", existingCodeSystemVersion.getUrl(), existingCodeSystemVersion.getVersion());
-						codeSystemService.deleteCodeSystemVersion(existingCodeSystemVersion.getId());
+						codeSystemService.deleteCodeSystemVersion(existingCodeSystemVersion);
 					}
 				}
 				List<CodeSystem.ConceptDefinitionComponent> concepts = codeSystem.getConcept();
