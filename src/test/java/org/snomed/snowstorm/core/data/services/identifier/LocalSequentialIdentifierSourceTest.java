@@ -8,7 +8,9 @@ import org.snomed.snowstorm.AbstractTest;
 import org.snomed.snowstorm.TestConfig;
 import org.snomed.snowstorm.core.data.domain.Concept;
 import org.snomed.snowstorm.core.data.domain.Description;
+import org.snomed.snowstorm.core.data.domain.ReferenceSetMember;
 import org.snomed.snowstorm.core.data.services.ConceptService;
+import org.snomed.snowstorm.core.data.services.ReferenceSetMemberService;
 import org.snomed.snowstorm.core.data.services.ServiceException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.elasticsearch.core.ElasticsearchRestTemplate;
@@ -25,6 +27,9 @@ class LocalSequentialIdentifierSourceTest extends AbstractTest {
 
 	@Autowired
 	private ConceptService conceptService;
+
+	@Autowired
+	private ReferenceSetMemberService memberService;
 
 	@Autowired
 	private BranchService branchService;
@@ -65,7 +70,14 @@ class LocalSequentialIdentifierSourceTest extends AbstractTest {
 				Arrays.toString(identifierSource.reserveIds(1000055, "06", 3).toArray()));
 
 		// Subsequent expression ids (existing greatest id found using referencedComponentId)
-		assertEquals("[41000055063, 51000055060, 61000055062]",
+		assertEquals("[41000055063, 51000055060]",
+				Arrays.toString(identifierSource.reserveIds(1000055, "06", 2).toArray()));
+
+		// Push sequence 6 into the store, without using the id gen service
+		memberService.createMember("MAIN/B", new ReferenceSetMember("1119302008", "1119302008", "61000055062"));
+
+		// Assert next assigned starts at sequence 7
+		assertEquals("[71000055068, 81000055065, 91000055067]",
 				Arrays.toString(identifierSource.reserveIds(1000055, "06", 3).toArray()));
 	}
 }
