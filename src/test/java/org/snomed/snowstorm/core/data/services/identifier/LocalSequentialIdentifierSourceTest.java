@@ -46,7 +46,12 @@ class LocalSequentialIdentifierSourceTest extends AbstractTest {
 
 	@Test
 	void reserveIds() {
+		// Reserve concept ids
 		assertEquals("[1119303003, 1119304009, 1119305005]",
+				Arrays.toString(identifierSource.reserveIds(0, "00", 3).toArray()));
+
+		// Subsequent concept ids (without saving previous)
+		assertEquals("[1119306006, 1119307002, 1119308007]",
 				Arrays.toString(identifierSource.reserveIds(0, "00", 3).toArray()));
 
 		assertEquals("[4826291000052119, 4826301000052115, 4826311000052118]",
@@ -54,5 +59,13 @@ class LocalSequentialIdentifierSourceTest extends AbstractTest {
 
 		assertEquals("[11000055126, 21000055122, 31000055124]",
 				Arrays.toString(identifierSource.reserveIds(1000055, "12", 3).toArray()));
+
+		// Expression ids
+		assertEquals("[11000055064, 21000055069, 31000055066]",
+				Arrays.toString(identifierSource.reserveIds(1000055, "06", 3).toArray()));
+
+		// Subsequent expression ids (existing greatest id found using referencedComponentId)
+		assertEquals("[41000055063, 51000055060, 61000055062]",
+				Arrays.toString(identifierSource.reserveIds(1000055, "06", 3).toArray()));
 	}
 }
