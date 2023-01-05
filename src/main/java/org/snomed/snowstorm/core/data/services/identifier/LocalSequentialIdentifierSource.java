@@ -126,7 +126,12 @@ public class LocalSequentialIdentifierSource implements IdentifierSource {
 		if (searchHits.hasSearchHits()) {
 			SearchHit<? extends SnomedComponent<?>> searchHit = searchHits.getSearchHit(0);
 			SnomedComponent<?> component = searchHit.getContent();
-			String highestSctid = component.getId();
+			String highestSctid;
+			if (idField.equals(ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID)) {
+				highestSctid = ((ReferenceSetMember) component).getReferencedComponentId();
+			} else {
+				highestSctid = component.getId();
+			}
 			if (namespaceId == 0) {
 				highestSequence = Integer.parseInt(highestSctid.substring(0, highestSctid.length() - 3));
 			} else {
