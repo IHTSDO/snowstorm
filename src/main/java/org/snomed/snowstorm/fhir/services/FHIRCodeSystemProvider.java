@@ -6,6 +6,7 @@ import ca.uhn.fhir.jpa.term.TermLoaderSvcImpl;
 import ca.uhn.fhir.jpa.term.api.ITermLoaderSvc;
 import ca.uhn.fhir.rest.annotation.*;
 import ca.uhn.fhir.rest.api.MethodOutcome;
+import ca.uhn.fhir.rest.api.PatchTypeEnum;
 import ca.uhn.fhir.rest.api.server.RequestDetails;
 import ca.uhn.fhir.rest.param.QuantityParam;
 import ca.uhn.fhir.rest.param.StringParam;
@@ -21,6 +22,7 @@ import org.jetbrains.annotations.NotNull;
 import org.snomed.snowstorm.core.data.domain.Concept;
 import org.snomed.snowstorm.core.data.services.CodeSystemService;
 import org.snomed.snowstorm.core.data.services.MultiSearchService;
+import org.snomed.snowstorm.core.data.services.postcoordination.model.PostCoordinatedExpression;
 import org.snomed.snowstorm.core.pojo.LanguageDialect;
 import org.snomed.snowstorm.fhir.config.FHIRConstants;
 import org.snomed.snowstorm.fhir.domain.FHIRCodeSystemVersion;
@@ -39,6 +41,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
+import static ca.uhn.fhir.rest.api.PatchTypeEnum.JSON_PATCH;
 import static io.kaicode.elasticvc.api.ComponentService.LARGE_PAGE;
 import static java.lang.String.format;
 import static java.util.stream.Stream.concat;
@@ -178,27 +181,35 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants 
 	
 	@Read()
 	public CodeSystem getCodeSystem(@IdParam IdType id) {
-		String idPart = id.getIdPart();
+		return getFhirCodeSystemVersionOrThrow(id.getIdPart()).toHapiCodeSystem();
+	}
+
+	@NotNull
+	private FHIRCodeSystemVersion getFhirCodeSystemVersionOrThrow(String idPart) {
+		FHIRCodeSystemVersion fhirCodeSystemVersion = null;
 		if (!idPart.startsWith(SCT_ID_PREFIX)) {
 			Optional<FHIRCodeSystemVersion> fhirCodeSystem = fhirCodeSystemService.findById(idPart);
 			if (fhirCodeSystem.isPresent()) {
-				return fhirCodeSystem.get().toHapiCodeSystem();
+				fhirCodeSystemVersion = fhirCodeSystem.get();
 			}
 		} else {
-			Stream<CodeSystem> snomedPublished = snomedMultiSearchService.getAllPublishedVersions().stream()
-					.map(cv -> new FHIRCodeSystemVersion(cv).toHapiCodeSystem());
-			Stream<CodeSystem> snomedPostcoordinated = snomedCodeSystemService.findAllPostcoordinatedBrief().stream()
-					.map(snomedSystem -> new FHIRCodeSystemVersion(snomedSystem).toHapiCodeSystem());
+			Stream<FHIRCodeSystemVersion> snomedPublished = snomedMultiSearchService.getAllPublishedVersions().stream()
+					.map(FHIRCodeSystemVersion::new);
+			Stream<FHIRCodeSystemVersion> snomedPostcoordinated = snomedCodeSystemService.findAllPostcoordinatedBrief().stream()
+					.map(FHIRCodeSystemVersion::new);
 
-			Optional<CodeSystem> snomedCodeSystem = Stream.concat(snomedPublished, snomedPostcoordinated)
+			Optional<FHIRCodeSystemVersion> snomedCodeSystem = Stream.concat(snomedPublished, snomedPostcoordinated)
 					.filter(cs -> cs.getId().equals(idPart))
 					.findAny();
 
 			if (snomedCodeSystem.isPresent()) {
-				return snomedCodeSystem.get();
+				fhirCodeSystemVersion = snomedCodeSystem.get();
 			}
 		}
-		throw FHIRHelper.exception("Code System " + idPart + " not found", IssueType.NOTFOUND, 404);
+		if (fhirCodeSystemVersion == null) {
+			throw FHIRHelper.exception("Code System" + idPart + " not found", IssueType.NOTFOUND, 404);
+		}
+		return fhirCodeSystemVersion;
 	}
 
 	@Create
@@ -223,12 +234,28 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants 
 		return outcome;
 	}
 
-//	@Patch
-//	public void addConcept(@IdParam IdType id, @ResourceParam CodeSystem codeSystem) {
-//		CodeSystem existingCodeSystem = getCodeSystem(id);
-//
-////		codeSystem.getConcept()
-//	}
+	@Patch
+	public MethodOutcome addConcept(@IdParam IdType id, @ResourceParam CodeSystem codeSystem, PatchTypeEnum patchType) {
+		FHIRCodeSystemVersion codeSystemVersion = getFhirCodeSystemVersionOrThrow(id.getIdPart());
+		if (codeSystemVersion.getSnomedCodeSystem() != null && !codeSystemVersion.getSnomedCodeSystem().isPostcoordinatedNullSafe()) {
+			throw exception("Only SNOMED CT CodeSystem supplements can be patched.", IssueType.INVARIANT, 400);
+		}
+
+		List<PostCoordinatedExpression> expressions = fhirCodeSystemService.addExpressions(codeSystemVersion, codeSystem.getConcept());
+
+		CodeSystem savedCodeSystem = new CodeSystem();
+		for (PostCoordinatedExpression expression : expressions) {
+			savedCodeSystem.addConcept(new CodeSystem.ConceptDefinitionComponent()
+					.setCode(expression.getCloseToUserForm())// TODO: normalise this
+					.addProperty(new CodeSystem.ConceptPropertyComponent(
+							new CodeType("humanReadableClassifiableForm"), new StringType(expression.getHumanReadableClassifiableForm())))
+					.addProperty(new CodeSystem.ConceptPropertyComponent(
+							new CodeType("humanReadableNecessaryNormalForm"), new StringType(expression.getHumanReadableNecessaryNormalForm())))
+					.addProperty(new CodeSystem.ConceptPropertyComponent(new CodeType("alternateIdentifier"), new StringType(expression.getId())))
+			);
+		}
+		return new MethodOutcome().setResource(savedCodeSystem);
+	}
 
 	@Delete
 	public void deleteCodeSystem(
@@ -256,7 +283,7 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants 
 
 		mutuallyExclusive("code", code, "coding", coding);
 		notSupported("date", date);
-		FHIRCodeSystemVersionParams codeSystemVersion = fhirHelper.getCodeSystemVersionParams(system, version, coding);
+		FHIRCodeSystemVersionParams codeSystemVersion = getCodeSystemVersionParams(system, version, coding);
 		return lookup(codeSystemVersion, fhirHelper.recoverCode(code, coding), displayLanguage, request.getHeader(ACCEPT_LANGUAGE_HEADER), propertiesType);
 	}
 	

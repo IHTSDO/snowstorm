@@ -1,16 +1,20 @@
 package org.snomed.snowstorm.core.data.services.postcoordination;
 
-import com.google.common.collect.Sets;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Sets;
+import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.api.VersionControlHelper;
-import org.snomed.languages.scg.SCGException;
 import org.snomed.languages.scg.domain.model.Attribute;
 import org.snomed.languages.scg.domain.model.AttributeValue;
 import org.snomed.languages.scg.domain.model.Expression;
 import org.snomed.snowstorm.config.Config;
 import org.snomed.snowstorm.core.data.domain.ConceptMini;
 import org.snomed.snowstorm.core.data.domain.ReferenceSetMember;
-import org.snomed.snowstorm.core.data.services.*;
+import org.snomed.snowstorm.core.data.services.ConceptService;
+import org.snomed.snowstorm.core.data.services.NotFoundException;
+import org.snomed.snowstorm.core.data.services.ReferenceSetMemberService;
+import org.snomed.snowstorm.core.data.services.ServiceException;
+import org.snomed.snowstorm.core.data.services.identifier.IdentifierHelper;
 import org.snomed.snowstorm.core.data.services.identifier.IdentifierSource;
 import org.snomed.snowstorm.core.data.services.pojo.MemberSearchRequest;
 import org.snomed.snowstorm.core.data.services.postcoordination.model.ComparableExpression;
@@ -51,6 +55,9 @@ public class ExpressionRepositoryService {
 
 	@Autowired
 	private VersionControlHelper versionControlHelper;
+
+	@Autowired
+	private BranchService branchService;
 
 	@Autowired
 	private IdentifierSource identifierSource;
@@ -95,57 +102,89 @@ public class ExpressionRepositoryService {
 		return new PageImpl<>(expressions, pageRequest, membersPage.getTotalElements());
 	}
 
-	public PostCoordinatedExpression createExpression(String branch, String closeToUserForm, String moduleId) throws ServiceException {
-		final PostCoordinatedExpression postCoordinatedExpression = parseValidateTransformAndClassifyExpression(branch, closeToUserForm);
-		final String expressionId = postCoordinatedExpression.getId();
-		final ReferenceSetMember closeToUserFormMember = new ReferenceSetMember(moduleId, CANONICAL_CLOSE_TO_USER_FORM_EXPRESSION_REFERENCE_SET, expressionId)
-				.setAdditionalField(EXPRESSION_FIELD, postCoordinatedExpression.getCloseToUserForm());
-		final ReferenceSetMember classifiableFormMember = new ReferenceSetMember(moduleId, CLASSIFIABLE_FORM_EXPRESSION_REFERENCE_SET, expressionId)
-				.setAdditionalField(EXPRESSION_FIELD, postCoordinatedExpression.getClassifiableForm());
-
-		memberService.createMembers(branch, Sets.newHashSet(closeToUserFormMember, classifiableFormMember));
-
-		return postCoordinatedExpression;
+	public PostCoordinatedExpression createExpression(String closeToUserFormExpression, String branch, String moduleId) throws ServiceException {
+		List<PostCoordinatedExpression> expressions = createExpressionsAllOrNothing(Collections.singletonList(closeToUserFormExpression), branch, moduleId);
+		return expressions.get(0);
 	}
 
-	public PostCoordinatedExpression parseValidateTransformAndClassifyExpression(String branch, String originalCloseToUserForm) throws ServiceException {
-		TimerUtil timer = new TimerUtil("exp");
-		try {
-			// Sort contents of expression
-			ComparableExpression closeToUserFormExpression = expressionParser.parseExpression(originalCloseToUserForm);
-			timer.checkpoint("Parse expression");
+	public List<PostCoordinatedExpression> createExpressionsAllOrNothing(List<String> closeToUserFormExpressions, String branch, String moduleId) throws ServiceException {
+		int namespace = IdentifierHelper.getNamespaceFromSCTID(moduleId);
+		final List<PostCoordinatedExpression> postCoordinatedExpressions = parseValidateTransformAndClassifyExpressions(closeToUserFormExpressions, branch, namespace);
 
-			ExpressionContext context = new ExpressionContext(branch, versionControlHelper, mrcmService, timer);
+		if (postCoordinatedExpressions.stream().noneMatch(PostCoordinatedExpression::hasException)) {
+			for (PostCoordinatedExpression postCoordinatedExpression : postCoordinatedExpressions) {
+				final String expressionId = postCoordinatedExpression.getId();
+				final ReferenceSetMember closeToUserFormMember = new ReferenceSetMember(moduleId, CANONICAL_CLOSE_TO_USER_FORM_EXPRESSION_REFERENCE_SET, expressionId)
+						.setAdditionalField(EXPRESSION_FIELD, postCoordinatedExpression.getCloseToUserForm());
+				final ReferenceSetMember classifiableFormMember = new ReferenceSetMember(moduleId, CLASSIFIABLE_FORM_EXPRESSION_REFERENCE_SET, expressionId)
+						.setAdditionalField(EXPRESSION_FIELD, postCoordinatedExpression.getClassifiableForm());
 
-			// Validate expression against MRCM
-			mrcmAttributeRangeValidation(closeToUserFormExpression, context);
-			timer.checkpoint("MRCM validation");
+				memberService.createMembers(branch, Sets.newHashSet(closeToUserFormMember, classifiableFormMember));
+				// Internal id namespace 1000104
+			}
+		}
 
-			final ComparableExpression classifiableFormExpression;
+		return postCoordinatedExpressions;
+	}
+
+	public PostCoordinatedExpression parseValidateTransformAndClassifyExpression(String branch, String originalCloseToUserForm, int namespace) throws ServiceException {
+		return parseValidateTransformAndClassifyExpressions(Collections.singletonList(originalCloseToUserForm), branch, namespace).get(0);
+	}
+
+	public List<PostCoordinatedExpression> parseValidateTransformAndClassifyExpressions(List<String> originalCloseToUserForms, String branch, int namespace) throws ServiceException {
+		List<PostCoordinatedExpression> expressionOutcomes = new ArrayList<>();
+		for (String originalCloseToUserForm : originalCloseToUserForms) {
+			TimerUtil timer = new TimerUtil("exp");
+			ExpressionContext context = new ExpressionContext(branch, branchService, versionControlHelper, mrcmService, timer);
 			try {
+				// Sort contents of expression
+				ComparableExpression closeToUserFormExpression = expressionParser.parseExpression(originalCloseToUserForm);
+				timer.checkpoint("Parse expression");
+
+				// Validate expression against MRCM
+				mrcmAttributeRangeValidation(closeToUserFormExpression, context);
+				timer.checkpoint("MRCM validation");
+
+				final ComparableExpression classifiableFormExpression;
 				classifiableFormExpression = transformationService.transform(closeToUserFormExpression, context);
 				timer.checkpoint("Transformation");
-			} catch (TransformationException e) {
-				String errorExpression = createHumanReadableExpression(closeToUserFormExpression.toString(), context);
-				throw new TransformationException(String.format("Expression could not be transformed: \"%s\". \n%s", errorExpression, e.getMessage()), e);
+
+				// Assign identifier
+				if (classifiableFormExpression.getExpressionId() == null) {
+					List<Long> expressionIds = identifierSource.reserveIds(namespace, "16", 1);
+					classifiableFormExpression.setExpressionId(expressionIds.get(0));
+				}
+
+				// Classify
+				ComparableExpression necessaryNormalForm;
+				boolean skipClassification = false;
+				if (skipClassification) {
+					necessaryNormalForm = classifiableFormExpression;
+				} else {
+					necessaryNormalForm = incrementalClassificationService.classify(classifiableFormExpression, branch);
+					timer.checkpoint("Classify");
+				}
+
+				// TODO: Add attribute sorting
+				final PostCoordinatedExpression pce = new PostCoordinatedExpression(
+						necessaryNormalForm.getExpressionId().toString(), originalCloseToUserForm,
+						classifiableFormExpression.toString(), necessaryNormalForm.toString());
+
+				populateHumanReadableForms(pce, context);
+				timer.checkpoint("Add human readable");
+				expressionOutcomes.add(pce);
+				timer.finish();
+			} catch (ServiceException e) {
+				String humanReadableCloseToUserForm;
+				try {
+					humanReadableCloseToUserForm = createHumanReadableExpression(originalCloseToUserForm, context);
+				} catch (ServiceException e2) {
+					humanReadableCloseToUserForm = originalCloseToUserForm;
+				}
+				expressionOutcomes.add(new PostCoordinatedExpression(humanReadableCloseToUserForm, e));
 			}
-
-			// Classify
-			final ComparableExpression necessaryNormalForm = incrementalClassificationService.classify(classifiableFormExpression);
-			timer.checkpoint("Classify");
-
-			// TODO: Add attribute sorting
-			final PostCoordinatedExpression pce = new PostCoordinatedExpression(
-					necessaryNormalForm.getExpressionId().toString(), originalCloseToUserForm,
-					classifiableFormExpression.toString(), necessaryNormalForm.toString());
-
-			populateHumanReadableForms(pce, context);
-			timer.checkpoint("Add human readable");
-			timer.finish();
-			return pce;
-		} catch (SCGException e) {
-			throw new IllegalArgumentException("Failed to parse expression: " + e.getMessage(), e);
 		}
+		return expressionOutcomes;
 	}
 
 	private void populateHumanReadableForms(PostCoordinatedExpression expressionForms, ExpressionContext context) throws ServiceException {
@@ -208,16 +247,21 @@ public class ExpressionRepositoryService {
 
 	private void assertAttributeValueWithinRange(String attributeId, String attributeValueId, ExpressionContext context) throws ServiceException {
 		// Value within attribute range
-		if (mrcmService.retrieveAttributeValueIds(ContentType.POSTCOORDINATED, attributeId, attributeValueId,
-				context.getBranch(), null, context.getBranchMRCM(), context.getBranchCriteria()).isEmpty()) {
+		TimerUtil timer = new TimerUtil("attribute validation");
+		Collection<Long> longs = mrcmService.retrieveAttributeValueIds(ContentType.POSTCOORDINATED, attributeId, attributeValueId,
+				context.getBranch(), null, context.getBranchMRCM(), context.getDependantReleaseBranchCriteria());
+		timer.checkpoint("retrieveAttributeValueIds");
+		if (longs.isEmpty()) {
 			Map<String, String> conceptIdAndFsnTerm = getConceptIdAndTerm(Sets.newHashSet(attributeId, attributeValueId), context);
 			context.getTimer().checkpoint("getConceptIdAndTerm");
+			timer.checkpoint("getConceptIdAndTerm");
 			String attributeValueFromStore = conceptIdAndFsnTerm.get(attributeValueId);
 			if (attributeValueFromStore == null) {
 				throwConceptNotFound(attributeValueId);
 			} else {
 				Set<AttributeRange> mandatoryAttributeRanges = context.getBranchMRCM().getMandatoryAttributeRanges(attributeId, ContentType.POSTCOORDINATED);
 				StringBuilder builder = new StringBuilder();
+				timer.checkpoint("getMandatoryAttributeRanges");
 				for (AttributeRange mandatoryAttributeRange : mandatoryAttributeRanges) {
 					if (!builder.isEmpty()) {
 						builder.append(" OR ");

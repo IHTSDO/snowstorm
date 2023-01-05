@@ -1,6 +1,7 @@
 package org.snomed.snowstorm.core.data.services.postcoordination;
 
 import com.google.common.collect.Lists;
+import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.api.VersionControlHelper;
 import org.ihtsdo.otf.snomedboot.ReleaseImportException;
 import org.junit.jupiter.api.AfterEach;
@@ -35,6 +36,9 @@ public abstract class AbstractExpressionTest extends AbstractTest {
 
     @Autowired
     private VersionControlHelper versionControlHelper;
+
+    @Autowired
+    private BranchService branchService;
 
     @Autowired
     private MRCMService mrcmService;
@@ -83,7 +87,7 @@ public abstract class AbstractExpressionTest extends AbstractTest {
         try (FileInputStream inputStream = new FileInputStream(dummyMrcmImportFile)) {
             importService.importArchive(importJob, inputStream);
         }
-        expressionContext = new ExpressionContext("MAIN", versionControlHelper, mrcmService, new TimerUtil(""));
+        expressionContext = new ExpressionContext("MAIN", branchService, versionControlHelper, mrcmService, new TimerUtil(""));
     }
 
     @AfterEach

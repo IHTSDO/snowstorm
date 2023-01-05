@@ -16,6 +16,7 @@ import org.snomed.otf.owltoolkit.util.InputStreamSet;
 import org.snomed.snowstorm.config.SnomedReleaseResourceConfiguration;
 import org.snomed.snowstorm.core.data.domain.Concepts;
 import org.snomed.snowstorm.core.data.services.BranchMetadataKeys;
+import org.snomed.snowstorm.core.data.services.CodeSystemService;
 import org.snomed.snowstorm.core.data.services.ServiceException;
 import org.snomed.snowstorm.core.data.services.postcoordination.model.ComparableAttribute;
 import org.snomed.snowstorm.core.data.services.postcoordination.model.ComparableAttributeGroup;
@@ -41,7 +42,7 @@ public class IncrementalClassificationService {
 
 	private final ResourceManager releaseResourceManager;
 
-	private ClassificationContainer classificationContainer;
+	private final Map<String, ClassificationContainer> classificationContainers = new HashMap<>();
 
 	@Autowired
 	private BranchService branchService;
@@ -49,23 +50,24 @@ public class IncrementalClassificationService {
 	@Autowired
 	private ExpressionAxiomConversionService expressionAxiomConversionService;
 
+	@Autowired
+	private CodeSystemService codeSystemService;
+
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
-	public IncrementalClassificationService(
-			@Autowired ResourceLoader cloudResourceLoader,
-			@Autowired SnomedReleaseResourceConfiguration snomedReleaseResourceConfiguration) {
+	public IncrementalClassificationService(@Autowired ResourceLoader cloudResourceLoader, @Autowired SnomedReleaseResourceConfiguration snomedReleaseResourceConfiguration) {
 		this.releaseResourceManager = new ResourceManager(snomedReleaseResourceConfiguration, cloudResourceLoader);
 		snomedReasonerService = new SnomedReasonerService();
 	}
 
-	public ComparableExpression classify(ComparableExpression classifiableForm) throws ServiceException {
+	public ComparableExpression classify(ComparableExpression classifiableForm, String branch) throws ServiceException {
 		// Transform to axiom(s)
-		Set<AxiomRepresentation> axioms = expressionAxiomConversionService.assignExpressionIdsAndConvertToAxioms(classifiableForm);
+		Set<AxiomRepresentation> axioms = expressionAxiomConversionService.convertToAxioms(classifiableForm);
 
 		// Classify
 		final RelationshipChangeProcessor changeProcessor;
 		try {
-			changeProcessor = classify(axioms);
+			changeProcessor = classify(axioms, "MAIN");
 		} catch (IOException | ReasonerServiceException e) {
 			throw new ServiceException("Failed to classify expression.", e);
 		}
@@ -135,34 +137,41 @@ public class IncrementalClassificationService {
 		return map;
 	}
 
-	private RelationshipChangeProcessor classify(Set<AxiomRepresentation> axioms) throws IOException, ReasonerServiceException {
-		final ClassificationContainer classificationContainer = setupContainer();
+	private RelationshipChangeProcessor classify(Set<AxiomRepresentation> axioms, String branch) throws IOException, ReasonerServiceException {
+		final ClassificationContainer classificationContainer = setupContainer(branch);
 		return snomedReasonerService.classifyAxioms(axioms, classificationContainer);
 	}
 
-	private synchronized ClassificationContainer setupContainer() throws ReasonerServiceException {
-		if (classificationContainer == null) {
-			createClassificationContainer();
+	private synchronized ClassificationContainer setupContainer(String branch) throws ReasonerServiceException {
+		if (!classificationContainers.containsKey(branch)) {
+			Set<String> toRemove = new HashSet<>();
+			for (Map.Entry<String, ClassificationContainer> entry : classificationContainers.entrySet()) {
+				entry.getValue().dispose();
+				toRemove.add(entry.getKey());
+			}
+			toRemove.forEach(classificationContainers::remove);
+			classificationContainers.put(branch, createClassificationContainer(branch));
 		}
-		return classificationContainer;
+		return classificationContainers.get(branch);
 	}
 
-	private void createClassificationContainer() throws ReasonerServiceException {
-		Branch branchWithInheritedMetadata = branchService.findBranchOrThrow("MAIN", false);
+	private ClassificationContainer createClassificationContainer(String branch) throws ReasonerServiceException {
+		// TODO: Lookup package from dependant codesystem
+		Branch branchWithInheritedMetadata = branchService.findBranchOrThrow(branch, false);
 		Metadata metadata = branchWithInheritedMetadata.getMetadata();
 		String previousPackage = metadata.getString(BranchMetadataKeys.PREVIOUS_PACKAGE);
 		if (previousPackage == null) {
 			throw new IllegalStateException(format("No %s set in branch metadata.", BranchMetadataKeys.PREVIOUS_PACKAGE));
 		}
+		logger.info("Creating classification container for branch {} using package {}", branch, previousPackage);
 
 		try (InputStream previousReleaseStream = releaseResourceManager.readResourceStream(previousPackage)) {
-			classificationContainer = snomedReasonerService.classify(
+			return snomedReasonerService.classify(
 					UUID.randomUUID().toString(),
 					new InputStreamSet(previousReleaseStream),
 					null,
 					new FileOutputStream(Files.createTempFile("results" + UUID.randomUUID(), ".txt").toFile()), ELK_REASONER_FACTORY, false);
 		} catch (IOException e) {
-			e.printStackTrace();
 			throw new ReasonerServiceException(format("Failed to load previous package %s", previousPackage), e);
 		}
 	}

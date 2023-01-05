@@ -14,6 +14,7 @@ public class FHIRCodeSystemVersionParams {
 	private String snomedModule;
 	private String version;
 	private String id;
+	private boolean unversionedExpressionRepository;
 
 	public FHIRCodeSystemVersionParams(String codeSystem) {
 		this.codeSystem = codeSystem;
@@ -24,7 +25,7 @@ public class FHIRCodeSystemVersionParams {
 	}
 
 	public boolean isUnversionedSnomed() {
-		return codeSystem != null && codeSystem.startsWith(SNOMED_URI_UNVERSIONED);
+		return (codeSystem != null && codeSystem.startsWith(SNOMED_URI_UNVERSIONED)) || isUnversionedExpressionRepository();
 	}
 
 	public StringType toSnomedUri() {
@@ -65,6 +66,14 @@ public class FHIRCodeSystemVersionParams {
 
 	public String getId() {
 		return id;
+	}
+
+	public void setUnversionedExpressionRepository(boolean unversionedExpressionRepository) {
+		this.unversionedExpressionRepository = unversionedExpressionRepository;
+	}
+
+	public boolean isUnversionedExpressionRepository() {
+		return unversionedExpressionRepository;
 	}
 
 	@Override

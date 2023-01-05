@@ -337,6 +337,9 @@ public class FHIRHelper implements FHIRConstants {
 				String versionWithoutParams = version.contains("?") ? version.substring(0, version.indexOf("?")) : version;
 				if ((matcher = SNOMED_URI_MODULE_PATTERN.matcher(versionWithoutParams)).matches()) {
 					codeSystemParams.setSnomedModule(matcher.group(1));
+					if (versionWithoutParams.startsWith(SNOMED_URI_UNVERSIONED)) {
+						codeSystemParams.setUnversionedExpressionRepository(true);
+					}
 				} else if ((matcher = SNOMED_URI_MODULE_AND_VERSION_PATTERN.matcher(versionWithoutParams)).matches()) {
 					if (codeSystemParams.isUnversionedSnomed()) {
 						throw exception("A specific version can not be requested when using " +

@@ -14,6 +14,8 @@ import org.snomed.snowstorm.core.data.services.ServiceException;
 import org.snomed.snowstorm.core.data.services.identifier.IdentifierService;
 import org.snomed.snowstorm.core.data.services.identifier.IdentifierSource;
 import org.snomed.snowstorm.core.data.services.pojo.ConceptCriteria;
+import org.snomed.snowstorm.core.data.services.postcoordination.ExpressionRepositoryService;
+import org.snomed.snowstorm.core.data.services.postcoordination.model.PostCoordinatedExpression;
 import org.snomed.snowstorm.core.pojo.LanguageDialect;
 import org.snomed.snowstorm.fhir.domain.FHIRCodeSystemVersion;
 import org.snomed.snowstorm.fhir.pojo.CanonicalUri;
@@ -26,6 +28,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
+import java.util.stream.Collectors;
 
 import static java.lang.String.format;
 import static org.snomed.snowstorm.fhir.services.FHIRHelper.exception;
@@ -52,6 +55,9 @@ public class FHIRCodeSystemService {
 
 	@Autowired
 	private IdentifierSource identifierSource;
+
+	@Autowired
+	private ExpressionRepositoryService expressionRepository;
 
 	@Value("${postcoordination.level.max}")
 	private Short maxPostcoordinationLevel;
@@ -123,7 +129,8 @@ public class FHIRCodeSystemService {
 			}
 			org.snomed.snowstorm.core.data.domain.CodeSystem existingCodeSystem = snomedCodeSystemService.findByUriModule(snomedModule);
 			if (existingCodeSystem != null) {
-				throw exception("Updating SNOMED CT code system supplements is not yet supported.", OperationOutcome.IssueType.NOTSUPPORTED, 400);
+				throw exception("A code system supplement with the same URL and version already exists. Updating SNOMED CT code system supplements is not yet supported.",
+						OperationOutcome.IssueType.NOTSUPPORTED, 400);
 			}
 
 			org.snomed.snowstorm.core.data.domain.CodeSystem newCodeSystem = new org.snomed.snowstorm.core.data.domain.CodeSystem();
@@ -136,7 +143,8 @@ public class FHIRCodeSystemService {
 			return new FHIRCodeSystemVersion(savedCodeSystem);
 		} else {
 			// Check not SNOMED id
-			if (fhirCodeSystemVersion.getId().startsWith(SCT_ID_PREFIX)) {
+			String id = fhirCodeSystemVersion.getId();
+			if (isSnomedCodeSystemVersionId(id)) {
 				throw exception(format("Code System id prefix '%s' is reserved for SNOMED CT code systems. " +
 						"Please create and import these via the native API.", SCT_ID_PREFIX), OperationOutcome.IssueType.NOTSUPPORTED, 400);
 			}
@@ -166,6 +174,10 @@ public class FHIRCodeSystemService {
 			codeSystemRepository.save(fhirCodeSystemVersion);
 			return fhirCodeSystemVersion;
 		}
+	}
+
+	private static boolean isSnomedCodeSystemVersionId(String id) {
+		return id.startsWith(SCT_ID_PREFIX);
 	}
 
 	public FHIRCodeSystemVersion findCodeSystemVersionOrThrow(FHIRCodeSystemVersionParams systemVersionParams) {
@@ -325,6 +337,35 @@ public class FHIRCodeSystemService {
 			concept = snomedConceptService.find(code, languageDialects, codeSystemVersion.getSnomedBranch());
 		}
 		return new ConceptAndSystemResult(concept, codeSystemVersion);
+	}
+
+	public List<PostCoordinatedExpression> addExpressions(FHIRCodeSystemVersion snomedExpressionCodeSystem, List<CodeSystem.ConceptDefinitionComponent> concepts) {
+		if (concepts.isEmpty()) {
+			return Collections.emptyList();
+		}
+		List<String> closeToUserFormExpressions = concepts.stream().map(CodeSystem.ConceptDefinitionComponent::getCode).collect(Collectors.toList());
+		List<PostCoordinatedExpression> outcomes;
+		try {
+			outcomes = expressionRepository.createExpressionsAllOrNothing(closeToUserFormExpressions, snomedExpressionCodeSystem.getSnomedBranch(),
+					snomedExpressionCodeSystem.getSnomedCodeSystem().getUriModuleId());
+		} catch (ServiceException e) {
+			logger.error("Error handling postcoordinated expressions. CodeSystem: {}, Expressions: {}", snomedExpressionCodeSystem.getId(), closeToUserFormExpressions, e);
+			throw exception("Handling SNOMED CT postcoordinated expressions failed.", OperationOutcome.IssueType.EXCEPTION, 500, e);
+		}
+		if (outcomes.stream().anyMatch(PostCoordinatedExpression::hasException)) {
+			OperationOutcome outcome = new OperationOutcome();
+			for (PostCoordinatedExpression pceOutcome : outcomes) {
+				if (pceOutcome.hasException()) {
+					OperationOutcome.OperationOutcomeIssueComponent component = new OperationOutcome.OperationOutcomeIssueComponent();
+					component.setSeverity(OperationOutcome.IssueSeverity.ERROR);
+					component.setCode(OperationOutcome.IssueType.INVARIANT);
+					component.setDiagnostics(String.format("Expression \"%s\" failed. %s", pceOutcome.getCloseToUserForm(), pceOutcome.getException().getMessage()));
+					outcome.addIssue(component);
+				}
+			}
+			throw new SnowstormFHIRServerResponseException(400, "Expression batch creation failed.", outcome);
+		}
+		return outcomes;
 	}
 
 	public boolean conceptExistsOrThrow(String code, FHIRCodeSystemVersion codeSystemVersion) {

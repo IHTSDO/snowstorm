@@ -4,12 +4,9 @@ import org.snomed.languages.scg.domain.model.AttributeValue;
 import org.snomed.otf.owltoolkit.domain.AxiomRepresentation;
 import org.snomed.otf.owltoolkit.domain.Relationship;
 import org.snomed.snowstorm.core.data.domain.Concepts;
-import org.snomed.snowstorm.core.data.services.identifier.LocalRandomIdentifierSource;
 import org.snomed.snowstorm.core.data.services.postcoordination.model.ComparableAttribute;
 import org.snomed.snowstorm.core.data.services.postcoordination.model.ComparableAttributeGroup;
 import org.snomed.snowstorm.core.data.services.postcoordination.model.ComparableExpression;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.elasticsearch.core.ElasticsearchRestTemplate;
 import org.springframework.stereotype.Service;
 
 import java.util.HashSet;
@@ -20,24 +17,14 @@ import static java.lang.Long.parseLong;
 @Service
 public class ExpressionAxiomConversionService {
 
-	private final LocalRandomIdentifierSource identifierSource;
-
-	public ExpressionAxiomConversionService(@Autowired ElasticsearchRestTemplate elasticsearchRestTemplate) {
-		identifierSource = new LocalRandomIdentifierSource(elasticsearchRestTemplate);
-	}
-
-	public Set<AxiomRepresentation> assignExpressionIdsAndConvertToAxioms(ComparableExpression classifiableForm) {
+	public Set<AxiomRepresentation> convertToAxioms(ComparableExpression classifiableForm) {
 		Set<AxiomRepresentation> axioms = new HashSet<>();
-		assignExpressionIdsAndConvertToAxioms(classifiableForm, axioms);
+		convertToAxioms(classifiableForm, axioms);
 		return axioms;
 	}
 
-	private long assignExpressionIdsAndConvertToAxioms(ComparableExpression classifiableForm, Set<AxiomRepresentation> axioms) {
+	private long convertToAxioms(ComparableExpression classifiableForm, Set<AxiomRepresentation> axioms) {
 		Long sctid = classifiableForm.getExpressionId();
-		if (sctid == null) {
-			sctid = identifierSource.reserveIds(0, "06", 1).get(0);
-			classifiableForm.setExpressionId(sctid);
-		}
 
 		AxiomRepresentation rep = new AxiomRepresentation();
 		rep.setLeftHandSideNamedConcept(classifiableForm.getExpressionId());
@@ -74,7 +61,7 @@ public class ExpressionAxiomConversionService {
 		final AttributeValue attributeValue = attribute.getAttributeValue();
 		if (attributeValue.isNested()) {
 			// Attribute value is nested expression.. convert to another axiom and assign an identifier to return
-			return assignExpressionIdsAndConvertToAxioms((ComparableExpression) attributeValue.getNestedExpression(), axioms);
+			return convertToAxioms((ComparableExpression) attributeValue.getNestedExpression(), axioms);
 		} else {
 			return parseLong(attribute.getAttributeValueId());
 		}

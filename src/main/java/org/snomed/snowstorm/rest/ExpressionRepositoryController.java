@@ -34,7 +34,7 @@ public class ExpressionRepositoryController {
 	@PutMapping(value = "/{branch}/expressions")
 	public PostCoordinatedExpression createExpression(@PathVariable String branch, @RequestBody CreatePostCoordinatedExpressionRequest request) throws ServiceException {
 		branch = BranchPathUriUtil.decodePath(branch);
-		return expressionRepository.createExpression(branch, request.getCloseToUserForm(), request.getModuleId());
+		return expressionRepository.createExpression(request.getCloseToUserForm(), branch, request.getModuleId());
 	}
 
 	@Operation(summary = "Validate, transform and classify a postcoordinated expression.",
@@ -43,7 +43,7 @@ public class ExpressionRepositoryController {
 	@PostMapping(value = "/{branch}/expressions/transform")
 	public PostCoordinatedExpression transformExpression(@PathVariable String branch, @RequestBody CreatePostCoordinatedExpressionRequest request) throws ServiceException {
 		branch = BranchPathUriUtil.decodePath(branch);
-		return expressionRepository.parseValidateTransformAndClassifyExpression(branch, request.getCloseToUserForm());
+		return expressionRepository.parseValidateTransformAndClassifyExpression(branch, request.getCloseToUserForm(), 0);
 	}
 
 }
