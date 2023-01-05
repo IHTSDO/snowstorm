@@ -11,9 +11,7 @@ import org.springframework.data.elasticsearch.core.SearchHit;
 import org.springframework.data.elasticsearch.core.SearchHits;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
 
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.List;
+import java.util.*;
 
 import static org.elasticsearch.index.query.QueryBuilders.*;
 
@@ -25,6 +23,7 @@ import static org.elasticsearch.index.query.QueryBuilders.*;
 public class LocalSequentialIdentifierSource implements IdentifierSource {
 
 	private final ElasticsearchRestTemplate elasticsearchTemplate;
+	private final Map<String, Integer> namespaceAndPartitionHighestSequenceCache = Collections.synchronizedMap(new HashMap<>());
 
 	public LocalSequentialIdentifierSource(ElasticsearchRestTemplate elasticsearchTemplate) {
 		this.elasticsearchTemplate = elasticsearchTemplate;
@@ -34,14 +33,26 @@ public class LocalSequentialIdentifierSource implements IdentifierSource {
 	public List<Long> reserveIds(int namespaceId, String partitionId, int quantity) {
 		List<Long> newIdentifiers = new ArrayList<>();
 		int sequence = findHighestIdentifierSequence(namespaceId, partitionId);
-		for (int i = 0; i < quantity; i++) {
-			sequence++;
 
-			String namespace = namespaceId == 0 ? "" : namespaceId + "";
-			String sctidWithoutCheck = sequence + namespace + partitionId;
-			char verhoeff = VerhoeffCheck.calculateChecksum(sctidWithoutCheck, 0, false);
-			long newSctid = Long.parseLong(sctidWithoutCheck + verhoeff);
-			newIdentifiers.add(newSctid);
+		synchronized (namespaceAndPartitionHighestSequenceCache) {
+			// Take sequence from cache if it's higher. This is possible if ids have been reserved but not yet persisted in records
+			String sequenceCacheKey = namespaceId + "_" + partitionId;
+			int sequenceCacheValue = namespaceAndPartitionHighestSequenceCache.getOrDefault(sequenceCacheKey, 0);
+			if (sequenceCacheValue > sequence) {
+				sequence = sequenceCacheValue;
+			}
+
+			for (int i = 0; i < quantity; i++) {
+				sequence++;
+
+				String namespace = namespaceId == 0 ? "" : namespaceId + "";
+				String sctidWithoutCheck = sequence + namespace + partitionId;
+				char verhoeff = VerhoeffCheck.calculateChecksum(sctidWithoutCheck, 0, false);
+				long newSctid = Long.parseLong(sctidWithoutCheck + verhoeff);
+				newIdentifiers.add(newSctid);
+			}
+
+			namespaceAndPartitionHighestSequenceCache.put(sequenceCacheKey, sequence);
 		}
 
 		return newIdentifiers;
