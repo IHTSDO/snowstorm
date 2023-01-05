@@ -129,6 +129,11 @@ public class LocalSequentialIdentifierSource implements IdentifierSource {
 			} else {
 				highestSctid = component.getId();
 			}
+			if (namespaceId == 0) {
+				highestSequence = Integer.parseInt(highestSctid.substring(0, highestSctid.length() - 3));
+			} else {
+				highestSctid = component.getId();
+			}
 			String itemIdentifier;
 			if (namespaceId == 0) {
 				itemIdentifier = highestSctid.substring(0, highestSctid.length() - 3);
