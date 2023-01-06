@@ -1094,6 +1094,90 @@ class ConceptServiceTest extends AbstractTest {
 		}
 	}
 
+	@Test
+	void testPreviouslyUsedAssociationsAreReusedAndTargetNotOverwritten() throws ServiceException {
+		/* When targetId is changed for one of the historical association refset members and the rest are inactivated
+		 * then targetIds of the inactivated refset members should not be overwritten by the new targetId value. */
+
+		// Create concept
+		String path = "MAIN";
+		conceptService.batchCreate(Lists.newArrayList(new Concept("107658001"), new Concept("116680003")), path);
+		Concept concept = new Concept("50960005", 20020131, true, "900000000000207008", "900000000000074008");
+		concept.addDescription(new Description("84923010", 20020131, true, "900000000000207008", "50960005", "en", "900000000000013009", "Bleeding", "900000000000020002"));
+		concept.addAxiom(new Relationship(ISA, "107658001"));
+		conceptService.create(concept, path);
+
+		// Version code system
+		codeSystemService.createVersion(codeSystem, 20190731, "");
+
+		// Make concept inactive as ambiguous with 4 association targets: 87100004, 767171001, 133845002, and 47351003
+		concept = conceptService.find(concept.getConceptId(), path);
+		concept.setActive(false);
+		concept.setInactivationIndicator(Concepts.inactivationIndicatorNames.get(Concepts.AMBIGUOUS));
+		Map<String, Set<String>> associationTargetStrings = new HashMap<>();
+		associationTargetStrings.put(Concepts.historicalAssociationNames.get(Concepts.REFSET_POSSIBLY_EQUIVALENT_TO_ASSOCIATION), Sets.newHashSet("87100004", "767171001", "133845002", "47351003"));
+		concept.setAssociationTargets(associationTargetStrings);
+		conceptService.update(concept, path);
+
+		// Version code system
+		codeSystemService.createVersion(codeSystem, 20190831, "");
+
+		// Inactivate association target 87100004
+		concept = conceptService.find(concept.getConceptId(), path);
+		List<ReferenceSetMember> associationTargetMembers = concept.getAssociationTargetMembers();
+		ReferenceSetMember associationTargetMember = associationTargetMembers.stream()
+				.filter(member -> "87100004".equals(member.getAdditionalField("targetComponentId")))
+				.findAny().get();
+		associationTargetMember.setActive(false);
+		referenceSetMemberService.updateMember(path, associationTargetMember);
+
+		// Version code system
+		codeSystemService.createVersion(codeSystem, 20190931, "");
+
+		// Change association target to 125255003
+		Concept updateConcept = new Concept(concept.getConceptId());
+		updateConcept.setActive(false);
+		updateConcept.setInactivationIndicator(Concepts.inactivationIndicatorNames.get(Concepts.AMBIGUOUS));
+		associationTargetStrings = new HashMap<>();
+		associationTargetStrings.put(Concepts.historicalAssociationNames.get(Concepts.REFSET_POSSIBLY_EQUIVALENT_TO_ASSOCIATION), Sets.newHashSet("125255003"));
+		updateConcept.setAssociationTargets(associationTargetStrings);
+		conceptService.update(updateConcept, path);
+
+		// Check that inactivated targets are not overwritten with the new value
+		concept = conceptService.find(concept.getConceptId(), path);
+		associationTargetMembers = concept.getAssociationTargetMembers();
+
+		assertEquals(4, associationTargetMembers.size());
+
+		Optional<ReferenceSetMember> optionalReferenceSetMember = associationTargetMembers.stream()
+				.filter(member -> "767171001".equals(member.getAdditionalField("targetComponentId")))
+				.findAny();
+		assertTrue(optionalReferenceSetMember.isPresent());
+		assertFalse(optionalReferenceSetMember.get().isActive());
+
+		optionalReferenceSetMember = associationTargetMembers.stream()
+				.filter(member -> "133845002".equals(member.getAdditionalField("targetComponentId")))
+				.findAny();
+		assertTrue(optionalReferenceSetMember.isPresent());
+		assertFalse(optionalReferenceSetMember.get().isActive());
+
+		optionalReferenceSetMember = associationTargetMembers.stream()
+				.filter(member -> "47351003".equals(member.getAdditionalField("targetComponentId")))
+				.findAny();
+		assertTrue(optionalReferenceSetMember.isPresent());
+		assertFalse(optionalReferenceSetMember.get().isActive());
+
+		optionalReferenceSetMember = associationTargetMembers.stream()
+				.filter(member -> "87100004".equals(member.getAdditionalField("targetComponentId")))
+				.findAny();
+		assertTrue(optionalReferenceSetMember.isEmpty());
+
+		optionalReferenceSetMember = associationTargetMembers.stream()
+				.filter(member -> "125255003".equals(member.getAdditionalField("targetComponentId")))
+				.findAny();
+		assertTrue(optionalReferenceSetMember.isPresent());
+		assertTrue(optionalReferenceSetMember.get().isActive());
+	}
 
 	@Test
 	void testCreateObjectAttribute() throws ServiceException {
