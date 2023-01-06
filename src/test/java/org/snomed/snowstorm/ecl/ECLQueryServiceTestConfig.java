@@ -1,16 +1,15 @@
 package org.snomed.snowstorm.ecl;
 
 import com.google.common.collect.Sets;
-
 import io.kaicode.elasticvc.helper.SortBuilders;
+import jakarta.annotation.PostConstruct;
 import org.snomed.snowstorm.core.data.domain.*;
-import org.snomed.snowstorm.core.data.services.*;
+import org.snomed.snowstorm.core.data.services.ServiceException;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.elasticsearch.client.elc.NativeQueryBuilder;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.data.elasticsearch.core.SearchHit;
-import org.springframework.data.elasticsearch.client.elc.NativeQueryBuilder;
 
-import jakarta.annotation.PostConstruct;
 import java.util.ArrayList;
 import java.util.List;
 

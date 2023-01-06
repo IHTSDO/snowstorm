@@ -8,7 +8,12 @@ import io.kaicode.elasticvc.domain.Branch;
 import org.snomed.snowstorm.core.data.services.ServiceException;
 import org.snomed.snowstorm.core.util.TimerUtil;
 import org.snomed.snowstorm.mrcm.MRCMService;
+import org.snomed.snowstorm.mrcm.model.AttributeDomain;
 import org.snomed.snowstorm.mrcm.model.MRCM;
+
+import java.util.Set;
+import java.util.function.Predicate;
+import java.util.stream.Collectors;
 
 public class ExpressionContext {
 
@@ -21,6 +26,7 @@ public class ExpressionContext {
 	private BranchCriteria branchCriteria;
 	private BranchCriteria dependantReleaseBranchCriteria;
 	private MRCM mrcm;
+	private Set<String> mrcmUngroupedAttributes;
 
 	public ExpressionContext(String branch, BranchService branchService, VersionControlHelper versionControlHelper, MRCMService mrcmService, TimerUtil timer) {
 		this.branch = branch;
@@ -53,6 +59,16 @@ public class ExpressionContext {
 			mrcm = mrcmService.loadActiveMRCMFromCache(branch);
 		}
 		return mrcm;
+	}
+
+	public Set<String> getMRCMUngroupedAttributes() throws ServiceException {
+		if (mrcmUngroupedAttributes == null) {
+			mrcmUngroupedAttributes = getBranchMRCM().getAttributeDomains().stream()
+					.filter(Predicate.not(AttributeDomain::isGrouped))
+					.map(AttributeDomain::getReferencedComponentId)
+					.collect(Collectors.toSet());
+		}
+		return mrcmUngroupedAttributes;
 	}
 
 	public String getBranch() {

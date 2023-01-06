@@ -11,7 +11,6 @@ import org.snomed.snowstorm.config.Config;
 import org.snomed.snowstorm.core.data.domain.ConceptMini;
 import org.snomed.snowstorm.core.data.domain.ReferenceSetMember;
 import org.snomed.snowstorm.core.data.services.ConceptService;
-import org.snomed.snowstorm.core.data.services.NotFoundException;
 import org.snomed.snowstorm.core.data.services.ReferenceSetMemberService;
 import org.snomed.snowstorm.core.data.services.ServiceException;
 import org.snomed.snowstorm.core.data.services.identifier.IdentifierHelper;
@@ -42,7 +41,7 @@ public class ExpressionRepositoryService {
 	private ExpressionParser expressionParser;
 
 	@Autowired
-	private ExpressionTransformationService transformationService;
+	private ExpressionTransformationAndValidationService transformationService;
 
 	@Autowired
 	private ReferenceSetMemberService memberService;
@@ -51,13 +50,13 @@ public class ExpressionRepositoryService {
 	private MRCMService mrcmService;
 
 	@Autowired
-	private ConceptService conceptService;
-
-	@Autowired
 	private VersionControlHelper versionControlHelper;
 
 	@Autowired
 	private BranchService branchService;
+
+	@Autowired
+	private ConceptService conceptService;
 
 	@Autowired
 	private IdentifierSource identifierSource;
@@ -130,7 +129,7 @@ public class ExpressionRepositoryService {
 		return parseValidateTransformAndClassifyExpressions(Collections.singletonList(originalCloseToUserForm), branch, namespace).get(0);
 	}
 
-	public List<PostCoordinatedExpression> parseValidateTransformAndClassifyExpressions(List<String> originalCloseToUserForms, String branch, int namespace) throws ServiceException {
+	public List<PostCoordinatedExpression> parseValidateTransformAndClassifyExpressions(List<String> originalCloseToUserForms, String branch, int namespace) {
 		List<PostCoordinatedExpression> expressionOutcomes = new ArrayList<>();
 		for (String originalCloseToUserForm : originalCloseToUserForms) {
 			TimerUtil timer = new TimerUtil("exp");
@@ -140,12 +139,10 @@ public class ExpressionRepositoryService {
 				ComparableExpression closeToUserFormExpression = expressionParser.parseExpression(originalCloseToUserForm);
 				timer.checkpoint("Parse expression");
 
-				// Validate expression against MRCM
-				mrcmAttributeRangeValidation(closeToUserFormExpression, context);
-				timer.checkpoint("MRCM validation");
-
+				// Validate and transform expression to classifiable form if needed.
+				// This groups any 'loose' attributes
 				final ComparableExpression classifiableFormExpression;
-				classifiableFormExpression = transformationService.transform(closeToUserFormExpression, context);
+				classifiableFormExpression = transformationService.validateAndTransform(closeToUserFormExpression, context);
 				timer.checkpoint("Transformation");
 
 				// Assign identifier
@@ -274,6 +271,10 @@ public class ExpressionRepositoryService {
 		context.getTimer().checkpoint("retrieveAttributeValues for " + attributeId + " = " + attributeValueId);
 	}
 
+	private void throwConceptNotFound(String conceptId) {
+		throw new IllegalArgumentException(format("Concept %s not found.", conceptId));
+	}
+
 	private Map<String, String> getConceptIdAndTerm(Set<String> conceptIds, ExpressionContext context) {
 		Map<String, ConceptMini> resultsMap = conceptService.findConceptMinis(context.getBranchCriteria(), conceptIds, Config.DEFAULT_LANGUAGE_DIALECTS).getResultsMap();
 		return resultsMap.values().stream().collect(Collectors.toMap(ConceptMini::getConceptId, ConceptMini::getIdAndFsnTerm));
@@ -304,7 +305,4 @@ public class ExpressionRepositoryService {
 		return transformationService.addHumanPTsToExpressionStrings(expressions, allConceptIds, context);
 	}
 
-	private void throwConceptNotFound(String concept) {
-		throw new NotFoundException(format("Concept %s not found on this branch.", concept));
-	}
 }

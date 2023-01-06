@@ -188,6 +188,11 @@ public class ComparableExpression extends Expression implements Comparable<Compa
 		return ids;
 	}
 
+	@Override
+	public String toString() {
+		return super.toString();
+	}
+
 	public void getAllConceptIds(Set<String> ids) {
 		final List<String> focusConcepts = getFocusConcepts();
 		if (focusConcepts != null) {

@@ -60,17 +60,20 @@ public abstract class AbstractExpressionTest extends AbstractTest {
                 new Concept("49062001").addFSN("Device (physical object)"),
                 new Concept("122456005").addFSN("Laser device").addRelationship(ISA, "49062001"),
                 new Concept("7946007"),
-                new Concept("405813007").addFSN("Procedure site - direct (attribute)"),
+                new Concept("388441000").addFSN("Horse"),
+
                 new Concept("71388002").addFSN("Procedure").addRelationship(ISA, Concepts.SNOMEDCT_ROOT),
-                new Concept("129264002").addFSN("Action (qualifier value)"),
-                new Concept("129304002").addFSN("Excision - action").addRelationship(ISA, "129264002"),
+                new Concept("405813007").addFSN("Procedure site - direct (attribute)"),
                 new Concept("260686004").addFSN("Method (attribute)"),
                 new Concept("272741003").addFSN("Laterality (attribute)"),
+
+                new Concept("129264002").addFSN("Action (qualifier value)"),
+                new Concept("129304002").addFSN("Excision - action").addRelationship(ISA, "129264002"),
                 new Concept("182353008").addFSN("Side"),
                 new Concept("24028007").addFSN("Right").addRelationship(ISA, "182353008"),
+
                 new Concept("442083009").addFSN("Anatomical or acquired body structure (body structure)").addRelationship(ISA, Concepts.SNOMEDCT_ROOT),
                 new Concept("15497006").addFSN("Ovarian structure").addRelationship(ISA, "442083009"),
-                new Concept("388441000").addFSN("Horse"),
 
                 // 83152002 |Oophorectomy| :
                 //{ 260686004 |Method| = 129304002 |Excision - action|,
@@ -79,8 +82,13 @@ public abstract class AbstractExpressionTest extends AbstractTest {
                         .addFSN("Oophorectomy")
                         .addRelationship(ISA, "71388002")
                         .addRelationship(1, "260686004 | method |", "129304002 |Excision - action|")
-                        .addRelationship(1, "405813007 |Procedure site - Direct|", "15497006 |Ovarian structure|")
+                        .addRelationship(1, "405813007 |Procedure site - Direct|", "15497006 |Ovarian structure|"),
 
+                new Concept("404684003").addFSN("Clinical finding").addRelationship(ISA, Concepts.SNOMEDCT_ROOT),
+                new Concept("64572001").addFSN("Disorder").addRelationship(ISA, "404684003"),
+                new Concept("42752001").addFSN("Due to (attribute)"),
+                new Concept("195967001").addFSN("Asthma").addRelationship(ISA, "64572001"),
+                new Concept("55985003").addFSN("Atopic reaction").addRelationship(ISA, "64572001")
 
         ), "MAIN");
 

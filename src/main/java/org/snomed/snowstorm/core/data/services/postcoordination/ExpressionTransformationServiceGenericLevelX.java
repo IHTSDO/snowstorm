@@ -37,7 +37,7 @@ import static org.snomed.otf.owltoolkit.constants.Concepts.LATERALITY;
 import static org.snomed.snowstorm.config.Config.PAGE_OF_ONE;
 
 @Service
-public class ExpressionTransformationService {
+public class ExpressionTransformationServiceGenericLevelX {
 
 	@Autowired
 	private ConceptService conceptService;
@@ -59,7 +59,7 @@ public class ExpressionTransformationService {
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
-	public ComparableExpression transform(ComparableExpression closeToUserForm, ExpressionContext context) throws ServiceException {
+	public ComparableExpression validateAndTransform(ComparableExpression closeToUserForm, ExpressionContext context) throws ServiceException {
 		// Dereference input with clone of object to avoid any modification affecting input.
 		closeToUserForm = expressionParser.parseExpression(closeToUserForm.toString());
 		if (closeToUserForm.getDefinitionStatus() == null) {
