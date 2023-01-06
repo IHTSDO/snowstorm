@@ -3,6 +3,8 @@ package org.snomed.snowstorm.core.data.services.postcoordination;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentMatchers;
 import org.mockito.Mockito;
+import org.snomed.snowstorm.core.data.domain.ReferenceSetMember;
+import org.snomed.snowstorm.core.data.services.ReferenceSetMemberService;
 import org.snomed.snowstorm.core.data.services.ServiceException;
 import org.snomed.snowstorm.core.data.services.identifier.LocalRandomIdentifierSource;
 import org.snomed.snowstorm.core.data.services.postcoordination.model.ComparableExpression;
@@ -13,6 +15,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.eq;
 
 class ExpressionRepositoryServiceTest extends AbstractExpressionTest {
 
@@ -24,15 +27,17 @@ class ExpressionRepositoryServiceTest extends AbstractExpressionTest {
 	@Autowired
 	private ExpressionRepositoryService expressionRepository;
 
+	@Autowired
+	private ReferenceSetMemberService memberService;
+
 	@MockBean
 	private IncrementalClassificationService incrementalClassificationService;
 
 	@Test
 	public void createExpression() throws ServiceException {
-		String branch = "MAIN";
-		Mockito.when(incrementalClassificationService.classify(ArgumentMatchers.any(), branch)).thenReturn(MOCK_CLASSIFIED_EXPRESSION);
+		Mockito.when(incrementalClassificationService.classify(ArgumentMatchers.any(), eq(branch))).thenReturn(MOCK_CLASSIFIED_EXPRESSION);
 
-		PostCoordinatedExpression expression = expressionRepository.createExpression("83152002 |Oophorectomy|", branch, "");
+		PostCoordinatedExpression expression = expressionRepository.createExpression("83152002 |Oophorectomy|", branch, moduleId);
 		String expressionId = expression.getId();
 		System.out.println("Expression ID is " + expressionId);
 		assertEquals("16", LocalRandomIdentifierSource.POSTCOORDINATED_EXPRESSION_PARTITION_ID);
@@ -40,43 +45,53 @@ class ExpressionRepositoryServiceTest extends AbstractExpressionTest {
 
 		// Single concept
 		assertEquals("=== 83152002",
-				expressionRepository.createExpression("83152002 |Oophorectomy|", branch, "").getClassifiableForm());
+				expressionRepository.createExpression("83152002 |Oophorectomy|", branch, moduleId).getClassifiableForm());
 
 		// Single concept with explicit definition status
 		assertEquals("=== 83152002",
-				expressionRepository.createExpression("===83152002 |Oophorectomy|", branch, "").getClassifiableForm());
+				expressionRepository.createExpression("===83152002 |Oophorectomy|", branch, moduleId).getClassifiableForm());
 
 		// Single concept with explicit subtype definition status
 		assertEquals("<<< 83152002",
-				expressionRepository.createExpression("<<<  83152002 |Oophorectomy|", branch, "").getClassifiableForm());
+				expressionRepository.createExpression("<<<  83152002 |Oophorectomy|", branch, moduleId).getClassifiableForm());
 
 		// Multiple focus concepts
 		assertEquals("=== 421720008 + 7946007",
-				expressionRepository.createExpression("421720008 |Spray dose form| + 7946007 |Drug suspension|", branch, "").getClassifiableForm());
+				expressionRepository.createExpression("421720008 |Spray dose form| + 7946007 |Drug suspension|", branch, moduleId).getClassifiableForm());
 		// Same concepts stated in reverse order to test concept sorting
 		assertEquals("=== 421720008 + 7946007",
-				expressionRepository.createExpression("7946007 |Drug suspension| + 421720008 |Spray dose form|", branch, "").getClassifiableForm());
+				expressionRepository.createExpression("7946007 |Drug suspension| + 421720008 |Spray dose form|", branch, moduleId).getClassifiableForm());
 
 
 		// With single refinement
-		final PostCoordinatedExpression expression1 = expressionRepository.createExpression("83152002 |Oophorectomy| :  405815000 |Procedure device|  =  122456005 |Laser device|", branch, "");
+		final PostCoordinatedExpression expression1 =
+				expressionRepository.createExpression("83152002 |Oophorectomy| :  405815000 |Procedure device|  =  122456005 |Laser device|", branch, moduleId);
 		assertEquals("=== 83152002 : { 260686004 = 129304002, 405813007 = 15497006, 405815000 = 122456005 }",
 				expression1.getClassifiableForm());
-		assertEquals("83152002 |Oophorectomy| :  405815000 |Procedure device|  =  122456005 |Laser device|", expression1.getCloseToUserForm());
+		assertEquals("83152002 : 405815000 = 122456005", expression1.getCloseToUserForm());
 
 		// With multiple refinements, attributes are sorted
-		assertEquals("=== 71388002 : { 260686004 = 129304002, 405813007 = 15497006, 405815000 = 122456005 }",
-				expressionRepository.createExpression("   71388002 |Procedure| :" +
-						"       405815000 |Procedure device|  =  122456005 |Laser device| ," +
-						"       260686004 |Method|  =  129304002 |Excision - action| ," +
-						"       405813007 |Procedure site - direct|  =  15497006 |Ovarian structure|", branch, "").getClassifiableForm());
+		PostCoordinatedExpression expressionMultipleRefinements = expressionRepository.createExpression("   71388002 |Procedure| :" +
+				"       405815000 |Procedure device|  =  122456005 |Laser device| ," +
+				"       260686004 |Method|  =  129304002 |Excision - action| ," +
+				"       405813007 |Procedure site - direct|  =  15497006 |Ovarian structure|", branch, moduleId);
+		assertEquals("=== 71388002 : { 260686004 = 129304002, 405813007 = 15497006, 405815000 = 122456005 }", expressionMultipleRefinements.getClassifiableForm());
 
 		Page<PostCoordinatedExpression> page = expressionRepository.findAll(branch, PageRequest.of(0, 10));
 		assertEquals(8, page.getTotalElements());
 
-		Page<PostCoordinatedExpression> results = expressionRepository.findByCanonicalCloseToUserForm(branch, "83152002 |Oophorectomy| :  405815000 |Procedure device|  =  122456005 |Laser device|", PageRequest.of(0, 1));
+		Page<PostCoordinatedExpression> results = expressionRepository.findByCanonicalCloseToUserForm(branch, "83152002:405815000=122456005", PageRequest.of(0, 1));
 		assertEquals(1, results.getTotalElements());
-//		assertEquals("=== 83152002 : { 260686004 = 129304002, 405813007 = 15497006, 405815000 = 122456005 }", results.getContent().get(0).getClassifiableForm());
+
+		Page<ReferenceSetMember> members = memberService.findMembers(branch, expressionMultipleRefinements.getId(), PageRequest.of(0, 10));
+		assertEquals(2, members.getTotalElements());
+		ReferenceSetMember member = members.get().iterator().next();
+		String refsetMemberExpressionField = member.getAdditionalField(ReferenceSetMember.PostcoordinatedExpressionFields.EXPRESSION);
+		assertFalse(refsetMemberExpressionField.isEmpty());
+		System.out.println(refsetMemberExpressionField);
+		assertTrue(refsetMemberExpressionField.contains(":"));
+		assertFalse(refsetMemberExpressionField.contains(" "), () -> String.format("Expression should not contain any whitespace: '%s'", refsetMemberExpressionField));
+		assertFalse(refsetMemberExpressionField.contains("|"));
 	}
 
 	@Test
@@ -98,20 +113,19 @@ class ExpressionRepositoryServiceTest extends AbstractExpressionTest {
 
 	@Test
 	public void attributeRangeMRCMValidation() throws ServiceException {
-		String branch = "MAIN";
-		Mockito.when(incrementalClassificationService.classify(ArgumentMatchers.any(), branch)).thenReturn(MOCK_CLASSIFIED_EXPRESSION);
+		Mockito.when(incrementalClassificationService.classify(ArgumentMatchers.any(), eq(branch))).thenReturn(MOCK_CLASSIFIED_EXPRESSION);
 
 		// All in range as per data in setup
 		expressionRepository.createExpression("   71388002 |Procedure| :" +
 				"       405815000 |Procedure device| = 122456005 |Laser device| ," +
 				"       260686004 |Method| = 129304002 |Excision - action| ," +
-				"       405813007 |Procedure site - direct| = 15497006 |Ovarian structure|", branch, "");
+				"       405813007 |Procedure site - direct| = 15497006 |Ovarian structure|", branch, moduleId);
 
 		try {
 			expressionRepository.createExpression("   71388002 |Procedure| :" +
 					"       405815000 |Procedure device| = 122456005 |Laser device| ," +
 					"       260686004 |Method| = 129304002 |Excision - action| ," +
-					"       405813007 |Procedure site - direct| = 388441000 |Horse|", branch, "");
+					"       405813007 |Procedure site - direct| = 388441000 |Horse|", branch, moduleId);
 			fail("Should have thrown exception.");
 		} catch (IllegalArgumentException e) {
 			assertEquals("Value 388441000 | Horse | is not within the permitted range" +
@@ -122,20 +136,19 @@ class ExpressionRepositoryServiceTest extends AbstractExpressionTest {
 
 	@Test
 	public void attributeRangeMRCMValidationOfAttributeValueWithinExpression() throws ServiceException {
-		String branch = "MAIN";
-		Mockito.when(incrementalClassificationService.classify(ArgumentMatchers.any(), branch)).thenReturn(MOCK_CLASSIFIED_EXPRESSION);
+		Mockito.when(incrementalClassificationService.classify(ArgumentMatchers.any(), eq(branch))).thenReturn(MOCK_CLASSIFIED_EXPRESSION);
 
 		// All in range as per data in setup
 		expressionRepository.createExpression("71388002 |Procedure| :" +
 				"       405815000 |Procedure device| = 122456005 |Laser device| ," +
 				"       260686004 |Method| = 129304002 |Excision - action| ," +
-				"       405813007 |Procedure site - direct| = ( 15497006 |Ovarian structure| : 272741003 |Laterality| = 24028007 |Right| )", branch, "");
+				"       405813007 |Procedure site - direct| = ( 15497006 |Ovarian structure| : 272741003 |Laterality| = 24028007 |Right| )", branch, moduleId);
 
 		try {
 			expressionRepository.createExpression("71388002 |Procedure| :" +
 					"       405815000 |Procedure device| = 122456005 |Laser device| ," +
 					"       260686004 |Method| = 129304002 |Excision - action| ," +
-					"       405813007 |Procedure site - direct| = ( 15497006 |Ovarian structure| : 272741003 |Laterality| = 388441000 |Horse| )", branch, "");
+					"       405813007 |Procedure site - direct| = ( 15497006 |Ovarian structure| : 272741003 |Laterality| = 388441000 |Horse| )", branch, moduleId);
 			fail("Should have thrown exception.");
 		} catch (IllegalArgumentException e) {
 			assertEquals("Value 388441000 | Horse | is not within the permitted range" +
@@ -146,20 +159,19 @@ class ExpressionRepositoryServiceTest extends AbstractExpressionTest {
 
 	@Test
 	public void attributeRangeMRCMValidationOfAttributeWithExpressionValue() throws ServiceException {
-		String branch = "MAIN";
-		Mockito.when(incrementalClassificationService.classify(ArgumentMatchers.any(), branch)).thenReturn(MOCK_CLASSIFIED_EXPRESSION);
+		Mockito.when(incrementalClassificationService.classify(ArgumentMatchers.any(), eq(branch))).thenReturn(MOCK_CLASSIFIED_EXPRESSION);
 
 		// All in range as per data in setup
 		expressionRepository.createExpression("71388002 |Procedure| :" +
 				"       405815000 |Procedure device| = 122456005 |Laser device| ," +
 				"       260686004 |Method| = 129304002 |Excision - action| ," +
-				"       405813007 |Procedure site - direct| = ( 15497006 |Ovarian structure| : 272741003 |Laterality| = 24028007 |Right| )", branch, "");
+				"       405813007 |Procedure site - direct| = ( 15497006 |Ovarian structure| : 272741003 |Laterality| = 24028007 |Right| )", branch, moduleId);
 
 		try {
 			expressionRepository.createExpression("71388002 |Procedure| :" +
 					"       405815000 |Procedure device| = 122456005 |Laser device| ," +
 					"       260686004 |Method| = 129304002 |Excision - action| ," +
-					"       405813007 |Procedure site - direct| = ( 388441000 |Horse| : 272741003 |Laterality| = 24028007 |Right| )", branch, "");
+					"       405813007 |Procedure site - direct| = ( 388441000 |Horse| : 272741003 |Laterality| = 24028007 |Right| )", branch, moduleId);
 			fail("Should have thrown exception.");
 		} catch (IllegalArgumentException e) {
 			assertEquals("Value 388441000 | Horse | is not within the permitted range" +
@@ -170,7 +182,11 @@ class ExpressionRepositoryServiceTest extends AbstractExpressionTest {
 
 	private void assertIllegalArgumentParsingError(String closeToUserForm) {
 		try {
-			expressionRepository.createExpression(closeToUserForm, "MAIN", "");
+			PostCoordinatedExpression expression = expressionRepository.createExpression(closeToUserForm, branch, moduleId);
+			ServiceException exception = expression.getException();
+			if (exception != null) {
+				throw exception;
+			}
 			fail();
 		} catch (ServiceException e) {
 			// Good

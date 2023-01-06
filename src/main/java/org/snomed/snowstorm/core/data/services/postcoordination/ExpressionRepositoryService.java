@@ -77,7 +77,6 @@ public class ExpressionRepositoryService {
 
 	private static final String CANONICAL_CLOSE_TO_USER_FORM_EXPRESSION_REFERENCE_SET = "1119435002";
 	private static final String CLASSIFIABLE_FORM_EXPRESSION_REFERENCE_SET = "1119468009";
-	private static final String EXPRESSION_FIELD = "expression";
 	private static final String SUBSTRATE_FIELD = "substrate";
 
 	public Page<PostCoordinatedExpression> findAll(String branch, PageRequest pageRequest) {
@@ -92,7 +91,7 @@ public class ExpressionRepositoryService {
 		return getPostCoordinatedExpressions(pageRequest, memberService.findMembers(branch,
 				new MemberSearchRequest()
 						.referenceSet(CANONICAL_CLOSE_TO_USER_FORM_EXPRESSION_REFERENCE_SET)
-						.additionalField(EXPRESSION_FIELD, expression),
+						.additionalField(ReferenceSetMember.PostcoordinatedExpressionFields.EXPRESSION, expression),
 				pageRequest));
 	}
 
@@ -115,9 +114,9 @@ public class ExpressionRepositoryService {
 			for (PostCoordinatedExpression postCoordinatedExpression : postCoordinatedExpressions) {
 				final String expressionId = postCoordinatedExpression.getId();
 				final ReferenceSetMember closeToUserFormMember = new ReferenceSetMember(moduleId, CANONICAL_CLOSE_TO_USER_FORM_EXPRESSION_REFERENCE_SET, expressionId)
-						.setAdditionalField(EXPRESSION_FIELD, postCoordinatedExpression.getCloseToUserForm());
+						.setAdditionalField(ReferenceSetMember.PostcoordinatedExpressionFields.EXPRESSION, postCoordinatedExpression.getCloseToUserForm().replace(" ", ""));
 				final ReferenceSetMember classifiableFormMember = new ReferenceSetMember(moduleId, CLASSIFIABLE_FORM_EXPRESSION_REFERENCE_SET, expressionId)
-						.setAdditionalField(EXPRESSION_FIELD, postCoordinatedExpression.getClassifiableForm());
+						.setAdditionalField(ReferenceSetMember.PostcoordinatedExpressionFields.EXPRESSION, postCoordinatedExpression.getClassifiableForm().replace(" ", ""));
 
 				memberService.createMembers(branch, Sets.newHashSet(closeToUserFormMember, classifiableFormMember));
 				// Internal id namespace 1000104
@@ -167,7 +166,7 @@ public class ExpressionRepositoryService {
 
 				// TODO: Add attribute sorting
 				final PostCoordinatedExpression pce = new PostCoordinatedExpression(
-						necessaryNormalForm.getExpressionId().toString(), originalCloseToUserForm,
+						necessaryNormalForm.getExpressionId().toString(), closeToUserFormExpression.toString(),
 						classifiableFormExpression.toString(), necessaryNormalForm.toString());
 
 				populateHumanReadableForms(pce, context);
@@ -196,7 +195,7 @@ public class ExpressionRepositoryService {
 
 	private PostCoordinatedExpression toExpression(ReferenceSetMember closeToUserFormMember, ReferenceSetMember classifiableFormMember) {
 		return new PostCoordinatedExpression(closeToUserFormMember.getReferencedComponentId(),
-				closeToUserFormMember.getAdditionalField(EXPRESSION_FIELD), classifiableFormMember.getAdditionalField(EXPRESSION_FIELD), null);
+				closeToUserFormMember.getAdditionalField(ReferenceSetMember.PostcoordinatedExpressionFields.EXPRESSION), classifiableFormMember.getAdditionalField(ReferenceSetMember.PostcoordinatedExpressionFields.EXPRESSION), null);
 	}
 
 	private void mrcmAttributeRangeValidation(ComparableExpression expression, ExpressionContext context) throws ServiceException {

@@ -67,6 +67,11 @@ public class ReferenceSetMember extends SnomedComponent<ReferenceSetMember> impl
 		String VALUE = "value";
 	}
 
+	public interface PostcoordinatedExpressionFields {
+		String EXPRESSION = "expression";
+		String EXPRESSION_FIELD_PATH = Fields.ADDITIONAL_FIELDS_PREFIX + EXPRESSION;
+	}
+
 	@JsonView(value = View.Component.class)
 	@Field(type = FieldType.Keyword)
 	private String memberId;

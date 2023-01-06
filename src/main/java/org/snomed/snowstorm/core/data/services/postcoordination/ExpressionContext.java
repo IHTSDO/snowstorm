@@ -37,8 +37,11 @@ public class ExpressionContext {
 		return branchCriteria;
 	}
 
-	public BranchCriteria getDependantReleaseBranchCriteria() {
+	public BranchCriteria getDependantReleaseBranchCriteria() throws ServiceException {
 		if (dependantReleaseBranchCriteria == null) {
+			if (PathUtil.isRoot(branch)) {
+				throw new ServiceException("Expressions can not be maintained in the root branch. Please create a child codesystem and use the working branch of that codesystem.");
+			}
 			Branch latest = branchService.findLatest(branch);
 			dependantReleaseBranchCriteria = versionControlHelper.getBranchCriteriaAtTimepoint(PathUtil.getParentPath(branch), latest.getBase());
 		}

@@ -48,6 +48,9 @@ public abstract class AbstractExpressionTest extends AbstractTest {
 
     protected ExpressionContext expressionContext;
 
+    protected final String branch = "MAIN/A";
+    protected final String moduleId = "11000003104";
+
     @BeforeEach
     public void setup() throws ServiceException, ReleaseImportException, IOException {
         conceptService.batchCreate(Lists.newArrayList(
@@ -87,7 +90,8 @@ public abstract class AbstractExpressionTest extends AbstractTest {
         try (FileInputStream inputStream = new FileInputStream(dummyMrcmImportFile)) {
             importService.importArchive(importJob, inputStream);
         }
-        expressionContext = new ExpressionContext("MAIN", branchService, versionControlHelper, mrcmService, new TimerUtil(""));
+        codeSystemService.createCodeSystem(new CodeSystem("SNOMEDCT-A", "MAIN/A"));
+        expressionContext = new ExpressionContext("MAIN/A", branchService, versionControlHelper, mrcmService, new TimerUtil(""));
     }
 
     @AfterEach
