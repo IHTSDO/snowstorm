@@ -8,11 +8,11 @@ import org.snomed.snowstorm.core.data.services.postcoordination.model.Comparable
 
 import java.util.Set;
 
-public class GroupSelfGroupedAttribute implements ExpressionTransformation {
+public class GroupSelfGroupedAttributeTransformation implements ExpressionTransformation {
 
 	private final Set<String> selfGroupedAttributes;
 
-	public GroupSelfGroupedAttribute(Set<String> selfGroupedAttributes) {
+	public GroupSelfGroupedAttributeTransformation(Set<String> selfGroupedAttributes) {
 		this.selfGroupedAttributes = selfGroupedAttributes;
 	}
 

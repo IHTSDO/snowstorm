@@ -44,6 +44,21 @@ class ExpressionTransformationAndValidationServiceTest extends AbstractExpressio
 		);
 	}
 
+	@Test
+	public void testLevel2AddSeverityToClinicalFinding() throws ServiceException {
+		// NB these examples don't make sense medically, they are just here to test the transformations
+        assertExpressionTransformation(
+				// Input
+				"195967001 |Asthma| : 246112005 |Severity|  =  24484000 |Severe|",
+
+				// Expected output
+				"=== 195967001 |Asthma| : " +
+				"	{" +
+				"		246112005 |Severity| =  24484000 |Severe|" +
+				"	}"
+		);
+	}
+
 	private void assertExpressionTransformation(String input, String expected) throws ServiceException {
 		ComparableExpression expectedExpression = expressionParser.parseExpression(expected);
 		ComparableExpression inputExpression = expressionParser.parseExpression(input);

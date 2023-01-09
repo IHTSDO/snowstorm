@@ -87,8 +87,12 @@ public abstract class AbstractExpressionTest extends AbstractTest {
                 new Concept("404684003").addFSN("Clinical finding").addRelationship(ISA, Concepts.SNOMEDCT_ROOT),
                 new Concept("64572001").addFSN("Disorder").addRelationship(ISA, "404684003"),
                 new Concept("42752001").addFSN("Due to (attribute)"),
+                new Concept("246112005").addFSN("Severity (attribute)"),
+                new Concept("272141005").addFSN("Severities").addRelationship(ISA, "64572001"),
+                new Concept("24484000").addFSN("Severe").addRelationship(ISA, "272141005"),
                 new Concept("195967001").addFSN("Asthma").addRelationship(ISA, "64572001"),
                 new Concept("55985003").addFSN("Atopic reaction").addRelationship(ISA, "64572001")
+
 
         ), "MAIN");
 

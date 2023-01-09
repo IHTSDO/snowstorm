@@ -27,6 +27,7 @@ public class ExpressionContext {
 	private BranchCriteria dependantReleaseBranchCriteria;
 	private MRCM mrcm;
 	private Set<String> mrcmUngroupedAttributes;
+	private Set<String> ancestorIds;
 
 	public ExpressionContext(String branch, BranchService branchService, VersionControlHelper versionControlHelper, MRCMService mrcmService, TimerUtil timer) {
 		this.branch = branch;
@@ -77,5 +78,13 @@ public class ExpressionContext {
 
 	public TimerUtil getTimer() {
 		return timer;
+	}
+
+	public void setAncestorIds(Set<Long> ancestorIds) {
+		this.ancestorIds = ancestorIds.stream().map(Object::toString).collect(Collectors.toSet());
+	}
+
+	public Set<String> getAncestorIds() {
+		return ancestorIds;
 	}
 }

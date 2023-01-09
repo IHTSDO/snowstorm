@@ -6,12 +6,14 @@ import org.snomed.languages.scg.domain.model.DefinitionStatus;
 import org.snomed.snowstorm.config.Config;
 import org.snomed.snowstorm.core.data.domain.ConceptMini;
 import org.snomed.snowstorm.core.data.services.ConceptService;
+import org.snomed.snowstorm.core.data.services.QueryService;
 import org.snomed.snowstorm.core.data.services.ServiceException;
 import org.snomed.snowstorm.core.data.services.pojo.ResultMapPage;
 import org.snomed.snowstorm.core.data.services.postcoordination.model.ComparableAttribute;
 import org.snomed.snowstorm.core.data.services.postcoordination.model.ComparableExpression;
+import org.snomed.snowstorm.core.data.services.postcoordination.transformation.AddSeverityToClinicalFindingTransformation;
 import org.snomed.snowstorm.core.data.services.postcoordination.transformation.ExpressionTransformation;
-import org.snomed.snowstorm.core.data.services.postcoordination.transformation.GroupSelfGroupedAttribute;
+import org.snomed.snowstorm.core.data.services.postcoordination.transformation.GroupSelfGroupedAttributeTransformation;
 import org.snomed.snowstorm.core.pojo.TermLangPojo;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -29,6 +31,9 @@ public class ExpressionTransformationAndValidationService {
 	private ConceptService conceptService;
 
 	@Autowired
+	private QueryService queryService;
+
+	@Autowired
 	private ExpressionParser expressionParser;
 
 	@Autowired
@@ -42,7 +47,8 @@ public class ExpressionTransformationAndValidationService {
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 	public ExpressionTransformationAndValidationService(@Value("#{'${postcoordination.transform.self-grouped.attributes}'.split('\\s*,\\s*')}") Set<String> selfGroupedAttributes) {
 		level2Transformations = new ArrayList<>();
-		level2Transformations.add(new GroupSelfGroupedAttribute(selfGroupedAttributes));
+		level2Transformations.add(new GroupSelfGroupedAttributeTransformation(selfGroupedAttributes));
+		level2Transformations.add(new AddSeverityToClinicalFindingTransformation());
 	}
 
 	public ComparableExpression validateAndTransform(ComparableExpression closeToUserForm, ExpressionContext context) throws ServiceException {
@@ -92,6 +98,15 @@ public class ExpressionTransformationAndValidationService {
 
 		} else {
 			// Level 2 or invalid
+
+			// Assert only one focus concept
+			if (candidateClassifiableExpression.getFocusConcepts().size() != 1) {
+				throw new TransformationException(String.format("The expression has one or more loose attributes (%s), these are ungrouped attributes that should be grouped. " +
+						"The expression can not be transformed to a valid classifiable form because it has multiple focus concepts.", looseAttributes));
+			}
+			String focusConcept = candidateClassifiableExpression.getFocusConcepts().get(0);
+			context.setAncestorIds(queryService.findAncestorIds(context.getBranchCriteria(), context.getBranch(), false, focusConcept));
+
 			List<ComparableAttribute> remainingLooseAttributes = new ArrayList<>();
 			for (ComparableAttribute looseAttribute : looseAttributes) {
 				boolean transformed = false;
