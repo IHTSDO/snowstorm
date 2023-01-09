@@ -68,12 +68,18 @@ public class ComparableAttributeGroup extends AttributeGroup implements Comparab
 		return sortedAttributes;
 	}
 
+	private Set<ComparableAttribute> getSortedAttributesNullSafeReadOnly() {
+		return sortedAttributes != null ? sortedAttributes : Collections.emptySet();
+	}
+
 	@Override
 	public int compareTo(ComparableAttributeGroup other) {
-		if (sortedAttributes.size() == other.sortedAttributes.size()) {
-			return CollectionComparators.compareSets(getComparableAttributes(), other.getComparableAttributes());
+		Set<ComparableAttribute> attributes = getSortedAttributesNullSafeReadOnly();
+		Set<ComparableAttribute> otherAttributes = other.getSortedAttributesNullSafeReadOnly();
+		if (attributes.size() == otherAttributes.size()) {
+			return CollectionComparators.compareSets(attributes, otherAttributes);
 		} else {
-			return sortedAttributes.size() > other.sortedAttributes.size() ? 1 : -1;
+			return attributes.size() > otherAttributes.size() ? 1 : -1;
 		}
 	}
 

@@ -11,9 +11,7 @@ import org.snomed.snowstorm.core.data.services.ServiceException;
 import org.snomed.snowstorm.core.data.services.pojo.ResultMapPage;
 import org.snomed.snowstorm.core.data.services.postcoordination.model.ComparableAttribute;
 import org.snomed.snowstorm.core.data.services.postcoordination.model.ComparableExpression;
-import org.snomed.snowstorm.core.data.services.postcoordination.transformation.AddSeverityToClinicalFindingTransformation;
-import org.snomed.snowstorm.core.data.services.postcoordination.transformation.ExpressionTransformation;
-import org.snomed.snowstorm.core.data.services.postcoordination.transformation.GroupSelfGroupedAttributeTransformation;
+import org.snomed.snowstorm.core.data.services.postcoordination.transformation.*;
 import org.snomed.snowstorm.core.pojo.TermLangPojo;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -49,6 +47,8 @@ public class ExpressionTransformationAndValidationService {
 		level2Transformations = new ArrayList<>();
 		level2Transformations.add(new GroupSelfGroupedAttributeTransformation(selfGroupedAttributes));
 		level2Transformations.add(new AddSeverityToClinicalFindingTransformation());
+		level2Transformations.add(new AddContextToClinicalFindingTransformation());
+		level2Transformations.add(new AddContextToProcedureTransformation());
 	}
 
 	public ComparableExpression validateAndTransform(ComparableExpression closeToUserForm, ExpressionContext context) throws ServiceException {
@@ -107,29 +107,21 @@ public class ExpressionTransformationAndValidationService {
 			String focusConcept = candidateClassifiableExpression.getFocusConcepts().get(0);
 			context.setAncestorIds(queryService.findAncestorIds(context.getBranchCriteria(), context.getBranch(), false, focusConcept));
 
-			List<ComparableAttribute> remainingLooseAttributes = new ArrayList<>();
-			for (ComparableAttribute looseAttribute : looseAttributes) {
-				boolean transformed = false;
-				for (ExpressionTransformation transformation : level2Transformations) {
-					if (transformation.transform(looseAttribute, candidateClassifiableExpression, context)) {
-						// This transformation was able to transform the loose attribute
-						transformed = true;
-
-						// Make attributes null if empty, for consistency
-						if (candidateClassifiableExpression.getComparableAttributes() != null && candidateClassifiableExpression.getComparableAttributes().isEmpty()) {
-							candidateClassifiableExpression.setAttributes(null);
-						}
-						break;
-					}
-				}
-				if (!transformed) {
-					remainingLooseAttributes.add(looseAttribute);
+			for (ExpressionTransformation transformation : level2Transformations) {
+				candidateClassifiableExpression = transformation.transform(looseAttributes, candidateClassifiableExpression, context);
+				looseAttributes = getLooseAttributes(candidateClassifiableExpression, context);
+				if (looseAttributes.isEmpty()) {
+					break;
 				}
 			}
-			if (!remainingLooseAttributes.isEmpty()) {
+			// Make attributes null if empty, for consistency
+			if (candidateClassifiableExpression.getComparableAttributes() != null && candidateClassifiableExpression.getComparableAttributes().isEmpty()) {
+				candidateClassifiableExpression.setAttributes(null);
+			}
+			if (!looseAttributes.isEmpty()) {
 					throw new TransformationException(String.format("The expression can not be transformed to a valid classifiable form. " +
 							"The following attributes should be grouped according to MRCM rules but do not match any of the agreed level 2 transformations: %s",
-							remainingLooseAttributes));
+							looseAttributes));
 			}
 			return candidateClassifiableExpression;
 		}

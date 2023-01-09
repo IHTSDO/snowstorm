@@ -91,8 +91,16 @@ public abstract class AbstractExpressionTest extends AbstractTest {
                 new Concept("272141005").addFSN("Severities").addRelationship(ISA, "64572001"),
                 new Concept("24484000").addFSN("Severe").addRelationship(ISA, "272141005"),
                 new Concept("195967001").addFSN("Asthma").addRelationship(ISA, "64572001"),
-                new Concept("55985003").addFSN("Atopic reaction").addRelationship(ISA, "64572001")
+                new Concept("55985003").addFSN("Atopic reaction").addRelationship(ISA, "64572001"),
 
+                new Concept("254837009").addFSN("Breast cancer").addRelationship(ISA, "64572001"),
+                new Concept("408731000").addFSN("Temporal context"),
+                new Concept("410510008").addFSN("Temporal context value (qualifier value)"),
+                new Concept("410513005").addFSN("Past").addRelationship(ISA, "410510008"),
+                new Concept("408732007").addFSN("Subject relationship context"),
+                new Concept("125676002").addFSN("Person (person)"),
+                new Concept("72705000").addFSN("Mother").addRelationship(ISA, "125676002"),
+                new Concept("246090004").addFSN("Associated finding")
 
         ), "MAIN");
 

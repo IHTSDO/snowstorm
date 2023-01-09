@@ -36,7 +36,6 @@ public class TestConcepts {
 	public static final String PENTALOGY_OF_FALLOT_INCORRECT_GROUPING = "999204306007";
 
 	// Procedure
-	public static final String PROCEDURE = "71388002";
 	public static final String OPERATION_ON_HEART = "64915003";
 	public static final String CHEST_IMAGING = "413815006";
 

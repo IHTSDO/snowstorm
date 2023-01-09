@@ -7,17 +7,20 @@ import org.snomed.snowstorm.core.data.services.postcoordination.model.Comparable
 import org.snomed.snowstorm.core.data.services.postcoordination.model.ComparableAttributeGroup;
 import org.snomed.snowstorm.core.data.services.postcoordination.model.ComparableExpression;
 
+import java.util.List;
+
 public class AddSeverityToClinicalFindingTransformation implements ExpressionTransformation {
 
 	public static final String SEVERITY = "246112005";
 
 	@Override
-	public boolean transform(ComparableAttribute looseAttribute, ComparableExpression expression, ExpressionContext context) throws ServiceException {
-		if (looseAttribute.getAttributeId().equals(SEVERITY) && context.getAncestorIds().contains(Concepts.CLINICAL_FINDING)) {
-			expression.getComparableAttributes().remove(looseAttribute);
-			expression.addAttributeGroup(new ComparableAttributeGroup(looseAttribute));
-			return true;
+	public ComparableExpression transform(List<ComparableAttribute> looseAttributes, ComparableExpression expression, ExpressionContext context) throws ServiceException {
+		for (ComparableAttribute looseAttribute : looseAttributes) {
+			if (looseAttribute.getAttributeId().equals(SEVERITY) && context.getAncestorIds().contains(Concepts.CLINICAL_FINDING)) {
+				expression.getComparableAttributes().remove(looseAttribute);
+				expression.addAttributeGroup(new ComparableAttributeGroup(looseAttribute));
+			}
 		}
-		return false;
+		return expression;
 	}
 }

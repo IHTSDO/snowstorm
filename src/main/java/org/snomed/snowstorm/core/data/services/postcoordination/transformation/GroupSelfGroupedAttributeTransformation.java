@@ -6,6 +6,7 @@ import org.snomed.snowstorm.core.data.services.postcoordination.model.Comparable
 import org.snomed.snowstorm.core.data.services.postcoordination.model.ComparableAttributeGroup;
 import org.snomed.snowstorm.core.data.services.postcoordination.model.ComparableExpression;
 
+import java.util.List;
 import java.util.Set;
 
 public class GroupSelfGroupedAttributeTransformation implements ExpressionTransformation {
@@ -17,15 +18,15 @@ public class GroupSelfGroupedAttributeTransformation implements ExpressionTransf
 	}
 
 	@Override
-	public boolean transform(ComparableAttribute looseAttribute, ComparableExpression expression, ExpressionContext context) throws ServiceException {
-		if (selfGroupedAttributes.contains(looseAttribute.getAttributeId())) {
-			// Remove attribute from ungrouped set
-			expression.getComparableAttributes().remove(looseAttribute);
-			// Add attribute in new attribute group
-			expression.addAttributeGroup(new ComparableAttributeGroup(looseAttribute));
-			return true;
+	public ComparableExpression transform(List<ComparableAttribute> looseAttributes, ComparableExpression expression, ExpressionContext context) throws ServiceException {
+		for (ComparableAttribute looseAttribute : looseAttributes) {
+			if (selfGroupedAttributes.contains(looseAttribute.getAttributeId())) {
+				expression.getComparableAttributes().remove(looseAttribute);
+				// Add attribute in new attribute group
+				expression.addAttributeGroup(new ComparableAttributeGroup(looseAttribute));
+			}
 		}
-		return false;
+		return expression;
 	}
 
 }

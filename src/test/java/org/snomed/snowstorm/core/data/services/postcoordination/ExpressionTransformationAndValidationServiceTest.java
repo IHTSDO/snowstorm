@@ -47,15 +47,29 @@ class ExpressionTransformationAndValidationServiceTest extends AbstractExpressio
 	@Test
 	public void testLevel2AddSeverityToClinicalFinding() throws ServiceException {
 		// NB these examples don't make sense medically, they are just here to test the transformations
-        assertExpressionTransformation(
+		assertExpressionTransformation(
 				// Input
 				"195967001 |Asthma| : 246112005 |Severity|  =  24484000 |Severe|",
 
 				// Expected output
 				"=== 195967001 |Asthma| : " +
-				"	{" +
-				"		246112005 |Severity| =  24484000 |Severe|" +
-				"	}"
+						"	{" +
+						"		246112005 |Severity| =  24484000 |Severe|" +
+						"	}"
+		);
+	}
+
+	@Test
+	public void testLevel2AddContextToClinicalFinding() throws ServiceException {
+		assertExpressionTransformation(
+				// Input
+				"254837009 |Breast cancer| :  408731000 |Temporal context|  =  410513005 |Past| ,\n" +
+						"408732007 |Subject relationship context|  =  72705000 |Mother|",
+
+				// Expected output
+				"===  243796009 |Situation with explicit context| :\n" +
+						"    {  246090004 |Associated finding|  =  254837009 |Breast cancer| , \n" +
+						"     408731000 |Temporal context|  =  410513005 |Past| ,     408732007 |Subject relationship context|  =  72705000 |Mother|  }"
 		);
 	}
 
