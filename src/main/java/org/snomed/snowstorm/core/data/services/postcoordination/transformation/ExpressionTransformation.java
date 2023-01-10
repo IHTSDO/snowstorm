@@ -1,5 +1,6 @@
 package org.snomed.snowstorm.core.data.services.postcoordination.transformation;
 
+import org.snomed.snowstorm.core.data.services.QueryService;
 import org.snomed.snowstorm.core.data.services.ServiceException;
 import org.snomed.snowstorm.core.data.services.postcoordination.ExpressionContext;
 import org.snomed.snowstorm.core.data.services.postcoordination.model.ComparableAttribute;
@@ -17,9 +18,10 @@ public interface ExpressionTransformation {
 	 * @param looseAttributes the remaining loose attributes to be transformed
 	 * @param expression      the in progress expression being transformed
 	 * @param context         the context holder for the expression including contextual information and services to aid processing
+	 * @param queryService    service to run ECL
 	 * @return A transformed expression or the original expression
 	 * @throws ServiceException if the transformation fails
 	 */
-	ComparableExpression transform(List<ComparableAttribute> looseAttributes, ComparableExpression expression, ExpressionContext context) throws ServiceException;
+	ComparableExpression transform(List<ComparableAttribute> looseAttributes, ComparableExpression expression, ExpressionContext context, QueryService queryService) throws ServiceException;
 
 }

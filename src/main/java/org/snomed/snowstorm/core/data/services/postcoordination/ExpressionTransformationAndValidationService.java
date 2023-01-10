@@ -1,9 +1,11 @@
 package org.snomed.snowstorm.core.data.services.postcoordination;
 
+import com.google.common.collect.Sets;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.languages.scg.domain.model.DefinitionStatus;
 import org.snomed.snowstorm.config.Config;
+import org.snomed.snowstorm.core.data.domain.Concept;
 import org.snomed.snowstorm.core.data.domain.ConceptMini;
 import org.snomed.snowstorm.core.data.services.ConceptService;
 import org.snomed.snowstorm.core.data.services.QueryService;
@@ -13,11 +15,13 @@ import org.snomed.snowstorm.core.data.services.postcoordination.model.Comparable
 import org.snomed.snowstorm.core.data.services.postcoordination.model.ComparableExpression;
 import org.snomed.snowstorm.core.data.services.postcoordination.transformation.*;
 import org.snomed.snowstorm.core.pojo.TermLangPojo;
+import org.snomed.snowstorm.mrcm.model.AttributeDomain;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import static java.lang.String.format;
@@ -45,8 +49,11 @@ public class ExpressionTransformationAndValidationService {
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 	public ExpressionTransformationAndValidationService(@Value("#{'${postcoordination.transform.self-grouped.attributes}'.split('\\s*,\\s*')}") Set<String> selfGroupedAttributes) {
 		level2Transformations = new ArrayList<>();
+		// TODO: Agree that lateralisation should come before context transformations so that they can both be applied to the same expression
 		level2Transformations.add(new GroupSelfGroupedAttributeTransformation(selfGroupedAttributes));
 		level2Transformations.add(new AddSeverityToClinicalFindingTransformation());
+		level2Transformations.add(new LateraliseClinicalFindingTransformation());
+		level2Transformations.add(new LateraliseProcedureTransformation());
 		level2Transformations.add(new AddContextToClinicalFindingTransformation());
 		level2Transformations.add(new AddContextToProcedureTransformation());
 	}
@@ -89,6 +96,12 @@ public class ExpressionTransformationAndValidationService {
 	}
 
 	private ComparableExpression createClassifiableForm(ExpressionContext context, ComparableExpression candidateClassifiableExpression) throws ServiceException {
+		// Collect focus concept ancestors
+		List<Long> focusConceptLongs = toLongList(candidateClassifiableExpression.getFocusConcepts());
+		Set<Long> ancestorsAndSelf = new HashSet<>(queryService.findAncestorIdsAsUnion(context.getBranchCriteria(), false, focusConceptLongs));
+		ancestorsAndSelf.addAll(focusConceptLongs);
+		context.setAncestorsAndSelf(ancestorsAndSelf);
+
 		List<ComparableAttribute> looseAttributes = getLooseAttributes(candidateClassifiableExpression, context);
 
 		if (looseAttributes.isEmpty()) {
@@ -104,11 +117,16 @@ public class ExpressionTransformationAndValidationService {
 				throw new TransformationException(String.format("The expression has one or more loose attributes (%s), these are ungrouped attributes that should be grouped. " +
 						"The expression can not be transformed to a valid classifiable form because it has multiple focus concepts.", looseAttributes));
 			}
-			String focusConcept = candidateClassifiableExpression.getFocusConcepts().get(0);
-			context.setAncestorIds(queryService.findAncestorIds(context.getBranchCriteria(), context.getBranch(), false, focusConcept));
 
+			// Prepare for transformations
+			context.setConceptService(conceptService);
+
+			String focusConceptId = candidateClassifiableExpression.getFocusConcepts().get(0);
+			context.setFocusConceptId(focusConceptId);
+
+			// Run transformations
 			for (ExpressionTransformation transformation : level2Transformations) {
-				candidateClassifiableExpression = transformation.transform(looseAttributes, candidateClassifiableExpression, context);
+				candidateClassifiableExpression = transformation.transform(looseAttributes, candidateClassifiableExpression, context, queryService);
 				looseAttributes = getLooseAttributes(candidateClassifiableExpression, context);
 				if (looseAttributes.isEmpty()) {
 					break;
@@ -129,15 +147,30 @@ public class ExpressionTransformationAndValidationService {
 
 	/**
 	 *	Loose attributes are ungrouped attributes from expression of a type that should be grouped according to the MRCM rules.
+	 *  They can also be ungrouped attributes that do not match the domain of the focus concept.
 	 */
 	private List<ComparableAttribute> getLooseAttributes(ComparableExpression closeToUserForm, ExpressionContext context) throws ServiceException {
-		Set<String> ungroupedAttributes = context.getMRCMUngroupedAttributes();
+		Map<String, Set<AttributeDomain>> ungroupedAttributeMap = new HashMap<>();
+		for (AttributeDomain attribute : context.getMRCMUngroupedAttributes()) {
+			ungroupedAttributeMap.computeIfAbsent(attribute.getReferencedComponentId(), i -> new HashSet<>()).add(attribute);
+		}
+
 		Set<ComparableAttribute> comparableAttributes = closeToUserForm.getComparableAttributes();
 		if (comparableAttributes == null) {
 			return Collections.emptyList();
 		}
 		return comparableAttributes.stream()
-				.filter(attribute -> !ungroupedAttributes.contains(attribute.getAttributeId()))
+				.filter(attribute -> {
+					if (!ungroupedAttributeMap.containsKey(attribute.getAttributeId())) {
+						// Should be grouped
+						return true;
+					} else {
+						Set<AttributeDomain> attributeDomains = ungroupedAttributeMap.get(attribute.getAttributeId());
+						Set<String> domains = attributeDomains.stream().map(AttributeDomain::getDomainId).collect(Collectors.toSet());
+						// Attribute used in wrong domain (focus concept ancestors do not contain attribute domain)
+						return Sets.intersection(context.getAncestorsAndSelf(), domains).isEmpty();
+					}
+				})
 				.collect(Collectors.toList());
 	}
 

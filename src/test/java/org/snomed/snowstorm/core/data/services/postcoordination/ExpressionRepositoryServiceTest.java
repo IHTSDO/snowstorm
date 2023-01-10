@@ -62,24 +62,20 @@ class ExpressionRepositoryServiceTest extends AbstractExpressionTest {
 				expressionRepository.createExpression("7946007 |Drug suspension| + 421720008 |Spray dose form|", branch, moduleId).getClassifiableForm());
 
 
-		// With single refinement
-		final PostCoordinatedExpression expression1 =
-				expressionRepository.createExpression("83152002 |Oophorectomy| :  405815000 |Procedure device|  =  122456005 |Laser device|", branch, moduleId);
-		assertEquals("=== 83152002 : { 260686004 = 129304002, 405813007 = 15497006, 405815000 = 122456005 }",
-				expression1.getClassifiableForm());
-		assertEquals("83152002 : 405815000 = 122456005", expression1.getCloseToUserForm());
-
 		// With multiple refinements, attributes are sorted
 		PostCoordinatedExpression expressionMultipleRefinements = expressionRepository.createExpression("   71388002 |Procedure| :" +
+				"{" +
 				"       405815000 |Procedure device|  =  122456005 |Laser device| ," +
 				"       260686004 |Method|  =  129304002 |Excision - action| ," +
-				"       405813007 |Procedure site - direct|  =  15497006 |Ovarian structure|", branch, moduleId);
+				"       405813007 |Procedure site - direct|  =  15497006 |Ovarian structure|" +
+				"}", branch, moduleId);
 		assertEquals("=== 71388002 : { 260686004 = 129304002, 405813007 = 15497006, 405815000 = 122456005 }", expressionMultipleRefinements.getClassifiableForm());
 
 		Page<PostCoordinatedExpression> page = expressionRepository.findAll(branch, PageRequest.of(0, 10));
-		assertEquals(8, page.getTotalElements());
+		assertEquals(7, page.getTotalElements());
 
-		Page<PostCoordinatedExpression> results = expressionRepository.findByCanonicalCloseToUserForm(branch, "83152002:405815000=122456005", PageRequest.of(0, 1));
+		Page<PostCoordinatedExpression> results = expressionRepository.findByCanonicalCloseToUserForm(branch, expressionMultipleRefinements.getCloseToUserForm().replace(" ", ""),
+				PageRequest.of(0, 1));
 		assertEquals(1, results.getTotalElements());
 
 		Page<ReferenceSetMember> members = memberService.findMembers(branch, expressionMultipleRefinements.getId(), PageRequest.of(0, 10));

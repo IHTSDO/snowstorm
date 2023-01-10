@@ -1,6 +1,7 @@
 package org.snomed.snowstorm.core.data.services.postcoordination.transformation;
 
 import org.snomed.snowstorm.core.data.domain.Concepts;
+import org.snomed.snowstorm.core.data.services.QueryService;
 import org.snomed.snowstorm.core.data.services.ServiceException;
 import org.snomed.snowstorm.core.data.services.postcoordination.ExpressionContext;
 import org.snomed.snowstorm.core.data.services.postcoordination.model.ComparableAttribute;
@@ -17,8 +18,8 @@ public class AddContextToClinicalFindingTransformation implements ExpressionTran
 	public static final Set<String> FINDING_CONTEXT_ATTRIBUTES = Set.of(Concepts.FINDING_CONTEXT, Concepts.TEMPORAL_CONTEXT, Concepts.SUBJECT_RELATIONSHIP_CONTEXT);
 
 	@Override
-	public ComparableExpression transform(List<ComparableAttribute> looseAttributes, ComparableExpression expression, ExpressionContext context) throws ServiceException {
-		if (context.getAncestorIds().contains(Concepts.CLINICAL_FINDING)) {
+	public ComparableExpression transform(List<ComparableAttribute> looseAttributes, ComparableExpression expression, ExpressionContext context, QueryService queryService) throws ServiceException {
+		if (context.getAncestorsAndSelf().contains(Concepts.CLINICAL_FINDING)) {
 			List<ComparableAttribute> contextAttributes = looseAttributes.stream()
 					.filter(looseAttribute -> FINDING_CONTEXT_ATTRIBUTES.contains(looseAttribute.getAttributeId())).collect(Collectors.toList());
 

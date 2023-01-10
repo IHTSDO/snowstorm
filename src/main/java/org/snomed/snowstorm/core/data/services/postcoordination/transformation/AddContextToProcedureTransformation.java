@@ -1,6 +1,7 @@
 package org.snomed.snowstorm.core.data.services.postcoordination.transformation;
 
 import org.snomed.snowstorm.core.data.domain.Concepts;
+import org.snomed.snowstorm.core.data.services.QueryService;
 import org.snomed.snowstorm.core.data.services.ServiceException;
 import org.snomed.snowstorm.core.data.services.postcoordination.ExpressionContext;
 import org.snomed.snowstorm.core.data.services.postcoordination.model.ComparableAttribute;
@@ -20,8 +21,8 @@ public class AddContextToProcedureTransformation implements ExpressionTransforma
 	public static final Set<String> PROCEDURE_CONTEXT_ATTRIBUTES = Set.of(Concepts.PROCEDURE_CONTEXT, Concepts.TEMPORAL_CONTEXT, Concepts.SUBJECT_RELATIONSHIP_CONTEXT);
 
 	@Override
-	public ComparableExpression transform(List<ComparableAttribute> looseAttributes, ComparableExpression expression, ExpressionContext context) throws ServiceException {
-		if (context.getAncestorIds().contains(Concepts.PROCEDURE)) {
+	public ComparableExpression transform(List<ComparableAttribute> looseAttributes, ComparableExpression expression, ExpressionContext context, QueryService queryService) throws ServiceException {
+		if (context.getAncestorsAndSelf().contains(Concepts.PROCEDURE)) {
 			List<ComparableAttribute> contextAttributes = looseAttributes.stream()
 					.filter(looseAttribute -> PROCEDURE_CONTEXT_ATTRIBUTES.contains(looseAttribute.getAttributeId())).collect(Collectors.toList());
 
