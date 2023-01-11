@@ -3,7 +3,6 @@ package org.snomed.snowstorm.core.data.services.postcoordination.transformation;
 import org.snomed.snowstorm.core.data.domain.Concept;
 import org.snomed.snowstorm.core.data.domain.Concepts;
 import org.snomed.snowstorm.core.data.domain.Relationship;
-import org.snomed.snowstorm.core.data.services.QueryService;
 import org.snomed.snowstorm.core.data.services.ServiceException;
 import org.snomed.snowstorm.core.data.services.postcoordination.ExpressionContext;
 import org.snomed.snowstorm.core.data.services.postcoordination.TransformationException;
@@ -11,7 +10,6 @@ import org.snomed.snowstorm.core.data.services.postcoordination.model.Comparable
 import org.snomed.snowstorm.core.data.services.postcoordination.model.ComparableAttributeGroup;
 import org.snomed.snowstorm.core.data.services.postcoordination.model.ComparableAttributeValue;
 import org.snomed.snowstorm.core.data.services.postcoordination.model.ComparableExpression;
-import org.springframework.data.domain.PageRequest;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -23,9 +21,9 @@ import static org.snomed.snowstorm.core.data.domain.Concepts.LATERALITY;
 public class LateraliseClinicalFindingTransformation implements ExpressionTransformation {
 
 	@Override
-	public ComparableExpression transform(List<ComparableAttribute> looseAttributes, ComparableExpression expression, ExpressionContext context, QueryService queryService) throws ServiceException {
+	public ComparableExpression transform(List<ComparableAttribute> looseAttributes, ComparableExpression expression, ExpressionContext context) throws ServiceException {
 		for (ComparableAttribute looseAttribute : looseAttributes) {
-			if (looseAttribute.getAttributeId().equals(LATERALITY) && context.getAncestorsAndSelf().contains(Concepts.CLINICAL_FINDING)) {
+			if (looseAttribute.getAttributeId().equals(LATERALITY) && context.getAncestorsAndSelfOrFocusConcept().contains(Concepts.CLINICAL_FINDING)) {
 
 				// Transformation is allowed when:
 				// - The focus concept
@@ -43,7 +41,7 @@ public class LateraliseClinicalFindingTransformation implements ExpressionTransf
 
 				// Count existing finding sites
 				String focusConceptId = expression.getFocusConcepts().get(0);
-				Set<String> existingUniqueFindingSites = new HashSet<>(ecl(format("%s.<<363698007 |Finding site (attribute)|", focusConceptId), context, queryService));
+				Set<String> existingUniqueFindingSites = new HashSet<>(context.ecl(format("%s.<<363698007 |Finding site (attribute)|", focusConceptId)));
 				if (existingUniqueFindingSites.size() > 1) {
 					throwCriteriaNotMetWithReason("The focus concept has multiple finding sites.");
 				}
@@ -52,12 +50,13 @@ public class LateraliseClinicalFindingTransformation implements ExpressionTransf
 				}
 				// Check existing finding site is lateralizable
 				String existingFindingSite = existingUniqueFindingSites.iterator().next();
-				if (ecl(format("%s AND ^723264001 |Lateralisable body structure reference set|", existingFindingSite), context, queryService).isEmpty()) {
+				if (context.ecl(format("%s AND ^723264001 |Lateralisable body structure reference set|", existingFindingSite)).isEmpty()) {
 					throwCriteriaNotMetWithReason("The focus concept has a finding site that is not lateralizable.");
 					break;
 				}
 				// No other attributes point to other body structures
-				Set<String> bodyStructuresFromAllAttributes = new HashSet<>(ecl(format("(%s.*) AND << 442083009 |Anatomical or acquired body structure (body structure)|", focusConceptId), context, queryService));
+				Set<String> bodyStructuresFromAllAttributes = new HashSet<>(context.ecl(format("(%s.*) AND " +
+						"<< 442083009 |Anatomical or acquired body structure (body structure)|", focusConceptId)));
 				if (bodyStructuresFromAllAttributes.size() != 1) {
 					throwCriteriaNotMetWithReason("The focus concept has one or more attributes using a different body structure.");
 					break;
@@ -96,8 +95,4 @@ public class LateraliseClinicalFindingTransformation implements ExpressionTransf
 				"level 2 safety criteria: %s", reason));
 	}
 
-	private static List<String> ecl(String ecl, ExpressionContext context, QueryService queryService) {
-		QueryService.ConceptQueryBuilder queryBuilder = queryService.createQueryBuilder(Relationship.CharacteristicType.inferred).ecl(ecl);
-		return queryService.searchForIds(queryBuilder, context.getBranchCriteria(), PageRequest.of(0, 100)).getContent().stream().map(Object::toString).collect(Collectors.toList());
-	}
 }

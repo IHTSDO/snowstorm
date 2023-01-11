@@ -1,7 +1,6 @@
 package org.snomed.snowstorm.core.data.services.postcoordination.transformation;
 
 import org.snomed.snowstorm.core.data.domain.Concepts;
-import org.snomed.snowstorm.core.data.services.QueryService;
 import org.snomed.snowstorm.core.data.services.ServiceException;
 import org.snomed.snowstorm.core.data.services.postcoordination.ExpressionContext;
 import org.snomed.snowstorm.core.data.services.postcoordination.model.ComparableAttribute;
@@ -15,9 +14,9 @@ public class AddSeverityToClinicalFindingTransformation implements ExpressionTra
 	public static final String SEVERITY = "246112005";
 
 	@Override
-	public ComparableExpression transform(List<ComparableAttribute> looseAttributes, ComparableExpression expression, ExpressionContext context, QueryService queryService) throws ServiceException {
+	public ComparableExpression transform(List<ComparableAttribute> looseAttributes, ComparableExpression expression, ExpressionContext context) throws ServiceException {
 		for (ComparableAttribute looseAttribute : looseAttributes) {
-			if (looseAttribute.getAttributeId().equals(SEVERITY) && context.getAncestorsAndSelf().contains(Concepts.CLINICAL_FINDING)) {
+			if (looseAttribute.getAttributeId().equals(SEVERITY) && context.getAncestorsAndSelfOrFocusConcept().contains(Concepts.CLINICAL_FINDING)) {
 				expression.getComparableAttributes().remove(looseAttribute);
 				expression.addAttributeGroup(new ComparableAttributeGroup(looseAttribute));
 			}

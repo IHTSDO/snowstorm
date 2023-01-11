@@ -196,6 +196,7 @@ public class Concepts {
 	// Notable concepts
 	public static final String CLINICAL_FINDING = "404684003";
 	public static final String PROCEDURE = "71388002";
+	public static final String ANATOMICAL_OR_ACQUIRED_BODY_STRUCTURE = "442083009";
 	public static final String SUBSTANCE = "105590001";
 	public static final String FINDING_SITE = "363698007";
 	public static final String PROCEDURE_SITE = "363704007";

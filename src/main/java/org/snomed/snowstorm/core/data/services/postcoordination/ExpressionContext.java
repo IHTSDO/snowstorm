@@ -9,12 +9,15 @@ import org.snomed.snowstorm.core.data.domain.Concept;
 import org.snomed.snowstorm.core.data.services.ConceptService;
 import org.snomed.snowstorm.core.data.services.ServiceException;
 import org.snomed.snowstorm.core.util.TimerUtil;
+import org.snomed.snowstorm.ecl.ECLQueryService;
 import org.snomed.snowstorm.mrcm.MRCMService;
 import org.snomed.snowstorm.mrcm.model.AttributeDomain;
 import org.snomed.snowstorm.mrcm.model.MRCM;
+import org.springframework.data.domain.PageRequest;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
@@ -31,10 +34,11 @@ public class ExpressionContext {
 	private BranchCriteria dependantReleaseBranchCriteria;
 	private MRCM mrcm;
 	private Set<AttributeDomain> mrcmUngroupedAttributes;
-	private Set<String> ancestorsAndSelf;
+	private Set<String> ancestorsAndSelfOfFocusConcept;
 	private String focusConceptId;
 	private Concept focusConcept;
 	private ConceptService conceptService;
+	private org.snomed.snowstorm.ecl.ECLQueryService eclQueryService;
 
 	public ExpressionContext(String branch, BranchService branchService, VersionControlHelper versionControlHelper, MRCMService mrcmService, TimerUtil timer) {
 		this.branch = branch;
@@ -78,12 +82,17 @@ public class ExpressionContext {
 		return mrcmUngroupedAttributes;
 	}
 
+	public Set<String> ecl(String ecl) {
+		return eclQueryService.selectConceptIds(ecl, branchCriteria, false, PageRequest.of(0, 1000))
+				.getContent().stream().map(Object::toString).collect(Collectors.toSet());
+	}
+
 	public Concept getFocusConceptWithActiveRelationships() {
 		if (focusConcept == null) {
 			Map<String, Concept> conceptMap = new HashMap<>();
 			conceptMap.put(focusConceptId, new Concept(focusConceptId));
 			conceptService.joinRelationships(conceptMap, new HashMap<>(), null, getBranch(), getBranchCriteria(), getTimer(), true);
-			return conceptMap.get(focusConceptId);
+			focusConcept = conceptMap.get(focusConceptId);
 		}
 		return focusConcept;
 	}
@@ -96,12 +105,16 @@ public class ExpressionContext {
 		return timer;
 	}
 
-	public void setAncestorsAndSelf(Set<Long> ancestorsAndSelf) {
-		this.ancestorsAndSelf = ancestorsAndSelf.stream().map(Object::toString).collect(Collectors.toSet());
+	public Set<String> getAncestorsAndSelfOrFocusConcept() {
+		if (ancestorsAndSelfOfFocusConcept == null) {
+			ancestorsAndSelfOfFocusConcept = getAncestorsAndSelf(focusConceptId);
+		}
+		return ancestorsAndSelfOfFocusConcept;
 	}
 
-	public Set<String> getAncestorsAndSelf() {
-		return ancestorsAndSelf;
+	public Set<String> getAncestorsAndSelf(String conceptId) {
+		return eclQueryService.selectConceptIds(">>" + conceptId, branchCriteria, false, PageRequest.of(0, 100)).getContent().stream()
+				.map(Objects::toString).collect(Collectors.toSet());
 	}
 
 	public void setFocusConceptId(String focusConceptId) {
@@ -114,5 +127,13 @@ public class ExpressionContext {
 
 	public ConceptService getConceptService() {
 		return conceptService;
+	}
+
+	public void setEclQueryService(ECLQueryService eclQueryService) {
+		this.eclQueryService = eclQueryService;
+	}
+
+	public ECLQueryService getEclQueryService() {
+		return eclQueryService;
 	}
 }

@@ -26,7 +26,6 @@ import org.testcontainers.shaded.com.google.common.collect.Sets;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
-import java.util.Collections;
 
 import static org.snomed.snowstorm.core.data.domain.Concepts.*;
 
@@ -70,7 +69,7 @@ public abstract class AbstractExpressionTest extends AbstractTest {
                 new Concept("7946007"),
                 new Concept("388441000").addFSN("Horse"),
 
-                new Concept("71388002").addFSN("Procedure").addRelationship(ISA, Concepts.SNOMEDCT_ROOT),
+                new Concept(PROCEDURE).addFSN("Procedure").addRelationship(ISA, Concepts.SNOMEDCT_ROOT),
                 new Concept("363704007").addFSN("Procedure site (attribute)").addRelationship(ISA, CONCEPT_MODEL_OBJECT_ATTRIBUTE),
                 new Concept("405813007").addFSN("Procedure site - direct (attribute)").addRelationship(ISA, "363704007"),
                 new Concept("260686004").addFSN("Method (attribute)").addRelationship(ISA, CONCEPT_MODEL_OBJECT_ATTRIBUTE),
@@ -82,15 +81,15 @@ public abstract class AbstractExpressionTest extends AbstractTest {
                 new Concept("24028007").addFSN("Right").addRelationship(ISA, "182353008"),
                 new Concept("7771000").addFSN("Left").addRelationship(ISA, "182353008"),
 
-                new Concept("442083009").addFSN("Anatomical or acquired body structure (body structure)").addRelationship(ISA, Concepts.SNOMEDCT_ROOT),
-                new Concept("15497006").addFSN("Ovarian structure").addRelationship(ISA, "442083009"),
+                new Concept(ANATOMICAL_OR_ACQUIRED_BODY_STRUCTURE).addFSN("Anatomical or acquired body structure (body structure)").addRelationship(ISA, Concepts.SNOMEDCT_ROOT),
+                new Concept("15497006").addFSN("Ovarian structure").addRelationship(ISA, ANATOMICAL_OR_ACQUIRED_BODY_STRUCTURE),
 
                 // 83152002 |Oophorectomy| :
                 //{ 260686004 |Method| = 129304002 |Excision - action|,
                 //   405813007 |Procedure site - Direct| = 15497006 |Ovarian structure|,
                 new Concept("83152002")
                         .addFSN("Oophorectomy")
-                        .addRelationship(ISA, "71388002")
+                        .addRelationship(ISA, PROCEDURE)
                         .addRelationship(1, "260686004 | method |", "129304002 |Excision - action|")
                         .addRelationship(1, "405813007 |Procedure site - Direct|", "15497006 |Ovarian structure|"),
 
@@ -114,7 +113,7 @@ public abstract class AbstractExpressionTest extends AbstractTest {
 
                 new Concept(FINDING_SITE).addFSN("Finding site").addRelationship(ISA, CONCEPT_MODEL_OBJECT_ATTRIBUTE),
                 new Concept("49755003").addFSN("Morphologically abnormal structure (morphologic abnormality)").addRelationship(ISA, Concepts.SNOMEDCT_ROOT),
-                new Concept("61685007").addFSN("Lower limb structure").addRelationship(ISA, "442083009"),
+                new Concept("61685007").addFSN("Lower limb structure").addRelationship(ISA, ANATOMICAL_OR_ACQUIRED_BODY_STRUCTURE),
                 new Concept("116676008").addFSN("Associated morphology (attribute)").addRelationship(ISA, CONCEPT_MODEL_OBJECT_ATTRIBUTE),
                 new Concept("385627004").addFSN("Cellulitis").addRelationship(ISA, "49755003"),
                 new Concept("44132006").addFSN("Abscess").addRelationship(ISA, "49755003"),
@@ -126,26 +125,35 @@ public abstract class AbstractExpressionTest extends AbstractTest {
                         .addRelationship(2, "116676008", "44132006"),
 
                 new Concept("129357001").addFSN("Closure - action").addRelationship(ISA, "129264002"),
-                new Concept("344001").addFSN("Ankle region structure").addRelationship(ISA, "442083009"),
+                new Concept("344001").addFSN("Ankle region structure").addRelationship(ISA, ANATOMICAL_OR_ACQUIRED_BODY_STRUCTURE),
                 new Concept("363700003").addFSN("Direct morphology").addRelationship(ISA, CONCEPT_MODEL_OBJECT_ATTRIBUTE),
                 new Concept("13924000").addFSN("Wound").addRelationship(ISA, "49755003"),
-                new Concept("105590001").addFSN("Substance").addRelationship(ISA, SNOMEDCT_ROOT),
+                new Concept(SUBSTANCE).addFSN("Substance").addRelationship(ISA, SNOMEDCT_ROOT),
                 new Concept("256683004").addFSN("Flap").addRelationship(ISA, "105590001"),
 
 
-                // === 14600001000004107 |Closure of wound of ankle with flap| :  \n" +
-                //						"{ 260686004 |Method|  =  129357001 |Closure - action| ,\n" +
-                //						"405813007 |Procedure site - Direct|  = ( 344001 |Ankle region structure| :  272741003 |Laterality| = 7771000 |Left| ),\n" +
-                //						"363700003 |Direct morphology|  =  13924000 |Wound| ,\n" +
-                //						"424361007 |Using substance|  =  256683004 |Flap| }
                 new Concept("14600001000004107").addFSN("Closure of wound of ankle with flap")
-                        .addRelationship(ISA, "71388002")
+                        .addRelationship(ISA, PROCEDURE)
                         .addRelationship(1, "260686004", "129357001")
                         .addRelationship(1, "405813007", "344001")
                         .addRelationship(1, "363700003", "13924000")
-                        .addRelationship(1, "424361007", "256683004")
+                        .addRelationship(1, "424361007", "256683004"),
 
-
+                new Concept("6471000179103").addFSN("Transplantation of kidney and pancreas (procedure)")
+                        .addRelationship(ISA, PROCEDURE)
+                        .addRelationship(1, "260686004", "410820007")
+                        .addRelationship(1, "405813007", "64033007")
+                        .addRelationship(1, "363701004", "420852008")
+                        .addRelationship(2, "260686004", "410820007")
+                        .addRelationship(2, "405813007", "15776009")
+                        .addRelationship(2, "363701004", "421263007"),
+                new Concept("410820007").addFSN("Surgical transplantation - action (qualifier value)").addRelationship(ISA, "129264002"),
+                new Concept("64033007").addFSN("Kidney structure (body structure)").addRelationship(ISA, ANATOMICAL_OR_ACQUIRED_BODY_STRUCTURE),
+                new Concept("9846003").addFSN("Right kidney structure (body structure)").addRelationship(ISA, "64033007"),
+                new Concept("15776009").addFSN("Pancreatic structure (body structure)").addRelationship(ISA, ANATOMICAL_OR_ACQUIRED_BODY_STRUCTURE),
+                new Concept("420852008").addFSN("Kidney graft - material (substance)").addRelationship(ISA, SUBSTANCE),
+                new Concept("421263007").addFSN("Pancreas graft - material (substance)").addRelationship(ISA, SUBSTANCE),
+                new Concept("363701004").addFSN("Direct substance (attribute)").addRelationship(ISA, CONCEPT_MODEL_OBJECT_ATTRIBUTE)
         ), "MAIN");
 
         memberService.createMembers("MAIN", Sets.newHashSet(

@@ -1,6 +1,5 @@
 package org.snomed.snowstorm.core.data.services.postcoordination.transformation;
 
-import org.snomed.snowstorm.core.data.services.QueryService;
 import org.snomed.snowstorm.core.data.services.ServiceException;
 import org.snomed.snowstorm.core.data.services.postcoordination.ExpressionContext;
 import org.snomed.snowstorm.core.data.services.postcoordination.model.ComparableAttribute;
@@ -19,7 +18,7 @@ public class GroupSelfGroupedAttributeTransformation implements ExpressionTransf
 	}
 
 	@Override
-	public ComparableExpression transform(List<ComparableAttribute> looseAttributes, ComparableExpression expression, ExpressionContext context, QueryService queryService) throws ServiceException {
+	public ComparableExpression transform(List<ComparableAttribute> looseAttributes, ComparableExpression expression, ExpressionContext context) throws ServiceException {
 		for (ComparableAttribute looseAttribute : looseAttributes) {
 			if (selfGroupedAttributes.contains(looseAttribute.getAttributeId())) {
 				expression.getComparableAttributes().remove(looseAttribute);

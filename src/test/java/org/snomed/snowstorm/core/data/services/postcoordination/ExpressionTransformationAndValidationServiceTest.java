@@ -103,6 +103,20 @@ class ExpressionTransformationAndValidationServiceTest extends AbstractExpressio
 		);
 	}
 
+	@Test
+	public void testLevel2RefineExistingAttribute() throws ServiceException {
+		assertExpressionTransformation(
+				// Input
+				"6471000179103 |Transplantation of kidney and pancreas|  :  405813007 |Procedure site - Direct|  =  9846003 |Right kidney structure|",
+
+				// Expected output
+				"=== 6471000179103 |Transplantation of kidney and pancreas|  :\n" +
+						"{ 260686004 |Method|  =  410820007 |Surgical transplantation - action| , \n" +
+						"405813007 |Procedure site - Direct|  =  9846003 |Right kidney structure| , \n" +
+						"363701004 |Direct substance|  =  420852008 |Kidney graft - material|  }"
+		);
+	}
+
 	private void assertExpressionTransformation(String input, String expected) throws ServiceException {
 		ComparableExpression expectedExpression = expressionParser.parseExpression(expected);
 		ComparableExpression inputExpression = expressionParser.parseExpression(input);

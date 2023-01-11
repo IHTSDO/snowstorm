@@ -5,23 +5,21 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.languages.scg.domain.model.DefinitionStatus;
 import org.snomed.snowstorm.config.Config;
-import org.snomed.snowstorm.core.data.domain.Concept;
 import org.snomed.snowstorm.core.data.domain.ConceptMini;
 import org.snomed.snowstorm.core.data.services.ConceptService;
-import org.snomed.snowstorm.core.data.services.QueryService;
 import org.snomed.snowstorm.core.data.services.ServiceException;
 import org.snomed.snowstorm.core.data.services.pojo.ResultMapPage;
 import org.snomed.snowstorm.core.data.services.postcoordination.model.ComparableAttribute;
 import org.snomed.snowstorm.core.data.services.postcoordination.model.ComparableExpression;
 import org.snomed.snowstorm.core.data.services.postcoordination.transformation.*;
 import org.snomed.snowstorm.core.pojo.TermLangPojo;
+import org.snomed.snowstorm.ecl.ECLQueryService;
 import org.snomed.snowstorm.mrcm.model.AttributeDomain;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import static java.lang.String.format;
@@ -33,7 +31,7 @@ public class ExpressionTransformationAndValidationService {
 	private ConceptService conceptService;
 
 	@Autowired
-	private QueryService queryService;
+	private ECLQueryService eclQueryService;
 
 	@Autowired
 	private ExpressionParser expressionParser;
@@ -56,6 +54,7 @@ public class ExpressionTransformationAndValidationService {
 		level2Transformations.add(new LateraliseProcedureTransformation());
 		level2Transformations.add(new AddContextToClinicalFindingTransformation());
 		level2Transformations.add(new AddContextToProcedureTransformation());
+		level2Transformations.add(new RefineExistingAttributeTransformation());
 	}
 
 	public ComparableExpression validateAndTransform(ComparableExpression closeToUserForm, ExpressionContext context) throws ServiceException {
@@ -98,9 +97,7 @@ public class ExpressionTransformationAndValidationService {
 	private ComparableExpression createClassifiableForm(ExpressionContext context, ComparableExpression candidateClassifiableExpression) throws ServiceException {
 		// Collect focus concept ancestors
 		List<Long> focusConceptLongs = toLongList(candidateClassifiableExpression.getFocusConcepts());
-		Set<Long> ancestorsAndSelf = new HashSet<>(queryService.findAncestorIdsAsUnion(context.getBranchCriteria(), false, focusConceptLongs));
-		ancestorsAndSelf.addAll(focusConceptLongs);
-		context.setAncestorsAndSelf(ancestorsAndSelf);
+		context.setEclQueryService(eclQueryService);
 
 		List<ComparableAttribute> looseAttributes = getLooseAttributes(candidateClassifiableExpression, context);
 
@@ -126,7 +123,7 @@ public class ExpressionTransformationAndValidationService {
 
 			// Run transformations
 			for (ExpressionTransformation transformation : level2Transformations) {
-				candidateClassifiableExpression = transformation.transform(looseAttributes, candidateClassifiableExpression, context, queryService);
+				candidateClassifiableExpression = transformation.transform(looseAttributes, candidateClassifiableExpression, context);
 				looseAttributes = getLooseAttributes(candidateClassifiableExpression, context);
 				if (looseAttributes.isEmpty()) {
 					break;
@@ -161,14 +158,18 @@ public class ExpressionTransformationAndValidationService {
 		}
 		return comparableAttributes.stream()
 				.filter(attribute -> {
-					if (!ungroupedAttributeMap.containsKey(attribute.getAttributeId())) {
+					if (attribute.getComparableAttributeValue().isNested()) {
+						// Can't transform nested attributes
+						return false;
+					} else if (!ungroupedAttributeMap.containsKey(attribute.getAttributeId())) {
 						// Should be grouped
 						return true;
 					} else {
 						Set<AttributeDomain> attributeDomains = ungroupedAttributeMap.get(attribute.getAttributeId());
 						Set<String> domains = attributeDomains.stream().map(AttributeDomain::getDomainId).collect(Collectors.toSet());
 						// Attribute used in wrong domain (focus concept ancestors do not contain attribute domain)
-						return Sets.intersection(context.getAncestorsAndSelf(), domains).isEmpty();
+						String ecl = String.join(" OR ", closeToUserForm.getFocusConcepts().stream().map(id -> ">>" + id).collect(Collectors.toSet()));
+						return Sets.intersection(context.ecl(ecl), domains).isEmpty();
 					}
 				})
 				.collect(Collectors.toList());

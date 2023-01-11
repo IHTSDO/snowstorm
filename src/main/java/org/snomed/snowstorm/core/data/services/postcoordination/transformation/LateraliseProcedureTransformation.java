@@ -3,7 +3,6 @@ package org.snomed.snowstorm.core.data.services.postcoordination.transformation;
 import org.snomed.snowstorm.core.data.domain.Concept;
 import org.snomed.snowstorm.core.data.domain.Concepts;
 import org.snomed.snowstorm.core.data.domain.Relationship;
-import org.snomed.snowstorm.core.data.services.QueryService;
 import org.snomed.snowstorm.core.data.services.ServiceException;
 import org.snomed.snowstorm.core.data.services.postcoordination.ExpressionContext;
 import org.snomed.snowstorm.core.data.services.postcoordination.TransformationException;
@@ -11,20 +10,19 @@ import org.snomed.snowstorm.core.data.services.postcoordination.model.Comparable
 import org.snomed.snowstorm.core.data.services.postcoordination.model.ComparableAttributeGroup;
 import org.snomed.snowstorm.core.data.services.postcoordination.model.ComparableAttributeValue;
 import org.snomed.snowstorm.core.data.services.postcoordination.model.ComparableExpression;
-import org.springframework.data.domain.PageRequest;
 
 import java.util.*;
 import java.util.stream.Collectors;
 
 import static java.lang.String.format;
-import static org.snomed.snowstorm.core.data.domain.Concepts.*;
+import static org.snomed.snowstorm.core.data.domain.Concepts.LATERALITY;
 
 public class LateraliseProcedureTransformation implements ExpressionTransformation {
 
 	@Override
-	public ComparableExpression transform(List<ComparableAttribute> looseAttributes, ComparableExpression expression, ExpressionContext context, QueryService queryService) throws ServiceException {
+	public ComparableExpression transform(List<ComparableAttribute> looseAttributes, ComparableExpression expression, ExpressionContext context) throws ServiceException {
 		for (ComparableAttribute looseAttribute : looseAttributes) {
-			if (looseAttribute.getAttributeId().equals(LATERALITY) && context.getAncestorsAndSelf().contains(Concepts.PROCEDURE)) {
+			if (looseAttribute.getAttributeId().equals(LATERALITY) && context.getAncestorsAndSelfOrFocusConcept().contains(Concepts.PROCEDURE)) {
 
 				// TODO: Can other attributes have a body structure that is lateralisable?
 				// Otherwise the short version is: Finding site attributes contain exactly one unique body structure AND that is in the Lateralisable refset.
@@ -32,7 +30,7 @@ public class LateraliseProcedureTransformation implements ExpressionTransformati
 
 				// Count existing finding sites
 				String focusConceptId = expression.getFocusConcepts().get(0);
-				Set<String> existingUniqueProcedureSites = new HashSet<>(ecl(format("%s.<<363704007 |Procedure site (attribute)|", focusConceptId), context, queryService));
+				Set<String> existingUniqueProcedureSites = new HashSet<>(context.ecl(format("%s.<<363704007 |Procedure site (attribute)|", focusConceptId)));
 				if (existingUniqueProcedureSites.size() > 1) {
 					throwCriteriaNotMetWithReason("The focus concept has multiple procedure sites.");
 				}
@@ -41,18 +39,19 @@ public class LateraliseProcedureTransformation implements ExpressionTransformati
 				}
 				// Check existing procedure site is lateralizable
 				String existingFindingSite = existingUniqueProcedureSites.iterator().next();
-				if (ecl(format("%s AND ^723264001 |Lateralisable body structure reference set|", existingFindingSite), context, queryService).isEmpty()) {
+				if (context.ecl(format("%s AND ^723264001 |Lateralisable body structure reference set|", existingFindingSite)).isEmpty()) {
 					throwCriteriaNotMetWithReason("The focus concept has a procedure site that is not lateralizable.");
 					break;
 				}
 				// No other attributes point to other body structures
-				Set<String> bodyStructuresFromAllAttributes = new HashSet<>(ecl(format("(%s.*) AND << 442083009 |Anatomical or acquired body structure (body structure)|", focusConceptId), context, queryService));
+				Set<String> bodyStructuresFromAllAttributes = new HashSet<>(context.ecl(format("(%s.*) AND " +
+						"<< 442083009 |Anatomical or acquired body structure (body structure)|", focusConceptId)));
 				if (bodyStructuresFromAllAttributes.size() != 1) {
 					throwCriteriaNotMetWithReason("The focus concept has one or more attributes using a different body structure.");
 					break;
 				}
 
-				List<String> procedureSiteAttributes = ecl("<<363704007 |Procedure site (attribute)|", context, queryService);
+				Set<String> procedureSiteAttributes = context.ecl("<<363704007 |Procedure site (attribute)|");
 				Concept concept = context.getFocusConceptWithActiveRelationships();
 				Set<Integer> groupsToExtract = concept.getRelationships().stream()
 						.filter(relationship -> procedureSiteAttributes.contains(relationship.getTypeId()))
@@ -86,8 +85,4 @@ public class LateraliseProcedureTransformation implements ExpressionTransformati
 				"level 2 safety criteria: %s", reason));
 	}
 
-	private static List<String> ecl(String ecl, ExpressionContext context, QueryService queryService) {
-		QueryService.ConceptQueryBuilder queryBuilder = queryService.createQueryBuilder(false).ecl(ecl);
-		return queryService.searchForIds(queryBuilder, context.getBranchCriteria(), PageRequest.of(0, 100)).getContent().stream().map(Object::toString).collect(Collectors.toList());
-	}
 }
