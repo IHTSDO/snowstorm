@@ -19,6 +19,12 @@
 		Current Elasticsearch _Server_ version supported by AWS is 7.10.0
 		N.B. Remember to keep TestConfig.ELASTIC_SEARCH_SERVER_VERSION and getting-started guide updated.
 		-->
+
+		<docker.registry></docker.registry>
+		<docker.allowInsecureRegistries>false</docker.allowInsecureRegistries>
+		<docker.image.prefix>snomedinternational</docker.image.prefix>
+		<docker.image.tag>latest</docker.image.tag>
+		<docker.base-image>amazoncorretto:11</docker.base-image>
 	</properties>
 
 	<dependencies>
@@ -300,13 +306,59 @@
 		<plugins>
 			<!-- Docker Image Build -->
 			<plugin>
-				<groupId>com.spotify</groupId>
-				<artifactId>dockerfile-maven-plugin</artifactId>
+				<groupId>com.google.cloud.tools</groupId>
+				<artifactId>jib-maven-plugin</artifactId>
+				<version>3.4.0</version>
 				<configuration>
-					<repository>${docker.image.prefix}/${project.artifactId}</repository>
-					<buildArgs>
-						<JAR_FILE>target/${project.build.finalName}.jar</JAR_FILE>
-					</buildArgs>
+					<container>
+						<labels>
+							<author>SNOMED International &lt;tooling@snomed.org&gt;</author>
+						</labels>
+						<mainClass>org.snomed.snowstorm.SnowstormApplication</mainClass>
+						<environment>
+							<application.title>${project.name}</application.title>
+							<application.version>${project.version}</application.version>
+						</environment>
+						<jvmFlags>
+							<jvmFlag>-Djava.security.egd=file:/dev/./urandom</jvmFlag>
+						</jvmFlags>
+						<ports>
+							<port>8080</port>
+						</ports>
+						<volumes>
+							<volume>/tmp</volume>
+						</volumes>
+						<workingDirectory>/app</workingDirectory>
+					</container>
+					<extraDirectories>
+						<permissions>
+							<permission>
+								<file>/snomed-drools-rules</file>
+								<mode>757</mode>
+							</permission>
+						</permissions>
+					</extraDirectories>
+					<from>
+						<image>${docker.base-image}</image>
+						<platforms>
+							<platform>
+								<architecture>arm64</architecture>
+								<os>linux</os>
+							</platform>
+							<platform>
+								<architecture>amd64</architecture>
+								<os>linux</os>
+							</platform>
+						</platforms>
+					</from>
+					<to>
+						<image>${docker.registry}${docker.image.prefix}/${project.artifactId}</image>
+						<tags>
+							<tag>${docker.image.tag}</tag>
+							<tag>${project.version}</tag>
+						</tags>
+					</to>
+					<allowInsecureRegistries>${docker.allowInsecureRegistries}</allowInsecureRegistries>
 				</configuration>
 			</plugin>
 			<plugin>
@@ -403,6 +455,53 @@
 							<excludes>
 								<exclude>TraceabilityLogServiceTest</exclude>
 							</excludes>
+						</configuration>
+					</plugin>
+				</plugins>
+			</build>
+		</profile>
+		<profile>
+			<id>docker-amd64</id>
+			<build>
+				<plugins>
+					<plugin>
+						<groupId>com.google.cloud.tools</groupId>
+						<artifactId>jib-maven-plugin</artifactId>
+						<version>3.3.1</version>
+						<configuration>
+							<!-- Override the architecture to linux/amd64 -->
+							<from>
+								<image>${docker.base-image}</image>
+								<platforms>
+									<platform>
+										<architecture>amd64</architecture>
+										<os>linux</os>
+									</platform>
+								</platforms>
+							</from>
+						</configuration>
+					</plugin>
+				</plugins>
+			</build>
+		</profile>
+		<profile>
+			<id>docker-arm64</id>
+			<build>
+				<plugins>
+					<plugin>
+						<groupId>com.google.cloud.tools</groupId>
+						<artifactId>jib-maven-plugin</artifactId>
+						<version>3.3.1</version>
+						<configuration>
+							<from>
+								<image>${docker.base-image}</image>
+								<platforms>
+									<platform>
+										<architecture>arm64</architecture>
+										<os>linux</os>
+									</platform>
+								</platforms>
+							</from>
 						</configuration>
 					</plugin>
 				</plugins>
