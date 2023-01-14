@@ -24,6 +24,11 @@ wsl -d docker-desktop sysctl -w vm.max_map_count=262144
 
 More information can be found here - https://www.elastic.co/guide/en/elasticsearch/reference/current/vm-max-map-count.html
 
+## Building Docker images
+
+See [Using Jib to build containers](using-jib-to-build-containers.md)
+
+
 ## Starting Snowstorm
 
 From the project directory run:
@@ -51,7 +56,7 @@ However, if you do not want to run the browser on the same instance, then remove
 Once the data is loaded Snowstorm can be run in read-only mode, as documented elsewhere. In order to run your docker containers in a read-only mode, please make the following change to the relevant line in the [`docker-compose.yml`](../docker-compose.yml) file:
 
 ```bash
-entrypoint: java -Xms2g -Xmx4g -jar snowstorm.jar --elasticsearch.urls=http://es:9200 --snowstorm.rest-api.readonly=true
+entrypoint: java -Xms2g -Xmx4g -cp @/app/jib-classpath-file org.snomed.snowstorm.SnowstormApplication --elasticsearch.urls=http://es:9200 --snowstorm.rest-api.readonly=true
 ```
 
 Other config options may be of interest when running you own instance, for example `snowstorm.rest-api.readonly.allowReadOnlyPostEndpoints` and `snowstorm.rest-api.allowUnlimitedConceptPagination` which default to false. See the [Configuration Guide](configuration-guide.md).
