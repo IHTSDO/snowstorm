@@ -56,7 +56,7 @@ public class CodeSystemController {
 	private boolean showFutureVersionsDefault;
 
 	@Value("${codesystem.all.latest-version.allow-internal-release}")
-	private boolean showInteralReleasesByDefault;
+	private boolean showInternalReleasesByDefault;
 
 	@Operation(summary = "Create a code system",
 			description = "Required fields are shortName and branch.\n" +
@@ -128,7 +128,7 @@ public class CodeSystemController {
 			showFutureVersions = showFutureVersionsDefault;
 		}
 		if (showInternalReleases == null) {
-			showInternalReleases = showInteralReleasesByDefault;
+			showInternalReleases = showInternalReleasesByDefault;
 		}
 
 		List<CodeSystemVersion> codeSystemVersions = codeSystemService.findAllVersions(shortName, showFutureVersions, showInternalReleases);
@@ -220,18 +220,19 @@ public class CodeSystemController {
 	}
 
 
-	@Operation(summary = "Generate additional english language refset",
-			description = "Before running this extensions must be upgraded already. " +
-					"You must specify the branch path(e.g MAIN/SNOMEDCT-NZ/{project}/{task}) of the task for the delta to be added. " +
-					"When completeCopy flag is set to true, all active en-gb language refset components will be copied into the extension module. " +
-					"When completeCopy flag is set to false, only the changes from the latest international release will be copied/updated in the extension module. " +
-					"Currently you only need to run this when upgrading SNOMEDCT-IE and SNOMEDCT-NZ")
+	@Operation(summary = "Generate additional english language refset for certain extensions (IE or NZ) by copying international en-gb language refsets into extension module",
+			description = "Before running this the extension must be upgraded already. " +
+					"You must specify a task branch path (e.g MAIN/SNOMEDCT-NZ/{project}/{task}) for the delta to be created in. " +
+					"Set completeCopy flag to true when creating extension for the first time. It will copy all active en-gb language refset components into extension module. " +
+					"Set completeCopy flag to false for subsequent upgrades. Recent changes only from international release will be copied/updated in extension module. " +
+					"It works for both incremental monthly upgrade and roll-up upgrade (e.g every 6 months). " +
+					"Currently you should only run this api when upgrading SNOMEDCT-IE and SNOMEDCT-NZ")
 	@PostMapping(value = "/{shortName}/additional-en-language-refset-delta")
 	public void generateAdditionalLanguageRefsetDelta(@PathVariable String shortName,
 													  @RequestParam String branchPath,
 													  @Parameter(description = "The language refset to copy from e.g 900000000000508004 | Great Britain English language reference set (foundation metadata concept) ")
 													  @RequestParam (defaultValue = "900000000000508004") String languageRefsetToCopyFrom,
-													  @Parameter(description = "Set completeCopy to true to copy all active components and false to copy only changes from the latest release.")
+													  @Parameter(description = "Set completeCopy to true to copy all active components and false to copy changes only from recent international release.")
 													  @RequestParam (defaultValue = "false") Boolean completeCopy) {
 
 		ControllerHelper.requiredParam(shortName, "shortName");
