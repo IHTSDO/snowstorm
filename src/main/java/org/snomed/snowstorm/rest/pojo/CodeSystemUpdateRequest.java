@@ -7,6 +7,7 @@ import org.snomed.snowstorm.core.data.services.pojo.CodeSystemDefaultConfigurati
 public class CodeSystemUpdateRequest {
 
 	public String name;
+	public String uriModuleId;
 	public String owner;
 	public String countryCode;
 	public String maintainerType;
@@ -21,6 +22,7 @@ public class CodeSystemUpdateRequest {
 
 	public CodeSystemUpdateRequest(CodeSystem codeSystem) {
 		name = codeSystem.getName();
+		uriModuleId = codeSystem.getUriModuleId();
 		owner = codeSystem.getOwner();
 		countryCode = codeSystem.getCountryCode();
 		maintainerType = codeSystem.getMaintainerType();
@@ -53,6 +55,10 @@ public class CodeSystemUpdateRequest {
 
 	public String getName() {
 		return name;
+	}
+
+	public String getUriModuleId() {
+		return uriModuleId;
 	}
 
 	public String getOwner() {
