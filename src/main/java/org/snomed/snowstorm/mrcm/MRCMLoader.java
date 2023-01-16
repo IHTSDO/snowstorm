@@ -56,7 +56,6 @@ public class MRCMLoader implements CommitListener {
     /**
      * Retrieve the latest MRCM for the given branch.
      *
-     * @param branchPath     The branch to read MRCM data from.
      * @param branchCriteria The branch criteria to use for querying the target branch.
      * @return The MRCM for the given branch.
      * @throws ServiceException When there is an issue reading MRCM.

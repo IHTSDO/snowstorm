@@ -1,6 +1,7 @@
 package org.snomed.snowstorm.core.data.services.postcoordination;
 
 import com.google.common.collect.Sets;
+import io.kaicode.elasticvc.api.BranchCriteria;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.languages.scg.domain.model.DefinitionStatus;
@@ -179,11 +180,11 @@ public class ExpressionTransformationAndValidationService {
 		return focusConcepts == null ? Collections.emptyList() : focusConcepts.stream().map(Long::parseLong).collect(Collectors.toList());
 	}
 
-	public synchronized List<String> addHumanPTsToExpressionStrings(List<String> expressionStrings, Set<String> conceptIds, ExpressionContext context) {
+	public synchronized List<String> addHumanPTsToExpressionStrings(List<String> expressionStrings, Set<String> conceptIds, BranchCriteria branchCriteria, boolean stripConceptIds) {
 		if (expressionStrings.isEmpty()) {
 			return Collections.emptyList();
 		}
-		final Map<String, ConceptMini> conceptMap = findConceptMinisWithCaching(conceptIds, context);
+		final Map<String, ConceptMini> conceptMap = findConceptMinisWithCaching(conceptIds, branchCriteria);
 
 		// Strip existing terms from expressionStrings
 		expressionStrings = expressionStrings.stream().map(s -> s.replaceAll(" ?\\|[^|]*\\|", "")).collect(Collectors.toList());
@@ -197,7 +198,7 @@ public class ExpressionTransformationAndValidationService {
 					for (int i = 0; i < expressionStrings.size(); i++) {
 						String expressionString = expressionStrings.get(i);
 						if (expressionString != null) {
-							expressionString = expressionString.replace(conceptId, format("%s |%s|", conceptId, term));
+							expressionString = expressionString.replace(conceptId, stripConceptIds ? format("|%s|", term) : format("%s |%s|", conceptId, term));
 							expressionStrings.set(i, expressionString);
 						}
 					}
@@ -208,7 +209,7 @@ public class ExpressionTransformationAndValidationService {
 	}
 
 	// NB: Quick and dirty cache. We get away with a simple implementation here while we are only dealing with a single branch.
-	private Map<String, ConceptMini> findConceptMinisWithCaching(Set<String> conceptIds, ExpressionContext context) {
+	private Map<String, ConceptMini> findConceptMinisWithCaching(Set<String> conceptIds, BranchCriteria branchCriteria) {
 		final Map<String, ConceptMini> conceptMap = new HashMap<>();
 		Set<String> toLoad = new HashSet<>(conceptIds);
 		for (String id : toLoad) {
@@ -218,7 +219,7 @@ public class ExpressionTransformationAndValidationService {
 		}
 		toLoad.removeAll(conceptMap.keySet());
 		if (!toLoad.isEmpty()) {
-			final ResultMapPage<String, ConceptMini> conceptMinis = conceptService.findConceptMinis(context.getBranchCriteria(), conceptIds, Config.DEFAULT_LANGUAGE_DIALECTS);
+			final ResultMapPage<String, ConceptMini> conceptMinis = conceptService.findConceptMinis(branchCriteria, conceptIds, Config.DEFAULT_LANGUAGE_DIALECTS);
 			conceptMap.putAll(conceptMinis.getResultsMap());
 			conceptMiniCache.putAll(conceptMap);
 
