@@ -12,6 +12,7 @@ import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.core.data.domain.CodeSystem;
 import org.snomed.snowstorm.core.data.domain.ReferenceSetMember;
 import org.snomed.snowstorm.core.data.services.BranchMetadataHelper;
+import org.snomed.snowstorm.core.data.services.CodeSystemVersionService;
 import org.snomed.snowstorm.core.data.services.NotFoundException;
 import org.snomed.snowstorm.core.data.services.ReferenceSetMemberService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -54,6 +55,9 @@ public class ExtensionAdditionalLanguageRefsetUpgradeService {
 	@Autowired
 	private ElasticsearchOperations elasticsearchTemplate;
 
+	@Autowired
+	private CodeSystemVersionService codeSystemVersionService;
+
 	private final Logger logger = LoggerFactory.getLogger(ExtensionAdditionalLanguageRefsetUpgradeService.class);
 
 	@PreAuthorize("hasPermission('ADMIN', #codeSystem.branchPath)")
@@ -68,18 +72,27 @@ public class ExtensionAdditionalLanguageRefsetUpgradeService {
 	private void performUpdate(AdditionalRefsetExecutionConfig config, String branchPath) {
 		List<ReferenceSetMember> toSave;
 		if (config.isCompleteCopy()) {
-			// copy everything and change module id an refset id
+			// copy everything and change module id and refset id
 			toSave = copyAll(branchPath, config);
 			logger.info("{} active components found with language refset id {}.", toSave.size(), config.getLanguageRefsetIdToCopyFrom());
 		} else {
 			// add/update components from dependent release delta
-			Integer effectiveTime = config.getCodeSystem().getDependantVersionEffectiveTime();
-			if (effectiveTime == null) {
+			Integer currentDependantEffectiveTime = config.getCodeSystem().getDependantVersionEffectiveTime();
+			if (currentDependantEffectiveTime == null) {
 				throw new NotFoundException("No dependent version found in CodeSystem " +  config.getCodeSystem().getShortName());
 			}
-			Map<Long, ReferenceSetMember> enGbComponents = getReferencedComponents(branchPath, config.getLanguageRefsetIdToCopyFrom(), effectiveTime);
-			logger.info("{} components found with language refset id {} and effective time {}.", enGbComponents.keySet().size(),
-					config.getLanguageRefsetIdToCopyFrom(), effectiveTime);
+			Integer lastDependantEffectiveTime = null;
+			if (config.getCodeSystem().getLatestVersion() != null) {
+				// Currently dependant release is not populated when versioning but during start up
+				codeSystemVersionService.populateDependantVersion(config.getCodeSystem().getLatestVersion());
+				lastDependantEffectiveTime = config.getCodeSystem().getLatestVersion().getDependantVersionEffectiveTime();
+			}
+			if (lastDependantEffectiveTime == null) {
+				logger.info("No dependent version found in the latest version {} for CodeSystem {}", config.getCodeSystem().getLatestVersion(), config.getCodeSystem().getShortName());
+			}
+			Map<Long, ReferenceSetMember> enGbComponents = getReferencedComponents(branchPath, config.getLanguageRefsetIdToCopyFrom(), lastDependantEffectiveTime, currentDependantEffectiveTime);
+			logger.info("{} components found with language refset id {} and effective time between {} and {}.", enGbComponents.keySet().size(),
+					config.getLanguageRefsetIdToCopyFrom(), lastDependantEffectiveTime, currentDependantEffectiveTime);
 			toSave = addOrUpdateLanguageRefsetComponents(branchPath, config, enGbComponents);
 			toSave.forEach(ReferenceSetMember::markChanged);
 		}
@@ -110,16 +123,23 @@ public class ExtensionAdditionalLanguageRefsetUpgradeService {
 		return result;
 	}
 
-	private Map<Long, ReferenceSetMember> getReferencedComponents(String branchPath, String languageRefsetId, Integer effectiveTime) {
+	private Map<Long, ReferenceSetMember> getReferencedComponents(String branchPath, String languageRefsetId, Integer lastDependantEffectiveTime, Integer currentDependantEffectiveTime) {
+		Objects.requireNonNull(currentDependantEffectiveTime, "Current dependant effective time can't be null");
 		BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(branchPath);
 		Map<Long, ReferenceSetMember> result = new Long2ObjectOpenHashMap<>();
 		NativeSearchQueryBuilder searchQueryBuilder = new NativeSearchQueryBuilder()
 				.withQuery(boolQuery()
 						.must(branchCriteria.getEntityBranchCriteria(ReferenceSetMember.class))
 						.must(termQuery(REFSET_ID, languageRefsetId)))
-				.withFilter(termQuery(EFFECTIVE_TIME, effectiveTime))
 				.withFields(REFERENCED_COMPONENT_ID, ACTIVE, ACCEPTABILITY_ID_FIELD_PATH)
 				.withPageable(LARGE_PAGE);
+		if (lastDependantEffectiveTime != null) {
+			// for roll up upgrade every 6 months for example
+			searchQueryBuilder.withFilter(rangeQuery(EFFECTIVE_TIME).gt(lastDependantEffectiveTime).lte(currentDependantEffectiveTime));
+		} else {
+			// for incremental monthly upgrade
+			searchQueryBuilder.withFilter(termQuery(EFFECTIVE_TIME, currentDependantEffectiveTime));
+		}
 		try (final SearchHitsIterator<ReferenceSetMember> referencedComponents = elasticsearchTemplate.searchForStream(searchQueryBuilder.build(), ReferenceSetMember.class)) {
 			referencedComponents.forEachRemaining(hit ->
 					result.put(Long.valueOf(hit.getContent().getReferencedComponentId()), hit.getContent()));
