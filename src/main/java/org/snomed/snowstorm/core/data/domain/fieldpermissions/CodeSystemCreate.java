@@ -7,6 +7,7 @@ import org.snomed.snowstorm.core.data.domain.CodeSystem;
 public interface CodeSystemCreate {
 
 	String getShortName();
+	String getUriModuleId();
 	String getName();
 	String getOwner();
 	String getCountryCode();

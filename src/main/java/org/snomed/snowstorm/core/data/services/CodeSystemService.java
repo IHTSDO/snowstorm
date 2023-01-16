@@ -512,6 +512,12 @@ public class CodeSystemService {
 			codeSystem.setModules(conceptService.findConceptMinis(branchCriteria, modulesOfActiveMembers.keySet(), languageDialects).getResultsMap().values());
 		}
 
+		if (codeSystem.getUriModuleId() == null) {
+			// Populate moduleId
+			String uriModuleId = Concepts.CORE_MODULE;
+
+		}
+
 		// Add to cache
 		contentInformationCache.put(branchPath, Pair.of(workingBranch.getHead(), codeSystem));
 	}
