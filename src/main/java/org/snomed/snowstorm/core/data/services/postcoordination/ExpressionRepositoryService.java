@@ -4,18 +4,21 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.api.VersionControlHelper;
+import io.kaicode.elasticvc.domain.Commit;
 import org.snomed.languages.scg.domain.model.Attribute;
 import org.snomed.languages.scg.domain.model.AttributeValue;
+import org.snomed.languages.scg.domain.model.DefinitionStatus;
 import org.snomed.languages.scg.domain.model.Expression;
 import org.snomed.snowstorm.config.Config;
-import org.snomed.snowstorm.core.data.domain.ConceptMini;
-import org.snomed.snowstorm.core.data.domain.ReferenceSetMember;
+import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.services.ConceptService;
 import org.snomed.snowstorm.core.data.services.ReferenceSetMemberService;
 import org.snomed.snowstorm.core.data.services.ServiceException;
 import org.snomed.snowstorm.core.data.services.identifier.IdentifierHelper;
 import org.snomed.snowstorm.core.data.services.identifier.IdentifierSource;
 import org.snomed.snowstorm.core.data.services.pojo.MemberSearchRequest;
+import org.snomed.snowstorm.core.data.services.postcoordination.model.ComparableAttribute;
+import org.snomed.snowstorm.core.data.services.postcoordination.model.ComparableAttributeGroup;
 import org.snomed.snowstorm.core.data.services.postcoordination.model.ComparableExpression;
 import org.snomed.snowstorm.core.data.services.postcoordination.model.PostCoordinatedExpression;
 import org.snomed.snowstorm.core.util.TimerUtil;
@@ -33,6 +36,7 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 import static java.lang.String.format;
+import static org.snomed.snowstorm.core.util.CollectionUtils.orEmpty;
 
 @Service
 public class ExpressionRepositoryService {
@@ -74,9 +78,9 @@ public class ExpressionRepositoryService {
 	// expression - the classifiable form expression, created by transforming the close-to-user form expression.
 	// substrate - the URI of the SNOMED CT Edition and release that was used to transform close-to-user form expression to the classifiable form expression.
 
-	private static final String CANONICAL_CLOSE_TO_USER_FORM_EXPRESSION_REFERENCE_SET = "1119435002";
-	private static final String CLASSIFIABLE_FORM_EXPRESSION_REFERENCE_SET = "1119468009";
-	private static final String SUBSTRATE_FIELD = "substrate";
+	public static final String CANONICAL_CLOSE_TO_USER_FORM_EXPRESSION_REFERENCE_SET = "1119435002";
+	public static final String CLASSIFIABLE_FORM_EXPRESSION_REFERENCE_SET = "1119468009";
+	private static final int SNOMED_INTERNATIONAL_DEMO_NAMESPACE = 1000003;
 
 	public Page<PostCoordinatedExpression> findAll(String branch, PageRequest pageRequest) {
 		Page<ReferenceSetMember> membersPage = memberService.findMembers(branch,
@@ -100,37 +104,91 @@ public class ExpressionRepositoryService {
 		return new PageImpl<>(expressions, pageRequest, membersPage.getTotalElements());
 	}
 
-	public PostCoordinatedExpression createExpression(String closeToUserFormExpression, String branch, String moduleId) throws ServiceException {
-		List<PostCoordinatedExpression> expressions = createExpressionsAllOrNothing(Collections.singletonList(closeToUserFormExpression), branch, moduleId);
+	public PostCoordinatedExpression createExpression(String closeToUserFormExpression, String branch, String moduleId, String classificationPackage) throws ServiceException {
+		List<PostCoordinatedExpression> expressions = createExpressionsAllOrNothing(Collections.singletonList(closeToUserFormExpression), branch, moduleId, classificationPackage);
 		return expressions.get(0);
 	}
 
-	public List<PostCoordinatedExpression> createExpressionsAllOrNothing(List<String> closeToUserFormExpressions, String branch, String moduleId) throws ServiceException {
+	public List<PostCoordinatedExpression> createExpressionsAllOrNothing(List<String> closeToUserFormExpressions, String branch, String moduleId, String classificationPackage) throws ServiceException {
 		int namespace = IdentifierHelper.getNamespaceFromSCTID(moduleId);
-		final List<PostCoordinatedExpression> postCoordinatedExpressions = parseValidateTransformAndClassifyExpressions(closeToUserFormExpressions, branch, namespace);
+		final List<PostCoordinatedExpression> postCoordinatedExpressions = parseValidateTransformAndClassifyExpressions(closeToUserFormExpressions, branch, classificationPackage);
 
-		if (postCoordinatedExpressions.stream().noneMatch(PostCoordinatedExpression::hasException)) {
-			for (PostCoordinatedExpression postCoordinatedExpression : postCoordinatedExpressions) {
-				final String expressionId = postCoordinatedExpression.getId();
-				final ReferenceSetMember closeToUserFormMember = new ReferenceSetMember(moduleId, CANONICAL_CLOSE_TO_USER_FORM_EXPRESSION_REFERENCE_SET, expressionId)
-						.setAdditionalField(ReferenceSetMember.PostcoordinatedExpressionFields.EXPRESSION, postCoordinatedExpression.getCloseToUserForm().replace(" ", ""));
-				final ReferenceSetMember classifiableFormMember = new ReferenceSetMember(moduleId, CLASSIFIABLE_FORM_EXPRESSION_REFERENCE_SET, expressionId)
-						.setAdditionalField(ReferenceSetMember.PostcoordinatedExpressionFields.EXPRESSION, postCoordinatedExpression.getClassifiableForm().replace(" ", ""));
+		if (!postCoordinatedExpressions.isEmpty() && postCoordinatedExpressions.stream().noneMatch(PostCoordinatedExpression::hasException)) {
+			try (Commit commit = branchService.openCommit(branch)) {
+				List<ReferenceSetMember> membersToSave = new ArrayList<>();
+				List<Concept> conceptsToSave = new ArrayList<>();
+				for (PostCoordinatedExpression postCoordinatedExpression : postCoordinatedExpressions) {
 
-				memberService.createMembers(branch, Sets.newHashSet(closeToUserFormMember, classifiableFormMember));
-				// Internal id namespace 1000104
+					// Save NNF for ECL
+					final String expressionId = convertToConcepts(postCoordinatedExpression.getNecessaryNormalFormExpression(), namespace, conceptsToSave);
+					postCoordinatedExpression.setId(expressionId);
+
+					// Save refset members
+					final ReferenceSetMember closeToUserFormMember = new ReferenceSetMember(moduleId, CANONICAL_CLOSE_TO_USER_FORM_EXPRESSION_REFERENCE_SET, expressionId)
+							.setAdditionalField(ReferenceSetMember.PostcoordinatedExpressionFields.EXPRESSION, postCoordinatedExpression.getCloseToUserForm().replace(" ", ""));
+					closeToUserFormMember.markChanged();
+					membersToSave.add(closeToUserFormMember);
+
+					final ReferenceSetMember classifiableFormMember = new ReferenceSetMember(moduleId, CLASSIFIABLE_FORM_EXPRESSION_REFERENCE_SET, expressionId)
+							.setAdditionalField(ReferenceSetMember.PostcoordinatedExpressionFields.EXPRESSION, postCoordinatedExpression.getClassifiableForm().replace(" ", ""));
+					classifiableFormMember.markChanged();
+					membersToSave.add(classifiableFormMember);
+
+					if (conceptsToSave.size() >= 100) {
+						memberService.doSaveBatchMembers(membersToSave, commit);
+						membersToSave.clear();
+						conceptService.updateWithinCommit(conceptsToSave, commit);
+						conceptsToSave.clear();
+					}
+				}
+				if (!conceptsToSave.isEmpty()) {
+					memberService.doSaveBatchMembers(membersToSave, commit);
+					conceptService.updateWithinCommit(conceptsToSave, commit);
+				}
+				commit.markSuccessful();
 			}
 		}
 
 		return postCoordinatedExpressions;
 	}
 
-	public PostCoordinatedExpression parseValidateTransformAndClassifyExpression(String branch, String originalCloseToUserForm, int namespace) throws ServiceException {
-		return parseValidateTransformAndClassifyExpressions(Collections.singletonList(originalCloseToUserForm), branch, namespace).get(0);
+	private String convertToConcepts(ComparableExpression nnfExpression, int namespace, List<Concept> conceptsToSave) throws ServiceException {
+		Concept concept = new Concept(getNewId(namespace).toString());
+		concept.setDefinitionStatusId(nnfExpression.getDefinitionStatus() == DefinitionStatus.EQUIVALENT_TO ? Concepts.DEFINED : Concepts.PRIMITIVE);
+		for (String inferredParent : nnfExpression.getFocusConcepts()) {
+			concept.addRelationship(new Relationship(Concepts.ISA, inferredParent));
+		}
+		for (ComparableAttribute attribute : orEmpty( nnfExpression.getComparableAttributes())) {
+			String attributeValueId;
+			if (attribute.getAttributeValue().isNested()) {
+				// TODO: Search for existing expression rather than creating new nested concept every time?
+				attributeValueId = convertToConcepts((ComparableExpression) attribute.getComparableAttributeValue().getNestedExpression(), namespace, conceptsToSave);
+			} else {
+				attributeValueId = attribute.getAttributeValueId();
+			}
+			concept.addRelationship(new Relationship(attribute.getAttributeId(), attributeValueId));
+		}
+		int groupNumber = 0;
+		for (ComparableAttributeGroup group : orEmpty(nnfExpression.getComparableAttributeGroups())) {
+			groupNumber++;
+			for (ComparableAttribute attribute : group.getComparableAttributes()) {
+				String attributeValueId;
+				if (attribute.getAttributeValue().isNested()) {
+					// TODO: Search for existing expression rather than creating new nested concept every time?
+					attributeValueId = convertToConcepts((ComparableExpression) attribute.getComparableAttributeValue().getNestedExpression(), namespace, conceptsToSave);
+				} else {
+					attributeValueId = attribute.getAttributeValueId();
+				}
+				concept.addRelationship(new Relationship(attribute.getAttributeId(), attributeValueId).setGroupId(groupNumber));
+			}
+		}
+		conceptsToSave.add(concept);
+		return concept.getConceptId();
 	}
 
-	public List<PostCoordinatedExpression> parseValidateTransformAndClassifyExpressions(List<String> originalCloseToUserForms, String branch, int namespace) {
+	public List<PostCoordinatedExpression> parseValidateTransformAndClassifyExpressions(List<String> originalCloseToUserForms, String branch, String classificationPackage) {
 		List<PostCoordinatedExpression> expressionOutcomes = new ArrayList<>();
+
 		for (String originalCloseToUserForm : originalCloseToUserForms) {
 			TimerUtil timer = new TimerUtil("exp");
 			ExpressionContext context = new ExpressionContext(branch, branchService, versionControlHelper, mrcmService, timer);
@@ -145,26 +203,23 @@ public class ExpressionRepositoryService {
 				classifiableFormExpression = transformationService.validateAndTransform(closeToUserFormExpression, context);
 				timer.checkpoint("Transformation");
 
-				// Assign identifier
-				if (classifiableFormExpression.getExpressionId() == null) {
-					List<Long> expressionIds = identifierSource.reserveIds(namespace, "16", 1);
-					classifiableFormExpression.setExpressionId(expressionIds.get(0));
-				}
-
 				// Classify
+				// Assign temp identifier for classification process
+				if (classifiableFormExpression.getExpressionId() == null) {
+					classifiableFormExpression.setExpressionId(getNewId(SNOMED_INTERNATIONAL_DEMO_NAMESPACE));
+				}
 				ComparableExpression necessaryNormalForm;
 				boolean skipClassification = false;
 				if (skipClassification) {
 					necessaryNormalForm = classifiableFormExpression;
 				} else {
-					necessaryNormalForm = incrementalClassificationService.classify(classifiableFormExpression, branch);
+					necessaryNormalForm = incrementalClassificationService.classify(classifiableFormExpression, classificationPackage);
 					timer.checkpoint("Classify");
 				}
+				classifiableFormExpression.setExpressionId(null);
 
-				// TODO: Add attribute sorting
-				final PostCoordinatedExpression pce = new PostCoordinatedExpression(
-						necessaryNormalForm.getExpressionId().toString(), closeToUserFormExpression.toString(),
-						classifiableFormExpression.toString(), necessaryNormalForm.toString());
+				final PostCoordinatedExpression pce = new PostCoordinatedExpression(null, closeToUserFormExpression.toString(),
+						classifiableFormExpression.toString(), necessaryNormalForm);
 
 				populateHumanReadableForms(pce, context);
 				timer.checkpoint("Add human readable");
@@ -181,6 +236,10 @@ public class ExpressionRepositoryService {
 			}
 		}
 		return expressionOutcomes;
+	}
+
+	private Long getNewId(int namespace) throws ServiceException {
+		return identifierSource.reserveIds(namespace, "16", 1).get(0);
 	}
 
 	private void populateHumanReadableForms(PostCoordinatedExpression expressionForms, ExpressionContext context) throws ServiceException {

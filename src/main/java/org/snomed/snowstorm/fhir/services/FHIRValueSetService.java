@@ -17,8 +17,10 @@ import org.snomed.snowstorm.core.data.domain.ReferenceSetMember;
 import org.snomed.snowstorm.core.data.services.ConceptService;
 import org.snomed.snowstorm.core.data.services.QueryService;
 import org.snomed.snowstorm.core.data.services.ReferenceSetMemberService;
+import org.snomed.snowstorm.core.data.services.identifier.IdentifierHelper;
 import org.snomed.snowstorm.core.data.services.pojo.MemberSearchRequest;
 import org.snomed.snowstorm.core.data.services.pojo.PageWithBucketAggregations;
+import org.snomed.snowstorm.core.data.services.postcoordination.ExpressionRepositoryService;
 import org.snomed.snowstorm.core.pojo.LanguageDialect;
 import org.snomed.snowstorm.core.util.SearchAfterPage;
 import org.snomed.snowstorm.fhir.domain.*;
@@ -39,6 +41,7 @@ import org.springframework.stereotype.Service;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import static io.kaicode.elasticvc.api.ComponentService.LARGE_PAGE;
@@ -268,11 +271,40 @@ public class FHIRValueSetService {
 
 			List<FHIRConcept> conceptsOnRequestedPage = new ArrayList<>();
 			if (!conceptsToLoad.isEmpty()) {
-				Map<String, ConceptMini> conceptMinis = snomedConceptService.findConceptMinis(codeSystemVersion.getSnomedBranch(), conceptsToLoad, languageDialects).getResultsMap();
+
+				// Load concepts and expressions
+				List<Long> conceptIds = new ArrayList<>();
+				List<Long> expressionIds = new ArrayList<>();
+				for (Long id : conceptsToLoad) {
+					if (IdentifierHelper.isExpressionId(id.toString())) {
+						expressionIds.add(id);
+					} else {
+						conceptIds.add(id);
+					}
+				}
+				String snomedBranch = codeSystemVersion.getSnomedBranch();
+				Map<String, ConceptMini> conceptMinis =
+						conceptIds.isEmpty() ?
+						Collections.emptyMap() :
+						snomedConceptService.findConceptMinis(snomedBranch, conceptIds, languageDialects).getResultsMap();
+				MemberSearchRequest memberSearchRequest = new MemberSearchRequest()
+						.referenceSet(ExpressionRepositoryService.CANONICAL_CLOSE_TO_USER_FORM_EXPRESSION_REFERENCE_SET)
+						.referencedComponentIds(expressionIds);
+				Map<String, ReferenceSetMember> expressionMap =
+						expressionIds.isEmpty() ?
+						Collections.emptyMap() :
+						snomedRefsetService.findMembers(snomedBranch, memberSearchRequest, PageRequest.of(0, expressionIds.size()))
+						.getContent().stream().collect(Collectors.toMap(ReferenceSetMember::getReferencedComponentId, Function.identity()));
+
 				for (Long conceptToLoad : conceptsToLoad) {
-					ConceptMini snomedConceptMini = conceptMinis.get(conceptToLoad.toString());
-					if (snomedConceptMini != null) {
-						conceptsOnRequestedPage.add(new FHIRConcept(snomedConceptMini, codeSystemVersion, includeDesignations));
+					if (conceptMinis.containsKey(conceptToLoad.toString())) {
+						conceptsOnRequestedPage.add(new FHIRConcept(conceptMinis.get(conceptToLoad.toString()), codeSystemVersion, includeDesignations));
+					} else if (expressionMap.containsKey(conceptToLoad.toString())) {
+						ReferenceSetMember referenceSetMember = expressionMap.get(conceptToLoad.toString());
+						String expression = referenceSetMember.getAdditionalField(ReferenceSetMember.PostcoordinatedExpressionFields.EXPRESSION);
+						FHIRConcept fhirConcept = new FHIRConcept(new CodeSystem.ConceptDefinitionComponent(new CodeType(expression)), codeSystemVersion);
+//						TODO: fhirConcept.setAlternateIdentifier(conceptToLoad.toString());
+						conceptsOnRequestedPage.add(fhirConcept);
 					}
 				}
 			}

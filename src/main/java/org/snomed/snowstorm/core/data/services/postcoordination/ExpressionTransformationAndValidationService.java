@@ -185,6 +185,9 @@ public class ExpressionTransformationAndValidationService {
 		}
 		final Map<String, ConceptMini> conceptMap = findConceptMinisWithCaching(conceptIds, context);
 
+		// Strip existing terms from expressionStrings
+		expressionStrings = expressionStrings.stream().map(s -> s.replaceAll(" ?\\|[^|]*\\|", "")).collect(Collectors.toList());
+
 		for (String conceptId : conceptMap.keySet()) {
 			final ConceptMini conceptMini = conceptMap.get(conceptId);
 			if (conceptMini != null) {

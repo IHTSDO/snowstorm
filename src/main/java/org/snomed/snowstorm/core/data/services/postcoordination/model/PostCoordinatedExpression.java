@@ -1,5 +1,6 @@
 package org.snomed.snowstorm.core.data.services.postcoordination.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import org.snomed.snowstorm.core.data.services.ServiceException;
 
 import java.util.Objects;
@@ -10,7 +11,7 @@ public class PostCoordinatedExpression {
 	private String closeToUserForm;
 	private String classifiableForm;
 	private String humanReadableClassifiableForm;
-	private String necessaryNormalForm;
+	private ComparableExpression necessaryNormalForm;
 	private String humanReadableNecessaryNormalForm;
 	private ServiceException exception;
 
@@ -22,7 +23,7 @@ public class PostCoordinatedExpression {
 		this.exception = exception;
 	}
 
-	public PostCoordinatedExpression(String id, String closeToUserForm, String classifiableForm, String necessaryNormalForm) {
+	public PostCoordinatedExpression(String id, String closeToUserForm, String classifiableForm, ComparableExpression necessaryNormalForm) {
 		this.id = id;
 		this.closeToUserForm = closeToUserForm;
 		this.classifiableForm = classifiableForm;
@@ -58,6 +59,11 @@ public class PostCoordinatedExpression {
 	}
 
 	public String getNecessaryNormalForm() {
+		return necessaryNormalForm != null ? necessaryNormalForm.toString() : null;
+	}
+
+	@JsonIgnore
+	public ComparableExpression getNecessaryNormalFormExpression() {
 		return necessaryNormalForm;
 	}
 

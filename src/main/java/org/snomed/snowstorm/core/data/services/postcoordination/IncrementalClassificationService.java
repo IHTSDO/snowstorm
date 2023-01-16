@@ -23,6 +23,7 @@ import org.snomed.snowstorm.core.data.services.postcoordination.model.Comparable
 import org.snomed.snowstorm.core.data.services.postcoordination.model.ComparableAttributeValue;
 import org.snomed.snowstorm.core.data.services.postcoordination.model.ComparableExpression;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.core.io.ResourceLoader;
 import org.springframework.stereotype.Service;
 
@@ -42,6 +43,8 @@ public class IncrementalClassificationService {
 
 	private final ResourceManager releaseResourceManager;
 
+	private final String releaseResourceConfigName;
+
 	private final Map<String, ClassificationContainer> classificationContainers = new HashMap<>();
 
 	@Autowired
@@ -58,16 +61,17 @@ public class IncrementalClassificationService {
 	public IncrementalClassificationService(@Autowired ResourceLoader cloudResourceLoader, @Autowired SnomedReleaseResourceConfiguration snomedReleaseResourceConfiguration) {
 		this.releaseResourceManager = new ResourceManager(snomedReleaseResourceConfiguration, cloudResourceLoader);
 		snomedReasonerService = new SnomedReasonerService();
+		releaseResourceConfigName = SnomedReleaseResourceConfiguration.class.getAnnotation(ConfigurationProperties.class).value();
 	}
 
-	public ComparableExpression classify(ComparableExpression classifiableForm, String branch) throws ServiceException {
+	public ComparableExpression classify(ComparableExpression classifiableForm, String classificationPackage) throws ServiceException {
 		// Transform to axiom(s)
 		Set<AxiomRepresentation> axioms = expressionAxiomConversionService.convertToAxioms(classifiableForm);
 
 		// Classify
 		final RelationshipChangeProcessor changeProcessor;
 		try {
-			changeProcessor = classify(axioms, "MAIN");
+			changeProcessor = classify(axioms, classificationPackage);
 		} catch (IOException | ReasonerServiceException e) {
 			throw new ServiceException("Failed to classify expression.", e);
 		}
@@ -79,15 +83,14 @@ public class IncrementalClassificationService {
 		return createNNFExpression(classifiableForm.getExpressionId(), addedStatements, equivalentConceptMap);
 	}
 
-	private ComparableExpression createNNFExpression(Long expressionId, Map<Long, Set<Relationship>> addedStatements, Map<Long, Long> equivalentConceptMap) {
+	private ComparableExpression createNNFExpression(Long tempExpressionId, Map<Long, Set<Relationship>> addedStatements, Map<Long, Long> equivalentConceptMap) {
 		ComparableExpression nnfExpression = new ComparableExpression();
-		nnfExpression.setExpressionId(expressionId);
 
-		final boolean equivalent = equivalentConceptMap.containsKey(expressionId);
+		final boolean equivalent = equivalentConceptMap.containsKey(tempExpressionId);
 		if (equivalent) {
-			nnfExpression.addFocusConcept(Long.toString(equivalentConceptMap.get(expressionId)));
+			nnfExpression.addFocusConcept(Long.toString(equivalentConceptMap.get(tempExpressionId)));
 		}
-		final Set<Relationship> nnfRelationships = addedStatements.get(nnfExpression.getExpressionId());
+		final Set<Relationship> nnfRelationships = addedStatements.get(tempExpressionId);
 		// Put relationships into map to form groups
 		Map<Integer, ComparableAttributeGroup> relationshipGroups = new HashMap<>();
 		for (Relationship nnfRelationship : nnfRelationships) {
@@ -137,8 +140,8 @@ public class IncrementalClassificationService {
 		return map;
 	}
 
-	private RelationshipChangeProcessor classify(Set<AxiomRepresentation> axioms, String branch) throws IOException, ReasonerServiceException {
-		final ClassificationContainer classificationContainer = setupContainer(branch);
+	private RelationshipChangeProcessor classify(Set<AxiomRepresentation> axioms, String classificationPackage) throws IOException, ReasonerServiceException {
+		final ClassificationContainer classificationContainer = setupContainer(classificationPackage);
 		return snomedReasonerService.classifyAxioms(axioms, classificationContainer);
 	}
 
@@ -155,24 +158,27 @@ public class IncrementalClassificationService {
 		return classificationContainers.get(branch);
 	}
 
-	private ClassificationContainer createClassificationContainer(String branch) throws ReasonerServiceException {
-		// TODO: Lookup package from dependant codesystem
-		Branch branchWithInheritedMetadata = branchService.findBranchOrThrow(branch, false);
-		Metadata metadata = branchWithInheritedMetadata.getMetadata();
-		String previousPackage = metadata.getString(BranchMetadataKeys.PREVIOUS_PACKAGE);
-		if (previousPackage == null) {
-			throw new IllegalStateException(format("No %s set in branch metadata.", BranchMetadataKeys.PREVIOUS_PACKAGE));
+	private ClassificationContainer createClassificationContainer(String classificationPackage) throws ReasonerServiceException {
+		try (InputStream file = releaseResourceManager.readResourceStreamOrNullIfNotExists(classificationPackage)) {
+			if (file == null) {
+				throw new IllegalStateException(format("For classification the SNOMED CT RF2 snapshot file for the dependant release is required. " +
+								"For this request the RF2 archive '%s' is required. This file name includes the module id and effective time. " +
+								"This file must be made available in the store configured using the '%s' configuration options.",
+						classificationPackage, releaseResourceConfigName));
+			}
+		} catch (IOException e) {
+			throw new ReasonerServiceException(format("IO exception while checking for package file %s", classificationPackage), e);
 		}
-		logger.info("Creating classification container for branch {} using package {}", branch, previousPackage);
+		logger.info("Creating classification container for package {}", classificationPackage);
 
-		try (InputStream previousReleaseStream = releaseResourceManager.readResourceStream(previousPackage)) {
+		try (InputStream previousReleaseStream = releaseResourceManager.readResourceStream(classificationPackage)) {
 			return snomedReasonerService.classify(
 					UUID.randomUUID().toString(),
 					new InputStreamSet(previousReleaseStream),
 					null,
 					new FileOutputStream(Files.createTempFile("results" + UUID.randomUUID(), ".txt").toFile()), ELK_REASONER_FACTORY, false);
 		} catch (IOException e) {
-			throw new ReasonerServiceException(format("Failed to load previous package %s", previousPackage), e);
+			throw new ReasonerServiceException(format("Failed to load package %s", classificationPackage), e);
 		}
 	}
 }

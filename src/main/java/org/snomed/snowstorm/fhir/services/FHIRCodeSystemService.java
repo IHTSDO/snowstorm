@@ -346,8 +346,11 @@ public class FHIRCodeSystemService {
 		List<String> closeToUserFormExpressions = concepts.stream().map(CodeSystem.ConceptDefinitionComponent::getCode).collect(Collectors.toList());
 		List<PostCoordinatedExpression> outcomes;
 		try {
-			outcomes = expressionRepository.createExpressionsAllOrNothing(closeToUserFormExpressions, snomedExpressionCodeSystem.getSnomedBranch(),
-					snomedExpressionCodeSystem.getSnomedCodeSystem().getUriModuleId());
+			org.snomed.snowstorm.core.data.domain.CodeSystem snomedCodeSystem = snomedExpressionCodeSystem.getSnomedCodeSystem();
+			Integer dependantVersionEffectiveTime = snomedCodeSystem.getDependantVersionEffectiveTime();
+			String classificationPackage = String.format("%s_%s_snapshot.zip", snomedCodeSystem.getParentUriModuleId(), dependantVersionEffectiveTime);
+			outcomes = expressionRepository.createExpressionsAllOrNothing(closeToUserFormExpressions, snomedExpressionCodeSystem.getSnomedBranch(), snomedCodeSystem
+					.getUriModuleId(), classificationPackage);
 		} catch (ServiceException e) {
 			logger.error("Error handling postcoordinated expressions. CodeSystem: {}, Expressions: {}", snomedExpressionCodeSystem.getId(), closeToUserFormExpressions, e);
 			throw exception("Handling SNOMED CT postcoordinated expressions failed.", OperationOutcome.IssueType.EXCEPTION, 500, e);
