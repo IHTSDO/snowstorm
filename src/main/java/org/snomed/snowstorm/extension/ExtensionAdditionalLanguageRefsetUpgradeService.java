@@ -163,8 +163,8 @@ public class ExtensionAdditionalLanguageRefsetUpgradeService {
 				componentsToUpdate.forEachRemaining(hit -> update(hit.getContent(), existing, result));
 			}
 		}
-
 		Set<String> updated = result.stream().map(ReferenceSetMember::getReferencedComponentId).collect(Collectors.toSet());
+		logger.info("{} components to be updated", updated.size());
 		// add new ones
 		for (Long referencedComponentId : existing.keySet()) {
 			if (!updated.contains(referencedComponentId.toString())) {
@@ -174,6 +174,7 @@ public class ExtensionAdditionalLanguageRefsetUpgradeService {
 				result.add(toAdd);
 			}
 		}
+		logger.info("{} new components to be added", result.size() - updated.size());
 		return result;
 	}
 
