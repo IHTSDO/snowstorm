@@ -2,6 +2,7 @@ package org.snomed.snowstorm.core.data.services.postcoordination;
 
 import org.elasticsearch.common.util.set.Sets;
 import org.snomed.languages.scg.domain.model.Attribute;
+import org.snomed.languages.scg.domain.model.AttributeGroup;
 import org.snomed.languages.scg.domain.model.AttributeValue;
 import org.snomed.languages.scg.domain.model.Expression;
 import org.snomed.snowstorm.config.Config;
@@ -22,6 +23,7 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 import static java.lang.String.format;
+import static org.snomed.snowstorm.core.util.CollectionUtils.orEmpty;
 
 @Service
 public class ExpressionMRCMValidationService {
@@ -49,30 +51,33 @@ public class ExpressionMRCMValidationService {
 
 		// Check that attribute types are in MRCM
 		// and that attribute values are within the attribute range
-		List<Attribute> attributes = expression.getAttributes();
-		if (attributes != null) {
-			// Grab all attributes in MRCM for this content type
-			Set<String> attributeDomainAttributeIds = context.getBranchMRCM().getAttributeDomainsForContentType(ContentType.POSTCOORDINATED)
-					.stream().map(AttributeDomain::getReferencedComponentId).collect(Collectors.toSet());
-			context.getTimer().checkpoint("Load MRCM attribute");
-			for (Attribute attribute : attributes) {
-				String attributeId = attribute.getAttributeId();
-				// Active attribute exists in MRCM
-				if (!attributeDomainAttributeIds.contains(attributeId)) {
-					Map<String, String> conceptIdAndFsnTerm = getConceptIdAndTerm(Collections.singleton(attributeId), context);
-					throw new IllegalArgumentException(format("Attribute %s is not found in the MRCM rules.", conceptIdAndFsnTerm.get(attributeId)));
-				}
-				AttributeValue attributeValue = attribute.getAttributeValue();
-				if (!attributeValue.isNested()) {
-					String attributeValueId = attributeValue.getConceptId();
-					assertAttributeValueWithinRange(attributeId, attributeValueId, context);
-				} else {
-					Expression nestedExpression = attributeValue.getNestedExpression();
-					doAttributeRangeValidation(nestedExpression, attributeId, context);
-				}
-			}
-			context.getTimer().checkpoint("Attribute validation");
+		// Grab all attributes in MRCM for this content type
+		Set<String> attributeDomainAttributeIds = context.getBranchMRCM().getAttributeDomainsForContentType(ContentType.POSTCOORDINATED)
+				.stream().map(AttributeDomain::getReferencedComponentId).collect(Collectors.toSet());
+		context.getTimer().checkpoint("Load MRCM attribute");
+
+		List<Attribute> attributesToValidate = new ArrayList<>(orEmpty(expression.getAttributes()));
+		for (AttributeGroup attributeGroup : orEmpty(expression.getAttributeGroups())) {
+			attributesToValidate.addAll(attributeGroup.getAttributes());
 		}
+
+		for (Attribute attribute : attributesToValidate) {
+			String attributeId = attribute.getAttributeId();
+			// Active attribute exists in MRCM
+			if (!attributeDomainAttributeIds.contains(attributeId)) {
+				Map<String, String> conceptIdAndFsnTerm = getConceptIdAndTerm(Collections.singleton(attributeId), context);
+				throw new IllegalArgumentException(format("Attribute %s is not found in the MRCM rules.", conceptIdAndFsnTerm.get(attributeId)));
+			}
+			AttributeValue attributeValue = attribute.getAttributeValue();
+			if (!attributeValue.isNested()) {
+				String attributeValueId = attributeValue.getConceptId();
+				assertAttributeValueWithinRange(attributeId, attributeValueId, context);
+			} else {
+				Expression nestedExpression = attributeValue.getNestedExpression();
+				doAttributeRangeValidation(nestedExpression, attributeId, context);
+			}
+		}
+		context.getTimer().checkpoint("Attribute validation");
 	}
 
 	private void assertAttributeValueWithinRange(String attributeId, String attributeValueId, ExpressionContext context) throws ServiceException {
