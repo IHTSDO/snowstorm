@@ -1,6 +1,7 @@
 package org.snomed.snowstorm.fhir.services;
 
 import ca.uhn.fhir.rest.annotation.*;
+import ca.uhn.fhir.rest.api.MethodOutcome;
 import ca.uhn.fhir.rest.server.IResourceProvider;
 import org.hl7.fhir.instance.model.api.IBaseResource;
 import org.hl7.fhir.r4.model.*;
@@ -8,7 +9,6 @@ import org.hl7.fhir.r4.model.OperationOutcome.IssueType;
 import org.snomed.snowstorm.core.pojo.LanguageDialect;
 import org.snomed.snowstorm.fhir.config.FHIRConstants;
 import org.snomed.snowstorm.fhir.domain.FHIRConceptMap;
-import org.snomed.snowstorm.fhir.domain.FHIRConceptMapGroup;
 import org.snomed.snowstorm.fhir.domain.FHIRMapElement;
 import org.snomed.snowstorm.fhir.domain.FHIRMapTarget;
 import org.snomed.snowstorm.fhir.repositories.FHIRConceptMapRepository;
@@ -24,7 +24,6 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 import static java.lang.String.format;
-import static org.snomed.snowstorm.core.util.CollectionUtils.orEmpty;
 import static org.snomed.snowstorm.fhir.services.FHIRConceptMapService.WHOLE_SYSTEM_VALUE_SET_URI_POSTFIX;
 import static org.snomed.snowstorm.fhir.services.FHIRHelper.*;
 
@@ -43,6 +42,27 @@ public class FHIRConceptMapProvider implements IResourceProvider, FHIRConstants 
 	@Autowired
 	private FHIRMapElementRepository mapElementRepository;
 
+	@Read
+	public ConceptMap getConceptMap(@IdParam IdType id) {
+		String idPart = id.getIdPart();
+		FHIRConceptMap map = service.findByIdWithGroups(idPart);
+		return map != null ? map.getHapi() : null;
+	}
+
+	@Create
+	public MethodOutcome createUpdateConceptMap(@IdParam IdType id, @ResourceParam ConceptMap conceptMap) {
+		FHIRHelper.readOnlyCheck(readOnlyMode);
+		MethodOutcome outcome = new MethodOutcome();
+		FHIRConceptMap savedMap = service.createOrUpdate(new FHIRConceptMap(conceptMap));
+		outcome.setId(new IdType("ConceptMap", savedMap.getId(), savedMap.getVersion()));
+		return outcome;
+	}
+
+	@Update
+	public MethodOutcome updateConceptMap(@IdParam IdType id, @ResourceParam ConceptMap conceptMap) {
+		return createUpdateConceptMap(id, conceptMap);
+	}
+
 	//See https://www.hl7.org/fhir/conceptmap.html#search
 	@Search
 	public List<ConceptMap> findConceptMaps(
@@ -57,21 +77,6 @@ public class FHIRConceptMapProvider implements IResourceProvider, FHIRConstants 
 				.map(FHIRConceptMap::getHapi)
 				.peek(map -> map.setGroup(null))// Clear groups for display listing
 				.collect(Collectors.toList());
-	}
-
-	@Read
-	public ConceptMap getConceptMap(@IdParam IdType id) {
-		String idPart = id.getIdPart();
-		Optional<FHIRConceptMap> conceptMap = conceptMapRepository.findById(idPart);
-		if (conceptMap.isPresent()) {
-			FHIRConceptMap map = conceptMap.get();
-			for (FHIRConceptMapGroup group : orEmpty(map.getGroup())) {
-				List<FHIRMapElement> elements = mapElementRepository.findAllByGroupId(group.getGroupId());
-				group.setElement(elements);
-			}
-			return map.getHapi();
-		}
-		return null;
 	}
 
 	@Operation(name="$translate", idempotent=true)
@@ -167,28 +172,6 @@ public class FHIRConceptMapProvider implements IResourceProvider, FHIRConstants 
 		parameters.addParameter("result", false);
 		parameters.addParameter("message", format("No mapping found for code '%s', system '%s'.", coding.getCode(), coding.getSystem()));
 		return parameters;
-	}
-
-	private void normaliseURIs(UriType source, UriType target, String shortName, String uri) {
-		//Allow shortNames to be input, but swap with the real URI
-		if (target.asStringValue().equals(shortName)) {
-			target = new UriType(uri);
-		}
-		if (source.asStringValue().equals(shortName)) {
-			source = new UriType(uri);
-		}
-
-	}
-
-	public void createMap(FHIRConceptMap conceptMap) {
-		FHIRHelper.readOnlyCheck(readOnlyMode);
-
-		// Save concept map and groups
-		conceptMapRepository.save(conceptMap);
-		for (FHIRConceptMapGroup mapGroup : conceptMap.getGroup()) {
-			// Save elements within each group
-			mapElementRepository.saveAll(mapGroup.getElement());
-		}
 	}
 
 	@Override

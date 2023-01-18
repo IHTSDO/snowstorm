@@ -136,6 +136,10 @@ public class FHIRValueSetService {
 	}
 
 	public FHIRValueSet createOrUpdateValueset(ValueSet valueSet) {
+		if (valueSet.getUrl().contains("?fhir_vs")) {
+			throw exception("ValueSet url must not contain 'fhir_vs', this is reserved for implicit value sets.", OperationOutcome.IssueType.INVARIANT, 400);
+		}
+
 		// Expand to validate
 		ValueSet.ValueSetExpansionComponent originalExpansion = valueSet.getExpansion();
 		expand(new ValueSetExpansionParameters(valueSet, true), null);
@@ -144,7 +148,6 @@ public class FHIRValueSetService {
 	}
 
 	public FHIRValueSet createOrUpdateValuesetWithoutExpandValidation(ValueSet valueSet) {
-
 		// Delete existing ValueSets with the same URL and version (could be different ID)
 		valueSetRepository.findAllByUrl(valueSet.getUrl()).stream()
 				.filter(otherVs -> equalVersions(otherVs.getVersion(), valueSet.getVersion()))
