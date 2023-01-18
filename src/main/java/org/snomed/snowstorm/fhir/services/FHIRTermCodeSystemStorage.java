@@ -42,7 +42,7 @@ public class FHIRTermCodeSystemStorage implements ITermCodeSystemStorageSvc {
 	private FHIRValueSetService fhirValueSetService;
 
 	@Autowired
-	private FHIRConceptMapProvider fhirConceptMapProvider;
+	private FHIRConceptMapService fhirConceptMapService;
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
@@ -80,7 +80,7 @@ public class FHIRTermCodeSystemStorage implements ITermCodeSystemStorageSvc {
 		for (ConceptMap conceptMap : conceptMaps) {
 			try {
 				FHIRConceptMap map = new FHIRConceptMap(conceptMap);
-				fhirConceptMapProvider.createMap(map);
+				fhirConceptMapService.createOrUpdate(map);
 			} catch (SnowstormFHIRServerResponseException e) {
 				logger.error("Failed to store ConceptMap {}", conceptMap.getIdElement(), e);
 			}
