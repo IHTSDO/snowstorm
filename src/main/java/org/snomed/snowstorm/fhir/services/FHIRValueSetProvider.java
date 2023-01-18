@@ -53,13 +53,13 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 
 	public static int DEFAULT_PAGESIZE = 1_000;
 
-	@Read()
+	@Read
 	public ValueSet getValueSet(@IdParam IdType id) {
 		Optional<FHIRValueSet> valueSetOptional = valuesetRepository.findById(id.getIdPart());
 		return valueSetOptional.map(FHIRValueSet::getHapi).orElse(null);
 	}
 
-	@Create()
+	@Create
 	public MethodOutcome createValueSet(@IdParam IdType id, @ResourceParam ValueSet vs) {
 		FHIRHelper.readOnlyCheck(readOnlyMode);
 		MethodOutcome outcome = new MethodOutcome();
