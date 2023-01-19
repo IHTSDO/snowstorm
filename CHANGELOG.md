@@ -3,12 +3,16 @@ All notable changes to this project will be documented in this file.
 
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## 7.13.1 Release (January 2023)
-Maintenance release with bug fixes and improvements, with an upgrade to Elasticsearch 7.10.0.
+## 8.0.0 Release (February 2023)
+Major release with Elasticsearch 7.10.0 upgrade.
+
+### Breaking
+- Elasticsearch from 7.10.0 to 7.17.9 MUST be used with this release.
+
 ### Improvements
 - General
+  - MAINT-2018 Update Snowstorm to use Elasticsearch client 7.10.0.
   - FRI-567 Add check to CodeSystem upgrade to prevent multiple sequential upgrades.
-  - MAINT-2018 Update Snowstorm to use Elasticsearch 7.10.0.
   - ISTO-54 Add active flag to the Relationship target within the Concept JSON representation.
   - FRI-398 Force branch paths to be in upper case.
   - FRI-592 Update `generateAdditionalLanguageRefsetDelta` endpoint to work with both monthly and 6-monthly upgrades.
@@ -17,7 +21,7 @@ Maintenance release with bug fixes and improvements, with an upgrade to Elastics
 
 ### Fixes
 - MAINT-2095 Fix browser performance search test case for ECL.
-- MAINT-2081 Prevent classification statuses from becoming stuck.
+- MAINT-2081 Prevent classification statuses from becoming stuck by listening to JMS Topic instead of Queue.
 
 ## 7.12.0 Release (December 2022)
 Maintenance release with bug fixes and improvements.
