@@ -50,12 +50,12 @@ public class ExpressionTransformationAndValidationService {
 		level2Transformations = new ArrayList<>();
 		// TODO: Agree that lateralisation should come before context transformations so that they can both be applied to the same expression
 		level2Transformations.add(new GroupSelfGroupedAttributeTransformation(selfGroupedAttributes));
-		level2Transformations.add(new AddSeverityToClinicalFindingTransformation());
 		level2Transformations.add(new LateraliseClinicalFindingTransformation());
 		level2Transformations.add(new LateraliseProcedureTransformation());
+		level2Transformations.add(new RefineExistingAttributeTransformation());
+		level2Transformations.add(new AddSeverityToClinicalFindingTransformation());
 		level2Transformations.add(new AddContextToClinicalFindingTransformation());
 		level2Transformations.add(new AddContextToProcedureTransformation());
-		level2Transformations.add(new RefineExistingAttributeTransformation());
 	}
 
 	public ComparableExpression validateAndTransform(ComparableExpression closeToUserForm, ExpressionContext context) throws ServiceException {
@@ -74,8 +74,8 @@ public class ExpressionTransformationAndValidationService {
 			throw new TransformationException("Expression must have at least one focus concept.");
 		}
 
-		// Initial CTU MRCM attribute range validation
-		// NB Attribute domain validation does not happen here
+		// Initial CTU MRCM attribute 'range' validation
+		// NB Attribute 'domain' validation does not happen here
 		mrcmValidationService.attributeRangeValidation(closeToUserForm, context);
 		context.getTimer().checkpoint("MRCM attribute range validation");
 
@@ -89,7 +89,7 @@ public class ExpressionTransformationAndValidationService {
 
 		ComparableExpression classifiableForm = createClassifiableForm(context, candidateClassifiableExpression);
 
-		// TODO: Apply MRCM Attribute Domain validation here
+		mrcmValidationService.attributeDomainValidation(classifiableForm, context);
 		// TODO: Apply MRCM attribute cardinality validation after classification
 
 		return classifiableForm;

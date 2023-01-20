@@ -88,7 +88,7 @@ public class MRCMService {
 	}
 
 	public Collection<ConceptMini> retrieveDomainAttributes(ContentType contentType, boolean proximalPrimitiveModeling, Set<Long> parentIds,
-			String branchPath, BranchCriteria branchCriteria) throws ServiceException {
+			BranchCriteria branchCriteria) throws ServiceException {
 
 		// Load MRCM using active records applicable to this branch
 		final MRCM branchMRCM = mrcmLoader.loadActiveMRCM(branchCriteria);
@@ -101,7 +101,7 @@ public class MRCMService {
 			for (String attributeId : attributeIds) {
 				if (!foundConceptIds.contains(attributeId)) {
 					logger.warn("The concept to represent attribute {} is in the MRCM Attribute Domain reference set but is missing from branch {}.",
-							attributeId, branchPath);
+							attributeId, branchCriteria.getBranchPath());
 				}
 			}
 		}

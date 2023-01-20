@@ -6,6 +6,7 @@ import org.snomed.snowstorm.core.data.services.ServiceException;
 import org.snomed.snowstorm.core.data.services.postcoordination.model.ComparableExpression;
 import org.springframework.beans.factory.annotation.Autowired;
 
+import static org.assertj.core.api.Fail.fail;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 class ExpressionTransformationAndValidationServiceTest extends AbstractExpressionTest {
@@ -28,6 +29,26 @@ class ExpressionTransformationAndValidationServiceTest extends AbstractExpressio
 						"		405815000 |Procedure device|  =  122456005 |Laser device|" +
 						"	}"
 		);
+	}
+
+	@Test
+	public void testLeve1MRCMAttributeDomainError() throws ServiceException {
+		try {
+			assertExpressionTransformation(
+					// Input
+					"83152002 |Oophorectomy| : { " +
+							"405815000 |Procedure device|  =  122456005 |Laser device|, " +
+							"		246112005 |Severity| =  24484000 |Severe|" +
+							"}",
+
+					// Expected output
+					"83152002"
+			);
+			fail("Should have thrown exception");
+		} catch (IllegalArgumentException e) {
+			assertEquals("Attribute Type 246112005 can not be used with the given focus concepts [83152002] " +
+					"because the attribute can only be used in the following MRCM domains: [404684003 | Clinical finding |].", e.getMessage());
+		}
 	}
 
 	@Test
@@ -67,7 +88,7 @@ class ExpressionTransformationAndValidationServiceTest extends AbstractExpressio
 						"408732007 |Subject relationship context|  =  72705000 |Mother|",
 
 				// Expected output
-				"===  243796009 |Situation with explicit context| :\n" +
+				"===  413350009 |Finding with explicit context| :\n" +
 						"    {  246090004 |Associated finding|  =  254837009 |Breast cancer| , \n" +
 						"     408731000 |Temporal context|  =  410513005 |Past| ,     408732007 |Subject relationship context|  =  72705000 |Mother|  }"
 		);

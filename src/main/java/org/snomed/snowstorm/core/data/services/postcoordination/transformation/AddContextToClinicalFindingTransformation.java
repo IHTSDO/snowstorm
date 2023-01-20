@@ -23,7 +23,7 @@ public class AddContextToClinicalFindingTransformation implements ExpressionTran
 					.filter(looseAttribute -> FINDING_CONTEXT_ATTRIBUTES.contains(looseAttribute.getAttributeId())).collect(Collectors.toList());
 
 			if (!contextAttributes.isEmpty()) {
-				ComparableExpression situationExpression = new ComparableExpression(Concepts.SITUATION_WITH_EXPLICIT_CONTEXT);
+				ComparableExpression situationExpression = new ComparableExpression(Concepts.FINDING_WITH_EXPLICIT_CONTEXT);
 				situationExpression.setDefinitionStatus(expression.getDefinitionStatus());
 
 				ComparableAttributeGroup attributeGroup = new ComparableAttributeGroup();
@@ -32,6 +32,7 @@ public class AddContextToClinicalFindingTransformation implements ExpressionTran
 					attributeGroup.addAttribute(contextAttribute);
 				}
 
+				// TODO: Unit test these two scenarios - lat finding is loosing it's attribute
 				if (expression.getComparableAttributes().isEmpty() || expression.getComparableAttributeGroups().isEmpty()) {
 					attributeGroup.addAttribute(new ComparableAttribute(Concepts.ASSOCIATED_FINDING, expression.getFocusConcepts().get(0)));
 				} else {

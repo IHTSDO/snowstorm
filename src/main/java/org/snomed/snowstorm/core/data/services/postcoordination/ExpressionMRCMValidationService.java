@@ -4,7 +4,6 @@ import org.snomed.languages.scg.domain.model.Attribute;
 import org.snomed.languages.scg.domain.model.AttributeGroup;
 import org.snomed.languages.scg.domain.model.AttributeValue;
 import org.snomed.languages.scg.domain.model.Expression;
-import org.snomed.snowstorm.config.Config;
 import org.snomed.snowstorm.core.data.domain.ConceptMini;
 import org.snomed.snowstorm.core.data.services.ConceptService;
 import org.snomed.snowstorm.core.data.services.NotFoundException;
@@ -22,10 +21,13 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 import static java.lang.String.format;
+import static org.snomed.snowstorm.config.Config.DEFAULT_LANGUAGE_DIALECTS;
 import static org.snomed.snowstorm.core.util.CollectionUtils.orEmpty;
 
 @Service
 public class ExpressionMRCMValidationService {
+
+	public static final ContentType CONTENT_TYPE = ContentType.POSTCOORDINATED;
 
 	@Autowired
 	private MRCMService mrcmService;
@@ -35,6 +37,39 @@ public class ExpressionMRCMValidationService {
 
 	public void attributeRangeValidation(ComparableExpression expression, ExpressionContext context) throws ServiceException {
 		doAttributeRangeValidation(expression, null, context);
+	}
+
+	public void attributeDomainValidation(ComparableExpression expression, ExpressionContext context) throws ServiceException {
+		List<Attribute> allAttributes = new ArrayList<>();
+		allAttributes.addAll(orEmpty(expression.getAttributes()));
+		allAttributes.addAll(orEmpty(expression.getAttributeGroups()).stream().flatMap(group -> group.getAttributes().stream()).collect(Collectors.toList()));
+		if (!allAttributes.isEmpty()) {
+			// Fetch attribute domains
+			Set<Long> focusConceptIds = expression.getFocusConcepts().stream().map(Long::parseLong).collect(Collectors.toSet());
+			List<AttributeDomain> attributeDomains = mrcmService.doRetrieveDomainAttributes(CONTENT_TYPE, false, focusConceptIds, context.getBranchCriteria(), context.getBranchMRCM());
+			Set<String> validAttributesForDomain = attributeDomains.stream().map(AttributeDomain::getReferencedComponentId).collect(Collectors.toSet());
+			for (Attribute usedAttribute : allAttributes) {
+				if (!validAttributesForDomain.contains(usedAttribute.getAttributeId())) {
+					// Attribute used in wrong domain
+					// Report correct domains in error message
+					Set<String> validDomains = context.getBranchMRCM().getAttributeDomains().stream()
+							.filter(attributeDomain -> attributeDomain.getReferencedComponentId().equals(usedAttribute.getAttributeId()))
+							.map(AttributeDomain::getDomainId)
+							.collect(Collectors.toSet());
+					List<String> validDomainsForUsedAttribute = conceptService.findConceptMinis(context.getBranchCriteria(), validDomains, DEFAULT_LANGUAGE_DIALECTS)
+							.getResultsMap().values().stream().map(ConceptMini::getIdAndFsnTerm).collect(Collectors.toList());
+					throw new IllegalArgumentException(format("Attribute Type %s can not be used with the given focus concepts %s because the attribute can only be used " +
+							"in the following MRCM domains: %s.", usedAttribute.getAttributeId(), focusConceptIds, validDomainsForUsedAttribute));
+				}
+			}
+		}
+
+		// Also validate nested expressions
+		List<ComparableExpression> nestedExpressions = allAttributes.stream().filter(attribute -> attribute.getAttributeValue().isNested())
+				.map(attribute -> (ComparableExpression) attribute.getAttributeValue().getNestedExpression()).collect(Collectors.toList());
+		for (ComparableExpression nestedExpression : nestedExpressions) {
+			attributeDomainValidation(nestedExpression, context);
+		}
 	}
 
 	private void doAttributeRangeValidation(Expression expression, String expressionIsNestedWithinAttribute, ExpressionContext context) throws ServiceException {
@@ -51,7 +86,7 @@ public class ExpressionMRCMValidationService {
 		// Check that attribute types are in MRCM
 		// and that attribute values are within the attribute range
 		// Grab all attributes in MRCM for this content type
-		Set<String> attributeDomainAttributeIds = context.getBranchMRCM().getAttributeDomainsForContentType(ContentType.POSTCOORDINATED)
+		Set<String> attributeDomainAttributeIds = context.getBranchMRCM().getAttributeDomainsForContentType(CONTENT_TYPE)
 				.stream().map(AttributeDomain::getReferencedComponentId).collect(Collectors.toSet());
 		context.getTimer().checkpoint("Load MRCM attribute");
 
@@ -82,7 +117,7 @@ public class ExpressionMRCMValidationService {
 	private void assertAttributeValueWithinRange(String attributeId, String attributeValueId, ExpressionContext context) throws ServiceException {
 		// Value within attribute range
 		TimerUtil timer = new TimerUtil("attribute validation");
-		Collection<Long> longs = mrcmService.retrieveAttributeValueIds(ContentType.POSTCOORDINATED, attributeId, attributeValueId,
+		Collection<Long> longs = mrcmService.retrieveAttributeValueIds(CONTENT_TYPE, attributeId, attributeValueId,
 				context.getBranch(), null, context.getBranchMRCM(), context.getDependantReleaseBranchCriteria());
 		timer.checkpoint("retrieveAttributeValueIds");
 		if (longs.isEmpty()) {
@@ -93,7 +128,7 @@ public class ExpressionMRCMValidationService {
 			if (attributeValueFromStore == null) {
 				throwConceptNotFound(attributeValueId);
 			} else {
-				Set<AttributeRange> mandatoryAttributeRanges = context.getBranchMRCM().getMandatoryAttributeRanges(attributeId, ContentType.POSTCOORDINATED);
+				Set<AttributeRange> mandatoryAttributeRanges = context.getBranchMRCM().getMandatoryAttributeRanges(attributeId, CONTENT_TYPE);
 				timer.checkpoint("getMandatoryAttributeRanges");
 				throwAttributeRangeError(attributeId, conceptIdAndFsnTerm, attributeValueFromStore, mandatoryAttributeRanges);
 				return;
@@ -115,12 +150,11 @@ public class ExpressionMRCMValidationService {
 	}
 
 	private Map<String, String> getConceptIdAndTerm(Set<String> conceptIds, ExpressionContext context) {
-		Map<String, ConceptMini> resultsMap = conceptService.findConceptMinis(context.getBranchCriteria(), conceptIds, Config.DEFAULT_LANGUAGE_DIALECTS).getResultsMap();
+		Map<String, ConceptMini> resultsMap = conceptService.findConceptMinis(context.getBranchCriteria(), conceptIds, DEFAULT_LANGUAGE_DIALECTS).getResultsMap();
 		return resultsMap.values().stream().collect(Collectors.toMap(ConceptMini::getConceptId, ConceptMini::getIdAndFsnTerm));
 	}
 
 	private void throwConceptNotFound(String concept) {
 		throw new NotFoundException(format("Concept %s not found on this branch.", concept));
 	}
-
 }

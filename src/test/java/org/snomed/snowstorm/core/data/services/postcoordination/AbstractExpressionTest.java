@@ -70,6 +70,7 @@ public abstract class AbstractExpressionTest extends AbstractTest {
                 new Concept("388441000").addFSN("Horse"),
 
                 new Concept(PROCEDURE).addFSN("Procedure").addRelationship(ISA, Concepts.SNOMEDCT_ROOT),
+                new Concept("91723000").addFSN("Anatomical structure (body structure)").addRelationship(ISA, Concepts.ANATOMICAL_OR_ACQUIRED_BODY_STRUCTURE),
                 new Concept("363704007").addFSN("Procedure site (attribute)").addRelationship(ISA, CONCEPT_MODEL_OBJECT_ATTRIBUTE),
                 new Concept("405813007").addFSN("Procedure site - direct (attribute)").addRelationship(ISA, "363704007"),
                 new Concept("260686004").addFSN("Method (attribute)").addRelationship(ISA, CONCEPT_MODEL_OBJECT_ATTRIBUTE),
@@ -82,7 +83,7 @@ public abstract class AbstractExpressionTest extends AbstractTest {
                 new Concept("7771000").addFSN("Left").addRelationship(ISA, "182353008"),
 
                 new Concept(ANATOMICAL_OR_ACQUIRED_BODY_STRUCTURE).addFSN("Anatomical or acquired body structure (body structure)").addRelationship(ISA, Concepts.SNOMEDCT_ROOT),
-                new Concept("15497006").addFSN("Ovarian structure").addRelationship(ISA, ANATOMICAL_OR_ACQUIRED_BODY_STRUCTURE),
+                new Concept("15497006").addFSN("Ovarian structure").addRelationship(ISA, ANATOMICAL_STRUCTURE),
 
                 // 83152002 |Oophorectomy| :
                 //{ 260686004 |Method| = 129304002 |Excision - action|,
@@ -94,6 +95,8 @@ public abstract class AbstractExpressionTest extends AbstractTest {
                         .addRelationship(1, "405813007 |Procedure site - Direct|", "15497006 |Ovarian structure|"),
 
                 new Concept("404684003").addFSN("Clinical finding").addRelationship(ISA, Concepts.SNOMEDCT_ROOT),
+                new Concept(SITUATION_WITH_EXPLICIT_CONTEXT).addFSN("Situation with explicit context").addRelationship(ISA, Concepts.SNOMEDCT_ROOT),
+                new Concept(FINDING_WITH_EXPLICIT_CONTEXT).addFSN("Finding with explicit context").addRelationship(ISA, SITUATION_WITH_EXPLICIT_CONTEXT),
                 new Concept("64572001").addFSN("Disorder").addRelationship(ISA, "404684003"),
                 new Concept("42752001").addFSN("Due to (attribute)").addRelationship(ISA, CONCEPT_MODEL_OBJECT_ATTRIBUTE),
                 new Concept("246112005").addFSN("Severity (attribute)").addRelationship(ISA, CONCEPT_MODEL_OBJECT_ATTRIBUTE),
@@ -113,7 +116,7 @@ public abstract class AbstractExpressionTest extends AbstractTest {
 
                 new Concept(FINDING_SITE).addFSN("Finding site").addRelationship(ISA, CONCEPT_MODEL_OBJECT_ATTRIBUTE),
                 new Concept("49755003").addFSN("Morphologically abnormal structure (morphologic abnormality)").addRelationship(ISA, Concepts.SNOMEDCT_ROOT),
-                new Concept("61685007").addFSN("Lower limb structure").addRelationship(ISA, ANATOMICAL_OR_ACQUIRED_BODY_STRUCTURE),
+                new Concept("61685007").addFSN("Lower limb structure").addRelationship(ISA, "91723000"),
                 new Concept("116676008").addFSN("Associated morphology (attribute)").addRelationship(ISA, CONCEPT_MODEL_OBJECT_ATTRIBUTE),
                 new Concept("385627004").addFSN("Cellulitis").addRelationship(ISA, "49755003"),
                 new Concept("44132006").addFSN("Abscess").addRelationship(ISA, "49755003"),
@@ -125,7 +128,7 @@ public abstract class AbstractExpressionTest extends AbstractTest {
                         .addRelationship(2, "116676008", "44132006"),
 
                 new Concept("129357001").addFSN("Closure - action").addRelationship(ISA, "129264002"),
-                new Concept("344001").addFSN("Ankle region structure").addRelationship(ISA, ANATOMICAL_OR_ACQUIRED_BODY_STRUCTURE),
+                new Concept("344001").addFSN("Ankle region structure").addRelationship(ISA, ANATOMICAL_STRUCTURE),
                 new Concept("363700003").addFSN("Direct morphology").addRelationship(ISA, CONCEPT_MODEL_OBJECT_ATTRIBUTE),
                 new Concept("13924000").addFSN("Wound").addRelationship(ISA, "49755003"),
                 new Concept(SUBSTANCE).addFSN("Substance").addRelationship(ISA, SNOMEDCT_ROOT),

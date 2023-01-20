@@ -87,14 +87,7 @@ public class MRCMLoader implements CommitListener {
             return cachedMRCM;
         }
         LOGGER.debug("MRCM not present in cache; loading MRCM.");
-
-        final BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(branchPath);
-        final TimerUtil timer = new TimerUtil("MRCM");
-        final List<Domain> domains = getDomains(branchCriteria, timer);
-        final List<AttributeDomain> attributeDomains = getAttributeDomains(branchCriteria, timer);
-        final List<AttributeRange> attributeRanges = getAttributeRanges(branchCriteria, timer);
-        final MRCM mrcm = new MRCM(domains, attributeDomains, attributeRanges);
-
+        final MRCM mrcm = loadActiveMRCM(versionControlHelper.getBranchCriteria(branchPath));
         cache.putIfAbsent(branchPath, mrcm);
         return mrcm;
     }
