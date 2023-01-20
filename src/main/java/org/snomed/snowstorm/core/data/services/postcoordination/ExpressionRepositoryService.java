@@ -320,16 +320,8 @@ public class ExpressionRepositoryService {
 				throwConceptNotFound(attributeValueId);
 			} else {
 				Set<AttributeRange> mandatoryAttributeRanges = context.getBranchMRCM().getMandatoryAttributeRanges(attributeId, ContentType.POSTCOORDINATED);
-				StringBuilder builder = new StringBuilder();
 				timer.checkpoint("getMandatoryAttributeRanges");
-				for (AttributeRange mandatoryAttributeRange : mandatoryAttributeRanges) {
-					if (!builder.isEmpty()) {
-						builder.append(" OR ");
-					}
-					builder.append("(").append(mandatoryAttributeRange.getRangeConstraint()).append(")");
-				}
-				throw new IllegalArgumentException(format("Value %s is not within the permitted range of attribute %s - %s.",
-						attributeValueFromStore, conceptIdAndFsnTerm.get(attributeId), builder));
+				ExpressionMRCMValidationService.throwAttributeRangeError(attributeId, conceptIdAndFsnTerm, attributeValueFromStore, mandatoryAttributeRanges);
 			}
 		}
 		context.getTimer().checkpoint("retrieveAttributeValues for " + attributeId + " = " + attributeValueId);

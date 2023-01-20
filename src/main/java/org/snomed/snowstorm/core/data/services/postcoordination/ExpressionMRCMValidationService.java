@@ -1,6 +1,5 @@
 package org.snomed.snowstorm.core.data.services.postcoordination;
 
-import org.elasticsearch.common.util.set.Sets;
 import org.snomed.languages.scg.domain.model.Attribute;
 import org.snomed.languages.scg.domain.model.AttributeGroup;
 import org.snomed.languages.scg.domain.model.AttributeValue;
@@ -87,7 +86,7 @@ public class ExpressionMRCMValidationService {
 				context.getBranch(), null, context.getBranchMRCM(), context.getDependantReleaseBranchCriteria());
 		timer.checkpoint("retrieveAttributeValueIds");
 		if (longs.isEmpty()) {
-			Map<String, String> conceptIdAndFsnTerm = getConceptIdAndTerm(Sets.newHashSet(attributeId, attributeValueId), context);
+			Map<String, String> conceptIdAndFsnTerm = getConceptIdAndTerm(Set.of(attributeId, attributeValueId), context);
 			context.getTimer().checkpoint("getConceptIdAndTerm");
 			timer.checkpoint("getConceptIdAndTerm");
 			String attributeValueFromStore = conceptIdAndFsnTerm.get(attributeValueId);
@@ -96,19 +95,23 @@ public class ExpressionMRCMValidationService {
 			} else {
 				Set<AttributeRange> mandatoryAttributeRanges = context.getBranchMRCM().getMandatoryAttributeRanges(attributeId, ContentType.POSTCOORDINATED);
 				timer.checkpoint("getMandatoryAttributeRanges");
-
-				StringBuilder buffer = new StringBuilder();
-				for (AttributeRange mandatoryAttributeRange : mandatoryAttributeRanges) {
-					if (buffer.length() > 0) {
-						buffer.append(" OR ");
-					}
-					buffer.append("(").append(mandatoryAttributeRange.getRangeConstraint()).append(")");
-				}
-				throw new IllegalArgumentException(format("Value %s is not within the permitted range of attribute %s - %s.",
-						attributeValueFromStore, conceptIdAndFsnTerm.get(attributeId), buffer));
+				throwAttributeRangeError(attributeId, conceptIdAndFsnTerm, attributeValueFromStore, mandatoryAttributeRanges);
+				return;
 			}
 		}
 		context.getTimer().checkpoint("retrieveAttributeValues for " + attributeId + " = " + attributeValueId);
+	}
+
+	static void throwAttributeRangeError(String attributeId, Map<String, String> conceptIdAndFsnTerm, String attributeValueFromStore, Set<AttributeRange> mandatoryAttributeRanges) {
+		StringBuilder buffer = new StringBuilder();
+		for (AttributeRange mandatoryAttributeRange : mandatoryAttributeRanges) {
+			if (!buffer.isEmpty()) {
+				buffer.append(" OR ");
+			}
+			buffer.append("(").append(mandatoryAttributeRange.getRangeConstraint()).append(")");
+		}
+		throw new IllegalArgumentException(format("Value %s is not within the permitted range of attribute %s - %s.",
+				attributeValueFromStore, conceptIdAndFsnTerm.get(attributeId), buffer));
 	}
 
 	private Map<String, String> getConceptIdAndTerm(Set<String> conceptIds, ExpressionContext context) {

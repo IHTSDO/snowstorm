@@ -26,10 +26,10 @@ import org.snomed.snowstorm.core.util.TimerUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.data.domain.PageRequest;
-import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
-import org.springframework.data.elasticsearch.core.SearchHitsIterator;
 import org.springframework.data.elasticsearch.client.elc.NativeQuery;
 import org.springframework.data.elasticsearch.client.elc.NativeQueryBuilder;
+import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
+import org.springframework.data.elasticsearch.core.SearchHitsIterator;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
@@ -83,9 +83,6 @@ public class ConceptUpdateHelper extends ComponentService {
 	@Autowired
 	@Lazy
 	private ReferenceSetMemberService memberService;
-
-	@Autowired
-	private ReferenceSetTypeRepository referenceSetTypeRepository;
 
 	@Autowired
 	private QueryConceptRepository queryConceptRepository;
@@ -657,10 +654,6 @@ public class ConceptUpdateHelper extends ComponentService {
 		doSaveBatchComponents(relationships, commit, "relationshipId", relationshipRepository);
 	}
 
-	private void doSaveBatchReferenceSetType(Collection<ReferenceSetType> referenceSetTypes, Commit commit) {
-		doSaveBatchComponents(referenceSetTypes, commit, ReferenceSetType.Fields.CONCEPT_ID, referenceSetTypeRepository);
-	}
-
 	private void doSaveBatchQueryConcept(Collection<QueryConcept> queryConcepts, Commit commit) {
 		doSaveBatchComponents(queryConcepts, commit, QueryConcept.Fields.CONCEPT_ID_FORM, queryConceptRepository);
 	}
@@ -796,8 +789,6 @@ public class ConceptUpdateHelper extends ComponentService {
 			doSaveBatchRelationships((Collection<Relationship>) components, commit);
 		} else if (type.equals(ReferenceSetMember.class)) {
 			memberService.doSaveBatchMembers((Collection<ReferenceSetMember>) components, commit);
-		} else if (type.equals(ReferenceSetType.class)) {
-			doSaveBatchReferenceSetType((Collection<ReferenceSetType>) components, commit);
 		} else if (type.equals(QueryConcept.class)) {
 			doSaveBatchQueryConcept((Collection<QueryConcept>) components, commit);
 		} else {
