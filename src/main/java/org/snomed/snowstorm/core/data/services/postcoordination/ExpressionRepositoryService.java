@@ -15,6 +15,7 @@ import org.snomed.languages.scg.domain.model.Expression;
 import org.snomed.snowstorm.config.Config;
 import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.services.ConceptService;
+import org.snomed.snowstorm.core.data.services.QueryService;
 import org.snomed.snowstorm.core.data.services.ReferenceSetMemberService;
 import org.snomed.snowstorm.core.data.services.ServiceException;
 import org.snomed.snowstorm.core.data.services.identifier.IdentifierHelper;
@@ -71,6 +72,9 @@ public class ExpressionRepositoryService {
 	@Autowired
 	private IncrementalClassificationService incrementalClassificationService;
 
+	@Autowired
+	private QueryService queryService;
+
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
 	// 1119435002 | Canonical close to user form expression reference set (foundation metadata concept) |
@@ -86,6 +90,7 @@ public class ExpressionRepositoryService {
 	public static final String CANONICAL_CLOSE_TO_USER_FORM_EXPRESSION_REFERENCE_SET = "1119435002";
 	public static final String CLASSIFIABLE_FORM_EXPRESSION_REFERENCE_SET = "1119468009";
 	private static final int SNOMED_INTERNATIONAL_DEMO_NAMESPACE = 1000003;
+	private static final String EXPRESSION_FIELD = ReferenceSetMember.PostcoordinatedExpressionFields.EXPRESSION;
 
 	public Page<PostCoordinatedExpression> findAll(String branch, PageRequest pageRequest) {
 		Page<ReferenceSetMember> membersPage = memberService.findMembers(branch,
@@ -95,12 +100,17 @@ public class ExpressionRepositoryService {
 		return getPostCoordinatedExpressions(pageRequest, membersPage);
 	}
 
-	public Page<PostCoordinatedExpression> findByCanonicalCloseToUserForm(String branch, String expression, PageRequest pageRequest) {
-		return getPostCoordinatedExpressions(pageRequest, memberService.findMembers(branch,
+	public Page<PostCoordinatedExpression> findByExpression(String branch, String expression, String refset, PageRequest pageRequest) {
+		return getPostCoordinatedExpressions(pageRequest, findExpressionMembers(branch, expression, refset, pageRequest));
+	}
+
+	private Page<ReferenceSetMember> findExpressionMembers(String branch, String expression, String refset, PageRequest pageRequest) {
+		return memberService.findMembers(branch,
 				new MemberSearchRequest()
-						.referenceSet(CANONICAL_CLOSE_TO_USER_FORM_EXPRESSION_REFERENCE_SET)
-						.additionalField(ReferenceSetMember.PostcoordinatedExpressionFields.EXPRESSION, expression),
-				pageRequest));
+						.referenceSet(refset)
+						.active(true)
+						.additionalField(EXPRESSION_FIELD, expression),
+				pageRequest);
 	}
 
 	private PageImpl<PostCoordinatedExpression> getPostCoordinatedExpressions(PageRequest pageRequest, Page<ReferenceSetMember> membersPage) {
@@ -118,24 +128,31 @@ public class ExpressionRepositoryService {
 		int namespace = IdentifierHelper.getNamespaceFromSCTID(moduleId);
 		final List<PostCoordinatedExpression> postCoordinatedExpressions = parseValidateTransformAndClassifyExpressions(closeToUserFormExpressions, branch, classificationPackage);
 
-		if (!postCoordinatedExpressions.isEmpty() && postCoordinatedExpressions.stream().noneMatch(PostCoordinatedExpression::hasException)) {
+		if (!postCoordinatedExpressions.isEmpty() && postCoordinatedExpressions.stream().noneMatch(PostCoordinatedExpression::hasException)
+				&& postCoordinatedExpressions.stream().anyMatch(PostCoordinatedExpression::hasNullId)) {
+
 			try (Commit commit = branchService.openCommit(branch)) {
 				List<ReferenceSetMember> membersToSave = new ArrayList<>();
 				List<Concept> conceptsToSave = new ArrayList<>();
+				Map<String, String> expressionIdCache = new HashMap<>();
+				BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(branch);
 				for (PostCoordinatedExpression postCoordinatedExpression : postCoordinatedExpressions) {
+					if (postCoordinatedExpression.getId() != null) {
+						continue;
+					}
 
 					// Save NNF for ECL
-					final String expressionId = convertToConcepts(postCoordinatedExpression.getNecessaryNormalFormExpression(), namespace, conceptsToSave);
+					final String expressionId = convertToConcepts(postCoordinatedExpression.getNecessaryNormalFormExpression(), false, namespace, conceptsToSave, branchCriteria, expressionIdCache);
 					postCoordinatedExpression.setId(expressionId);
 
 					// Save refset members
 					final ReferenceSetMember closeToUserFormMember = new ReferenceSetMember(moduleId, CANONICAL_CLOSE_TO_USER_FORM_EXPRESSION_REFERENCE_SET, expressionId)
-							.setAdditionalField(ReferenceSetMember.PostcoordinatedExpressionFields.EXPRESSION, postCoordinatedExpression.getCloseToUserForm().replace(" ", ""));
+							.setAdditionalField(EXPRESSION_FIELD, postCoordinatedExpression.getCloseToUserForm().replace(" ", ""));
 					closeToUserFormMember.markChanged();
 					membersToSave.add(closeToUserFormMember);
 
 					final ReferenceSetMember classifiableFormMember = new ReferenceSetMember(moduleId, CLASSIFIABLE_FORM_EXPRESSION_REFERENCE_SET, expressionId)
-							.setAdditionalField(ReferenceSetMember.PostcoordinatedExpressionFields.EXPRESSION, postCoordinatedExpression.getClassifiableForm().replace(" ", ""));
+							.setAdditionalField(EXPRESSION_FIELD, postCoordinatedExpression.getClassifiableForm().replace(" ", ""));
 					classifiableFormMember.markChanged();
 					membersToSave.add(classifiableFormMember);
 
@@ -157,8 +174,17 @@ public class ExpressionRepositoryService {
 		return postCoordinatedExpressions;
 	}
 
-	private String convertToConcepts(ComparableExpression nnfExpression, int namespace, List<Concept> conceptsToSave) throws ServiceException {
-		Concept concept = new Concept(getNewId(namespace).toString());
+	private String convertToConcepts(ComparableExpression nnfExpression, boolean nested, int namespace, List<Concept> conceptsToSave,
+			BranchCriteria branchCriteria, Map<String, String> expressionIdCache) throws ServiceException {
+
+		String expression = nnfExpression.toStringCanonical();
+
+		// Reuse NNF of existing expressions if they exist in cache (could be nested)
+		if (expressionIdCache.containsKey(expression)) {
+			return expressionIdCache.get(expression);
+		}
+
+		Concept concept = new Concept();
 		concept.setDefinitionStatusId(nnfExpression.getDefinitionStatus() == DefinitionStatus.EQUIVALENT_TO ? Concepts.DEFINED : Concepts.PRIMITIVE);
 		for (String inferredParent : nnfExpression.getFocusConcepts()) {
 			concept.addRelationship(new Relationship(Concepts.ISA, inferredParent));
@@ -166,8 +192,8 @@ public class ExpressionRepositoryService {
 		for (ComparableAttribute attribute : orEmpty( nnfExpression.getComparableAttributes())) {
 			String attributeValueId;
 			if (attribute.getAttributeValue().isNested()) {
-				// TODO: Search for existing expression rather than creating new nested concept every time?
-				attributeValueId = convertToConcepts((ComparableExpression) attribute.getComparableAttributeValue().getNestedExpression(), namespace, conceptsToSave);
+				attributeValueId = convertToConcepts((ComparableExpression) attribute.getComparableAttributeValue().getNestedExpression(), true, namespace, conceptsToSave,
+						branchCriteria, expressionIdCache);
 			} else {
 				attributeValueId = attribute.getAttributeValueId();
 			}
@@ -179,16 +205,32 @@ public class ExpressionRepositoryService {
 			for (ComparableAttribute attribute : group.getComparableAttributes()) {
 				String attributeValueId;
 				if (attribute.getAttributeValue().isNested()) {
-					// TODO: Search for existing expression rather than creating new nested concept every time?
-					attributeValueId = convertToConcepts((ComparableExpression) attribute.getComparableAttributeValue().getNestedExpression(), namespace, conceptsToSave);
+					attributeValueId = convertToConcepts((ComparableExpression) attribute.getComparableAttributeValue().getNestedExpression(), true, namespace, conceptsToSave,
+							branchCriteria, expressionIdCache);
 				} else {
 					attributeValueId = attribute.getAttributeValueId();
 				}
 				concept.addRelationship(new Relationship(attribute.getAttributeId(), attributeValueId).setGroupId(groupNumber));
 			}
 		}
-		conceptsToSave.add(concept);
-		return concept.getConceptId();
+
+		String conceptId = null;
+		if (nested) {
+			// Return existing concepts for nested expressions where possible
+			conceptId = queryService.findConceptWithMatchingInferredRelationships(concept.getRelationships(), branchCriteria);
+		}
+
+		if (conceptId == null) {
+			conceptId = getNewId(namespace).toString();
+			concept.setConceptId(conceptId);
+			final String relationshipSource = conceptId;
+			concept.getRelationships().forEach(r -> r.setSourceId(relationshipSource));
+			conceptsToSave.add(concept);
+		}
+
+		expressionIdCache.put(conceptId, expression);
+
+		return conceptId;
 	}
 
 	public List<PostCoordinatedExpression> parseValidateTransformAndClassifyExpressions(List<String> originalCloseToUserForms, String branch, String classificationPackage) {
@@ -201,33 +243,44 @@ public class ExpressionRepositoryService {
 				// Sort contents of expression
 				ComparableExpression closeToUserFormExpression = expressionParser.parseExpression(originalCloseToUserForm);
 				timer.checkpoint("Parse expression");
+				String canonicalCloseToUserForm = closeToUserFormExpression.toStringCanonical();
 
-				// Validate and transform expression to classifiable form if needed.
-				// This groups any 'loose' attributes
-				final ComparableExpression classifiableFormExpression;
-				classifiableFormExpression = transformationService.validateAndTransform(closeToUserFormExpression, context);
-				timer.checkpoint("Transformation");
+				final PostCoordinatedExpression pce;
 
-				// Classify
-				// Assign temp identifier for classification process
-				if (classifiableFormExpression.getExpressionId() == null) {
-					classifiableFormExpression.setExpressionId(getNewId(SNOMED_INTERNATIONAL_DEMO_NAMESPACE));
-				}
-				ComparableExpression necessaryNormalForm;
-				boolean skipClassification = false;
-				if (skipClassification) {
-					necessaryNormalForm = classifiableFormExpression;
+				ReferenceSetMember foundMember = findCTUExpressionMember(canonicalCloseToUserForm, context.getBranchCriteria());
+				if (foundMember != null) {
+					// Found existing expression
+					pce = new PostCoordinatedExpression(foundMember.getReferencedComponentId(), foundMember.getAdditionalField(EXPRESSION_FIELD), null, null);
 				} else {
-					necessaryNormalForm = incrementalClassificationService.classify(classifiableFormExpression, classificationPackage);
-					timer.checkpoint("Classify");
+
+					// Validate and transform expression to classifiable form if needed.
+					// This groups any 'loose' attributes
+					final ComparableExpression classifiableFormExpression;
+					classifiableFormExpression = transformationService.validateAndTransform(closeToUserFormExpression, context);
+					timer.checkpoint("Transformation");
+
+					// Classify
+					// Assign temp identifier for classification process
+					if (classifiableFormExpression.getExpressionId() == null) {
+						classifiableFormExpression.setExpressionId(getNewId(SNOMED_INTERNATIONAL_DEMO_NAMESPACE));
+					}
+					ComparableExpression necessaryNormalForm;
+					boolean skipClassification = false;
+//					boolean skipClassification = true;
+					if (skipClassification) {
+						necessaryNormalForm = classifiableFormExpression;
+					} else {
+						necessaryNormalForm = incrementalClassificationService.classify(classifiableFormExpression, classificationPackage);
+						timer.checkpoint("Classify");
+					}
+					classifiableFormExpression.setExpressionId(null);
+
+					pce = new PostCoordinatedExpression(null, canonicalCloseToUserForm,
+							classifiableFormExpression.toString(), necessaryNormalForm);
+					populateHumanReadableForms(pce, context);
+					timer.checkpoint("Add human readable");
 				}
-				classifiableFormExpression.setExpressionId(null);
 
-				final PostCoordinatedExpression pce = new PostCoordinatedExpression(null, closeToUserFormExpression.toString(),
-						classifiableFormExpression.toString(), necessaryNormalForm);
-
-				populateHumanReadableForms(pce, context);
-				timer.checkpoint("Add human readable");
 				expressionOutcomes.add(pce);
 				timer.finish();
 			} catch (ServiceException e) {
@@ -243,6 +296,14 @@ public class ExpressionRepositoryService {
 		return expressionOutcomes;
 	}
 
+	private ReferenceSetMember findCTUExpressionMember(String expression, BranchCriteria branchCriteria) {
+		MemberSearchRequest ctuSearchRequest = new MemberSearchRequest()
+				.referenceSet(CANONICAL_CLOSE_TO_USER_FORM_EXPRESSION_REFERENCE_SET)
+				.additionalField(EXPRESSION_FIELD, expression);
+		List<ReferenceSetMember> foundMembers = memberService.findMembers(branchCriteria, ctuSearchRequest, PageRequest.of(0, 1)).getContent();
+		return foundMembers.isEmpty() ? null : foundMembers.get(0);
+	}
+
 	private Long getNewId(int namespace) throws ServiceException {
 		return identifierSource.reserveIds(namespace, "16", 1).get(0);
 	}
@@ -256,7 +317,7 @@ public class ExpressionRepositoryService {
 
 	private PostCoordinatedExpression toExpression(ReferenceSetMember closeToUserFormMember, ReferenceSetMember classifiableFormMember) {
 		return new PostCoordinatedExpression(closeToUserFormMember.getReferencedComponentId(),
-				closeToUserFormMember.getAdditionalField(ReferenceSetMember.PostcoordinatedExpressionFields.EXPRESSION), classifiableFormMember.getAdditionalField(ReferenceSetMember.PostcoordinatedExpressionFields.EXPRESSION), null);
+				closeToUserFormMember.getAdditionalField(EXPRESSION_FIELD), classifiableFormMember.getAdditionalField(EXPRESSION_FIELD), null);
 	}
 
 	private void mrcmAttributeRangeValidation(ComparableExpression expression, ExpressionContext context) throws ServiceException {
@@ -366,7 +427,7 @@ public class ExpressionRepositoryService {
 		Set<String> expressionConcepts = new HashSet<>();
 		List<String> expressionStrings = new ArrayList<>();
 		for (ReferenceSetMember member : expressionMap.values()) {
-			String expressionString = member.getAdditionalField(ReferenceSetMember.PostcoordinatedExpressionFields.EXPRESSION);
+			String expressionString = member.getAdditionalField(EXPRESSION_FIELD);
 			try {
 				ComparableExpression comparableExpression = expressionParser.parseExpression(expressionString);
 				expressionConcepts.addAll(comparableExpression.getAllConceptIds());

@@ -245,14 +245,22 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants 
 
 		CodeSystem savedCodeSystem = new CodeSystem();
 		for (PostCoordinatedExpression expression : expressions) {
-			savedCodeSystem.addConcept(new CodeSystem.ConceptDefinitionComponent()
-					.setCode(expression.getCloseToUserForm())// TODO: normalise this
+			CodeSystem.ConceptDefinitionComponent conceptDefinitionComponent = new CodeSystem.ConceptDefinitionComponent()
+					.setCode(expression.getCloseToUserForm().replace(" ", ""))
+					.addProperty(new CodeSystem.ConceptPropertyComponent(new CodeType("alternateIdentifier"), new StringType(expression.getId())));
+
+			if (expression.getHumanReadableClassifiableForm() != null) {
+				conceptDefinitionComponent
 					.addProperty(new CodeSystem.ConceptPropertyComponent(
 							new CodeType("humanReadableClassifiableForm"), new StringType(expression.getHumanReadableClassifiableForm())))
 					.addProperty(new CodeSystem.ConceptPropertyComponent(
-							new CodeType("humanReadableNecessaryNormalForm"), new StringType(expression.getHumanReadableNecessaryNormalForm())))
-					.addProperty(new CodeSystem.ConceptPropertyComponent(new CodeType("alternateIdentifier"), new StringType(expression.getId())))
-			);
+							new CodeType("humanReadableNecessaryNormalForm"), new StringType(expression.getHumanReadableNecessaryNormalForm())));
+			} else {
+				conceptDefinitionComponent
+						.addProperty(new CodeSystem.ConceptPropertyComponent(
+								new CodeType("existingExpression"), new BooleanType(true)));
+			}
+			savedCodeSystem.addConcept(conceptDefinitionComponent);
 		}
 		return new MethodOutcome().setResource(savedCodeSystem);
 	}

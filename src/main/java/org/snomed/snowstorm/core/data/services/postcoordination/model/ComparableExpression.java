@@ -188,6 +188,10 @@ public class ComparableExpression extends Expression implements Comparable<Compa
 		return ids;
 	}
 
+	public String toStringCanonical() {
+		return toString().replace(" ", "");
+	}
+
 	@Override
 	public String toString() {
 		return super.toString();

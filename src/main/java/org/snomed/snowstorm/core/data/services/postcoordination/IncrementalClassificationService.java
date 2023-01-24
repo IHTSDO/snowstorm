@@ -1,8 +1,6 @@
 package org.snomed.snowstorm.core.data.services.postcoordination;
 
 import io.kaicode.elasticvc.api.BranchService;
-import io.kaicode.elasticvc.domain.Branch;
-import io.kaicode.elasticvc.domain.Metadata;
 import org.ihtsdo.otf.resourcemanager.ResourceManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -15,7 +13,6 @@ import org.snomed.otf.owltoolkit.service.SnomedReasonerService;
 import org.snomed.otf.owltoolkit.util.InputStreamSet;
 import org.snomed.snowstorm.config.SnomedReleaseResourceConfiguration;
 import org.snomed.snowstorm.core.data.domain.Concepts;
-import org.snomed.snowstorm.core.data.services.BranchMetadataKeys;
 import org.snomed.snowstorm.core.data.services.CodeSystemService;
 import org.snomed.snowstorm.core.data.services.ServiceException;
 import org.snomed.snowstorm.core.data.services.postcoordination.model.ComparableAttribute;
@@ -142,7 +139,7 @@ public class IncrementalClassificationService {
 
 	private RelationshipChangeProcessor classify(Set<AxiomRepresentation> axioms, String classificationPackage) throws IOException, ReasonerServiceException {
 		final ClassificationContainer classificationContainer = setupContainer(classificationPackage);
-		return snomedReasonerService.classifyAxioms(axioms, classificationContainer);
+		return snomedReasonerService.classifyTransientAxioms(axioms, classificationContainer);
 	}
 
 	private synchronized ClassificationContainer setupContainer(String branch) throws ReasonerServiceException {

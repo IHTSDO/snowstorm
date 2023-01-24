@@ -32,6 +32,10 @@ public class QueryConcept extends DomainEntity<QueryConcept> implements FHIRGrap
 		String ATTR_MAP = "attrMap";
 		String START = "start";
 		String REFSETS = "refsets";
+
+		static String getAttributePath(String attributeId) {
+			return ATTR + "." + attributeId;
+		}
 	}
 
 	@Field(type = FieldType.Keyword)

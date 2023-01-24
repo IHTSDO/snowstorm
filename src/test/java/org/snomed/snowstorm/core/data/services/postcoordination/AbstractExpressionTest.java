@@ -66,6 +66,7 @@ public abstract class AbstractExpressionTest extends AbstractTest {
                 new Concept("405815000"),
                 new Concept("49062001").addFSN("Device (physical object)"),
                 new Concept("122456005").addFSN("Laser device").addRelationship(ISA, "49062001"),
+                new Concept("118295004").addFSN("Gas laser device").addRelationship(ISA, "49062001"),
                 new Concept("7946007"),
                 new Concept("388441000").addFSN("Horse"),
 

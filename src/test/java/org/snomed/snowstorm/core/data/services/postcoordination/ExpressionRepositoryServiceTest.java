@@ -52,19 +52,17 @@ class ExpressionRepositoryServiceTest extends AbstractExpressionTest {
 				createExpressionOrThrow("83152002 |Oophorectomy|", branch, moduleId).getClassifiableForm());
 
 		// Single concept with explicit definition status
-		assertEquals("=== 83152002",
-				createExpressionOrThrow("===83152002 |Oophorectomy|", branch, moduleId).getClassifiableForm());
+		assertEquals("=== 421720008",
+				createExpressionOrThrow("===421720008 |Spray dose form|", branch, moduleId).getClassifiableForm());
 
 		// Single concept with explicit subtype definition status
 		assertEquals("<<< 83152002",
 				createExpressionOrThrow("<<<  83152002 |Oophorectomy|", branch, moduleId).getClassifiableForm());
 
-		// Multiple focus concepts
-		assertEquals("=== 421720008 + 7946007",
-				createExpressionOrThrow("421720008 |Spray dose form| + 7946007 |Drug suspension|", branch, moduleId).getClassifiableForm());
-		// Same concepts stated in reverse order to test concept sorting
-		assertEquals("=== 421720008 + 7946007",
-				createExpressionOrThrow("7946007 |Drug suspension| + 421720008 |Spray dose form|", branch, moduleId).getClassifiableForm());
+		// Multiple focus concepts, ids get sorted
+		PostCoordinatedExpression twoFocusConcepts = createExpressionOrThrow("7946007 |Drug suspension| + 421720008 |Spray dose form|", branch, moduleId);
+		assertEquals("421720008+7946007", twoFocusConcepts.getCloseToUserForm());
+		assertEquals("=== 421720008 + 7946007", twoFocusConcepts.getClassifiableForm());
 
 
 		// With multiple refinements, attributes are sorted
@@ -77,10 +75,10 @@ class ExpressionRepositoryServiceTest extends AbstractExpressionTest {
 		assertEquals("=== 71388002 : { 260686004 = 129304002, 405813007 = 15497006, 405815000 = 122456005 }", expressionMultipleRefinements.getClassifiableForm());
 
 		Page<PostCoordinatedExpression> page = expressionRepository.findAll(branch, PageRequest.of(0, 10));
-		assertEquals(7, page.getTotalElements());
+		assertEquals(5, page.getTotalElements());
 
-		Page<PostCoordinatedExpression> results = expressionRepository.findByCanonicalCloseToUserForm(branch, expressionMultipleRefinements.getCloseToUserForm().replace(" ", ""),
-				PageRequest.of(0, 1));
+		Page<PostCoordinatedExpression> results = expressionRepository.findByExpression(branch, expressionMultipleRefinements.getCloseToUserForm().replace(" ", ""),
+				ExpressionRepositoryService.CANONICAL_CLOSE_TO_USER_FORM_EXPRESSION_REFERENCE_SET, PageRequest.of(0, 1));
 		assertEquals(1, results.getTotalElements());
 
 		Page<ReferenceSetMember> members = memberService.findMembers(branch, expressionMultipleRefinements.getId(), PageRequest.of(0, 10));
@@ -150,6 +148,8 @@ class ExpressionRepositoryServiceTest extends AbstractExpressionTest {
 
 	@Test
 	public void attributeRangeMRCMValidationOfAttributeValueWithinExpression() throws ServiceException {
+		assertEquals(0, queryService.eclSearch("<!15497006 |Ovarian structure|", false, branch, PageRequest.of(0, 10)).getTotalElements());
+
 		// All in range as per data in setup
 		createExpressionOrThrow("71388002 |Procedure| : " +
 				"{" +
@@ -157,6 +157,19 @@ class ExpressionRepositoryServiceTest extends AbstractExpressionTest {
 				"       260686004 |Method| = 129304002 |Excision - action| ," +
 				"       405813007 |Procedure site - direct| = ( 15497006 |Ovarian structure| : 272741003 |Laterality| = 24028007 |Right| ) " +
 				"}", branch, moduleId);
+
+		assertEquals(1, queryService.eclSearch("<!15497006 |Ovarian structure|", false, branch, PageRequest.of(0, 10)).getTotalElements(),
+				"Nested concept should be created.");
+
+		createExpressionOrThrow("71388002 |Procedure| : " +
+				"{" +
+				"       405815000 |Procedure device| = 118295004 |Gas laser device| ," +
+				"       260686004 |Method| = 129304002 |Excision - action| ," +
+				"       405813007 |Procedure site - direct| = ( 15497006 |Ovarian structure| : 272741003 |Laterality| = 24028007 |Right| ) " +
+				"}", branch, moduleId);
+
+		assertEquals(1, queryService.eclSearch("<!15497006 |Ovarian structure|", false, branch, PageRequest.of(0, 10)).getTotalElements(),
+				"Nested concept should be reused.");
 
 		try {
 			createExpressionOrThrow("71388002 |Procedure| :" +

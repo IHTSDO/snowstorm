@@ -34,6 +34,10 @@ public class PostCoordinatedExpression {
 		return exception != null;
 	}
 
+	public boolean hasNullId() {
+		return id == null;
+	}
+
 	public String getId() {
 		return id;
 	}
