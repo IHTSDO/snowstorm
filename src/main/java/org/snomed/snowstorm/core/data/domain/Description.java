@@ -306,6 +306,11 @@ public class Description extends SnomedComponent<Description> implements SnomedC
 		return inactivationIndicatorName;
 	}
 
+	@Override
+	public String getInactivationIndicatorName() {
+		return inactivationIndicatorName;
+	}
+
 	public void setInactivationIndicator(String inactivationIndicatorName) {
 		this.inactivationIndicatorName = inactivationIndicatorName;
 	}
