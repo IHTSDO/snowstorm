@@ -489,7 +489,7 @@ public class ConceptUpdateHelper extends ComponentService {
 			if ((member.isActive() || duplicateIds.contains(member.getMemberId())) &&
 					toPersist.stream().map(ReferenceSetMember::getMemberId)
 							.noneMatch(id -> id.equals(member.getMemberId()))) {
-
+				member.revertToReleaseState();
 				member.setActive(false);
 				member.markChanged();
 				// Any change to a component in an extension needs to be done in the default module
