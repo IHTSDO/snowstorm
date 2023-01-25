@@ -3464,6 +3464,233 @@ class BranchMergeServiceTest extends AbstractTest {
 		);
 	}
 
+	@Test
+	void testTogglingInactivatingConcept() throws ServiceException {
+		String intMain = "MAIN";
+		Map<String, String> intPreferred = Map.of(US_EN_LANG_REFSET, descriptionAcceptabilityNames.get(PREFERRED), GB_EN_LANG_REFSET, descriptionAcceptabilityNames.get(PREFERRED));
+		Map<String, String> intAcceptable = Map.of(US_EN_LANG_REFSET, descriptionAcceptabilityNames.get(PREFERRED), GB_EN_LANG_REFSET, descriptionAcceptabilityNames.get(ACCEPTABLE));
+		String ci = "CASE_INSENSITIVE";
+		Concept concept;
+		Description description;
+		CodeSystem codeSystem;
+		List<ReferenceSetMember> members;
+		ReferenceSetMember member;
+
+		// 1. Create International Concept
+		concept = new Concept()
+				.addDescription(new Description("Vehicle (vehicle)").setTypeId(FSN).setCaseSignificance(ci).setAcceptabilityMap(intPreferred))
+				.addDescription(new Description("Vehicle").setTypeId(SYNONYM).setCaseSignificance(ci).setAcceptabilityMap(intPreferred))
+				.addAxiom(new Relationship(ISA, SNOMEDCT_ROOT));
+		concept = conceptService.create(concept, intMain);
+		String vehicleId = concept.getConceptId();
+
+		// 2. Version International
+		codeSystem = codeSystemService.find("SNOMEDCT");
+		codeSystemService.createVersion(codeSystem, 20220131, "20220131");
+
+		// 3. Assert members
+		members = memberService.findMembers(MAIN, new MemberSearchRequest().referencedComponentId(vehicleId), PageRequest.of(0, 10)).getContent();
+		assertEquals(1, members.size()); // Axiom
+
+		// 4. Inactivate Concept
+		concept = conceptService.find(vehicleId, MAIN);
+		inactivate(concept, "AMBIGUOUS");
+		conceptService.update(concept, MAIN);
+
+		// 5. Version International
+		codeSystem = codeSystemService.find("SNOMEDCT");
+		codeSystemService.createVersion(codeSystem, 20220228, "20220228");
+
+		// 6. Assert members
+		members = memberService.findMembers(MAIN, new MemberSearchRequest().referencedComponentId(vehicleId), PageRequest.of(0, 10)).getContent();
+		assertEquals(2, members.size()); // Axiom & Inactivation indicator
+
+		member = getMemberByRefsetId(members, OWL_AXIOM_REFERENCE_SET);
+		assertNotNull(member);
+		assertFalse(member.isActive());
+
+		member = getMemberByRefsetId(members, CONCEPT_INACTIVATION_INDICATOR_REFERENCE_SET);
+		assertNotNull(member);
+		assertTrue(member.isActive());
+
+		// 7. Reactivate Concept
+		concept = conceptService.find(vehicleId, MAIN);
+		activate(concept, MAIN);
+
+		// 8. Version International
+		codeSystem = codeSystemService.find("SNOMEDCT");
+		codeSystemService.createVersion(codeSystem, 20220331, "20220331");
+
+		// 9. Assert members
+		members = memberService.findMembers(MAIN, new MemberSearchRequest().referencedComponentId(vehicleId), PageRequest.of(0, 10)).getContent();
+		assertEquals(2, members.size()); // Axiom & Inactivation indicator
+
+		member = getMemberByRefsetId(members, OWL_AXIOM_REFERENCE_SET);
+		assertNotNull(member);
+		assertTrue(member.isActive());
+
+		member = getMemberByRefsetId(members, CONCEPT_INACTIVATION_INDICATOR_REFERENCE_SET);
+		assertNotNull(member);
+		assertFalse(member.isActive());
+
+		// 10. Inactivate Concept (again)
+		concept = conceptService.find(vehicleId, MAIN);
+		// If we re-use AMBIGUOUS, the test will pass. Using a different inactivation reason will cause the test to fail.
+		inactivate(concept, "DUPLICATE");
+		conceptService.update(concept, MAIN);
+
+		// 11. Activate Concept (change mind)
+		concept = conceptService.find(vehicleId, MAIN);
+		activate(concept, MAIN);
+
+		members = memberService.findMembers(MAIN, new MemberSearchRequest().referencedComponentId(vehicleId), PageRequest.of(0, 10)).getContent();
+		member = getMemberByRefsetId(members, OWL_AXIOM_REFERENCE_SET);
+		assertNotNull(member);
+		assertTrue(member.isActive());
+
+		member = getMemberByRefsetId(members, CONCEPT_INACTIVATION_INDICATOR_REFERENCE_SET);
+		assertNotNull(member);
+		assertFalse(member.isActive());
+		assertEquals(member.getReleaseHash(), member.buildReleaseHash());
+	}
+
+	@Test
+	void testTogglingInactivatingDescription() throws ServiceException {
+		String intMain = "MAIN";
+		Map<String, String> intPreferred = Map.of(US_EN_LANG_REFSET, descriptionAcceptabilityNames.get(PREFERRED), GB_EN_LANG_REFSET, descriptionAcceptabilityNames.get(PREFERRED));
+		Map<String, String> intAcceptable = Map.of(US_EN_LANG_REFSET, descriptionAcceptabilityNames.get(PREFERRED), GB_EN_LANG_REFSET, descriptionAcceptabilityNames.get(ACCEPTABLE));
+		String ci = "CASE_INSENSITIVE";
+		Concept concept;
+		Description description;
+		CodeSystem codeSystem;
+		List<ReferenceSetMember> members;
+		ReferenceSetMember member;
+
+		// 1. Create International Concept
+		concept = new Concept()
+				.addDescription(new Description("Vehicle (vehicle)").setTypeId(FSN).setCaseSignificance(ci).setAcceptabilityMap(intPreferred))
+				.addDescription(new Description("Vehicle").setTypeId(SYNONYM).setCaseSignificance(ci).setAcceptabilityMap(intPreferred))
+				.addDescription(new Description("Motorvehicle").setTypeId(SYNONYM).setCaseSignificance(ci).setAcceptabilityMap(intPreferred))
+				.addAxiom(new Relationship(ISA, SNOMEDCT_ROOT));
+		concept = conceptService.create(concept, intMain);
+		String vehicleId = concept.getConceptId();
+		String motorVehicleId = getDescription(concept, "Motorvehicle").getDescriptionId();
+
+		// 2. Version International
+		codeSystem = codeSystemService.find("SNOMEDCT");
+		codeSystemService.createVersion(codeSystem, 20220131, "20220131");
+
+		// 3. Inactivate Description
+		concept = conceptService.find(vehicleId, MAIN);
+		description = getDescriptionById(concept, motorVehicleId);
+		inactivate(description, "OUTDATED");
+		conceptService.update(concept, MAIN);
+
+		// 5. Version International
+		codeSystem = codeSystemService.find("SNOMEDCT");
+		codeSystemService.createVersion(codeSystem, 20220228, "20220228");
+
+		// 6. Assert members
+		members = memberService.findMembers(MAIN, new MemberSearchRequest().referencedComponentId(motorVehicleId), PageRequest.of(0, 10)).getContent();
+		assertEquals(3, members.size()); // GB, US & Inactivation indicator
+
+		member = getMemberByRefsetId(members, DESCRIPTION_INACTIVATION_INDICATOR_REFERENCE_SET);
+		assertNotNull(member);
+		assertTrue(member.isActive());
+
+		// 7. Reactivate Description
+		concept = conceptService.find(vehicleId, MAIN);
+		activateDescription(concept, motorVehicleId, MAIN);
+
+		// 8. Version International
+		codeSystem = codeSystemService.find("SNOMEDCT");
+		codeSystemService.createVersion(codeSystem, 20220331, "20220331");
+
+		// 9. Assert members
+		members = memberService.findMembers(MAIN, new MemberSearchRequest().referencedComponentId(motorVehicleId), PageRequest.of(0, 10)).getContent();
+		assertEquals(3, members.size()); // GB, US & Inactivation indicator
+
+		member = getMemberByRefsetId(members, DESCRIPTION_INACTIVATION_INDICATOR_REFERENCE_SET);
+		assertNotNull(member);
+		assertFalse(member.isActive());
+
+		// 10. Inactivate Description (again)
+		concept = conceptService.find(vehicleId, MAIN);
+		description = getDescriptionById(concept, motorVehicleId);
+		inactivate(description, "GRAMMATICAL_DESCRIPTION_ERROR");
+		conceptService.update(concept, MAIN);
+
+		members = memberService.findMembers(MAIN, new MemberSearchRequest().referencedComponentId(motorVehicleId), PageRequest.of(0, 10)).getContent();
+		assertEquals(3, members.size()); // GB, US & Inactivation indicator
+
+		member = getMemberByRefsetId(members, DESCRIPTION_INACTIVATION_INDICATOR_REFERENCE_SET);
+		assertNotNull(member);
+		assertTrue(member.isActive());
+
+		// 11. Activate Description (change mind)
+		concept = conceptService.find(vehicleId, MAIN);
+		activateDescription(concept, motorVehicleId, MAIN);
+
+		members = memberService.findMembers(MAIN, new MemberSearchRequest().referencedComponentId(motorVehicleId), PageRequest.of(0, 10)).getContent();
+		member = getMemberByRefsetId(members, DESCRIPTION_INACTIVATION_INDICATOR_REFERENCE_SET);
+		assertNotNull(member);
+		assertFalse(member.isActive());
+		assertEquals(member.getReleaseHash(), member.buildReleaseHash());
+	}
+
+	private void activateDescription(Concept concept, String descriptionId, String branchPath) throws ServiceException {
+		Description description = getDescriptionById(concept, descriptionId);
+		description.setActive(true);
+		description.setInactivationIndicator(null);
+		description.updateEffectiveTime();
+
+		conceptService.update(concept, branchPath);
+	}
+
+	private ReferenceSetMember getMemberByRefsetId(List<ReferenceSetMember> members, String refsetId) {
+		for (ReferenceSetMember member : members) {
+			if (refsetId.equals(member.getRefsetId())) {
+				return member;
+			}
+		}
+
+		return null;
+	}
+
+	private void inactivate(Concept concept, String inactivationIndicator) {
+		concept.setActive(false);
+		concept.setInactivationIndicator(inactivationIndicator);
+		concept.updateEffectiveTime();
+	}
+
+	private void inactivate(Description description, String inactivationIndicator) {
+		description.setActive(false);
+		description.setInactivationIndicator(inactivationIndicator);
+		description.updateEffectiveTime();
+	}
+
+	private void activate(Concept concept, String branchPath) throws ServiceException {
+		Concept newState = new Concept();
+
+		newState.setConceptId(concept.getConceptId());
+		newState.setEffectiveTimeI(null);
+		newState.setActive(true);
+		newState.setModuleId(concept.getModuleId());
+		newState.setDefinitionStatusId(concept.getDefinitionStatusId());
+		newState.setReleased(concept.isReleased());
+		newState.setReleaseHash(concept.getReleaseHash());
+		newState.setClassAxioms(concept.getClassAxioms());
+		newState.getClassAxioms().forEach(m -> {
+			m.setActive(true);
+			ReferenceSetMember referenceSetMember = m.getReferenceSetMember();
+			referenceSetMember.setActive(true);
+			referenceSetMember.updateEffectiveTime();
+			memberService.updateMember(branchPath, referenceSetMember);
+		});
+
+		conceptService.update(newState, branchPath);
+	}
+
 	void assertReleaseProperties(
 			String initialReleaseEffectiveTime,
 			String projectReleaseEffectiveTime,
@@ -4090,6 +4317,22 @@ class BranchMergeServiceTest extends AbstractTest {
 		Set<Description> descriptions = concept.getDescriptions();
 		for (Description description : descriptions) {
 			if (term.equals(description.getTerm())) {
+				return description;
+			}
+		}
+
+		return null;
+	}
+
+	private Description getDescriptionById(Concept concept, String descriptionId) {
+		if (concept == null || concept.getDescriptions() == null || concept.getDescriptions().isEmpty()) {
+			return null;
+		}
+
+
+		Set<Description> descriptions = concept.getDescriptions();
+		for (Description description : descriptions) {
+			if (descriptionId.equals(description.getDescriptionId())) {
 				return description;
 			}
 		}
