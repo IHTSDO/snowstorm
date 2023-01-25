@@ -365,7 +365,7 @@ public class ConceptUpdateHelper extends ComponentService {
 			String indicatorReferenceSet,
 			String defaultModuleId) {
 
-		String newIndicatorName = newComponent.getInactivationIndicator();
+		String newIndicatorName = newComponent.getInactivationIndicatorName();
 		final String newIndicatorId = newIndicatorName != null ? inactivationIndicatorNames.inverse().get(newIndicatorName) : null;
 		if (newIndicatorName != null && newIndicatorId == null) {
 			throw new IllegalArgumentException(newComponent.getClass().getSimpleName() + " inactivation indicator not recognised '" + newIndicatorName + "'.");
