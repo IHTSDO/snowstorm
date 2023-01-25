@@ -135,6 +135,26 @@ public class ReferenceSetMember extends SnomedComponent<ReferenceSetMember> impl
 		return hashObjects;
 	}
 
+	public void revertToReleaseState() {
+		if (getReleaseHash() == null || getReleaseHash().isEmpty()) {
+			return;
+		}
+
+		String[] releaseHash = getReleaseHash().split("\\|");
+		boolean active = Boolean.parseBoolean(releaseHash[0]);
+		this.setActive(active);
+		this.setModuleId(releaseHash[1]);
+
+		for (int x = 2; x < releaseHash.length; x = x + 2) {
+			String key = releaseHash[x];
+			String value = releaseHash[x + 1];
+			setAdditionalField(key, value);
+			x = x + 1;
+		}
+
+		this.updateEffectiveTime();
+	}
+
 	public String getAdditionalField(String fieldName) {
 		return getAdditionalFields().get(fieldName);
 	}
