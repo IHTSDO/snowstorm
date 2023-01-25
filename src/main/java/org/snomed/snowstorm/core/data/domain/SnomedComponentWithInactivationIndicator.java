@@ -6,6 +6,8 @@ public interface SnomedComponentWithInactivationIndicator {
 
 	String getInactivationIndicator();
 
+	String getInactivationIndicatorName();
+
 	String getModuleId();
 
 	String getId();
