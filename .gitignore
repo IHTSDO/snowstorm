@@ -4,7 +4,7 @@ target
 !.travis.yml
 *.iml
 /data
-/release
+/releases
 /application-*.properties*
 *.log
 /resources
