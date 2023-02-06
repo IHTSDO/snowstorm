@@ -170,9 +170,6 @@ public class BranchReviewService {
 					if (sourceVersion != null && targetVersion != null) {
 						// Neither deleted, auto-merge.
 						mergeVersion.setAutoMergedConcept(autoMergeConcept(sourceVersion, targetVersion));
-
-						// Upgrade components if behind a release/version
-						mergeVersion.setTargetConcept(upgradeComponents(sourceVersion, targetVersion));
 					}
 					conflicts.put(conceptId, mergeVersion);
 				}
@@ -229,85 +226,6 @@ public class BranchReviewService {
 			throw new ServiceException("Failed to deserialise manually merged concept from temp store. mergeReview:" + mergeReview.getId() + ", conceptId:" + manuallyMergedConcept.getConceptId(), e);
 		}
 		branchMergeService.mergeBranchSync(mergeReview.getSourcePath(), mergeReview.getTargetPath(), concepts);
-	}
-
-	private Concept upgradeComponents(Concept sourceVersion, Concept targetVersion) {
-		// Copy from latest component
-		Concept winningConcept = sourceVersion.isReleasedMoreRecentlyThan(targetVersion) ? sourceVersion : targetVersion;
-
-		Concept upgradedConcept = new Concept();
-		upgradedConcept.setConceptId(winningConcept.getConceptId());
-		upgradedConcept.setEffectiveTimeI(winningConcept.getEffectiveTimeI());
-		upgradedConcept.setActive(winningConcept.isActive());
-		upgradedConcept.setReleased(winningConcept.isReleased());
-		upgradedConcept.setReleaseHash(winningConcept.getReleaseHash());
-		upgradedConcept.setReleasedEffectiveTime(winningConcept.getReleasedEffectiveTime());
-		upgradedConcept.setModuleId(winningConcept.getModuleId());
-		upgradedConcept.setDefinitionStatusId(winningConcept.getDefinitionStatusId());
-		upgradedConcept.setInactivationIndicator(winningConcept.getInactivationIndicator());
-		upgradedConcept.setAssociationTargets(winningConcept.getAssociationTargets());
-		upgradedConcept.setDescriptions(mergePublished(sourceVersion.getDescriptions(), targetVersion.getDescriptions()));
-		upgradedConcept.setRelationships(mergePublished(sourceVersion.getRelationships(), targetVersion.getRelationships()));
-		upgradedConcept.setClassAxioms(mergePublishedAxioms(sourceVersion.getClassAxioms(), targetVersion.getClassAxioms()));
-		upgradedConcept.setGciAxioms(mergePublishedAxioms(sourceVersion.getGciAxioms(), sourceVersion.getGciAxioms()));
-
-		return upgradedConcept;
-	}
-
-	private <T extends SnomedComponent> Set<T> mergePublished(Set<T> sourceComponents, Set<T> targetComponents) {
-		Map<String, T> mergedComponents = new HashMap<>();
-		for (T sourceComponent : sourceComponents) {
-			// published and no further changes
-			if (sourceComponent.getEffectiveTimeI() != null) {
-				mergedComponents.put(sourceComponent.getId(), sourceComponent);
-			}
-		}
-
-		for (T targetComponent : targetComponents) {
-			String targetComponentId = targetComponent.getId();
-			if (mergedComponents.containsKey(targetComponentId)) {
-				T sourceComponent = mergedComponents.get(targetComponentId);
-				if (targetComponent.getEffectiveTimeI() == null) {
-					// target version with change but need to update old release details
-					targetComponent.setReleasedEffectiveTime(sourceComponent.getReleasedEffectiveTime());
-					targetComponent.setReleaseHash(sourceComponent.getReleaseHash());
-					mergedComponents.put(targetComponentId, targetComponent);
-				}
-			} else {
-				// component only exists in target
-				mergedComponents.put(targetComponentId, targetComponent);
-			}
-		}
-
-		return new HashSet<>(mergedComponents.values());
-	}
-
-	private Set<Axiom> mergePublishedAxioms(Set<Axiom> sourceAxioms, Set<Axiom> targetAxioms) {
-		Map<String, Axiom> mergedAxioms = new HashMap<>();
-
-		for (Axiom sourceAxiom : sourceAxioms) {
-			if (sourceAxiom.isReleased()) {
-				mergedAxioms.put(sourceAxiom.getAxiomId(), sourceAxiom);
-			}
-		}
-
-		for (Axiom targetAxiom : targetAxioms) {
-			String targetAxiomId = targetAxiom.getAxiomId();
-			Axiom sourceAxiom = mergedAxioms.get(targetAxiomId);
-
-			if (sourceAxiom == null) {
-				mergedAxioms.put(targetAxiomId, targetAxiom);
-			} else {
-				ReferenceSetMember sourceMember = sourceAxiom.getReferenceSetMember();
-				ReferenceSetMember targetMember = targetAxiom.getReferenceSetMember();
-
-				if (!sourceMember.isReleasedMoreRecentlyThan(targetMember)) {
-					mergedAxioms.put(targetAxiomId, targetAxiom);
-				}
-			}
-		}
-
-		return new HashSet<>(mergedAxioms.values());
 	}
 
 	private void assertMergeReviewCurrent(MergeReview mergeReview) {
