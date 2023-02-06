@@ -2270,9 +2270,7 @@ class BranchMergeServiceTest extends AbstractTest {
 
 	/*
 	 * The Extension upgrades to the latest version of International. After doing the upgrade, the Extension's task then
-	 * does a rebase, which results in a conflict as there are authoring changes. The user selects the RHS of the merge window.
-	 * The latest and greatest International components are present on the task, as well as the working-in-progress Extension
-	 * components. In this particular scenario, the middle & right columns of the merge screen are identical.
+	 * does a rebase, which results in a conflict as there are authoring changes. The user selects the middle of the merge window.
 	 * */
 	@Test
 	void testUpgradeExtensionWhenExtensionHasAuthoringChangesAndUserSelectsRHS() throws ServiceException, InterruptedException {
@@ -2337,23 +2335,23 @@ class BranchMergeServiceTest extends AbstractTest {
 		Collection<MergeReviewConceptVersions> conflicts = reviewService.getMergeReviewConflictingConcepts(review.getId(), new ArrayList<>());
 		assertEquals(1, conflicts.size()); // Extension has made an authoring change to the same overall component which results in conflict
 
-		// 9. User selects right column (International components have been upgraded)
+		// 9. User selects middle column
 		for (MergeReviewConceptVersions conflict : conflicts) {
 			Concept autoMergedConcept = conflict.getAutoMergedConcept();
 			Concept targetConcept = conflict.getTargetConcept();
 
-			// 9.a For this scenario, both middle & right columns should have the same data
 			assertEquals(autoMergedConcept.getConceptId(), targetConcept.getConceptId());
-			assertEquals(autoMergedConcept.getReleasedEffectiveTime(), targetConcept.getReleasedEffectiveTime());
-			assertEquals(autoMergedConcept.getEffectiveTimeI(), targetConcept.getEffectiveTimeI());
-			assertEquals(autoMergedConcept.getModuleId(), targetConcept.getModuleId());
+			assertEquals(20220228, autoMergedConcept.getReleasedEffectiveTime());
+			assertEquals(20220131, targetConcept.getReleasedEffectiveTime());
+			assertEquals(MODEL_MODULE, autoMergedConcept.getModuleId());
+			assertEquals(CORE_MODULE, targetConcept.getModuleId());
 			assertEquals(autoMergedConcept.isReleased(), targetConcept.isReleased());
 			assertEquals(autoMergedConcept.isActive(), targetConcept.isActive());
-			assertEquals(autoMergedConcept.getDescriptions().size(), targetConcept.getDescriptions().size());
+			assertEquals(autoMergedConcept.getDescriptions().size(), targetConcept.getDescriptions().size() + 1);
 			assertEquals(autoMergedConcept.getRelationships().size(), targetConcept.getRelationships().size());
 			assertEquals(autoMergedConcept.getAllOwlAxiomMembers().size(), targetConcept.getAllOwlAxiomMembers().size());
 
-			reviewService.persistManuallyMergedConcept(review, Long.parseLong(cinnamonId), targetConcept);
+			reviewService.persistManuallyMergedConcept(review, Long.parseLong(cinnamonId), autoMergedConcept);
 		}
 
 		reviewService.applyMergeReview(review);
@@ -2401,11 +2399,7 @@ class BranchMergeServiceTest extends AbstractTest {
 
 	/*
 	 * The Extension upgrades to the latest version of International. After doing the upgrade, the Extension's task then
-	 * does a rebase, which results in a conflict as there are authoring changes. In between the Extension upgrading and
-	 * the task rebasing, someone has sneakily promoted an authoring change to the CodeSystem. The user selects the RHS of
-	 * the merge window. The latest and greatest International components are present on the task, as well as the working-in-progress
-	 * Extension TASK components. The components sneakily promoted to the CodeSystem are rejected during the merge. In this
-	 * particular scenario, the middle column contains an additional, unpublished Description.
+	 * does a rebase, which results in a conflict as there are authoring changes. The user selects the right column of the merge window.
 	 * */
 	@Test
 	void testUpgradeExtensionWhenExtensionProjectAndTaskBothHaveAuthoringChangesAndUserSelectsRHS() throws ServiceException, InterruptedException {
@@ -2475,19 +2469,19 @@ class BranchMergeServiceTest extends AbstractTest {
 		Collection<MergeReviewConceptVersions> conflicts = reviewService.getMergeReviewConflictingConcepts(review.getId(), new ArrayList<>());
 		assertEquals(1, conflicts.size()); // Extension has made an authoring change to the same overall component which results in conflict
 
-		// 10. User selects right column (International components have been upgraded)
+		// 10. User selects right column
 		for (MergeReviewConceptVersions conflict : conflicts) {
 			Concept autoMergedConcept = conflict.getAutoMergedConcept();
 			Concept targetConcept = conflict.getTargetConcept();
 
-			// 10.a For this scenario, both middle & right columns should have the same data
 			assertEquals(autoMergedConcept.getConceptId(), targetConcept.getConceptId());
-			assertEquals(autoMergedConcept.getReleasedEffectiveTime(), targetConcept.getReleasedEffectiveTime());
-			assertEquals(autoMergedConcept.getEffectiveTimeI(), targetConcept.getEffectiveTimeI());
-			assertEquals(autoMergedConcept.getModuleId(), targetConcept.getModuleId());
+			assertEquals(20220228, autoMergedConcept.getReleasedEffectiveTime());
+			assertEquals(20220131, targetConcept.getReleasedEffectiveTime());
+			assertEquals(MODEL_MODULE, autoMergedConcept.getModuleId());
+			assertEquals(CORE_MODULE, targetConcept.getModuleId());
 			assertEquals(autoMergedConcept.isReleased(), targetConcept.isReleased());
 			assertEquals(autoMergedConcept.isActive(), targetConcept.isActive());
-			assertEquals(autoMergedConcept.getDescriptions().size(), targetConcept.getDescriptions().size() + 1); // CodeSystem has the "sneaky" authoring change
+			assertEquals(autoMergedConcept.getDescriptions().size(), targetConcept.getDescriptions().size() + 2); // CodeSystem has the "sneaky" authoring change
 			assertEquals(autoMergedConcept.getRelationships().size(), targetConcept.getRelationships().size());
 			assertEquals(autoMergedConcept.getAllOwlAxiomMembers().size(), targetConcept.getAllOwlAxiomMembers().size());
 
@@ -2500,8 +2494,8 @@ class BranchMergeServiceTest extends AbstractTest {
 		concept = conceptService.find(cinnamonId, extTask);
 
 		assertEquals(20220228, concept.getReleasedEffectiveTime());
-		assertEquals(20220228, concept.getEffectiveTimeI());
-		assertEquals(MODEL_MODULE, concept.getModuleId());
+		assertNull(concept.getEffectiveTimeI()); // Because RHS was selected, the "old" state of the Concept becomes the "new" state
+		assertEquals(CORE_MODULE, concept.getModuleId());
 		assertTrue(concept.isReleased());
 		assertTrue(concept.isActive());
 
@@ -2525,9 +2519,10 @@ class BranchMergeServiceTest extends AbstractTest {
 
 		description = getDescription(concept, "Cinnamon swirl");
 		assertEquals(20220228, description.getReleasedEffectiveTime());
-		assertEquals(20220228, description.getEffectiveTimeI());
+		assertNull(description.getEffectiveTimeI());
 		assertTrue(description.isReleased());
-		assertTrue(description.isActive());
+		assertEquals(extModule, description.getModuleId()); // Because RHS was selected, Description has been inactivated in Extension module.
+		assertFalse(description.isActive());
 
 		description = getDescription(concept, "Kanelbulle");
 		assertNull(description.getEffectiveTimeI());
@@ -2542,10 +2537,7 @@ class BranchMergeServiceTest extends AbstractTest {
 
 	/*
 	 * The Extension upgrades to the latest version of International. After doing the upgrade, the Extension's task then
-	 * does a rebase, which results in a conflict as there are authoring changes. In between the Extension upgrading and
-	 * the task rebasing, someone has sneakily promoted an authoring change to the CodeSystem. The user selects the Middle of
-	 * the merge window. The latest and greatest International components are present on the task, as well as the working-in-progress
-	 * Extension TASK and PROJECT components. In this particular scenario, the middle column contains an additional, unpublished Description.
+	 * does a rebase, which results in a conflict as there are authoring changes. The user selects the middle column of the merge window.
 	 * */
 	@Test
 	void testUpgradeExtensionWhenExtensionProjectAndTaskBothHaveAuthoringChangesAndUserSelectsMiddle() throws ServiceException, InterruptedException {
@@ -2615,19 +2607,19 @@ class BranchMergeServiceTest extends AbstractTest {
 		Collection<MergeReviewConceptVersions> conflicts = reviewService.getMergeReviewConflictingConcepts(review.getId(), new ArrayList<>());
 		assertEquals(1, conflicts.size()); // Extension has made an authoring change to the same overall component which results in conflict
 
-		// 10. User selects right column (International components have been upgraded)
+		// 10. User selects middle column
 		for (MergeReviewConceptVersions conflict : conflicts) {
 			Concept autoMergedConcept = conflict.getAutoMergedConcept();
 			Concept targetConcept = conflict.getTargetConcept();
 
-			// 10.a For this scenario, both middle & right columns should have the same data
 			assertEquals(autoMergedConcept.getConceptId(), targetConcept.getConceptId());
-			assertEquals(autoMergedConcept.getReleasedEffectiveTime(), targetConcept.getReleasedEffectiveTime());
-			assertEquals(autoMergedConcept.getEffectiveTimeI(), targetConcept.getEffectiveTimeI());
-			assertEquals(autoMergedConcept.getModuleId(), targetConcept.getModuleId());
+			assertEquals(20220228, autoMergedConcept.getReleasedEffectiveTime());
+			assertEquals(20220131, targetConcept.getReleasedEffectiveTime());
+			assertEquals(MODEL_MODULE, autoMergedConcept.getModuleId());
+			assertEquals(CORE_MODULE, targetConcept.getModuleId());
 			assertEquals(autoMergedConcept.isReleased(), targetConcept.isReleased());
 			assertEquals(autoMergedConcept.isActive(), targetConcept.isActive());
-			assertEquals(autoMergedConcept.getDescriptions().size(), targetConcept.getDescriptions().size() + 1); // CodeSystem has the "sneaky" authoring change
+			assertEquals(autoMergedConcept.getDescriptions().size(), targetConcept.getDescriptions().size() + 2);
 			assertEquals(autoMergedConcept.getRelationships().size(), targetConcept.getRelationships().size());
 			assertEquals(autoMergedConcept.getAllOwlAxiomMembers().size(), targetConcept.getAllOwlAxiomMembers().size());
 
