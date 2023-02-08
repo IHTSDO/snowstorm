@@ -8,6 +8,7 @@ public class MergeReviewConceptVersions {
 	private Concept targetConcept;
 	private Concept autoMergedConcept;
 	private Concept manuallyMergedConcept;
+	private boolean targetConceptVersionBehind;
 
 	public MergeReviewConceptVersions(Concept sourceConcept, Concept targetConcept) {
 		this.sourceConcept = sourceConcept;
@@ -46,6 +47,14 @@ public class MergeReviewConceptVersions {
 		this.manuallyMergedConcept = manuallyMergedConcept;
 	}
 
+	public boolean isTargetConceptVersionBehind() {
+		return targetConceptVersionBehind;
+	}
+
+	public void setTargetConceptVersionBehind(boolean targetConceptVersionBehind) {
+		this.targetConceptVersionBehind = targetConceptVersionBehind;
+	}
+
 	@Override
 	public String toString() {
 		return "MergeReviewConceptVersions{" +
@@ -53,6 +62,7 @@ public class MergeReviewConceptVersions {
 				", targetConcept=" + targetConcept +
 				", autoMergedConcept=" + autoMergedConcept +
 				", manuallyMergedConcept=" + manuallyMergedConcept +
+				", targetConceptDiverged=" + targetConceptVersionBehind +
 				'}';
 	}
 }
