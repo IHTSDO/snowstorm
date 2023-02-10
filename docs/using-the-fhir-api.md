@@ -15,6 +15,7 @@ A LOINC package can be imported using the [HAPI-FHIR CLI tool](https://hapifhir.
 ```
 hapi-fhir-cli upload-terminology -d Loinc_2.72.zip -v r4 -t http://localhost:8080/fhir -u http://loinc.org
 ```
+*N.B. The new file naming since Loinc 2.73 is not working yet.*
 
 ### ICD-10 (International Version)
 The international version of ICD-10 is supported. This distribution uses the CLAML format. 
@@ -27,7 +28,7 @@ hapi-fhir-cli upload-terminology -d icdClaML2019ens.zip -v r4 -t http://localhos
 ICD-10-CM, the US version of ICD-10, is supported. This distribution uses a tabular xml format. 
 An ICD-10-CM package can be imported using the [HAPI-FHIR CLI tool](https://hapifhir.io/hapi-fhir/docs/tools/hapi_fhir_cli.html) with the following command:
 ```
-hapi-fhir-cli upload-terminology -d icd10cm_tabular_2021.xml -v r4 -t http://localhost:8080/fhir -u http://hl7.org/fhir/sid/icd-10-cm
+hapi-fhir-cli upload-terminology -d icd10cm_table_2023.zip -v r4 -t http://localhost:8080/fhir -u http://hl7.org/fhir/sid/icd-10-cm
 ```
 
 ### Custom Code Systems
