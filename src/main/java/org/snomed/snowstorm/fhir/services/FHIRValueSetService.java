@@ -10,6 +10,7 @@ import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.core.data.domain.ConceptMini;
+import org.snomed.snowstorm.core.data.domain.QueryConcept;
 import org.snomed.snowstorm.core.data.domain.ReferenceSetMember;
 import org.snomed.snowstorm.core.data.services.ConceptService;
 import org.snomed.snowstorm.core.data.services.QueryService;
@@ -173,7 +174,7 @@ public class FHIRValueSetService {
 
 		String filter = params.getFilter();
 		boolean activeOnly = TRUE == params.getActiveOnly();
-		PageRequest pageRequest = params.getPageRequest();
+		PageRequest pageRequest = params.getPageRequest(Sort.sort(QueryConcept.class).by(QueryConcept::getConceptIdL).descending());
 
 		// Resolve the set of code system versions that will actually be used. Includes some input parameter validation.
 		Set<CanonicalUri> systemVersionParam = params.getSystemVersion() != null ? Collections.singleton(params.getSystemVersion()) : Collections.emptySet();
@@ -223,7 +224,7 @@ public class FHIRValueSetService {
 			int offsetRequested = (int) pageRequest.getOffset();
 			int limitRequested = (int) (pageRequest.getOffset() + pageRequest.getPageSize());
 
-			QueryService.ConceptQueryBuilder conceptQuery = getSnomedConceptQuery(filter, activeOnly, codeSelectionCriteria);
+			QueryService.ConceptQueryBuilder conceptQuery = getSnomedConceptQuery(filter, activeOnly, codeSelectionCriteria, languageDialects);
 
 			int totalResults = 0;
 			List<Long> conceptsToLoad;
@@ -232,10 +233,10 @@ public class FHIRValueSetService {
 				SearchAfterPage<Long> previousPage = null;
 				List<Long> allConceptIds = new LongArrayList();
 				boolean loadedAll = false;
-				while (allConceptIds.size() < limitRequested || loadedAll) {
+				while (allConceptIds.size() < limitRequested && !loadedAll) {
 					PageRequest largePageRequest;
 					if (previousPage == null) {
-						largePageRequest = LARGE_PAGE;
+						largePageRequest = PageRequest.of(0, LARGE_PAGE.getPageSize(), pageRequest.getSort());
 					} else {
 						int pageSize = Math.min(limitRequested - allConceptIds.size(), LARGE_PAGE.getPageSize());
 						largePageRequest = SearchAfterPageRequest.of(previousPage.getSearchAfter(), pageSize, previousPage.getSort());
@@ -277,7 +278,49 @@ public class FHIRValueSetService {
 			String sortField = filter != null ? "displayLen" : "code";
 			pageRequest = PageRequest.of(pageRequest.getPageNumber(), pageRequest.getPageSize(), Sort.Direction.ASC, sortField);
 			BoolQueryBuilder fhirConceptQuery = getFhirConceptQuery(codeSelectionCriteria, filter);
-			conceptsPage = conceptService.findConcepts(fhirConceptQuery, pageRequest);
+
+			int offsetRequested = (int) pageRequest.getOffset();
+			int limitRequested = (int) (pageRequest.getOffset() + pageRequest.getPageSize());
+
+			int totalResults = 0;
+			List<String> conceptsToLoad;
+			if (limitRequested > LARGE_PAGE.getPageSize()) {
+				// Have to use search-after feature to paginate to the page requested because of Elasticsearch 10k limit.
+				SearchAfterPage<String> previousPage = null;
+				List<String> allConceptCodes = new ArrayList<>();
+				boolean loadedAll = false;
+				while (allConceptCodes.size() < limitRequested && !loadedAll) {
+					PageRequest largePageRequest;
+					if (previousPage == null) {
+						largePageRequest = PageRequest.of(0, LARGE_PAGE.getPageSize(), pageRequest.getSort());
+					} else {
+						int pageSize = Math.min(limitRequested - allConceptCodes.size(), LARGE_PAGE.getPageSize());
+						largePageRequest = SearchAfterPageRequest.of(previousPage.getSearchAfter(), pageSize, previousPage.getSort());
+					}
+					SearchAfterPage<String> page = conceptService.findConceptCodes(fhirConceptQuery, largePageRequest);
+					allConceptCodes.addAll(page.getContent());
+					loadedAll = page.getNumberOfElements() < largePageRequest.getPageSize();
+					if (previousPage == null) {
+						// Collect results total
+						totalResults = (int) page.getTotalElements();
+					}
+					previousPage = page;
+				}
+				if (allConceptCodes.size() > offsetRequested) {
+					conceptsToLoad = new ArrayList<>(allConceptCodes).subList(offsetRequested, Math.min(limitRequested, allConceptCodes.size()));
+				} else {
+					conceptsToLoad = new ArrayList<>();
+				}
+				if (!conceptsToLoad.isEmpty()) {
+					fhirConceptQuery.must(termsQuery(FHIRConcept.Fields.CODE, conceptsToLoad));
+					conceptsPage = conceptService.findConcepts(fhirConceptQuery, LARGE_PAGE);
+					conceptsPage = new PageImpl<>(conceptsPage.getContent(), pageRequest, totalResults);
+				} else {
+					conceptsPage = new PageImpl<>(new ArrayList<>(), pageRequest, totalResults);
+				}
+			} else {
+				conceptsPage = conceptService.findConcepts(fhirConceptQuery, pageRequest);
+			}
 		}
 
 		Map<String, String> idAndVersionToUrl = allInclusionVersions.stream()
@@ -383,8 +426,9 @@ public class FHIRValueSetService {
 		return versionQuery;
 	}
 
-	@NotNull
-	private QueryService.ConceptQueryBuilder getSnomedConceptQuery(String filter, boolean activeOnly, CodeSelectionCriteria codeSelectionCriteria) {
+	private QueryService.ConceptQueryBuilder getSnomedConceptQuery(String filter, boolean activeOnly, CodeSelectionCriteria codeSelectionCriteria,
+			List<LanguageDialect> languageDialects) {
+
 		QueryService.ConceptQueryBuilder conceptQuery = snomedQueryService.createQueryBuilder(false);
 		if (codeSelectionCriteria.isAnyECL()) {
 			// ECL search
@@ -401,7 +445,12 @@ public class FHIRValueSetService {
 			}
 		}
 		if (filter != null) {
-			conceptQuery.descriptionCriteria(descriptionCriteria -> descriptionCriteria.term(filter));
+			conceptQuery.descriptionCriteria(descriptionCriteria -> {
+				descriptionCriteria.term(filter);
+//				if (languageDialects != null && !languageDialects.isEmpty()) {
+//					descriptionCriteria.searchLanguageCodes()
+//				}
+			});
 		}
 		return conceptQuery;
 	}
@@ -528,7 +577,7 @@ public class FHIRValueSetService {
 
 		List<LanguageDialect> languageDialects = ControllerHelper.parseAcceptLanguageHeader(displayLanguage);
 		for (Coding codingA : codings) {
-			FHIRConcept concept = findInValueSet(codingA, resolvedCodeSystemVersionsMatchingCodings, codeSelectionCriteria);
+			FHIRConcept concept = findInValueSet(codingA, resolvedCodeSystemVersionsMatchingCodings, codeSelectionCriteria, languageDialects);
 			if (concept != null) {
 				String codingADisplay = codingA.getDisplay();
 				if (codingADisplay == null) {
@@ -611,7 +660,8 @@ public class FHIRValueSetService {
 		return hapiValueSet;
 	}
 
-	private FHIRConcept findInValueSet(Coding coding, Set<FHIRCodeSystemVersion> codeSystemVersionsForExpansion, CodeSelectionCriteria codeSelectionCriteria) {
+	private FHIRConcept findInValueSet(Coding coding, Set<FHIRCodeSystemVersion> codeSystemVersionsForExpansion, CodeSelectionCriteria codeSelectionCriteria,
+			List<LanguageDialect> languageDialects) {
 
 		// Collect sets of SNOMED and FHIR-concept constraints relevant to this coding. The later can be evaluated in a single query.
 		Set<FHIRCodeSystemVersion> snomedVersions = new HashSet<>();
@@ -634,7 +684,7 @@ public class FHIRValueSetService {
 		QueryService.ConceptQueryBuilder snomedConceptQuery = null;
 		for (FHIRCodeSystemVersion snomedVersion : snomedVersions) {
 			if (snomedConceptQuery == null) {
-				snomedConceptQuery = getSnomedConceptQuery(null, false, codeSelectionCriteria);
+				snomedConceptQuery = getSnomedConceptQuery(null, false, codeSelectionCriteria, languageDialects);
 			}
 			// Add criteria to select just this code
 			snomedConceptQuery.conceptIds(Collections.singleton(coding.getCode()));

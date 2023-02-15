@@ -6,6 +6,7 @@ import org.snomed.snowstorm.fhir.services.FHIRHelper;
 import org.snomed.snowstorm.fhir.services.FHIRValueSetProvider;
 import org.snomed.snowstorm.rest.ControllerHelper;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 
 import java.util.List;
 
@@ -72,14 +73,14 @@ public final class ValueSetExpansionParameters {
 		this.valueSet = valueSet;
 	}
 
-	public PageRequest getPageRequest() {
+	public PageRequest getPageRequest(Sort sort) {
 		int offset = this.offset != null ? this.offset : 0;
 		int pageSize = this.count != null ? this.count : FHIRValueSetProvider.DEFAULT_PAGESIZE;
 		if (offset % pageSize != 0) {
 			throw FHIRHelper.exception(format("Parameter 'offset' '%s' must be a multiplication of 'count' (page size) '%s'.", offset, pageSize),
 					OperationOutcome.IssueType.INVALID, 400);
 		}
-		return ControllerHelper.getPageRequest(offset, pageSize, FHIRHelper.DEFAULT_SORT);
+		return ControllerHelper.getPageRequest(offset, pageSize, sort);
 
 	}
 

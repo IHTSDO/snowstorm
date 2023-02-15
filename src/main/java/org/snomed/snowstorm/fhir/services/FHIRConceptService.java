@@ -8,6 +8,9 @@ import org.hl7.fhir.r4.model.CodeSystem;
 import org.hl7.fhir.r4.model.CodeType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.snomed.snowstorm.core.data.domain.Concept;
+import org.snomed.snowstorm.core.util.PageHelper;
+import org.snomed.snowstorm.core.util.SearchAfterPage;
 import org.snomed.snowstorm.fhir.domain.FHIRCodeSystemVersion;
 import org.snomed.snowstorm.fhir.domain.FHIRConcept;
 import org.snomed.snowstorm.fhir.domain.FHIRProperty;
@@ -17,6 +20,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.elasticsearch.core.ElasticsearchRestTemplate;
+import org.springframework.data.elasticsearch.core.SearchHits;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQuery;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
 import org.springframework.stereotype.Service;
@@ -182,6 +186,18 @@ public class FHIRConceptService {
 		searchQuery.setTrackTotalHits(true);
 		return toPage(elasticsearchTemplate.search(searchQuery, FHIRConcept.class), pageRequest);
 	}
+
+	public SearchAfterPage<String> findConceptCodes(BoolQueryBuilder fhirConceptQuery, PageRequest pageRequest) {
+		NativeSearchQuery searchQuery = new NativeSearchQueryBuilder()
+				.withQuery(fhirConceptQuery)
+				.withPageable(pageRequest)
+				.build();
+		searchQuery.setTrackTotalHits(true);
+
+		SearchHits<FHIRConcept> searchHits = elasticsearchTemplate.search(searchQuery, FHIRConcept.class);
+		return PageHelper.toSearchAfterPage(searchHits, FHIRConcept::getCode, pageRequest);
+	}
+
 
 	public Page<FHIRConcept> findConcepts(Set<String> codes, FHIRCodeSystemVersion codeSystemVersion, Pageable pageable) {
 		return conceptRepository.findByCodeSystemVersionAndCodeIn(codeSystemVersion.getId(), codes, pageable);
