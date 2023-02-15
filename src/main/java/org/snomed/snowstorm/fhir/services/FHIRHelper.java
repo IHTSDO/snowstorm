@@ -44,7 +44,6 @@ public class FHIRHelper implements FHIRConstants {
 
 	private FhirContext fhirContext;
 
-	public static final Sort DEFAULT_SORT = Sort.sort(QueryConcept.class).by(QueryConcept::getConceptIdL).descending();
 	public static final Sort MEMBER_SORT = Sort.sort(ReferenceSetMember.class).by(ReferenceSetMember::getMemberId).descending();
 	
 	public static boolean isSnomedUri(String uri) {

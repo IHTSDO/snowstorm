@@ -163,7 +163,7 @@ public class FHIRConceptMapService {
 
 		List<FHIRConceptMapGroup> groups = map.getGroup().stream()
 				.filter(group -> group.getSource().equals(coding.getSystem()))
-				.filter(group -> group.getTarget().equals(targetSystem))
+				.filter(group -> targetSystem == null || group.getTarget().equals(targetSystem))
 				.collect(Collectors.toList());
 		BoolQueryBuilder query = boolQuery()
 				.must(termsQuery(FHIRMapElement.Fields.GROUP_ID, groups.stream().map(FHIRConceptMapGroup::getGroupId).collect(Collectors.toList())))
