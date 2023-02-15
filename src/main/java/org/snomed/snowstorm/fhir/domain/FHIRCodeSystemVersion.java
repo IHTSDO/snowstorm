@@ -70,7 +70,9 @@ public class FHIRCodeSystemVersion {
 		url = codeSystem.getUrl();
 		String id = codeSystem.getId();
 		if (id == null) {
-			id = url.replace("http://", "").replace("/", "_");
+			// Spec: https://build.fhir.org/resource.html#id
+			// "Ids can be up to 64 characters long, and contain any combination of upper and lowercase ASCII letters, numerals, "-" and ".""
+			id = url.replace("http://", "").replaceAll("[^a-zA-Z0-9.-]", "-");
 			this.id = id;
 		} else {
 			this.id = codeSystem.getId().replace("CodeSystem/", "");
