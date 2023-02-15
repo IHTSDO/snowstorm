@@ -120,8 +120,16 @@ public class HapiParametersMapper implements FHIRConstants {
 			if (designation.getLanguage() != null) {
 				desParam.addPart().setName(LANGUAGE).setValue(new CodeType(designation.getLanguage()));
 			}
-			if (designation.getUse() != null) {
-				desParam.addPart().setName(USE).setValue(new CodeType(designation.getUse()));
+			String use = designation.getUse();
+			if (use != null && !use.contains("null")) {
+				Type type;
+				if (use.contains("|")) {
+					String[] parts = use.split("\\|", 2);
+					type = new Coding(parts[0], parts[1], parts[1]);
+				} else {
+					type = new CodeType(use);
+				}
+				desParam.addPart().setName(USE).setValue(type);
 			}
 			if (designation.getValue() != null) {
 				desParam.addPart().setName(VALUE).setValue(new StringType(designation.getValue()));
