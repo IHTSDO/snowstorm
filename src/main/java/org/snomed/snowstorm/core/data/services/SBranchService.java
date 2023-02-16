@@ -119,6 +119,25 @@ public class SBranchService {
 				.stream().map(SearchHit::getContent).collect(Collectors.toList());
 	}
 
+	public Branch findByPathAndHeadTimepoint(String path, long head) {
+		SearchHits<Branch> query = elasticsearchTemplate.search(
+				new NativeSearchQueryBuilder()
+						.withQuery(
+								boolQuery()
+										.must(termQuery("path", path))
+										.must(termQuery("head", head))
+						)
+						.withPageable(PageRequest.of(0, 1))
+						.build(), Branch.class
+		);
+
+		if (query.isEmpty()) {
+			return null;
+		}
+
+		return query.getSearchHit(0).getContent();
+	}
+
 	public void rollbackCommit(String branchPath, long timepoint) {
 		logger.info("Preparing to roll back commit {} on {}.", timepoint, branchPath);
 
