@@ -13,7 +13,9 @@ import java.util.Date;
 public class CodeSystemVersion {
 
 	public interface Fields {
+		String SHORT_NAME = "shortName";
 		String VERSION = "version";
+		String IMPORT_DATE = "importDate";
 	}
 
 	@Field(type = FieldType.Keyword)
