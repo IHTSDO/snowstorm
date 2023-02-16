@@ -447,9 +447,9 @@ public class FHIRValueSetService {
 		if (filter != null) {
 			conceptQuery.descriptionCriteria(descriptionCriteria -> {
 				descriptionCriteria.term(filter);
-//				if (languageDialects != null && !languageDialects.isEmpty()) {
-//					descriptionCriteria.searchLanguageCodes()
-//				}
+				if (!orEmpty(languageDialects).isEmpty()) {
+					descriptionCriteria.searchLanguageCodes(languageDialects.stream().map(LanguageDialect::getLanguageCode).collect(Collectors.toSet()));
+				}
 			});
 		}
 		return conceptQuery;
