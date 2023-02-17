@@ -50,7 +50,7 @@ public class MultiSearchController {
 			@RequestParam String term,// Required!
 			@RequestParam(required = false) Boolean active,
 			@RequestParam(required = false) Collection<String> module,
-			@RequestParam(required = false) String ecl,
+			@RequestParam(required = false) Boolean refsetsOnly,
 
 			@Parameter(description = "Set of two character language codes to match. " +
 					"The English language code 'en' will not be added automatically, in contrast to the Accept-Language header which always includes it. " +
@@ -77,7 +77,7 @@ public class MultiSearchController {
 				.conceptActive(conceptActive);
 
 		PageRequest pageRequest = ControllerHelper.getPageRequest(offset, limit);
-		Page<Description> descriptions = multiSearchService.findDescriptions(descriptionCriteria, ecl, pageRequest);
+		Page<Description> descriptions = multiSearchService.findDescriptions(descriptionCriteria, refsetsOnly, pageRequest);
 		timer.checkpoint("description search");
 
 		Map<String, List<Description>> branchDescriptions = new HashMap<>();

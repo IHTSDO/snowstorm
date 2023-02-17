@@ -31,6 +31,8 @@ import org.springframework.util.CollectionUtils;
 
 import java.time.LocalDate;
 import java.util.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import static io.kaicode.elasticvc.api.ComponentService.LARGE_PAGE;
@@ -53,6 +55,9 @@ public class MultiSearchService implements CommitListener {
 	private ECLQueryService eclQueryService;
 
 	@Autowired
+	private BranchService branchService;
+
+	@Autowired
 	private CodeSystemService codeSystemService;
 
 	@Autowired
@@ -68,26 +73,37 @@ public class MultiSearchService implements CommitListener {
 	private MultiBranchCriteria cachedBranchCriteria = null;
 	private LocalDate cacheDate = null;
 
-	public Page<Description> findDescriptions(DescriptionCriteria criteria, String ecl, PageRequest pageRequest) {
-
-		if (ecl != null) {
+	public Page<Description> findDescriptions(DescriptionCriteria criteria, Boolean refsetsOnly, PageRequest pageRequest) {
+	
+		//Handle null parameter
+		if(refsetsOnly == null) {
+			refsetsOnly = false;
+		}
+		
+		if (refsetsOnly) {
+			// Grab all published branches and also all "REFSETS" branches, 
+			// and do the "<446609009" ECL call on all of them to get the refset concepts
 			// ECL -> conceptIds
-			BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria("MAIN");
-			//MultiBranchCriteria branchesQuery = getBranchesQuery();
-			Page<Long> page = eclQueryService.selectConceptIds(ecl, branchCriteria, true, null, null);
-			criteria.conceptIds(page.getContent());
+			MultiBranchCriteria branchesQuery = getBranchesQueryWithRefsets();
+			Set<Long> conceptIds = new HashSet<>();
+			for(BranchCriteria branchCriteria : branchesQuery.getBranchCriteria())
+			{
+				conceptIds.addAll(eclQueryService.selectConceptIds("<446609009", branchCriteria, true, null, null).getContent());
+			}
+			criteria.conceptIds(conceptIds);
 		}
 
-		SearchHits<Description> searchHits = findDescriptionsHelper(criteria, pageRequest);
-		return new PageImpl<>(searchHits.get().map(SearchHit::getContent).collect(Collectors.toList()), pageRequest, searchHits.getTotalHits());
+			SearchHits<Description> searchHits = findDescriptionsHelper(criteria, pageRequest, refsetsOnly);
+			return new PageImpl<>(searchHits.get().map(SearchHit::getContent).collect(Collectors.toList()), pageRequest, searchHits.getTotalHits());
 	}
+		
 	
 	public PageWithBucketAggregations<Description> findDescriptionsReferenceSets(DescriptionCriteria criteria, PageRequest pageRequest) {
 
 		// all search results are required to determine total refset bucket membership
-		SearchHits<Description> allSearchHits = findDescriptionsHelper(criteria, null);
+		SearchHits<Description> allSearchHits = findDescriptionsHelper(criteria, null, false);
 		// paged results are required for the list of descriptions returned
-		SearchHits<Description> searchHits = findDescriptionsHelper(criteria, pageRequest);
+		SearchHits<Description> searchHits = findDescriptionsHelper(criteria, pageRequest, false);
 		
 		List<Aggregation> allAggregations = new ArrayList<>();
 		Set<Long> conceptIds = new HashSet<>();
@@ -109,8 +125,14 @@ public class MultiSearchService implements CommitListener {
 		return PageWithBucketAggregationsFactory.createPage(searchHits, new Aggregations(allAggregations), pageRequest);
 	}
 	
-	private SearchHits<Description> findDescriptionsHelper(DescriptionCriteria criteria, PageRequest pageRequest) {
-		final BoolQueryBuilder branchesQuery = getBranchesQuery().getEntityBranchCriteria(Description.class);
+	private SearchHits<Description> findDescriptionsHelper(DescriptionCriteria criteria, PageRequest pageRequest, Boolean refsetsOnly) {
+		BoolQueryBuilder branchesQuery;
+		if (!refsetsOnly) {
+			branchesQuery = getBranchesQuery().getEntityBranchCriteria(Description.class);
+		}
+		else {
+			branchesQuery = getBranchesQueryWithRefsets().getEntityBranchCriteria(Description.class);
+		}
 		final BoolQueryBuilder descriptionQuery = boolQuery()
 				.must(branchesQuery);
 
@@ -212,6 +234,43 @@ public class MultiSearchService implements CommitListener {
 		return cachedBranchCriteria;
 	}
 
+	private MultiBranchCriteria getBranchesQueryWithRefsets() {
+		MultiBranchCriteria refsetBranchCriteria = null;
+			synchronized (this) {
+
+					long startTime = System.currentTimeMillis();
+					
+					//Get all published branches
+					Set<String> branchPaths = getAllPublishedVersionBranchPaths();
+
+					List<BranchCriteria> branchCriteriaList = new ArrayList<>();
+					for (String branchPath : branchPaths) {
+						BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(branchPath);
+						if (!Branch.MAIN.equals(PathUtil.getParentPath(branchPath))) {
+							// Prevent content on MAIN being found in every other code system
+							branchCriteria.excludeContentFromPath(Branch.MAIN);
+						}
+						branchCriteriaList.add(branchCriteria);
+					}
+					
+					//Also get all current refset branches
+					Set<String> refsetBranchPaths = getCurrentRefsetBranchPaths();
+					
+					for (String refsetBranchPath : refsetBranchPaths) {
+						BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(refsetBranchPath);
+						branchCriteriaList.add(branchCriteria);
+					}
+					
+					Date maxTimepoint = branchCriteriaList.stream().map(BranchCriteria::getTimepoint).max(Comparator.naturalOrder()).orElseGet(Date::new);
+					MultiBranchCriteria multiBranchCriteria = new MultiBranchCriteria("all-released-and-refsets", maxTimepoint, branchCriteriaList);
+					long endTime = System.currentTimeMillis();
+					logger.info("Mutisearch branches query took " + (endTime - startTime) + "ms");
+					refsetBranchCriteria = multiBranchCriteria;
+				}
+		return refsetBranchCriteria;
+	}
+	
+	
 	public Set<String> getAllPublishedVersionBranchPaths() {
 		List<CodeSystem> codeSystems = codeSystemService.findAll();
 		Set<String> publishedVersionBranchPaths = new HashSet<>();
@@ -227,6 +286,42 @@ public class MultiSearchService implements CommitListener {
 		}
 		
 		return publishedVersionBranchPaths;
+	}
+	
+	public Set<String> getCurrentRefsetBranchPaths() {
+		List<Branch> allBranches = branchService.findAll();
+		Set<String> refsetBranchPaths = new HashSet<>();
+		Map<String,String> refsetToCurrentBranchPathMap = new HashMap<>();
+		//Identify the latest Refset edit branch for each refset
+		//For example:
+		//MAIN/SNOMEDCT/REFSETS/REFSET-48353439008-1676579557135/EDIT-1676579564596
+		//Is for refset 4853439008, timestamp 1676579564596
+		final Pattern p = Pattern.compile("^(.*)(REFSET-)([0-9]+)(-[0-9]+\\/EDIT-)([0-9]+)$");
+		synchronized(this) {
+			for (Branch b : allBranches) {
+				Matcher m = p.matcher(b.getPath());
+				if (m.find()) {
+					final String refset = m.group(3);
+					if(refsetToCurrentBranchPathMap.get(refset) == null) {
+						refsetToCurrentBranchPathMap.put(refset, b.getPath());
+					}
+					//Check timestamps encountered for each refset, and keep the most recent one
+					else {
+						final String timestamp = m.group(5);
+						final String previousBranch = refsetToCurrentBranchPathMap.get(refset);
+						final String previousTimestamp = previousBranch.substring(previousBranch.lastIndexOf("-") + 1).trim();
+						if(Long.parseLong(timestamp) > Long.parseLong(previousTimestamp)) {
+							refsetToCurrentBranchPathMap.put(refset, b.getPath());
+						}
+					}
+				}
+			}
+			for(String branch : refsetToCurrentBranchPathMap.values()) {
+				refsetBranchPaths.add(branch);
+			}
+		}
+
+		return refsetBranchPaths;
 	}
 	
 	public String getPublishedVersionOfBranch(String branch) {
