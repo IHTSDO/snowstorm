@@ -10,6 +10,7 @@ public class TestConcepts {
 	public static final String PROCEDURE_SITE = "363704007";
 	public static final String PROCEDURE_SITE_DIRECT = "405813007";
 	public static final String LATERALITY = "272741003";
+	public static final String HAS_FILLING = "827081001";
 
 	// Qualifier Value
 	public static final String RIGHT = "24028007";
@@ -44,4 +45,9 @@ public class TestConcepts {
 	public static final String AMPUTATION_FOOT_BILATERAL = "180030006";
 
 	public static final String NON_EXISTENT_CONCEPT = "12345001";
+
+	// Physical object
+	public static final String PHYSICAL_OBJECT = "260787004";
+	public static final String DEVICE = "49062001";
+	public static final String DOMESTIC = "272179000";
 }
