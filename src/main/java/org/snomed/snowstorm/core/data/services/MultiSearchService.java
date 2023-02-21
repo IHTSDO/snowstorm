@@ -81,14 +81,13 @@ public class MultiSearchService implements CommitListener {
 		}
 		
 		if (refsetsOnly) {
-			// Grab all published branches and also all "REFSETS" branches, 
-			// and do the "<446609009" ECL call on all of them to get the refset concepts
-			// ECL -> conceptIds
+			// Grab all published branches and also all active "REFSETS" branches, 
+			// and do an ECL call on all of them to get the just the refset concept ids.
 			MultiBranchCriteria branchesQuery = getBranchesQueryWithRefsets();
 			Set<Long> conceptIds = new HashSet<>();
 			for(BranchCriteria branchCriteria : branchesQuery.getBranchCriteria())
 			{
-				conceptIds.addAll(eclQueryService.selectConceptIds("<446609009", branchCriteria, true, null, null).getContent());
+				conceptIds.addAll(eclQueryService.selectConceptIds("<"+Concepts.REFSET_SIMPLE, branchCriteria, true, null, null).getContent());
 			}
 			criteria.conceptIds(conceptIds);
 		}
@@ -297,17 +296,19 @@ public class MultiSearchService implements CommitListener {
 		//MAIN/SNOMEDCT/REFSETS/REFSET-48353439008-1676579557135/EDIT-1676579564596
 		//Is for refset 4853439008, timestamp 1676579564596
 		final Pattern p = Pattern.compile("^(.*)(REFSET-)([0-9]+)(-[0-9]+\\/EDIT-)([0-9]+)$");
+		final int refsetIndex = 3;
+		final int timestampIndex = 5;
 		synchronized(this) {
 			for (Branch b : allBranches) {
 				Matcher m = p.matcher(b.getPath());
 				if (m.find()) {
-					final String refset = m.group(3);
+					final String refset = m.group(refsetIndex);
 					if(refsetToCurrentBranchPathMap.get(refset) == null) {
 						refsetToCurrentBranchPathMap.put(refset, b.getPath());
 					}
 					//Check timestamps encountered for each refset, and keep the most recent one
 					else {
-						final String timestamp = m.group(5);
+						final String timestamp = m.group(timestampIndex);
 						final String previousBranch = refsetToCurrentBranchPathMap.get(refset);
 						final String previousTimestamp = previousBranch.substring(previousBranch.lastIndexOf("-") + 1).trim();
 						if(Long.parseLong(timestamp) > Long.parseLong(previousTimestamp)) {
