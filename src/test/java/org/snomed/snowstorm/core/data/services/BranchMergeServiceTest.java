@@ -1893,32 +1893,31 @@ class BranchMergeServiceTest extends AbstractTest {
 
 	@Test
 	void testAutoMergeWhenConceptDeletedSomewhereAndVersionedElsewhere() throws ServiceException, InterruptedException {
-		String codeSystemShortName = "SNOMEDCT-TEST";
-		String parentBranch = "MAIN/TEST";
-		String childBranch = "MAIN/TEST/TEST-1";
+		String codeSystemShortName = "SNOMEDCT";
+		String project = "MAIN/project";
 
 		// Create Concept on CodeSystem
-		CodeSystem codeSystem = codeSystemService.createCodeSystem(new CodeSystem(codeSystemShortName, parentBranch));
+		CodeSystem codeSystem = codeSystemService.find(codeSystemShortName);
 		Map<String, String> acceptabilityMap = Collections.singletonMap(US_EN_LANG_REFSET, descriptionAcceptabilityNames.get(ACCEPTABLE));
 		Description pizzaFood = new Description("Pizza (food)").setTypeId(FSN).setCaseSignificance("CASE_INSENSITIVE").setAcceptabilityMap(acceptabilityMap);
 		Description pizza = new Description("Pizza").setTypeId(SYNONYM).setCaseSignificance("CASE_INSENSITIVE").setAcceptabilityMap(acceptabilityMap);
 		Relationship isA = new Relationship(ISA, SNOMEDCT_ROOT);
-		Concept conceptOnParent = conceptService.create(new Concept().addDescription(pizzaFood).addDescription(pizza).addRelationship(isA), parentBranch);
-		String conceptId = conceptOnParent.getId();
+		Concept concept = conceptService.create(new Concept().addDescription(pizzaFood).addDescription(pizza).addRelationship(isA), "MAIN");
+		String conceptId = concept.getId();
 
-		// On child branch, delete Concept
-		branchService.create(childBranch);
-		assertNotNull(conceptService.find(conceptId, childBranch));
-		conceptService.deleteConceptAndComponents(conceptId, childBranch, false);
-		assertNull(conceptService.find(conceptId, childBranch));
+		// On project branch, delete Concept
+		branchService.create(project);
+		assertNotNull(conceptService.find(conceptId, project));
+		conceptService.deleteConceptAndComponents(conceptId, project, false);
+		assertNull(conceptService.find(conceptId, project));
 
-		// On parent branch, version new Concept
+		// On code system branch, version new Concept
 		codeSystemService.createVersion(codeSystem, 20210812, "20210812");
-		conceptOnParent = conceptService.find(conceptId, parentBranch);
-		assertVersioned(conceptOnParent, 20210812);
+		concept = conceptService.find(conceptId, "MAIN");
+		assertVersioned(concept, 20210812);
 
 		// Rebase
-		MergeReview review = getMergeReviewInCurrentState(parentBranch, childBranch);
+		MergeReview review = getMergeReviewInCurrentState("MAIN", project);
 		// AP calls this endpoint to check for conflicts
 		assertEquals(0, reviewService.getMergeReviewConflictingConcepts(review.getId(), new ArrayList<>()).size());
 
@@ -1926,17 +1925,17 @@ class BranchMergeServiceTest extends AbstractTest {
 		reviewService.applyMergeReview(review);
 
 		// Expected state of child branch
-		assertVersioned(conceptService.find(conceptId, childBranch), 20210812);
+		assertVersioned(conceptService.find(conceptId, project), 20210812);
 	}
 
 	@Test
 	void testAutoMergeWhenDescriptionDeletedSomewhereAndVersionedElsewhere() throws ServiceException, InterruptedException {
-		String codeSystemShortName = "SNOMEDCT-TEST";
-		String parentBranch = "MAIN/TEST";
-		String childBranch = "MAIN/TEST/TEST-1";
+		String parentBranch = "MAIN";
+		String childBranch = "MAIN/projectA";
+		String codeSystemShortName = "SNOMEDCT";
 
 		// Create Concept on CodeSystem
-		CodeSystem codeSystem = codeSystemService.createCodeSystem(new CodeSystem(codeSystemShortName, parentBranch));
+		CodeSystem codeSystem = codeSystemService.find(codeSystemShortName);
 		Map<String, String> acceptabilityMap = Collections.singletonMap(US_EN_LANG_REFSET, descriptionAcceptabilityNames.get(ACCEPTABLE));
 		Description pizzaFood = new Description("Pizza (food)").setTypeId(FSN).setCaseSignificance("CASE_INSENSITIVE").setAcceptabilityMap(acceptabilityMap);
 		Description pizza = new Description("Pizza").setTypeId(SYNONYM).setCaseSignificance("CASE_INSENSITIVE").setAcceptabilityMap(acceptabilityMap);
@@ -1976,6 +1975,7 @@ class BranchMergeServiceTest extends AbstractTest {
 
 		// User selects the RHS (i.e. the one without versioned content)
 		for (MergeReviewConceptVersions conflict : conflicts) {
+			assertTrue(conflict.isTargetConceptVersionBehind());
 			reviewService.persistManuallyMergedConcept(review, Long.parseLong(conceptId), conflict.getTargetConcept());
 		}
 
@@ -1994,13 +1994,13 @@ class BranchMergeServiceTest extends AbstractTest {
 
 	@Test
 	void testAutoMergeWhenAcceptabilityEditedSomewhereAndVersionedElsewhere() throws ServiceException, InterruptedException {
-		String codeSystemShortName = "SNOMEDCT-TEST";
-		String parentBranch = "MAIN/TEST";
-		String childBranch = "MAIN/TEST/TEST-1";
+		String codeSystemShortName = "SNOMEDCT";
+		String parentBranch = "MAIN";
+		String childBranch = "MAIN/project";
 		Page<ReferenceSetMember> members;
 
 		// Create Concept on CodeSystem
-		CodeSystem codeSystem = codeSystemService.createCodeSystem(new CodeSystem(codeSystemShortName, parentBranch));
+		CodeSystem codeSystem = codeSystemService.find(codeSystemShortName);
 		Map<String, String> acceptabilityMap = Collections.singletonMap(US_EN_LANG_REFSET, descriptionAcceptabilityNames.get(PREFERRED));
 		Description pizzaFood = new Description("Pizza (food)").setTypeId(FSN).setCaseSignificance("CASE_INSENSITIVE").setAcceptabilityMap(acceptabilityMap);
 		Description pizza = new Description("Pizza").setTypeId(SYNONYM).setCaseSignificance("CASE_INSENSITIVE").setAcceptabilityMap(acceptabilityMap);
@@ -2060,69 +2060,75 @@ class BranchMergeServiceTest extends AbstractTest {
 
 	@Test
 	void testAutoMergeWhenAxiomDeletedSomewhereAndVersionedElsewhere() throws ServiceException, InterruptedException {
-		String codeSystemShortName = "SNOMEDCT-TEST";
-		String parentBranch = "MAIN/TEST";
-		String childBranch = "MAIN/TEST/TEST-1";
+		String codeSystemShortName = "SNOMEDCT";
+		String project = "MAIN/project";
 
 		// Create Concept on CodeSystem
-		CodeSystem codeSystem = codeSystemService.createCodeSystem(new CodeSystem(codeSystemShortName, parentBranch));
+		CodeSystem codeSystem = codeSystemService.find(codeSystemShortName);
 		Map<String, String> acceptabilityMap = Collections.singletonMap(US_EN_LANG_REFSET, descriptionAcceptabilityNames.get(ACCEPTABLE));
 		Description pizzaFood = new Description("Pizza (food)").setTypeId(FSN).setCaseSignificance("CASE_INSENSITIVE").setAcceptabilityMap(acceptabilityMap);
 		Description pizza = new Description("Pizza").setTypeId(SYNONYM).setCaseSignificance("CASE_INSENSITIVE").setAcceptabilityMap(acceptabilityMap);
 		Relationship isA = new Relationship(ISA, SNOMEDCT_ROOT);
-		Concept conceptOnParent = conceptService.create(new Concept().addDescription(pizzaFood).addDescription(pizza).addAxiom(isA), parentBranch);
+		Concept conceptOnParent = conceptService.create(new Concept().addDescription(pizzaFood).addDescription(pizza).addAxiom(isA), "MAIN");
 		String conceptId = conceptOnParent.getId();
 
-		// On child branch, delete Axiom
-		branchService.create(childBranch);
-		Concept conceptOnChild = conceptService.find(conceptId, childBranch);
-		String axiomId = conceptOnChild.getClassAxioms().iterator().next().getAxiomId();
-		assertNotNull(memberService.findMember(childBranch, axiomId));
-		memberService.deleteMember(childBranch, axiomId);
-		assertNull(memberService.findMember(childBranch, axiomId));
+		// Create project branch
+		branchService.create(project);
 
-		// On child branch, add new Axiom
-		conceptOnChild = conceptService.find(conceptId, childBranch);
-		assertEquals(0, getAxioms(conceptOnChild, false).size());
-		conceptOnChild.addAxiom(new Relationship(ISA, HEART_STRUCTURE));
-		conceptService.update(conceptOnChild, childBranch);
-		conceptOnChild = conceptService.find(conceptId, childBranch);
-		assertEquals(1, getAxioms(conceptOnChild, false).size());
+		// On project branch, delete Axiom
+		Concept conceptOnProject = conceptService.find(conceptId, project);
+		String axiomId = conceptOnProject.getClassAxioms().iterator().next().getAxiomId();
+		assertNotNull(memberService.findMember(project, axiomId));
+		memberService.deleteMember(project, axiomId);
+		assertNull(memberService.findMember(project, axiomId));
 
-		// On parent branch, version new Concept
+		// On project branch, add new Axiom
+		conceptOnProject = conceptService.find(conceptId, project);
+		assertEquals(0, getAxioms(conceptOnProject, false).size());
+		conceptOnProject.addAxiom(new Relationship(ISA, HEART_STRUCTURE));
+		conceptService.update(conceptOnProject, project);
+		conceptOnProject = conceptService.find(conceptId, project);
+		assertEquals(1, getAxioms(conceptOnProject, false).size());
+
+		// On CodeSystem, version new Concept
 		codeSystemService.createVersion(codeSystem, 20210812, "20210812");
-		conceptOnParent = conceptService.find(conceptId, parentBranch);
+		conceptOnParent = conceptService.find(conceptId, "MAIN");
 		assertVersioned(conceptOnParent, 20210812);
 		assertVersioned(getAxioms(conceptOnParent, true), 20210812);
 
 		// Rebase
-		MergeReview review = getMergeReviewInCurrentState(parentBranch, childBranch);
+		MergeReview review = getMergeReviewInCurrentState("MAIN", project);
 		// AP calls this endpoint to check for conflicts
-		assertEquals(1, reviewService.getMergeReviewConflictingConcepts(review.getId(), new ArrayList<>()).size());
+		Collection<MergeReviewConceptVersions> conflicts = reviewService.getMergeReviewConflictingConcepts(review.getId(), new ArrayList<>());
+		assertEquals(1, conflicts.size());
 
-		// User selects the RHS (i.e. the one without versioned content)
-		reviewService.persistManuallyMergedConcept(review, Long.parseLong(conceptId), conceptOnChild);
+		for (MergeReviewConceptVersions conflict : conflicts) {
+			assertTrue(conflict.isTargetConceptVersionBehind());
+
+			// User selects the RHS (i.e. the one without versioned content)
+			reviewService.persistManuallyMergedConcept(review, Long.parseLong(conceptId), conflict.getTargetConcept());
+		}
 
 		// Finalise rebase
 		reviewService.applyMergeReview(review);
 
 		// Expected state of child branch
-		conceptOnChild = conceptService.find(conceptId, childBranch);
-		assertEquals(conceptOnParent, conceptOnChild);
-		assertEquals(conceptOnParent.getReleaseHash(), conceptOnChild.getReleaseHash());
-		assertVersioned(conceptOnChild, 20210812);
+		conceptOnProject = conceptService.find(conceptId, project);
+		assertEquals(conceptOnParent, conceptOnProject);
+		assertEquals(conceptOnParent.getReleaseHash(), conceptOnProject.getReleaseHash());
+		assertVersioned(conceptOnProject, 20210812);
 		assertVersioned(getAxioms(conceptOnParent, true), 20210812);
 		assertNotVersioned(getAxioms(conceptOnParent, false));
 	}
 
 	@Test
 	void testAutoMergeWhenMemberDeletedSomewhereAndVersionedElsewhere() throws ServiceException, InterruptedException {
-		String codeSystemShortName = "SNOMEDCT-TEST";
-		String parentBranch = "MAIN/TEST";
-		String childBranch = "MAIN/TEST/TEST-1";
+		String codeSystemShortName = "SNOMEDCT";
+		String parentBranch = "MAIN";
+		String childBranch = "MAIN/project";
 
 		// Create Concept on CodeSystem
-		CodeSystem codeSystem = codeSystemService.createCodeSystem(new CodeSystem(codeSystemShortName, parentBranch));
+		CodeSystem codeSystem = codeSystemService.find(codeSystemShortName);
 		Map<String, String> acceptabilityMap = Collections.singletonMap(US_EN_LANG_REFSET, descriptionAcceptabilityNames.get(ACCEPTABLE));
 		Description pizzaFood = new Description("Pizza (food)").setTypeId(FSN).setCaseSignificance("CASE_INSENSITIVE").setAcceptabilityMap(acceptabilityMap);
 		Description pizza = new Description("Pizza").setTypeId(SYNONYM).setCaseSignificance("CASE_INSENSITIVE").setAcceptabilityMap(acceptabilityMap);
@@ -2340,6 +2346,7 @@ class BranchMergeServiceTest extends AbstractTest {
 			Concept autoMergedConcept = conflict.getAutoMergedConcept();
 			Concept targetConcept = conflict.getTargetConcept();
 
+			assertTrue(conflict.isTargetConceptVersionBehind());
 			assertEquals(autoMergedConcept.getConceptId(), targetConcept.getConceptId());
 			assertEquals(20220228, autoMergedConcept.getReleasedEffectiveTime());
 			assertEquals(20220131, targetConcept.getReleasedEffectiveTime());
@@ -2474,6 +2481,7 @@ class BranchMergeServiceTest extends AbstractTest {
 			Concept autoMergedConcept = conflict.getAutoMergedConcept();
 			Concept targetConcept = conflict.getTargetConcept();
 
+			assertTrue(conflict.isTargetConceptVersionBehind());
 			assertEquals(autoMergedConcept.getConceptId(), targetConcept.getConceptId());
 			assertEquals(20220228, autoMergedConcept.getReleasedEffectiveTime());
 			assertEquals(20220131, targetConcept.getReleasedEffectiveTime());
@@ -2612,6 +2620,7 @@ class BranchMergeServiceTest extends AbstractTest {
 			Concept autoMergedConcept = conflict.getAutoMergedConcept();
 			Concept targetConcept = conflict.getTargetConcept();
 
+			assertTrue(conflict.isTargetConceptVersionBehind());
 			assertEquals(autoMergedConcept.getConceptId(), targetConcept.getConceptId());
 			assertEquals(20220228, autoMergedConcept.getReleasedEffectiveTime());
 			assertEquals(20220131, targetConcept.getReleasedEffectiveTime());
@@ -2751,6 +2760,7 @@ class BranchMergeServiceTest extends AbstractTest {
 		assertEquals(1, conflicts.size()); // Added translation, thus conflict
 		for (MergeReviewConceptVersions conflict : conflicts) {
 			Concept autoMergedConcept = conflict.getAutoMergedConcept();
+			assertTrue(conflict.isTargetConceptVersionBehind());
 			reviewService.persistManuallyMergedConcept(review, Long.parseLong(cinnamonId), autoMergedConcept);
 		}
 
@@ -2903,6 +2913,7 @@ class BranchMergeServiceTest extends AbstractTest {
 		assertEquals(1, conflicts.size()); // Added translation, thus conflict
 		for (MergeReviewConceptVersions conflict : conflicts) {
 			Concept autoMergedConcept = conflict.getAutoMergedConcept();
+			assertTrue(conflict.isTargetConceptVersionBehind());
 			reviewService.persistManuallyMergedConcept(review, Long.parseLong(cinnamonId), autoMergedConcept);
 		}
 
@@ -2933,6 +2944,7 @@ class BranchMergeServiceTest extends AbstractTest {
 		// 14. Author B's re-term is preferred
 		for (MergeReviewConceptVersions conflict : conflicts) {
 			Concept autoMergedConcept = conflict.getAutoMergedConcept();
+			assertFalse(conflict.isTargetConceptVersionBehind());
 			reviewService.persistManuallyMergedConcept(review, Long.parseLong(cinnamonId), autoMergedConcept);
 		}
 		reviewService.applyMergeReview(review);
@@ -3035,6 +3047,7 @@ class BranchMergeServiceTest extends AbstractTest {
 		// 7. Author B prefers the right column
 		for (MergeReviewConceptVersions conflict : conflicts) {
 			Concept targetConcept = conflict.getTargetConcept();
+			assertFalse(conflict.isTargetConceptVersionBehind());
 			reviewService.persistManuallyMergedConcept(review, Long.parseLong(cinnamonId), targetConcept);
 		}
 
@@ -3125,6 +3138,7 @@ class BranchMergeServiceTest extends AbstractTest {
 		// 7. Author B prefers the middle column
 		for (MergeReviewConceptVersions conflict : conflicts) {
 			Concept autoMergedConcept = conflict.getAutoMergedConcept();
+			assertFalse(conflict.isTargetConceptVersionBehind());
 			reviewService.persistManuallyMergedConcept(review, Long.parseLong(cinnamonId), autoMergedConcept);
 		}
 
@@ -3630,6 +3644,222 @@ class BranchMergeServiceTest extends AbstractTest {
 		assertEquals(member.getReleaseHash(), member.buildReleaseHash());
 	}
 
+	@Test
+	public void testRHSVersionBehindWhenExtensionPublishesOnSameDate() throws ServiceException, InterruptedException {
+		String intMain = "MAIN";
+		String extMain = "MAIN/SNOMEDCT-TEST";
+		Map<String, String> intPreferred = Map.of(US_EN_LANG_REFSET, descriptionAcceptabilityNames.get(PREFERRED), GB_EN_LANG_REFSET, descriptionAcceptabilityNames.get(PREFERRED));
+		Map<String, String> intAcceptable = Map.of(US_EN_LANG_REFSET, descriptionAcceptabilityNames.get(PREFERRED), GB_EN_LANG_REFSET, descriptionAcceptabilityNames.get(ACCEPTABLE));
+		String ci = "CASE_INSENSITIVE";
+		Concept concept;
+		Description description;
+		CodeSystem codeSystem;
+		List<ReferenceSetMember> members;
+		ReferenceSetMember member;
+		MergeReview review;
+		Collection<MergeReviewConceptVersions> conflicts;
+
+		// 1. Create International Concepts
+		concept = new Concept()
+				.addDescription(new Description("Vehicle (vehicle)").setTypeId(FSN).setCaseSignificance(ci).setAcceptabilityMap(intPreferred))
+				.addDescription(new Description("Vehicle").setTypeId(SYNONYM).setCaseSignificance(ci).setAcceptabilityMap(intPreferred))
+				.addRelationship(new Relationship(ISA, SNOMEDCT_ROOT).setModuleId(CORE_MODULE));
+		concept = conceptService.create(concept, intMain);
+		String vehicleId = concept.getConceptId();
+
+		concept = new Concept()
+				.addDescription(new Description("Car (vehicle)").setTypeId(FSN).setCaseSignificance(ci).setAcceptabilityMap(intPreferred))
+				.addDescription(new Description("Car").setTypeId(SYNONYM).setCaseSignificance(ci).setAcceptabilityMap(intPreferred))
+				// Purposely top-level
+				.addRelationship(new Relationship(ISA, SNOMEDCT_ROOT));
+		concept = conceptService.create(concept, intMain);
+		String carId = concept.getConceptId();
+
+		// 2. Version International
+		codeSystem = codeSystemService.find("SNOMEDCT");
+		codeSystemService.createVersion(codeSystem, 20220131, "20220131");
+
+		// 3. Create Extension
+		codeSystemService.createCodeSystem(new CodeSystem("SNOMEDCT-TEST", extMain));
+		concept = conceptService.create(
+				new Concept()
+						.addDescription(new Description("Extension maintained module").setTypeId(FSN).setCaseSignificance(ci).setAcceptabilityMap(intPreferred))
+						.addDescription(new Description("Extension maintained").setTypeId(SYNONYM).setCaseSignificance(ci).setAcceptabilityMap(intPreferred))
+						.addDescription(new Description("Extension nrc").setTypeId(SYNONYM).setCaseSignificance(ci).setAcceptabilityMap(intAcceptable))
+						.addAxiom(new Relationship(ISA, MODULE)),
+				extMain
+		);
+		String extModule = concept.getConceptId();
+		branchService.updateMetadata(extMain, Map.of(Config.DEFAULT_MODULE_ID_KEY, extModule));
+
+		// 4. Create Extension project
+		String extProject = "MAIN/SNOMEDCT-TEST/projectA";
+		branchService.create(extProject);
+
+		// 5. Extension fixes modelling through classification
+		concept = conceptService.find(carId, extProject);
+		concept.getRelationships().iterator().next().setActive(false).setModuleId(extModule).updateEffectiveTime();
+		concept.getRelationships().add(new Relationship(ISA, vehicleId).setModuleId(extModule));
+		conceptService.update(concept, extProject);
+
+		// 6. Promote Extension project to CodeSystem
+		branchMergeService.mergeBranchSync(extProject, extMain, Collections.emptySet());
+
+		// 7. Version Extension
+		codeSystem = codeSystemService.find("SNOMEDCT-TEST");
+		codeSystemService.createVersion(codeSystem, 20230228, "20230228");
+
+		// 8. Rebase Extension project
+		review = getMergeReviewInCurrentState(extMain, extProject);
+		conflicts = reviewService.getMergeReviewConflictingConcepts(review.getId(), new ArrayList<>());
+		assertTrue(conflicts.isEmpty());
+		reviewService.applyMergeReview(review);
+
+		// 9. Extension adds translation to Concept
+		concept = conceptService.find(carId, extProject);
+		concept.addDescription(new Description("Bil").setTypeId(SYNONYM).setCaseSignificance(ci).setAcceptabilityMap(intPreferred));
+		conceptService.update(concept, extProject);
+
+		// 10. International fixes modelling through classification
+		concept = conceptService.find(carId, intMain);
+		concept.getRelationships().iterator().next().setActive(false).updateEffectiveTime();
+		concept.getRelationships().add(new Relationship(ISA, vehicleId).setModuleId(CORE_MODULE));
+		conceptService.update(concept, intMain);
+
+		// 11. Version International
+		codeSystem = codeSystemService.find("SNOMEDCT");
+		codeSystemService.createVersion(codeSystem, 20230228, "20230228");
+
+		// 12. Extension upgrades from January to February
+		codeSystem = codeSystemService.find("SNOMEDCT-TEST");
+		codeSystemUpgradeService.upgrade(null, codeSystem, 20230228, false);
+
+		// 13. Rebase Extension project
+		review = getMergeReviewInCurrentState(extMain, extProject);
+		conflicts = reviewService.getMergeReviewConflictingConcepts(review.getId(), new ArrayList<>());
+
+		// 14. Assert
+		assertEquals(1, conflicts.size());
+		assertTrue(conflicts.iterator().next().isTargetConceptVersionBehind());
+	}
+
+	@Test
+	public void testInternationalVersioningDoesNotCauseExtensionToBeFlaggedAsBehind() throws ServiceException, InterruptedException {
+		String intMain = "MAIN";
+		String extMain = "MAIN/SNOMEDCT-TEST";
+		Map<String, String> intPreferred = Map.of(US_EN_LANG_REFSET, descriptionAcceptabilityNames.get(PREFERRED), GB_EN_LANG_REFSET, descriptionAcceptabilityNames.get(PREFERRED));
+		Map<String, String> intAcceptable = Map.of(US_EN_LANG_REFSET, descriptionAcceptabilityNames.get(PREFERRED), GB_EN_LANG_REFSET, descriptionAcceptabilityNames.get(ACCEPTABLE));
+		String ci = "CASE_INSENSITIVE";
+		Concept concept;
+		Description description;
+		CodeSystem codeSystem;
+		List<ReferenceSetMember> members;
+		ReferenceSetMember member;
+		MergeReview review;
+		Collection<MergeReviewConceptVersions> conflicts;
+
+		// 1. Create International Concepts
+		concept = new Concept()
+				.addDescription(new Description("Vehicle (vehicle)").setTypeId(FSN).setCaseSignificance(ci).setAcceptabilityMap(intPreferred))
+				.addDescription(new Description("Vehicle").setTypeId(SYNONYM).setCaseSignificance(ci).setAcceptabilityMap(intPreferred))
+				.addRelationship(new Relationship(ISA, SNOMEDCT_ROOT).setModuleId(CORE_MODULE));
+		concept = conceptService.create(concept, intMain);
+		String vehicleId = concept.getConceptId();
+
+		// 2. Version International
+		codeSystem = codeSystemService.find("SNOMEDCT");
+		codeSystemService.createVersion(codeSystem, 20220131, "20220131");
+
+		// 3. Create Extension
+		codeSystemService.createCodeSystem(new CodeSystem("SNOMEDCT-TEST", extMain));
+		concept = conceptService.create(
+				new Concept()
+						.addDescription(new Description("Extension maintained module").setTypeId(FSN).setCaseSignificance(ci).setAcceptabilityMap(intPreferred))
+						.addDescription(new Description("Extension maintained").setTypeId(SYNONYM).setCaseSignificance(ci).setAcceptabilityMap(intPreferred))
+						.addDescription(new Description("Extension nrc").setTypeId(SYNONYM).setCaseSignificance(ci).setAcceptabilityMap(intAcceptable))
+						.addAxiom(new Relationship(ISA, MODULE)),
+				extMain
+		);
+		String extModule = concept.getConceptId();
+		branchService.updateMetadata(extMain, Map.of(Config.DEFAULT_MODULE_ID_KEY, extModule));
+
+		// 4. Create Extension projects
+		String extProjectA = "MAIN/SNOMEDCT-TEST/projectA";
+		String extProjectB = "MAIN/SNOMEDCT-TEST/projectB";
+		String extProjectC = "MAIN/SNOMEDCT-TEST/projectC";
+		branchService.create(extProjectA);
+		branchService.create(extProjectB);
+		branchService.create(extProjectC);
+
+		// 5. International adds a synonym
+		concept = conceptService.find(vehicleId, intMain);
+		concept.addDescription(new Description("Motorised vehicle").setTypeId(SYNONYM).setCaseSignificance(ci).setAcceptabilityMap(intPreferred));
+		conceptService.update(concept, intMain);
+
+		// 6. Version International
+		codeSystem = codeSystemService.find("SNOMEDCT");
+		codeSystemService.createVersion(codeSystem, 20230228, "20230228");
+
+		// 7. Extension upgrades from January to February
+		codeSystem = codeSystemService.find("SNOMEDCT-TEST");
+		codeSystemUpgradeService.upgrade(null, codeSystem, 20230228, false);
+
+		// 8. Rebase Extension project A
+		review = getMergeReviewInCurrentState(extMain, extProjectA);
+		conflicts = reviewService.getMergeReviewConflictingConcepts(review.getId(), new ArrayList<>());
+		assertEquals(0, conflicts.size());
+		reviewService.applyMergeReview(review);
+
+		// 9. Rebase Extension project B
+		review = getMergeReviewInCurrentState(extMain, extProjectB);
+		conflicts = reviewService.getMergeReviewConflictingConcepts(review.getId(), new ArrayList<>());
+		assertEquals(0, conflicts.size());
+		reviewService.applyMergeReview(review);
+
+		// 10. Extension adds translation on project A
+		concept = conceptService.find(vehicleId, extProjectA);
+		concept.addDescription(new Description("Fordon (vehicle)").setTypeId(SYNONYM).setCaseSignificance(ci).setAcceptabilityMap(intPreferred));
+		conceptService.update(concept, extProjectA);
+
+		// 11. Extension adds synonym on project B
+		concept = conceptService.find(vehicleId, extProjectB);
+		concept.addDescription(new Description("Motoriserat fordon").setTypeId(FSN).setCaseSignificance(ci).setAcceptabilityMap(intPreferred));
+		conceptService.update(concept, extProjectB);
+
+		// 12. Extension adds synonym on project C
+		concept = conceptService.find(vehicleId, extProjectC);
+		concept.addDescription(new Description("Bil").setTypeId(SYNONYM).setCaseSignificance(ci).setAcceptabilityMap(intPreferred));
+		conceptService.update(concept, extProjectC);
+
+		// 13. Extension promotes project A to CodeSystem
+		branchMergeService.mergeBranchSync(extProjectA, extMain, Collections.emptySet());
+
+		// 14. Extension rebases project B, which is not a version behind
+		review = getMergeReviewInCurrentState(extMain, extProjectB);
+		conflicts = reviewService.getMergeReviewConflictingConcepts(review.getId(), new ArrayList<>());
+		assertEquals(1, conflicts.size()); // Both projects have added translations
+
+		for (MergeReviewConceptVersions conflict : conflicts) {
+			assertFalse(conflict.isTargetConceptVersionBehind());
+			reviewService.persistManuallyMergedConcept(review, Long.parseLong(vehicleId), conflict.getAutoMergedConcept());
+		}
+
+		reviewService.applyMergeReview(review);
+
+		// 15. Extension versions
+		codeSystem = codeSystemService.find("SNOMEDCT-TEST");
+		codeSystemService.createVersion(codeSystem, 20230331, "20230331");
+
+		// 16. Extension rebases project C, which is now a version behind
+		review = getMergeReviewInCurrentState(extMain, extProjectC);
+		conflicts = reviewService.getMergeReviewConflictingConcepts(review.getId(), new ArrayList<>());
+		assertEquals(1, conflicts.size());
+
+		for (MergeReviewConceptVersions conflict : conflicts) {
+			assertTrue(conflict.isTargetConceptVersionBehind());
+		}
+	}
+
 	private void activateDescription(Concept concept, String descriptionId, String branchPath) throws ServiceException {
 		Description description = getDescriptionById(concept, descriptionId);
 		description.setActive(true);
@@ -4105,6 +4335,7 @@ class BranchMergeServiceTest extends AbstractTest {
 		assertTrue(conflicts.size() != 0);
 		// Doesn't matter which column is selected
 		for (MergeReviewConceptVersions conflict : conflicts) {
+			assertTrue(conflict.isTargetConceptVersionBehind());
 			reviewService.persistManuallyMergedConcept(review, Long.parseLong(carId), conflict.getAutoMergedConcept());
 		}
 		reviewService.applyMergeReview(review);
