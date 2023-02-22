@@ -193,7 +193,7 @@ class AutoMergerTest {
         assertNull(result.getEffectiveTimeI());
         assertEquals(20220131, result.getReleasedEffectiveTime());
         assertTrue(result.isReleased());
-        assertTrue(result.isActive());
+        assertFalse(result.isActive());
         assertEquals(MODULE_B, result.getModuleId());
         assertEquals(FULLY_DEFINED, result.getDefinitionStatusId());
         assertEquals(sourceConcept.getReleaseHash(), result.getReleaseHash());
@@ -307,7 +307,7 @@ class AutoMergerTest {
 
         // Assert components
         assertEquals(1, result.getDescriptions().size());
-        assertTrue(result.getDescription("101").isActive());
+        assertFalse(result.getDescription("101").isActive());
         assertNull(result.getDescription("101").getEffectiveTimeI());
         assertNotNull(result.getDescription("101").getReleasedEffectiveTime());
         assertTrue(result.getDescription("101").isReleased());
@@ -332,7 +332,7 @@ class AutoMergerTest {
 
         // Assert components
         assertEquals(1, result.getDescriptions().size());
-        assertTrue(result.getDescription("101").isActive());
+        assertFalse(result.getDescription("101").isActive());
         assertNull(result.getDescription("101").getEffectiveTimeI());
         assertNotNull(result.getDescription("101").getReleasedEffectiveTime());
         assertTrue(result.getDescription("101").isReleased());
@@ -361,7 +361,7 @@ class AutoMergerTest {
         assertNull(result.getDescription("101").getEffectiveTimeI());
         assertNotNull(result.getDescription("101").getReleasedEffectiveTime());
         assertTrue(result.getDescription("101").isReleased());
-        assertTrue(result.getDescription("101").isActive());
+        assertFalse(result.getDescription("101").isActive());
         assertEquals(MODULE_A, result.getDescription("101").getModuleId());
         assertEquals("100", result.getDescription("101").getConceptId());
         assertEquals("en", result.getDescription("101").getLanguageCode());
@@ -387,7 +387,7 @@ class AutoMergerTest {
         assertNull(result.getDescription("101").getEffectiveTimeI());
         assertNotNull(result.getDescription("101").getReleasedEffectiveTime());
         assertTrue(result.getDescription("101").isReleased());
-        assertTrue(result.getDescription("101").isActive());
+        assertFalse(result.getDescription("101").isActive());
         assertEquals(MODULE_A, result.getDescription("101").getModuleId());
         assertEquals("100", result.getDescription("101").getConceptId());
         assertEquals("en", result.getDescription("101").getLanguageCode());
@@ -715,7 +715,7 @@ class AutoMergerTest {
         assertNull(result.getRelationship("102").getEffectiveTimeI());
         assertEquals(20220131, result.getRelationship("102").getReleasedEffectiveTime());
         assertTrue(result.getRelationship("102").isReleased());
-        assertTrue(result.getRelationship("102").isActive());
+        assertFalse(result.getRelationship("102").isActive());
         assertEquals(0, result.getRelationship("102").getRelationshipGroup());
         assertEquals(MODULE_B, result.getRelationship("102").getModuleId());
         assertEquals("100", result.getRelationship("102").getSourceId());
@@ -1153,14 +1153,14 @@ class AutoMergerTest {
 
         // Assert components
         assertEquals(AXIOM_ID, result.getClassAxioms().iterator().next().getAxiomId());
-        assertTrue(result.getClassAxioms().iterator().next().isActive());
+        assertFalse(result.getClassAxioms().iterator().next().isActive());
         assertTrue(result.getClassAxioms().iterator().next().isReleased());
         assertEquals(FULLY_DEFINED, result.getClassAxioms().iterator().next().getDefinitionStatusId());
         assertEquals(MODULE_B, result.getClassAxioms().iterator().next().getModuleId());
         assertEquals(1, result.getClassAxioms().iterator().next().getRelationships().size());
 
         assertEquals(AXIOM_ID, result.getClassAxioms().iterator().next().getReferenceSetMember().getMemberId());
-        assertTrue(result.getClassAxioms().iterator().next().getReferenceSetMember().isActive());
+        assertFalse(result.getClassAxioms().iterator().next().getReferenceSetMember().isActive());
         assertEquals(MODULE_B, result.getClassAxioms().iterator().next().getReferenceSetMember().getModuleId());
         assertEquals(20220131, result.getClassAxioms().iterator().next().getReferenceSetMember().getReleasedEffectiveTime());
         assertNull(result.getClassAxioms().iterator().next().getReferenceSetMember().getEffectiveTimeI());
@@ -1557,7 +1557,7 @@ class AutoMergerTest {
                 result.getDescription("101").getLangRefsetMember(GB_PREFERRED_MEMBER_ID).getReleaseHash()
         );
         assertTrue(result.getDescription("101").getLangRefsetMember(GB_PREFERRED_MEMBER_ID).isReleased());
-        assertTrue(result.getDescription("101").getLangRefsetMember(GB_PREFERRED_MEMBER_ID).isActive());
+        assertFalse(result.getDescription("101").getLangRefsetMember(GB_PREFERRED_MEMBER_ID).isActive());
         assertEquals(MODULE_B, result.getDescription("101").getLangRefsetMember(GB_PREFERRED_MEMBER_ID).getModuleId());
         assertEquals(GB_EN_LANG_REFSET, result.getDescription("101").getLangRefsetMember(GB_PREFERRED_MEMBER_ID).getRefsetId());
         assertEquals("100", result.getDescription("101").getLangRefsetMember(GB_PREFERRED_MEMBER_ID).getConceptId());
@@ -1653,7 +1653,7 @@ class AutoMergerTest {
                 result.getDescription("101").getLangRefsetMember(GB_PREFERRED_MEMBER_ID).getReleaseHash()
         );
         assertTrue(result.getDescription("101").getLangRefsetMember(GB_PREFERRED_MEMBER_ID).isReleased());
-        assertTrue(result.getDescription("101").getLangRefsetMember(GB_PREFERRED_MEMBER_ID).isActive());
+        assertFalse(result.getDescription("101").getLangRefsetMember(GB_PREFERRED_MEMBER_ID).isActive());
         assertEquals(MODULE_A, result.getDescription("101").getLangRefsetMember(GB_PREFERRED_MEMBER_ID).getModuleId());
         assertEquals(GB_EN_LANG_REFSET, result.getDescription("101").getLangRefsetMember(GB_PREFERRED_MEMBER_ID).getRefsetId());
         assertEquals("100", result.getDescription("101").getLangRefsetMember(GB_PREFERRED_MEMBER_ID).getConceptId());
