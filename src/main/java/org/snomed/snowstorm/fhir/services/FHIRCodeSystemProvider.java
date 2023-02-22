@@ -26,6 +26,7 @@ import org.snomed.snowstorm.fhir.domain.SearchFilter;
 import org.snomed.snowstorm.fhir.pojo.ConceptAndSystemResult;
 import org.snomed.snowstorm.fhir.pojo.FHIRCodeSystemVersionParams;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import javax.servlet.http.HttpServletRequest;
@@ -44,6 +45,9 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants 
 
 	private static final String PARAM_SYSTEM = "system";
 	private static final String PARAM_FILE = "file";
+
+	@Value("${snowstorm.rest-api.readonly}")
+	private boolean readOnlyMode;
 
 	@Autowired
 	private MultiSearchService snomedMultiSearchService;
@@ -182,6 +186,7 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants 
 
 	@Delete
 	public void deleteCodeSystem(@IdParam IdType id) {
+		FHIRHelper.readOnlyCheck(readOnlyMode);
 		CodeSystem codeSystem = getCodeSystem(id);
 		if (FHIRHelper.isSnomedUri(codeSystem.getUrl())) {
 			throw FHIRHelper.exception("Please use the native API to maintain SNOMED CT code systems.",
@@ -366,6 +371,8 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants 
 			@OperationParam(name= PARAM_SYSTEM, min = 1, typeName = "uri") IPrimitiveType<String> theCodeSystemUrl,
 			@OperationParam(name= PARAM_FILE, min = 1, max = OperationParam.MAX_UNLIMITED, typeName = "attachment") List<ICompositeType> theFiles,
 			RequestDetails theRequestDetails) {
+
+		FHIRHelper.readOnlyCheck(readOnlyMode);
 
 		if (theCodeSystemUrl.getValueAsString().startsWith(ITermLoaderSvc.SCT_URI)) {
 			throw exception("Uploading a SNOMED-CT code system using the FHIR API is not supported. " +

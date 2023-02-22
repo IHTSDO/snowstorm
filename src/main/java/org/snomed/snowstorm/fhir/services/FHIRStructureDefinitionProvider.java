@@ -14,6 +14,7 @@ import org.snomed.snowstorm.fhir.config.FHIRConstants;
 import org.snomed.snowstorm.fhir.domain.*;
 import org.snomed.snowstorm.fhir.repositories.FHIRStructureDefinitionRepository;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import ca.uhn.fhir.rest.annotation.*;
@@ -27,7 +28,10 @@ import static org.snomed.snowstorm.fhir.services.FHIRHelper.exception;
 
 @Component
 public class FHIRStructureDefinitionProvider implements IResourceProvider, FHIRConstants {
-	
+
+	@Value("${snowstorm.rest-api.readonly}")
+	private boolean readOnlyMode;
+
 	@Autowired
 	private FHIRStructureDefinitionRepository structureDefinitionRepository;
 	
@@ -42,6 +46,7 @@ public class FHIRStructureDefinitionProvider implements IResourceProvider, FHIRC
 	
 	@Create
 	public MethodOutcome createStructureDefinition(@IdParam IdType id, @ResourceParam StructureDefinition sd) {
+		FHIRHelper.readOnlyCheck(readOnlyMode);
 		MethodOutcome outcome = new MethodOutcome();
 		validateId(id, sd);
 		
@@ -56,6 +61,7 @@ public class FHIRStructureDefinitionProvider implements IResourceProvider, FHIRC
 
 	@Update
 	public MethodOutcome updateStructureDefinition(@IdParam IdType id, @ResourceParam StructureDefinition sd) {
+		FHIRHelper.readOnlyCheck(readOnlyMode);
 		try {
 			return createStructureDefinition(id, sd);
 		} catch (SnowstormFHIRServerResponseException e) {
@@ -65,6 +71,7 @@ public class FHIRStructureDefinitionProvider implements IResourceProvider, FHIRC
 	
 	@Delete
 	public void deleteStructureDefinition(@IdParam IdType id) {
+		FHIRHelper.readOnlyCheck(readOnlyMode);
 		structureDefinitionRepository.deleteById(id.getIdPart());
 	}
 	

@@ -7,6 +7,8 @@ import org.apache.commons.lang3.StringUtils;
 import org.hl7.fhir.r4.model.CodeSystem;
 import org.hl7.fhir.r4.model.*;
 import org.hl7.fhir.r4.model.OperationOutcome.IssueType;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.services.DialectConfigurationService;
 import org.snomed.snowstorm.core.pojo.LanguageDialect;
@@ -45,6 +47,8 @@ public class FHIRHelper implements FHIRConstants {
 	private FhirContext fhirContext;
 
 	public static final Sort MEMBER_SORT = Sort.sort(ReferenceSetMember.class).by(ReferenceSetMember::getMemberId).descending();
+
+	private static final Logger logger = LoggerFactory.getLogger(FHIRHelper.class);
 	
 	public static boolean isSnomedUri(String uri) {
 		return uri != null && (uri.startsWith(SNOMED_URI) || uri.startsWith(SNOMED_URI_UNVERSIONED));
@@ -120,6 +124,13 @@ public class FHIRHelper implements FHIRConstants {
 
 	public static String toString(UriType url) {
 		return url != null ? url.getValueAsString() : null;
+	}
+
+	public static void readOnlyCheck(boolean readOnlyMode) {
+		if (readOnlyMode) {
+			logger.info("Write operation not permitted, the server is in read-only mode.");
+			throw exception("Write operation not permitted.", IssueType.FORBIDDEN, 401);
+		}
 	}
 
 	public List<LanguageDialect> getLanguageDialects(List<String> designations, String acceptLanguageHeader) {
