@@ -229,11 +229,6 @@ public class AutoMerger {
         mergedConcept.setReleased(getValueChanged(targetConceptOld.isReleased(), targetConceptNew.isReleased(), sourceConcept.isReleased()));
 
         mergedConcept.updateEffectiveTime();
-
-        // If changed, ensure component is re-activated unless the RHS had the inactivation.
-        if (mergedConcept.getEffectiveTime() == null && !sourceConcept.isActive() && targetConceptNew.isActive()) {
-            mergedConcept.setActive(true);
-        }
     }
 
     private void reapplyDescriptionChanges(Map<String, Description> sourceDescriptions, Map<String, Description> targetDescriptionsOld, Map<String, Description> targetDescriptionsNew, Set<String> changedDescriptionIds, Concept mergedConcept) {
@@ -271,10 +266,6 @@ public class AutoMerger {
             }
 
             mergedDescription.updateEffectiveTime();
-            // If changed, ensure component is re-activated unless the RHS had the inactivation.
-            if (mergedDescription.getEffectiveTime() == null && sourceDescription != null && !sourceDescription.isActive() && targetDescriptionNew.isActive()) {
-                mergedDescription.setActive(true);
-            }
             mergedDescriptions.put(changedDescriptionId, mergedDescription);
         }
 
@@ -338,10 +329,6 @@ public class AutoMerger {
             }
 
             mergedRelationship.updateEffectiveTime();
-            // If changed, ensure component is re-activated unless the RHS had the inactivation.
-            if (mergedRelationship.getEffectiveTime() == null && sourceRelationship != null && !sourceRelationship.isActive() && targetRelationshipNew.isActive()) {
-                mergedRelationship.setActive(true);
-            }
             mergedRelationships.put(changedRelationshipId, mergedRelationship);
         }
 
@@ -416,11 +403,6 @@ public class AutoMerger {
             }
 
             mergedReferenceSetMember.updateEffectiveTime();
-            // If changed, ensure component is re-activated unless the RHS had the inactivation.
-            if (mergedReferenceSetMember.getEffectiveTime() == null && sourceAxiom != null && sourceAxiom.getReferenceSetMember() != null && !sourceAxiom.getReferenceSetMember().isActive() && targetAxiomNew.isActive()) {
-                mergedReferenceSetMember.setActive(true);
-                mergedAxiom.setActive(true);
-            }
             mergedAxiom.setReferenceSetMember(mergedReferenceSetMember);
             mergedAxioms.put(changedAxiomId, mergedAxiom);
         }
@@ -478,10 +460,6 @@ public class AutoMerger {
             }
 
             mergedReferenceSetMember.updateEffectiveTime();
-            // If changed, ensure component is re-activated unless the RHS had the inactivation.
-            if (mergedReferenceSetMember.getEffectiveTime() == null && sourceReferenceSetMember != null && !sourceReferenceSetMember.isActive() && targetReferenceSetMemberNew.isActive()) {
-                mergedReferenceSetMember.setActive(true);
-            }
             mergedReferenceSetMembers.put(changedLangMemberId, mergedReferenceSetMember);
         }
 
