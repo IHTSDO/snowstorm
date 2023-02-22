@@ -18,6 +18,7 @@ import org.snomed.snowstorm.fhir.domain.SearchFilter;
 import org.snomed.snowstorm.fhir.pojo.ValueSetExpansionParameters;
 import org.snomed.snowstorm.fhir.repositories.FHIRValueSetRepository;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Component;
@@ -35,6 +36,9 @@ import static org.snomed.snowstorm.fhir.services.FHIRHelper.exception;
 
 @Component
 public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
+
+	@Value("${snowstorm.rest-api.readonly}")
+	private boolean readOnlyMode;
 
 	@Autowired
 	private FHIRValueSetRepository valuesetRepository;
@@ -58,6 +62,7 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 
 	@Create()
 	public MethodOutcome createValueSet(@IdParam IdType id, @ResourceParam ValueSet vs) {
+		FHIRHelper.readOnlyCheck(readOnlyMode);
 		MethodOutcome outcome = new MethodOutcome();
 		FHIRValueSet savedVs = valueSetService.createOrUpdateValueset(vs);
 		outcome.setId(new IdType("ValueSet", savedVs.getId(), vs.getVersion()));
@@ -66,6 +71,7 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 
 	@Update
 	public MethodOutcome updateValueSet(@IdParam IdType id, @ResourceParam ValueSet vs) {
+		FHIRHelper.readOnlyCheck(readOnlyMode);
 		try {
 			return createValueSet(id, vs);
 		} catch (SnowstormFHIRServerResponseException e) {
@@ -79,6 +85,7 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 			@OptionalParam(name="url") UriType url,
 			@OptionalParam(name="version") String version) {
 
+		FHIRHelper.readOnlyCheck(readOnlyMode);
 		if (id != null) {
 			valuesetRepository.deleteById(id.getIdPart());
 		} else {
