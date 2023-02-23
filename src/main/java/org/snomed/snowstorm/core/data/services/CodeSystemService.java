@@ -40,6 +40,7 @@ import org.springframework.data.util.Pair;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 
+import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
@@ -272,6 +273,10 @@ public class CodeSystemService {
 			return Integer.parseInt(dateString);
 		}
 		return null;
+	}
+
+	private String getHyphenatedEffectiveTimeFromVersionBranch(String branchPath) {
+		return branchPath.substring(branchPath.lastIndexOf('/') + 1).trim();
 	}
 
 	private String getReleaseBranchPath(String branchPath, Integer effectiveDate) {
@@ -621,5 +626,53 @@ public class CodeSystemService {
 			branchMetadata.putString(PREVIOUS_DEPENDENCY_PACKAGE, parentCodeSystemVersion.getReleasePackage());
 		}
 		branchService.updateMetadata(branchPath, branchMetadata);
+	}
+
+	private String epochToImportDate(long epoch) {
+		Date date = new Date(epoch);
+
+		return new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss").format(date);
+	}
+
+	public Branch findVersionBranchByCodeSystemAndBaseTimestamp(CodeSystem codeSystem, long baseTimestamp) {
+		if (codeSystem == null || baseTimestamp == 0L) {
+			return null;
+		}
+
+		SearchHits<Branch> queryBranch = elasticsearchOperations.search(
+				new NativeSearchQueryBuilder()
+						.withQuery(
+								boolQuery()
+										.must(wildcardQuery("path", codeSystem.getBranchPath() + "/*-*-*"))
+										.must(termQuery("base", baseTimestamp))
+										.mustNot(existsQuery("end"))
+						)
+						.withPageable(PageRequest.of(0, 1))
+						.build(), Branch.class
+		);
+
+		if (queryBranch.isEmpty()) {
+			return null;
+		}
+
+		Branch releaseBranch = queryBranch.getSearchHit(0).getContent();
+		SearchHits<CodeSystemVersion> codeSystemVersionQuery = elasticsearchOperations.search(
+				new NativeSearchQueryBuilder()
+						.withQuery(
+								boolQuery()
+										.must(termQuery(CodeSystemVersion.Fields.IMPORT_DATE, epochToImportDate(releaseBranch.getHeadTimestamp())))
+										.must(termQuery(CodeSystemVersion.Fields.VERSION, getHyphenatedEffectiveTimeFromVersionBranch(releaseBranch.getPath())))
+										.mustNot(existsQuery("end"))
+						)
+						.withPageable(PageRequest.of(0, 1))
+						.build(), CodeSystemVersion.class
+		);
+
+		// If no corresponding matches, then releaseBranch is not actually a release branch.
+		if (codeSystemVersionQuery.isEmpty()) {
+			return null;
+		}
+
+		return releaseBranch;
 	}
 }
