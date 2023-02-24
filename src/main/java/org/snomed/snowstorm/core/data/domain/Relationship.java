@@ -442,12 +442,14 @@ public class Relationship extends SnomedComponent<Relationship> {
 
 		if (relationship.getDestinationId() != null) {
 			setDestinationId(relationship.getDestinationId());
+			setTarget(relationship.getTarget());
 		} else {
 			setValue(relationship.getValue());
 		}
 
 		setRelationshipGroup(relationship.getRelationshipGroup());
 		setTypeId(relationship.getTypeId());
+		setType(relationship.getType());
 		setCharacteristicTypeId(relationship.getCharacteristicTypeId());
 		setModifier(relationship.getModifier());
 
