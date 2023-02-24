@@ -4493,6 +4493,73 @@ class BranchMergeServiceTest extends AbstractTest {
 		}
 	}
 
+	@Test
+	void testRebasingReturnsConceptMinis() throws ServiceException, InterruptedException {
+		String intMain = "MAIN";
+		Map<String, String> intPreferred = Map.of(US_EN_LANG_REFSET, descriptionAcceptabilityNames.get(PREFERRED), GB_EN_LANG_REFSET, descriptionAcceptabilityNames.get(PREFERRED));
+		Map<String, String> intAcceptable = Map.of(US_EN_LANG_REFSET, descriptionAcceptabilityNames.get(PREFERRED), GB_EN_LANG_REFSET, descriptionAcceptabilityNames.get(ACCEPTABLE));
+		String ci = "CASE_INSENSITIVE";
+		Concept concept;
+		CodeSystem codeSystem;
+		MergeReview review;
+		Collection<MergeReviewConceptVersions> conflicts;
+
+		// 1. Create Project
+		String projectA = "MAIN/projectA";
+		branchService.create(projectA);
+
+		// 2. Create Concept
+		concept = new Concept()
+				.addDescription(new Description("Vehicle (vehicle)").setTypeId(FSN).setCaseSignificance(ci).setAcceptabilityMap(intPreferred))
+				.addDescription(new Description("Vehicle").setTypeId(SYNONYM).setCaseSignificance(ci).setAcceptabilityMap(intPreferred))
+				.addAxiom(new Relationship(ISA, SNOMEDCT_ROOT))
+				.addRelationship(new Relationship(ISA, SNOMEDCT_ROOT))
+				.setModuleId(MODEL_MODULE);
+		concept = conceptService.create(concept, projectA);
+		String vehicleId = concept.getConceptId();
+
+		// 3. Create Task A
+		String taskA = "MAIN/projectA/taskA";
+		branchService.create(taskA);
+
+		// 4. On Task A, change the Concept to FD.
+		concept = conceptService.find(vehicleId, taskA);
+		for (Axiom classAxiom : concept.getClassAxioms()) {
+			classAxiom.setDefinitionStatusId(FULLY_DEFINED);
+			classAxiom.getRelationships().add(new Relationship("272741003", "24028007"));
+		}
+		concept.setDefinitionStatusId(FULLY_DEFINED);
+		conceptService.update(concept, taskA);
+
+		// 5. Promote Project to CodeSystem
+		branchMergeService.mergeBranchSync(projectA, intMain, Collections.emptySet());
+
+		// 6 Version
+		codeSystem = codeSystemService.find("SNOMEDCT");
+		codeSystemService.createVersion(codeSystem, 20220228, "20220228");
+
+		// 7. Rebase Project
+		review = getMergeReviewInCurrentState(intMain, projectA);
+		conflicts = reviewService.getMergeReviewConflictingConcepts(review.getId(), new ArrayList<>());
+		assertEquals(0, conflicts.size());
+		reviewService.applyMergeReview(review);
+
+		// 8. Rebase Task A
+		review = getMergeReviewInCurrentState(projectA, taskA);
+		conflicts = reviewService.getMergeReviewConflictingConcepts(review.getId(), new ArrayList<>());
+		assertEquals(1, conflicts.size());
+
+		// 9. Assert
+		for (MergeReviewConceptVersions conflict : conflicts) {
+			Concept autoMergedConcept = conflict.getAutoMergedConcept();
+
+			for (Relationship relationship : autoMergedConcept.getRelationships()) {
+				assertNotNull(relationship.getType());
+				assertNotNull(relationship.getTarget());
+			}
+		}
+	}
+
 	private void assertNotVersioned(Description description) {
 		assertNull(description.getEffectiveTime());
 		assertFalse(description.isReleased());
