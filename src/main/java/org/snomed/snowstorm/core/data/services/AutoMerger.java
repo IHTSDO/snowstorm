@@ -310,21 +310,25 @@ public class AutoMerger {
 
                     if (targetRelationshipNew.getDestinationId() != null) {
                         mergedRelationship.setDestinationId(getValueChanged(targetRelationshipOld.getDestinationId(), targetRelationshipNew.getDestinationId(), sourceRelationship.getDestinationId()));
+                        mergedRelationship.setTarget(getValueChanged(targetRelationshipOld.getTarget(), targetRelationshipNew.getTarget(), sourceRelationship.getTarget()));
                     } else {
                         mergedRelationship.setValue(getValueChanged(targetRelationshipOld.getValue(), targetRelationshipNew.getValue(), sourceRelationship.getValue()));
                     }
 
                     mergedRelationship.setTypeId(getValueChanged(targetRelationshipOld.getTypeId(), targetRelationshipNew.getTypeId(), sourceRelationship.getTypeId()));
+                    mergedRelationship.setType(sourceRelationship.getType());
                 } else {
                     mergedRelationship.setSourceId(sourceRelationship.getSourceId());
 
                     if (targetRelationshipNew.getDestinationId() != null) {
                         mergedRelationship.setDestinationId(sourceRelationship.getDestinationId());
+                        mergedRelationship.setTarget(getValueChanged(targetRelationshipOld.getTarget(), targetRelationshipNew.getTarget(), sourceRelationship.getTarget()));
                     } else {
                         mergedRelationship.setValue(sourceRelationship.getValue());
                     }
 
                     mergedRelationship.setTypeId(sourceRelationship.getTypeId());
+                    mergedRelationship.setType(sourceRelationship.getType());
                 }
             }
 
@@ -516,6 +520,16 @@ public class AutoMerger {
 
     // valueDefault is coming from Source and may have newer/different value than valueOld.
     private Integer getValueChanged(Integer valueOld, Integer valueNew, Integer valueDefault) {
+        boolean valueHasChanged = !Objects.equals(valueOld, valueNew);
+        if (valueHasChanged) {
+            return valueNew;
+        } else {
+            return valueDefault;
+        }
+    }
+
+    // valueDefault is coming from Source and may have newer/different value than valueOld.
+    private ConceptMini getValueChanged(ConceptMini valueOld, ConceptMini valueNew, ConceptMini valueDefault) {
         boolean valueHasChanged = !Objects.equals(valueOld, valueNew);
         if (valueHasChanged) {
             return valueNew;
