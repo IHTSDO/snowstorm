@@ -429,6 +429,7 @@ public class CodeSystemService {
 		codeSystem.setLanguages(cachedCodeSystem.getLanguages());
 		codeSystem.setModules(cachedCodeSystem.getModules());
 		codeSystem.setDependantVersionEffectiveTime(cachedCodeSystem.getDependantVersionEffectiveTime());
+		codeSystem.setUriModuleId(cachedCodeSystem.getUriModuleId());
 	}
 
 	private synchronized void doJoinContentInformation(CodeSystem codeSystem, String branchPath, Branch workingBranch) {
@@ -515,7 +516,13 @@ public class CodeSystemService {
 		if (codeSystem.getUriModuleId() == null) {
 			// Populate moduleId
 			String uriModuleId = Concepts.CORE_MODULE;
-
+			Optional<CodeSystemDefaultConfiguration> defaultConfiguration = codeSystemDefaultConfigurationService.getConfigurations().stream()
+					.filter(config -> config.getShortName().equals(codeSystem.getShortName()))
+					.findFirst();
+			if (defaultConfiguration.isPresent()) {
+				uriModuleId = defaultConfiguration.get().getModule();
+			}
+			codeSystem.setUriModuleId(uriModuleId);
 		}
 
 		// Add to cache
