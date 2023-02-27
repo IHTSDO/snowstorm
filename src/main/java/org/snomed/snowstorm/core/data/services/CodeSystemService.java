@@ -131,6 +131,18 @@ public class CodeSystemService {
 		if (repository.findById(SNOMEDCT).isEmpty()) {
 			createCodeSystem(new CodeSystem(SNOMEDCT, MAIN));
 		}
+		// Set CodeSystem URI modules
+		Iterable<CodeSystem> codeSystems = repository.findAll();
+		for (CodeSystem codeSystem : codeSystems) {
+			if (codeSystem.isPostcoordinatedNullSafe()) {
+				continue;
+			}
+			String defaultModuleId = codeSystemDefaultConfigurationService.getDefaultModuleId(codeSystem.getShortName());
+			if (!Objects.equals(codeSystem.getUriModuleId(), defaultModuleId)) {
+				codeSystem.setUriModuleId(defaultModuleId);
+				repository.save(codeSystem);
+			}
+		}
 	}
 
 	public void clearCache() {
