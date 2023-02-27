@@ -31,6 +31,7 @@ class FHIRCodeSystemServiceTest extends AbstractFHIRTest {
 	@Test
 	void createUpdate() {
 		CodeSystem codeSystem = new CodeSystem();
+		codeSystem.setTitle("Example");
 		codeSystem.setUrl("http://example-test.com/");
 		// no version
 		FHIRCodeSystemVersion saved = codeSystemService.createUpdate(codeSystem);
@@ -40,11 +41,13 @@ class FHIRCodeSystemServiceTest extends AbstractFHIRTest {
 		// Attempt to change id
 		codeSystem.setId("another");
 		try {
-			codeSystemService.createUpdate(codeSystem);
+			saved = codeSystemService.createUpdate(codeSystem);
 			fail(SHOULD_HAVE_THROWN_EXCEPTION_BEFORE_THIS_LINE);
 		} catch (SnowstormFHIRServerResponseException e) {
 			assertEquals(INVARIANT, e.getIssueCode());
 		}
+
+		codeSystemService.deleteCodeSystemVersion(saved);
 	}
 
 	@Test

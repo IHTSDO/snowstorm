@@ -2,12 +2,17 @@ package org.snomed.snowstorm.fhir.services;
 
 import org.hl7.fhir.r4.model.Parameters;
 import org.junit.jupiter.api.Test;
+import org.snomed.snowstorm.core.data.domain.CodeSystem;
+import org.snomed.snowstorm.core.data.services.CodeSystemService;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.RequestEntity;
 import org.springframework.http.ResponseEntity;
 
 import java.net.URI;
+import java.util.List;
+import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -21,8 +26,11 @@ class FHIRCodeSystemProviderExpressionSupplementTest extends AbstractFHIRTest {
 			"  \"supplements\" : \"http://snomed.info/sct|http://snomed.info/sct/900000000000207008/version/20190131\"\n" +
 			"}\n";
 
+	@Autowired
+	private CodeSystemService codeSystemService;
+
 	@Test
-	void testCreateExpressionRepo() {
+	void testCreateDeleteExpressionRepo() {
 		String url = baseUrl + "/CodeSystem";
 		HttpHeaders headers = new HttpHeaders();
 		headers.add("Content-Type", "application/fhir+json");
@@ -32,7 +40,14 @@ class FHIRCodeSystemProviderExpressionSupplementTest extends AbstractFHIRTest {
 
 		HttpHeaders responseHeaders = response.getHeaders();
 		assertNotNull(responseHeaders.getLocation());
-		assertTrue(responseHeaders.getLocation().toString().contains("/CodeSystem/"));
+		String location = responseHeaders.getLocation().toString();
+		location = location.substring(0, location.indexOf("/_history"));
+		assertTrue(location.contains("/CodeSystem/"));
+
+		List<CodeSystem> all = codeSystemService.findAll();
+		Optional<CodeSystem> first = all.stream().filter(CodeSystem::isPostcoordinatedNullSafe).findFirst();
+		assertTrue(first.isPresent());
+		codeSystemService.deleteCodeSystemAndVersions(first.get(), true);
 	}
 	
 	@Test
