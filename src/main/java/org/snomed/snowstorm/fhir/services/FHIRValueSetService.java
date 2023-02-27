@@ -772,12 +772,12 @@ public class FHIRValueSetService {
 					// expressions, =, true/false
 					if ("concept".equals(property)) {
 						if (op == ValueSet.FilterOperator.ISA) {
-							if (Strings.hasLength(value)) {
+							if (Strings.isEmpty(value)) {
 								throw exception("Value missing for SNOMED CT ValueSet concept 'is-a' filter", OperationOutcome.IssueType.INVALID, 400);
 							}
 							inclusionConstraints.add(new ConceptConstraint().setEcl("<< " + value));
 						} else if (op == ValueSet.FilterOperator.IN) {
-							if (Strings.hasLength(value)) {
+							if (Strings.isEmpty(value)) {
 								throw exception("Value missing for SNOMED CT ValueSet concept 'in' filter.", OperationOutcome.IssueType.INVALID, 400);
 							}
 							// Concept must be in the specified refset
