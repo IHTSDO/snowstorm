@@ -1,4 +1,4 @@
-### FHIR requests to Snowstorm in a format that can be used in some IDE's including Visual Studio Code
+### Example SNOMED CT FHIR requests to Snowstorm, in a format that can be used in some IDE's including Visual Studio Code
 ### See https://github.com/Huachao/vscode-restclient
 
 ### URL to test against (change as appropriate)
@@ -9,7 +9,7 @@ GET {{baseUrl}}/CodeSystem/$lookup
     ?system=http://snomed.info/sct
     &code=404684003
 
-#### R2: Code System Lookup of 427623005 |Obstetric umbilical artery Doppler (procedure)|
+#### R2: Code System Lookup of "427623005 |Obstetric umbilical artery Doppler (procedure)|"
 GET {{baseUrl}}/CodeSystem/$lookup
     ?system=http://snomed.info/sct
     &code=427623005
@@ -21,35 +21,35 @@ GET {{baseUrl}}/CodeSystem/$lookup
     &property=normalForm
     &property=sufficientlyDefined
 
-#### R4: Code System Lookup of 427623005 |Obstetric umbilical artery Doppler (procedure)| in Swedish Extension
+#### R4: Code System Lookup of "427623005 |Obstetric umbilical artery Doppler (procedure)|" in Swedish Extension
 #### This example allows use of language headers to specify Swedish language.
 GET {{baseUrl}}/CodeSystem/$lookup
     ?system=http://snomed.info/sct
     &version=http://snomed.info/sct/45991000052106
     &code=427623005
-Accept-Language: sv
+    &displayLanguage=sv
 
-#### R5: Check if 195967001 |Asthma (disorder)| is a type of 50043002 |Disorder of respiratory system (disorder)| in the January 2020 International version
+#### R5: Check if "195967001 |Asthma (disorder)|" is a type of "50043002 |Disorder of respiratory system (disorder)|" in the January 2020 International version
 GET {{baseUrl}}/CodeSystem/$subsumes
     ?system=http://snomed.info/sct
     &version=http://snomed.info/sct/900000000000207008/version/20220131
     &codeA=50043002
     &codeB=195967001
 
-#### R6: Expansion of an intensionally defined value set using ECL (limited to 10 results)
+#### R6: Expansion of an implicit value set using ECL (limited to 10 results) - see [https://www.hl7.org/fhir/snomedct.html#implicit]
 GET {{baseUrl}}/ValueSet/$expand
     ?url=http://snomed.info/sct?fhir_vs=ecl/<<27624003
     &count=10
 
-#### R7: Expansion of an intensionally defined value set using ECL against a specific edition/version
+#### R7: Expansion of an implicit value set using ECL against a specific edition/version
 GET {{baseUrl}}/ValueSet/$expand
     ?url=http://snomed.info/sct/900000000000207008/version/20220131?fhir_vs=ecl/<<27624003
 
-#### R8: Expansion of an intensionally defined value set using ISA
+#### R8: Expansion of an implicit value set using ISA
 GET {{baseUrl}}/ValueSet/$expand
     ?url=http://snomed.info/sct?fhir_vs=isa/27624003
 
-#### R9: Expansion of an intensional value set against the Swedish Edition, including synonyms
+#### R9: Expansion of an implicit value set against the Swedish Edition, including synonyms
 GET {{baseUrl}}/ValueSet/$expand
     ?url=http://snomed.info/sct/45991000052106?fhir_vs=ecl/<<27624003
     &includeDesignations=true
@@ -61,23 +61,23 @@ GET {{baseUrl}}/ValueSet/$expand
     ?url=http://snomed.info/sct?fhir_vs=ecl/<<763158003
     &filter=Aspirin
 
-#### R11: Validate a code against an implicit valueset, also checking display term
+#### R11: Validate a code and term against an implicit value set
 GET {{baseUrl}}/ValueSet/$validate-code
     ?url=http://snomed.info/sct?fhir_vs=ecl/<<34014006
     &code=840539006
     &system=http://snomed.info/sct
     &display=COVID-19
 
-#### R12: Validate a code against an implicit valueset expanded against a specific SNOMED release
+#### R12: Validate a code against an implicit value set expanded against a specific SNOMED release
 GET {{baseUrl}}/ValueSet/$validate-code
     ?url=http://snomed.info/sct/900000000000207008/version/20220131?fhir_vs=ecl/<<34014006
     &code=840539006
     &system=http://snomed.info/sct
 
-#### R13: Refset - list all SNOMED concepts mapped to ICD-O (ECL here is ^446608001 |ICD-O simple map reference set (foundation metadata concept)|)
-#### Note that "^" may need to be URL encoded, to "%5E", for use in a browser
+#### R13: Refset - list all SNOMED concepts mapped to ICD-O ECL here is ^446608001 |ICD-O simple map reference set|
+#### The ECL here is "^446608001 |ICD-O simple map reference set|". The "^" must be URL encoded to "%5E".
 GET {{baseUrl}}/ValueSet/$expand
-    ?url=http://snomed.info/sct?fhir_vs=ecl/^446608001
+    ?url=http://snomed.info/sct?fhir_vs=ecl/%5E446608001
     &count=20
 
 #### R14: Find ICD-10 Map target for 254153009 |Familial expansile osteolysis (disorder)|
@@ -91,3 +91,11 @@ GET {{baseUrl}}/ConceptMap/$translate
     ?code=254153009
     &system=http://snomed.info/sct
     &version=http://snomed.info/sct/900000000000207008/version/20220131
+
+#### R16: Find ICD-10-CM Map target for 254153009 |Familial expansile osteolysis (disorder)|.
+#### The version parameter is required if the US Edition is not the default version on the server.
+GET {{baseUrl}}/ConceptMap/$translate
+    ?code=254153009
+    &system=http://snomed.info/sct
+    &targetsystem=http://hl7.org/fhir/sid/icd-10-cm
+    &version=http://snomed.info/sct/731000124108
