@@ -328,9 +328,14 @@ public class FHIRValueSetService {
 		ValueSet.ValueSetExpansionComponent expansion = new ValueSet.ValueSetExpansionComponent();
 		expansion.setId(UUID.randomUUID().toString());
 		expansion.setTimestamp(new Date());
-		allInclusionVersions.forEach(codeSystemVersion ->
-				expansion.addParameter(new ValueSet.ValueSetExpansionParameterComponent(new StringType("version"))
-						.setValue(new CanonicalType(codeSystemVersion.getCanonical()))));
+		allInclusionVersions.forEach(codeSystemVersion -> {
+				if (codeSystemVersion.getVersion() != null) {
+					expansion.addParameter(new ValueSet.ValueSetExpansionParameterComponent(new StringType("version"))
+							.setValue(new CanonicalType(codeSystemVersion.getCanonical())));
+				}
+			}
+		);
+
 		expansion.addParameter(new ValueSet.ValueSetExpansionParameterComponent(new StringType("displayLanguage")).setValue(new StringType(displayLanguage)));
 		expansion.setContains(conceptsPage.stream().map(concept -> {
 					ValueSet.ValueSetExpansionContainsComponent component = new ValueSet.ValueSetExpansionContainsComponent()
@@ -835,7 +840,7 @@ public class FHIRValueSetService {
 					// [property], =/regex, [value] - not supported
 					// copyright, =, LOINC/3rdParty - not supported
 
-					if (Strings.hasLength(value)) {
+					if (Strings.isEmpty(value)) {
 						throw exception("Value missing for LOINC ValueSet filter", OperationOutcome.IssueType.INVALID, 400);
 					}
 					Set<String> values = op == ValueSet.FilterOperator.IN ? new HashSet<>(Arrays.asList(value.split(","))) : Collections.singleton(value);
