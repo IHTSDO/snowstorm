@@ -54,7 +54,7 @@ GET {{baseUrl}}/ValueSet/$expand
     ?url=http://snomed.info/sct/45991000052106?fhir_vs=ecl/<<27624003
     &includeDesignations=true
     &count=10
-    &designation=sv
+    &displayLanguage=sv
 
 #### R10: Term filtering - ValueSet of all <<763158003 |Medicinal product (product)| containing the word aspirin.  This is not case sensitive.
 GET {{baseUrl}}/ValueSet/$expand
