@@ -68,26 +68,34 @@ public class MultiSearchService implements CommitListener {
 	private MultiBranchCriteria cachedBranchCriteria = null;
 	private LocalDate cacheDate = null;
 
-	public Page<Description> findDescriptions(DescriptionCriteria criteria, String ecl, PageRequest pageRequest) {
-
+	public Page<Description> findDescriptions(DescriptionCriteria criteria, String ecl, PageRequest pageRequest, Set<String> includeBranches) {
+	
+		MultiBranchCriteria branchesQuery = new MultiBranchCriteria("all-released-plus-requested",getBranchesQuery().getTimepoint(),new ArrayList<>(getBranchesQuery().getBranchCriteria()));
+		if (includeBranches != null) {
+			for(String branch : includeBranches) {
+				branchesQuery.getBranchCriteria().add(versionControlHelper.getBranchCriteria(branch));
+			}
+		}
+		
 		if (ecl != null) {
-			// ECL -> conceptIds
-			BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria("MAIN");
-			//MultiBranchCriteria branchesQuery = getBranchesQuery();
-			Page<Long> page = eclQueryService.selectConceptIds(ecl, branchCriteria, true, null, null);
-			criteria.conceptIds(page.getContent());
+			Set<Long> conceptIds = new HashSet<>();
+			for(BranchCriteria branchCriteria : branchesQuery.getBranchCriteria())
+			{
+				conceptIds.addAll(eclQueryService.selectConceptIds(ecl, branchCriteria, true, null, null).getContent());
+			}
+			criteria.conceptIds(conceptIds);
 		}
 
-		SearchHits<Description> searchHits = findDescriptionsHelper(criteria, pageRequest);
+		SearchHits<Description> searchHits = findDescriptionsHelper(criteria, pageRequest,branchesQuery);
 		return new PageImpl<>(searchHits.get().map(SearchHit::getContent).collect(Collectors.toList()), pageRequest, searchHits.getTotalHits());
 	}
 	
 	public PageWithBucketAggregations<Description> findDescriptionsReferenceSets(DescriptionCriteria criteria, PageRequest pageRequest) {
 
 		// all search results are required to determine total refset bucket membership
-		SearchHits<Description> allSearchHits = findDescriptionsHelper(criteria, null);
+		SearchHits<Description> allSearchHits = findDescriptionsHelper(criteria, null, getBranchesQuery());
 		// paged results are required for the list of descriptions returned
-		SearchHits<Description> searchHits = findDescriptionsHelper(criteria, pageRequest);
+		SearchHits<Description> searchHits = findDescriptionsHelper(criteria, pageRequest, getBranchesQuery());
 		
 		List<Aggregation> allAggregations = new ArrayList<>();
 		Set<Long> conceptIds = new HashSet<>();
@@ -109,8 +117,8 @@ public class MultiSearchService implements CommitListener {
 		return PageWithBucketAggregationsFactory.createPage(searchHits, new Aggregations(allAggregations), pageRequest);
 	}
 	
-	private SearchHits<Description> findDescriptionsHelper(DescriptionCriteria criteria, PageRequest pageRequest) {
-		final BoolQueryBuilder branchesQuery = getBranchesQuery().getEntityBranchCriteria(Description.class);
+	private SearchHits<Description> findDescriptionsHelper(DescriptionCriteria criteria, PageRequest pageRequest, MultiBranchCriteria branchCriteria) {
+		final BoolQueryBuilder branchesQuery = branchCriteria.getEntityBranchCriteria(Description.class);
 		final BoolQueryBuilder descriptionQuery = boolQuery()
 				.must(branchesQuery);
 
@@ -181,7 +189,7 @@ public class MultiSearchService implements CommitListener {
 		}
 		return result;
 	}
-
+	
 	private MultiBranchCriteria getBranchesQuery() {
 		LocalDate today = LocalDate.now();
 		if (cachedBranchCriteria == null || !cacheDate.equals(today)) {
@@ -200,8 +208,10 @@ public class MultiSearchService implements CommitListener {
 						}
 						branchCriteriaList.add(branchCriteria);
 					}
+					
 					Date maxTimepoint = branchCriteriaList.stream().map(BranchCriteria::getTimepoint).max(Comparator.naturalOrder()).orElseGet(Date::new);
 					MultiBranchCriteria multiBranchCriteria = new MultiBranchCriteria("all-released", maxTimepoint, branchCriteriaList);
+					
 					long endTime = System.currentTimeMillis();
 					logger.info("Mutisearch branches query took " + (endTime - startTime) + "ms");
 					cachedBranchCriteria = multiBranchCriteria;
