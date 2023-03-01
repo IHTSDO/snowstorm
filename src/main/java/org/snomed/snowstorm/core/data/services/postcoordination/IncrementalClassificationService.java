@@ -1,6 +1,5 @@
 package org.snomed.snowstorm.core.data.services.postcoordination;
 
-import io.kaicode.elasticvc.api.BranchService;
 import org.ihtsdo.otf.resourcemanager.ResourceManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -13,7 +12,6 @@ import org.snomed.otf.owltoolkit.service.SnomedReasonerService;
 import org.snomed.otf.owltoolkit.util.InputStreamSet;
 import org.snomed.snowstorm.config.SnomedReleaseResourceConfiguration;
 import org.snomed.snowstorm.core.data.domain.Concepts;
-import org.snomed.snowstorm.core.data.services.CodeSystemService;
 import org.snomed.snowstorm.core.data.services.ServiceException;
 import org.snomed.snowstorm.core.data.services.postcoordination.model.ComparableAttribute;
 import org.snomed.snowstorm.core.data.services.postcoordination.model.ComparableAttributeGroup;
@@ -45,13 +43,7 @@ public class IncrementalClassificationService {
 	private final Map<String, ClassificationContainer> classificationContainers = new HashMap<>();
 
 	@Autowired
-	private BranchService branchService;
-
-	@Autowired
 	private ExpressionAxiomConversionService expressionAxiomConversionService;
-
-	@Autowired
-	private CodeSystemService codeSystemService;
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
@@ -77,7 +69,9 @@ public class IncrementalClassificationService {
 		logger.info("Equivalent classes: {}", equivalentConceptMap);
 
 		// Create necessary normal form expression from classification results
-		return createNNFExpression(classifiableForm.getExpressionId(), addedStatements, equivalentConceptMap);
+		ComparableExpression nnfExpression = createNNFExpression(classifiableForm.getExpressionId(), addedStatements, equivalentConceptMap);
+		nnfExpression.setDefinitionStatus(classifiableForm.getDefinitionStatus());
+		return nnfExpression;
 	}
 
 	private ComparableExpression createNNFExpression(Long tempExpressionId, Map<Long, Set<Relationship>> addedStatements, Map<Long, Long> equivalentConceptMap) {

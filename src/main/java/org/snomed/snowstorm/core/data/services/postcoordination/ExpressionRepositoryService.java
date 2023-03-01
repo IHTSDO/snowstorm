@@ -8,10 +8,7 @@ import io.kaicode.elasticvc.api.VersionControlHelper;
 import io.kaicode.elasticvc.domain.Commit;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.snomed.languages.scg.domain.model.Attribute;
-import org.snomed.languages.scg.domain.model.AttributeValue;
-import org.snomed.languages.scg.domain.model.DefinitionStatus;
-import org.snomed.languages.scg.domain.model.Expression;
+import org.snomed.languages.scg.domain.model.*;
 import org.snomed.snowstorm.config.Config;
 import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.services.ConceptService;
@@ -37,6 +34,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 import static java.lang.String.format;
@@ -75,7 +73,7 @@ public class ExpressionRepositoryService {
 	@Autowired
 	private QueryService queryService;
 
-	private final Logger logger = LoggerFactory.getLogger(getClass());
+	private static final Logger logger = LoggerFactory.getLogger(ExpressionRepositoryService.class);
 
 	// 1119435002 | Canonical close to user form expression reference set (foundation metadata concept) |
 	// referencedComponentId - a generated SCTID for expression
@@ -247,10 +245,20 @@ public class ExpressionRepositoryService {
 
 				final PostCoordinatedExpression pce;
 
-				ReferenceSetMember foundMember = findCTUExpressionMember(canonicalCloseToUserForm, context.getBranchCriteria());
-				if (foundMember != null) {
+				BranchCriteria branchCriteria = context.getBranchCriteria();
+				ReferenceSetMember foundCTUMember = findCTUExpressionMember(canonicalCloseToUserForm, branchCriteria);
+				if (foundCTUMember != null) {
 					// Found existing expression
-					pce = new PostCoordinatedExpression(foundMember.getReferencedComponentId(), foundMember.getAdditionalField(EXPRESSION_FIELD), null, null);
+					String expressionId = foundCTUMember.getReferencedComponentId();
+					ReferenceSetMember cfExpressionMember = findCFExpressionMember(expressionId, branchCriteria);
+					String cfExpression = cfExpressionMember != null ? cfExpressionMember.getAdditionalField(EXPRESSION_FIELD) : null;
+
+					Collection<Concept> concepts = conceptService.find(branchCriteria, branch, Collections.singleton(expressionId), Config.DEFAULT_LANGUAGE_DIALECTS);
+					ComparableExpression nnfExpression = null;
+					if (!concepts.isEmpty()) {
+						nnfExpression = conceptToNNFExpression(concepts.iterator().next());
+					}
+					pce = new PostCoordinatedExpression(expressionId, foundCTUMember.getAdditionalField(EXPRESSION_FIELD), cfExpression, nnfExpression);
 				} else {
 
 					// Validate and transform expression to classifiable form if needed.
@@ -261,9 +269,7 @@ public class ExpressionRepositoryService {
 
 					// Classify
 					// Assign temp identifier for classification process
-					if (classifiableFormExpression.getExpressionId() == null) {
-						classifiableFormExpression.setExpressionId(getNewId(SNOMED_INTERNATIONAL_DEMO_NAMESPACE));
-					}
+					applyToExpressions(classifiableFormExpression, expression -> expression.setExpressionId(getNewId(SNOMED_INTERNATIONAL_DEMO_NAMESPACE)));
 					ComparableExpression necessaryNormalForm;
 					boolean skipClassification = false;
 //					boolean skipClassification = true;
@@ -273,13 +279,14 @@ public class ExpressionRepositoryService {
 						necessaryNormalForm = incrementalClassificationService.classify(classifiableFormExpression, classificationPackage);
 						timer.checkpoint("Classify");
 					}
-					classifiableFormExpression.setExpressionId(null);
+					// Clear temp identifiers
+					applyToExpressions(classifiableFormExpression, expression -> expression.setExpressionId(null));
 
 					pce = new PostCoordinatedExpression(null, canonicalCloseToUserForm,
 							classifiableFormExpression.toString(), necessaryNormalForm);
-					populateHumanReadableForms(pce, context);
-					timer.checkpoint("Add human readable");
 				}
+				populateHumanReadableForms(pce, context);
+				timer.checkpoint("Add human readable");
 
 				expressionOutcomes.add(pce);
 				timer.finish();
@@ -296,23 +303,90 @@ public class ExpressionRepositoryService {
 		return expressionOutcomes;
 	}
 
+	private ComparableExpression conceptToNNFExpression(Concept concept) {
+		ComparableExpression expression = new ComparableExpression();
+		expression.setDefinitionStatus(concept.getDefinitionStatusId().equals(Concepts.DEFINED) ? DefinitionStatus.EQUIVALENT_TO : DefinitionStatus.SUBTYPE_OF);
+
+		Map<Integer, ComparableAttributeGroup> groupMap = new HashMap<>();
+		for (Relationship relationship : orEmpty(concept.getRelationships())) {
+			if (relationship.getGroupId() == 0) {
+				if (relationship.getTypeId().equals(Concepts.ISA)) {
+					expression.addFocusConcept(relationship.getDestinationId());
+				} else {
+					expression.addAttribute(relationship.getTypeId(), relationship.getDestinationId());
+				}
+			} else {
+				groupMap.computeIfAbsent(relationship.getGroupId(), i -> new ComparableAttributeGroup())
+						.addAttribute(new ComparableAttribute(relationship.getTypeId(), relationship.getDestinationId()));
+			}
+		}
+		for (ComparableAttributeGroup group : groupMap.values()) {
+			expression.addAttributeGroup(group);
+		}
+		return expression;
+	}
+
+	private static void applyToExpressions(ComparableExpression expression, Consumer<ComparableExpression> callable) {
+		for (Attribute attribute : orEmpty(expression.getAttributes())) {
+			if (attribute.getAttributeValue().isNested()) {
+				applyToExpressions((ComparableExpression) attribute.getAttributeValue().getNestedExpression(), callable);
+			}
+		}
+		for (AttributeGroup group : orEmpty(expression.getAttributeGroups())) {
+			for (Attribute attribute : group.getAttributes()) {
+				if (attribute.getAttributeValue().isNested()) {
+					applyToExpressions((ComparableExpression) attribute.getAttributeValue().getNestedExpression(), callable);
+				}
+			}
+		}
+		callable.accept(expression);
+	}
+
 	private ReferenceSetMember findCTUExpressionMember(String expression, BranchCriteria branchCriteria) {
 		MemberSearchRequest ctuSearchRequest = new MemberSearchRequest()
+				.active(true)
 				.referenceSet(CANONICAL_CLOSE_TO_USER_FORM_EXPRESSION_REFERENCE_SET)
 				.additionalField(EXPRESSION_FIELD, expression);
 		List<ReferenceSetMember> foundMembers = memberService.findMembers(branchCriteria, ctuSearchRequest, PageRequest.of(0, 1)).getContent();
 		return foundMembers.isEmpty() ? null : foundMembers.get(0);
 	}
 
-	private Long getNewId(int namespace) throws ServiceException {
-		return identifierSource.reserveIds(namespace, "16", 1).get(0);
+	private ReferenceSetMember findCFExpressionMember(String expressionId, BranchCriteria branchCriteria) {
+		MemberSearchRequest searchRequest = new MemberSearchRequest()
+				.active(true)
+				.referenceSet(CLASSIFIABLE_FORM_EXPRESSION_REFERENCE_SET)
+				.referencedComponentId(expressionId);
+		List<ReferenceSetMember> content = memberService.findMembers(branchCriteria, searchRequest, PageRequest.of(0, 1)).getContent();
+		return content.isEmpty() ? null : content.get(0);
+	}
+
+	private Long getNewId(int namespace) {
+		try {
+			return identifierSource.reserveIds(namespace, "16", 1).get(0);
+		} catch (ServiceException e) {
+			logger.error("Failed to generate expression identifier for namespace " + namespace, e);
+		}
+		return null;
 	}
 
 	private void populateHumanReadableForms(PostCoordinatedExpression expressionForms, ExpressionContext context) throws ServiceException {
-		final List<String> humanReadableExpressions = createHumanReadableExpressions(
-				Lists.newArrayList(expressionForms.getClassifiableForm(), expressionForms.getNecessaryNormalForm()), context.getBranchCriteria());
-		expressionForms.setHumanReadableClassifiableForm(humanReadableExpressions.get(0));
-		expressionForms.setHumanReadableNecessaryNormalForm(humanReadableExpressions.get(1));
+		List<String> expressions = new ArrayList<>();
+		String classifiableForm = expressionForms.getClassifiableForm();
+		if (classifiableForm != null) {
+			expressions.add(classifiableForm);
+		}
+		String necessaryNormalForm = expressionForms.getNecessaryNormalForm();
+		if (necessaryNormalForm != null) {
+			expressions.add(necessaryNormalForm);
+		}
+		final List<String> humanReadableExpressions = createHumanReadableExpressions(expressions, context.getBranchCriteria());
+		int i = 0;
+		if (classifiableForm != null) {
+			expressionForms.setHumanReadableClassifiableForm(humanReadableExpressions.get(i++));
+		}
+		if (necessaryNormalForm != null) {
+			expressionForms.setHumanReadableNecessaryNormalForm(humanReadableExpressions.get(i));
+		}
 	}
 
 	private PostCoordinatedExpression toExpression(ReferenceSetMember closeToUserFormMember, ReferenceSetMember classifiableFormMember) {

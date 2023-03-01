@@ -12,6 +12,8 @@ import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import static org.snomed.snowstorm.core.util.CollectionUtils.orEmpty;
+
 public class AddContextToClinicalFindingTransformation implements ExpressionTransformation {
 
 	public static final Set<String> FINDING_CONTEXT_ATTRIBUTES = Set.of(Concepts.FINDING_CONTEXT, Concepts.TEMPORAL_CONTEXT, Concepts.SUBJECT_RELATIONSHIP_CONTEXT);
@@ -25,6 +27,7 @@ public class AddContextToClinicalFindingTransformation implements ExpressionTran
 			if (!contextAttributes.isEmpty()) {
 				ComparableExpression situationExpression = new ComparableExpression(Concepts.FINDING_WITH_EXPLICIT_CONTEXT);
 				situationExpression.setDefinitionStatus(expression.getDefinitionStatus());
+				expression.setDefinitionStatus(null);// Clear definition status before nesting
 
 				ComparableAttributeGroup attributeGroup = new ComparableAttributeGroup();
 				for (ComparableAttribute contextAttribute : contextAttributes) {
@@ -32,8 +35,7 @@ public class AddContextToClinicalFindingTransformation implements ExpressionTran
 					attributeGroup.addAttribute(contextAttribute);
 				}
 
-				// TODO: Unit test these two scenarios - lat finding is loosing it's attribute
-				if (expression.getComparableAttributes().isEmpty() || expression.getComparableAttributeGroups().isEmpty()) {
+				if (orEmpty(expression.getComparableAttributes()).isEmpty() && orEmpty(expression.getComparableAttributeGroups()).isEmpty()) {
 					attributeGroup.addAttribute(new ComparableAttribute(Concepts.ASSOCIATED_FINDING, expression.getFocusConcepts().get(0)));
 				} else {
 					// Move the whole of the original expression into a nested expression

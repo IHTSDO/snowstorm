@@ -207,7 +207,7 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants 
 			}
 		}
 		if (fhirCodeSystemVersion == null) {
-			throw FHIRHelper.exception("Code System" + idPart + " not found", IssueType.NOTFOUND, 404);
+			throw FHIRHelper.exception("Code System " + idPart + " not found", IssueType.NOTFOUND, 404);
 		}
 		return fhirCodeSystemVersion;
 	}
@@ -249,16 +249,13 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants 
 					.setCode(expression.getCloseToUserForm().replace(" ", ""))
 					.addProperty(new CodeSystem.ConceptPropertyComponent(new CodeType("alternateIdentifier"), new StringType(expression.getId())));
 
-			if (expression.getHumanReadableClassifiableForm() != null) {
 				conceptDefinitionComponent
 					.addProperty(new CodeSystem.ConceptPropertyComponent(
-							new CodeType("humanReadableClassifiableForm"), new StringType(expression.getHumanReadableClassifiableForm())))
+							new CodeType("humanReadableClassifiableForm"), new StringType(expression.getHumanReadableClassifiableForm())));
+			if (expression.getHumanReadableNecessaryNormalForm() != null) {
+				conceptDefinitionComponent
 					.addProperty(new CodeSystem.ConceptPropertyComponent(
 							new CodeType("humanReadableNecessaryNormalForm"), new StringType(expression.getHumanReadableNecessaryNormalForm())));
-			} else {
-				conceptDefinitionComponent
-						.addProperty(new CodeSystem.ConceptPropertyComponent(
-								new CodeType("existingExpression"), new BooleanType(true)));
 			}
 			savedCodeSystem.addConcept(conceptDefinitionComponent);
 		}

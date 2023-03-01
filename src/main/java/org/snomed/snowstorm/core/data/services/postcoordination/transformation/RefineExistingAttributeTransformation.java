@@ -17,7 +17,9 @@ public class RefineExistingAttributeTransformation implements ExpressionTransfor
 	public ComparableExpression transform(List<ComparableAttribute> looseAttributes, ComparableExpression expression, ExpressionContext context) throws ServiceException {
 		for (ComparableAttribute looseAttribute : looseAttributes) {
 			Set<String> attributeTypeAncestorsAndSelf = context.ecl(">>" + looseAttribute.getAttributeId());
-			Set<String> attributeValueAncestorsAndSelf = context.ecl(">>" + looseAttribute.getAttributeValueId());
+			String attributeValueId = looseAttribute.getAttributeValue().isNested() ? looseAttribute.getAttributeValue().getNestedExpression().getFocusConcepts().get(0) :
+					looseAttribute.getAttributeValueId();
+			Set<String> attributeValueAncestorsAndSelf = context.ecl(">>" + attributeValueId);
 
 			// Collect existing attributes that could be refined
 			Concept concept = context.getFocusConceptWithActiveRelationships();
@@ -33,14 +35,19 @@ public class RefineExistingAttributeTransformation implements ExpressionTransfor
 				continue;
 			}
 			if (refinedRelationshipCandidates.size() > 1) {
-				// Check that refined relationships have the same type and value even if from different role groups
+				// Check that refined relationships have the same type and value when from different role groups
 				String typeId = refinedRelationshipCandidates.get(0).getTypeId();
 				String destinationId = refinedRelationshipCandidates.get(0).getDestinationId();
+				boolean notEqual = false;
 				for (Relationship candidate : refinedRelationshipCandidates) {
 					if (!candidate.getTypeId().equals(typeId) || !candidate.getDestinationId().equals(destinationId)) {
 						// Not all matched relationships have the same type and value
-						continue;
+						notEqual = true;
+						break;
 					}
+				}
+				if (notEqual) {
+					continue;
 				}
 			}
 
@@ -53,13 +60,13 @@ public class RefineExistingAttributeTransformation implements ExpressionTransfor
 					if (groupId == 0) {
 						// Don't copy group 0 (ungrouped) relationships other than those being refined
 						if (refinedRelationshipCandidates.contains(relationship)) {
-							expression.addAttribute(looseAttribute.getAttributeId(), looseAttribute.getAttributeValueId());
+							expression.addAttribute(looseAttribute);
 						}
 					} else {
 						// Copy all relationships where one relationship within the group is being refined
 						ComparableAttributeGroup expressionGroup = groupsMap.computeIfAbsent(groupId, id -> new ComparableAttributeGroup());
 						if (refinedRelationshipCandidates.contains(relationship)) {
-							expressionGroup.addAttribute(looseAttribute.getAttributeId(), looseAttribute.getAttributeValueId());
+							expressionGroup.addAttribute(looseAttribute);
 						} else {
 							expressionGroup.addAttribute(relationship.getTypeId(), relationship.getDestinationId());
 						}

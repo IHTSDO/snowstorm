@@ -21,7 +21,7 @@ class ExpressionTransformationAndValidationServiceTest extends AbstractExpressio
 	public void testLeve1() throws ServiceException {
 		assertExpressionTransformation(
 				// Input
-				"83152002 |Oophorectomy| : { 405815000 |Procedure device|  =  122456005 |Laser device| }",
+				"=== 83152002 |Oophorectomy| : { 405815000 |Procedure device|  =  122456005 |Laser device| }",
 
 				// Expected output
 				"=== 83152002 |Oophorectomy| : " +
@@ -36,7 +36,7 @@ class ExpressionTransformationAndValidationServiceTest extends AbstractExpressio
 		try {
 			assertExpressionTransformation(
 					// Input
-					"83152002 |Oophorectomy| : { " +
+					"=== 83152002 |Oophorectomy| : { " +
 							"405815000 |Procedure device|  =  122456005 |Laser device|, " +
 							"		246112005 |Severity| =  24484000 |Severe|" +
 							"}",
@@ -110,6 +110,17 @@ class ExpressionTransformationAndValidationServiceTest extends AbstractExpressio
 	}
 
 	@Test
+	public void testLevel2AddLateralityAndContextToClinicalFinding() throws ServiceException {
+		assertExpressionTransformation(
+				// Input
+				"449702005 |Cellulitis and abscess of lower limb| :  272741003 |Laterality| = 7771000 |Left|, 408732007 |Subject relationship context|  =  72705000 |Mother|",
+
+				// Expected output
+				"=== 413350009 : { 246090004 = ( 449702005 :  { 116676008 = 385627004, 363698007 = ( 61685007 : 272741003 = 7771000 ) } { 116676008 = 44132006, 363698007 = ( 61685007 : 272741003 = 7771000 ) } ), 408732007 = 72705000 }"
+		);
+	}
+
+	@Test
 	public void testLevel2AddLateralityToProcedure() throws ServiceException {
 		assertExpressionTransformation(
 				// Input
@@ -146,7 +157,7 @@ class ExpressionTransformationAndValidationServiceTest extends AbstractExpressio
 	}
 
 	private void assertExpressionsEqual(Expression expectedExpression, Expression actualExpression) {
-		assertEquals(expectedExpression.toString(), actualExpression.toString());
+		assertEquals(expectedExpression.toString(), actualExpression.toString().replace("  ", " "));
 	}
 
 }

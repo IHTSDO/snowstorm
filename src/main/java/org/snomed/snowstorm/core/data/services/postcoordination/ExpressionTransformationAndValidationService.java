@@ -18,12 +18,14 @@ import org.snomed.snowstorm.ecl.ECLQueryService;
 import org.snomed.snowstorm.mrcm.model.AttributeDomain;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.util.Pair;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
 import java.util.stream.Collectors;
 
 import static java.lang.String.format;
+import static org.snomed.snowstorm.core.util.CollectionUtils.orEmpty;
 
 @Service
 public class ExpressionTransformationAndValidationService {
@@ -49,6 +51,7 @@ public class ExpressionTransformationAndValidationService {
 	public ExpressionTransformationAndValidationService(@Value("#{'${postcoordination.transform.self-grouped.attributes}'.split('\\s*,\\s*')}") Set<String> selfGroupedAttributes) {
 		level2Transformations = new ArrayList<>();
 		// TODO: Agree that lateralisation should come before context transformations so that they can both be applied to the same expression
+		// TODO: Should refinement come before self-grouped?
 		level2Transformations.add(new GroupSelfGroupedAttributeTransformation(selfGroupedAttributes));
 		level2Transformations.add(new LateraliseClinicalFindingTransformation());
 		level2Transformations.add(new LateraliseProcedureTransformation());
@@ -80,14 +83,14 @@ public class ExpressionTransformationAndValidationService {
 		context.getTimer().checkpoint("MRCM attribute range validation");
 
 		// Clone CTU to dereference object which will avoid any modification affecting input.
-		// TODO: Should the presence of a definition status in the CTU force evaluation against transformation Level 1?
 		ComparableExpression candidateClassifiableExpression = expressionParser.parseExpression(closeToUserForm.toString());
+		boolean level1Asserted = candidateClassifiableExpression.getDefinitionStatus() != null;
 		if (candidateClassifiableExpression.getDefinitionStatus() == null) {
 			candidateClassifiableExpression.setDefinitionStatus(DefinitionStatus.EQUIVALENT_TO);
 		}
 		context.getTimer().checkpoint("Clone CTU");
 
-		ComparableExpression classifiableForm = createClassifiableForm(context, candidateClassifiableExpression);
+		ComparableExpression classifiableForm = createClassifiableForm(context, candidateClassifiableExpression, level1Asserted);
 
 		mrcmValidationService.attributeDomainValidation(classifiableForm, context);
 		// TODO: Apply MRCM attribute cardinality validation after classification
@@ -95,15 +98,26 @@ public class ExpressionTransformationAndValidationService {
 		return classifiableForm;
 	}
 
-	private ComparableExpression createClassifiableForm(ExpressionContext context, ComparableExpression candidateClassifiableExpression) throws ServiceException {
+	private ComparableExpression createClassifiableForm(ExpressionContext context, ComparableExpression candidateClassifiableExpression, boolean level1Asserted) throws ServiceException {
 		// Collect focus concept ancestors
-		List<Long> focusConceptLongs = toLongList(candidateClassifiableExpression.getFocusConcepts());
 		context.setEclQueryService(eclQueryService);
 
-		List<ComparableAttribute> looseAttributes = getLooseAttributes(candidateClassifiableExpression, context);
+		Pair<List<ComparableAttribute>, List<ComparableAttribute>> looseAttributesUngroupedOrWrongDomain = getLooseAttributes(candidateClassifiableExpression, context);
 
-		if (looseAttributes.isEmpty()) {
+		List<ComparableAttribute> looseAttributesUngrouped = looseAttributesUngroupedOrWrongDomain.getFirst();
+		List<ComparableAttribute> looseAttributesWrongDomain = looseAttributesUngroupedOrWrongDomain.getSecond();
+		List<ComparableAttribute> allLooseAttributes = joinLists(looseAttributesUngroupedOrWrongDomain);
+		boolean noLooseAttributes = looseAttributesUngrouped.isEmpty() && looseAttributesWrongDomain.isEmpty();
+		if (level1Asserted || noLooseAttributes) {
 			// Level 1 expression
+			if (!noLooseAttributes) {
+				if (!looseAttributesWrongDomain.isEmpty())
+					throw new TransformationException(String.format("The following attributes are not within the MRCM domain of the given focus concept : %s. " +
+									"This expression includes a definition status so transformation to a valid classifiable form was not attempted.", looseAttributesWrongDomain));
+
+				throw new TransformationException(String.format("The expression has one or more loose attributes (%s), these are ungrouped attributes that should be grouped. " +
+						"This expression includes a definition status so transformation to a valid classifiable form was not attempted.", looseAttributesUngrouped));
+			}
 			// Classifiable expression is the same as the close to user form
 			return candidateClassifiableExpression;
 
@@ -112,8 +126,9 @@ public class ExpressionTransformationAndValidationService {
 
 			// Assert only one focus concept
 			if (candidateClassifiableExpression.getFocusConcepts().size() != 1) {
-				throw new TransformationException(String.format("The expression has one or more loose attributes (%s), these are ungrouped attributes that should be grouped. " +
-						"The expression can not be transformed to a valid classifiable form because it has multiple focus concepts.", looseAttributes));
+				throw new TransformationException(String.format("The expression has one or more loose attributes (%s), these are ungrouped attributes that should" +
+						" either be grouped or used within a different MRCM domain. " +
+						"The expression can not be transformed to a valid classifiable form because it has multiple focus concepts.", allLooseAttributes));
 			}
 
 			// Prepare for transformations
@@ -124,9 +139,12 @@ public class ExpressionTransformationAndValidationService {
 
 			// Run transformations
 			for (ExpressionTransformation transformation : level2Transformations) {
-				candidateClassifiableExpression = transformation.transform(looseAttributes, candidateClassifiableExpression, context);
-				looseAttributes = getLooseAttributes(candidateClassifiableExpression, context);
-				if (looseAttributes.isEmpty()) {
+				candidateClassifiableExpression = transformation.transform(allLooseAttributes, candidateClassifiableExpression, context);
+				looseAttributesUngroupedOrWrongDomain = getLooseAttributes(candidateClassifiableExpression, context);
+				looseAttributesUngrouped = looseAttributesUngroupedOrWrongDomain.getFirst();
+				looseAttributesWrongDomain = looseAttributesUngroupedOrWrongDomain.getSecond();
+				allLooseAttributes = joinLists(looseAttributesUngroupedOrWrongDomain);
+				if (allLooseAttributes.isEmpty()) {
 					break;
 				}
 			}
@@ -134,46 +152,54 @@ public class ExpressionTransformationAndValidationService {
 			if (candidateClassifiableExpression.getComparableAttributes() != null && candidateClassifiableExpression.getComparableAttributes().isEmpty()) {
 				candidateClassifiableExpression.setAttributes(null);
 			}
-			if (!looseAttributes.isEmpty()) {
+			if (!allLooseAttributes.isEmpty()) {
+				if (!looseAttributesWrongDomain.isEmpty()) {
 					throw new TransformationException(String.format("The expression can not be transformed to a valid classifiable form. " +
-							"The following attributes should be grouped according to MRCM rules but do not match any of the agreed level 2 transformations: %s",
-							looseAttributes));
+									"The following attributes are not within the MRCM domain of the given focus concept " +
+									"and do not match any of the agreed level 2 transformations: %s",
+							looseAttributesWrongDomain));
+				}
+				throw new TransformationException(String.format("The expression can not be transformed to a valid classifiable form. " +
+						"The following attributes should be grouped according to MRCM rules but do not match any of the agreed level 2 transformations: %s",
+						looseAttributesUngrouped));
 			}
 			return candidateClassifiableExpression;
 		}
+	}
+
+	private <T> List<T> joinLists(Pair<List<T>, List<T>> listPair) {
+		List<T> list = new ArrayList<>(listPair.getFirst());
+		list.addAll(listPair.getSecond());
+		return list;
 	}
 
 	/**
 	 *	Loose attributes are ungrouped attributes from expression of a type that should be grouped according to the MRCM rules.
 	 *  They can also be ungrouped attributes that do not match the domain of the focus concept.
 	 */
-	private List<ComparableAttribute> getLooseAttributes(ComparableExpression closeToUserForm, ExpressionContext context) throws ServiceException {
+	private Pair<List<ComparableAttribute>, List<ComparableAttribute>> getLooseAttributes(ComparableExpression closeToUserForm, ExpressionContext context) throws ServiceException {
 		Map<String, Set<AttributeDomain>> ungroupedAttributeMap = new HashMap<>();
 		for (AttributeDomain attribute : context.getMRCMUngroupedAttributes()) {
 			ungroupedAttributeMap.computeIfAbsent(attribute.getReferencedComponentId(), i -> new HashSet<>()).add(attribute);
 		}
 
-		Set<ComparableAttribute> comparableAttributes = closeToUserForm.getComparableAttributes();
-		if (comparableAttributes == null) {
-			return Collections.emptyList();
+		List<ComparableAttribute> shouldBeGrouped = new ArrayList<>();
+		List<ComparableAttribute> wrongDomain = new ArrayList<>();
+		for (ComparableAttribute attribute : orEmpty(closeToUserForm.getComparableAttributes())) {
+			if (!ungroupedAttributeMap.containsKey(attribute.getAttributeId())) {
+				// Should be grouped
+				shouldBeGrouped.add(attribute);
+			} else {
+				Set<AttributeDomain> attributeDomains = ungroupedAttributeMap.get(attribute.getAttributeId());
+				Set<String> domains = attributeDomains.stream().map(AttributeDomain::getDomainId).collect(Collectors.toSet());
+				// Attribute used in wrong domain (focus concept ancestors do not contain attribute domain)
+				String ecl = String.join(" OR ", closeToUserForm.getFocusConcepts().stream().map(id -> ">>" + id).collect(Collectors.toSet()));
+				if (Sets.intersection(context.ecl(ecl), domains).isEmpty()) {
+					wrongDomain.add(attribute);
+				}
+			}
 		}
-		return comparableAttributes.stream()
-				.filter(attribute -> {
-					if (attribute.getComparableAttributeValue().isNested()) {
-						// Can't transform nested attributes
-						return false;
-					} else if (!ungroupedAttributeMap.containsKey(attribute.getAttributeId())) {
-						// Should be grouped
-						return true;
-					} else {
-						Set<AttributeDomain> attributeDomains = ungroupedAttributeMap.get(attribute.getAttributeId());
-						Set<String> domains = attributeDomains.stream().map(AttributeDomain::getDomainId).collect(Collectors.toSet());
-						// Attribute used in wrong domain (focus concept ancestors do not contain attribute domain)
-						String ecl = String.join(" OR ", closeToUserForm.getFocusConcepts().stream().map(id -> ">>" + id).collect(Collectors.toSet()));
-						return Sets.intersection(context.ecl(ecl), domains).isEmpty();
-					}
-				})
-				.collect(Collectors.toList());
+		return Pair.of(shouldBeGrouped, wrongDomain);
 	}
 
 	private List<Long> toLongList(List<String> focusConcepts) {

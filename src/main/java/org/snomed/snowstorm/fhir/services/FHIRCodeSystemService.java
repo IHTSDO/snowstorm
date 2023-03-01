@@ -362,7 +362,7 @@ public class FHIRCodeSystemService {
 					OperationOutcome.OperationOutcomeIssueComponent component = new OperationOutcome.OperationOutcomeIssueComponent();
 					component.setSeverity(OperationOutcome.IssueSeverity.ERROR);
 					component.setCode(OperationOutcome.IssueType.INVARIANT);
-					component.setDiagnostics(String.format("Expression \"%s\" failed. %s", pceOutcome.getCloseToUserForm(), pceOutcome.getException().getMessage()));
+					component.setDiagnostics(String.format("Expression \"%s\" was not added. %s", pceOutcome.getCloseToUserForm(), pceOutcome.getException().getMessage()));
 					outcome.addIssue(component);
 				}
 			}

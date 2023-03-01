@@ -14,6 +14,7 @@ import java.util.stream.Collectors;
 
 import static org.snomed.snowstorm.core.data.domain.Concepts.ASSOCIATED_PROCEDURE;
 import static org.snomed.snowstorm.core.data.domain.Concepts.SITUATION_WITH_EXPLICIT_CONTEXT;
+import static org.snomed.snowstorm.core.util.CollectionUtils.orEmpty;
 
 public class AddContextToProcedureTransformation implements ExpressionTransformation {
 
@@ -28,6 +29,7 @@ public class AddContextToProcedureTransformation implements ExpressionTransforma
 			if (!contextAttributes.isEmpty()) {
 				ComparableExpression situationExpression = new ComparableExpression(SITUATION_WITH_EXPLICIT_CONTEXT);
 				situationExpression.setDefinitionStatus(expression.getDefinitionStatus());
+				expression.setDefinitionStatus(null);// Clear definition status before nesting
 
 				ComparableAttributeGroup attributeGroup = new ComparableAttributeGroup();
 				for (ComparableAttribute contextAttribute : contextAttributes) {
@@ -35,7 +37,7 @@ public class AddContextToProcedureTransformation implements ExpressionTransforma
 					attributeGroup.addAttribute(contextAttribute);
 				}
 
-				if (expression.getComparableAttributes().isEmpty() || expression.getComparableAttributeGroups().isEmpty()) {
+				if (orEmpty(expression.getComparableAttributes()).isEmpty() || orEmpty(expression.getComparableAttributeGroups()).isEmpty()) {
 					attributeGroup.addAttribute(new ComparableAttribute(ASSOCIATED_PROCEDURE, expression.getFocusConcepts().get(0)));
 				} else {
 					// Move the whole of the original expression into a nested expression
