@@ -135,7 +135,16 @@ public class FHIRCodeSystemService {
 
 			org.snomed.snowstorm.core.data.domain.CodeSystem newCodeSystem = new org.snomed.snowstorm.core.data.domain.CodeSystem();
 			org.snomed.snowstorm.core.data.domain.CodeSystem dependentCodeSystem = dependantVersion.getSnomedCodeSystem();
-			newCodeSystem.setShortName(dependentCodeSystem.getShortName() + "-EXP");
+			String shortName = dependentCodeSystem.getShortName() + "-EXP";
+			newCodeSystem.setShortName(shortName);
+
+			// Append 2,3,4 etc to the short name to ensure uniqueness
+			int a = 2;
+			while (snomedCodeSystemService.find(newCodeSystem.getShortName()) != null) {
+				newCodeSystem.setShortName(shortName + a);
+				a++;
+			}
+			newCodeSystem.setName("Postcoordinated Expression Repository");
 			newCodeSystem.setBranchPath(String.join("/", dependentCodeSystem.getBranchPath(), newCodeSystem.getShortName()));
 			newCodeSystem.setUriModuleId(snomedModule);
 			newCodeSystem.setMaximumPostcoordinationLevel(maxPostcoordinationLevel);
