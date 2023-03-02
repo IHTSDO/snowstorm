@@ -4,17 +4,15 @@ All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
-## SnowstormX Release 8.x - FHIR Multiple Code Systems
-
-This major release has an overhaul of the FHIR API :fire: and adds support for multiple code systems within the FHIR API!
+## 8.1.0 Release (March 2023)
+This release has an overhaul of the FHIR API :fire: and adds support for multiple code systems within the FHIR API!
 
 Previously Snowstorm only supported SNOMED CT but this release adds support for LOINC, ICD-10 (International), ICD-10-CM (US) and
 any other code system using a FHIR package or the Custom code system format.
 
 The custom code system format allows any local or national code system to be supported. These need to be transformed into the custom code system format before being loaded.
 
-**FIXME (update links for snowstorm 8.0.0 release)**
-See [Snowstorm FHIR Terminology Server documentation](https://github.com/IHTSDO/snowstorm-x/blob/snowstorm-x-8.1.0/docs/using-the-fhir-api.md) for details of how to 
+See [Snowstorm FHIR Terminology Server documentation](https://github.com/IHTSDO/snowstorm/blob/master/docs/using-the-fhir-api.md) for details of how to 
 load each package format and a link to the updated Postman collection for v8.
 
 ### Breaking
@@ -38,10 +36,16 @@ load each package format and a link to the updated Postman collection for v8.
 - Improve FHIR code system version resolution
 - Include resolved code system version in FHIR responses
 - Improved FHIR error catching and reporting
+- ISTO-41 Include optional non-SNOMED CT term in ReferenceSetMembers API response 
+- FRI-491 Improve `autoMergedConcept` in `MergeReviewConceptVersions` to be based on `sourceConcept` with changes from `targetConcept` re-applied 
+- FRI-600 Add property to `MergeReviewConceptVersions` to indicate whether `targetConcept` is based on an older version of the CodeSystem in relation to `sourceConcept`
 
 ### Fixes
 - Various fixes for FHIR specification conformance
-
+- MAINT-2072 Fix reversion of Historical Association ReferenceSetMembers
+- FRI-492 Stop setting `targetConcept` in `MergeReviewConceptVersions` to have the same state as the latest versioned content
+- ISTO-57 Fix pagination of CSV download
+- ISTO-67 Fix bug which prevented ECL statements being converted to JSON when containing `minus`
 
 ## 8.0.0 Release (February 2023)
 Major release with Elasticsearch 7.10.0 upgrade.
