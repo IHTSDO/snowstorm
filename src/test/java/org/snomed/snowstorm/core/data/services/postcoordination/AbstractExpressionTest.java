@@ -55,7 +55,7 @@ public abstract class AbstractExpressionTest extends AbstractTest {
     protected ExpressionContext expressionContext;
 
     protected final String branch = "MAIN/A";
-    protected final String moduleId = "11000003104";
+    protected final String expressionModuleId = "11000003104";
 
     @BeforeEach
     public void setup() throws ServiceException, ReleaseImportException, IOException {
@@ -171,7 +171,10 @@ public abstract class AbstractExpressionTest extends AbstractTest {
         try (FileInputStream inputStream = new FileInputStream(dummyMrcmImportFile)) {
             importService.importArchive(importJob, inputStream);
         }
-        codeSystemService.createCodeSystem(new CodeSystem("SNOMEDCT-A", "MAIN/A"));
+        CodeSystem expressionCodeSystem = new CodeSystem("SNOMEDCT-A", "MAIN/A");
+        expressionCodeSystem.setMaximumPostcoordinationLevel((short) 2);
+        expressionCodeSystem.setUriModuleId(expressionModuleId);
+        codeSystemService.createCodeSystem(expressionCodeSystem);
         expressionContext = new ExpressionContext("MAIN/A", branchService, versionControlHelper, mrcmService, new TimerUtil(""));
     }
 

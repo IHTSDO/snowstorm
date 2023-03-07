@@ -1,9 +1,14 @@
 package org.snomed.snowstorm.core.data.services.postcoordination;
 
+import io.kaicode.elasticvc.api.BranchService;
+import io.kaicode.elasticvc.domain.Branch;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentMatchers;
 import org.mockito.Mockito;
+import org.snomed.snowstorm.core.data.domain.Concept;
 import org.snomed.snowstorm.core.data.domain.ReferenceSetMember;
+import org.snomed.snowstorm.core.data.domain.Relationship;
+import org.snomed.snowstorm.core.data.services.ConceptService;
 import org.snomed.snowstorm.core.data.services.QueryService;
 import org.snomed.snowstorm.core.data.services.ReferenceSetMemberService;
 import org.snomed.snowstorm.core.data.services.ServiceException;
@@ -14,6 +19,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -36,6 +43,12 @@ class ExpressionRepositoryServiceTest extends AbstractExpressionTest {
 	@Autowired
 	private QueryService queryService;
 
+	@Autowired
+	private ConceptService conceptService;
+
+	@Autowired
+	private BranchService branchService;
+
 	@MockBean
 	private IncrementalClassificationService incrementalClassificationService;
 
@@ -49,18 +62,18 @@ class ExpressionRepositoryServiceTest extends AbstractExpressionTest {
 
 		// Single concept
 		assertEquals("=== 83152002",
-				createExpressionOrThrow("83152002 |Oophorectomy|", branch, moduleId).getClassifiableForm());
+				createExpressionOrThrow("83152002 |Oophorectomy|", branch, expressionModuleId).getClassifiableForm());
 
 		// Single concept with explicit definition status
 		assertEquals("=== 421720008",
-				createExpressionOrThrow("===421720008 |Spray dose form|", branch, moduleId).getClassifiableForm());
+				createExpressionOrThrow("===421720008 |Spray dose form|", branch, expressionModuleId).getClassifiableForm());
 
 		// Single concept with explicit subtype definition status
 		assertEquals("<<< 83152002",
-				createExpressionOrThrow("<<<  83152002 |Oophorectomy|", branch, moduleId).getClassifiableForm());
+				createExpressionOrThrow("<<<  83152002 |Oophorectomy|", branch, expressionModuleId).getClassifiableForm());
 
 		// Multiple focus concepts, ids get sorted
-		PostCoordinatedExpression twoFocusConcepts = createExpressionOrThrow("7946007 |Drug suspension| + 421720008 |Spray dose form|", branch, moduleId);
+		PostCoordinatedExpression twoFocusConcepts = createExpressionOrThrow("7946007 |Drug suspension| + 421720008 |Spray dose form|", branch, expressionModuleId);
 		assertEquals("421720008+7946007", twoFocusConcepts.getCloseToUserForm());
 		assertEquals("=== 421720008 + 7946007", twoFocusConcepts.getClassifiableForm());
 
@@ -71,7 +84,7 @@ class ExpressionRepositoryServiceTest extends AbstractExpressionTest {
 				"       405815000 |Procedure device|  =  122456005 |Laser device| ," +
 				"       260686004 |Method|  =  129304002 |Excision - action| ," +
 				"       405813007 |Procedure site - direct|  =  15497006 |Ovarian structure|" +
-				"}", branch, moduleId);
+				"}", branch, expressionModuleId);
 		assertEquals("=== 71388002 : { 260686004 = 129304002, 405813007 = 15497006, 405815000 = 122456005 }", expressionMultipleRefinements.getClassifiableForm());
 
 		Page<PostCoordinatedExpression> page = expressionRepository.findAll(branch, PageRequest.of(0, 10));
@@ -81,7 +94,8 @@ class ExpressionRepositoryServiceTest extends AbstractExpressionTest {
 				ExpressionRepositoryService.CANONICAL_CLOSE_TO_USER_FORM_EXPRESSION_REFERENCE_SET, PageRequest.of(0, 1));
 		assertEquals(1, results.getTotalElements());
 
-		Page<ReferenceSetMember> members = memberService.findMembers(branch, expressionMultipleRefinements.getId(), PageRequest.of(0, 10));
+		String expressionId = expressionMultipleRefinements.getId();
+		Page<ReferenceSetMember> members = memberService.findMembers(branch, expressionId, PageRequest.of(0, 10));
 		assertEquals(2, members.getTotalElements());
 		ReferenceSetMember member = members.get().iterator().next();
 		String refsetMemberExpressionField = member.getAdditionalField(ReferenceSetMember.PostcoordinatedExpressionFields.EXPRESSION);
@@ -90,6 +104,14 @@ class ExpressionRepositoryServiceTest extends AbstractExpressionTest {
 		assertTrue(refsetMemberExpressionField.contains(":"));
 		assertFalse(refsetMemberExpressionField.contains(" "), () -> String.format("Expression should not contain any whitespace: '%s'", refsetMemberExpressionField));
 		assertFalse(refsetMemberExpressionField.contains("|"));
+
+		Branch latestBranch = branchService.findLatest(branch);
+		assertEquals(expressionModuleId, latestBranch.getMetadata().getString("defaultModuleId"));
+		Concept expressionNNFConcept = conceptService.find(expressionId, branch);
+		assertEquals(expressionModuleId, expressionNNFConcept.getModuleId());
+		Set<Relationship> relationships = expressionNNFConcept.getRelationships();
+		assertEquals(4, relationships.size());
+		assertEquals(expressionModuleId, relationships.iterator().next().getModuleId());
 	}
 
 	private PostCoordinatedExpression createExpressionOrThrow(String expression, String branch, String moduleId) throws ServiceException {
@@ -129,7 +151,7 @@ class ExpressionRepositoryServiceTest extends AbstractExpressionTest {
 				"       405815000 |Procedure device| = 122456005 |Laser device| ," +
 				"       260686004 |Method| = 129304002 |Excision - action| ," +
 				"       405813007 |Procedure site - direct| = 15497006 |Ovarian structure|" +
-				"}", branch, moduleId);
+				"}", branch, expressionModuleId);
 
 		try {
 			createExpressionOrThrow("   71388002 |Procedure| :" +
@@ -137,7 +159,7 @@ class ExpressionRepositoryServiceTest extends AbstractExpressionTest {
 					"       405815000 |Procedure device| = 122456005 |Laser device| ," +
 					"       260686004 |Method| = 129304002 |Excision - action| ," +
 					"       405813007 |Procedure site - direct| = 388441000 |Horse|" +
-					"}", branch, moduleId);
+					"}", branch, expressionModuleId);
 			fail("Should have thrown exception.");
 		} catch (IllegalArgumentException e) {
 			assertEquals("Value 388441000 | Horse | is not within the permitted range" +
@@ -156,7 +178,7 @@ class ExpressionRepositoryServiceTest extends AbstractExpressionTest {
 				"       405815000 |Procedure device| = 122456005 |Laser device| ," +
 				"       260686004 |Method| = 129304002 |Excision - action| ," +
 				"       405813007 |Procedure site - direct| = ( 15497006 |Ovarian structure| : 272741003 |Laterality| = 24028007 |Right| ) " +
-				"}", branch, moduleId);
+				"}", branch, expressionModuleId);
 
 		assertEquals(1, queryService.eclSearch("<!15497006 |Ovarian structure|", false, branch, PageRequest.of(0, 10)).getTotalElements(),
 				"Nested concept should be created.");
@@ -166,7 +188,7 @@ class ExpressionRepositoryServiceTest extends AbstractExpressionTest {
 				"       405815000 |Procedure device| = 118295004 |Gas laser device| ," +
 				"       260686004 |Method| = 129304002 |Excision - action| ," +
 				"       405813007 |Procedure site - direct| = ( 15497006 |Ovarian structure| : 272741003 |Laterality| = 24028007 |Right| ) " +
-				"}", branch, moduleId);
+				"}", branch, expressionModuleId);
 
 		assertEquals(1, queryService.eclSearch("<!15497006 |Ovarian structure|", false, branch, PageRequest.of(0, 10)).getTotalElements(),
 				"Nested concept should be reused.");
@@ -177,7 +199,7 @@ class ExpressionRepositoryServiceTest extends AbstractExpressionTest {
 					"       405815000 |Procedure device| = 122456005 |Laser device| ," +
 					"       260686004 |Method| = 129304002 |Excision - action| ," +
 					"       405813007 |Procedure site - direct| = ( 15497006 |Ovarian structure| : 272741003 |Laterality| = 388441000 |Horse| )" +
-					"}", branch, moduleId);
+					"}", branch, expressionModuleId);
 			fail("Should have thrown exception.");
 		} catch (IllegalArgumentException e) {
 			assertEquals("Value 388441000 | Horse | is not within the permitted range" +
@@ -199,7 +221,7 @@ class ExpressionRepositoryServiceTest extends AbstractExpressionTest {
 		assertEquals(3, queryService.eclSearch("<!71388002 |Procedure|", false, branch, PageRequest.of(0, 10)).getTotalElements());
 
 		// Test
-		PostCoordinatedExpression expression = createExpressionOrThrow(dummyExpressionString, branch, moduleId);
+		PostCoordinatedExpression expression = createExpressionOrThrow(dummyExpressionString, branch, expressionModuleId);
 		assertNull(expression.getException());
 
 		// Assert state after
@@ -219,7 +241,7 @@ class ExpressionRepositoryServiceTest extends AbstractExpressionTest {
 		assertEquals(3, queryService.eclSearch("<!71388002 |Procedure|", false, branch, PageRequest.of(0, 10)).getTotalElements());
 
 		// Test
-		PostCoordinatedExpression expression = createExpressionOrThrow(dummyExpressionString, branch, moduleId);
+		PostCoordinatedExpression expression = createExpressionOrThrow(dummyExpressionString, branch, expressionModuleId);
 		assertNull(expression.getException());
 
 		// Assert state after
@@ -228,7 +250,7 @@ class ExpressionRepositoryServiceTest extends AbstractExpressionTest {
 
 	private void assertIllegalArgumentParsingError(String closeToUserForm) {
 		try {
-			PostCoordinatedExpression expression = expressionRepository.createExpression(closeToUserForm, branch, moduleId, null);
+			PostCoordinatedExpression expression = expressionRepository.createExpression(closeToUserForm, branch, expressionModuleId, null);
 			ServiceException exception = expression.getException();
 			if (exception != null) {
 				throw exception;

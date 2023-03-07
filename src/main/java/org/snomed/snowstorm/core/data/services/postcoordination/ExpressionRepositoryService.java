@@ -154,6 +154,17 @@ public class ExpressionRepositoryService {
 					classifiableFormMember.markChanged();
 					membersToSave.add(classifiableFormMember);
 
+					for (Concept concept : conceptsToSave) {
+						// Clear modules to pick up branch module
+						concept.setModuleId(null);
+						for (Description description : orEmpty(concept.getDescriptions())) {
+							description.setModuleId(null);
+						}
+						for (Relationship relationship : orEmpty(concept.getRelationships())) {
+							relationship.setModuleId(null);
+						}
+					}
+
 					if (conceptsToSave.size() >= 100) {
 						memberService.doSaveBatchMembers(membersToSave, commit);
 						membersToSave.clear();
