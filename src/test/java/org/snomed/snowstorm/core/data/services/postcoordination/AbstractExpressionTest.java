@@ -53,6 +53,7 @@ public abstract class AbstractExpressionTest extends AbstractTest {
     private CodeSystemService codeSystemService;
 
     protected ExpressionContext expressionContext;
+    protected CodeSystem expressionCodeSystem;
 
     protected final String branch = "MAIN/A";
     protected final String expressionModuleId = "11000003104";
@@ -171,7 +172,7 @@ public abstract class AbstractExpressionTest extends AbstractTest {
         try (FileInputStream inputStream = new FileInputStream(dummyMrcmImportFile)) {
             importService.importArchive(importJob, inputStream);
         }
-        CodeSystem expressionCodeSystem = new CodeSystem("SNOMEDCT-A", "MAIN/A");
+        expressionCodeSystem = new CodeSystem("SNOMEDCT-A", "MAIN/A");
         expressionCodeSystem.setMaximumPostcoordinationLevel((short) 2);
         expressionCodeSystem.setUriModuleId(expressionModuleId);
         codeSystemService.createCodeSystem(expressionCodeSystem);

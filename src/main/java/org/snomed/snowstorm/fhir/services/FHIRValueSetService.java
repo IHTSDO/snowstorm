@@ -23,7 +23,6 @@ import org.snomed.snowstorm.core.data.services.ReferenceSetMemberService;
 import org.snomed.snowstorm.core.data.services.identifier.IdentifierHelper;
 import org.snomed.snowstorm.core.data.services.pojo.MemberSearchRequest;
 import org.snomed.snowstorm.core.data.services.pojo.PageWithBucketAggregations;
-import org.snomed.snowstorm.core.data.services.postcoordination.ExpressionParser;
 import org.snomed.snowstorm.core.data.services.postcoordination.ExpressionRepositoryService;
 import org.snomed.snowstorm.core.pojo.LanguageDialect;
 import org.snomed.snowstorm.core.util.SearchAfterPage;
@@ -91,9 +90,6 @@ public class FHIRValueSetService {
 
 	@Autowired
 	private ExpressionRepositoryService expressionRepositoryService;
-
-	@Autowired
-	private ExpressionParser expressionParser;
 
 	@Autowired
 	private VersionControlHelper versionControlHelper;

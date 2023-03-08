@@ -26,21 +26,7 @@ public class HapiParametersMapper implements FHIRConstants {
 	
 	@Autowired
 	private FHIRHelper fhirHelper;
-	
-	public Parameters mapToFHIRValidateDisplayTerm(Concept concept, String display, FHIRCodeSystemVersion codeSystemVersion) {
-		Parameters parameters = new Parameters();
-		if (display == null) {
-			parameters.addParameter("result", true);
-		} else {
-			boolean valid = validateTerm(concept, display.toLowerCase(), parameters);
-			parameters.addParameter("result", valid);
-		}
-		parameters.addParameter("display", concept.getPt().getTerm());
-		parameters.addParameter("inactive", !concept.isActive());
-		addSystemAndVersion(parameters, codeSystemVersion);
-		return parameters;
-	}
-	
+
 	public Parameters singleOutValue(String key, String value) {
 		Parameters parameters = new Parameters();
 		parameters.addParameter(key, value);
@@ -52,25 +38,8 @@ public class HapiParametersMapper implements FHIRConstants {
 		addSystemAndVersion(parameters, codeSystemVersion);
 		return parameters;
 	}
-	
-	private boolean validateTerm(Concept c, String display, Parameters parameters) {
-		//Did we get it right first time?
-		if (c.getPt().getTerm().toLowerCase().equals(display)) {
-			return true;
-		} else {
-			//TODO Implement case sensitivity checking relative to what is specified for the description
-			for (Description d : c.getActiveDescriptions()) {
-				if (d.getTerm().toLowerCase().equals(display)) {
-					parameters.addParameter("message", "Display term is acceptable, but not the preferred synonym in the language/dialect specified.");
-					return true;
-				}
-			}
-		}
-		parameters.addParameter("message", "Code exists, but the display term is not recognised.");
-		return false;
-	}
 
-	public Parameters conceptNotFound(String code, FHIRCodeSystemVersion codeSystemVersion, String message) {
+	public Parameters resultFalseWithMessage(String code, FHIRCodeSystemVersion codeSystemVersion, String message) {
 		Parameters parameters = new Parameters();
 		parameters.addParameter("result", false);
 		parameters.addParameter("code", code);

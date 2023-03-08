@@ -20,6 +20,7 @@ import org.hl7.fhir.r4.model.*;
 import org.hl7.fhir.r4.model.OperationOutcome.IssueType;
 import org.jetbrains.annotations.NotNull;
 import org.snomed.snowstorm.core.data.domain.Concept;
+import org.snomed.snowstorm.core.data.domain.Description;
 import org.snomed.snowstorm.core.data.services.CodeSystemService;
 import org.snomed.snowstorm.core.data.services.MultiSearchService;
 import org.snomed.snowstorm.core.data.services.postcoordination.model.PostCoordinatedExpression;
@@ -41,7 +42,6 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
-import static ca.uhn.fhir.rest.api.PatchTypeEnum.JSON_PATCH;
 import static io.kaicode.elasticvc.api.ComponentService.LARGE_PAGE;
 import static java.lang.String.format;
 import static java.util.stream.Stream.concat;
@@ -71,7 +71,7 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants 
 
 	@Autowired
 	private HapiParametersMapper pMapper;
-	
+
 	@Autowired
 	private FHIRHelper fhirHelper;
 
@@ -108,7 +108,7 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants 
 	//See https://www.hl7.org/fhir/valueset.html#search
 	@Search
 	public List<CodeSystem> findCodeSystems(
-			RequestDetails theRequest, 
+			RequestDetails theRequest,
 			HttpServletResponse theResponse,
 			@OptionalParam(name="id") String id,
 			@OptionalParam(name="code") String code,
@@ -144,7 +144,7 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants 
 									.withTitle(title)
 									.withUrl(url)
 									.withVersion(version);
-		
+
 		List<String> sortOn;
 		if (theRequest.getParameters().get("_sort") != null) {
 			sortOn = new ArrayList<>();
@@ -154,7 +154,7 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants 
 		} else {
 			sortOn = Arrays.asList(defaultSortOrder);
 		}
-		
+
 		for (String sortField : sortOn) {
 			if (!comparatorMap.containsKey(sortField)) {
 				throw exception(sortField + " is not supported as a field to sort on.", IssueType.INVALID, 400);
@@ -178,8 +178,8 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants 
 				.sorted(chainedComparator)
 				.collect(Collectors.toList());
 	}
-	
-	@Read()
+
+	@Read
 	public CodeSystem getCodeSystem(@IdParam IdType id) {
 		return getFhirCodeSystemVersionOrThrow(id.getIdPart()).toHapiCodeSystem();
 	}
@@ -394,11 +394,47 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants 
 			Concept concept = conceptAndSystemResult.concept();
 			FHIRCodeSystemVersion codeSystemVersion = conceptAndSystemResult.codeSystemVersion();
 
+			boolean result = false;
+			String message = conceptAndSystemResult.message();
+			String displayOut = null;
 			if (concept != null) {
-				return pMapper.mapToFHIRValidateDisplayTerm(concept, display, codeSystemVersion);
+				if (display == null) {
+					result = true;
+				} else {
+					String displayLower = display.toLowerCase();
+					if (concept.getPt().getTerm().toLowerCase().equals(displayLower)) {
+						result = true;
+					} else {
+						for (Description d : concept.getActiveDescriptions()) {
+							if (d.getTerm().toLowerCase().equals(displayLower)) {
+								message = "Display term is acceptable, but not the preferred synonym in the language/dialect specified.";
+								result = true;
+								break;
+							}
+						}
+						if (!result) {
+							message = "Code exists, but the display term is not recognised.";
+						}
+					}
+				}
+				displayOut = concept.getPt().getTerm();
 			} else {
-				return pMapper.conceptNotFound(code, codeSystemVersion, "The code was not found in the specified code system.");
+				message = "The code was not found in the specified code system.";
+				if (conceptAndSystemResult.message() != null) {
+					message = conceptAndSystemResult.message();
+				}
 			}
+			Parameters parameters = new Parameters();
+			parameters.addParameter("result", result);
+			if (message != null) {
+				parameters.addParameter("message", message);
+			}
+			if (displayOut != null) {
+				parameters.addParameter("display", displayOut);
+			}
+			parameters.addParameter("system", codeSystemVersion.getUrl());
+			parameters.addParameter("version", codeSystemVersion.getVersion());
+			return parameters;
 		} else {
 			FHIRCodeSystemVersion codeSystemVersion = fhirCodeSystemService.findCodeSystemVersionOrThrow(codeSystemParams);
 			FHIRConcept concept = fhirConceptService.findConcept(codeSystemVersion, code);
@@ -410,7 +446,7 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants 
 
 				return pMapper.validateCodeResponse(concept, displayValidOrNull, codeSystemVersion);
 			} else {
-				return pMapper.conceptNotFound(code, codeSystemVersion, "The code was not found in the specified code system.");
+				return pMapper.resultFalseWithMessage(code, codeSystemVersion, "The code was not found in the specified code system.");
 			}
 		}
 	}

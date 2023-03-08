@@ -84,21 +84,22 @@ public class ExpressionTransformationAndValidationService {
 
 		// Clone CTU to dereference object which will avoid any modification affecting input.
 		ComparableExpression candidateClassifiableExpression = expressionParser.parseExpression(closeToUserForm.toString());
-		boolean level1Asserted = candidateClassifiableExpression.getDefinitionStatus() != null;
+		boolean level1AssertedByDefStatus = candidateClassifiableExpression.getDefinitionStatus() != null;
 		if (candidateClassifiableExpression.getDefinitionStatus() == null) {
 			candidateClassifiableExpression.setDefinitionStatus(DefinitionStatus.EQUIVALENT_TO);
 		}
 		context.getTimer().checkpoint("Clone CTU");
 
-		ComparableExpression classifiableForm = createClassifiableForm(context, candidateClassifiableExpression, level1Asserted);
+		ComparableExpression classifiableForm = createClassifiableFormOptionallyTransform(context, candidateClassifiableExpression, level1AssertedByDefStatus);
 
 		mrcmValidationService.attributeDomainValidation(classifiableForm, context);
-		// TODO: Apply MRCM attribute cardinality validation after classification
 
 		return classifiableForm;
 	}
 
-	private ComparableExpression createClassifiableForm(ExpressionContext context, ComparableExpression candidateClassifiableExpression, boolean level1Asserted) throws ServiceException {
+	private ComparableExpression createClassifiableFormOptionallyTransform(ExpressionContext context, ComparableExpression candidateClassifiableExpression,
+			boolean level1AssertedByDefStatus) throws ServiceException {
+
 		// Collect focus concept ancestors
 		context.setEclQueryService(eclQueryService);
 
@@ -108,7 +109,7 @@ public class ExpressionTransformationAndValidationService {
 		List<ComparableAttribute> looseAttributesWrongDomain = looseAttributesUngroupedOrWrongDomain.getSecond();
 		List<ComparableAttribute> allLooseAttributes = joinLists(looseAttributesUngroupedOrWrongDomain);
 		boolean noLooseAttributes = looseAttributesUngrouped.isEmpty() && looseAttributesWrongDomain.isEmpty();
-		if (level1Asserted || noLooseAttributes) {
+		if (level1AssertedByDefStatus || noLooseAttributes) {
 			// Level 1 expression
 			if (!noLooseAttributes) {
 				if (!looseAttributesWrongDomain.isEmpty())

@@ -23,6 +23,7 @@ import org.springframework.security.web.authentication.preauth.PreAuthenticatedA
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
 
+import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import java.util.HashMap;
@@ -38,6 +39,17 @@ import static org.junit.jupiter.api.Assertions.*;
 public class AbstractFHIRTest {
 
 	public static final String SHOULD_HAVE_THROWN_EXCEPTION_BEFORE_THIS_LINE = "Should have thrown exception before this line.";
+
+	protected final String EXPRESSION_REPO_VERSION = "http://snomed.info/xsct/11000003104";
+
+	private final String CREATE_SUPPLEMENT_REQUEST = "{\n" +
+			"  \"resourceType\" : \"CodeSystem\",\n" +
+			"  \"url\" : \"http://snomed.info/sct\",\n" +
+			"  \"version\" : \"" + EXPRESSION_REPO_VERSION + "\",\n" +
+			"  \"content\" : \"supplement\",\n" +
+			"  \"supplements\" : \"http://snomed.info/sct|http://snomed.info/sct/900000000000207008/version/20190131\"\n" +
+			"}\n";
+
 
 	@LocalServerPort
 	protected int port = 8080;
@@ -70,7 +82,7 @@ public class AbstractFHIRTest {
 	protected HttpEntity<String> defaultRequestEntity;
 
 	@BeforeEach
-	public void abstractSetup() throws Exception {
+	public void abstractSetup() {
 		// Setup security
 		if (!rolesEnabled) {
 			PreAuthenticatedAuthenticationToken authentication = new PreAuthenticatedAuthenticationToken("test-admin", "1234000008", Sets.newHashSet(new SimpleGrantedAuthority("USER")));
@@ -89,6 +101,15 @@ public class AbstractFHIRTest {
 		HttpHeaders headers = new HttpHeaders();
 		headers.setAccept(Collections.singletonList(MediaType.APPLICATION_JSON));
 		defaultRequestEntity = new HttpEntity<>(headers);
+
+		createExpressionRepo();
+	}
+
+	protected void createExpressionRepo() {
+		String url = baseUrl + "/CodeSystem";
+		HttpHeaders headers = new HttpHeaders();
+		headers.add("Content-Type", "application/fhir+json");
+		this.restTemplate.exchange(new RequestEntity<>(CREATE_SUPPLEMENT_REQUEST, headers, HttpMethod.POST, URI.create(url)), String.class);
 	}
 
 	protected void expectResponse(ResponseEntity<String> response, int expectedStatusCode) {
@@ -110,9 +131,16 @@ public class AbstractFHIRTest {
 	}
 
 	protected Parameters getParameters(String url, int statusCode, String expectBodyContains) {
+		if (!url.startsWith(baseUrl)) {
+			url = baseUrl + url;
+		}
 		ResponseEntity<String> response = this.restTemplate.exchange(url, HttpMethod.GET, defaultRequestEntity, String.class);
 		expectResponse(response, statusCode, expectBodyContains);
 		return statusCode == 200 ? fhirJsonParser.parseResource(Parameters.class, response.getBody()) : null;
+	}
+
+	protected String getPropertyString(Parameters params, String propertyName) {
+		return toString(getProperty(params, propertyName));
 	}
 
 	protected Type getProperty(Parameters params, String propertyName) {

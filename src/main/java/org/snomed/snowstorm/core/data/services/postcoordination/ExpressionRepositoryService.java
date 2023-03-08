@@ -117,18 +117,20 @@ public class ExpressionRepositoryService {
 		return new PageImpl<>(expressions, pageRequest, membersPage.getTotalElements());
 	}
 
-	public PostCoordinatedExpression createExpression(String closeToUserFormExpression, String branch, String moduleId, String classificationPackage) throws ServiceException {
-		List<PostCoordinatedExpression> expressions = createExpressionsAllOrNothing(Collections.singletonList(closeToUserFormExpression), branch, moduleId, classificationPackage);
+	public PostCoordinatedExpression createExpression(String closeToUserFormExpression, CodeSystem codeSystem, boolean classify) throws ServiceException {
+		List<PostCoordinatedExpression> expressions = createExpressionsAllOrNothing(Collections.singletonList(closeToUserFormExpression), codeSystem, classify);
 		return expressions.get(0);
 	}
 
-	public List<PostCoordinatedExpression> createExpressionsAllOrNothing(List<String> closeToUserFormExpressions, String branch, String moduleId, String classificationPackage) throws ServiceException {
-		int namespace = IdentifierHelper.getNamespaceFromSCTID(moduleId);
-		final List<PostCoordinatedExpression> postCoordinatedExpressions = parseValidateTransformAndClassifyExpressions(closeToUserFormExpressions, branch, classificationPackage);
+	public List<PostCoordinatedExpression> createExpressionsAllOrNothing(List<String> closeToUserFormExpressions, CodeSystem codeSystem, boolean classify) throws ServiceException {
+		final List<PostCoordinatedExpression> postCoordinatedExpressions = processExpressions(closeToUserFormExpressions, codeSystem, classify);
 
 		if (!postCoordinatedExpressions.isEmpty() && postCoordinatedExpressions.stream().noneMatch(PostCoordinatedExpression::hasException)
 				&& postCoordinatedExpressions.stream().anyMatch(PostCoordinatedExpression::hasNullId)) {
 
+			String moduleId = codeSystem.getUriModuleId();
+			int namespace = IdentifierHelper.getNamespaceFromSCTID(moduleId);
+			String branch = codeSystem.getBranchPath();
 			try (Commit commit = branchService.openCommit(branch)) {
 				List<ReferenceSetMember> membersToSave = new ArrayList<>();
 				List<Concept> conceptsToSave = new ArrayList<>();
@@ -242,7 +244,22 @@ public class ExpressionRepositoryService {
 		return conceptId;
 	}
 
-	public List<PostCoordinatedExpression> parseValidateTransformAndClassifyExpressions(List<String> originalCloseToUserForms, String branch, String classificationPackage) {
+	/**
+	 * Processing expressions includes the following steps:
+	 * - Parse to validate syntax
+	 * - Lookup any existing expressions in the store, if found return other forms from the store
+	 * - Validate MRCM attribute range
+	 *
+	 * @param originalCloseToUserForms
+	 * @param codeSystem
+	 * @param classify
+	 * @return
+	 */
+	public List<PostCoordinatedExpression> processExpressions(List<String> originalCloseToUserForms, CodeSystem codeSystem, boolean classify) {
+		String branch = codeSystem.getBranchPath();
+		Integer dependantVersionEffectiveTime = codeSystem.getDependantVersionEffectiveTime();
+		String classificationPackage = String.format("%s_%s_snapshot.zip", codeSystem.getParentUriModuleId(), dependantVersionEffectiveTime);
+
 		List<PostCoordinatedExpression> expressionOutcomes = new ArrayList<>();
 
 		for (String originalCloseToUserForm : originalCloseToUserForms) {
@@ -278,20 +295,20 @@ public class ExpressionRepositoryService {
 					classifiableFormExpression = transformationService.validateAndTransform(closeToUserFormExpression, context);
 					timer.checkpoint("Transformation");
 
-					// Classify
-					// Assign temp identifier for classification process
-					applyToExpressions(classifiableFormExpression, expression -> expression.setExpressionId(getNewId(SNOMED_INTERNATIONAL_DEMO_NAMESPACE)));
-					ComparableExpression necessaryNormalForm;
-					boolean skipClassification = false;
-//					boolean skipClassification = true;
-					if (skipClassification) {
-						necessaryNormalForm = classifiableFormExpression;
-					} else {
+					ComparableExpression necessaryNormalForm = null;
+					if (classify) {
+						// Assign temp identifier for classification process
+						applyToExpressions(classifiableFormExpression, expression -> expression.setExpressionId(getNewId(SNOMED_INTERNATIONAL_DEMO_NAMESPACE)));
+
+						// Classify
 						necessaryNormalForm = incrementalClassificationService.classify(classifiableFormExpression, classificationPackage);
 						timer.checkpoint("Classify");
+
+						// Clear temp identifiers
+						applyToExpressions(classifiableFormExpression, expression -> expression.setExpressionId(null));
+
+						// TODO: MRCM attribute cardinality validation, after classification?
 					}
-					// Clear temp identifiers
-					applyToExpressions(classifiableFormExpression, expression -> expression.setExpressionId(null));
 
 					pce = new PostCoordinatedExpression(null, canonicalCloseToUserForm,
 							classifiableFormExpression.toString(), necessaryNormalForm);

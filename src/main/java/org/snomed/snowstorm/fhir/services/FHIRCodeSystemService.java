@@ -144,7 +144,7 @@ public class FHIRCodeSystemService {
 				newCodeSystem.setShortName(shortName + a);
 				a++;
 			}
-			newCodeSystem.setName("Postcoordinated Expression Repository");
+			newCodeSystem.setName("SNOMED CT Postcoordinated Expression Repository");
 			newCodeSystem.setBranchPath(String.join("/", dependentCodeSystem.getBranchPath(), newCodeSystem.getShortName()));
 			newCodeSystem.setUriModuleId(snomedModule);
 			newCodeSystem.setMaximumPostcoordinationLevel(maxPostcoordinationLevel);
@@ -318,6 +318,7 @@ public class FHIRCodeSystemService {
 		}
 	}
 
+	// Used for $validate-code
 	public ConceptAndSystemResult findSnomedConcept(String code, List<LanguageDialect> languageDialects, FHIRCodeSystemVersionParams codeSystemParams) {
 
 		Concept concept;
@@ -343,7 +344,20 @@ public class FHIRCodeSystemService {
 			}
 		} else {
 			codeSystemVersion = getSnomedVersionOrThrow(codeSystemParams);
-			concept = snomedConceptService.find(code, languageDialects, codeSystemVersion.getSnomedBranch());
+			org.snomed.snowstorm.core.data.domain.CodeSystem snomedCodeSystem = codeSystemVersion.getSnomedCodeSystem();
+			if (snomedCodeSystem != null && snomedCodeSystem.isPostcoordinatedNullSafe() && !IdentifierHelper.SCTID_PATTERN.matcher(code).matches()) {
+				// Validate syntax, normalise format, attempt lookup (return), transform + validate (return)
+				List<PostCoordinatedExpression> postCoordinatedExpressions = expressionRepository.processExpressions(Collections.singletonList(code), snomedCodeSystem, false);
+				PostCoordinatedExpression postCoordinatedExpression = postCoordinatedExpressions.get(0);
+				if (postCoordinatedExpression.hasException()) {
+					return new ConceptAndSystemResult(null, codeSystemVersion, postCoordinatedExpression.getException().getMessage());
+				} else {
+					return new ConceptAndSystemResult(new Concept(postCoordinatedExpression.getCloseToUserForm()), codeSystemVersion,
+							"This is a valid SNOMED CT postcoordinated expression.");
+				}
+			} else {
+				concept = snomedConceptService.find(code, languageDialects, codeSystemVersion.getSnomedBranch());
+			}
 		}
 		return new ConceptAndSystemResult(concept, codeSystemVersion);
 	}
@@ -355,11 +369,7 @@ public class FHIRCodeSystemService {
 		List<String> closeToUserFormExpressions = concepts.stream().map(CodeSystem.ConceptDefinitionComponent::getCode).collect(Collectors.toList());
 		List<PostCoordinatedExpression> outcomes;
 		try {
-			org.snomed.snowstorm.core.data.domain.CodeSystem snomedCodeSystem = snomedExpressionCodeSystem.getSnomedCodeSystem();
-			Integer dependantVersionEffectiveTime = snomedCodeSystem.getDependantVersionEffectiveTime();
-			String classificationPackage = String.format("%s_%s_snapshot.zip", snomedCodeSystem.getParentUriModuleId(), dependantVersionEffectiveTime);
-			outcomes = expressionRepository.createExpressionsAllOrNothing(closeToUserFormExpressions, snomedExpressionCodeSystem.getSnomedBranch(), snomedCodeSystem
-					.getUriModuleId(), classificationPackage);
+			outcomes = expressionRepository.createExpressionsAllOrNothing(closeToUserFormExpressions, snomedExpressionCodeSystem.getSnomedCodeSystem(), true);
 		} catch (ServiceException e) {
 			logger.error("Error handling postcoordinated expressions. CodeSystem: {}, Expressions: {}", snomedExpressionCodeSystem.getId(), closeToUserFormExpressions, e);
 			throw exception("Handling SNOMED CT postcoordinated expressions failed.", OperationOutcome.IssueType.EXCEPTION, 500, e);

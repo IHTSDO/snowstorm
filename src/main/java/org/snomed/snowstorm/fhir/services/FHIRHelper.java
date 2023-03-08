@@ -274,7 +274,9 @@ public class FHIRHelper implements FHIRConstants {
 		if (code == null && coding == null) {
 			throw exception("Use either 'code' or 'coding' parameters, not both.", IssueType.INVARIANT, 400);
 		} else if (code != null) {
-			if (code.getCode().contains("|")) {
+			if (code.getCode().contains("|") &&
+					// Only throw error if there is only one pipe in the code, otherwise this may be a postcoordinated expression with terms.
+					code.getCode().indexOf("|") == code.getCode().lastIndexOf("|")) {
 				throw exception("The 'code' parameter cannot supply a codeSystem. " +
 						"Use 'coding' or provide CodeSystem in 'system' parameter.", IssueType.NOTSUPPORTED, 400);
 			}
