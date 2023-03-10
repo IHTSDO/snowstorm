@@ -815,7 +815,7 @@ public class ConceptService extends ComponentService {
 		}
 	}
 
-	public List<ConceptMini> donateConcepts(String ecl, String sourceBranchPath, String destinationBranchPath, boolean includeDependencies) throws ServiceException {
+	public List<ConceptMini> copyConcepts(String ecl, String sourceBranchPath, String destinationBranchPath, boolean includeDependencies) throws ServiceException {
 		final Branch sourceBranch = branchService.findBranchOrThrow(sourceBranchPath, true);
 		final Branch destinationBranch = branchService.findBranchOrThrow(destinationBranchPath, true);
 
