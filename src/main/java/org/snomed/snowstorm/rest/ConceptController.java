@@ -590,10 +590,10 @@ public class ConceptController {
 		return new ExpressionStringPojo(expression.toString(includeTerms));
 	}
 	
-	@PostMapping(value = "/{branch}/concepts/donate")
+	@PostMapping(value = "/{branch}/concepts/copy")
 	@PreAuthorize("hasPermission('AUTHOR', #branch)")
 	@JsonView(value = View.Component.class)
-	public Collection<ConceptMini> donateConcepts(
+	public Collection<ConceptMini> copyConcepts(
 			@Parameter(description = "Destination branch where the concepts are copied to.")
 			@PathVariable String branch,
 			@Parameter(description = "Source branch where the concepts are selected from.")
@@ -607,7 +607,7 @@ public class ConceptController {
 			throw new ServiceException("Source branch must be a version branch.");
 		}
 		String destinationBranchPath = BranchPathUriUtil.decodePath(branch);
-		return conceptService.donateConcepts(ecl, sourceBranchPath, destinationBranchPath, includeDependencies);
+		return conceptService.copyConcepts(ecl, sourceBranchPath, destinationBranchPath, includeDependencies);
 	}
 
 	private PageRequest getPageRequestWithSort(int offset, int size, String searchAfter, Sort sort) {
