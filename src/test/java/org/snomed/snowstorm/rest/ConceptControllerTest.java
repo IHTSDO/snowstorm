@@ -1193,7 +1193,7 @@ class ConceptControllerTest extends AbstractTest {
 	}
 
 	@Test
-	void testDonateConcepts_SourceBranchNotAVersionBranch() throws ServiceException {
+	void testCopyConcepts_SourceBranchNotAVersionBranch() throws ServiceException {
 		String sourceBranch = "MAIN/SNOMEDCT-BE";
 		String destinationBranch = "MAIN/A1";
 
@@ -1211,13 +1211,13 @@ class ConceptControllerTest extends AbstractTest {
 
 		String ecl = "100001 | Milk (food) |";
 
-		ResponseEntity<String> responseEntity = donateConcepts(ecl, sourceBranch, destinationBranch, false);
+		ResponseEntity<String> responseEntity = copyConcepts(ecl, sourceBranch, destinationBranch, false);
 		assertFalse(responseEntity.getStatusCode().equals(HttpStatus.OK));
 		assertTrue(responseEntity.getBody().contains("Source branch must be a version branch."));
 	}
 
 	@Test
-	void testDonateConcepts() throws ServiceException {
+	void testCopyConcepts() throws ServiceException {
 		String sourceBranch = "MAIN/SNOMEDCT-BE";
 		String destinationBranch = "MAIN/A1";
 
@@ -1235,7 +1235,7 @@ class ConceptControllerTest extends AbstractTest {
 
 		String ecl = "100001 | Milk (food) |";
 
-		ResponseEntity<String> responseEntity = donateConcepts(ecl, codeSystemService.findVersion("SNOMEDCT-BE", 20220228).getBranchPath(), destinationBranch, false);
+		ResponseEntity<String> responseEntity = copyConcepts(ecl, codeSystemService.findVersion("SNOMEDCT-BE", 20220228).getBranchPath(), destinationBranch, false);
 		assertTrue(responseEntity.getStatusCode().equals(HttpStatus.OK));
 
 		Concept concept = conceptService.find("100001", destinationBranch);
@@ -1256,7 +1256,7 @@ class ConceptControllerTest extends AbstractTest {
 	}
 
 	@Test
-	void testDonateConceptsWithDependencies() throws ServiceException {
+	void testCopyConceptsWithDependencies() throws ServiceException {
 		String sourceBranch = "MAIN/SNOMEDCT-BE";
 		String destinationBranch = "MAIN/A1";
 
@@ -1274,7 +1274,7 @@ class ConceptControllerTest extends AbstractTest {
 
 		String ecl = "100001 | Milk (food) |";
 
-		ResponseEntity<String> responseEntity = donateConcepts(ecl, codeSystemService.findVersion("SNOMEDCT-BE", 20220228).getBranchPath(), destinationBranch, true);
+		ResponseEntity<String> responseEntity = copyConcepts(ecl, codeSystemService.findVersion("SNOMEDCT-BE", 20220228).getBranchPath(), destinationBranch, true);
 		assertTrue(responseEntity.getStatusCode().equals(HttpStatus.OK));
 
 		// Concept defined in ECL
@@ -1313,7 +1313,7 @@ class ConceptControllerTest extends AbstractTest {
 	}
 
 	@Test
-	void testDonateConceptsWithConcreteValues() throws ServiceException {
+	void testCopyConceptsWithConcreteValues() throws ServiceException {
 		String sourceBranch = "MAIN/SNOMEDCT-BE";
 		String destinationBranch = "MAIN/A1";
 
@@ -1331,7 +1331,7 @@ class ConceptControllerTest extends AbstractTest {
 
 		String ecl = "100001 | Milk (food) |";
 
-		ResponseEntity<String> responseEntity = donateConcepts(ecl, codeSystemService.findVersion("SNOMEDCT-BE", 20220228).getBranchPath(), destinationBranch, false);
+		ResponseEntity<String> responseEntity = copyConcepts(ecl, codeSystemService.findVersion("SNOMEDCT-BE", 20220228).getBranchPath(), destinationBranch, false);
 		assertTrue(responseEntity.getStatusCode().equals(HttpStatus.OK));
 
 		Concept concept = conceptService.find("100001", destinationBranch);
@@ -1476,12 +1476,12 @@ class ConceptControllerTest extends AbstractTest {
 		conceptService.create(concept, branchPath);
 	}
 
-	private ResponseEntity<String> donateConcepts(String ecl, String sourceBranch, String destinationBranch, boolean includeDependencies) {
+	private ResponseEntity<String> copyConcepts(String ecl, String sourceBranch, String destinationBranch, boolean includeDependencies) {
 		HttpHeaders httpHeaders = new HttpHeaders();
 		httpHeaders.set("Content-Type", "application/json");
 
 		return restTemplate.exchange(
-				UriComponentsBuilder.fromUriString("http://localhost:" + port + "/" + destinationBranch + "/concepts/donate")
+				UriComponentsBuilder.fromUriString("http://localhost:" + port + "/" + destinationBranch + "/concepts/copy")
 						.queryParam("sourceBranch", sourceBranch)
 						.queryParam("ecl", ecl)
 						.queryParam("includeDependencies", includeDependencies)
