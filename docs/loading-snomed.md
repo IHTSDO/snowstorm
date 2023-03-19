@@ -1,6 +1,6 @@
 # Loading SNOMED CT into Snowstorm
 
-Before anything, get hold of the most recent [SNOMED CT International Edition RF2 release files](https://www.snomed.org/snomed-ct/get-snomed-ct) release files.
+Before anything, get hold of the most recent [SNOMED CT International Edition RF2 release files](http://snomed.org/get-snomed) release files.
 
 ## Contents
 
