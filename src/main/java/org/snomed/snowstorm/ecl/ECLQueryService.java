@@ -136,7 +136,7 @@ public class ECLQueryService {
 		String ecl = expressionConstraint.toEclString();
 		String path = branchCriteria.getBranchPath();
 
-		logger.info("ECL on path {}, \"{}\"", path, expressionConstraint.toEclString());
+		logger.debug("ECL on path {}, \"{}\"", path, expressionConstraint.toEclString());
 
 		Optional<Page<Long>> pageOptional;
 		if (eclCacheEnabled) {
