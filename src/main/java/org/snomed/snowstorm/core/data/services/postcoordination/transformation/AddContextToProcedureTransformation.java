@@ -12,8 +12,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import static org.snomed.snowstorm.core.data.domain.Concepts.ASSOCIATED_PROCEDURE;
-import static org.snomed.snowstorm.core.data.domain.Concepts.SITUATION_WITH_EXPLICIT_CONTEXT;
+import static org.snomed.snowstorm.core.data.domain.Concepts.*;
 import static org.snomed.snowstorm.core.util.CollectionUtils.orEmpty;
 
 public class AddContextToProcedureTransformation implements ExpressionTransformation {
@@ -27,7 +26,7 @@ public class AddContextToProcedureTransformation implements ExpressionTransforma
 					.filter(looseAttribute -> PROCEDURE_CONTEXT_ATTRIBUTES.contains(looseAttribute.getAttributeId())).collect(Collectors.toList());
 
 			if (!contextAttributes.isEmpty()) {
-				ComparableExpression situationExpression = new ComparableExpression(SITUATION_WITH_EXPLICIT_CONTEXT);
+				ComparableExpression situationExpression = new ComparableExpression(PROCEDURE_WITH_EXPLICIT_CONTEXT);
 				situationExpression.setDefinitionStatus(expression.getDefinitionStatus());
 				expression.setDefinitionStatus(null);// Clear definition status before nesting
 

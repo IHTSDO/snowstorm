@@ -212,6 +212,7 @@ public class Concepts {
 	public static final String TEMPORAL_CONTEXT = "408731000";
 	public static final String SUBJECT_RELATIONSHIP_CONTEXT = "408732007";
 	public static final String SITUATION_WITH_EXPLICIT_CONTEXT = "243796009";
+	public static final String PROCEDURE_WITH_EXPLICIT_CONTEXT = "129125009";
 	public static final String FINDING_WITH_EXPLICIT_CONTEXT = "413350009";
 	public static final String ASSOCIATED_FINDING = "246090004";
 	public static final String ASSOCIATED_PROCEDURE = "363589002";
