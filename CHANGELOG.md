@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
-## 8.1.0 Release (March 2023)
+## 8.1.1 Release (March 2023)
 This release has an overhaul of the FHIR API :fire: and adds support for multiple code systems within the FHIR API!
 
 Previously Snowstorm only supported SNOMED CT but this release adds support for LOINC, ICD-10 (International), ICD-10-CM (US) and
