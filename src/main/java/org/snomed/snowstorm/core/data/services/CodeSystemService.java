@@ -51,9 +51,7 @@ import static io.kaicode.elasticvc.api.ComponentService.LARGE_PAGE;
 import static java.lang.String.format;
 import static org.elasticsearch.index.query.QueryBuilders.*;
 import static org.snomed.snowstorm.config.Config.DEFAULT_LANGUAGE_CODES;
-import static org.snomed.snowstorm.core.data.services.BranchMetadataKeys.PREVIOUS_PACKAGE;
-import static org.snomed.snowstorm.core.data.services.BranchMetadataKeys.PREVIOUS_RELEASE;
-import static org.snomed.snowstorm.core.data.services.BranchMetadataKeys.PREVIOUS_DEPENDENCY_PACKAGE;
+import static org.snomed.snowstorm.core.data.services.BranchMetadataKeys.*;
 
 @Service
 public class CodeSystemService {
@@ -701,5 +699,54 @@ public class CodeSystemService {
 		}
 
 		return releaseBranch;
+	}
+
+	public List<CodeSystemVersion> findVersionsByCodeSystemAndTimeRange(CodeSystem codeSystem, long lowerBound, long upperBound) {
+		if (codeSystem == null) {
+			throw new IllegalArgumentException("CodeSystem cannot be null.");
+		}
+
+		if (lowerBound == 0L || upperBound == 0L || upperBound < lowerBound) {
+			throw new IllegalArgumentException(String.format("Invalid time range. lowerBound: %d, upperBound: %d", lowerBound, upperBound));
+		}
+
+		SearchHits<Branch> queryBranch = elasticsearchOperations.search(
+				new NativeSearchQueryBuilder()
+						.withQuery(
+								boolQuery()
+										.must(wildcardQuery("path", codeSystem.getBranchPath() + "/*-*-*"))
+										.must(rangeQuery("base").gt(lowerBound).lte(upperBound))
+										.mustNot(existsQuery("end"))
+						)
+						.build(), Branch.class
+		);
+
+		if (queryBranch.isEmpty()) {
+			return Collections.emptyList();
+		}
+
+		List<Branch> branches = queryBranch.getSearchHits().stream().map(SearchHit::getContent).collect(Collectors.toList());
+		Map<String, String> branchPathToImportDate = new HashMap<>();
+		for (Branch branch : branches) {
+			branchPathToImportDate.put(
+					getHyphenatedEffectiveTimeFromVersionBranch(branch.getPath()),
+					epochToImportDate(branch.getHeadTimestamp())
+			);
+		}
+
+		SearchHits<CodeSystemVersion> codeSystemVersionQuery = elasticsearchOperations.search(
+				new NativeSearchQueryBuilder()
+						.withQuery(
+								boolQuery()
+										.must(termQuery(CodeSystemVersion.Fields.SHORT_NAME, codeSystem.getShortName()))
+										.must(termsQuery(CodeSystemVersion.Fields.IMPORT_DATE, branchPathToImportDate.values()))
+										.must(termsQuery(CodeSystemVersion.Fields.VERSION, branchPathToImportDate.keySet()))
+										.mustNot(existsQuery("end"))
+						)
+						.withPageable(PageRequest.of(0, 1))
+						.build(), CodeSystemVersion.class
+		);
+
+		return codeSystemVersionQuery.getSearchHits().stream().map(SearchHit::getContent).collect(Collectors.toList());
 	}
 }
