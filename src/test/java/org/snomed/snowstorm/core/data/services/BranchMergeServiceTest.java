@@ -4791,6 +4791,94 @@ class BranchMergeServiceTest extends AbstractTest {
 		}
 	}
 
+	@Test
+	void testRebasingTaskVersionBehindWhenCodeSystemMovesForward() throws ServiceException, InterruptedException {
+		String intMain = "MAIN";
+		Map<String, String> intPreferred = Map.of(US_EN_LANG_REFSET, descriptionAcceptabilityNames.get(PREFERRED), GB_EN_LANG_REFSET, descriptionAcceptabilityNames.get(PREFERRED));
+		String ci = "CASE_INSENSITIVE";
+		Concept concept;
+		CodeSystem codeSystem;
+		MergeReview review;
+		Collection<MergeReviewConceptVersions> conflicts;
+
+		// 1. Create Projects
+		String projectA = "MAIN/projectA";
+		branchService.create(projectA);
+
+		String projectB = "MAIN/projectB";
+		branchService.create(projectB);
+
+		// 2. Create Concept on Project A
+		concept = new Concept()
+				.addDescription(new Description("Vehicle (vehicle)").setTypeId(FSN).setCaseSignificance(ci).setAcceptabilityMap(intPreferred))
+				.addDescription(new Description("Vehicle").setTypeId(SYNONYM).setCaseSignificance(ci).setAcceptabilityMap(intPreferred))
+				.addAxiom(new Relationship(ISA, SNOMEDCT_ROOT))
+				.addRelationship(new Relationship(ISA, SNOMEDCT_ROOT))
+				.setModuleId(MODEL_MODULE);
+		concept = conceptService.create(concept, projectA);
+		String vehicleId = concept.getConceptId();
+
+		// 3. Create Task A
+		String taskA = "MAIN/projectA/taskA";
+		branchService.create(taskA);
+
+		// 4. On Task A, change the Concept to FD.
+		concept = conceptService.find(vehicleId, taskA);
+		for (Axiom classAxiom : concept.getClassAxioms()) {
+			classAxiom.setDefinitionStatusId(FULLY_DEFINED);
+			classAxiom.getRelationships().add(new Relationship("272741003", "24028007"));
+		}
+		concept.setDefinitionStatusId(FULLY_DEFINED);
+		conceptService.update(concept, taskA);
+
+		// 5. Promote Project A to CodeSystem
+		branchMergeService.mergeBranchSync(projectA, intMain, Collections.emptySet());
+
+		// 6 Version
+		codeSystem = codeSystemService.find("SNOMEDCT");
+		codeSystemService.createVersion(codeSystem, 20220228, "20220228");
+
+		// 7. Project B makes content changes which reaches CodeSystem before Project A rebases
+		String taskB = "MAIN/projectB/taskB";
+		branchService.create(taskB);
+
+		conceptService.create(new Concept()
+				.addDescription(new Description("Medicine (medicine)").setTypeId(FSN).setCaseSignificance(ci).setAcceptabilityMap(intPreferred))
+				.addDescription(new Description("Medicine").setTypeId(SYNONYM).setCaseSignificance(ci).setAcceptabilityMap(intPreferred))
+				.addAxiom(new Relationship(ISA, SNOMEDCT_ROOT))
+				.addRelationship(new Relationship(ISA, SNOMEDCT_ROOT))
+				.setModuleId(CORE_MODULE), taskB);
+
+		review = getMergeReviewInCurrentState(intMain, projectB);
+		conflicts = reviewService.getMergeReviewConflictingConcepts(review.getId(), new ArrayList<>());
+		assertEquals(0, conflicts.size());
+		reviewService.applyMergeReview(review);
+
+		review = getMergeReviewInCurrentState(projectB, taskB);
+		conflicts = reviewService.getMergeReviewConflictingConcepts(review.getId(), new ArrayList<>());
+		assertEquals(0, conflicts.size());
+		reviewService.applyMergeReview(review);
+
+		branchMergeService.mergeBranchSync(taskB, projectB, Collections.emptySet());
+		branchMergeService.mergeBranchSync(projectB, intMain, Collections.emptySet());
+
+		// 8. Rebase Project A
+		review = getMergeReviewInCurrentState(intMain, projectA);
+		conflicts = reviewService.getMergeReviewConflictingConcepts(review.getId(), new ArrayList<>());
+		assertEquals(0, conflicts.size());
+		reviewService.applyMergeReview(review);
+
+		// 9. Rebase Task A
+		review = getMergeReviewInCurrentState(projectA, taskA);
+		conflicts = reviewService.getMergeReviewConflictingConcepts(review.getId(), new ArrayList<>());
+		assertEquals(1, conflicts.size());
+
+		// 10. Assert
+		for (MergeReviewConceptVersions conflict : conflicts) {
+			assertTrue(conflict.isTargetConceptVersionBehind());
+		}
+	}
+
 	private void assertNotVersioned(Description description) {
 		assertNull(description.getEffectiveTime());
 		assertFalse(description.isReleased());
