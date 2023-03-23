@@ -659,48 +659,6 @@ public class CodeSystemService {
 		return new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss").format(date);
 	}
 
-	public Branch findVersionBranchByCodeSystemAndBaseTimestamp(CodeSystem codeSystem, long baseTimestamp) {
-		if (codeSystem == null || baseTimestamp == 0L) {
-			return null;
-		}
-
-		SearchHits<Branch> queryBranch = elasticsearchOperations.search(
-				new NativeSearchQueryBuilder()
-						.withQuery(
-								boolQuery()
-										.must(wildcardQuery("path", codeSystem.getBranchPath() + "/*-*-*"))
-										.must(termQuery("base", baseTimestamp))
-										.mustNot(existsQuery("end"))
-						)
-						.withPageable(PageRequest.of(0, 1))
-						.build(), Branch.class
-		);
-
-		if (queryBranch.isEmpty()) {
-			return null;
-		}
-
-		Branch releaseBranch = queryBranch.getSearchHit(0).getContent();
-		SearchHits<CodeSystemVersion> codeSystemVersionQuery = elasticsearchOperations.search(
-				new NativeSearchQueryBuilder()
-						.withQuery(
-								boolQuery()
-										.must(termQuery(CodeSystemVersion.Fields.IMPORT_DATE, epochToImportDate(releaseBranch.getHeadTimestamp())))
-										.must(termQuery(CodeSystemVersion.Fields.VERSION, getHyphenatedEffectiveTimeFromVersionBranch(releaseBranch.getPath())))
-										.mustNot(existsQuery("end"))
-						)
-						.withPageable(PageRequest.of(0, 1))
-						.build(), CodeSystemVersion.class
-		);
-
-		// If no corresponding matches, then releaseBranch is not actually a release branch.
-		if (codeSystemVersionQuery.isEmpty()) {
-			return null;
-		}
-
-		return releaseBranch;
-	}
-
 	public List<CodeSystemVersion> findVersionsByCodeSystemAndTimeRange(CodeSystem codeSystem, long lowerBound, long upperBound) {
 		if (codeSystem == null) {
 			throw new IllegalArgumentException("CodeSystem cannot be null.");
