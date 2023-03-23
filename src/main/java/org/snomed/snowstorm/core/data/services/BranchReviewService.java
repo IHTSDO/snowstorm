@@ -197,15 +197,15 @@ public class BranchReviewService {
 		Branch originalSourceBranch = getOriginatingTopLevelBranch(sourcePath);
 		Branch originalTargetBranch = getOriginatingTopLevelBranch(targetPath);
 
-		long leftTopLevelBaseTimestamp = originalSourceBranch.getBaseTimestamp();
-		long rightTopLevelBaseTimestamp = originalTargetBranch.getBaseTimestamp();
-		if (rightTopLevelBaseTimestamp < leftTopLevelBaseTimestamp) {
+		long sourceTopLevelBaseTimestamp = originalSourceBranch.getBaseTimestamp();
+		long targetTopLevelBaseTimestamp = originalTargetBranch.getBaseTimestamp();
+		if (targetTopLevelBaseTimestamp < sourceTopLevelBaseTimestamp) {
 			return true;
 		}
 
-		long leftTopLevelHeadTimestamp = originalSourceBranch.getHeadTimestamp();
-		long rightTopLevelHeadTimestamp = originalTargetBranch.getHeadTimestamp();
-		if (leftTopLevelHeadTimestamp == rightTopLevelHeadTimestamp) {
+		long sourceTopLevelHeadTimestamp = originalSourceBranch.getHeadTimestamp();
+		long targetTopLevelHeadTimestamp = originalTargetBranch.getHeadTimestamp();
+		if (sourceTopLevelHeadTimestamp == targetTopLevelHeadTimestamp || sourceTopLevelHeadTimestamp < targetTopLevelHeadTimestamp) {
 			return false;
 		}
 
@@ -214,12 +214,8 @@ public class BranchReviewService {
 			return false;
 		}
 
-		Branch lhsReleaseBranch = codeSystemService.findVersionBranchByCodeSystemAndBaseTimestamp(codeSystem, leftTopLevelHeadTimestamp);
-		if (lhsReleaseBranch == null) {
-			return false;
-		}
-
-		return lhsReleaseBranch.getHeadTimestamp() > rightTopLevelHeadTimestamp;
+		// If no versions exist between date range, then the target Branch is not a version behind.
+		return !codeSystemService.findVersionsByCodeSystemAndTimeRange(codeSystem, targetTopLevelHeadTimestamp, sourceTopLevelHeadTimestamp).isEmpty();
 	}
 
 	private Branch getOriginatingTopLevelBranch(String path) {
