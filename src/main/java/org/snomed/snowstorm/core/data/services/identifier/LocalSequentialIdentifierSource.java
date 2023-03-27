@@ -1,6 +1,7 @@
 package org.snomed.snowstorm.core.data.services.identifier;
 
 import co.elastic.clients.elasticsearch._types.*;
+import co.elastic.clients.elasticsearch._types.SortOrder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.core.data.domain.*;
@@ -126,11 +127,6 @@ public class LocalSequentialIdentifierSource implements IdentifierSource {
 			String highestSctid;
 			if (idField.equals(ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID)) {
 				highestSctid = ((ReferenceSetMember) component).getReferencedComponentId();
-			} else {
-				highestSctid = component.getId();
-			}
-			if (namespaceId == 0) {
-				highestSequence = Integer.parseInt(highestSctid.substring(0, highestSctid.length() - 3));
 			} else {
 				highestSctid = component.getId();
 			}
