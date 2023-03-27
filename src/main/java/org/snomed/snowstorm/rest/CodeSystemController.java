@@ -69,7 +69,7 @@ public class CodeSystemController {
                     postcoordinationLevel should be set to 0 unless creating a Postcoordinated Expression Repository.\s""")
 	@PostMapping
 	@PreAuthorize("hasPermission('ADMIN', #codeSystem.branchPath)")
-	public ResponseEntity<Void> createCodeSystem(@RequestBody CodeSystemCreate codeSystem) {
+	public ResponseEntity<Void> createCodeSystem(@RequestBody CodeSystemCreate codeSystem) throws ServiceException {
 		codeSystemService.createCodeSystem((CodeSystem) codeSystem);
 		return ControllerHelper.getCreatedResponse(codeSystem.getShortName());
 	}

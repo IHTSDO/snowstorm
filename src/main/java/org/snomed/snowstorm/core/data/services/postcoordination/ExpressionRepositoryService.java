@@ -5,7 +5,9 @@ import com.google.common.collect.Sets;
 import io.kaicode.elasticvc.api.BranchCriteria;
 import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.api.VersionControlHelper;
+import io.kaicode.elasticvc.domain.Branch;
 import io.kaicode.elasticvc.domain.Commit;
+import org.apache.logging.log4j.util.Strings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.languages.scg.domain.model.*;
@@ -87,6 +89,7 @@ public class ExpressionRepositoryService {
 
 	public static final String CANONICAL_CLOSE_TO_USER_FORM_EXPRESSION_REFERENCE_SET = "1119435002";
 	public static final String CLASSIFIABLE_FORM_EXPRESSION_REFERENCE_SET = "1119468009";
+	public static final String EXPRESSION_EQUIVALENT_CONCEPTS_ASSOCIATION_METADATA_KEY = "expressionEquivalentConceptAssociationRefset";
 	private static final int SNOMED_INTERNATIONAL_DEMO_NAMESPACE = 1000003;
 	private static final String EXPRESSION_FIELD = ReferenceSetMember.PostcoordinatedExpressionFields.EXPRESSION;
 
@@ -135,6 +138,14 @@ public class ExpressionRepositoryService {
 				List<ReferenceSetMember> membersToSave = new ArrayList<>();
 				List<Concept> conceptsToSave = new ArrayList<>();
 				Map<String, String> expressionIdCache = new HashMap<>();
+
+				String equivalentConceptAssociationRefset = commit.getBranch().getMetadata().getString(EXPRESSION_EQUIVALENT_CONCEPTS_ASSOCIATION_METADATA_KEY);
+				if (Strings.isBlank(equivalentConceptAssociationRefset)) {
+					logger.error("Not able to persist equivalent concept associations on {} because branch metadata item {} is missing.",
+							branch, EXPRESSION_EQUIVALENT_CONCEPTS_ASSOCIATION_METADATA_KEY);
+					equivalentConceptAssociationRefset = null;
+				}
+
 				BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(branch);
 				for (PostCoordinatedExpression postCoordinatedExpression : postCoordinatedExpressions) {
 					if (postCoordinatedExpression.getId() != null) {
@@ -142,15 +153,25 @@ public class ExpressionRepositoryService {
 					}
 
 					// Save NNF for ECL
-					final String expressionId = convertToConcepts(postCoordinatedExpression.getNecessaryNormalFormExpression(), false, namespace, conceptsToSave, branchCriteria, expressionIdCache);
+					ComparableExpression nnfExpression = postCoordinatedExpression.getNecessaryNormalFormExpression();
+					final String expressionId = convertToConcepts(nnfExpression, false, namespace, conceptsToSave, branchCriteria, expressionIdCache);
 					postCoordinatedExpression.setId(expressionId);
 
-					// Save refset members
+					if (nnfExpression.getEquivalentConcept() != null && equivalentConceptAssociationRefset != null) {
+						// Save equivalent concept link
+						final ReferenceSetMember equivalentConceptMember = new ReferenceSetMember(moduleId, equivalentConceptAssociationRefset, expressionId)
+								.setAdditionalField(ReferenceSetMember.AssociationFields.TARGET_COMP_ID, nnfExpression.getEquivalentConcept().toString());
+						equivalentConceptMember.markChanged();
+						membersToSave.add(equivalentConceptMember);
+					}
+
+					// Save close to user form
 					final ReferenceSetMember closeToUserFormMember = new ReferenceSetMember(moduleId, CANONICAL_CLOSE_TO_USER_FORM_EXPRESSION_REFERENCE_SET, expressionId)
 							.setAdditionalField(EXPRESSION_FIELD, postCoordinatedExpression.getCloseToUserForm().replace(" ", ""));
 					closeToUserFormMember.markChanged();
 					membersToSave.add(closeToUserFormMember);
 
+					// Save classifiable form
 					final ReferenceSetMember classifiableFormMember = new ReferenceSetMember(moduleId, CLASSIFIABLE_FORM_EXPRESSION_REFERENCE_SET, expressionId)
 							.setAdditionalField(EXPRESSION_FIELD, postCoordinatedExpression.getClassifiableForm().replace(" ", ""));
 					classifiableFormMember.markChanged();
@@ -256,15 +277,23 @@ public class ExpressionRepositoryService {
 	 * @return
 	 */
 	public List<PostCoordinatedExpression> processExpressions(List<String> originalCloseToUserForms, CodeSystem codeSystem, boolean classify) {
-		String branch = codeSystem.getBranchPath();
+		String branchPath = codeSystem.getBranchPath();
 		Integer dependantVersionEffectiveTime = codeSystem.getDependantVersionEffectiveTime();
 		String classificationPackage = String.format("%s_%s_snapshot.zip", codeSystem.getParentUriModuleId(), dependantVersionEffectiveTime);
 
 		List<PostCoordinatedExpression> expressionOutcomes = new ArrayList<>();
 
+		Branch branch = branchService.findLatest(branchPath);
+		String equivalentConceptAssociationRefset = branch.getMetadata().getString(EXPRESSION_EQUIVALENT_CONCEPTS_ASSOCIATION_METADATA_KEY);
+		if (Strings.isBlank(equivalentConceptAssociationRefset)) {
+			logger.error("Not able to fetch stored equivalent concept associations on {} because branch metadata item {} is missing.",
+					branchPath, EXPRESSION_EQUIVALENT_CONCEPTS_ASSOCIATION_METADATA_KEY);
+			equivalentConceptAssociationRefset = null;
+		}
+
 		for (String originalCloseToUserForm : originalCloseToUserForms) {
 			TimerUtil timer = new TimerUtil("exp");
-			ExpressionContext context = new ExpressionContext(branch, branchService, versionControlHelper, mrcmService, timer);
+			ExpressionContext context = new ExpressionContext(branchPath, branchService, versionControlHelper, mrcmService, timer);
 			try {
 				// Sort contents of expression
 				ComparableExpression closeToUserFormExpression = expressionParser.parseExpression(originalCloseToUserForm);
@@ -281,10 +310,23 @@ public class ExpressionRepositoryService {
 					ReferenceSetMember cfExpressionMember = findCFExpressionMember(expressionId, branchCriteria);
 					String cfExpression = cfExpressionMember != null ? cfExpressionMember.getAdditionalField(EXPRESSION_FIELD) : null;
 
-					Collection<Concept> concepts = conceptService.find(branchCriteria, branch, Collections.singleton(expressionId), Config.DEFAULT_LANGUAGE_DIALECTS);
+					Collection<Concept> concepts = conceptService.find(branchCriteria, branchPath, Collections.singleton(expressionId), Config.DEFAULT_LANGUAGE_DIALECTS);
 					ComparableExpression nnfExpression = null;
 					if (!concepts.isEmpty()) {
 						nnfExpression = conceptToNNFExpression(concepts.iterator().next());
+						if (equivalentConceptAssociationRefset != null) {
+							MemberSearchRequest searchRequest = new MemberSearchRequest()
+									.referenceSet(equivalentConceptAssociationRefset)
+									.referencedComponentId(expressionId)
+									.active(true);
+							Page<ReferenceSetMember> equivalentAssociations = memberService.findMembers(context.getBranchCriteria(), searchRequest, PageRequest.of(0, 1));
+							if (!equivalentAssociations.isEmpty()) {
+								ReferenceSetMember next = equivalentAssociations.iterator().next();
+								String additionalField = next.getAdditionalField(ReferenceSetMember.AssociationFields.TARGET_COMP_ID);
+								nnfExpression.setEquivalentConcept(
+										Long.parseLong(additionalField));
+							}
+						}
 					}
 					pce = new PostCoordinatedExpression(expressionId, foundCTUMember.getAdditionalField(EXPRESSION_FIELD), cfExpression, nnfExpression);
 				} else {

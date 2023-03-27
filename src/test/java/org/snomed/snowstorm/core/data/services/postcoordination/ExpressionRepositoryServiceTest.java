@@ -13,6 +13,7 @@ import org.snomed.snowstorm.core.data.services.QueryService;
 import org.snomed.snowstorm.core.data.services.ReferenceSetMemberService;
 import org.snomed.snowstorm.core.data.services.ServiceException;
 import org.snomed.snowstorm.core.data.services.identifier.LocalRandomIdentifierSource;
+import org.snomed.snowstorm.core.data.services.pojo.MemberSearchRequest;
 import org.snomed.snowstorm.core.data.services.postcoordination.model.ComparableExpression;
 import org.snomed.snowstorm.core.data.services.postcoordination.model.PostCoordinatedExpression;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -23,6 +24,7 @@ import org.springframework.data.domain.PageRequest;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.snomed.snowstorm.core.data.services.postcoordination.ExpressionRepositoryService.*;
 
 class ExpressionRepositoryServiceTest extends AbstractExpressionTest {
 
@@ -54,7 +56,7 @@ class ExpressionRepositoryServiceTest extends AbstractExpressionTest {
 
 	@Test
 	public void createExpressionOrThrow() throws ServiceException {
-		PostCoordinatedExpression expression = createExpressionOrThrow("83152002 |Oophorectomy|", branch, moduleId);
+		PostCoordinatedExpression expression = createExpressionOrThrow("83152002 |Oophorectomy|");
 		String expressionId = expression.getId();
 		System.out.println("Expression ID is " + expressionId);
 		assertEquals("16", LocalRandomIdentifierSource.POSTCOORDINATED_EXPRESSION_PARTITION_ID);
@@ -91,12 +93,15 @@ class ExpressionRepositoryServiceTest extends AbstractExpressionTest {
 		assertEquals(5, page.getTotalElements());
 
 		Page<PostCoordinatedExpression> results = expressionRepository.findByExpression(branch, expressionMultipleRefinements.getCloseToUserForm().replace(" ", ""),
-				ExpressionRepositoryService.CANONICAL_CLOSE_TO_USER_FORM_EXPRESSION_REFERENCE_SET, PageRequest.of(0, 1));
+				CANONICAL_CLOSE_TO_USER_FORM_EXPRESSION_REFERENCE_SET, PageRequest.of(0, 1));
 		assertEquals(1, results.getTotalElements());
 
-		String expressionId = expressionMultipleRefinements.getId();
-		Page<ReferenceSetMember> members = memberService.findMembers(branch, expressionId, PageRequest.of(0, 10));
-		assertEquals(2, members.getTotalElements());
+		expressionId = expressionMultipleRefinements.getId();
+		MemberSearchRequest memberSearchRequest = new MemberSearchRequest()
+				.referencedComponentId(expressionId)
+				.referenceSet(CANONICAL_CLOSE_TO_USER_FORM_EXPRESSION_REFERENCE_SET);
+		Page<ReferenceSetMember> members = memberService.findMembers(branch, memberSearchRequest, PageRequest.of(0, 10));
+		assertEquals(1, members.getTotalElements());
 		ReferenceSetMember member = members.get().iterator().next();
 		String refsetMemberExpressionField = member.getAdditionalField(ReferenceSetMember.PostcoordinatedExpressionFields.EXPRESSION);
 		assertFalse(refsetMemberExpressionField.isEmpty());
@@ -104,6 +109,14 @@ class ExpressionRepositoryServiceTest extends AbstractExpressionTest {
 		assertTrue(refsetMemberExpressionField.contains(":"));
 		assertFalse(refsetMemberExpressionField.contains(" "), () -> String.format("Expression should not contain any whitespace: '%s'", refsetMemberExpressionField));
 		assertFalse(refsetMemberExpressionField.contains("|"));
+
+		assertEquals(1, memberService.findMembers(branch, memberSearchRequest.referenceSet(CLASSIFIABLE_FORM_EXPRESSION_REFERENCE_SET), PageRequest.of(0, 10)).getTotalElements());
+
+		String equivalentsRefset = branchService.findLatest(branch).getMetadata().getString(EXPRESSION_EQUIVALENT_CONCEPTS_ASSOCIATION_METADATA_KEY);
+		assertNotNull(equivalentsRefset);
+		Page<ReferenceSetMember> equivalentConceptMembers = memberService.findMembers(branch, memberSearchRequest.referenceSet(equivalentsRefset), PageRequest.of(0, 10));
+		assertEquals(1, equivalentConceptMembers.getTotalElements());
+		assertEquals("1234567890", equivalentConceptMembers.iterator().next().getAdditionalField(ReferenceSetMember.AssociationFields.TARGET_COMP_ID));
 
 		Branch latestBranch = branchService.findLatest(branch);
 		assertEquals(expressionModuleId, latestBranch.getMetadata().getString("defaultModuleId"));
@@ -117,7 +130,9 @@ class ExpressionRepositoryServiceTest extends AbstractExpressionTest {
 	private PostCoordinatedExpression createExpressionOrThrow(String expression) throws ServiceException {
 		// For unit testing we are mocking out the classification step
 		// The expressions returned are not actually classified but it's enough to support expression handling and ECL testing.
-		Mockito.when(incrementalClassificationService.classify(ArgumentMatchers.any(), ArgumentMatchers.any())).thenReturn(expressionParser.parseExpression(expression));
+		ComparableExpression returnExpression = expressionParser.parseExpression(expression);
+		returnExpression.setEquivalentConcept(1234567890L);
+		Mockito.when(incrementalClassificationService.classify(ArgumentMatchers.any(), ArgumentMatchers.any())).thenReturn(returnExpression);
 
 		PostCoordinatedExpression postCoordinatedExpression = expressionRepository.createExpression(expression, expressionCodeSystem, true);
 		if (postCoordinatedExpression.getException() != null) {

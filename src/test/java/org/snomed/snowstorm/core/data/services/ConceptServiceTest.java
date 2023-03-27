@@ -86,7 +86,7 @@ class ConceptServiceTest extends AbstractTest {
 	private CodeSystem codeSystem;
 
 	@BeforeEach
-	void setup() {
+	void setup() throws ServiceException {
 		testUtil = new ServiceTestUtil(conceptService);
 		objectMapper = new ObjectMapper();
 		DeserializationConfig deserializationConfig = objectMapper.getDeserializationConfig().without(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES);

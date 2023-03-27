@@ -9,6 +9,7 @@ import org.snomed.snowstorm.core.data.domain.CodeSystem;
 import org.snomed.snowstorm.core.data.domain.security.Role;
 import org.snomed.snowstorm.core.data.services.CodeSystemService;
 import org.snomed.snowstorm.core.data.services.PermissionService;
+import org.snomed.snowstorm.core.data.services.ServiceException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -59,7 +60,7 @@ public abstract class AbstractControllerSecurityTest extends AbstractTest {
 	private boolean rolesEnabled;
 
 	@BeforeEach
-	void setup() {
+	void setup() throws ServiceException {
 		assertTrue(rolesEnabled, "Role based access control must be enabled for security tests.");
 
 		url = "http://localhost:" + port;

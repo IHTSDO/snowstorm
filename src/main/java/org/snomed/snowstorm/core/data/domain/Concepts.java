@@ -120,6 +120,9 @@ public class Concepts {
 			.add(REFSET_MRCM_MODULE_SCOPE)
 			.build();
 
+	// Maps
+	public static final String ASSOCIATION_TYPE_REFSET = "900000000000521006";
+
 	public static final BiMap<String, String> inactivationIndicatorNames = new ImmutableBiMap.Builder<String, String>()
 			.put(DUPLICATE, "DUPLICATE")
 			.put(OUTDATED, "OUTDATED")

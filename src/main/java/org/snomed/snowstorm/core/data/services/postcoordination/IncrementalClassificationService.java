@@ -71,6 +71,7 @@ public class IncrementalClassificationService {
 		// Create necessary normal form expression from classification results
 		ComparableExpression nnfExpression = createNNFExpression(classifiableForm.getExpressionId(), addedStatements, equivalentConceptMap);
 		nnfExpression.setDefinitionStatus(classifiableForm.getDefinitionStatus());
+		nnfExpression.setEquivalentConcept(equivalentConceptMap.get(classifiableForm.getExpressionId()));
 		return nnfExpression;
 	}
 

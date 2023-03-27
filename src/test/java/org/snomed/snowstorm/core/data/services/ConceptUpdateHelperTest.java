@@ -183,7 +183,7 @@ class ConceptUpdateHelperTest extends AbstractTest {
 		return memberSearchRequest;
 	}
 
-	private void givenCodeSystemExists(String shortName, String branchPath) {
+	private void givenCodeSystemExists(String shortName, String branchPath) throws ServiceException {
 		codeSystemService.createCodeSystem(new CodeSystem(shortName, branchPath));
 	}
 
@@ -203,7 +203,7 @@ class ConceptUpdateHelperTest extends AbstractTest {
 		codeSystemService.createVersion(codeSystemService.find(SHORTNAME_A), 20210131, "20210131");
 	}
 	
-	private void givenVersionedMain() {
+	private void givenVersionedMain() throws ServiceException {
 		CodeSystem rootCS = new CodeSystem("ROOT-CS", Branch.MAIN);
 		codeSystemService.createCodeSystem(rootCS);
 		codeSystemService.createVersion(rootCS, 20190731, "20190731");

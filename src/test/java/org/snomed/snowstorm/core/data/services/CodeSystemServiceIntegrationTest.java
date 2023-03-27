@@ -54,7 +54,7 @@ class CodeSystemServiceIntegrationTest extends AbstractTest {
 
 
 	@BeforeEach
-	void setup() {
+	void setup() throws ServiceException {
 		codeSystem = new CodeSystem("SNOMEDCT", "MAIN");
 		codeSystemService.createCodeSystem(codeSystem);
 	}

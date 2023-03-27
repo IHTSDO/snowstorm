@@ -64,7 +64,7 @@ public class FHIRCodeSystemService {
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
-	public FHIRCodeSystemVersion createUpdate(CodeSystem codeSystem) {
+	public FHIRCodeSystemVersion createUpdate(CodeSystem codeSystem) throws ServiceException {
 		FHIRCodeSystemVersion fhirCodeSystemVersion = new FHIRCodeSystemVersion(codeSystem);
 
 		// Default version to 0

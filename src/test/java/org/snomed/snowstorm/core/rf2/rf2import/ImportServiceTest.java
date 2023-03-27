@@ -71,7 +71,7 @@ class ImportServiceTest extends AbstractTest {
 	private File completeOwlRf2Archive;
 
 	@BeforeEach
-	void setup() throws IOException {
+	void setup() throws IOException, ServiceException {
 		codeSystemService.init();
 		referenceSetMemberService.init();
 		rf2Archive = ZipUtil.zipDirectoryRemovingCommentsAndBlankLines("src/main/resources/dummy-snomed-content/RF2Release");

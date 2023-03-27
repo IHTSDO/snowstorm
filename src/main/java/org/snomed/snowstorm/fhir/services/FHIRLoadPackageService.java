@@ -12,6 +12,7 @@ import org.hl7.fhir.r4.model.OperationOutcome;
 import org.hl7.fhir.r4.model.ValueSet;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.snomed.snowstorm.core.data.services.ServiceException;
 import org.snomed.snowstorm.fhir.domain.FHIRCodeSystemVersion;
 import org.snomed.snowstorm.fhir.domain.FHIRPackageIndex;
 import org.snomed.snowstorm.fhir.domain.FHIRPackageIndexFile;
@@ -88,7 +89,12 @@ public class FHIRLoadPackageService {
 				}
 				List<CodeSystem.ConceptDefinitionComponent> concepts = codeSystem.getConcept();
 				logger.info("Importing CodeSystem {} with {} concepts from package", codeSystem.getUrl(), concepts != null ? concepts.size() : 0);
-				FHIRCodeSystemVersion codeSystemVersion = codeSystemService.createUpdate(codeSystem);
+				FHIRCodeSystemVersion codeSystemVersion;
+				try {
+					codeSystemVersion = codeSystemService.createUpdate(codeSystem);
+				} catch (ServiceException e) {
+					throw new IOException("Failed to create FHIR CodeSystem.", e);
+				}
 				if (concepts != null) {
 					fhirConceptService.saveAllConceptsOfCodeSystemVersion(concepts, codeSystemVersion);
 				}

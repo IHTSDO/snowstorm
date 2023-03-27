@@ -1428,7 +1428,7 @@ class ConceptControllerTest extends AbstractTest {
 		referenceSetMemberService.createMember("MAIN", refsetInDescriptor);
 	}
 
-	private CodeSystem createSourceCodeSystem(String shortName, String branchPath) {
+	private CodeSystem createSourceCodeSystem(String shortName, String branchPath) throws ServiceException {
 		CodeSystem extension = codeSystemService.createCodeSystem(new CodeSystem(shortName, branchPath));
 
 		branchService.updateMetadata(branchPath, ImmutableMap.of(
