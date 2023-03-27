@@ -4,6 +4,8 @@ import org.elasticsearch.script.Script;
 import org.elasticsearch.search.sort.FieldSortBuilder;
 import org.elasticsearch.search.sort.ScriptSortBuilder;
 import org.elasticsearch.search.sort.SortOrder;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.core.data.domain.*;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.elasticsearch.core.ElasticsearchRestTemplate;
@@ -24,6 +26,7 @@ public class LocalSequentialIdentifierSource implements IdentifierSource {
 
 	private final ElasticsearchRestTemplate elasticsearchTemplate;
 	private final Map<String, Integer> namespaceAndPartitionHighestSequenceCache = Collections.synchronizedMap(new HashMap<>());
+	private final Logger logger = LoggerFactory.getLogger(getClass());
 
 	public LocalSequentialIdentifierSource(ElasticsearchRestTemplate elasticsearchTemplate) {
 		this.elasticsearchTemplate = elasticsearchTemplate;
@@ -132,10 +135,17 @@ public class LocalSequentialIdentifierSource implements IdentifierSource {
 			} else {
 				highestSctid = component.getId();
 			}
+			String itemIdentifier;
 			if (namespaceId == 0) {
-				highestSequence = Integer.parseInt(highestSctid.substring(0, highestSctid.length() - 3));
+				itemIdentifier = highestSctid.substring(0, highestSctid.length() - 3);
 			} else {
-				highestSequence = Integer.parseInt(highestSctid.substring(0, highestSctid.lastIndexOf(namespaceId + "")));
+				itemIdentifier = highestSctid.substring(0, highestSctid.lastIndexOf(namespaceId + ""));
+			}
+			if (itemIdentifier.length() <= 8) {
+				highestSequence = Integer.parseInt(itemIdentifier);
+			} else {
+				logger.error("{} found with bad SCTID '{}' on branch {}, this will prevent identifier generation.",
+						componentClass.getSimpleName(), highestSctid, component.getPath());
 			}
 		}
 
