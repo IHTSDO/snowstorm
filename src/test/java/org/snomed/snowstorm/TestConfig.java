@@ -17,6 +17,10 @@ import org.testcontainers.elasticsearch.ElasticsearchContainer;
 import org.testcontainers.junit.jupiter.Container;
 
 import jakarta.annotation.PostConstruct;
+import java.io.File;
+import java.io.FileReader;
+import java.io.IOException;
+import java.util.Properties;
 
 @PropertySource(value = "classpath:application.properties", encoding = "UTF-8")
 @PropertySource(value = "classpath:application-test.properties", encoding = "UTF-8")
@@ -30,8 +34,22 @@ public class TestConfig extends Config {
 
 	private static final String ELASTIC_SEARCH_SERVER_VERSION = "8.11.1";
 
-	// set it to true to use local instance instead of test container
-	static final boolean useLocalElasticsearch = false;
+	// If running unit tests regularly using an already running local Elasticsearch container can speed up testing
+	// To use this option create a test.properties file in the root of the project containing the value test.elasticsearch.local=true
+	static final boolean useLocalElasticsearch = "true".equalsIgnoreCase(loadTestProperties().getProperty("test.elasticsearch.local"));
+
+	private static Properties loadTestProperties() {
+		Properties properties = new Properties();
+		File file = new File("test.properties");
+		if (file.isFile()) {
+			try {
+				properties.load(new FileReader(file));
+			} catch (IOException e) {
+				throw new RuntimeException(e);
+			}
+		}
+		return properties;
+	}
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(TestConfig.class);
 
