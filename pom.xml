@@ -22,7 +22,11 @@
 		<docker.registry>docker.io</docker.registry>
 		<docker.allowInsecureRegistries>false</docker.allowInsecureRegistries>
 		<spring-boot.version>${project.parent.version}</spring-boot.version>
-		<snomed-boot.version>4.0.2-SNAPSHOT</snomed-boot.version>
+		<snomed-boot.version>4.0.1</snomed-boot.version>
+		<spring-cloud.version>2021.0.3</spring-cloud.version>
+
+		<!-- FHIR HAPI library -->
+		<hapi.version>5.6.3-si</hapi.version>
 
 		<docker.image.prefix>snomedinternational</docker.image.prefix>
 		<docker.image.tag>latest</docker.image.tag>
