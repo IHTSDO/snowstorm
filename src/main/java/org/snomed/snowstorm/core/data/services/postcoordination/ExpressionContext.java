@@ -29,6 +29,7 @@ public class ExpressionContext {
 	private final String branch;
 	private final TimerUtil timer;
 	private final BranchService branchService;
+	private final boolean useDependantReleaseBranchForMRCM;
 
 	private BranchCriteria branchCriteria;
 	private BranchCriteria dependantReleaseBranchCriteria;
@@ -40,8 +41,11 @@ public class ExpressionContext {
 	private ConceptService conceptService;
 	private org.snomed.snowstorm.ecl.ECLQueryService eclQueryService;
 
-	public ExpressionContext(String branch, BranchService branchService, VersionControlHelper versionControlHelper, MRCMService mrcmService, TimerUtil timer) {
+	public ExpressionContext(String branch, boolean useDependantReleaseBranchForMRCM,
+			BranchService branchService, VersionControlHelper versionControlHelper, MRCMService mrcmService, TimerUtil timer) {
+
 		this.branch = branch;
+		this.useDependantReleaseBranchForMRCM = useDependantReleaseBranchForMRCM;
 		this.branchService = branchService;
 		this.versionControlHelper = versionControlHelper;
 		this.mrcmService = mrcmService;
@@ -55,7 +59,10 @@ public class ExpressionContext {
 		return branchCriteria;
 	}
 
-	public BranchCriteria getDependantReleaseBranchCriteria() throws ServiceException {
+	public BranchCriteria getMRCMBranchCriteria() throws ServiceException {
+		if (!useDependantReleaseBranchForMRCM) {
+			return getBranchCriteria();
+		}
 		if (dependantReleaseBranchCriteria == null) {
 			if (PathUtil.isRoot(branch)) {
 				throw new ServiceException("Expressions can not be maintained in the root branch. Please create a child codesystem and use the working branch of that codesystem.");
@@ -82,8 +89,8 @@ public class ExpressionContext {
 		return mrcmUngroupedAttributes;
 	}
 
-	public Set<String> ecl(String ecl) {
-		return eclQueryService.selectConceptIds(ecl, branchCriteria, false, PageRequest.of(0, 1000))
+	public Set<String> ecl(String ecl) throws ServiceException {
+		return eclQueryService.selectConceptIds(ecl, getMRCMBranchCriteria(), false, PageRequest.of(0, 1000))
 				.getContent().stream().map(Object::toString).collect(Collectors.toSet());
 	}
 

@@ -132,6 +132,13 @@ public class FHIRHelper implements FHIRConstants {
 		}
 	}
 
+	public static boolean isPostcoordinatedSnomed(String code, FHIRCodeSystemVersionParams codeSystemParams) {
+		if (codeSystemParams.isSnomed() && code != null) {
+			return code.startsWith("===") || code.startsWith("<<<") || code.contains("+") || code.contains(":");
+		}
+		return false;
+	}
+
 	public List<LanguageDialect> getLanguageDialects(List<String> designations, String acceptLanguageHeader) {
 		// Use designations preferably, or fall back to language headers
 		final List<LanguageDialect> languageDialects = new ArrayList<>();

@@ -285,7 +285,7 @@ public class ExpressionRepositoryService {
 
 		Branch branch = branchService.findLatest(branchPath);
 		String equivalentConceptAssociationRefset = branch.getMetadata().getString(EXPRESSION_EQUIVALENT_CONCEPTS_ASSOCIATION_METADATA_KEY);
-		if (Strings.isBlank(equivalentConceptAssociationRefset)) {
+		if (Strings.isBlank(equivalentConceptAssociationRefset) && codeSystem.isPostcoordinatedNullSafe()) {
 			logger.error("Not able to fetch stored equivalent concept associations on {} because branch metadata item {} is missing.",
 					branchPath, EXPRESSION_EQUIVALENT_CONCEPTS_ASSOCIATION_METADATA_KEY);
 			equivalentConceptAssociationRefset = null;
@@ -293,7 +293,7 @@ public class ExpressionRepositoryService {
 
 		for (String originalCloseToUserForm : originalCloseToUserForms) {
 			TimerUtil timer = new TimerUtil("exp");
-			ExpressionContext context = new ExpressionContext(branchPath, branchService, versionControlHelper, mrcmService, timer);
+			ExpressionContext context = new ExpressionContext(branchPath, codeSystem.isPostcoordinatedNullSafe(), branchService, versionControlHelper, mrcmService, timer);
 			try {
 				// Sort contents of expression
 				ComparableExpression closeToUserFormExpression = expressionParser.parseExpression(originalCloseToUserForm);
@@ -319,7 +319,7 @@ public class ExpressionRepositoryService {
 									.referenceSet(equivalentConceptAssociationRefset)
 									.referencedComponentId(expressionId)
 									.active(true);
-							Page<ReferenceSetMember> equivalentAssociations = memberService.findMembers(context.getBranchCriteria(), searchRequest, PageRequest.of(0, 1));
+							Page<ReferenceSetMember> equivalentAssociations = memberService.findMembers(branchCriteria, searchRequest, PageRequest.of(0, 1));
 							if (!equivalentAssociations.isEmpty()) {
 								ReferenceSetMember next = equivalentAssociations.iterator().next();
 								String additionalField = next.getAdditionalField(ReferenceSetMember.AssociationFields.TARGET_COMP_ID);

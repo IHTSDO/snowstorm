@@ -118,7 +118,7 @@ public class ExpressionMRCMValidationService {
 		// Value within attribute range
 		TimerUtil timer = new TimerUtil("attribute validation");
 		Collection<Long> longs = mrcmService.retrieveAttributeValueIds(CONTENT_TYPE, attributeId, attributeValueId,
-				context.getBranch(), null, context.getBranchMRCM(), context.getDependantReleaseBranchCriteria());
+				context.getBranch(), null, context.getBranchMRCM(), context.getMRCMBranchCriteria());
 		timer.checkpoint("retrieveAttributeValueIds");
 		if (longs.isEmpty()) {
 			Map<String, String> conceptIdAndFsnTerm = getConceptIdAndTerm(Set.of(attributeId, attributeValueId), context);

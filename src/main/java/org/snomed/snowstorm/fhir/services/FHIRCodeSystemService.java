@@ -3,6 +3,7 @@ package org.snomed.snowstorm.fhir.services;
 import org.hl7.fhir.r4.model.CodeSystem;
 import org.hl7.fhir.r4.model.OperationOutcome;
 import org.ihtsdo.drools.helper.IdentifierHelper;
+import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.core.data.domain.CodeSystemVersion;
@@ -318,8 +319,10 @@ public class FHIRCodeSystemService {
 		}
 	}
 
-	// Used for $validate-code
+	// Used for $lookup and $validate-code
 	public ConceptAndSystemResult findSnomedConcept(String code, List<LanguageDialect> languageDialects, FHIRCodeSystemVersionParams codeSystemParams) {
+
+		boolean postcoordinated = FHIRHelper.isPostcoordinatedSnomed(code, codeSystemParams);
 
 		Concept concept;
 		FHIRCodeSystemVersion codeSystemVersion;
@@ -328,38 +331,47 @@ public class FHIRCodeSystemService {
 			codeSystemVersion = getSnomedVersionOrThrow(codeSystemParams);
 			concept = snomedConceptService.find(code, languageDialects, codeSystemVersion.getSnomedBranch());
 			if (concept == null) {
-				// Multi-search
-				ConceptCriteria criteria = new ConceptCriteria().conceptIds(Collections.singleton(code));
-				List<Concept> content = snomedMultiSearchService.findConcepts(criteria, PageRequest.of(0, 1)).getContent();
-				if (!content.isEmpty()) {
-					Concept bareConcept = content.get(0);
-					// Recover published version where this concept was found
-					CodeSystemVersion systemVersion = snomedMultiSearchService.getNearestPublishedVersion(bareConcept.getPath());
-					if (systemVersion != null) {
-						codeSystemVersion = new FHIRCodeSystemVersion(systemVersion);
-						// Load whole concept for this code
-						concept = snomedConceptService.find(code, languageDialects, codeSystemVersion.getSnomedBranch());
+				if (postcoordinated) {
+					return validateCodeForSnomedPostcoordination(code, codeSystemVersion, codeSystemVersion.getSnomedCodeSystem());
+				} else {
+					// Multi-search
+					ConceptCriteria criteria = new ConceptCriteria().conceptIds(Collections.singleton(code));
+					List<Concept> content = snomedMultiSearchService.findConcepts(criteria, PageRequest.of(0, 1)).getContent();
+					if (!content.isEmpty()) {
+						Concept bareConcept = content.get(0);
+						// Recover published version where this concept was found
+						CodeSystemVersion systemVersion = snomedMultiSearchService.getNearestPublishedVersion(bareConcept.getPath());
+						if (systemVersion != null) {
+							codeSystemVersion = new FHIRCodeSystemVersion(systemVersion);
+							// Load whole concept for this code
+							concept = snomedConceptService.find(code, languageDialects, codeSystemVersion.getSnomedBranch());
+						}
 					}
 				}
 			}
 		} else {
 			codeSystemVersion = getSnomedVersionOrThrow(codeSystemParams);
 			org.snomed.snowstorm.core.data.domain.CodeSystem snomedCodeSystem = codeSystemVersion.getSnomedCodeSystem();
-			if (snomedCodeSystem != null && snomedCodeSystem.isPostcoordinatedNullSafe() && !IdentifierHelper.SCTID_PATTERN.matcher(code).matches()) {
+			if (postcoordinated) {
 				// Validate syntax, normalise format, attempt lookup (return), transform + validate (return)
-				List<PostCoordinatedExpression> postCoordinatedExpressions = expressionRepository.processExpressions(Collections.singletonList(code), snomedCodeSystem, false);
-				PostCoordinatedExpression postCoordinatedExpression = postCoordinatedExpressions.get(0);
-				if (postCoordinatedExpression.hasException()) {
-					return new ConceptAndSystemResult(null, codeSystemVersion, postCoordinatedExpression.getException().getMessage());
-				} else {
-					return new ConceptAndSystemResult(new Concept(postCoordinatedExpression.getCloseToUserForm()), codeSystemVersion,
-							"This is a valid SNOMED CT postcoordinated expression.");
-				}
+				return validateCodeForSnomedPostcoordination(code, codeSystemVersion, snomedCodeSystem);
 			} else {
 				concept = snomedConceptService.find(code, languageDialects, codeSystemVersion.getSnomedBranch());
 			}
 		}
 		return new ConceptAndSystemResult(concept, codeSystemVersion);
+	}
+
+	@NotNull
+	private ConceptAndSystemResult validateCodeForSnomedPostcoordination(String code, FHIRCodeSystemVersion codeSystemVersion, org.snomed.snowstorm.core.data.domain.CodeSystem snomedCodeSystem) {
+		List<PostCoordinatedExpression> postCoordinatedExpressions = expressionRepository.processExpressions(Collections.singletonList(code), snomedCodeSystem, false);
+		PostCoordinatedExpression postCoordinatedExpression = postCoordinatedExpressions.get(0);
+		if (postCoordinatedExpression.hasException()) {
+			return new ConceptAndSystemResult(null, codeSystemVersion, postCoordinatedExpression.getException().getMessage());
+		} else {
+			return new ConceptAndSystemResult(new Concept(postCoordinatedExpression.getCloseToUserForm()), codeSystemVersion,
+					"This is a valid SNOMED CT postcoordinated expression.");
+		}
 	}
 
 	public List<PostCoordinatedExpression> addExpressions(FHIRCodeSystemVersion snomedExpressionCodeSystem, List<CodeSystem.ConceptDefinitionComponent> concepts) {

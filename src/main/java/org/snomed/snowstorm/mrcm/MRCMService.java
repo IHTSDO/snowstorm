@@ -111,7 +111,7 @@ public class MRCMService {
 	}
 
 	public List<AttributeDomain> doRetrieveDomainAttributes(ContentType contentType, boolean proximalPrimitiveModeling, Set<Long> parentIds,
-			BranchCriteria branchCriteria, MRCM branchMRCM) throws ServiceException {
+			BranchCriteria branchCriteria, MRCM branchMRCM) {
 
 		List<AttributeDomain> attributeDomains = new ArrayList<>();
 
