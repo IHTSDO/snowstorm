@@ -1,5 +1,6 @@
 package org.snomed.snowstorm.core.data.services.postcoordination.transformation;
 
+import org.snomed.languages.scg.domain.model.Attribute;
 import org.snomed.snowstorm.core.data.domain.Concepts;
 import org.snomed.snowstorm.core.data.services.ServiceException;
 import org.snomed.snowstorm.core.data.services.postcoordination.ExpressionContext;
@@ -9,6 +10,7 @@ import org.snomed.snowstorm.core.data.services.postcoordination.model.Comparable
 import org.snomed.snowstorm.core.data.services.postcoordination.model.ComparableExpression;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -17,7 +19,24 @@ import static org.snomed.snowstorm.core.util.CollectionUtils.orEmpty;
 
 public class AddContextToProcedureTransformation implements ExpressionTransformation {
 
-	public static final Set<String> PROCEDURE_CONTEXT_ATTRIBUTES = Set.of(Concepts.PROCEDURE_CONTEXT, Concepts.TEMPORAL_CONTEXT, Concepts.SUBJECT_RELATIONSHIP_CONTEXT);
+	public static final Set<String> PROCEDURE_CONTEXT_ATTRIBUTES = Set.of(
+			Concepts.PROCEDURE_CONTEXT,
+			Concepts.SUBJECT_RELATIONSHIP_CONTEXT,
+			Concepts.TEMPORAL_CONTEXT);
+
+	private static final Map<String, String> defaultAttributes = Map.of(
+			Concepts.PROCEDURE_CONTEXT, "385658003",//385658003 |Done|
+			Concepts.SUBJECT_RELATIONSHIP_CONTEXT, "410604004",// 410604004 |Subject of record|
+			Concepts.TEMPORAL_CONTEXT, "410512000"// 410512000 |Current or specified time|
+	);
+
+	/*
+	===  129125009 |Procedure with explicit context| :
+     {  363589002 |Associated procedure|  =  71388002 |Procedure| ,
+        408730004 |Procedure context|  =  385658003 |Done| ,
+        408732007 |Subject relationship context|  =  410604004 |Subject of record|
+        408731000 |Temporal context|  =  410512000 |Current or specified time|  }
+	 */
 
 	@Override
 	public ComparableExpression transform(List<ComparableAttribute> looseAttributes, ComparableExpression expression, ExpressionContext context) throws ServiceException {
@@ -34,6 +53,12 @@ public class AddContextToProcedureTransformation implements ExpressionTransforma
 				for (ComparableAttribute contextAttribute : contextAttributes) {
 					expression.getComparableAttributes().remove(contextAttribute);
 					attributeGroup.addAttribute(contextAttribute);
+				}
+				List<String> attributeGroupAttributeTypes = attributeGroup.getAttributes().stream().map(Attribute::getAttributeId).collect(Collectors.toList());
+				for (Map.Entry<String, String> defaultAttribute : defaultAttributes.entrySet()) {
+					if (!attributeGroupAttributeTypes.contains(defaultAttribute.getKey())) {
+						attributeGroup.addAttribute(new ComparableAttribute(defaultAttribute.getKey(), defaultAttribute.getValue()));
+					}
 				}
 
 				if (orEmpty(expression.getComparableAttributes()).isEmpty() || orEmpty(expression.getComparableAttributeGroups()).isEmpty()) {
