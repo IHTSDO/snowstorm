@@ -125,7 +125,7 @@ public class ExpressionRepositoryService {
 		return expressions.get(0);
 	}
 
-	public List<PostCoordinatedExpression> createExpressionsAllOrNothing(List<String> closeToUserFormExpressions, CodeSystem codeSystem, boolean classify) throws ServiceException {
+	public synchronized List<PostCoordinatedExpression> createExpressionsAllOrNothing(List<String> closeToUserFormExpressions, CodeSystem codeSystem, boolean classify) throws ServiceException {
 		final List<PostCoordinatedExpression> postCoordinatedExpressions = processExpressions(closeToUserFormExpressions, codeSystem, classify);
 
 		if (!postCoordinatedExpressions.isEmpty() && postCoordinatedExpressions.stream().noneMatch(PostCoordinatedExpression::hasException)
