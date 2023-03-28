@@ -18,7 +18,7 @@ class ExpressionTransformationAndValidationServiceTest extends AbstractExpressio
 	private ExpressionParser expressionParser;
 
 	@Test
-	public void testLeve1() throws ServiceException {
+	public void testLevel0() throws ServiceException {
 		assertExpressionTransformation(
 				// Input
 				"=== 83152002 |Oophorectomy| : { 405815000 |Procedure device|  =  122456005 |Laser device| }",
@@ -32,7 +32,7 @@ class ExpressionTransformationAndValidationServiceTest extends AbstractExpressio
 	}
 
 	@Test
-	public void testLeve1MRCMAttributeDomainError() throws ServiceException {
+	public void testLevel0MRCMAttributeDomainError() throws ServiceException {
 		try {
 			assertExpressionTransformation(
 					// Input
@@ -52,7 +52,7 @@ class ExpressionTransformationAndValidationServiceTest extends AbstractExpressio
 	}
 
 	@Test
-	public void testLevel2SelfGrouped() throws ServiceException {
+	public void testLevel1SelfGrouped() throws ServiceException {
         assertExpressionTransformation(
 				// Input
 				"195967001 |Asthma| : 42752001 |Due to|  =  55985003 |Atopic reaction|",
@@ -66,7 +66,7 @@ class ExpressionTransformationAndValidationServiceTest extends AbstractExpressio
 	}
 
 	@Test
-	public void testLevel2AddSeverityToClinicalFinding() throws ServiceException {
+	public void testLevel1AddSeverityToClinicalFinding() throws ServiceException {
 		// NB these examples don't make sense medically, they are just here to test the transformations
 		assertExpressionTransformation(
 				// Input
@@ -81,7 +81,7 @@ class ExpressionTransformationAndValidationServiceTest extends AbstractExpressio
 	}
 
 	@Test
-	public void testLevel2AddContextToClinicalFinding() throws ServiceException {
+	public void testLevel1AddContextToClinicalFinding() throws ServiceException {
 		assertExpressionTransformation(
 				// Input
 				"254837009 |Breast cancer| :  408731000 |Temporal context|  =  410513005 |Past| ,\n" +
@@ -89,13 +89,15 @@ class ExpressionTransformationAndValidationServiceTest extends AbstractExpressio
 
 				// Expected output
 				"===  413350009 |Finding with explicit context| :\n" +
-						"    {  246090004 |Associated finding|  =  254837009 |Breast cancer| , \n" +
-						"     408731000 |Temporal context|  =  410513005 |Past| ,     408732007 |Subject relationship context|  =  72705000 |Mother|  }"
+						"  { 246090004 |Associated finding|  =  254837009 |Breast cancer| , \n" +
+						"    408729009 |Finding context|  =  410515003 |Known present|, " +
+						"    408731000 |Temporal context|  =  410513005 |Past| , " +
+						"    408732007 |Subject relationship context|  =  72705000 |Mother|  }"
 		);
 	}
 
 	@Test
-	public void testLevel2AddLateralityToClinicalFinding() throws ServiceException {
+	public void testLevel1AddLateralityToClinicalFinding() throws ServiceException {
 		assertExpressionTransformation(
 				// Input
 				"449702005 |Cellulitis and abscess of lower limb| :  272741003 |Laterality| = 7771000 |Left|  ",
@@ -110,18 +112,30 @@ class ExpressionTransformationAndValidationServiceTest extends AbstractExpressio
 	}
 
 	@Test
-	public void testLevel2AddLateralityAndContextToClinicalFinding() throws ServiceException {
+	public void testLevel1AddLateralityAndContextToClinicalFinding() throws ServiceException {
 		assertExpressionTransformation(
 				// Input
 				"449702005 |Cellulitis and abscess of lower limb| :  272741003 |Laterality| = 7771000 |Left|, 408732007 |Subject relationship context|  =  72705000 |Mother|",
 
 				// Expected output
-				"=== 413350009 : { 246090004 = ( 449702005 :  { 116676008 = 385627004, 363698007 = ( 61685007 : 272741003 = 7771000 ) } { 116676008 = 44132006, 363698007 = ( 61685007 : 272741003 = 7771000 ) } ), 408732007 = 72705000 }"
+				"=== 413350009 : " +
+						"{ 246090004 = " +
+						"   ( 449702005 : " +
+						"       { 116676008 = 385627004, " +
+						"         363698007 = ( 61685007 : 272741003 = 7771000 ) " +
+						"       }" +
+						"       { 116676008 = 44132006, " +
+						"         363698007 = ( 61685007 : 272741003 = 7771000 ) " +
+						"       }" +
+						"   ), " +
+						"   408729009 |Finding context|  =  410515003 |Known present|," +
+						"   408732007 |Subject relationship context|  =  72705000 |Mother|," +
+						"   408731000 |Temporal context|  =  410512000 |Current or specified time| }"
 		);
 	}
 
 	@Test
-	public void testLevel2AddLateralityToProcedure() throws ServiceException {
+	public void testLevel1AddLateralityToProcedure() throws ServiceException {
 		assertExpressionTransformation(
 				// Input
 				"14600001000004107 |Closure of wound of ankle with flap| :  272741003 |Laterality| = 7771000 |Left|",
@@ -136,7 +150,7 @@ class ExpressionTransformationAndValidationServiceTest extends AbstractExpressio
 	}
 
 	@Test
-	public void testLevel2RefineExistingAttribute() throws ServiceException {
+	public void testLevel1RefineExistingAttribute() throws ServiceException {
 		assertExpressionTransformation(
 				// Input
 				"6471000179103 |Transplantation of kidney and pancreas|  :  405813007 |Procedure site - Direct|  =  9846003 |Right kidney structure|",
