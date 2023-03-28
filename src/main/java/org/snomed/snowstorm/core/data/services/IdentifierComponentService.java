@@ -1,0 +1,162 @@
+package org.snomed.snowstorm.core.data.services;
+
+import com.google.common.base.Strings;
+import io.kaicode.elasticvc.api.BranchCriteria;
+import io.kaicode.elasticvc.api.BranchService;
+import io.kaicode.elasticvc.api.ComponentService;
+import io.kaicode.elasticvc.api.VersionControlHelper;
+import io.kaicode.elasticvc.domain.Commit;
+import io.kaicode.elasticvc.domain.Metadata;
+import org.elasticsearch.index.query.BoolQueryBuilder;
+import org.elasticsearch.index.query.QueryBuilder;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.snomed.snowstorm.config.Config;
+import org.snomed.snowstorm.core.data.domain.Identifier;
+import org.snomed.snowstorm.core.data.repositories.IdentifierRepository;
+import org.snomed.snowstorm.core.data.services.pojo.IdentifierSearchRequest;
+import org.snomed.snowstorm.ecl.ECLQueryService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
+import org.springframework.data.elasticsearch.core.SearchHit;
+import org.springframework.data.elasticsearch.core.SearchHits;
+import org.springframework.data.elasticsearch.core.query.NativeSearchQuery;
+import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
+import org.springframework.stereotype.Service;
+
+import java.io.Serializable;
+import java.util.*;
+import java.util.stream.Collectors;
+
+import static java.lang.Long.parseLong;
+import static org.elasticsearch.index.query.QueryBuilders.*;
+
+@Service
+public class IdentifierComponentService extends ComponentService {
+
+	@Autowired
+	private IdentifierRepository identifierRepository;
+
+	@Autowired
+	private ElasticsearchOperations elasticsearchTemplate;
+
+	@Autowired
+	private VersionControlHelper versionControlHelper;
+
+	@Autowired
+	private BranchMetadataHelper branchMetadataHelper;
+
+	@Autowired
+	private BranchService branchService;
+
+	@Autowired
+	private ECLQueryService eclQueryService;
+
+	private final Logger logger = LoggerFactory.getLogger(getClass());
+
+
+	/**
+	 * Persists identifiers updates within commit.
+	 * Inactive identifiers which have not been released will be deleted
+	 * @return List of persisted components with updated metadata and filtered by deleted status.
+	 */
+	public Iterable<Identifier> doSaveBatchIdentifiers(Collection<Identifier> identifiers, Commit commit) {
+		// Delete inactive unreleased identifiers
+		identifiers.stream()
+				.filter(member -> !member.isActive() && !member.isReleased())
+				.forEach(Identifier::markDeleted);
+
+		identifiers.forEach(Identifier::updateEffectiveTime);
+
+		return doSaveBatchComponents(identifiers, commit, Identifier.Fields.INTERNAL_IDENTIFIER_ID, identifierRepository);
+	}
+
+	public Page<Identifier> findIdentifiers(String branch, IdentifierSearchRequest searchRequest, PageRequest pageRequest) {
+		BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(branch);
+		return findIdentifiers(branch, branchCriteria, searchRequest, pageRequest);
+	}
+
+	public Page<Identifier> findIdentifiers(String branch, BranchCriteria branchCriteria, IdentifierSearchRequest searchRequest, PageRequest pageRequest) {
+		NativeSearchQuery query = new NativeSearchQueryBuilder().withQuery(buildIdentifierQuery(searchRequest, branch, branchCriteria)).withPageable(pageRequest).build();
+		SearchHits<Identifier> searchHits = elasticsearchTemplate.search(query, Identifier.class);
+		return new PageImpl<>(searchHits.get().map(SearchHit::getContent).collect(Collectors.toList()), pageRequest, searchHits.getTotalHits());
+	}
+
+	public Identifier createIdentifier(String branch, Identifier identifier) {
+		Iterator<Identifier> identifiers = createIdentifiers(branch, Collections.singleton(identifier)).iterator();
+		return identifiers.hasNext() ? identifiers.next() : null;
+	}
+
+	public Iterable<Identifier> createIdentifiers(String branch, Set<Identifier> identifiers) {
+		try (final Commit commit = branchService.openCommit(branch, branchMetadataHelper.getBranchLockMetadata(String.format("Creating %s identifiers.", identifiers.size())))) {
+
+			// Grab branch metadata including values inherited from ancestor branches
+			final Metadata metadata = branchService.findBranchOrThrow(commit.getBranch().getPath(), true).getMetadata();
+			String defaultModuleId = metadata.getString(Config.DEFAULT_MODULE_ID_KEY);
+			identifiers.forEach(identifier -> {
+				if (identifier.getInternalIdentifierId() == null) {
+					identifier.setInternalIdentifierId(identifier.getAlternateIdentifier() + "-" + identifier.getIdentifierSchemeId());
+				}
+				if (identifier.getModuleId() == null) {
+					identifier.setModuleId(defaultModuleId);
+				}
+				identifier.markChanged();
+			});
+			final Iterable<Identifier> savedIdentifiers = doSaveBatchIdentifiers(identifiers, commit);
+			commit.markSuccessful();
+			return savedIdentifiers;
+		}
+	}
+
+	private QueryBuilder buildIdentifierQuery(IdentifierSearchRequest searchRequest, String branch, BranchCriteria branchCriteria) {
+		BoolQueryBuilder query = boolQuery().must(branchCriteria.getEntityBranchCriteria(Identifier.class));
+
+		if (searchRequest.getActive() != null) {
+			query.must(termQuery(Identifier.Fields.ACTIVE, searchRequest.getActive()));
+		}
+
+		if (searchRequest.isNullEffectiveTime() != null) {
+			if (searchRequest.isNullEffectiveTime()) {
+				query.mustNot(existsQuery(Identifier.Fields.EFFECTIVE_TIME));
+			} else {
+				query.must(existsQuery(Identifier.Fields.EFFECTIVE_TIME));
+			}
+		}
+
+		if (searchRequest.getAlternateIdentifier() != null) {
+			query.must(termQuery(Identifier.Fields.ALTERNATE_IDENTIFIER, searchRequest.getAlternateIdentifier()));
+		}
+
+		if (searchRequest.getIdentifierSchemeId() != null) {
+			query.must(termQuery(Identifier.Fields.IDENTIFIER_SCHEME_ID, searchRequest.getIdentifierSchemeId()));
+		}
+
+
+		String module = searchRequest.getModule();
+		if (!Strings.isNullOrEmpty(module)) {
+			List<Long> conceptIds = getConceptIds(branch, branchCriteria, module);
+			query.must(termsQuery(Identifier.Fields.MODULE_ID, conceptIds));
+		}
+
+		Collection<? extends Serializable> referencedComponentIds = searchRequest.getReferencedComponentIds();
+		if (referencedComponentIds != null && referencedComponentIds.size() > 0) {
+			query.must(termsQuery(Identifier.Fields.REFERENCED_COMPONENT_ID, referencedComponentIds));
+		}
+
+		return query;
+	}
+
+	private List<Long> getConceptIds(String branch, BranchCriteria branchCriteria, String conceptIdOrECL) {
+		List<Long> conceptIds;
+		if (conceptIdOrECL.matches("\\d+")) {
+			conceptIds = Collections.singletonList(parseLong(conceptIdOrECL));
+		} else {
+			conceptIds = eclQueryService.selectConceptIds(conceptIdOrECL, branchCriteria, true, LARGE_PAGE).getContent();
+		}
+		return conceptIds;
+	}
+
+}

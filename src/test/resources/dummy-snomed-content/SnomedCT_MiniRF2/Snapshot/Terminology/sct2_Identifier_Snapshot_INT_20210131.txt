@@ -1,0 +1,5 @@
+#
+# Comments are removed by unit test
+#
+alternateIdentifier	effectiveTime	active	moduleId	identifierSchemeId	referencedComponentId
+634-6	20210131	1	715515008	705114005	22071010000106

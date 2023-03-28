@@ -47,6 +47,9 @@ public class ImportService {
 	private ReferenceSetMemberService memberService;
 
 	@Autowired
+	private IdentifierComponentService identifierComponentService;
+
+	@Autowired
 	private BranchService branchService;
 
 	@Autowired
@@ -195,7 +198,7 @@ public class ImportService {
 
 		final FullImportComponentFactoryImpl importComponentFactory = getFullImportComponentFactory(branchPath);
 		try {
-			releaseImporter.loadFullReleaseFiles(releaseFileStream, loadingProfile, importComponentFactory);
+			releaseImporter.loadFullReleaseFiles(releaseFileStream, loadingProfile, importComponentFactory, true);
 			return null;
 		} catch (ReleaseImportException e) {
 			rollbackIncompleteCommit(importComponentFactory);
@@ -210,7 +213,7 @@ public class ImportService {
 		final ImportComponentFactoryImpl importComponentFactory =
 				getImportComponentFactory(branchPath, patchReleaseVersion, !job.isCreateCodeSystemVersion(), job.isClearEffectiveTimes());
 		try {
-			releaseImporter.loadSnapshotReleaseFiles(releaseFileStream, loadingProfile, importComponentFactory);
+			releaseImporter.loadSnapshotReleaseFiles(releaseFileStream, loadingProfile, importComponentFactory, true);
 			return importComponentFactory.getMaxEffectiveTime();
 		} catch (ReleaseImportException e) {
 			rollbackIncompleteCommit(importComponentFactory);
@@ -225,7 +228,7 @@ public class ImportService {
 		final ImportComponentFactoryImpl importComponentFactory =
 				getImportComponentFactory(branchPath, patchReleaseVersion, !job.isCreateCodeSystemVersion(), job.isClearEffectiveTimes());
 		try {
-			releaseImporter.loadDeltaReleaseFiles(releaseFileStream, loadingProfile, importComponentFactory);
+			releaseImporter.loadDeltaReleaseFiles(releaseFileStream, loadingProfile, importComponentFactory, true);
 			return importComponentFactory.getMaxEffectiveTime();
 		} catch (ReleaseImportException e) {
 			rollbackIncompleteCommit(importComponentFactory);
@@ -243,12 +246,12 @@ public class ImportService {
 	}
 
 	private ImportComponentFactoryImpl getImportComponentFactory(String branchPath, Integer patchReleaseVersion, boolean copyReleaseFields, boolean clearEffectiveTimes) {
-		return new ImportComponentFactoryImpl(conceptUpdateHelper, memberService, branchService, branchMetadataHelper,
+		return new ImportComponentFactoryImpl(conceptUpdateHelper, memberService, identifierComponentService, branchService, branchMetadataHelper,
 				branchPath, patchReleaseVersion, copyReleaseFields, clearEffectiveTimes);
 	}
 
 	private FullImportComponentFactoryImpl getFullImportComponentFactory(String branchPath) {
-		return new FullImportComponentFactoryImpl(conceptUpdateHelper, memberService, branchService, branchMetadataHelper, codeSystemService,
+		return new FullImportComponentFactoryImpl(conceptUpdateHelper, memberService, identifierComponentService, branchService, branchMetadataHelper, codeSystemService,
 				branchPath, null);
 	}
 
