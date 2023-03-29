@@ -28,6 +28,7 @@ import java.util.stream.Collectors;
 
 import static io.kaicode.elasticvc.api.VersionControlHelper.LARGE_PAGE;
 import static org.junit.jupiter.api.Assertions.*;
+import static org.snomed.snowstorm.core.data.domain.Concepts.*;
 import static org.snomed.snowstorm.core.data.domain.classification.ClassificationStatus.*;
 
 class ClassificationServiceTest extends AbstractTest {
@@ -505,6 +506,88 @@ class ClassificationServiceTest extends AbstractTest {
 		assertEquals(expected, owlExpressionAfterSave);
 	}
 
+	@Test
+	void testSavingClassificationDoesNotRemoveCNCIndicatorFromDescriptions() throws ServiceException, InterruptedException, IOException {
+		String classificationId;
+		Classification classification;
+		List<ReferenceSetMember> members;
+
+		// Create CodeSystem
+		CodeSystem codeSystem = codeSystemService.createCodeSystem(new CodeSystem("SNOMEDCT", "MAIN"));
+
+		// Create Concept
+		Concept concept = new Concept()
+				.addDescription(new Description("Vehicle (vehicle)").setTypeId(FSN).setCaseSignificance("CASE_INSENSITIVE").setAcceptabilityMap(Map.of(US_EN_LANG_REFSET, descriptionAcceptabilityNames.get(PREFERRED), GB_EN_LANG_REFSET, descriptionAcceptabilityNames.get(PREFERRED))))
+				.addDescription(new Description("Vehicle").setTypeId(SYNONYM).setCaseSignificance("CASE_INSENSITIVE").setAcceptabilityMap(Map.of(US_EN_LANG_REFSET, descriptionAcceptabilityNames.get(PREFERRED), GB_EN_LANG_REFSET, descriptionAcceptabilityNames.get(PREFERRED))))
+				.addAxiom(new Relationship(ISA, SNOMEDCT_ROOT))
+				.setModuleId(CORE_MODULE);
+		concept = conceptService.create(concept, "MAIN");
+		String conceptId = concept.getConceptId();
+		String descFsnId = getDescriptionByTerm(concept, "Vehicle (vehicle)").getDescriptionId();
+		String descSynId = getDescriptionByTerm(concept, "Vehicle").getDescriptionId();
+
+		// Classify creation
+		classificationId = UUID.randomUUID().toString();
+		classification = createClassification("MAIN", classificationId);
+		classificationService.saveRelationshipChanges(
+				classification,
+				new ByteArrayInputStream((
+						rf2RelationshipHeader() +
+								rf2RelationshipRow(null, null, "1", CORE_MODULE, conceptId, SNOMEDCT_ROOT, "1", ISA, INFERRED_RELATIONSHIP, EXISTENTIAL)
+				).getBytes()),
+				false);
+		assertEquals(SAVED, saveClassificationAndWaitForCompletion("MAIN", classification.getId()));
+		concept = conceptService.find(conceptId, "MAIN");
+		String relId = concept.getRelationships().iterator().next().getRelId();
+
+		// Version CodeSystem
+		codeSystemService.createVersion(codeSystem, 20230131, "20230131");
+
+		// Assert versioned
+		concept = conceptService.find(conceptId, "MAIN");
+		assertTrue(concept.isReleased());
+		assertEquals(20230131, concept.getReleasedEffectiveTime());
+		assertEquals(20230131, concept.getEffectiveTimeI());
+
+		// Assert CNC indicators
+		members = getMembersByRefsetAndReferencedComponentIds("MAIN", DESCRIPTION_INACTIVATION_INDICATOR_REFERENCE_SET, descFsnId, descSynId);
+		assertTrue(members.isEmpty());
+
+		// Inactivate Concept
+		concept.setActive(false);
+		concept.setInactivationIndicator("OUTDATED");
+		concept.updateEffectiveTime();
+		for (Axiom classAxiom : concept.getClassAxioms()) {
+			classAxiom.setActive(false);
+			for (Relationship relationship : classAxiom.getRelationships()) {
+				relationship.setActive(false);
+			}
+		}
+		conceptService.update(concept, "MAIN");
+
+		// Assert CNC indicators (after inactivation)
+		members = getMembersByRefsetAndReferencedComponentIds("MAIN", DESCRIPTION_INACTIVATION_INDICATOR_REFERENCE_SET, descFsnId, descSynId);
+		assertFalse(members.isEmpty());
+		assertEquals(CONCEPT_NON_CURRENT, members.iterator().next().getAdditionalField(ReferenceSetMember.AssociationFields.VALUE_ID));
+
+		// Classify inactivation
+		classificationId = UUID.randomUUID().toString();
+		classification = createClassification("MAIN", classificationId);
+		classificationService.saveRelationshipChanges(
+				classification,
+				new ByteArrayInputStream((
+						rf2RelationshipHeader() +
+								rf2RelationshipRow(relId, null, "1", CORE_MODULE, conceptId, SNOMEDCT_ROOT, "1", ISA, INFERRED_RELATIONSHIP, EXISTENTIAL)
+				).getBytes()),
+				false);
+		assertEquals(SAVED, saveClassificationAndWaitForCompletion("MAIN", classification.getId()));
+
+		// Assert CNC indicators (after classification)
+		members = getMembersByRefsetAndReferencedComponentIds("MAIN", DESCRIPTION_INACTIVATION_INDICATOR_REFERENCE_SET, descFsnId, descSynId);
+		assertFalse(members.isEmpty());
+		assertEquals(CONCEPT_NON_CURRENT, members.iterator().next().getAdditionalField(ReferenceSetMember.AssociationFields.VALUE_ID));
+	}
+
 	Classification createClassification(String path, String classificationId) {
 		Classification classification = new Classification();
 		classification.setId(classificationId);
@@ -525,4 +608,45 @@ class ClassificationServiceTest extends AbstractTest {
 		return classificationService.findClassification(path, classificationId).getStatus();
 	}
 
+	private Description getDescriptionByTerm(Concept concept, String term) {
+		if (concept == null || concept.getDescriptions() == null || concept.getDescriptions().isEmpty()) {
+			return null;
+		}
+
+
+		Set<Description> descriptions = concept.getDescriptions();
+		for (Description description : descriptions) {
+			if (term.equals(description.getTerm())) {
+				return description;
+			}
+		}
+
+		return null;
+	}
+
+	private String rf2RelationshipHeader() {
+		return "id\teffectiveTime\tactive\tmoduleId\tsourceId\tdestinationId\trelationshipGroup\ttypeId\tcharacteristicTypeId\tmodifierId\n";
+	}
+
+	private String rf2RelationshipRow(String... columns) {
+		List<String> cols = new ArrayList<>();
+		for (String column : columns) {
+			if (column == null) {
+				cols.add("");
+			} else {
+				cols.add(column);
+			}
+		}
+
+		return String.format("%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t", cols.get(0), cols.get(1), cols.get(2), cols.get(3), cols.get(4), cols.get(5), cols.get(6), cols.get(7), cols.get(8), cols.get(9));
+	}
+
+	private List<ReferenceSetMember> getMembersByRefsetAndReferencedComponentIds(String branchPath, String refsetId, String... referencedComponentIds) {
+		List<ReferenceSetMember> referenceSetMembers = new ArrayList<>();
+		for (String referencedComponentId : referencedComponentIds) {
+			referenceSetMembers.addAll(referenceSetMemberService.findMembers(branchPath, new MemberSearchRequest().referenceSet(refsetId).referencedComponentId(referencedComponentId), PageRequest.of(0, 10)).getContent());
+		}
+
+		return referenceSetMembers;
+	}
 }
