@@ -40,6 +40,7 @@ import java.util.stream.Collectors;
 
 import static org.elasticsearch.index.query.QueryBuilders.boolQuery;
 import static org.elasticsearch.index.query.QueryBuilders.termsQuery;
+import static org.snomed.snowstorm.core.data.domain.Concepts.CONCEPT_NON_CURRENT;
 import static org.snomed.snowstorm.core.data.domain.Concepts.inactivationIndicatorNames;
 
 @Service
@@ -365,7 +366,18 @@ public class ConceptUpdateHelper extends ComponentService {
 			String indicatorReferenceSet,
 			String defaultModuleId) {
 
-		String newIndicatorName = newComponent.getInactivationIndicatorName();
+		if (newComponent instanceof Description) {
+			Description newDescription = (Description) newComponent;
+			if (newDescription.isActive()) {
+				for (ReferenceSetMember inactivationIndicatorMember : newDescription.getInactivationIndicatorMembers()) {
+					if (inactivationIndicatorMember.isActive() && !inactivationIndicatorMember.getAdditionalField("valueId").equals(CONCEPT_NON_CURRENT)) {
+						inactivationIndicatorMember.setActive(false);
+					}
+				}
+			}
+		}
+
+		String newIndicatorName = newComponent.getInactivationIndicator();
 		final String newIndicatorId = newIndicatorName != null ? inactivationIndicatorNames.inverse().get(newIndicatorName) : null;
 		if (newIndicatorName != null && newIndicatorId == null) {
 			throw new IllegalArgumentException(newComponent.getClass().getSimpleName() + " inactivation indicator not recognised '" + newIndicatorName + "'.");

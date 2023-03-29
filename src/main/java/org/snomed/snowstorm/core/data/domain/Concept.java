@@ -168,11 +168,6 @@ public class Concept extends SnomedComponent<Concept> implements ConceptView, Sn
 	}
 
 	@Override
-	public String getInactivationIndicatorName() {
-		return inactivationIndicatorName;
-	}
-
-	@Override
 	public Concept setActive(boolean active) {
 		return (Concept) super.setActive(active);
 	}
