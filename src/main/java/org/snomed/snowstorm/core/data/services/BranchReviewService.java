@@ -215,7 +215,7 @@ public class BranchReviewService {
 		}
 
 		// If no versions exist between date range, then the target Branch is not a version behind.
-		return !codeSystemService.findVersionsByCodeSystemAndTimeRange(codeSystem, targetTopLevelHeadTimestamp, sourceTopLevelHeadTimestamp).isEmpty();
+		return !codeSystemService.findVersionsByCodeSystemAndBaseTimepointRange(codeSystem, targetTopLevelHeadTimestamp, sourceTopLevelHeadTimestamp).isEmpty();
 	}
 
 	private Branch getOriginatingTopLevelBranch(String path) {
