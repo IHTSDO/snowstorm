@@ -4,9 +4,9 @@ import java.util.Collection;
 
 public interface SnomedComponentWithInactivationIndicator {
 
-	String getInactivationIndicator();
+	boolean isActive();
 
-	String getInactivationIndicatorName();
+	String getInactivationIndicator();
 
 	String getModuleId();
 
