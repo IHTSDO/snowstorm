@@ -12,6 +12,7 @@ import org.elasticsearch.index.query.QueryBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.config.Config;
+import org.snomed.snowstorm.core.data.domain.Concepts;
 import org.snomed.snowstorm.core.data.domain.Identifier;
 import org.snomed.snowstorm.core.data.repositories.IdentifierRepository;
 import org.snomed.snowstorm.core.data.services.pojo.IdentifierSearchRequest;
@@ -26,6 +27,7 @@ import org.springframework.data.elasticsearch.core.SearchHits;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQuery;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 
 import java.io.Serializable;
 import java.util.*;
@@ -81,6 +83,7 @@ public class IdentifierComponentService extends ComponentService {
 
 	public Page<Identifier> findIdentifiers(String branch, BranchCriteria branchCriteria, IdentifierSearchRequest searchRequest, PageRequest pageRequest) {
 		NativeSearchQuery query = new NativeSearchQueryBuilder().withQuery(buildIdentifierQuery(searchRequest, branch, branchCriteria)).withPageable(pageRequest).build();
+		query.setTrackTotalHits(true);
 		SearchHits<Identifier> searchHits = elasticsearchTemplate.search(query, Identifier.class);
 		return new PageImpl<>(searchHits.get().map(SearchHit::getContent).collect(Collectors.toList()), pageRequest, searchHits.getTotalHits());
 	}
@@ -101,7 +104,7 @@ public class IdentifierComponentService extends ComponentService {
 					identifier.setInternalIdentifierId(identifier.getAlternateIdentifier() + "-" + identifier.getIdentifierSchemeId());
 				}
 				if (identifier.getModuleId() == null) {
-					identifier.setModuleId(defaultModuleId);
+					identifier.setModuleId(StringUtils.hasLength(defaultModuleId) ? defaultModuleId : Concepts.CORE_MODULE);
 				}
 				identifier.markChanged();
 			});
@@ -137,8 +140,7 @@ public class IdentifierComponentService extends ComponentService {
 
 		String module = searchRequest.getModule();
 		if (!Strings.isNullOrEmpty(module)) {
-			List<Long> conceptIds = getConceptIds(branch, branchCriteria, module);
-			query.must(termsQuery(Identifier.Fields.MODULE_ID, conceptIds));
+			query.must(termsQuery(Identifier.Fields.MODULE_ID, module));
 		}
 
 		Collection<? extends Serializable> referencedComponentIds = searchRequest.getReferencedComponentIds();
@@ -148,15 +150,4 @@ public class IdentifierComponentService extends ComponentService {
 
 		return query;
 	}
-
-	private List<Long> getConceptIds(String branch, BranchCriteria branchCriteria, String conceptIdOrECL) {
-		List<Long> conceptIds;
-		if (conceptIdOrECL.matches("\\d+")) {
-			conceptIds = Collections.singletonList(parseLong(conceptIdOrECL));
-		} else {
-			conceptIds = eclQueryService.selectConceptIds(conceptIdOrECL, branchCriteria, true, LARGE_PAGE).getContent();
-		}
-		return conceptIds;
-	}
-
 }

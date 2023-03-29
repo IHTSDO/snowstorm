@@ -224,8 +224,7 @@ public class ExportService {
 					logger.info("{} concrete inferred relationship states exported", inferredConcreteRelationshipLines);
 
 					// Write Identifiers
-					BoolQueryBuilder identifierBranchCriteria = selectionBranchCriteria.getEntityBranchCriteria(Identifier.class);
-					BoolQueryBuilder identifierContentQuery = getContentQuery(exportType, moduleIds, startEffectiveTime, identifierBranchCriteria);
+					BoolQueryBuilder identifierContentQuery = getContentQuery(exportType, moduleIds, startEffectiveTime, selectionBranchCriteria.getEntityBranchCriteria(Identifier.class));
 					int identifierLines = exportComponents(Identifier.class, entryDirectoryPrefix, "Terminology/", "sct2_Identifier_", filenameEffectiveDate, exportType, zipOutputStream,
 							identifierContentQuery, transientEffectiveTime, null, codeSystemRF2Name, null);
 					logger.info("{} identifier states exported", identifierLines);
