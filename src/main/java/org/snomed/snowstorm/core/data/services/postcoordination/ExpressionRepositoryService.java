@@ -1,5 +1,6 @@
 package org.snomed.snowstorm.core.data.services.postcoordination;
 
+import ch.qos.logback.classic.Level;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import io.kaicode.elasticvc.api.BranchCriteria;
@@ -292,7 +293,7 @@ public class ExpressionRepositoryService {
 		}
 
 		for (String originalCloseToUserForm : originalCloseToUserForms) {
-			TimerUtil timer = new TimerUtil("exp");
+			TimerUtil timer = new TimerUtil("exp", Level.INFO, 5);
 			ExpressionContext context = new ExpressionContext(branchPath, codeSystem.isPostcoordinatedNullSafe(), branchService, versionControlHelper, mrcmService, timer);
 			try {
 				// Sort contents of expression

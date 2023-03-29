@@ -94,11 +94,12 @@ public class ExpressionContext {
 				.getContent().stream().map(Object::toString).collect(Collectors.toSet());
 	}
 
-	public Concept getFocusConceptWithActiveRelationships() {
+	public Concept getFocusConceptWithActiveRelationships() throws ServiceException {
 		if (focusConcept == null) {
 			Map<String, Concept> conceptMap = new HashMap<>();
 			conceptMap.put(focusConceptId, new Concept(focusConceptId));
-			conceptService.joinRelationships(conceptMap, new HashMap<>(), null, getBranch(), getBranchCriteria(), getTimer(), true);
+			BranchCriteria mrcmBranchCriteria = getMRCMBranchCriteria();
+			conceptService.joinRelationships(conceptMap, new HashMap<>(), null, mrcmBranchCriteria.getBranchPath(), mrcmBranchCriteria, getTimer(), true);
 			focusConcept = conceptMap.get(focusConceptId);
 		}
 		return focusConcept;
@@ -112,15 +113,15 @@ public class ExpressionContext {
 		return timer;
 	}
 
-	public Set<String> getAncestorsAndSelfOrFocusConcept() {
+	public Set<String> getAncestorsAndSelfOrFocusConcept() throws ServiceException {
 		if (ancestorsAndSelfOfFocusConcept == null) {
 			ancestorsAndSelfOfFocusConcept = getAncestorsAndSelf(focusConceptId);
 		}
 		return ancestorsAndSelfOfFocusConcept;
 	}
 
-	public Set<String> getAncestorsAndSelf(String conceptId) {
-		return eclQueryService.selectConceptIds(">>" + conceptId, branchCriteria, false, PageRequest.of(0, 100)).getContent().stream()
+	public Set<String> getAncestorsAndSelf(String conceptId) throws ServiceException {
+		return eclQueryService.selectConceptIds(">>" + conceptId, getMRCMBranchCriteria(), false, PageRequest.of(0, 100)).getContent().stream()
 				.map(Objects::toString).collect(Collectors.toSet());
 	}
 

@@ -139,12 +139,18 @@ public class ExpressionTransformationAndValidationService {
 			context.setFocusConceptId(focusConceptId);
 
 			// Run transformations
+			int looseAttributeCount = allLooseAttributes.size();
+			logger.info("Attempting transformation:{}", candidateClassifiableExpression);
 			for (ExpressionTransformation transformation : level2Transformations) {
 				candidateClassifiableExpression = transformation.transform(allLooseAttributes, candidateClassifiableExpression, context);
 				looseAttributesUngroupedOrWrongDomain = getLooseAttributes(candidateClassifiableExpression, context);
 				looseAttributesUngrouped = looseAttributesUngroupedOrWrongDomain.getFirst();
 				looseAttributesWrongDomain = looseAttributesUngroupedOrWrongDomain.getSecond();
 				allLooseAttributes = joinLists(looseAttributesUngroupedOrWrongDomain);
+				if (looseAttributeCount != allLooseAttributes.size()) {
+					logger.info("{} applied:{}", transformation.getClass().getSimpleName(), candidateClassifiableExpression);
+					looseAttributeCount = allLooseAttributes.size();
+				}
 				if (allLooseAttributes.isEmpty()) {
 					break;
 				}
