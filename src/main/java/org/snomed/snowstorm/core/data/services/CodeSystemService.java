@@ -40,7 +40,8 @@ import org.springframework.data.util.Pair;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 
-import java.text.SimpleDateFormat;
+import java.time.Instant;
+import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
@@ -653,13 +654,7 @@ public class CodeSystemService {
 		branchService.updateMetadata(branchPath, branchMetadata);
 	}
 
-	private String epochToImportDate(long epoch) {
-		Date date = new Date(epoch);
-
-		return new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss").format(date);
-	}
-
-	public List<CodeSystemVersion> findVersionsByCodeSystemAndTimeRange(CodeSystem codeSystem, long lowerBound, long upperBound) {
+	public List<CodeSystemVersion> findVersionsByCodeSystemAndBaseTimepointRange(CodeSystem codeSystem, long lowerBound, long upperBound) {
 		if (codeSystem == null) {
 			throw new IllegalArgumentException("CodeSystem cannot be null.");
 		}
@@ -688,7 +683,7 @@ public class CodeSystemService {
 		for (Branch branch : branches) {
 			branchPathToImportDate.put(
 					getHyphenatedEffectiveTimeFromVersionBranch(branch.getPath()),
-					epochToImportDate(branch.getHeadTimestamp())
+					DateTimeFormatter.ISO_INSTANT.format(Instant.ofEpochMilli(branch.getHeadTimestamp()))
 			);
 		}
 
