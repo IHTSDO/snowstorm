@@ -196,7 +196,7 @@ class ConceptControllerTest extends AbstractTest {
 		checkFields(responseBody);
 		LinkedHashMap<String, Object> properties = objectMapper.readValue(responseBody, LinkedHashMap.class);
 		assertEquals("[conceptId, fsn, pt, active, effectiveTime, released, releasedEffectiveTime, moduleId, definitionStatus, " +
-				"descriptions, classAxioms, gciAxioms, relationships, validationResults]", properties.keySet().toString());
+				"descriptions, classAxioms, gciAxioms, relationships, alternateIdentifiers, validationResults]", properties.keySet().toString());
 		Object fsn = properties.get("fsn");
 		assertEquals("LinkedHashMap", fsn.getClass().getSimpleName());
 		assertEquals("{term=Wallace \"69\" side-to-end anastomosis - action (qualifier value), lang=en}", fsn.toString());
