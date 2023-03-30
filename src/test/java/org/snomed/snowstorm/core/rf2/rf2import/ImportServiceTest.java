@@ -14,6 +14,7 @@ import org.snomed.snowstorm.AbstractTest;
 import org.snomed.snowstorm.TestConfig;
 import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.services.*;
+import org.snomed.snowstorm.core.data.services.pojo.IdentifierSearchRequest;
 import org.snomed.snowstorm.core.data.services.pojo.IntegrityIssueReport;
 import org.snomed.snowstorm.core.data.services.pojo.MemberSearchRequest;
 import org.snomed.snowstorm.core.rf2.RF2Type;
@@ -46,6 +47,9 @@ class ImportServiceTest extends AbstractTest {
 
 	@Autowired
 	private ReferenceSetMemberService referenceSetMemberService;
+
+	@Autowired
+	private IdentifierComponentService identifierComponentService;
 
 	@Autowired
 	private RelationshipService relationshipService;
@@ -749,5 +753,23 @@ class ImportServiceTest extends AbstractTest {
 		assertEquals(1, results.getContent().size());
 		actual = results.getContent().get(0).getAdditionalField("owlExpression");
 		assertEquals(expected, actual);
+	}
+
+	@Test
+	public void importArchive_ShouldSuccessfullyImportIdentifiers_WhenImportingSnapshot() throws Exception {
+		final String branchPath = "MAIN/CDI-30";
+		branchService.create(branchPath);
+		final String importJobId = importService.createJob(RF2Type.SNAPSHOT, branchPath, false, false);
+		final File zipFile = ZipUtil.zipDirectoryRemovingCommentsAndBlankLines("src/test/resources/dummy-snomed-content/SnomedCT_MiniRF2");
+		final FileInputStream releaseFileStream = new FileInputStream(zipFile);
+
+		importService.importArchive(importJobId, releaseFileStream);
+		IdentifierSearchRequest searchRequest = new IdentifierSearchRequest().referencedComponentId("22071010000106");
+		Page<Identifier> results = identifierComponentService.findIdentifiers(branchPath, searchRequest, PageRequest.of(0,10));
+		assertEquals(1, results.getContent().size());
+		String expected = "Identifier{alternateIdentifier='634-6', effectiveTime='20210131', active=true', moduleId='715515008', identifierSchemeId='705114005', referencedComponentId='22071010000106'}";
+		String actual = results.getContent().get(0).toString();
+		assertEquals(expected, actual);
+
 	}
 }

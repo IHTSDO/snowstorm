@@ -2,10 +2,7 @@ package org.snomed.snowstorm.core.rf2.rf2import;
 
 import io.kaicode.elasticvc.api.BranchService;
 import org.ihtsdo.otf.snomedboot.factory.HistoryAwareComponentFactory;
-import org.snomed.snowstorm.core.data.services.BranchMetadataHelper;
-import org.snomed.snowstorm.core.data.services.CodeSystemService;
-import org.snomed.snowstorm.core.data.services.ConceptUpdateHelper;
-import org.snomed.snowstorm.core.data.services.ReferenceSetMemberService;
+import org.snomed.snowstorm.core.data.services.*;
 
 public class FullImportComponentFactoryImpl extends ImportComponentFactoryImpl implements HistoryAwareComponentFactory {
 
@@ -14,9 +11,9 @@ public class FullImportComponentFactoryImpl extends ImportComponentFactoryImpl i
 	private final CodeSystemService codeSystemService;
 	private final String stopImportAfterEffectiveTime;
 
-	FullImportComponentFactoryImpl(ConceptUpdateHelper conceptUpdateHelper, ReferenceSetMemberService memberService, BranchService branchService,
-			BranchMetadataHelper branchMetadataHelper, CodeSystemService codeSystemService, String path, String stopImportAfterEffectiveTime) {
-		super(conceptUpdateHelper, memberService, branchService, branchMetadataHelper, path, null, false, false);
+	FullImportComponentFactoryImpl(ConceptUpdateHelper conceptUpdateHelper, ReferenceSetMemberService memberService, IdentifierComponentService identifierComponentService, BranchService branchService,
+								   BranchMetadataHelper branchMetadataHelper, CodeSystemService codeSystemService, String path, String stopImportAfterEffectiveTime) {
+		super(conceptUpdateHelper, memberService, identifierComponentService, branchService, branchMetadataHelper, path, null, false, false);
 		this.branchMetadataHelper = branchMetadataHelper;
 		this.basePath = path;
 		this.stopImportAfterEffectiveTime = stopImportAfterEffectiveTime;

@@ -222,6 +222,12 @@ public class ExportService {
 							zipOutputStream,
 							relationshipQuery, transientEffectiveTime, null, codeSystemRF2Name, null);
 					logger.info("{} concrete inferred relationship states exported", inferredConcreteRelationshipLines);
+
+					// Write Identifiers
+					BoolQueryBuilder identifierContentQuery = getContentQuery(exportType, moduleIds, startEffectiveTime, selectionBranchCriteria.getEntityBranchCriteria(Identifier.class));
+					int identifierLines = exportComponents(Identifier.class, entryDirectoryPrefix, "Terminology/", "sct2_Identifier_", filenameEffectiveDate, exportType, zipOutputStream,
+							identifierContentQuery, transientEffectiveTime, null, codeSystemRF2Name, null);
+					logger.info("{} identifier states exported", identifierLines);
 				}
 
 				// Write Reference Sets
@@ -395,6 +401,9 @@ public class ExportService {
 		}
 		if (componentClass.equals(ReferenceSetMember.class)) {
 			return (ExportWriter<T>) new ReferenceSetMemberExportWriter(getBufferedWriter(outputStream), extraFieldNames);
+		}
+		if (componentClass.equals(Identifier.class)) {
+			return (ExportWriter<T>) new IdentifierExportWriter(getBufferedWriter(outputStream));
 		}
 		throw new UnsupportedOperationException("Not able to export component of type " + componentClass.getCanonicalName());
 	}
