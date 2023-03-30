@@ -93,6 +93,9 @@ public class ConceptService extends ComponentService {
 	private DescriptionService descriptionService;
 
 	@Autowired
+	private IdentifierComponentService identifierComponentService;
+
+	@Autowired
 	@Lazy
 	private ReferenceSetMemberService referenceSetMemberService;
 
@@ -159,7 +162,7 @@ public class ConceptService extends ComponentService {
 		if (isEmpty(conceptIds)) {
 			return Collections.emptySet();
 		}
-		return doFind(conceptIds, languageDialects, branchCriteria, PageRequest.of(0, conceptIds.size()), true, true, path).getContent();
+		return doFind(conceptIds, languageDialects, branchCriteria, PageRequest.of(0, conceptIds.size()), true, true, true, path).getContent();
 	}
 
 	public Page<Concept> find(List<Long> conceptIds, List<LanguageDialect> languageDialects, String path, PageRequest pageRequest) {
@@ -271,7 +274,7 @@ public class ConceptService extends ComponentService {
 
 	private Page<Concept> doFind(Collection<?> conceptIds, List<LanguageDialect> languageDialects, BranchTimepoint branchTimepoint, PageRequest pageRequest) {
 		final BranchCriteria branchCriteria = getBranchCriteria(branchTimepoint);
-		return doFind(conceptIds, languageDialects, branchCriteria, pageRequest, true, true, branchTimepoint.getBranchPath());
+		return doFind(conceptIds, languageDialects, branchCriteria, pageRequest, true, true, true, branchTimepoint.getBranchPath());
 	}
 
 	protected BranchCriteria getBranchCriteria(String branchPath) {
@@ -323,7 +326,7 @@ public class ConceptService extends ComponentService {
 		if (conceptIds != null && conceptIds.isEmpty()) {
 			return new ResultMapPage<>(new HashMap<>(), 0);
 		}
-		Page<Concept> concepts = doFind(conceptIds, languageDialects, branchCriteria, pageRequest, false, false, null);
+		Page<Concept> concepts = doFind(conceptIds, languageDialects, branchCriteria, pageRequest, false, false, false, null);
 		Map<String, Concept> conceptMap = new HashMap<>();
 		for (Concept concept : concepts) {
 			String id = concept.getId();
@@ -343,7 +346,7 @@ public class ConceptService extends ComponentService {
 	private void populateConceptMinis(BranchCriteria branchCriteria, Map<String, ConceptMini> minisToPopulate, List<LanguageDialect> languageDialects) {
 		if (!minisToPopulate.isEmpty()) {
 			Set<String> conceptIds = minisToPopulate.keySet();
-			Page<Concept> concepts = doFind(conceptIds, languageDialects, branchCriteria, PageRequest.of(0, conceptIds.size()), false, false, null);
+			Page<Concept> concepts = doFind(conceptIds, languageDialects, branchCriteria, PageRequest.of(0, conceptIds.size()), false, false, false, null);
 			concepts.getContent().forEach(c -> {
 				ConceptMini conceptMini = minisToPopulate.get(c.getConceptId());
 				conceptMini.setDefinitionStatus(c.getDefinitionStatus());
@@ -359,6 +362,7 @@ public class ConceptService extends ComponentService {
 			PageRequest pageRequest,
 			boolean includeRelationships,
 			boolean includeDescriptionInactivationInfo,
+			boolean includeIdentifiers,
 			String branchPath) {
 
 		final TimerUtil timer = new TimerUtil("Find concept", Level.DEBUG);
@@ -420,6 +424,10 @@ public class ConceptService extends ComponentService {
 				}
 			}
 			timer.checkpoint("get axioms " + getFetchCount(conceptIdMap.size()));
+		}
+
+		if (includeIdentifiers) {
+			identifierComponentService.joinIdentifiers(branchCriteria, conceptIdMap, conceptMiniMap, languageDialects, timer);
 		}
 
 		// Fetch ConceptMini definition statuses
@@ -744,7 +752,7 @@ public class ConceptService extends ComponentService {
 		if (!conceptIds.isEmpty()) {
 			for (List<String> conceptIdPartition : Iterables.partition(conceptIds, 500)) {
 				final BranchCriteria branchCriteria = versionControlHelper.getBranchCriteriaIncludingOpenCommit(commit);
-				final List<Concept> existingConcepts = doFind(conceptIdPartition, DEFAULT_LANGUAGE_DIALECTS, branchCriteria, PageRequest.of(0, conceptIds.size()), true, true, null).getContent();
+				final List<Concept> existingConcepts = doFind(conceptIdPartition, DEFAULT_LANGUAGE_DIALECTS, branchCriteria, PageRequest.of(0, conceptIds.size()), true, true, true, null).getContent();
 				for (Concept existingConcept : existingConcepts) {
 					existingConceptsMap.put(existingConcept.getConceptId(), existingConcept);
 				}

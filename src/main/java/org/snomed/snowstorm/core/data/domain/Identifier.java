@@ -4,7 +4,7 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 import com.fasterxml.jackson.annotation.JsonView;
 import org.snomed.snowstorm.rest.View;
-import org.springframework.data.annotation.Id;
+import org.springframework.data.annotation.Transient;
 import org.springframework.data.elasticsearch.annotations.Document;
 import org.springframework.data.elasticsearch.annotations.Field;
 import org.springframework.data.elasticsearch.annotations.FieldType;
@@ -14,7 +14,7 @@ import javax.validation.constraints.Size;
 import java.util.Objects;
 
 @Document(indexName = "identifier")
-@JsonPropertyOrder({"alternateIdentifier", "effectiveTime", "active", "moduleId", "identifierSchemeId", "referencedComponentId",  "released", "releasedEffectiveTime"})
+@JsonPropertyOrder({"alternateIdentifier", "effectiveTime", "active", "moduleId", "identifierSchemeId", "identifierScheme", "referencedComponentId",  "released", "releasedEffectiveTime"})
 public class Identifier extends SnomedComponent<Identifier> {
 
 	public interface Fields extends SnomedComponent.Fields {
@@ -43,6 +43,9 @@ public class Identifier extends SnomedComponent<Identifier> {
 	@NotNull
 	@Size(min = 5, max = 18)
 	private String referencedComponentId;
+
+	@Transient
+	private ConceptMini identifierScheme;
 
 	public Identifier() {
 		active = true;
@@ -98,6 +101,15 @@ public class Identifier extends SnomedComponent<Identifier> {
 
 	public String getIdentifierSchemeId() {
 		return identifierSchemeId;
+	}
+
+	public void setIdentifierScheme(ConceptMini identifierScheme) {
+		this.identifierScheme = identifierScheme;
+	}
+
+	@JsonView(value = View.Component.class)
+	public ConceptMini getIdentifierScheme() {
+		return identifierScheme;
 	}
 
 	@Override

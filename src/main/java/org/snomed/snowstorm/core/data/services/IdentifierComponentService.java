@@ -1,6 +1,7 @@
 package org.snomed.snowstorm.core.data.services;
 
 import com.google.common.base.Strings;
+import com.google.common.collect.Iterables;
 import io.kaicode.elasticvc.api.BranchCriteria;
 import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.api.ComponentService;
@@ -12,10 +13,11 @@ import org.elasticsearch.index.query.QueryBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.config.Config;
-import org.snomed.snowstorm.core.data.domain.Concepts;
-import org.snomed.snowstorm.core.data.domain.Identifier;
+import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.repositories.IdentifierRepository;
 import org.snomed.snowstorm.core.data.services.pojo.IdentifierSearchRequest;
+import org.snomed.snowstorm.core.pojo.LanguageDialect;
+import org.snomed.snowstorm.core.util.TimerUtil;
 import org.snomed.snowstorm.ecl.ECLQueryService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
@@ -24,6 +26,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.data.elasticsearch.core.SearchHit;
 import org.springframework.data.elasticsearch.core.SearchHits;
+import org.springframework.data.elasticsearch.core.SearchHitsIterator;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQuery;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
 import org.springframework.stereotype.Service;
@@ -149,5 +152,46 @@ public class IdentifierComponentService extends ComponentService {
 		}
 
 		return query;
+	}
+	void joinIdentifiers(BranchCriteria branchCriteria, Map<String, Concept> conceptIdMap, Map<String, ConceptMini> conceptMiniMap, List<LanguageDialect> languageDialects, TimerUtil timer) {
+		final NativeSearchQueryBuilder queryBuilder = new NativeSearchQueryBuilder();
+
+		final Set<String> allConceptIds = new HashSet<>();
+		if (conceptIdMap != null) {
+			allConceptIds.addAll(conceptIdMap.keySet());
+		}
+		if (allConceptIds.isEmpty()) {
+			return;
+		}
+
+		// Fetch Identifier
+		for (List<String> conceptIds : Iterables.partition(allConceptIds, CLAUSE_LIMIT)) {
+			queryBuilder.withQuery(boolQuery()
+					.must(branchCriteria.getEntityBranchCriteria(Identifier.class))
+					.must(termQuery(Identifier.Fields.ACTIVE, true))
+					.must(termsQuery(Identifier.Fields.REFERENCED_COMPONENT_ID, conceptIds)))
+					.withPageable(LARGE_PAGE);
+			try (final SearchHitsIterator<Identifier> identifiers = elasticsearchTemplate.searchForStream(queryBuilder.build(), Identifier.class)) {
+				identifiers.forEachRemaining(hit -> {
+					Identifier identifier = hit.getContent();
+					identifier.setIdentifierScheme(getConceptMini(conceptMiniMap, identifier.getIdentifierSchemeId(), languageDialects));
+
+					// Join Identifiers to concepts for loading whole concepts use case.
+					final String referencedComponentId = identifier.getReferencedComponentId();
+					if (conceptIdMap != null) {
+						final Concept concept = conceptIdMap.get(referencedComponentId);
+						if (concept != null) {
+							concept.addIdentifier(identifier);
+						}
+					}
+				});
+			}
+		}
+		if (timer != null) timer.checkpoint("get Identifier " + getFetchCount(allConceptIds.size()));
+	}
+
+	private static ConceptMini getConceptMini(Map<String, ConceptMini> conceptMiniMap, String id, List<LanguageDialect> languageDialects) {
+		if (id == null) return new ConceptMini((String)null, languageDialects);
+		return conceptMiniMap.computeIfAbsent(id, i -> new ConceptMini(id, languageDialects));
 	}
 }
