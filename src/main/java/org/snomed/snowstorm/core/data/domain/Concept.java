@@ -1,6 +1,7 @@
 package org.snomed.snowstorm.core.data.domain;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 import com.fasterxml.jackson.annotation.JsonView;
 import com.google.common.collect.Sets;
@@ -24,7 +25,7 @@ import static org.snomed.snowstorm.config.Config.DEFAULT_LANGUAGE_DIALECTS;
 
 @Document(indexName = "concept")
 @JsonPropertyOrder({"conceptId", "descendantCount", "fsn", "pt", "active", "effectiveTime", "released", "releasedEffectiveTime",  "inactivationIndicator", "associationTargets",
-		"moduleId", "definitionStatus", "definitionStatusId", "descriptions", "classAxioms", "gciAxioms", "relationships", "validationResults"})
+		"moduleId", "definitionStatus", "definitionStatusId", "descriptions", "classAxioms", "gciAxioms", "relationships", "alternateIdentifiers", "validationResults"})
 public class Concept extends SnomedComponent<Concept> implements ConceptView, SnomedComponentWithInactivationIndicator, SnomedComponentWithAssociations {
 
 	public interface Fields extends SnomedComponent.Fields {
@@ -82,6 +83,9 @@ public class Concept extends SnomedComponent<Concept> implements ConceptView, Sn
 	private Long descendantCount;
 
 	@Transient
+	private List<Identifier> identifiers;
+
+	@Transient
 	private List<InvalidContent> validationResults;
 
 	public Concept() {
@@ -93,6 +97,7 @@ public class Concept extends SnomedComponent<Concept> implements ConceptView, Sn
 		classAxioms = new HashSet<>();
 		generalConceptInclusionAxioms = new HashSet<>();
 		inactivationIndicatorMembers = new ArrayList<>();
+		identifiers = new ArrayList<>();
 		validationResults = new ArrayList<>();
 	}
 
@@ -227,6 +232,11 @@ public class Concept extends SnomedComponent<Concept> implements ConceptView, Sn
 	public Concept addDescription(Description description) {
 		description.setConceptId(this.conceptId);
 		descriptions.add(description);
+		return this;
+	}
+
+	public Concept addIdentifier(Identifier identifier) {
+		identifiers.add(identifier);
 		return this;
 	}
 
@@ -425,6 +435,17 @@ public class Concept extends SnomedComponent<Concept> implements ConceptView, Sn
 
 	public void setValidationResults(final List<InvalidContent> validationResults) {
 		this.validationResults = validationResults;
+	}
+
+	@JsonProperty("alternateIdentifiers")
+	@JsonView(value = View.Component.class)
+	@Override
+	public List<Identifier> getIdentifiers() {
+		return identifiers;
+	}
+
+	public void setIdentifiers(List<Identifier> identifiers) {
+		this.identifiers = identifiers;
 	}
 
 	public void clone(Concept concept) {

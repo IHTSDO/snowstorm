@@ -33,5 +33,7 @@ public interface ConceptView {
 
 	Set<Axiom> getGciAxioms();
 
+	List<Identifier> getIdentifiers();
+
 	List<InvalidContent> getValidationResults();
 }
