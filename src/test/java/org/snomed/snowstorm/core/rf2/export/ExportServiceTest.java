@@ -50,6 +50,9 @@ class ExportServiceTest extends AbstractTest {
 	@Autowired
 	private CodeSystemService codeSystemService;
 
+	@Autowired
+	private IdentifierComponentService identifierComponentService;
+
 	private String descriptionId;
 	private String textDefId;
 	private ReferenceSetMember owlMember;
@@ -126,6 +129,9 @@ class ExportServiceTest extends AbstractTest {
 		descriptionTypeRefsetMember.setAdditionalField("descriptionFormat", "900000000000540000");
 		descriptionTypeRefsetMember.setAdditionalField("descriptionLength", "255");
 		referenceSetMemberService.createMember(path, descriptionTypeRefsetMember);
+
+		Identifier identifier = new Identifier("634-6", null, true,  "715515008", "705114005", "22071010000106");
+		identifierComponentService.createIdentifier(path, identifier);
 	}
 
 	@Test
@@ -196,6 +202,14 @@ class ExportServiceTest extends AbstractTest {
 			assertEquals(2, lines.size());
 			assertEquals(RF2Constants.CONCRETE_RELATIONSHIP_HEADER, lines.get(0));
 			assertTrue(lines.contains("125024\t\t1\t900000000000207008\t123001\t#100\t0\t1142135004\t900000000000011006\t900000000000451002"));
+
+			// Identifier
+			ZipEntry identifierTypes = zipInputStream.getNextEntry();
+			assertEquals("SnomedCT_Export/Delta/Terminology/sct2_Identifier_Delta_INT_20210731.txt", identifierTypes.getName());
+			lines = getLines(zipInputStream);
+			assertEquals(2, lines.size());
+			assertEquals(RF2Constants.IDENTIFIER_HEADER, lines.get(0));
+			assertEquals( "634-6\t\t1\t715515008\t705114005\t22071010000106", lines.get(1));
 
 			// Description Type Refset
 			ZipEntry descriptionTypes = zipInputStream.getNextEntry();
@@ -297,6 +311,14 @@ class ExportServiceTest extends AbstractTest {
 			assertEquals(RF2Constants.CONCRETE_RELATIONSHIP_HEADER, lines.get(0));
 			assertTrue(lines.contains("125024\t\t1\t900000000000207008\t123001\t#100\t0\t1142135004\t900000000000011006\t900000000000451002"));
 
+			// Identifier
+			ZipEntry identifierTypes = zipInputStream.getNextEntry();
+			assertEquals("SnomedCT_Export/Delta/Terminology/sct2_Identifier_Delta_US_20210801.txt", identifierTypes.getName());
+			lines = getLines(zipInputStream);
+			assertEquals(2, lines.size());
+			assertEquals(RF2Constants.IDENTIFIER_HEADER, lines.get(0));
+			assertEquals( "634-6\t\t1\t715515008\t705114005\t22071010000106", lines.get(1));
+
 			// Description Type Refset
 			ZipEntry descriptionTypes = zipInputStream.getNextEntry();
 			assertEquals("SnomedCT_Export/Delta/Refset/Metadata/der2_ciRefset_DescriptionTypeDelta_US_20210801.txt", descriptionTypes.getName());
@@ -394,6 +416,14 @@ class ExportServiceTest extends AbstractTest {
 			assertEquals(RF2Constants.CONCRETE_RELATIONSHIP_HEADER, lines.get(0));
 			assertTrue(lines.contains("125024\t\t1\t900000000000207008\t123001\t#100\t0\t1142135004\t900000000000011006\t900000000000451002"));
 
+			// Identifier
+			ZipEntry identifierTypes = zipInputStream.getNextEntry();
+			assertEquals("SnomedCT_Export/RF2Release/Terminology/sct2_Identifier_Delta_INT_20210731.txt", identifierTypes.getName());
+			lines = getLines(zipInputStream);
+			assertEquals(2, lines.size());
+			assertEquals(RF2Constants.IDENTIFIER_HEADER, lines.get(0));
+			assertEquals( "634-6\t\t1\t715515008\t705114005\t22071010000106", lines.get(1));
+
 			// Description Type Refset
 			ZipEntry descriptionTypes = zipInputStream.getNextEntry();
 			assertEquals("SnomedCT_Export/RF2Release/Refset/Metadata/der2_ciRefset_DescriptionTypeDelta_INT_20210731.txt", descriptionTypes.getName());
@@ -474,6 +504,15 @@ class ExportServiceTest extends AbstractTest {
 			assertEquals(2, lines.size());
 			assertEquals(RF2Constants.CONCRETE_RELATIONSHIP_HEADER, lines.get(0));
 			assertTrue(lines.contains("125024\t\t1\t900000000000207008\t123001\t#100\t0\t1142135004\t900000000000011006\t900000000000451002"));
+
+
+			// Identifier
+			ZipEntry identifiers = zipInputStream.getNextEntry();
+			assertEquals("SnomedCT_Export/RF2Release/Terminology/sct2_Identifier_Delta_INT_20210731.txt", identifiers.getName());
+			lines = getLines(zipInputStream);
+			assertEquals(2, lines.size());
+			assertEquals(RF2Constants.IDENTIFIER_HEADER, lines.get(0));
+			assertEquals( "634-6\t\t1\t715515008\t705114005\t22071010000106", lines.get(1));
 
 			// OWL Axiom Refset
 			ZipEntry axioms = zipInputStream.getNextEntry();
