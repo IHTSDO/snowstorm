@@ -12,6 +12,7 @@ import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.services.BranchMetadataHelper;
 import org.snomed.snowstorm.core.data.services.ConceptUpdateHelper;
+import org.snomed.snowstorm.core.data.services.IdentifierComponentService;
 import org.snomed.snowstorm.core.data.services.ReferenceSetMemberService;
 import org.snomed.snowstorm.core.rf2.RF2Constants;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
@@ -42,6 +43,7 @@ public class ImportComponentFactoryImpl extends ImpotentComponentFactory {
 	private final PersistBuffer<Concept> conceptPersistBuffer;
 	private final PersistBuffer<Description> descriptionPersistBuffer;
 	private final PersistBuffer<Relationship> relationshipPersistBuffer;
+	private final PersistBuffer<Identifier> identifierPersistBuffer;
 	private final PersistBuffer<ReferenceSetMember> memberPersistBuffer;
 	private final List<PersistBuffer<?>> persistBuffers;
 	private final List<PersistBuffer<?>> coreComponentPersistBuffers;
@@ -54,8 +56,8 @@ public class ImportComponentFactoryImpl extends ImpotentComponentFactory {
 	Set<Long> statedRelationshipsToSkip = Sets.newHashSet(3187444026L, 3192499027L, 3574321020L);
 	boolean coreComponentsFlushed;
 
-	ImportComponentFactoryImpl(ConceptUpdateHelper conceptUpdateHelper, ReferenceSetMemberService memberService, BranchService branchService,
-			BranchMetadataHelper branchMetadataHelper, String path, Integer patchReleaseVersion, boolean copyReleaseFields, boolean clearEffectiveTimes) {
+	ImportComponentFactoryImpl(ConceptUpdateHelper conceptUpdateHelper, ReferenceSetMemberService memberService, IdentifierComponentService identifierComponentService, BranchService branchService,
+							   BranchMetadataHelper branchMetadataHelper, String path, Integer patchReleaseVersion, boolean copyReleaseFields, boolean clearEffectiveTimes) {
 
 		this.branchService = branchService;
 		this.branchMetadataHelper = branchMetadataHelper;
@@ -113,6 +115,16 @@ public class ImportComponentFactoryImpl extends ImpotentComponentFactory {
 				processEntities(entities, patchReleaseVersion, elasticsearchTemplate, ReferenceSetMember.class, copyReleaseFields, clearEffectiveTimes);
 				if (!entities.isEmpty()) {
 					memberService.doSaveBatchMembers(entities, commit);
+				}
+			}
+		};
+
+		identifierPersistBuffer = new PersistBuffer<>() {
+			@Override
+			public void persistCollection(Collection<Identifier> entities) {
+				processEntities(entities, patchReleaseVersion, elasticsearchTemplate, Identifier.class, copyReleaseFields, clearEffectiveTimes);
+				if (!entities.isEmpty()) {
+					identifierComponentService.doSaveBatchIdentifiers(entities, commit);
 				}
 			}
 		};
@@ -272,6 +284,16 @@ public class ImportComponentFactoryImpl extends ImpotentComponentFactory {
 			description.release(effectiveTimeI);
 		}
 		descriptionPersistBuffer.save(description);
+	}
+
+	@Override
+	public void newIdentifierState(String alternateIdentifier, String effectiveTime, String active, String moduleId, String identifierSchemeId, String referencedComponentId) {
+		Integer effectiveTimeI = getEffectiveTimeI(effectiveTime);
+		Identifier identifier = new Identifier(alternateIdentifier, effectiveTimeI, isActive(active), moduleId, identifierSchemeId, referencedComponentId);
+		if (effectiveTimeI != null) {
+			identifier.release(effectiveTimeI);
+		}
+		identifierPersistBuffer.save(identifier);
 	}
 
 	@Override

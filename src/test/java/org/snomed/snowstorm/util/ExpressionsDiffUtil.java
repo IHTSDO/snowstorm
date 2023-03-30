@@ -44,8 +44,8 @@ public class ExpressionsDiffUtil {
 		ComponentFactory publishedMRCMs = new MRCMRefsetComponentsLoader();
 		ComponentFactory actualMRCMs = new MRCMRefsetComponentsLoader();
 		if (published.endsWith(".zip") && actual.endsWith(".zip")) {
-			new ReleaseImporter().loadSnapshotReleaseFiles(new FileInputStream(published), mrcmLoadingProfile, publishedMRCMs);
-			new ReleaseImporter().loadSnapshotReleaseFiles(new FileInputStream(actual), mrcmLoadingProfile, actualMRCMs);
+			new ReleaseImporter().loadSnapshotReleaseFiles(new FileInputStream(published), mrcmLoadingProfile, publishedMRCMs, true);
+			new ReleaseImporter().loadSnapshotReleaseFiles(new FileInputStream(actual), mrcmLoadingProfile, actualMRCMs, true);
 		} else {
 			System.out.println("Please specify release packages with .zip file names");
 		}
