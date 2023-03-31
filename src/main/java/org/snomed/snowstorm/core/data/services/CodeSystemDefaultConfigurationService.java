@@ -47,7 +47,17 @@ public class CodeSystemDefaultConfigurationService {
 			String moduleId = split[1];
 			String countryCode = split.length > 2 ? split[2] : null;
 			String owner = split.length > 3 ? split[3] : null;
-			configurations.add(new CodeSystemDefaultConfiguration(name, codeSystemShortName, moduleId, countryCode, owner));
+			String alternateSchemaUri = split.length > 4 ? split[4] : null;
+			String alternateSchemaSctid = split.length > 5 ? split[5] : null;
+			configurations.add(new CodeSystemDefaultConfiguration(
+					name,
+					codeSystemShortName,
+					moduleId,
+					countryCode,
+					owner,
+					alternateSchemaUri,
+					alternateSchemaSctid
+			));
 		}
 	}
 

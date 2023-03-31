@@ -279,12 +279,8 @@ public class FHIRCodeSystemService {
 		}
 		if (FHIRHelper.isSnomedUri(codeSystemVersion.getUrl())) {
 			// Only allow deletion of expression repositories
-			if (!codeSystemVersion.getSnomedCodeSystem().isPostcoordinatedNullSafe()) {
 				throw FHIRHelper.exception("Please use the native API to maintain SNOMED CT code systems.",
 						OperationOutcome.IssueType.NOTSUPPORTED, 400);
-			}
-			snomedCodeSystemService.deleteCodeSystemAndVersions(codeSystemVersion.getSnomedCodeSystem(), true);
-
 		} else {
 			String versionId = codeSystemVersion.getId();
 			logger.info("Deleting code system (version) {}", versionId);
