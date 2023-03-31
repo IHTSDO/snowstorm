@@ -358,19 +358,6 @@ public class CodeSystemService {
 		return codeSystems;
 	}
 
-	public List<CodeSystem> findAllPostcoordinatedBrief() {
-		List<CodeSystem> allCodeSystems = repository.findAll(PageRequest.of(0, 10_000, Sort.by(CodeSystem.Fields.SHORT_NAME))).getContent();
-		return allCodeSystems.stream()
-				.filter(CodeSystem::isPostcoordinatedNullSafe)
-				.peek(codeSystem -> {
-					codeSystem.setParentUriModuleId(getParentUriModule(codeSystem, allCodeSystems));
-					String branchPath = codeSystem.getBranchPath();
-					Branch workingBranch = branchService.findLatest(branchPath);
-					doJoinDependentVersionEffectiveTime(codeSystem, branchPath, workingBranch);
-				})
-				.collect(Collectors.toList());
-	}
-
 	private String getParentUriModule(CodeSystem codeSystem, List<CodeSystem> allCodeSystems) {
 		String parentPath = PathUtil.getParentPath(codeSystem.getBranchPath());
 		Optional<CodeSystem> parent = allCodeSystems.stream().filter(parentCandidate -> parentCandidate.getBranchPath().equals(parentPath)).findFirst();
@@ -492,10 +479,10 @@ public class CodeSystemService {
 			// Populate moduleId
 			String uriModuleId = Concepts.CORE_MODULE;
 			Optional<CodeSystemDefaultConfiguration> defaultConfiguration = codeSystemDefaultConfigurationService.getConfigurations().stream()
-					.filter(config -> config.getShortName().equals(codeSystem.getShortName()))
+					.filter(config -> config.shortName().equals(codeSystem.getShortName()))
 					.findFirst();
 			if (defaultConfiguration.isPresent()) {
-				uriModuleId = defaultConfiguration.get().getModule();
+				uriModuleId = defaultConfiguration.get().module();
 			}
 			codeSystem.setUriModuleId(uriModuleId);
 		}
