@@ -183,11 +183,13 @@ public class FHIRHelper implements FHIRConstants {
 		if (designations == null || designations.isEmpty()) {
 			return concept.getPt().getTerm();
 		}
-		
-		for (Description d : concept.getDescriptions()) {
-			if (d.hasAcceptability(Concepts.PREFERRED, designations.get(0)) &&
-					d.getTypeId().equals(Concepts.SYNONYM)) {
-				return d.getTerm();
+
+		for (LanguageDialect dialect : designations) {
+			for (Description d : concept.getDescriptions()) {
+				if (d.hasAcceptability(Concepts.PREFERRED, dialect) &&
+						d.getTypeId().equals(Concepts.SYNONYM)) {
+					return d.getTerm();
+				}
 			}
 		}
 		return null;

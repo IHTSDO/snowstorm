@@ -10,6 +10,7 @@ import org.snomed.snowstorm.fhir.domain.FHIRCodeSystemVersion;
 import org.snomed.snowstorm.fhir.domain.FHIRConcept;
 import org.snomed.snowstorm.fhir.domain.FHIRDesignation;
 import org.snomed.snowstorm.fhir.domain.FHIRProperty;
+import org.snomed.snowstorm.fhir.pojo.ConceptAndSystemResult;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -49,19 +50,26 @@ public class HapiParametersMapper implements FHIRConstants {
 		return parameters;
 	}
 
-	public Parameters mapToFHIR(FHIRCodeSystemVersion codeSystem, Concept concept, Collection<String> childIds,
+	public Parameters mapToFHIR(ConceptAndSystemResult conceptAndSystemResult, Collection<String> childIds,
 			Set<FhirSctProperty> properties, List<LanguageDialect> designations) {
+
+		FHIRCodeSystemVersion codeSystemVersion = conceptAndSystemResult.codeSystemVersion();
+		Concept concept = conceptAndSystemResult.concept();
+		boolean postcoordinated = conceptAndSystemResult.postcoordinated();
 
 		Parameters parameters = new Parameters();
 		parameters.addParameter("code", concept.getConceptId());
 		parameters.addParameter("display", fhirHelper.getPreferredTerm(concept, designations));
-		parameters.addParameter("name", codeSystem.getTitle());
-		addSystemAndVersion(parameters, codeSystem);
-		parameters.addParameter("inactive", !concept.isActive());
-		addProperties(parameters, concept, properties);
-		addDesignations(parameters, concept);
-		addParents(parameters, concept);
-		addChildren(parameters, childIds);
+		boolean postcoordinatedCodeOnStandardCodeSystem = postcoordinated && !codeSystemVersion.getSnomedCodeSystem().isPostcoordinatedNullSafe();
+		parameters.addParameter("name", codeSystemVersion.getTitle() + (postcoordinatedCodeOnStandardCodeSystem ? " (Postcoordinated)" : ""));
+		addSystemAndVersion(parameters, codeSystemVersion);
+		parameters.addParameter("active", concept.isActive());
+		if (!postcoordinated) {
+			addProperties(parameters, concept, properties);
+			addDesignations(parameters, concept);
+			addParents(parameters, concept);
+			addChildren(parameters, childIds);
+		}
 		return parameters;
 	}
 
@@ -151,8 +159,13 @@ public class HapiParametersMapper implements FHIRConstants {
 
 	private void addProperties(Parameters parameters, Concept c, Set<FhirSctProperty> properties) {
 		Boolean sufficientlyDefined = c.getDefinitionStatusId().equals(Concepts.DEFINED);
-		parameters.addParameter(createProperty(EFFECTIVE_TIME, c.getEffectiveTime(), false))
-			.addParameter(createProperty(MODULE_ID, c.getModuleId(), true));
+
+		if (c.getEffectiveTime() != null) {
+			parameters.addParameter(createProperty(EFFECTIVE_TIME, c.getEffectiveTime(), false));
+		}
+		if (c.getModuleId() != null) {
+			parameters.addParameter(createProperty(MODULE_ID, c.getModuleId(), true));
+		}
 
 		boolean allProperties = properties.contains(FhirSctProperty.ALL_PROPERTIES);
 

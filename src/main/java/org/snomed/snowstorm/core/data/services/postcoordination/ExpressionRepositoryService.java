@@ -127,7 +127,7 @@ public class ExpressionRepositoryService {
 	}
 
 	public synchronized List<PostCoordinatedExpression> createExpressionsAllOrNothing(List<String> closeToUserFormExpressions, CodeSystem codeSystem, boolean classify) throws ServiceException {
-		final List<PostCoordinatedExpression> postCoordinatedExpressions = processExpressions(closeToUserFormExpressions, codeSystem, classify);
+		final List<PostCoordinatedExpression> postCoordinatedExpressions = processExpressions(closeToUserFormExpressions, codeSystem, classify, DisplayTermsCombination.CF_AND_NNF);
 
 		if (!postCoordinatedExpressions.isEmpty() && postCoordinatedExpressions.stream().noneMatch(PostCoordinatedExpression::hasException)
 				&& postCoordinatedExpressions.stream().anyMatch(PostCoordinatedExpression::hasNullId)) {
@@ -271,13 +271,10 @@ public class ExpressionRepositoryService {
 	 * - Parse to validate syntax
 	 * - Lookup any existing expressions in the store, if found return other forms from the store
 	 * - Validate MRCM attribute range
-	 *
-	 * @param originalCloseToUserForms
-	 * @param codeSystem
-	 * @param classify
-	 * @return
 	 */
-	public List<PostCoordinatedExpression> processExpressions(List<String> originalCloseToUserForms, CodeSystem codeSystem, boolean classify) {
+	public List<PostCoordinatedExpression> processExpressions(List<String> originalCloseToUserForms, CodeSystem codeSystem, boolean classify,
+			DisplayTermsCombination displayTermsCombination) {
+
 		String branchPath = codeSystem.getBranchPath();
 		Integer dependantVersionEffectiveTime = codeSystem.getDependantVersionEffectiveTime();
 		String classificationPackage = String.format("%s_%s_snapshot.zip", codeSystem.getParentUriModuleId(), dependantVersionEffectiveTime);
@@ -294,7 +291,8 @@ public class ExpressionRepositoryService {
 
 		for (String originalCloseToUserForm : originalCloseToUserForms) {
 			TimerUtil timer = new TimerUtil("exp", Level.INFO, 5);
-			ExpressionContext context = new ExpressionContext(branchPath, codeSystem.isPostcoordinatedNullSafe(), branchService, versionControlHelper, mrcmService, timer);
+			ExpressionContext context = new ExpressionContext(branchPath, codeSystem.isPostcoordinatedNullSafe(), branchService, versionControlHelper, mrcmService,
+					displayTermsCombination, timer);
 			try {
 				// Sort contents of expression
 				ComparableExpression closeToUserFormExpression = expressionParser.parseExpression(originalCloseToUserForm);
@@ -442,16 +440,29 @@ public class ExpressionRepositoryService {
 
 	private void populateHumanReadableForms(PostCoordinatedExpression expressionForms, ExpressionContext context) throws ServiceException {
 		List<String> expressions = new ArrayList<>();
-		String classifiableForm = expressionForms.getClassifiableForm();
-		if (classifiableForm != null) {
-			expressions.add(classifiableForm);
-		}
-		String necessaryNormalForm = expressionForms.getNecessaryNormalForm();
-		if (necessaryNormalForm != null) {
-			expressions.add(necessaryNormalForm);
+		String closeToUserForm = null;
+		String classifiableForm = null;
+		String necessaryNormalForm = null;
+		if (context.getDisplayTermsCombination() == DisplayTermsCombination.CTU_ONLY) {
+			if (expressionForms.getCloseToUserForm() != null) {
+				closeToUserForm = expressionForms.getCloseToUserForm();
+				expressions.add(closeToUserForm);
+			}
+		} else if (context.getDisplayTermsCombination() == DisplayTermsCombination.CF_AND_NNF) {
+			if (expressionForms.getClassifiableForm() != null) {
+				classifiableForm = expressionForms.getClassifiableForm();
+				expressions.add(classifiableForm);
+			}
+			if (expressionForms.getNecessaryNormalForm() != null) {
+				necessaryNormalForm = expressionForms.getNecessaryNormalForm();
+				expressions.add(necessaryNormalForm);
+			}
 		}
 		final List<String> humanReadableExpressions = createHumanReadableExpressions(expressions, context.getBranchCriteria());
 		int i = 0;
+		if (closeToUserForm != null) {
+			expressionForms.setHumanReadableCloseToUserForm(humanReadableExpressions.get(i++));
+		}
 		if (classifiableForm != null) {
 			expressionForms.setHumanReadableClassifiableForm(humanReadableExpressions.get(i++));
 		}

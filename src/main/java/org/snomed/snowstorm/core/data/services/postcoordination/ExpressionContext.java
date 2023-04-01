@@ -30,6 +30,7 @@ public class ExpressionContext {
 	private final TimerUtil timer;
 	private final BranchService branchService;
 	private final boolean useDependantReleaseBranchForMRCM;
+	private final DisplayTermsCombination displayTermsCombination;
 
 	private BranchCriteria branchCriteria;
 	private BranchCriteria dependantReleaseBranchCriteria;
@@ -41,14 +42,15 @@ public class ExpressionContext {
 	private ConceptService conceptService;
 	private org.snomed.snowstorm.ecl.ECLQueryService eclQueryService;
 
-	public ExpressionContext(String branch, boolean useDependantReleaseBranchForMRCM,
-			BranchService branchService, VersionControlHelper versionControlHelper, MRCMService mrcmService, TimerUtil timer) {
+	public ExpressionContext(String branch, boolean useDependantReleaseBranchForMRCM, BranchService branchService, VersionControlHelper versionControlHelper,
+			MRCMService mrcmService, DisplayTermsCombination displayTermsCombination, TimerUtil timer) {
 
 		this.branch = branch;
 		this.useDependantReleaseBranchForMRCM = useDependantReleaseBranchForMRCM;
 		this.branchService = branchService;
 		this.versionControlHelper = versionControlHelper;
 		this.mrcmService = mrcmService;
+		this.displayTermsCombination = displayTermsCombination;
 		this.timer = timer;
 	}
 
@@ -143,5 +145,9 @@ public class ExpressionContext {
 
 	public ECLQueryService getEclQueryService() {
 		return eclQueryService;
+	}
+
+	public DisplayTermsCombination getDisplayTermsCombination() {
+		return displayTermsCombination;
 	}
 }

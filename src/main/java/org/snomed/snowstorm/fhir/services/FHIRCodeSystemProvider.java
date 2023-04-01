@@ -331,15 +331,14 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants 
 		fhirHelper.setLanguageOptions(designations, displayLanguage, acceptLanguageHeader);
 		if (codeSystemParams.isSnomed()) {
 			ConceptAndSystemResult conceptAndSystemResult = fhirCodeSystemService.findSnomedConcept(code, designations, codeSystemParams);
-			Concept concept = conceptAndSystemResult.concept();
 			FHIRCodeSystemVersion codeSystemVersion = conceptAndSystemResult.codeSystemVersion();
-			if (concept == null) {
+			if (conceptAndSystemResult.concept() == null) {
 				throw exception(format("Code '%s' not found for system '%s'.", code, codeSystemVersion.getUrl()), IssueType.NOTFOUND, 404);
 			}
 
-			List<String> childIds = graphService.findChildren(code, codeSystemVersion, LARGE_PAGE);
+			List<String> childIds = conceptAndSystemResult.postcoordinated() ? Collections.emptyList() : graphService.findChildren(code, codeSystemVersion, LARGE_PAGE);
 			Set<FhirSctProperty> properties = FhirSctProperty.parse(propertiesType);
-			return pMapper.mapToFHIR(codeSystemVersion, concept, childIds, properties, designations);
+			return pMapper.mapToFHIR(conceptAndSystemResult, childIds, properties, designations);
 		} else {
 			FHIRCodeSystemVersion fhirCodeSystemVersion = fhirCodeSystemService.findCodeSystemVersionOrThrow(codeSystemParams);
 			FHIRConcept concept = fhirConceptService.findConcept(fhirCodeSystemVersion, code);
@@ -528,6 +527,9 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants 
 
 		String codeA = fhirHelper.recoverCode(codeAParam, codingA);
 		String codeB = fhirHelper.recoverCode(codeBParam, codingB);
+		if (isPostcoordinatedSnomed(codeA, codeSystemParams) || isPostcoordinatedSnomed(codeB, codeSystemParams)) {
+
+		}
 		if (codeA.equals(codeB) && fhirCodeSystemService.conceptExistsOrThrow(codeA, codeSystemVersion)) {
 			return pMapper.singleOutValue("outcome", "equivalent", codeSystemVersion);
 		}

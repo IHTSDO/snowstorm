@@ -8,6 +8,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.core.data.domain.CodeSystemVersion;
 import org.snomed.snowstorm.core.data.domain.Concept;
+import org.snomed.snowstorm.core.data.domain.Concepts;
+import org.snomed.snowstorm.core.data.domain.Description;
 import org.snomed.snowstorm.core.data.services.CodeSystemService;
 import org.snomed.snowstorm.core.data.services.ConceptService;
 import org.snomed.snowstorm.core.data.services.MultiSearchService;
@@ -15,6 +17,7 @@ import org.snomed.snowstorm.core.data.services.ServiceException;
 import org.snomed.snowstorm.core.data.services.identifier.IdentifierService;
 import org.snomed.snowstorm.core.data.services.identifier.IdentifierSource;
 import org.snomed.snowstorm.core.data.services.pojo.ConceptCriteria;
+import org.snomed.snowstorm.core.data.services.postcoordination.DisplayTermsCombination;
 import org.snomed.snowstorm.core.data.services.postcoordination.ExpressionRepositoryService;
 import org.snomed.snowstorm.core.data.services.postcoordination.model.PostCoordinatedExpression;
 import org.snomed.snowstorm.core.pojo.LanguageDialect;
@@ -364,13 +367,18 @@ public class FHIRCodeSystemService {
 
 	@NotNull
 	private ConceptAndSystemResult validateCodeForSnomedPostcoordination(String code, FHIRCodeSystemVersion codeSystemVersion, org.snomed.snowstorm.core.data.domain.CodeSystem snomedCodeSystem) {
-		List<PostCoordinatedExpression> postCoordinatedExpressions = expressionRepository.processExpressions(Collections.singletonList(code), snomedCodeSystem, false);
-		PostCoordinatedExpression postCoordinatedExpression = postCoordinatedExpressions.get(0);
-		if (postCoordinatedExpression.hasException()) {
-			return new ConceptAndSystemResult(null, codeSystemVersion, postCoordinatedExpression.getException().getMessage());
+		List<PostCoordinatedExpression> postCoordinatedExpressions = expressionRepository.processExpressions(Collections.singletonList(code), snomedCodeSystem, false, DisplayTermsCombination.CTU_ONLY);
+		PostCoordinatedExpression expression = postCoordinatedExpressions.get(0);
+		if (expression.hasException()) {
+			return new ConceptAndSystemResult(null, codeSystemVersion, expression.getException().getMessage()).setPostcoordinated(true);
 		} else {
-			return new ConceptAndSystemResult(new Concept(postCoordinatedExpression.getCloseToUserForm()), codeSystemVersion,
-					"This is a valid SNOMED CT postcoordinated expression.");
+			Concept concept = new Concept(expression.getCloseToUserForm()).setModuleId(null);
+			if (expression.getHumanReadableCloseToUserForm() != null) {
+				concept.addDescription(new Description(expression.getHumanReadableCloseToUserFormWithoutIds()).addLanguageRefsetMember(Concepts.US_EN_LANG_REFSET,
+						Concepts.PREFERRED));
+			}
+			return new ConceptAndSystemResult(concept, codeSystemVersion,
+					"This is a valid SNOMED CT postcoordinated expression.").setPostcoordinated(true);
 		}
 	}
 
