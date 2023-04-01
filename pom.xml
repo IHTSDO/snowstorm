@@ -260,6 +260,10 @@
 			<groupId>org.apache.logging.log4j</groupId>
 			<artifactId>log4j-to-slf4j</artifactId>
 		</dependency>
+		<dependency><!-- Old logging used by owl-toolkit -->
+			<groupId>org.apache.logging.log4j</groupId>
+			<artifactId>log4j-1.2-api</artifactId>
+		</dependency>
 
 		<!-- Test dependencies -->
 		<dependency>
