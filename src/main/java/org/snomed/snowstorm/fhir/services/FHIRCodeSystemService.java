@@ -17,11 +17,14 @@ import org.snomed.snowstorm.core.data.services.ServiceException;
 import org.snomed.snowstorm.core.data.services.identifier.IdentifierService;
 import org.snomed.snowstorm.core.data.services.identifier.IdentifierSource;
 import org.snomed.snowstorm.core.data.services.pojo.ConceptCriteria;
-import org.snomed.snowstorm.core.data.services.postcoordination.DisplayTermsCombination;
+import org.snomed.snowstorm.core.data.services.postcoordination.DisplayTermsRequired;
 import org.snomed.snowstorm.core.data.services.postcoordination.ExpressionRepositoryService;
+import org.snomed.snowstorm.core.data.services.postcoordination.ExpressionValidationException;
+import org.snomed.snowstorm.core.data.services.postcoordination.model.ComparableExpression;
 import org.snomed.snowstorm.core.data.services.postcoordination.model.PostCoordinatedExpression;
 import org.snomed.snowstorm.core.pojo.LanguageDialect;
 import org.snomed.snowstorm.fhir.domain.FHIRCodeSystemVersion;
+import org.snomed.snowstorm.fhir.domain.SubsumesResult;
 import org.snomed.snowstorm.fhir.pojo.CanonicalUri;
 import org.snomed.snowstorm.fhir.pojo.ConceptAndSystemResult;
 import org.snomed.snowstorm.fhir.pojo.FHIRCodeSystemVersionParams;
@@ -365,9 +368,45 @@ public class FHIRCodeSystemService {
 		return new ConceptAndSystemResult(concept, codeSystemVersion);
 	}
 
+	public SubsumesResult subsumeTestForSnomedPostcoordination(String codeA, String codeB, FHIRCodeSystemVersion codeSystemVersion) throws ExpressionValidationException {
+		List<PostCoordinatedExpression> expressions = expressionRepository.processExpressions(List.of(codeA, codeB),
+				codeSystemVersion.getSnomedCodeSystem(), codeSystemVersion.getSnomedCodeSystemVersion(), true, true, DisplayTermsRequired.NONE);
+
+		PostCoordinatedExpression expressionA = expressions.get(0);
+		checkForDelayedException(codeA, expressionA);
+		PostCoordinatedExpression expressionB = expressions.get(1);
+		checkForDelayedException(codeB, expressionB);
+
+		ComparableExpression expressionANNF = expressionA.getNecessaryNormalFormExpression();
+		ComparableExpression expressionBNNF = expressionB.getNecessaryNormalFormExpression();
+
+		Set<Long> equivalentExpressions = expressionANNF.getEquivalentExpressions();
+		if (equivalentExpressions != null && equivalentExpressions.contains(expressionBNNF.getExpressionId())) {
+			return SubsumesResult.equivalent;
+		}
+		if (expressionBNNF.getClassificationAncestors().contains(expressionANNF.getExpressionId())) {
+			return SubsumesResult.subsumes;
+		}
+		if (expressionANNF.getClassificationAncestors().contains(expressionBNNF.getExpressionId())) {
+			return SubsumesResult.subsumed_by;
+		}
+
+		return SubsumesResult.not_subsumed;
+	}
+
+	private static void checkForDelayedException(String code, PostCoordinatedExpression expression) throws ExpressionValidationException {
+		if (expression.hasException()) {
+			throw new ExpressionValidationException(format("Failed to process expression \"%s\". %s", code, expression.getException().getMessage()));
+		}
+	}
+
 	@NotNull
-	private ConceptAndSystemResult validateCodeForSnomedPostcoordination(String code, FHIRCodeSystemVersion codeSystemVersion, org.snomed.snowstorm.core.data.domain.CodeSystem snomedCodeSystem) {
-		List<PostCoordinatedExpression> postCoordinatedExpressions = expressionRepository.processExpressions(Collections.singletonList(code), snomedCodeSystem, false, DisplayTermsCombination.CTU_ONLY);
+	private ConceptAndSystemResult validateCodeForSnomedPostcoordination(String code, FHIRCodeSystemVersion codeSystemVersion,
+			org.snomed.snowstorm.core.data.domain.CodeSystem snomedCodeSystem) {
+
+		List<PostCoordinatedExpression> postCoordinatedExpressions = expressionRepository.processExpressions(Collections.singletonList(code), snomedCodeSystem,
+				codeSystemVersion.getSnomedCodeSystemVersion(), false, false, DisplayTermsRequired.CTU_ONLY);
+
 		PostCoordinatedExpression expression = postCoordinatedExpressions.get(0);
 		if (expression.hasException()) {
 			return new ConceptAndSystemResult(null, codeSystemVersion, expression.getException().getMessage()).setPostcoordinated(true);
@@ -389,7 +428,7 @@ public class FHIRCodeSystemService {
 		List<String> closeToUserFormExpressions = concepts.stream().map(CodeSystem.ConceptDefinitionComponent::getCode).collect(Collectors.toList());
 		List<PostCoordinatedExpression> outcomes;
 		try {
-			outcomes = expressionRepository.createExpressionsAllOrNothing(closeToUserFormExpressions, snomedExpressionCodeSystem.getSnomedCodeSystem(), true);
+			outcomes = expressionRepository.createExpressionsAllOrNothing(closeToUserFormExpressions, snomedExpressionCodeSystem.getSnomedCodeSystem());
 		} catch (ServiceException e) {
 			logger.error("Error handling postcoordinated expressions. CodeSystem: {}, Expressions: {}", snomedExpressionCodeSystem.getId(), closeToUserFormExpressions, e);
 			throw exception("Handling SNOMED CT postcoordinated expressions failed.", OperationOutcome.IssueType.EXCEPTION, 500, e);

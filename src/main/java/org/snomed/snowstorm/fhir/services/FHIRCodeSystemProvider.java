@@ -24,6 +24,7 @@ import org.snomed.snowstorm.core.data.domain.Description;
 import org.snomed.snowstorm.core.data.services.CodeSystemService;
 import org.snomed.snowstorm.core.data.services.MultiSearchService;
 import org.snomed.snowstorm.core.data.services.ServiceException;
+import org.snomed.snowstorm.core.data.services.postcoordination.ExpressionValidationException;
 import org.snomed.snowstorm.core.data.services.postcoordination.model.ComparableExpression;
 import org.snomed.snowstorm.core.data.services.postcoordination.model.PostCoordinatedExpression;
 import org.snomed.snowstorm.core.pojo.LanguageDialect;
@@ -31,6 +32,7 @@ import org.snomed.snowstorm.fhir.config.FHIRConstants;
 import org.snomed.snowstorm.fhir.domain.FHIRCodeSystemVersion;
 import org.snomed.snowstorm.fhir.domain.FHIRConcept;
 import org.snomed.snowstorm.fhir.domain.SearchFilter;
+import org.snomed.snowstorm.fhir.domain.SubsumesResult;
 import org.snomed.snowstorm.fhir.pojo.ConceptAndSystemResult;
 import org.snomed.snowstorm.fhir.pojo.FHIRCodeSystemVersionParams;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -259,10 +261,12 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants 
 							new CodeType("humanReadableNecessaryNormalForm"), new StringType(expression.getHumanReadableNecessaryNormalForm())));
 			}
 			ComparableExpression nnf = expression.getNecessaryNormalFormExpression();
-			if (nnf != null && nnf.getEquivalentConcept() != null) {
-				conceptDefinitionComponent
-						.addProperty(new CodeSystem.ConceptPropertyComponent(
-								new CodeType("equivalentConcept"), new StringType(nnf.getEquivalentConcept().toString())));
+			if (nnf != null && nnf.getEquivalentConcepts() != null) {
+				for (Long equivalentConcept : nnf.getEquivalentConcepts()) {
+					conceptDefinitionComponent
+							.addProperty(new CodeSystem.ConceptPropertyComponent(
+									new CodeType("equivalentConcept"), new StringType(equivalentConcept.toString())));
+				}
 			}
 			savedCodeSystem.addConcept(conceptDefinitionComponent);
 		}
@@ -527,22 +531,37 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants 
 
 		String codeA = fhirHelper.recoverCode(codeAParam, codingA);
 		String codeB = fhirHelper.recoverCode(codeBParam, codingB);
+		SubsumesResult subsumesResult;
 		if (isPostcoordinatedSnomed(codeA, codeSystemParams) || isPostcoordinatedSnomed(codeB, codeSystemParams)) {
-
+			try {
+				subsumesResult = fhirCodeSystemService.subsumeTestForSnomedPostcoordination(codeA, codeB, codeSystemVersion);
+			} catch (ExpressionValidationException e) {
+				Parameters parameters = new Parameters();
+				parameters.addParameter("outcome", SubsumesResult.not_subsumed.getText());
+				parameters.addParameter("message", e.getMessage());
+				return parameters;
+			}
+		} else {
+			subsumesResult = testSubsumesPrecoordinated(codeSystemVersion, codeA, codeB);
 		}
+		return pMapper.singleOutValue("outcome", subsumesResult.getText(), codeSystemVersion);
+	}
+
+	private SubsumesResult testSubsumesPrecoordinated(FHIRCodeSystemVersion codeSystemVersion, String codeA, String codeB) {
 		if (codeA.equals(codeB) && fhirCodeSystemService.conceptExistsOrThrow(codeA, codeSystemVersion)) {
-			return pMapper.singleOutValue("outcome", "equivalent", codeSystemVersion);
+			return SubsumesResult.equivalent;
 		}
 
 		// Test for A subsumes B, then B subsumes A
 		if (graphService.subsumes(codeA, codeB, codeSystemVersion)) {
-			return pMapper.singleOutValue("outcome", "subsumes", codeSystemVersion);
+			return SubsumesResult.subsumes;
 		} else if (graphService.subsumes(codeB, codeA, codeSystemVersion)) {
-			return pMapper.singleOutValue("outcome", "subsumed-by", codeSystemVersion);
+			return SubsumesResult.subsumed_by;
 		}
+
 		fhirCodeSystemService.conceptExistsOrThrow(codeA, codeSystemVersion);
 		fhirCodeSystemService.conceptExistsOrThrow(codeB, codeSystemVersion);
-		return pMapper.singleOutValue("outcome", "not-subsumed", codeSystemVersion);
+		return SubsumesResult.not_subsumed;
 	}
 
 	@Override

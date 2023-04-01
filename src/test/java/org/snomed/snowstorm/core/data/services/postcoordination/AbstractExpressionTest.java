@@ -176,7 +176,8 @@ public abstract class AbstractExpressionTest extends AbstractTest {
         expressionCodeSystem.setMaximumPostcoordinationLevel((short) 2);
         expressionCodeSystem.setUriModuleId(expressionModuleId);
         codeSystemService.createCodeSystem(expressionCodeSystem);
-        expressionContext = new ExpressionContext("MAIN/A", true, branchService, versionControlHelper, mrcmService, DisplayTermsCombination.CF_AND_NNF, new TimerUtil(""));
+        expressionContext = new ExpressionContext("MAIN/A", true, branchService, versionControlHelper, mrcmService, DisplayTermsRequired.CF_AND_NNF);
+        expressionContext.reset(new TimerUtil("exp"));
     }
 
     @AfterEach

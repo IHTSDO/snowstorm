@@ -26,32 +26,38 @@ public class ExpressionContext {
 
 	private final VersionControlHelper versionControlHelper;
 	private final MRCMService mrcmService;
-	private final String branch;
-	private final TimerUtil timer;
+	private ConceptService conceptService;
 	private final BranchService branchService;
-	private final boolean useDependantReleaseBranchForMRCM;
-	private final DisplayTermsCombination displayTermsCombination;
-
+	private org.snomed.snowstorm.ecl.ECLQueryService eclQueryService;
+	private final String branch;
 	private BranchCriteria branchCriteria;
+	private final boolean useDependantReleaseBranchForMRCM;
 	private BranchCriteria dependantReleaseBranchCriteria;
 	private MRCM mrcm;
 	private Set<AttributeDomain> mrcmUngroupedAttributes;
-	private Set<String> ancestorsAndSelfOfFocusConcept;
-	private String focusConceptId;
+	private final DisplayTermsRequired displayTermsRequired;
+
+	private TimerUtil timer;
 	private Concept focusConcept;
-	private ConceptService conceptService;
-	private org.snomed.snowstorm.ecl.ECLQueryService eclQueryService;
+	private String focusConceptId;
+	private Set<String> ancestorsAndSelfOfFocusConcept;
 
 	public ExpressionContext(String branch, boolean useDependantReleaseBranchForMRCM, BranchService branchService, VersionControlHelper versionControlHelper,
-			MRCMService mrcmService, DisplayTermsCombination displayTermsCombination, TimerUtil timer) {
+			MRCMService mrcmService, DisplayTermsRequired displayTermsRequired) {
 
 		this.branch = branch;
 		this.useDependantReleaseBranchForMRCM = useDependantReleaseBranchForMRCM;
 		this.branchService = branchService;
 		this.versionControlHelper = versionControlHelper;
 		this.mrcmService = mrcmService;
-		this.displayTermsCombination = displayTermsCombination;
+		this.displayTermsRequired = displayTermsRequired;
+	}
+
+	public void reset(TimerUtil timer) {
 		this.timer = timer;
+		focusConcept = null;
+		focusConceptId = null;
+		ancestorsAndSelfOfFocusConcept = null;
 	}
 
 	public BranchCriteria getBranchCriteria() {
@@ -84,7 +90,7 @@ public class ExpressionContext {
 
 	public Set<AttributeDomain> getMRCMUngroupedAttributes() throws ServiceException {
 		if (mrcmUngroupedAttributes == null) {
-			mrcmUngroupedAttributes = getBranchMRCM().getAttributeDomains().stream()
+			mrcmUngroupedAttributes = getBranchMRCM().attributeDomains().stream()
 					.filter(Predicate.not(AttributeDomain::isGrouped))
 					.collect(Collectors.toSet());
 		}
@@ -147,7 +153,11 @@ public class ExpressionContext {
 		return eclQueryService;
 	}
 
-	public DisplayTermsCombination getDisplayTermsCombination() {
-		return displayTermsCombination;
+	public DisplayTermsRequired getDisplayTermsCombination() {
+		return displayTermsRequired;
+	}
+
+	public BranchCriteria getDependantReleaseBranchCriteria() {
+		return dependantReleaseBranchCriteria;
 	}
 }

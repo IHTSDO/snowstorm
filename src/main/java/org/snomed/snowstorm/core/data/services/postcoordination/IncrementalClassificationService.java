@@ -13,10 +13,7 @@ import org.snomed.otf.owltoolkit.util.InputStreamSet;
 import org.snomed.snowstorm.config.SnomedReleaseResourceConfiguration;
 import org.snomed.snowstorm.core.data.domain.Concepts;
 import org.snomed.snowstorm.core.data.services.ServiceException;
-import org.snomed.snowstorm.core.data.services.postcoordination.model.ComparableAttribute;
-import org.snomed.snowstorm.core.data.services.postcoordination.model.ComparableAttributeGroup;
-import org.snomed.snowstorm.core.data.services.postcoordination.model.ComparableAttributeValue;
-import org.snomed.snowstorm.core.data.services.postcoordination.model.ComparableExpression;
+import org.snomed.snowstorm.core.data.services.postcoordination.model.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.core.io.ResourceLoader;
@@ -27,9 +24,11 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.util.*;
+import java.util.function.Predicate;
 
 import static java.lang.String.format;
 import static org.snomed.otf.owltoolkit.service.SnomedReasonerService.ELK_REASONER_FACTORY;
+import static org.snomed.snowstorm.core.data.services.postcoordination.ExpressionRepositoryService.EXPRESSION_PARTITION_ID;
 
 @Service
 public class IncrementalClassificationService {
@@ -53,34 +52,54 @@ public class IncrementalClassificationService {
 		releaseResourceConfigName = SnomedReleaseResourceConfiguration.class.getAnnotation(ConfigurationProperties.class).value();
 	}
 
-	public ComparableExpression classify(ComparableExpression classifiableForm, String classificationPackage) throws ServiceException {
+	public void classify(Map<PostCoordinatedExpression, ComparableExpression> classifiableFormsMap, boolean equivalenceTest, String classificationPackage)
+			throws ServiceException {
+
 		// Transform to axiom(s)
-		Set<AxiomRepresentation> axioms = expressionAxiomConversionService.convertToAxioms(classifiableForm);
+		Set<AxiomRepresentation> axioms = new HashSet<>();
+		for (ComparableExpression classifiableForm : classifiableFormsMap.values()) {
+			axioms.addAll(expressionAxiomConversionService.convertToAxioms(classifiableForm));
+		}
 
 		// Classify
 		final RelationshipChangeProcessor changeProcessor;
 		try {
-			changeProcessor = classify(axioms, classificationPackage);
+			changeProcessor = classifyTransientAxioms(axioms, equivalenceTest, classificationPackage);
 		} catch (IOException | ReasonerServiceException e) {
 			throw new ServiceException("Failed to classify expression.", e);
 		}
-		final Map<Long, Set<Relationship>> addedStatements = changeProcessor.getAddedStatements();
-		Map<Long, Long> equivalentConceptMap = getEquivalentConceptMap(changeProcessor.getEquivalentConceptIds());
-		logger.info("Equivalent classes: {}", equivalentConceptMap);
 
-		// Create necessary normal form expression from classification results
-		ComparableExpression nnfExpression = createNNFExpression(classifiableForm.getExpressionId(), addedStatements, equivalentConceptMap);
-		nnfExpression.setDefinitionStatus(classifiableForm.getDefinitionStatus());
-		nnfExpression.setEquivalentConcept(equivalentConceptMap.get(classifiableForm.getExpressionId()));
-		return nnfExpression;
+		Map<Long, Set<Long>> equivalentConceptMap = getEquivalentConceptMap(changeProcessor.getEquivalentConceptIds(), otherId -> !otherId.startsWith(EXPRESSION_PARTITION_ID, otherId.length() - 3));
+		Map<Long, Set<Long>> equivalentExpressionMap = getEquivalentConceptMap(changeProcessor.getEquivalentConceptIds(), otherId -> otherId.startsWith(EXPRESSION_PARTITION_ID, otherId.length() - 3));
+
+		for (Map.Entry<PostCoordinatedExpression, ComparableExpression> expressionEntry : classifiableFormsMap.entrySet()) {
+			PostCoordinatedExpression expression = expressionEntry.getKey();
+			ComparableExpression classifiableForm = expressionEntry.getValue();
+			Long expressionId = classifiableForm.getExpressionId();
+			ComparableExpression nnfExpression;
+			if (!equivalenceTest) {
+				// Create necessary normal form expression from classification results
+				nnfExpression = createNNFExpression(expressionId, changeProcessor.getAddedStatements(), equivalentConceptMap);
+			} else {
+				// Lightweight nnf
+				nnfExpression = new ComparableExpression().setExpressionId(expressionId);
+			}
+			nnfExpression.setDefinitionStatus(classifiableForm.getDefinitionStatus());
+			nnfExpression.setEquivalentConcepts(equivalentConceptMap.get(expressionId));
+			nnfExpression.setEquivalentExpressions(equivalentExpressionMap.get(expressionId));
+			nnfExpression.setClassificationAncestors(changeProcessor.getTransitiveClosures().get(expressionId));
+			expression.setNecessaryNormalForm(nnfExpression);
+		}
 	}
 
-	private ComparableExpression createNNFExpression(Long tempExpressionId, Map<Long, Set<Relationship>> addedStatements, Map<Long, Long> equivalentConceptMap) {
+	private ComparableExpression createNNFExpression(Long tempExpressionId, Map<Long, Set<Relationship>> addedStatements, Map<Long, Set<Long>> equivalentConceptMap) {
 		ComparableExpression nnfExpression = new ComparableExpression();
 
 		final boolean equivalent = equivalentConceptMap.containsKey(tempExpressionId);
 		if (equivalent) {
-			nnfExpression.addFocusConcept(Long.toString(equivalentConceptMap.get(tempExpressionId)));
+			for (Long equivalentId : equivalentConceptMap.get(tempExpressionId)) {
+				nnfExpression.addFocusConcept(Long.toString(equivalentId));
+			}
 		}
 		final Set<Relationship> nnfRelationships = addedStatements.get(tempExpressionId);
 		// Put relationships into map to form groups
@@ -105,10 +124,10 @@ public class IncrementalClassificationService {
 		return nnfExpression;
 	}
 
-	private ComparableAttribute getComparableAttribute(Relationship nnfRelationship, Map<Long, Set<Relationship>> addedStatements, Map<Long, Long> equivalentConceptMap) {
+	private ComparableAttribute getComparableAttribute(Relationship nnfRelationship, Map<Long, Set<Relationship>> addedStatements, Map<Long, Set<Long>> equivalentConceptMap) {
 		final long destinationId = nnfRelationship.getDestinationId();
 		if (equivalentConceptMap.containsKey(destinationId)) {
-			return new ComparableAttribute(Long.toString(nnfRelationship.getTypeId()), Long.toString(equivalentConceptMap.get(destinationId)));
+			return new ComparableAttribute(Long.toString(nnfRelationship.getTypeId()), Long.toString(equivalentConceptMap.get(destinationId).iterator().next()));
 		} else if (addedStatements.containsKey(destinationId)) {
 			// Destination is nested expression
 			return new ComparableAttribute(Long.toString(nnfRelationship.getTypeId()), new ComparableAttributeValue(createNNFExpression(destinationId, addedStatements, equivalentConceptMap)));
@@ -117,14 +136,13 @@ public class IncrementalClassificationService {
 		}
 	}
 
-	private Map<Long, Long> getEquivalentConceptMap(List<Set<Long>> equivalentConceptSets) {
-		Map<Long, Long> map = new HashMap<>();
+	private Map<Long, Set<Long>> getEquivalentConceptMap(List<Set<Long>> equivalentConceptSets, Predicate<String> predicate) {
+		Map<Long, Set<Long>> map = new HashMap<>();
 		for (Set<Long> equivalentConceptSet : equivalentConceptSets) {
 			for (Long concept : equivalentConceptSet) {
 				for (Long otherConcept : equivalentConceptSet) {
-					final String otherConceptId = otherConcept.toString();
-					if (!concept.equals(otherConcept) && !otherConceptId.startsWith("06", otherConceptId.length() - 3)) {
-						map.put(concept, otherConcept);
+					if (!concept.equals(otherConcept) && predicate.test(otherConcept.toString())) {
+						map.computeIfAbsent(concept, (key) -> new HashSet<>()).add(otherConcept);
 					}
 				}
 			}
@@ -132,22 +150,24 @@ public class IncrementalClassificationService {
 		return map;
 	}
 
-	private RelationshipChangeProcessor classify(Set<AxiomRepresentation> axioms, String classificationPackage) throws IOException, ReasonerServiceException {
+	private RelationshipChangeProcessor classifyTransientAxioms(Set<AxiomRepresentation> axioms, boolean equivalenceTest, String classificationPackage)
+			throws IOException, ReasonerServiceException {
+
 		final ClassificationContainer classificationContainer = setupContainer(classificationPackage);
-		return snomedReasonerService.classifyTransientAxioms(axioms, classificationContainer);
+		return snomedReasonerService.classifyTransientAxioms(axioms, equivalenceTest, classificationContainer);
 	}
 
-	private synchronized ClassificationContainer setupContainer(String branch) throws ReasonerServiceException {
-		if (!classificationContainers.containsKey(branch)) {
+	private synchronized ClassificationContainer setupContainer(String classificationPackage) throws ReasonerServiceException {
+		if (!classificationContainers.containsKey(classificationPackage)) {
 			Set<String> toRemove = new HashSet<>();
 			for (Map.Entry<String, ClassificationContainer> entry : classificationContainers.entrySet()) {
 				entry.getValue().dispose();
 				toRemove.add(entry.getKey());
 			}
 			toRemove.forEach(classificationContainers::remove);
-			classificationContainers.put(branch, createClassificationContainer(branch));
+			classificationContainers.put(classificationPackage, createClassificationContainer(classificationPackage));
 		}
-		return classificationContainers.get(branch);
+		return classificationContainers.get(classificationPackage);
 	}
 
 	private ClassificationContainer createClassificationContainer(String classificationPackage) throws ReasonerServiceException {

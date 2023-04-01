@@ -73,6 +73,10 @@ public class PostCoordinatedExpression {
 		return necessaryNormalForm;
 	}
 
+	public void setNecessaryNormalForm(ComparableExpression necessaryNormalForm) {
+		this.necessaryNormalForm = necessaryNormalForm;
+	}
+
 	public String getHumanReadableCloseToUserForm() {
 		return humanReadableCloseToUserForm;
 	}
@@ -99,6 +103,12 @@ public class PostCoordinatedExpression {
 
 	public void setHumanReadableNecessaryNormalForm(String humanReadableNecessaryNormalForm) {
 		this.humanReadableNecessaryNormalForm = humanReadableNecessaryNormalForm;
+	}
+
+	public void setException(ServiceException exception) {
+		this.exception = exception;
+		classifiableForm = null;
+		necessaryNormalForm = null;
 	}
 
 	@Override

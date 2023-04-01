@@ -41,11 +41,14 @@ import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 import static java.lang.String.format;
+import static java.lang.Long.parseLong;
+import static org.snomed.snowstorm.core.data.domain.ReferenceSetMember.AssociationFields.TARGET_COMP_ID;
 import static org.snomed.snowstorm.core.util.CollectionUtils.orEmpty;
 
 @Service
 public class ExpressionRepositoryService {
 
+	public static final String EXPRESSION_PARTITION_ID = "16";
 	@Autowired
 	private ExpressionParser expressionParser;
 
@@ -121,13 +124,14 @@ public class ExpressionRepositoryService {
 		return new PageImpl<>(expressions, pageRequest, membersPage.getTotalElements());
 	}
 
-	public PostCoordinatedExpression createExpression(String closeToUserFormExpression, CodeSystem codeSystem, boolean classify) throws ServiceException {
-		List<PostCoordinatedExpression> expressions = createExpressionsAllOrNothing(Collections.singletonList(closeToUserFormExpression), codeSystem, classify);
+	public PostCoordinatedExpression createExpression(String closeToUserFormExpression, CodeSystem codeSystem) throws ServiceException {
+		List<PostCoordinatedExpression> expressions = createExpressionsAllOrNothing(Collections.singletonList(closeToUserFormExpression), codeSystem);
 		return expressions.get(0);
 	}
 
-	public synchronized List<PostCoordinatedExpression> createExpressionsAllOrNothing(List<String> closeToUserFormExpressions, CodeSystem codeSystem, boolean classify) throws ServiceException {
-		final List<PostCoordinatedExpression> postCoordinatedExpressions = processExpressions(closeToUserFormExpressions, codeSystem, classify, DisplayTermsCombination.CF_AND_NNF);
+	public synchronized List<PostCoordinatedExpression> createExpressionsAllOrNothing(List<String> closeToUserFormExpressions, CodeSystem codeSystem) throws ServiceException {
+		final List<PostCoordinatedExpression> postCoordinatedExpressions = processExpressions(closeToUserFormExpressions, codeSystem, null,
+				true, false, DisplayTermsRequired.CF_AND_NNF);
 
 		if (!postCoordinatedExpressions.isEmpty() && postCoordinatedExpressions.stream().noneMatch(PostCoordinatedExpression::hasException)
 				&& postCoordinatedExpressions.stream().anyMatch(PostCoordinatedExpression::hasNullId)) {
@@ -158,12 +162,15 @@ public class ExpressionRepositoryService {
 					final String expressionId = convertToConcepts(nnfExpression, false, namespace, conceptsToSave, branchCriteria, expressionIdCache);
 					postCoordinatedExpression.setId(expressionId);
 
-					if (nnfExpression.getEquivalentConcept() != null && equivalentConceptAssociationRefset != null) {
-						// Save equivalent concept link
-						final ReferenceSetMember equivalentConceptMember = new ReferenceSetMember(moduleId, equivalentConceptAssociationRefset, expressionId)
-								.setAdditionalField(ReferenceSetMember.AssociationFields.TARGET_COMP_ID, nnfExpression.getEquivalentConcept().toString());
-						equivalentConceptMember.markChanged();
-						membersToSave.add(equivalentConceptMember);
+					Set<Long> equivalentConcepts = nnfExpression.getEquivalentConcepts();
+					if (equivalentConcepts != null && !equivalentConcepts.isEmpty() && equivalentConceptAssociationRefset != null) {
+						for (Long equivalentConcept : equivalentConcepts) {
+							// Save equivalent concept link
+							final ReferenceSetMember equivalentConceptMember = new ReferenceSetMember(moduleId, equivalentConceptAssociationRefset, expressionId)
+									.setAdditionalField(TARGET_COMP_ID, equivalentConcept.toString());
+							equivalentConceptMember.markChanged();
+							membersToSave.add(equivalentConceptMember);
+						}
 					}
 
 					// Save close to user form
@@ -271,35 +278,47 @@ public class ExpressionRepositoryService {
 	 * - Parse to validate syntax
 	 * - Lookup any existing expressions in the store, if found return other forms from the store
 	 * - Validate MRCM attribute range
+	 * - Transform
+	 * - Classify
 	 */
-	public List<PostCoordinatedExpression> processExpressions(List<String> originalCloseToUserForms, CodeSystem codeSystem, boolean classify,
-			DisplayTermsCombination displayTermsCombination) {
+	public List<PostCoordinatedExpression> processExpressions(List<String> originalCloseToUserForms, CodeSystem snomedCodeSystem, CodeSystemVersion snomedCodeSystemVersion,
+			boolean classify, boolean equivalenceTest, DisplayTermsRequired displayTermsRequired) {
 
-		String branchPath = codeSystem.getBranchPath();
-		Integer dependantVersionEffectiveTime = codeSystem.getDependantVersionEffectiveTime();
-		String classificationPackage = String.format("%s_%s_snapshot.zip", codeSystem.getParentUriModuleId(), dependantVersionEffectiveTime);
-
-		List<PostCoordinatedExpression> expressionOutcomes = new ArrayList<>();
+		String branchPath;
+		String packageModule;
+		Integer packageEffectiveTime;
+		if (snomedCodeSystem.isPostcoordinatedNullSafe()) {
+			branchPath = snomedCodeSystem.getBranchPath();
+			packageModule = snomedCodeSystem.getParentUriModuleId();
+			packageEffectiveTime = snomedCodeSystem.getDependantVersionEffectiveTime();
+		} else {
+			branchPath = snomedCodeSystemVersion.getBranchPath();
+			packageModule = snomedCodeSystem.getUriModuleId();
+			packageEffectiveTime = snomedCodeSystemVersion.getEffectiveDate();
+		}
+		String classificationPackage = String.format("%s_%s_snapshot.zip", packageModule, packageEffectiveTime.toString());
 
 		Branch branch = branchService.findLatest(branchPath);
 		String equivalentConceptAssociationRefset = branch.getMetadata().getString(EXPRESSION_EQUIVALENT_CONCEPTS_ASSOCIATION_METADATA_KEY);
-		if (Strings.isBlank(equivalentConceptAssociationRefset) && codeSystem.isPostcoordinatedNullSafe()) {
+		if (Strings.isBlank(equivalentConceptAssociationRefset) && snomedCodeSystem.isPostcoordinatedNullSafe()) {
 			logger.error("Not able to fetch stored equivalent concept associations on {} because branch metadata item {} is missing.",
 					branchPath, EXPRESSION_EQUIVALENT_CONCEPTS_ASSOCIATION_METADATA_KEY);
 			equivalentConceptAssociationRefset = null;
 		}
 
+		List<PostCoordinatedExpression> expressions = new ArrayList<>();
+
+		ExpressionContext context = new ExpressionContext(branchPath, snomedCodeSystem.isPostcoordinatedNullSafe(), branchService, versionControlHelper, mrcmService,
+				displayTermsRequired);
+
 		for (String originalCloseToUserForm : originalCloseToUserForms) {
 			TimerUtil timer = new TimerUtil("exp", Level.INFO, 5);
-			ExpressionContext context = new ExpressionContext(branchPath, codeSystem.isPostcoordinatedNullSafe(), branchService, versionControlHelper, mrcmService,
-					displayTermsCombination, timer);
+			context.reset(timer);
 			try {
 				// Sort contents of expression
 				ComparableExpression closeToUserFormExpression = expressionParser.parseExpression(originalCloseToUserForm);
 				timer.checkpoint("Parse expression");
 				String canonicalCloseToUserForm = closeToUserFormExpression.toStringCanonical();
-
-				final PostCoordinatedExpression pce;
 
 				BranchCriteria branchCriteria = context.getBranchCriteria();
 				ReferenceSetMember foundCTUMember = findCTUExpressionMember(canonicalCloseToUserForm, branchCriteria);
@@ -320,14 +339,13 @@ public class ExpressionRepositoryService {
 									.active(true);
 							Page<ReferenceSetMember> equivalentAssociations = memberService.findMembers(branchCriteria, searchRequest, PageRequest.of(0, 1));
 							if (!equivalentAssociations.isEmpty()) {
-								ReferenceSetMember next = equivalentAssociations.iterator().next();
-								String additionalField = next.getAdditionalField(ReferenceSetMember.AssociationFields.TARGET_COMP_ID);
-								nnfExpression.setEquivalentConcept(
-										Long.parseLong(additionalField));
+								nnfExpression.setEquivalentConcepts(equivalentAssociations.stream()
+										.map(member -> parseLong(member.getAdditionalField(TARGET_COMP_ID)))
+										.collect(Collectors.toSet()));
 							}
 						}
 					}
-					pce = new PostCoordinatedExpression(expressionId, foundCTUMember.getAdditionalField(EXPRESSION_FIELD), cfExpression, nnfExpression);
+					expressions.add(new PostCoordinatedExpression(expressionId, foundCTUMember.getAdditionalField(EXPRESSION_FIELD), cfExpression, nnfExpression));
 				} else {
 
 					// Validate and transform expression to classifiable form if needed.
@@ -336,28 +354,9 @@ public class ExpressionRepositoryService {
 					classifiableFormExpression = transformationService.validateAndTransform(closeToUserFormExpression, context);
 					timer.checkpoint("Transformation");
 
-					ComparableExpression necessaryNormalForm = null;
-					if (classify) {
-						// Assign temp identifier for classification process
-						applyToExpressions(classifiableFormExpression, expression -> expression.setExpressionId(getNewId(SNOMED_INTERNATIONAL_DEMO_NAMESPACE)));
-
-						// Classify
-						necessaryNormalForm = incrementalClassificationService.classify(classifiableFormExpression, classificationPackage);
-						timer.checkpoint("Classify");
-
-						// Clear temp identifiers
-						applyToExpressions(classifiableFormExpression, expression -> expression.setExpressionId(null));
-
-						// TODO: MRCM attribute cardinality validation, after classification?
-					}
-
-					pce = new PostCoordinatedExpression(null, canonicalCloseToUserForm,
-							classifiableFormExpression.toString(), necessaryNormalForm);
+					// No NNF yet
+					expressions.add(new PostCoordinatedExpression(UUID.randomUUID().toString(), canonicalCloseToUserForm, classifiableFormExpression.toString(), null));
 				}
-				populateHumanReadableForms(pce, context);
-				timer.checkpoint("Add human readable");
-
-				expressionOutcomes.add(pce);
 				timer.finish();
 			} catch (ServiceException e) {
 				String humanReadableCloseToUserForm;
@@ -366,10 +365,75 @@ public class ExpressionRepositoryService {
 				} catch (ServiceException e2) {
 					humanReadableCloseToUserForm = originalCloseToUserForm;
 				}
-				expressionOutcomes.add(new PostCoordinatedExpression(humanReadableCloseToUserForm, e));
+				expressions.add(new PostCoordinatedExpression(humanReadableCloseToUserForm, e));
 			}
 		}
-		return expressionOutcomes;
+
+		TimerUtil timer = new TimerUtil("exp-batch", Level.INFO, 5);
+
+		if (classify) {
+			// Assign temp identifiers to classifiable forms for classification process
+			Map<PostCoordinatedExpression, ComparableExpression> classifiableFormMap = new HashMap<>();
+			for (PostCoordinatedExpression expression : expressions) {
+				if (expression.hasException()) {
+					continue;
+				}
+				try {
+					// Parse CF string to expression object
+					ComparableExpression cf = expressionParser.parseExpression(expression.getClassifiableForm());
+					// Use any existing SCTID from repo
+					if (!expression.getId().contains("-")) {
+						cf.setExpressionId(parseLong(expression.getId()));
+					}
+					// Assign SCTID to any new expressions and nested expressions for classification
+					applyToExpressions(cf, exp -> {
+						if (exp.getExpressionId() == null) {
+							exp.setExpressionId(getNewId(SNOMED_INTERNATIONAL_DEMO_NAMESPACE));
+						}
+					});
+					classifiableFormMap.put(expression, cf);
+				} catch (ServiceException e) {
+					// Error outcome
+					expression.setException(e);
+				}
+			}
+
+			if (!classifiableFormMap.isEmpty()) {
+				// Classify
+				try {
+					incrementalClassificationService.classify(classifiableFormMap, equivalenceTest, classificationPackage);
+					timer.checkpoint("classify");
+				} catch (ServiceException e) {
+					// Error outcome for all classified expressions
+					for (PostCoordinatedExpression expression : classifiableFormMap.keySet()) {
+						expression.setException(e);
+					}
+				}
+			}
+		}
+
+		if (!equivalenceTest) {
+			for (PostCoordinatedExpression expression : expressions) {
+				if (expression.hasException()) {
+					continue;
+				}
+				try {
+					populateHumanReadableForms(expression, context);
+				} catch (ServiceException e) {
+					expression.setException(e);
+				}
+			}
+			timer.checkpoint("Add human readable");
+		}
+
+		// Clear temp expression ids
+		expressions.forEach(expression -> {
+			if (expression.getId() != null && expression.getId().contains("-")) {
+				expression.setId(null);
+			}
+		});
+
+		return expressions;
 	}
 
 	private ComparableExpression conceptToNNFExpression(Concept concept) {
@@ -431,7 +495,7 @@ public class ExpressionRepositoryService {
 
 	private Long getNewId(int namespace) {
 		try {
-			return identifierSource.reserveIds(namespace, "16", 1).get(0);
+			return identifierSource.reserveIds(namespace, EXPRESSION_PARTITION_ID, 1).get(0);
 		} catch (ServiceException e) {
 			logger.error("Failed to generate expression identifier for namespace " + namespace, e);
 		}
@@ -443,12 +507,12 @@ public class ExpressionRepositoryService {
 		String closeToUserForm = null;
 		String classifiableForm = null;
 		String necessaryNormalForm = null;
-		if (context.getDisplayTermsCombination() == DisplayTermsCombination.CTU_ONLY) {
+		if (context.getDisplayTermsCombination() == DisplayTermsRequired.CTU_ONLY) {
 			if (expressionForms.getCloseToUserForm() != null) {
 				closeToUserForm = expressionForms.getCloseToUserForm();
 				expressions.add(closeToUserForm);
 			}
-		} else if (context.getDisplayTermsCombination() == DisplayTermsCombination.CF_AND_NNF) {
+		} else if (context.getDisplayTermsCombination() == DisplayTermsRequired.CF_AND_NNF) {
 			if (expressionForms.getClassifiableForm() != null) {
 				classifiableForm = expressionForms.getClassifiableForm();
 				expressions.add(classifiableForm);
@@ -570,6 +634,9 @@ public class ExpressionRepositoryService {
 	}
 
 	private List<String> createHumanReadableExpressions(List<String> expressions, BranchCriteria branchCriteria) throws ServiceException {
+		if (expressions.isEmpty()) {
+			return Collections.emptyList();
+		}
 		final Set<String> allConceptIds = new HashSet<>();
 		for (String expression : expressions) {
 			final ComparableExpression comparableExpression = expressionParser.parseExpression(expression);

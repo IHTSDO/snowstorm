@@ -27,7 +27,9 @@ public class ComparableExpression extends Expression implements Comparable<Compa
 	private Set<ComparableAttribute> comparableAttributes;
 	private Set<ComparableAttributeGroup> comparableAttributeGroups;
 	private final Set<String> mergedConcepts;
-	private Long equivalentConcept;
+	private Set<Long> equivalentConcepts;
+	private Set<Long> equivalentExpressions;
+	private Set<Long> classificationAncestors;
 
 	public ComparableExpression() {
 		mergedConcepts = new HashSet<>();
@@ -174,12 +176,20 @@ public class ComparableExpression extends Expression implements Comparable<Compa
 		return comparableAttributeGroups;
 	}
 
-	public void setEquivalentConcept(Long equivalentConcept) {
-		this.equivalentConcept = equivalentConcept;
+	public Set<Long> getEquivalentConcepts() {
+		return equivalentConcepts;
 	}
 
-	public Long getEquivalentConcept() {
-		return equivalentConcept;
+	public void setEquivalentConcepts(Set<Long> equivalentConcepts) {
+		this.equivalentConcepts = equivalentConcepts;
+	}
+
+	public Set<Long> getEquivalentExpressions() {
+		return equivalentExpressions;
+	}
+
+	public void setEquivalentExpressions(Set<Long> equivalentExpressions) {
+		this.equivalentExpressions = equivalentExpressions;
 	}
 
 	@Override
@@ -227,7 +237,16 @@ public class ComparableExpression extends Expression implements Comparable<Compa
 		return expressionId;
 	}
 
-	public void setExpressionId(Long expressionId) {
+	public ComparableExpression setExpressionId(Long expressionId) {
 		this.expressionId = expressionId;
+		return this;
+	}
+
+	public Set<Long> getClassificationAncestors() {
+		return classificationAncestors;
+	}
+
+	public void setClassificationAncestors(Set<Long> classificationAncestors) {
+		this.classificationAncestors = classificationAncestors;
 	}
 }

@@ -5,6 +5,8 @@ import io.kaicode.elasticvc.domain.Branch;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentMatchers;
 import org.mockito.Mockito;
+import org.mockito.invocation.InvocationOnMock;
+import org.mockito.stubbing.Answer;
 import org.snomed.snowstorm.core.data.domain.Concept;
 import org.snomed.snowstorm.core.data.domain.ReferenceSetMember;
 import org.snomed.snowstorm.core.data.domain.Relationship;
@@ -21,6 +23,7 @@ import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 
+import java.util.Map;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -52,7 +55,7 @@ class ExpressionRepositoryServiceTest extends AbstractExpressionTest {
 	private BranchService branchService;
 
 	@MockBean
-	private IncrementalClassificationService incrementalClassificationService;
+	private IncrementalClassificationService mockClassificationService;
 
 	@Test
 	public void createExpressionOrThrow() throws ServiceException {
@@ -130,11 +133,24 @@ class ExpressionRepositoryServiceTest extends AbstractExpressionTest {
 	private PostCoordinatedExpression createExpressionOrThrow(String expression) throws ServiceException {
 		// For unit testing we are mocking out the classification step
 		// The expressions returned are not actually classified but it's enough to support expression handling and ECL testing.
-		ComparableExpression returnExpression = expressionParser.parseExpression(expression);
-		returnExpression.setEquivalentConcept(1234567890L);
-		Mockito.when(incrementalClassificationService.classify(ArgumentMatchers.any(), ArgumentMatchers.any())).thenReturn(returnExpression);
 
-		PostCoordinatedExpression postCoordinatedExpression = expressionRepository.createExpression(expression, expressionCodeSystem, true);
+		Mockito.doAnswer(invocation -> {
+			Object[] args = invocation.getArguments();
+			@SuppressWarnings("unchecked")
+			Set<PostCoordinatedExpression> expressions = ((Map) args[0]).keySet();
+			for (PostCoordinatedExpression ex : expressions) {
+				try {
+					ComparableExpression returnExpression = expressionParser.parseExpression(ex.getClassifiableForm());
+					returnExpression.setEquivalentConcepts(Set.of(1234567890L));
+					ex.setNecessaryNormalForm(returnExpression);
+				} catch (ServiceException e) {
+					throw new RuntimeException(e);
+				}
+			}
+			return null;
+		}).when(mockClassificationService).classify(ArgumentMatchers.any(), ArgumentMatchers.anyBoolean(), ArgumentMatchers.any());
+
+		PostCoordinatedExpression postCoordinatedExpression = expressionRepository.createExpression(expression, expressionCodeSystem);
 		if (postCoordinatedExpression.getException() != null) {
 			throw postCoordinatedExpression.getException();
 		}
@@ -265,7 +281,7 @@ class ExpressionRepositoryServiceTest extends AbstractExpressionTest {
 
 	private void assertIllegalArgumentParsingError(String closeToUserForm) {
 		try {
-			PostCoordinatedExpression expression = expressionRepository.createExpression(closeToUserForm, expressionCodeSystem, false);
+			PostCoordinatedExpression expression = expressionRepository.createExpression(closeToUserForm, expressionCodeSystem);
 			ServiceException exception = expression.getException();
 			if (exception != null) {
 				throw exception;
