@@ -29,7 +29,7 @@ public class GroupSelfGroupedAttributeTransformation implements ExpressionTransf
 		for (ComparableAttribute looseAttribute : looseAttributes) {
 			String attributeTypeId = looseAttribute.getAttributeId();
 			if (selfGroupedAttributes.contains(attributeTypeId)) {
-				if (looseAttributes.stream().filter(attr -> attr.getAttributeId().equals(attributeTypeId)).count() == 1) {
+				if (looseAttributes.stream().filter(attr -> attr.getAttributeId().equals(attributeTypeId)).count() != 1) {
 					logger.debug("More than one loose attribute of the same type, can not apply this transform.");
 					continue;
 				}

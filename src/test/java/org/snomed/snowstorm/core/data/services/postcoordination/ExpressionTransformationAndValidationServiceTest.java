@@ -45,9 +45,9 @@ class ExpressionTransformationAndValidationServiceTest extends AbstractExpressio
 					"83152002"
 			);
 			fail("Should have thrown exception");
-		} catch (IllegalArgumentException e) {
+		} catch (ExpressionValidationException e) {
 			assertEquals("Attribute Type 246112005 can not be used with the given focus concepts [83152002] " +
-					"because the attribute can only be used in the following MRCM domains: [404684003 | Clinical finding |].", e.getMessage());
+					"because the attribute can only be used in the following MRCM domains: [404684003 |Clinical finding|].", e.getMessage());
 		}
 	}
 

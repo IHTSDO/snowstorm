@@ -176,9 +176,9 @@ class ExpressionRepositoryServiceTest extends AbstractExpressionTest {
 					"       405813007 |Procedure site - direct| = 388441000 |Horse|" +
 					"}");
 			fail("Should have thrown exception.");
-		} catch (IllegalArgumentException e) {
-			assertEquals("Value 388441000 | Horse | is not within the permitted range" +
-							" of attribute 405813007 | Procedure site - direct (attribute) | - (<< 442083009 |Anatomical or acquired body structure (body structure)|).",
+		} catch (ExpressionValidationException e) {
+			assertEquals("Value 388441000 |Horse| is not within the permitted range" +
+							" of attribute 405813007 |Procedure site - direct (attribute)| - (<< 442083009 |Anatomical or acquired body structure (body structure)|).",
 					e.getMessage());
 		}
 	}
@@ -216,9 +216,9 @@ class ExpressionRepositoryServiceTest extends AbstractExpressionTest {
 					"       405813007 |Procedure site - direct| = ( 15497006 |Ovarian structure| : 272741003 |Laterality| = 388441000 |Horse| )" +
 					"}");
 			fail("Should have thrown exception.");
-		} catch (IllegalArgumentException e) {
-			assertEquals("Value 388441000 | Horse | is not within the permitted range" +
-							" of attribute 272741003 | Laterality (attribute) | - (<< 182353008 |Side (qualifier value)|).",
+		} catch (ExpressionValidationException e) {
+			assertEquals("Value 388441000 |Horse| is not within the permitted range" +
+							" of attribute 272741003 |Laterality (attribute)| - (<< 182353008 |Side (qualifier value)|).",
 					e.getMessage());
 		}
 	}
