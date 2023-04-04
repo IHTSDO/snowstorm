@@ -1,11 +1,11 @@
 # Snowstorm Security Configuration Guide
 
 ## Read Only Mode
-In many cases Snowstorm can be run in read-only mode. Simply load SNOMED CT data and then switch on read-only mode using configuration option `snowstorm.rest-api.readonly=true`.
-In this mode all API functions which make changes to content are disabled, they are also hiden from the Swagger API documentation page.
+In many cases Snowstorm can be run in read-only mode. Simply load SNOMED CT data and then switch on read-only mode using the configuration option `snowstorm.rest-api.readonly=true`.
+In this mode all API functions which make changes to content are disabled, they are also hidden from the Swagger API documentation page.
 
 ## Role Based Access Control
-The alternative approach is to enable role based access to the API. In this mode groups of users can be granted the `ADMIN` or `AUTHOR` role either globaly or on specific branches.
+The alternative approach is to enable role based access to the API. In this mode groups of users can be granted the `ADMIN` or `AUTHOR` role either globally or on specific branches.
 If a role is granted on a branch that role will also be granted on ancestor branches but not if that ancestor branch contains a different code system.
 
 The `ADMIN` role is required for functions with `/admin/` in the URL and changing code systems, updating the metadata and lock status of branches and reloading authoring validation rules.
