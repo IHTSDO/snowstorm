@@ -1,7 +1,7 @@
 # Snowstorm Security Configuration Guide
 
 ## Read Only Mode
-In many cases Snowstorm can be run in read-only mode. Simply load SNOMED CT data and then switch on read-only mode using configuration option `snowstorm.rest-api.readonly=false`.
+In many cases Snowstorm can be run in read-only mode. Simply load SNOMED CT data and then switch on read-only mode using configuration option `snowstorm.rest-api.readonly=true`.
 In this mode all API functions which make changes to content are disabled, they are also hiden from the Swagger API documentation page.
 
 ## Role Based Access Control
