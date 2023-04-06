@@ -11,6 +11,8 @@ import org.elasticsearch.search.aggregations.AggregationBuilders;
 import org.elasticsearch.search.aggregations.bucket.MultiBucketsAggregation;
 import org.elasticsearch.search.aggregations.bucket.terms.ParsedStringTerms;
 import org.elasticsearch.search.aggregations.bucket.terms.Terms;
+import org.elasticsearch.search.sort.SortBuilders;
+import org.elasticsearch.search.sort.SortOrder;
 import org.modelmapper.ModelMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -40,8 +42,6 @@ import org.springframework.data.util.Pair;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 
-import java.time.Instant;
-import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
@@ -654,7 +654,15 @@ public class CodeSystemService {
 		branchService.updateMetadata(branchPath, branchMetadata);
 	}
 
-	public List<CodeSystemVersion> findVersionsByCodeSystemAndBaseTimepointRange(CodeSystem codeSystem, long lowerBound, long upperBound) {
+	/**
+	 * Return versioned Branches for the given CodeSystem, where each Branch was versioned within the given time range.
+	 *
+	 * @param codeSystem The CodeSystem to use for finding versioned Branches.
+	 * @param lowerBound The start of the time range to find versioned Branches.
+	 * @param upperBound The end of the time range to find versioned Branches.
+	 * @return Versioned Branches for the given CodeSystem, where each Branch was versioned within the given time range.
+	 */
+	public Set<Branch> findVersionsByCodeSystemAndBaseTimepointRange(CodeSystem codeSystem, long lowerBound, long upperBound) {
 		if (codeSystem == null) {
 			throw new IllegalArgumentException("CodeSystem cannot be null.");
 		}
@@ -663,43 +671,31 @@ public class CodeSystemService {
 			throw new IllegalArgumentException(String.format("Invalid time range. lowerBound: %d, upperBound: %d", lowerBound, upperBound));
 		}
 
-		SearchHits<Branch> queryBranch = elasticsearchOperations.search(
+		SearchHits<CodeSystemVersion> queryCodeSystemVersions = elasticsearchOperations.search(
+				new NativeSearchQueryBuilder()
+						.withQuery(boolQuery().must(termQuery(CodeSystemVersion.Fields.SHORT_NAME, codeSystem.getShortName())))
+						.withPageable(PageRequest.of(0, 50))
+						.withSort(SortBuilders.fieldSort(CodeSystemVersion.Fields.IMPORT_DATE).order(SortOrder.DESC))
+						.build(), CodeSystemVersion.class
+		);
+
+		if (queryCodeSystemVersions.isEmpty()) {
+			return Collections.emptySet();
+		}
+
+		List<CodeSystemVersion> codeSystemVersions = queryCodeSystemVersions.getSearchHits().stream().map(SearchHit::getContent).collect(Collectors.toList());
+		Set<String> branchPaths = codeSystemVersions.stream().map(CodeSystemVersion::getBranchPath).collect(Collectors.toSet());
+		SearchHits<Branch> queryBranches = elasticsearchOperations.search(
 				new NativeSearchQueryBuilder()
 						.withQuery(
 								boolQuery()
-										.must(wildcardQuery("path", codeSystem.getBranchPath() + "/*-*-*"))
+										.must(termsQuery(Branch.Fields.PATH, branchPaths))
 										.must(rangeQuery("base").gt(lowerBound).lte(upperBound))
-										.mustNot(existsQuery("end"))
+										.mustNot(existsQuery(Branch.Fields.END))
 						)
 						.build(), Branch.class
 		);
 
-		if (queryBranch.isEmpty()) {
-			return Collections.emptyList();
-		}
-
-		List<Branch> branches = queryBranch.getSearchHits().stream().map(SearchHit::getContent).collect(Collectors.toList());
-		Map<String, String> branchPathToImportDate = new HashMap<>();
-		for (Branch branch : branches) {
-			branchPathToImportDate.put(
-					getHyphenatedEffectiveTimeFromVersionBranch(branch.getPath()),
-					DateTimeFormatter.ISO_INSTANT.format(Instant.ofEpochMilli(branch.getHeadTimestamp()))
-			);
-		}
-
-		SearchHits<CodeSystemVersion> codeSystemVersionQuery = elasticsearchOperations.search(
-				new NativeSearchQueryBuilder()
-						.withQuery(
-								boolQuery()
-										.must(termQuery(CodeSystemVersion.Fields.SHORT_NAME, codeSystem.getShortName()))
-										.must(termsQuery(CodeSystemVersion.Fields.IMPORT_DATE, branchPathToImportDate.values()))
-										.must(termsQuery(CodeSystemVersion.Fields.VERSION, branchPathToImportDate.keySet()))
-										.mustNot(existsQuery("end"))
-						)
-						.withPageable(PageRequest.of(0, 1))
-						.build(), CodeSystemVersion.class
-		);
-
-		return codeSystemVersionQuery.getSearchHits().stream().map(SearchHit::getContent).collect(Collectors.toList());
+		return queryBranches.getSearchHits().stream().map(SearchHit::getContent).collect(Collectors.toSet());
 	}
 }
