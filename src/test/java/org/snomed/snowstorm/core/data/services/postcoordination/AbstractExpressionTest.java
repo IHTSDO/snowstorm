@@ -83,6 +83,7 @@ public abstract class AbstractExpressionTest extends AbstractTest {
                 new Concept("182353008").addFSN("Side").addRelationship(ISA, CONCEPT_MODEL_OBJECT_ATTRIBUTE),
                 new Concept("24028007").addFSN("Right").addRelationship(ISA, "182353008"),
                 new Concept("7771000").addFSN("Left").addRelationship(ISA, "182353008"),
+                new Concept("51440002").addFSN("Right and left").addRelationship(ISA, "24028007").addRelationship(ISA, "7771000"),
 
                 new Concept(ANATOMICAL_OR_ACQUIRED_BODY_STRUCTURE).addFSN("Anatomical or acquired body structure (body structure)").addRelationship(ISA, Concepts.SNOMEDCT_ROOT),
                 new Concept("15497006").addFSN("Ovarian structure").addRelationship(ISA, ANATOMICAL_STRUCTURE),

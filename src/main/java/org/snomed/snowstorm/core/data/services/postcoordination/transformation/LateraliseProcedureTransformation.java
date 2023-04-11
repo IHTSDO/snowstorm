@@ -1,5 +1,6 @@
 package org.snomed.snowstorm.core.data.services.postcoordination.transformation;
 
+import org.snomed.languages.scg.domain.model.Attribute;
 import org.snomed.snowstorm.core.data.domain.Concept;
 import org.snomed.snowstorm.core.data.domain.Concepts;
 import org.snomed.snowstorm.core.data.domain.Relationship;
@@ -16,6 +17,7 @@ import java.util.stream.Collectors;
 
 import static java.lang.String.format;
 import static org.snomed.snowstorm.core.data.domain.Concepts.LATERALITY;
+import static org.snomed.snowstorm.core.util.CollectionUtils.orEmpty;
 
 public class LateraliseProcedureTransformation implements ExpressionTransformation {
 
@@ -73,11 +75,35 @@ public class LateraliseProcedureTransformation implements ExpressionTransformati
 				}
 				expression.getComparableAttributes().remove(looseAttribute);
 				for (ComparableAttributeGroup expressionGroup : expressionGroups.values()) {
-					expression.addAttributeGroup(expressionGroup);
+					if (looseAttribute.getAttributeValueId().equals(Concepts.RIGHT_AND_LEFT_QUALIFIER)) {
+						// Bilateral
+						ComparableAttributeGroup rightGroup = new ComparableAttributeGroup(expressionGroup);
+						updateNestedBilateralValue(rightGroup, procedureSiteAttributes, Concepts.RIGHT_QUALIFIER);
+						expression.addAttributeGroup(rightGroup);
+
+						ComparableAttributeGroup leftGroup = new ComparableAttributeGroup(expressionGroup);
+						updateNestedBilateralValue(leftGroup, procedureSiteAttributes, Concepts.LEFT_QUALIFIER);
+						expression.addAttributeGroup(leftGroup);
+					} else {
+						expression.addAttributeGroup(expressionGroup);
+					}
 				}
 			}
 		}
 		return expression;
+	}
+
+	private void updateNestedBilateralValue(ComparableAttributeGroup group, Set<String> procedureSiteAttributes, String newValue) {
+		for (ComparableAttribute attribute : group.getComparableAttributes()) {
+			if (procedureSiteAttributes.contains(attribute.getAttributeId()) && attribute.getAttributeValue().isNested()) {
+				ComparableExpression nestedExpression = (ComparableExpression) attribute.getComparableAttributeValue().getNestedExpression();
+				for (Attribute nestedAttribute : orEmpty(nestedExpression.getAttributes())) {
+					if (nestedAttribute.getAttributeId().equals(LATERALITY) && nestedAttribute.getAttributeValueId().equals(Concepts.RIGHT_AND_LEFT_QUALIFIER)) {
+						nestedAttribute.setAttributeValue(new ComparableAttributeValue(newValue));
+					}
+				}
+			}
+		}
 	}
 
 	private static void throwCriteriaNotMetWithReason(String reason) throws TransformationException {

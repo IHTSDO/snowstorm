@@ -211,6 +211,9 @@ public class Concepts {
 	public static final String MODULE_DEPENDENCY_REFERENCE_SET = "900000000000534007";
 	public static final String FINDING_CONTEXT = "408729009";
 	public static final String LATERALITY = "272741003";
+	public static final String LEFT_QUALIFIER = "7771000";
+	public static final String RIGHT_QUALIFIER = "24028007";
+	public static final String RIGHT_AND_LEFT_QUALIFIER = "51440002";
 	public static final String PROCEDURE_CONTEXT = "408730004";
 	public static final String TEMPORAL_CONTEXT = "408731000";
 	public static final String SUBJECT_RELATIONSHIP_CONTEXT = "408732007";

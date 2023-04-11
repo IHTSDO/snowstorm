@@ -112,6 +112,25 @@ class ExpressionTransformationAndValidationServiceTest extends AbstractExpressio
 	}
 
 	@Test
+	public void testLevel1AddBiLateralityToClinicalFinding() throws ServiceException {
+		assertExpressionTransformation(
+				// Input
+				"449702005 |Cellulitis and abscess of lower limb| :  272741003 |Laterality| = 51440002 |Right and left (qualifier value)|",
+
+				// Expected output
+				"=== 449702005 |Cellulitis and abscess of lower limb| : \n" +
+						"{  363698007 |Finding site|  = ( 61685007 |Lower limb structure| :  272741003 |Laterality| = 7771000 |Left| ), \n" +
+						"116676008 |Associated morphology|  =  385627004 |Cellulitis|  }\n" +
+						"{  363698007 |Finding site|  = ( 61685007 |Lower limb structure| :  272741003 |Laterality| = 24028007 |Right| ), \n" +
+						"116676008 |Associated morphology|  =  385627004 |Cellulitis|  }\n" +
+						"{  363698007 |Finding site|  = ( 61685007 |Lower limb structure| :  272741003 |Laterality| = 7771000 |Left| ), \n" +
+						"116676008 |Associated morphology|  =  44132006 |Abscess|  }\n" +
+				"{  363698007 |Finding site|  = ( 61685007 |Lower limb structure| :  272741003 |Laterality| = 24028007 |Right| ), \n" +
+						"116676008 |Associated morphology|  =  44132006 |Abscess|  }"
+		);
+	}
+
+	@Test
 	public void testLevel1AddLateralityAndContextToClinicalFinding() throws ServiceException {
 		assertExpressionTransformation(
 				// Input
@@ -144,6 +163,25 @@ class ExpressionTransformationAndValidationServiceTest extends AbstractExpressio
 				"=== 14600001000004107 |Closure of wound of ankle with flap| :  \n" +
 						"{ 260686004 |Method|  =  129357001 |Closure - action| ,\n" +
 						"405813007 |Procedure site - Direct|  = ( 344001 |Ankle region structure| :  272741003 |Laterality| = 7771000 |Left| ),\n" +
+						"363700003 |Direct morphology|  =  13924000 |Wound| ,\n" +
+						"424361007 |Using substance|  =  256683004 |Flap| }"
+		);
+	}
+
+	@Test
+	public void testLevel1AddBiLateralityToProcedure() throws ServiceException {
+		assertExpressionTransformation(
+				// Input
+				"14600001000004107 |Closure of wound of ankle with flap| :  272741003 |Laterality| = 51440002 |Right and left (qualifier value)|",
+
+				// Expected output
+				"=== 14600001000004107 |Closure of wound of ankle with flap| :  \n" +
+						"{ 260686004 |Method|  =  129357001 |Closure - action| ,\n" +
+						"405813007 |Procedure site - Direct|  = ( 344001 |Ankle region structure| :  272741003 |Laterality| = 7771000 |Left| ),\n" +
+						"363700003 |Direct morphology|  =  13924000 |Wound| ,\n" +
+						"424361007 |Using substance|  =  256683004 |Flap| },\n" +
+						"{ 260686004 |Method|  =  129357001 |Closure - action| ,\n" +
+						"405813007 |Procedure site - Direct|  = ( 344001 |Ankle region structure| :  272741003 |Laterality| = 24028007 |Right| ),\n" +
 						"363700003 |Direct morphology|  =  13924000 |Wound| ,\n" +
 						"424361007 |Using substance|  =  256683004 |Flap| }"
 		);

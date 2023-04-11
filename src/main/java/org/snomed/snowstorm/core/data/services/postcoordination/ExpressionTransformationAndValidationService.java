@@ -50,8 +50,6 @@ public class ExpressionTransformationAndValidationService {
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 	public ExpressionTransformationAndValidationService(@Value("#{'${postcoordination.transform.self-grouped.attributes}'.split('\\s*,\\s*')}") Set<String> selfGroupedAttributes) {
 		level2Transformations = new ArrayList<>();
-		// TODO: Agree that lateralisation should come before context transformations so that they can both be applied to the same expression
-		// TODO: Agree that refinement must come before self-grouped - then self-grouped can fail if that type already defined
 		level2Transformations.add(new RefineExistingAttributeTransformation());
 		level2Transformations.add(new GroupSelfGroupedAttributeTransformation(selfGroupedAttributes));
 		level2Transformations.add(new LateraliseClinicalFindingTransformation());
