@@ -4879,6 +4879,70 @@ class BranchMergeServiceTest extends AbstractTest {
 		}
 	}
 
+	@Test
+	void testRebasingSameDescriptionInactivation() throws ServiceException, InterruptedException {
+		String intMain = "MAIN";
+		Map<String, String> intPreferred = Map.of(US_EN_LANG_REFSET, descriptionAcceptabilityNames.get(PREFERRED), GB_EN_LANG_REFSET, descriptionAcceptabilityNames.get(PREFERRED));
+		String ci = "CASE_INSENSITIVE";
+		Concept concept;
+		Description description;
+		CodeSystem codeSystem;
+		ReferenceSetMember member;
+		String memberId;
+
+		// 1. Create Concept
+		concept = new Concept()
+				.addDescription(new Description("Vehicle (vehicle)").setTypeId(FSN).setCaseSignificance(ci).setAcceptabilityMap(intPreferred))
+				.addDescription(new Description("Vehicle").setTypeId(SYNONYM).setCaseSignificance(ci).setAcceptabilityMap(intPreferred))
+				.addDescription(new Description("Motorvehicle").setTypeId(SYNONYM).setCaseSignificance(ci).setAcceptabilityMap(intPreferred))
+				.addAxiom(new Relationship(ISA, SNOMEDCT_ROOT));
+		concept = conceptService.create(concept, intMain);
+		String vehicleId = concept.getConceptId();
+		String motorVehicleId = getDescription(concept, "Motorvehicle").getDescriptionId();
+
+		// 2. Version
+		codeSystem = codeSystemService.find("SNOMEDCT");
+		codeSystemService.createVersion(codeSystem, 20220131, "20220131");
+
+		// 3 Create project & tasks
+		String projectA = branchService.create("MAIN/projectA").getPath();
+		String taskA = branchService.create("MAIN/projectA/taskA").getPath();
+		String taskB = branchService.create("MAIN/projectA/taskB").getPath();
+
+		// 4. Inactivate Description on Task A
+		concept = conceptService.find(vehicleId, taskA);
+		description = getDescriptionById(concept, motorVehicleId);
+		memberId = description.getLangRefsetMembers().iterator().next().getMemberId();
+		inactivate(description, "OUTDATED");
+		conceptService.update(concept, taskA);
+
+		// 5. Inactivate Description on Task B
+		concept = conceptService.find(vehicleId, taskB);
+		description = getDescriptionById(concept, motorVehicleId);
+		inactivate(description, "OUTDATED");
+		conceptService.update(concept, taskB);
+
+		// 6. Promote Task A to Project
+		branchMergeService.mergeBranchSync(taskA, projectA, Collections.emptySet());
+
+		// 7. Rebase Task B
+		MergeReview review = getMergeReviewInCurrentState(projectA, taskB);
+		Collection<MergeReviewConceptVersions> conflicts = reviewService.getMergeReviewConflictingConcepts(review.getId(), new ArrayList<>());
+		assertEquals(1, conflicts.size());
+
+		// 8. Author B prefers the middle column
+		for (MergeReviewConceptVersions conflict : conflicts) {
+			Concept autoMergedConcept = conflict.getAutoMergedConcept();
+			reviewService.persistManuallyMergedConcept(review, Long.parseLong(autoMergedConcept.getConceptId()), autoMergedConcept);
+		}
+
+		reviewService.applyMergeReview(review);
+
+		// 9. Assert no duplicates
+		member = memberService.findMember(taskB, memberId);
+		assertNotNull(member);
+	}
+
 	private void assertNotVersioned(Description description) {
 		assertNull(description.getEffectiveTime());
 		assertFalse(description.isReleased());
