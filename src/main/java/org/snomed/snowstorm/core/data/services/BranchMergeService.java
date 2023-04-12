@@ -234,6 +234,8 @@ public class BranchMergeService {
 				removeRebaseDuplicateVersions(Description.class, boolQuery(), changesOnBranchIncludingOpenCommit, branchCriteriaIncludingOpenCommit, commit);
 				// Merge non-concept reference set members
 				removeRebaseDuplicateVersions(ReferenceSetMember.class, boolQuery().mustNot(existsQuery(ReferenceSetMember.Fields.CONCEPT_ID)), changesOnBranchIncludingOpenCommit, branchCriteriaIncludingOpenCommit, commit);
+				// Merge language reference set members
+				removeRebaseDuplicateVersions(ReferenceSetMember.class, boolQuery().must(existsQuery(ReferenceSetMember.LanguageFields.ACCEPTABILITY_ID_FIELD_PATH)), changesOnBranchIncludingOpenCommit, branchCriteriaIncludingOpenCommit, commit);
 				// Prefer latest edited versioned content
 				removeRebaseDivergedVersions(ReferenceSetMember.class, ReferenceSetMember.Fields.MEMBER_ID, changesOnBranchIncludingOpenCommit, branchCriteriaIncludingOpenCommit, commit);
 
