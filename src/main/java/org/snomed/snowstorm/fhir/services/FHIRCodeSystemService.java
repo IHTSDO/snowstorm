@@ -35,7 +35,6 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
-import java.util.stream.Collectors;
 
 import static java.lang.String.format;
 import static org.snomed.snowstorm.fhir.services.FHIRHelper.exception;
@@ -421,11 +420,7 @@ public class FHIRCodeSystemService {
 		}
 	}
 
-	public List<PostCoordinatedExpression> addExpressions(FHIRCodeSystemVersion snomedExpressionCodeSystem, List<CodeSystem.ConceptDefinitionComponent> concepts) {
-		if (concepts.isEmpty()) {
-			return Collections.emptyList();
-		}
-		List<String> closeToUserFormExpressions = concepts.stream().map(CodeSystem.ConceptDefinitionComponent::getCode).collect(Collectors.toList());
+	public List<PostCoordinatedExpression> addExpressions(FHIRCodeSystemVersion snomedExpressionCodeSystem, List<String> closeToUserFormExpressions) {
 		List<PostCoordinatedExpression> outcomes;
 		try {
 			outcomes = expressionRepository.createExpressionsAllOrNothing(closeToUserFormExpressions, snomedExpressionCodeSystem.getSnomedCodeSystem());

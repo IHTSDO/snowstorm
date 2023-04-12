@@ -12,6 +12,9 @@ import ca.uhn.fhir.rest.param.QuantityParam;
 import ca.uhn.fhir.rest.param.StringParam;
 import ca.uhn.fhir.rest.param.TokenParam;
 import ca.uhn.fhir.rest.server.IResourceProvider;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.hl7.fhir.instance.model.api.IBaseParameters;
 import org.hl7.fhir.instance.model.api.IBaseResource;
 import org.hl7.fhir.instance.model.api.ICompositeType;
@@ -35,6 +38,8 @@ import org.snomed.snowstorm.fhir.domain.SearchFilter;
 import org.snomed.snowstorm.fhir.domain.SubsumesResult;
 import org.snomed.snowstorm.fhir.pojo.ConceptAndSystemResult;
 import org.snomed.snowstorm.fhir.pojo.FHIRCodeSystemVersionParams;
+import org.snomed.snowstorm.fhir.pojo.PatchCode;
+import org.snomed.snowstorm.fhir.pojo.PatchOperation;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
@@ -57,6 +62,7 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants 
 
 	private static final String PARAM_SYSTEM = "system";
 	private static final String PARAM_FILE = "file";
+	private static final String EXAMPLE_SNOMEDCT_PATCH = "[ { \"op\": \"add\", \"path\": \"/concept\", \"value\": { \"code\": \"POSTCOORDINATED_EXPRESSION\" } } ]";
 
 	@Value("${snowstorm.rest-api.readonly}")
 	private boolean readOnlyMode;
@@ -84,6 +90,9 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants 
 
 	@Autowired
 	private FHIRConceptService fhirConceptService;
+
+	@Autowired
+	private ObjectMapper objectMapper;
 
 	private static final String[] defaultSortOrder = new String[] { "title", "-date" };
 
@@ -238,13 +247,40 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants 
 	}
 
 	@Patch
-	public MethodOutcome addConcept(@IdParam IdType id, @ResourceParam CodeSystem codeSystem, PatchTypeEnum patchType) {
+	public MethodOutcome addConcept(@IdParam IdType id, PatchTypeEnum patchType, @ResourceParam String thePatchBody) {
 		FHIRCodeSystemVersion codeSystemVersion = getFhirCodeSystemVersionOrThrow(id.getIdPart());
 		if (codeSystemVersion.getSnomedCodeSystem() != null && !codeSystemVersion.getSnomedCodeSystem().isPostcoordinatedNullSafe()) {
 			throw exception("Only SNOMED CT CodeSystem supplements can be patched.", IssueType.INVARIANT, 400);
 		}
 
-		List<PostCoordinatedExpression> expressions = fhirCodeSystemService.addExpressions(codeSystemVersion, codeSystem.getConcept());
+		List<String> expressionStrings = new ArrayList<>();
+		try {
+			TypeReference<List<PatchOperation>> valueTypeRef = new TypeReference<>() {};
+			List<PatchOperation> patchOperations = objectMapper.readValue(thePatchBody, valueTypeRef);
+			for (PatchOperation patchOperation : patchOperations) {
+				if (!"add".equals(patchOperation.getOp()) || !"/concept".equals(patchOperation.getPath())) {
+					throw exception("The only supported patch operation uses this format: " + EXAMPLE_SNOMEDCT_PATCH, IssueType.INVARIANT, 400);
+				}
+				PatchCode value = patchOperation.getValue();
+				if (value == null || value.getCode() == null || value.getCode().isEmpty()) {
+					throw exception("The code is missing from request.", IssueType.INVARIANT, 400);
+				}
+				if (value.getDisplay() != null) {
+					throw exception("Display terms are not yet supported.", IssueType.NOTSUPPORTED, 400);
+				}
+				expressionStrings.add(value.getCode());
+			}
+		} catch (JsonProcessingException e) {
+			throw exception("Failed to read patch body. The only supported patch operation uses this format: " + EXAMPLE_SNOMEDCT_PATCH, IssueType.INVARIANT, 400);
+		}
+
+		System.out.println();
+
+		if (expressionStrings.isEmpty()) {
+			return new MethodOutcome();
+		}
+
+		List<PostCoordinatedExpression> expressions = fhirCodeSystemService.addExpressions(codeSystemVersion, expressionStrings);
 
 		CodeSystem savedCodeSystem = new CodeSystem();
 		for (PostCoordinatedExpression expression : expressions) {
@@ -271,6 +307,15 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants 
 			savedCodeSystem.addConcept(conceptDefinitionComponent);
 		}
 		return new MethodOutcome().setResource(savedCodeSystem);
+	}
+
+	@NotNull
+	private static Parameters.ParametersParameterComponent getParametersParameterComponent(List<Parameters.ParametersParameterComponent> parts, String paramName, String functionName) {
+		Optional<Parameters.ParametersParameterComponent> type = parts.stream().filter(p -> p.getName().equals(paramName)).findFirst();
+		if (type.isEmpty()) {
+			throw exception(String.format("The %s function requires part '%s'.", functionName, paramName), IssueType.INVARIANT, 400);
+		}
+		return type.get();
 	}
 
 	@Delete
