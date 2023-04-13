@@ -19,6 +19,7 @@ import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
 
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -101,18 +102,19 @@ class DroolsValidationServiceTest extends AbstractTest {
         assertEquals(0, updatedConcept.getClassAxioms().size());
 		List<InvalidContent> invalidContents = droolValidationService.validateConcepts(DEFAULT_BRANCH, Collections.singleton(updatedConcept));
         assertEquals(3, invalidContents.size());
+        invalidContents.sort(Comparator.comparing(InvalidContent::getSeverity).thenComparing(InvalidContent::getMessage));
 
         int index = 0;
-        assertEquals(Severity.WARNING, invalidContents.get(index).getSeverity());
-        assertEquals("Test resources were not available so assertions like case significance and US specific terms checks will not have run.", invalidContents.get(index).getMessage());
-
-        index++;
         assertEquals(Severity.ERROR, invalidContents.get(index).getSeverity());
         assertEquals("Active concepts must have at least one IS A relationship.", invalidContents.get(index).getMessage());
 
         index++;
         assertEquals(Severity.WARNING, invalidContents.get(index).getSeverity());
         assertEquals("Active FSN should end with a valid semantic tag.", invalidContents.get(index).getMessage());
+
+        index++;
+        assertEquals(Severity.WARNING, invalidContents.get(index).getSeverity());
+        assertEquals("Test resources were not available so assertions like case significance and US specific terms checks will not have run.", invalidContents.get(index).getMessage());
     }
 
     @Test
