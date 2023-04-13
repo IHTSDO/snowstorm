@@ -1,6 +1,5 @@
 package org.snomed.snowstorm.fhir.services;
 
-import ca.uhn.fhir.jpa.entity.TermCodeSystem;
 import ca.uhn.fhir.jpa.entity.TermCodeSystemVersion;
 import ca.uhn.fhir.jpa.entity.TermConcept;
 import ca.uhn.fhir.jpa.entity.TermConceptParentChildLink;
@@ -17,7 +16,7 @@ public class TermDeferredStorageSvc implements ITermDeferredStorageSvc {
 	}
 
 	@Override
-	public boolean isStorageQueueEmpty() {
+	public boolean isStorageQueueEmpty(boolean theIncludeExecutingJobs) {
 		return false;
 	}
 
@@ -47,11 +46,6 @@ public class TermDeferredStorageSvc implements ITermDeferredStorageSvc {
 	}
 
 	@Override
-	public void deleteCodeSystem(TermCodeSystem termCodeSystem) {
-
-	}
-
-	@Override
 	public void deleteCodeSystemForResource(ResourceTable resourceTable) {
 
 	}
@@ -62,12 +56,22 @@ public class TermDeferredStorageSvc implements ITermDeferredStorageSvc {
 	}
 
 	@Override
+	public void notifyJobEnded(String theId) {
+
+	}
+
+	@Override
 	public void saveAllDeferred() {
 
 	}
 
 	@Override
 	public void logQueueForUnitTest() {
+
+	}
+
+	@Override
+	public void disallowDeferredTaskTimeout() {
 
 	}
 }
