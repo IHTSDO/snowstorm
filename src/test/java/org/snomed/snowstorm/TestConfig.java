@@ -8,6 +8,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.autoconfigure.data.elasticsearch.ElasticsearchDataAutoConfiguration;
 import org.springframework.boot.autoconfigure.elasticsearch.ElasticsearchRestClientAutoConfiguration;
+import org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.cloud.aws.autoconfigure.context.*;
 import org.springframework.context.annotation.PropertySource;
@@ -30,7 +31,8 @@ import javax.annotation.PostConstruct;
 				ContextResourceLoaderAutoConfiguration.class,
 				ContextStackAutoConfiguration.class,
 				ElasticsearchRestClientAutoConfiguration.class,
-				ElasticsearchDataAutoConfiguration.class})
+				ElasticsearchDataAutoConfiguration.class,
+				DataSourceAutoConfiguration.class})
 public class TestConfig extends Config {
 
 	private static final String ELASTIC_SEARCH_SERVER_VERSION = "7.10.0";
