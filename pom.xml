@@ -19,7 +19,6 @@
 		Current Elasticsearch _Server_ version is 8.11.1
 		N.B. Remember to keep TestConfig.ELASTIC_SEARCH_SERVER_VERSION and getting-started guide updated.
 		-->
-		<snomed-owl-toolkit.version>3.1.0-SNAPSHOT</snomed-owl-toolkit.version>
 	</properties>
 
 	<dependencies>
@@ -66,8 +65,10 @@
 			</exclusions>
 		</dependency>
 		<dependency>
+			<!-- Different version of the SNOMED OWL Toolkit with incremental classification support -->
 			<groupId>org.snomed.otf</groupId>
-			<artifactId>snomed-owl-toolkit</artifactId>
+			<artifactId>snomed-owl-toolkit-incremental</artifactId>
+			<version>3.1.0</version>
 		</dependency>
 		<dependency>
 			<groupId>org.snomed.languages</groupId>
