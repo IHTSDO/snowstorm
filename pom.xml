@@ -335,7 +335,8 @@
 						<id>default-jar</id>
 						<phase>package</phase>
 						<goals>
-							<goal>jar</goal>
+							<goal>build-info</goal>
+							<goal>repackage</goal>
 						</goals>
 						<configuration>
 							<archive>
