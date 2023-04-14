@@ -31,6 +31,7 @@ import org.snomed.snowstorm.mrcm.model.AttributeDomain;
 import org.snomed.snowstorm.mrcm.model.AttributeRange;
 import org.snomed.snowstorm.mrcm.model.ContentType;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
@@ -49,6 +50,10 @@ import static org.snomed.snowstorm.core.util.CollectionUtils.orEmpty;
 public class ExpressionRepositoryService {
 
 	public static final String EXPRESSION_PARTITION_ID = "16";
+
+	@Value("${postcoordination.enabled}")
+	private boolean postcoordinationEnabled;
+
 	@Autowired
 	private ExpressionParser expressionParser;
 
@@ -284,6 +289,12 @@ public class ExpressionRepositoryService {
 	public List<PostCoordinatedExpression> processExpressions(List<String> originalCloseToUserForms, CodeSystem snomedCodeSystem, CodeSystemVersion snomedCodeSystemVersion,
 			boolean classify, boolean equivalenceTest, DisplayTermsRequired displayTermsRequired) {
 
+		if (!postcoordinationEnabled) {
+			return originalCloseToUserForms.stream()
+					.map(string -> new PostCoordinatedExpression(string, new ServiceException("Postcoordination is disabled on this server.")))
+					.collect(Collectors.toList());
+		}
+
 		String branchPath;
 		String packageModule;
 		Integer packageEffectiveTime;
@@ -308,8 +319,8 @@ public class ExpressionRepositoryService {
 
 		List<PostCoordinatedExpression> expressions = new ArrayList<>();
 
-		ExpressionContext context = new ExpressionContext(branchPath, snomedCodeSystem.isPostcoordinatedNullSafe(), branchService, versionControlHelper, mrcmService,
-				displayTermsRequired);
+		ExpressionContext context = new ExpressionContext(branchPath, snomedCodeSystem.isPostcoordinatedNullSafe(), snomedCodeSystem.getMaximumPostcoordinationLevelNullSafe(),
+				branchService, versionControlHelper, mrcmService, displayTermsRequired);
 
 		for (String originalCloseToUserForm : originalCloseToUserForms) {
 			TimerUtil timer = new TimerUtil("exp", Level.INFO, 5);

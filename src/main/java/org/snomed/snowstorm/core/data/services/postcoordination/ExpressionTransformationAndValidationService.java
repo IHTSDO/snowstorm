@@ -30,6 +30,9 @@ import static org.snomed.snowstorm.core.util.CollectionUtils.orEmpty;
 @Service
 public class ExpressionTransformationAndValidationService {
 
+	@Value("${postcoordination.level.max}")
+	private int serverPostcoordinationLevelMax;
+
 	@Autowired
 	private ConceptService conceptService;
 
@@ -48,7 +51,9 @@ public class ExpressionTransformationAndValidationService {
 	private final LinkedHashMap<String, ConceptMini> conceptMiniCache = new LinkedHashMap<>();
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
-	public ExpressionTransformationAndValidationService(@Value("#{'${postcoordination.transform.self-grouped.attributes}'.split('\\s*,\\s*')}") Set<String> selfGroupedAttributes) {
+	public ExpressionTransformationAndValidationService(@Value("#{'${postcoordination.transform.self-grouped.attributes}'.split('\\s*,\\s*')}") Set<String> selfGroupedAttributes)
+			throws ServiceException {
+
 		level2Transformations = new ArrayList<>();
 		level2Transformations.add(new RefineExistingAttributeTransformation());
 		level2Transformations.add(new GroupSelfGroupedAttributeTransformation(selfGroupedAttributes));
@@ -57,6 +62,11 @@ public class ExpressionTransformationAndValidationService {
 		level2Transformations.add(new AddSeverityToClinicalFindingTransformation());
 		level2Transformations.add(new AddContextToClinicalFindingTransformation());
 		level2Transformations.add(new AddContextToProcedureTransformation());
+
+		if (serverPostcoordinationLevelMax != 0 && serverPostcoordinationLevelMax != 1) {
+			throw new ServiceException(format("The configured 'postcoordination.transformation-level.max' of '%s' is not recognised. Only values 0 and 1 are supported.",
+					serverPostcoordinationLevelMax));
+		}
 	}
 
 	public ComparableExpression validateAndTransform(ComparableExpression closeToUserForm, ExpressionContext context) throws ServiceException {
@@ -107,21 +117,31 @@ public class ExpressionTransformationAndValidationService {
 		List<ComparableAttribute> looseAttributesWrongDomain = looseAttributesUngroupedOrWrongDomain.getSecond();
 		List<ComparableAttribute> allLooseAttributes = joinLists(looseAttributesUngroupedOrWrongDomain);
 		boolean noLooseAttributes = looseAttributesUngrouped.isEmpty() && looseAttributesWrongDomain.isEmpty();
-		if (level1AssertedByDefStatus || noLooseAttributes) {
-			// Level 1 expression
+		int maximumPostcoordinationLevel = context.getMaximumPostcoordinationLevel();
+		if (level1AssertedByDefStatus || noLooseAttributes || serverPostcoordinationLevelMax == 1 || maximumPostcoordinationLevel == 1) {
+			// Transformation Level 0 expression
 			if (!noLooseAttributes) {
+				String reason;
+				if (level1AssertedByDefStatus) {
+					reason = "This expression includes a definition status";
+				} else if (serverPostcoordinationLevelMax == 1) {
+					reason = "This server has postcoordination transformations disabled";
+				} else {
+					reason = "This code system has postcoordination transformations disabled";
+				}
 				if (!looseAttributesWrongDomain.isEmpty())
 					throw new TransformationException(String.format("The following attributes are not within the MRCM domain of the given focus concept : %s. " +
-									"This expression includes a definition status so transformation to a valid classifiable form was not attempted.", looseAttributesWrongDomain));
+							reason + " so transformation to a valid classifiable form was not attempted.", looseAttributesWrongDomain));
 
 				throw new TransformationException(String.format("The expression has one or more loose attributes (%s), these are ungrouped attributes that should be grouped. " +
-						"This expression includes a definition status so transformation to a valid classifiable form was not attempted.", looseAttributesUngrouped));
+						reason + " so transformation to a valid classifiable form was not attempted.", looseAttributesUngrouped));
 			}
 			// Classifiable expression is the same as the close to user form
 			return candidateClassifiableExpression;
 
 		} else {
-			// Level 2 or invalid
+			// Transformation Level 1, or invalid
+			// Transformation Level 1 = Snowstorm config postcoordination level 2
 
 			// Assert only one focus concept
 			if (candidateClassifiableExpression.getFocusConcepts().size() != 1) {

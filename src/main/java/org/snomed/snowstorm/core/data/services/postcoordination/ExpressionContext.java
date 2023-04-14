@@ -26,6 +26,7 @@ public class ExpressionContext {
 
 	private final VersionControlHelper versionControlHelper;
 	private final MRCMService mrcmService;
+	private final int maximumPostcoordinationLevel;
 	private ConceptService conceptService;
 	private final BranchService branchService;
 	private org.snomed.snowstorm.ecl.ECLQueryService eclQueryService;
@@ -42,11 +43,13 @@ public class ExpressionContext {
 	private String focusConceptId;
 	private Set<String> ancestorsAndSelfOfFocusConcept;
 
-	public ExpressionContext(String branch, boolean useDependantReleaseBranchForMRCM, BranchService branchService, VersionControlHelper versionControlHelper,
+	public ExpressionContext(String branch, boolean useDependantReleaseBranchForMRCM, int maximumPostcoordinationLevel,
+			BranchService branchService, VersionControlHelper versionControlHelper,
 			MRCMService mrcmService, DisplayTermsRequired displayTermsRequired) {
 
 		this.branch = branch;
 		this.useDependantReleaseBranchForMRCM = useDependantReleaseBranchForMRCM;
+		this.maximumPostcoordinationLevel = maximumPostcoordinationLevel;
 		this.branchService = branchService;
 		this.versionControlHelper = versionControlHelper;
 		this.mrcmService = mrcmService;
@@ -86,6 +89,10 @@ public class ExpressionContext {
 			mrcm = mrcmService.loadActiveMRCMFromCache(branch);
 		}
 		return mrcm;
+	}
+
+	public int getMaximumPostcoordinationLevel() {
+		return maximumPostcoordinationLevel;
 	}
 
 	public Set<AttributeDomain> getMRCMUngroupedAttributes() throws ServiceException {

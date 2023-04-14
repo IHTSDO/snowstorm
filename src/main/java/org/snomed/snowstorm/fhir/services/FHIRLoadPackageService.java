@@ -19,6 +19,7 @@ import org.snomed.snowstorm.fhir.domain.FHIRPackageIndexFile;
 import org.snomed.snowstorm.fhir.pojo.FHIRCodeSystemVersionParams;
 import org.snomed.snowstorm.fhir.pojo.ValueSetExpansionParameters;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.io.File;
@@ -33,6 +34,9 @@ import static java.lang.String.format;
 
 @Service
 public class FHIRLoadPackageService {
+
+	@Value("${snowstorm.rest-api.readonly}")
+	private boolean readOnlyMode;
 
 	@Autowired
 	private ObjectMapper mapper;

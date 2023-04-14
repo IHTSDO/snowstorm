@@ -214,11 +214,9 @@ public class CodeSystem implements CodeSystemCreate {
 
 	/**
 	 * Postcoordination Levels:
-	 * Level 0 means postcoordination is disabled.
-	 * Level 1 supports postcoordinated expressions with no transformation.
-	 * Level 2 supports postcoordinated expressions with a some known transformations.
-	 * Level 3 is not yet defined or supported.
-	 * Level 4 is not yet defined or supported.
+	 * Level 0 = postcoordination disabled.
+	 * Level 1 = postcoordination enabled, transformation level 0
+	 * Level 2 = postcoordination enabled, transformation level 1
 	 * @return the level of postcoordination supported in this code system, 0 means disabled.
 	 */
 	public Short getMaximumPostcoordinationLevel() {
@@ -228,6 +226,11 @@ public class CodeSystem implements CodeSystemCreate {
 	public CodeSystem setMaximumPostcoordinationLevel(short maximumPostcoordinationLevel) {
 		this.maximumPostcoordinationLevel = maximumPostcoordinationLevel;
 		return this;
+	}
+
+	@JsonIgnore
+	public int getMaximumPostcoordinationLevelNullSafe() {
+		return maximumPostcoordinationLevel;
 	}
 
 	public Boolean isPostcoordinated() {
