@@ -8,7 +8,6 @@ public class TestConcepts {
 	// Attributes
 	public static final String ASSOCIATED_MORPHOLOGY = "116676008";
 	public static final String PROCEDURE_SITE_DIRECT = "405813007";
-	public static final String LATERALITY = "272741003";
 	public static final String HAS_FILLING = "827081001";
 
 	// Qualifier Value

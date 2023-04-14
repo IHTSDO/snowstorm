@@ -52,6 +52,8 @@ public class FHIRLoadPackageService {
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
 	public void uploadPackageResources(File packageFile, Set<String> resourceUrlsToImport, String submittedFileName, boolean testValueSets) throws IOException {
+		FHIRHelper.readOnlyCheck(readOnlyMode);
+
 		JsonParser jsonParser = (JsonParser) fhirContext.newJsonParser();
 		FHIRPackageIndex index = extractObject(packageFile, ".index.json", FHIRPackageIndex.class, jsonParser);
 		Set<String> supportedResourceTypes = Set.of("CodeSystem", "ValueSet");

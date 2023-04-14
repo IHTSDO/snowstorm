@@ -248,6 +248,7 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants 
 
 	@Patch
 	public MethodOutcome addConcept(@IdParam IdType id, PatchTypeEnum patchType, @ResourceParam String thePatchBody) {
+		FHIRHelper.readOnlyCheck(readOnlyMode);
 		FHIRCodeSystemVersion codeSystemVersion = getFhirCodeSystemVersionOrThrow(id.getIdPart());
 		if (codeSystemVersion.getSnomedCodeSystem() != null && !codeSystemVersion.getSnomedCodeSystem().isPostcoordinatedNullSafe()) {
 			throw exception("Only SNOMED CT CodeSystem supplements can be patched.", IssueType.INVARIANT, 400);
@@ -273,8 +274,6 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants 
 		} catch (JsonProcessingException e) {
 			throw exception("Failed to read patch body. The only supported patch operation uses this format: " + EXAMPLE_SNOMEDCT_PATCH, IssueType.INVARIANT, 400);
 		}
-
-		System.out.println();
 
 		if (expressionStrings.isEmpty()) {
 			return new MethodOutcome();
@@ -307,15 +306,6 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants 
 			savedCodeSystem.addConcept(conceptDefinitionComponent);
 		}
 		return new MethodOutcome().setResource(savedCodeSystem);
-	}
-
-	@NotNull
-	private static Parameters.ParametersParameterComponent getParametersParameterComponent(List<Parameters.ParametersParameterComponent> parts, String paramName, String functionName) {
-		Optional<Parameters.ParametersParameterComponent> type = parts.stream().filter(p -> p.getName().equals(paramName)).findFirst();
-		if (type.isEmpty()) {
-			throw exception(String.format("The %s function requires part '%s'.", functionName, paramName), IssueType.INVARIANT, 400);
-		}
-		return type.get();
 	}
 
 	@Delete
