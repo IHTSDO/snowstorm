@@ -18,11 +18,10 @@ import org.snomed.snowstorm.fhir.domain.FHIRPackageIndexFile;
 import org.snomed.snowstorm.fhir.pojo.FHIRCodeSystemVersionParams;
 import org.snomed.snowstorm.fhir.pojo.ValueSetExpansionParameters;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.IOException;
+import java.io.*;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -32,6 +31,9 @@ import static java.lang.String.format;
 
 @Service
 public class FHIRLoadPackageService {
+
+	@Value("${snowstorm.rest-api.readonly}")
+	private boolean readOnlyMode;
 
 	@Autowired
 	private ObjectMapper mapper;
@@ -51,6 +53,8 @@ public class FHIRLoadPackageService {
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
 	public void uploadPackageResources(File packageFile, Set<String> resourceUrlsToImport, String submittedFileName, boolean testValueSets) throws IOException {
+		FHIRHelper.readOnlyCheck(readOnlyMode);
+
 		JsonParser jsonParser = (JsonParser) fhirContext.newJsonParser();
 		FHIRPackageIndex index = extractObject(packageFile, ".index.json", FHIRPackageIndex.class, jsonParser);
 		Set<String> supportedResourceTypes = Set.of("CodeSystem", "ValueSet");
