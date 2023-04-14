@@ -11,8 +11,6 @@ import org.snomed.snowstorm.fhir.config.FHIRConstants;
 import org.snomed.snowstorm.fhir.domain.FHIRConceptMap;
 import org.snomed.snowstorm.fhir.domain.FHIRMapElement;
 import org.snomed.snowstorm.fhir.domain.FHIRMapTarget;
-import org.snomed.snowstorm.fhir.repositories.FHIRConceptMapRepository;
-import org.snomed.snowstorm.fhir.repositories.FHIRMapElementRepository;
 import org.snomed.snowstorm.rest.ControllerHelper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -35,12 +33,6 @@ public class FHIRConceptMapProvider implements IResourceProvider, FHIRConstants 
 
 	@Autowired
 	private FHIRConceptMapService service;
-
-	@Autowired
-	private FHIRConceptMapRepository conceptMapRepository;
-
-	@Autowired
-	private FHIRMapElementRepository mapElementRepository;
 
 	@Read
 	public ConceptMap getConceptMap(@IdParam IdType id) {
