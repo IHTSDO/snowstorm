@@ -313,12 +313,6 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 		FHIRHelper.parameterNamingHint("system-version", incorrectParamSystemVersion, "systemVersion");
 	}
 
-	private void validateId(IdType id, ValueSet vs) {
-		if (vs.getId() == null || !id.asStringValue().equals(vs.getId())) {
-			throw exception("ID in request must match that in ValueSet object", IssueType.EXCEPTION, 400);
-		}
-	}
-
 	@Override
 	public Class<? extends IBaseResource> getResourceType() {
 		return ValueSet.class;
