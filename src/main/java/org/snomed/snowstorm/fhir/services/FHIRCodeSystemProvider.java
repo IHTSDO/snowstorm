@@ -218,13 +218,6 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants 
 		return outcome;
 	}
 
-//	@Patch
-//	public void addConcept(@IdParam IdType id, @ResourceParam CodeSystem codeSystem) {
-//		CodeSystem existingCodeSystem = getCodeSystem(id);
-//
-////		codeSystem.getConcept()
-//	}
-
 	@Delete
 	public void deleteCodeSystem(
 			@IdParam IdType id,
