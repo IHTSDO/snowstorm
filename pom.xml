@@ -324,7 +324,7 @@
 				<groupId>org.springframework.boot</groupId>
 				<artifactId>spring-boot-maven-plugin</artifactId>
 				<configuration>
-					<mainClass>org.snomed.otf.reasoner.server.Application</mainClass>
+					<mainClass>org.snomed.snowstorm.SnowstormApplication</mainClass>
 				</configuration>
 				<executions>
 					<execution>
