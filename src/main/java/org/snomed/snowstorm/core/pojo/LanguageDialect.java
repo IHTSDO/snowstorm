@@ -1,9 +1,10 @@
 package org.snomed.snowstorm.core.pojo;
 
+import org.drools.util.StringUtils;
+
 import java.io.Serializable;
 import java.util.*;
 
-import org.drools.core.util.StringUtils;
 
 public class LanguageDialect implements Serializable {
 
