@@ -7,7 +7,7 @@ import io.kaicode.elasticvc.api.VersionControlHelper;
 import io.kaicode.elasticvc.domain.Branch;
 
 import org.apache.tomcat.util.http.fileupload.util.Streams;
-import org.drools.core.util.StringUtils;
+import org.drools.util.StringUtils;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
