@@ -99,7 +99,7 @@ public class CodeSystemUpgradeService {
 		return job;
 	}
 
-	@PreAuthorize("hasPermission('ADMIN', #codeSystem.branchPath)")
+	@PreAuthorize("hasPermission('ADMIN', #codeSystem.branchPath) || hasPermission('PROJECT_LEAD', #codeSystem.branchPath)")
 	public String upgradeAsync(CodeSystem codeSystem, Integer newDependantVersion, boolean contentAutomations) {
 		String runningJobId = findRunningJob(codeSystem.getShortName(), newDependantVersion);
 		if (runningJobId != null) {
