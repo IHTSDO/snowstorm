@@ -11,8 +11,6 @@ import org.elasticsearch.search.aggregations.AggregationBuilders;
 import org.elasticsearch.search.aggregations.bucket.MultiBucketsAggregation;
 import org.elasticsearch.search.aggregations.bucket.terms.ParsedStringTerms;
 import org.elasticsearch.search.aggregations.bucket.terms.Terms;
-import org.elasticsearch.search.sort.SortBuilders;
-import org.elasticsearch.search.sort.SortOrder;
 import org.modelmapper.ModelMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -300,11 +298,7 @@ public class CodeSystemService {
 		}
 		return null;
 	}
-
-	private String getHyphenatedEffectiveTimeFromVersionBranch(String branchPath) {
-		return branchPath.substring(branchPath.lastIndexOf('/') + 1).trim();
-	}
-
+	
 	private String getReleaseBranchPath(String branchPath, Integer effectiveDate) {
 		return branchPath + "/" + getHyphenatedVersionString(effectiveDate);
 	}
@@ -674,8 +668,6 @@ public class CodeSystemService {
 		SearchHits<CodeSystemVersion> queryCodeSystemVersions = elasticsearchOperations.search(
 				new NativeSearchQueryBuilder()
 						.withQuery(boolQuery().must(termQuery(CodeSystemVersion.Fields.SHORT_NAME, codeSystem.getShortName())))
-						.withPageable(PageRequest.of(0, 50))
-						.withSort(SortBuilders.fieldSort(CodeSystemVersion.Fields.IMPORT_DATE).order(SortOrder.DESC))
 						.build(), CodeSystemVersion.class
 		);
 
@@ -687,12 +679,10 @@ public class CodeSystemService {
 		Set<String> branchPaths = codeSystemVersions.stream().map(CodeSystemVersion::getBranchPath).collect(Collectors.toSet());
 		SearchHits<Branch> queryBranches = elasticsearchOperations.search(
 				new NativeSearchQueryBuilder()
-						.withQuery(
-								boolQuery()
-										.must(termsQuery(Branch.Fields.PATH, branchPaths))
+						.withQuery(boolQuery()
 										.must(rangeQuery("base").gt(lowerBound).lte(upperBound))
 										.mustNot(existsQuery(Branch.Fields.END))
-						)
+						).withFilter(termsQuery(Branch.Fields.PATH, branchPaths))
 						.build(), Branch.class
 		);
 

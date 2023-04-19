@@ -1,10 +1,15 @@
 package org.snomed.snowstorm.core.data.services;
 
+import io.kaicode.elasticvc.domain.Branch;
 import org.junit.jupiter.api.Test;
 import org.snomed.snowstorm.AbstractTest;
 import org.snomed.snowstorm.core.data.domain.CodeSystem;
 import org.springframework.beans.factory.annotation.Autowired;
 
+import java.time.Instant;
+import java.util.Set;
+
+import static java.time.Instant.now;
 import static org.junit.jupiter.api.Assertions.*;
 
 class CodeSystemServiceTest extends AbstractTest {
@@ -85,6 +90,22 @@ class CodeSystemServiceTest extends AbstractTest {
 		codeSystemService.setLatestVersionCanBeFuture(true);
 		assertEquals(20990131, codeSystemService.findLatestVisibleVersion("SNOMEDCT").getEffectiveDate().intValue());
 		codeSystemService.setLatestVersionCanBeFuture(false);
+	}
+
+	@Test
+	void testFindVersionsByCodeSystemAndBaseTimepointRange() {
+		CodeSystem codeSystem = codeSystemService.createCodeSystem(new CodeSystem("SNOMEDCT", "MAIN"));
+		codeSystemService.createVersion(codeSystem, 20230101, "20230101 release");
+		// Within time range
+		Set<Branch> results = codeSystemService.findVersionsByCodeSystemAndBaseTimepointRange(codeSystem, now().minusMillis(1000l).toEpochMilli(), now().plusMillis(1000L).toEpochMilli());
+		assertEquals(1, results.size());
+
+		// Out of range
+		results = codeSystemService.findVersionsByCodeSystemAndBaseTimepointRange(codeSystem, now().plusMillis(1000l).toEpochMilli(), now().plusMillis(2000L).toEpochMilli());
+		assertEquals(0, results.size());
+
+		// Time points out of order
+		assertThrows(IllegalArgumentException.class, () -> codeSystemService.findVersionsByCodeSystemAndBaseTimepointRange(codeSystem, now().toEpochMilli(), now().minusMillis(2000L).toEpochMilli()));
 	}
 
 }
