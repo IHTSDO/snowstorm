@@ -127,6 +127,14 @@ public class BranchController {
 		return getBranchPojo(branchService.updateMetadata(branch, newMetadata)).getMetadata();
 	}
 
+	@Operation(summary = "Retrieve a single branch metadata")
+	@GetMapping(value = "/branches/{branch}/metadata")
+	public Map<String, Object> retrieveBranchMetadata(@PathVariable String branch, @RequestParam(required = false, defaultValue = "false") boolean includeInheritedMetadata) {
+		branch = BranchPathUriUtil.decodePath(branch);
+		Branch latestBranch = branchService.findBranchOrThrow(branch, includeInheritedMetadata);
+		return latestBranch.getMetadata().getAsMap();
+	}
+
 	@Operation(summary = "Retrieve a single branch")
 	@GetMapping(value = "/branches/{branch}")
 	public BranchPojo retrieveBranch(@PathVariable String branch, @RequestParam(required = false, defaultValue = "false") boolean includeInheritedMetadata) {

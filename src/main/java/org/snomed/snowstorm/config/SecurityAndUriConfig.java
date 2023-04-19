@@ -101,6 +101,7 @@ public class SecurityAndUriConfig {
 		return new FilterRegistrationBean<>(new BranchPathUriRewriteFilter(
 				"/branches/(.*)/children",
 				"/branches/(.*)/parents",
+				"/branches/(.*)/metadata",
 				"/branches/(.*)/metadata-upsert",
 				"/branches/(.*)/actions/.*",
 				"/branches/(.*)",
