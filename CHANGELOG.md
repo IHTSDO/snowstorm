@@ -3,7 +3,27 @@ All notable changes to this project will be documented in this file.
 
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 8.2.0 Release (May 2023)
+This release adds the ability to load, persist and search the RF2 Identifier file (e.g. sct2_Identifier_Snapshot_INT_20230509.txt). 
+As well as this, several critical security vulnerabilities have been fixed with a mechanism implemented to fix any future 
+critical security vulnerabilities more easily. Other general bug fixes and improvements have also been made.
 
+### Features
+- MAINT-2144 Support loading, persisting and searching of the RF2 Identifier file (sct2_Identifier_Snapshot_INT_20230509.txt).
+
+### Improvements
+- MAINT-1984 Rename content promotion endpoint from `concepts/donate` to `concepts/copy`.
+- PIP-215 Change logging of ECL statement from `info` to `debug` when finding Concept identifiers.
+- MAINT-2106 Improve IntegrityIssueReport returned from API when error occurs during merging.
+- MAINT-2145 Return Concept's alternative Identifier, if available, from API response.
+- PIP-248 Fix several critical security vulnerabilities.
+- MAINT-2166 Allow users with `PROJECT_LEAD` permission to upgrade a CodeSystem.
+- MAINT-2165 Add endpoint for retrieving Branch metadata (`/branches/{branch}/metadata`).
+
+### Fixes
+- FRI-637 Stop rebasing from crashing when too many Branches are in scope of query.
+- MAINT-2120 Stop duplicate Elasticsearch documents being created when rebasing the same Description inactivation.
+ 
 ## 8.1.2 Release (March 2023)
 This release has an overhaul of the FHIR API :fire: and adds support for multiple code systems within the FHIR API!
 
