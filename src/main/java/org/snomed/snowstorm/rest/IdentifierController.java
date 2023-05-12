@@ -1,5 +1,6 @@
 package org.snomed.snowstorm.rest;
 
+import com.fasterxml.jackson.annotation.JsonView;
 import io.kaicode.rest.util.branchpathrewrite.BranchPathUriUtil;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -41,6 +42,7 @@ public class IdentifierController {
 	private DescriptionService descriptionService;
 
 	@GetMapping(value = "/{branch}/identifiers", produces = {"application/json", "text/csv"})
+	@JsonView(value = View.Component.class)
 	public ItemsPage<Identifier> findIdentifiers(
 			@PathVariable String branch,
 			@RequestParam(required = false) String alternateIdentifier,
