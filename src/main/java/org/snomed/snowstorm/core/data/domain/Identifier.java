@@ -45,6 +45,13 @@ public class Identifier extends SnomedComponent<Identifier> {
 	private String referencedComponentId;
 
 	@Transient
+	@JsonIgnore
+	private ConceptMini referencedComponentConceptMini;
+
+	@Transient
+	private SnomedComponent<?> referencedComponentSnomedComponent;
+
+	@Transient
 	private ConceptMini identifierScheme;
 
 	public Identifier() {
@@ -110,6 +117,23 @@ public class Identifier extends SnomedComponent<Identifier> {
 	@JsonView(value = View.Component.class)
 	public ConceptMini getIdentifierScheme() {
 		return identifierScheme;
+	}
+
+	public void setReferencedComponentConceptMini(ConceptMini referencedComponentConceptMini) {
+		this.referencedComponentConceptMini = referencedComponentConceptMini;
+	}
+
+	@JsonView(value = View.Component.class)
+	public Object getReferencedComponent() {
+		if (this.referencedComponentSnomedComponent != null) {
+			return this.referencedComponentSnomedComponent;
+		}
+
+		return this.referencedComponentConceptMini;
+	}
+
+	public void setReferencedComponentSnomedComponent(SnomedComponent<?> referencedComponent) {
+		this.referencedComponentSnomedComponent = referencedComponent;
 	}
 
 	@Override
