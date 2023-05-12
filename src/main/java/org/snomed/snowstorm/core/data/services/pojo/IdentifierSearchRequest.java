@@ -38,7 +38,7 @@ public class IdentifierSearchRequest {
 		return module;
 	}
 
-	public IdentifierSearchRequest setAlternateIdentifier(String alternateIdentifier) {
+	public IdentifierSearchRequest alternateIdentifier(String alternateIdentifier) {
 		this.alternateIdentifier = alternateIdentifier;
 		return this;
 	}
@@ -47,7 +47,7 @@ public class IdentifierSearchRequest {
 		return alternateIdentifier;
 	}
 
-	public IdentifierSearchRequest setIdentifierSchemeId(String identifierSchemeId) {
+	public IdentifierSearchRequest identifierSchemeId(String identifierSchemeId) {
 		this.identifierSchemeId = identifierSchemeId;
 		return this;
 	}
