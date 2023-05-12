@@ -17,8 +17,10 @@ import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.repositories.IdentifierRepository;
 import org.snomed.snowstorm.core.data.services.pojo.IdentifierSearchRequest;
 import org.snomed.snowstorm.core.pojo.LanguageDialect;
+import org.snomed.snowstorm.core.util.PageHelper;
 import org.snomed.snowstorm.core.util.TimerUtil;
 import org.snomed.snowstorm.ecl.ECLQueryService;
+import org.snomed.snowstorm.rest.converter.SearchAfterHelper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
@@ -34,6 +36,7 @@ import org.springframework.util.StringUtils;
 
 import java.io.Serializable;
 import java.util.*;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import static java.lang.Long.parseLong;
@@ -62,6 +65,15 @@ public class IdentifierComponentService extends ComponentService {
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
+	private static final Function <Identifier, Object[]> IDENTIFIER_ID_SEARCH_AFTER_EXTRACTOR = identifier -> {
+		if (identifier == null) {
+			return null;
+		}
+
+		String id = identifier.getId();
+		return id == null ? null : SearchAfterHelper.convertToTokenAndBack(new Object[]{id});
+	};
+
 
 	/**
 	 * Persists identifiers updates within commit.
@@ -88,7 +100,9 @@ public class IdentifierComponentService extends ComponentService {
 		NativeSearchQuery query = new NativeSearchQueryBuilder().withQuery(buildIdentifierQuery(searchRequest, branch, branchCriteria)).withPageable(pageRequest).build();
 		query.setTrackTotalHits(true);
 		SearchHits<Identifier> searchHits = elasticsearchTemplate.search(query, Identifier.class);
-		return new PageImpl<>(searchHits.get().map(SearchHit::getContent).collect(Collectors.toList()), pageRequest, searchHits.getTotalHits());
+		PageImpl<Identifier> identifiers = new PageImpl<>(searchHits.get().map(SearchHit::getContent).collect(Collectors.toList()), pageRequest, searchHits.getTotalHits());
+		return PageHelper.toSearchAfterPage(identifiers, IDENTIFIER_ID_SEARCH_AFTER_EXTRACTOR);
+
 	}
 
 	public Identifier createIdentifier(String branch, Identifier identifier) {
