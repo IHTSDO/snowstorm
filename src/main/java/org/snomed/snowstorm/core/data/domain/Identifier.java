@@ -15,7 +15,7 @@ import java.util.Objects;
 
 @Document(indexName = "identifier")
 @JsonPropertyOrder({"alternateIdentifier", "effectiveTime", "active", "moduleId", "identifierSchemeId", "identifierScheme", "referencedComponentId",  "released", "releasedEffectiveTime"})
-public class Identifier extends SnomedComponent<Identifier> {
+public class Identifier extends SnomedComponent<Identifier> implements IdentifierView {
 
 	public interface Fields extends SnomedComponent.Fields {
 		String INTERNAL_IDENTIFIER_ID = "internalIdentifierId";
