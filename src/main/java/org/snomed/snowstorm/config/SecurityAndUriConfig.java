@@ -117,6 +117,7 @@ public class SecurityAndUriConfig {
 				"/(.*)/descriptions.*",
 				"/(.*)/members.*",
 				"/(.*)/expressions.*",
+				"/(.*)/identifiers",
 				"/(.*)/classifications.*",
 				"/(.*)/integrity-check",
 				"/(.*)/upgrade-integrity-check",
