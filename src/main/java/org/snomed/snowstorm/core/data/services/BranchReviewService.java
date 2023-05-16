@@ -2,32 +2,20 @@ package org.snomed.snowstorm.core.data.services;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.ObjectReader;
-import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.api.PathUtil;
-import io.kaicode.elasticvc.api.VersionControlHelper;
 import io.kaicode.elasticvc.domain.Branch;
-import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
-import it.unimi.dsi.fastutil.longs.LongArrayList;
-import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
-import org.elasticsearch.index.query.BoolQueryBuilder;
-import org.elasticsearch.index.query.QueryBuilder;
-import org.elasticsearch.search.sort.SortBuilders;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.snomed.snowstorm.core.data.domain.*;
+import org.snomed.snowstorm.core.data.domain.CodeSystem;
+import org.snomed.snowstorm.core.data.domain.Concept;
 import org.snomed.snowstorm.core.data.domain.review.*;
 import org.snomed.snowstorm.core.data.repositories.BranchReviewRepository;
 import org.snomed.snowstorm.core.data.repositories.ManuallyMergedConceptRepository;
 import org.snomed.snowstorm.core.data.repositories.MergeReviewRepository;
 import org.snomed.snowstorm.core.pojo.LanguageDialect;
-import org.snomed.snowstorm.core.util.TimerUtil;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
-import org.springframework.data.elasticsearch.core.SearchHitsIterator;
-import org.springframework.data.elasticsearch.core.query.NativeSearchQuery;
-import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -37,14 +25,11 @@ import javax.annotation.PostConstruct;
 import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 import static io.kaicode.elasticvc.api.ComponentService.LARGE_PAGE;
-import static java.lang.Long.parseLong;
-import static org.elasticsearch.index.query.QueryBuilders.*;
 
 @Service
 public class BranchReviewService {
@@ -54,9 +39,6 @@ public class BranchReviewService {
 
 	@Autowired
 	private SBranchService sBranchService;
-
-	@Autowired
-	private VersionControlHelper versionControlHelper;
 
 	@Autowired
 	private ConceptService conceptService;
@@ -74,9 +56,6 @@ public class BranchReviewService {
 	private ManuallyMergedConceptRepository manuallyMergedConceptRepository;
 
 	@Autowired
-	private ElasticsearchOperations elasticsearchTemplate;
-
-	@Autowired
 	private ObjectMapper objectMapper;
 
 	@Autowired
@@ -84,6 +63,9 @@ public class BranchReviewService {
 
 	@Autowired
 	private AutoMerger autoMerger;
+
+	@Autowired
+	private ConceptChangeHelper conceptChangeHelper;
 
 	@Autowired
 	private CodeSystemService codeSystemService;
@@ -113,6 +95,7 @@ public class BranchReviewService {
 			try {
 				lookupBranchReviewConceptChanges(sourceToTarget);
 				lookupBranchReviewConceptChanges(targetToSource);
+				joinContradictoryChanges(sourceToTarget, targetToSource, sourceBranch, targetBranch);
 				mergeReview.setStatus(ReviewStatus.CURRENT);
 				mergeReviewRepository.save(mergeReview);
 			} catch (Exception e) {
@@ -123,6 +106,17 @@ public class BranchReviewService {
 		});
 		mergeReviewRepository.save(mergeReview);
 		return mergeReview;
+	}
+
+	private void joinContradictoryChanges(BranchReview sourceToTarget, BranchReview targetToSource, Branch sourceBranch, Branch targetBranch) {
+		Set<Long> contradictoryChanges = conceptChangeHelper.getConceptsWithContradictoryChanges(sourceBranch, targetBranch);
+		if (!contradictoryChanges.isEmpty()) {
+			sourceToTarget.addChangedConcepts(contradictoryChanges);
+			targetToSource.addChangedConcepts(contradictoryChanges);
+
+			branchReviewRepository.save(sourceToTarget);
+			branchReviewRepository.save(targetToSource);
+		}
 	}
 
 	public MergeReview getMergeReview(String id) {
@@ -389,6 +383,14 @@ public class BranchReviewService {
 		// source =    \--^--A/B
 		// start = source lastPromotion or base
 
+		Set<Long> changedConcepts = new HashSet<>();
+		changedConcepts.addAll(conceptChangeHelper.getConceptsChangedBetweenTimeRange(source.getPath(), getStart(branchReview, source, target), source.getHead(), branchReview.isSourceParent()));
+		branchReview.setStatus(ReviewStatus.CURRENT);
+		branchReview.setChangedConcepts(changedConcepts);
+		branchReviewRepository.save(branchReview);
+	}
+
+	private Date getStart(BranchReview branchReview, Branch source, Branch target) {
 		Date start;
 		if (branchReview.isSourceParent()) {
 			start = target.getBase();
@@ -402,200 +404,7 @@ public class BranchReviewService {
 		// Look for changes in the range starting a millisecond after
 		start.setTime(start.getTime() + 1);
 
-		Set<Long> changedConcepts = createConceptChangeReportOnBranchForTimeRange(source.getPath(), start, source.getHead(), branchReview.isSourceParent());
-		branchReview.setStatus(ReviewStatus.CURRENT);
-		branchReview.setChangedConcepts(changedConcepts);
-		branchReviewRepository.save(branchReview);
-	}
-
-	Set<Long> createConceptChangeReportOnBranchForTimeRange(String path, Date start, Date end, boolean sourceIsParent) {
-
-		logger.info("Creating change report: branch {} time range {} ({}) to {} ({})", path, start.getTime(), start, end.getTime(), end);
-
-		List<Branch> startTimeSlice;
-		List<Branch> endTimeSlice;
-		if (sourceIsParent) {
-			// The source branch is the parent, so we are counting content which could be rebased down.
-			// This content can come from any ancestor branch.
-			startTimeSlice = versionControlHelper.getTimeSlice(path, start);
-			endTimeSlice = versionControlHelper.getTimeSlice(path, end);
-		} else {
-			// The source branch is the child, so we are counting content which could be promoted up.
-			// This content will exist on this path only.
-			startTimeSlice = Lists.newArrayList(branchService.findAtTimepointOrThrow(path, start));
-			endTimeSlice = Lists.newArrayList(branchService.findAtTimepointOrThrow(path, end));
-		}
-
-		if (startTimeSlice.equals(endTimeSlice)) {
-			return Collections.emptySet();
-		}
-
-		// Find components of each type that are on the target branch and have been ended on the source branch
-		final Set<Long> changedConcepts = new LongOpenHashSet();
-		final Map<Long, Long> referenceComponentIdToConceptMap = new Long2ObjectOpenHashMap<>();
-		final Set<Long> preferredDescriptionIds = new LongOpenHashSet();
-		Branch branch = branchService.findBranchOrThrow(path);
-		logger.debug("Collecting versions replaced for change report: branch {} time range {} to {}", path, start, end);
-
-		Map<String, Set<String>> changedVersionsReplaced = new HashMap<>();
-
-		// Technique: Search for replaced versions
-		// Work out changes in versions replaced between time slices
-		Map<String, Set<String>> startVersionsReplaced = versionControlHelper.getAllVersionsReplaced(startTimeSlice);
-		Map<String, Set<String>> endVersionsReplaced = versionControlHelper.getAllVersionsReplaced(endTimeSlice);
-		for (String type : Sets.union(startVersionsReplaced.keySet(), endVersionsReplaced.keySet())) {
-			changedVersionsReplaced.put(type, Sets.difference(
-					endVersionsReplaced.getOrDefault(type, Collections.emptySet()),
-					startVersionsReplaced.getOrDefault(type, Collections.emptySet())));
-		}
-		if (!changedVersionsReplaced.getOrDefault(Concept.class.getSimpleName(), Collections.emptySet()).isEmpty()) {
-			try (final SearchHitsIterator<Concept> stream = elasticsearchTemplate.searchForStream(
-					componentsReplacedCriteria(changedVersionsReplaced.get(Concept.class.getSimpleName()), Concept.Fields.CONCEPT_ID).build(), Concept.class)) {
-				stream.forEachRemaining(hit -> changedConcepts.add(parseLong(hit.getContent().getConceptId())));
-			}
-		}
-		if (!changedVersionsReplaced.getOrDefault(Description.class.getSimpleName(), Collections.emptySet()).isEmpty()) {
-			NativeSearchQueryBuilder fsnQuery = componentsReplacedCriteria(changedVersionsReplaced.get(Description.class.getSimpleName()), Description.Fields.CONCEPT_ID)
-					.withFilter(termQuery(Description.Fields.TYPE_ID, Concepts.FSN));
-			try (final SearchHitsIterator<Description> stream = elasticsearchTemplate.searchForStream(fsnQuery.build(), Description.class)) {
-				stream.forEachRemaining(hit -> changedConcepts.add(parseLong(hit.getContent().getConceptId())));
-			}
-		}
-		if (!changedVersionsReplaced.getOrDefault(Relationship.class.getSimpleName(), Collections.emptySet()).isEmpty()) {
-			try (final SearchHitsIterator<Relationship> stream = elasticsearchTemplate.searchForStream(
-					componentsReplacedCriteria(changedVersionsReplaced.get(Relationship.class.getSimpleName()), Relationship.Fields.SOURCE_ID).build(), Relationship.class)) {
-				stream.forEachRemaining(hit -> changedConcepts.add(parseLong(hit.getContent().getSourceId())));
-			}
-		}
-		if (!changedVersionsReplaced.getOrDefault(ReferenceSetMember.class.getSimpleName(), Collections.emptySet()).isEmpty()) {
-			// Refsets with the internal "conceptId" field are related to a concept in terms of authoring
-			NativeSearchQueryBuilder refsetQuery = componentsReplacedCriteria(changedVersionsReplaced.get(ReferenceSetMember.class.getSimpleName()),
-					ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID, ReferenceSetMember.Fields.CONCEPT_ID)
-					.withFilter(boolQuery().must(existsQuery(ReferenceSetMember.Fields.CONCEPT_ID)));
-			try (final SearchHitsIterator<ReferenceSetMember> stream = elasticsearchTemplate.searchForStream(refsetQuery.build(), ReferenceSetMember.class)) {
-				stream.forEachRemaining(hit -> referenceComponentIdToConceptMap.put(parseLong(hit.getContent().getReferencedComponentId()), parseLong(hit.getContent().getConceptId())));
-			}
-		}
-
-		// Technique: Search for ended versions
-		BoolQueryBuilder updatesDuringRange;
-		if (sourceIsParent) {
-			updatesDuringRange = versionControlHelper.getUpdatesOnBranchOrAncestorsDuringRangeQuery(path, start, end);
-		} else {
-			updatesDuringRange = versionControlHelper.getUpdatesOnBranchDuringRangeCriteria(path, start, end);
-		}
-
-		// Find new or ended versions of each component type and collect the conceptId they relate to
-		logger.debug("Collecting concept changes for change report: branch {} time range {} to {}", path, start, end);
-
-		TimerUtil timerUtil = new TimerUtil("Collecting changes");
-		NativeSearchQuery conceptsWithNewVersionsQuery = new NativeSearchQueryBuilder()
-				.withQuery(updatesDuringRange)
-				.withPageable(LARGE_PAGE)
-				.withSort(SortBuilders.fieldSort("start"))
-				.withFields(Concept.Fields.CONCEPT_ID)
-				.build();
-		try (final SearchHitsIterator<Concept> stream = elasticsearchTemplate.searchForStream(conceptsWithNewVersionsQuery, Concept.class)) {
-			stream.forEachRemaining(hit -> changedConcepts.add(parseLong(hit.getContent().getConceptId())));
-		}
-
-		logger.debug("Collecting description changes for change report: branch {} time range {} to {}", path, start, end);
-		AtomicLong descriptions = new AtomicLong();
-		NativeSearchQuery descQuery = newSearchQuery(updatesDuringRange)
-				.withFilter(termQuery(Description.Fields.TYPE_ID, Concepts.FSN))
-				.withFields(Description.Fields.CONCEPT_ID)
-				.build();
-		try (final SearchHitsIterator<Description> stream = elasticsearchTemplate.searchForStream(descQuery, Description.class)) {
-			stream.forEachRemaining(hit -> {
-				changedConcepts.add(parseLong(hit.getContent().getConceptId()));
-				descriptions.incrementAndGet();
-			});
-		}
-		timerUtil.checkpoint("descriptions " + descriptions.get());
-
-		logger.debug("Collecting relationship changes for change report: branch {} time range {} to {}", path, start, end);
-		AtomicLong relationships = new AtomicLong();
-		NativeSearchQuery relQuery = newSearchQuery(updatesDuringRange)
-				.withFields(Relationship.Fields.SOURCE_ID)
-				.build();
-		try (final SearchHitsIterator<Relationship> stream = elasticsearchTemplate.searchForStream(relQuery, Relationship.class)) {
-			stream.forEachRemaining(hit -> {
-				changedConcepts.add(parseLong(hit.getContent().getSourceId()));
-				relationships.incrementAndGet();
-			});
-		}
-		timerUtil.checkpoint("relationships " + relationships.get());
-
-		logger.debug("Collecting refset member changes for change report: branch {} time range {} to {}", path, start, end);
-		NativeSearchQuery memberQuery = newSearchQuery(updatesDuringRange)
-				.withFilter(boolQuery().must(existsQuery(ReferenceSetMember.Fields.CONCEPT_ID)))
-				.withFields(ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID, ReferenceSetMember.Fields.CONCEPT_ID)
-				.build();
-		try (final SearchHitsIterator<ReferenceSetMember> stream = elasticsearchTemplate.searchForStream(memberQuery, ReferenceSetMember.class)) {
-			stream.forEachRemaining(hit -> referenceComponentIdToConceptMap.put(parseLong(hit.getContent().getReferencedComponentId()), parseLong(hit.getContent().getConceptId())));
-		}
-
-		// Filter out changes for active Synonyms
-		// Inactive synonym changes should be included to avoid inactivation indicator / association clashes
-		List<Long> synonymAndTextDefIds = new LongArrayList();
-		NativeSearchQueryBuilder synonymQuery = new NativeSearchQueryBuilder()
-				.withQuery(versionControlHelper.getBranchCriteria(branch).getEntityBranchCriteria(Description.class))
-				.withFilter(boolQuery()
-						.mustNot(termQuery(Description.Fields.TYPE_ID, Concepts.FSN))
-						.must(termsQuery(Description.Fields.DESCRIPTION_ID, referenceComponentIdToConceptMap.keySet()))
-						.must(termQuery(Description.Fields.ACTIVE, true)));
-		try (final SearchHitsIterator<Description> stream = elasticsearchTemplate.searchForStream(synonymQuery.build(), Description.class)) {
-			stream.forEachRemaining(hit -> synonymAndTextDefIds.add(parseLong(hit.getContent().getDescriptionId())));
-		}
-
-		// Keep preferred terms if any
-		NativeSearchQuery languageMemberQuery = newSearchQuery(updatesDuringRange)
-				.withFilter(boolQuery()
-						.must(existsQuery(ReferenceSetMember.Fields.CONCEPT_ID))
-						.must(termsQuery(ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID, synonymAndTextDefIds))
-						.must(termsQuery(ReferenceSetMember.LanguageFields.ACCEPTABILITY_ID_FIELD_PATH, Concepts.PREFERRED)))
-				.withFields(ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID)
-				.build();
-		try (final SearchHitsIterator<ReferenceSetMember> stream = elasticsearchTemplate.searchForStream(languageMemberQuery, ReferenceSetMember.class)) {
-			stream.forEachRemaining(hit -> preferredDescriptionIds.add(parseLong(hit.getContent().getReferencedComponentId())));
-		}
-
-		Set<Long> changedComponents = referenceComponentIdToConceptMap.keySet()
-				.stream()
-				.filter(r -> preferredDescriptionIds.contains(r) || !synonymAndTextDefIds.contains(r))
-				.collect(Collectors.toSet());
-
-		for (Long componentId : changedComponents) {
-			changedConcepts.add(referenceComponentIdToConceptMap.get(componentId));
-		}
-
-		logger.info("Change report complete for branch {} time range {} to {}", path, start, end);
-
-		return changedConcepts;
-	}
-
-	private NativeSearchQueryBuilder componentsReplacedCriteria(Set<String> versionsReplaced, String... limitFieldsFetched) {
-		NativeSearchQueryBuilder builder = new NativeSearchQueryBuilder()
-				.withQuery(boolQuery()
-						.must(termsQuery("_id", versionsReplaced))
-						.mustNot(getNonStatedRelationshipClause()))
-				.withPageable(LARGE_PAGE);
-		if (limitFieldsFetched.length > 0) {
-			builder.withFields(limitFieldsFetched);
-		}
-		return builder;
-	}
-
-	private NativeSearchQueryBuilder newSearchQuery(BoolQueryBuilder branchUpdatesCriteria) {
-		return new NativeSearchQueryBuilder()
-				.withQuery(boolQuery()
-						.must(branchUpdatesCriteria)
-						.mustNot(getNonStatedRelationshipClause()))
-				.withPageable(LARGE_PAGE);
-	}
-
-	private QueryBuilder getNonStatedRelationshipClause() {
-		return termsQuery(Relationship.Fields.CHARACTERISTIC_TYPE_ID, Concepts.INFERRED_RELATIONSHIP, Concepts.ADDITIONAL_RELATIONSHIP);
+		return start;
 	}
 
 	/**
