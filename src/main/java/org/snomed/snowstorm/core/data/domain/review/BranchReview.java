@@ -8,6 +8,7 @@ import org.springframework.data.elasticsearch.annotations.FieldType;
 
 import javax.validation.constraints.NotNull;
 import java.util.Date;
+import java.util.HashSet;
 import java.util.Set;
 
 @Document(indexName = "branch-review")
@@ -81,5 +82,13 @@ public class BranchReview {
 
 	public void setChangedConcepts(Set<Long> changedConcepts) {
 		this.changedConcepts = changedConcepts;
+	}
+
+	public void addChangedConcepts(Set<Long> changedConcepts) {
+		if (this.changedConcepts == null) {
+			this.changedConcepts = new HashSet<>();
+		}
+
+		this.changedConcepts.addAll(changedConcepts);
 	}
 }
