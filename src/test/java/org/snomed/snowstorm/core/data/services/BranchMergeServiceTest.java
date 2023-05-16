@@ -33,6 +33,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.elasticsearch.core.ElasticsearchRestTemplate;
 import org.springframework.data.elasticsearch.core.SearchHit;
+import org.springframework.data.elasticsearch.core.SearchHitsIterator;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
 
@@ -44,8 +45,7 @@ import java.util.stream.IntStream;
 
 import static io.kaicode.elasticvc.api.ComponentService.LARGE_PAGE;
 import static java.util.function.Predicate.not;
-import static org.elasticsearch.index.query.QueryBuilders.boolQuery;
-import static org.elasticsearch.index.query.QueryBuilders.termsQuery;
+import static org.elasticsearch.index.query.QueryBuilders.*;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.snomed.snowstorm.config.Config.DEFAULT_LANGUAGE_DIALECTS;
@@ -3857,6 +3857,798 @@ class BranchMergeServiceTest extends AbstractTest {
 
 		for (MergeReviewConceptVersions conflict : conflicts) {
 			assertTrue(conflict.isTargetConceptVersionBehind());
+		}
+	}
+
+	@Test
+	void testRebaseDescriptionOntoDeletedConcept() throws ServiceException, InterruptedException {
+		Concept concept;
+		MergeReview mergeReview;
+		Collection<MergeReviewConceptVersions> conflicts;
+
+		// Create project
+		branchService.create("MAIN/projectA");
+
+		// Create task A
+		branchService.create("MAIN/projectA/taskA");
+
+		// Create Concept on task A
+		String fakeDiseaseId = conceptService.create(new Concept()
+				.addDescription(new Description("Fake disease (disorder)").setTypeId(FSN))
+				.addDescription(new Description("Fake disease").setTypeId(SYNONYM))
+				.addAxiom(new Relationship(ISA, SNOMEDCT_ROOT)), "MAIN/projectA/taskA").getConceptId();
+
+		// Promote task A to project
+		branchMergeService.mergeBranchSync("MAIN/projectA/taskA", "MAIN/projectA", Collections.emptySet());
+
+		// Assert Concept exists on project
+		concept = conceptService.find(fakeDiseaseId, "MAIN/projectA");
+		assertNotNull(concept);
+
+		// Create task B (for deleting Concept)
+		branchService.create("MAIN/projectA/taskB");
+
+		// Create task C (for adding Description)
+		branchService.create("MAIN/projectA/taskC");
+
+		// Assert Concept exists on task B before deletion
+		concept = conceptService.find(fakeDiseaseId, "MAIN/projectA/taskB");
+		assertNotNull(concept);
+
+		// Delete Concept on task B
+		conceptService.deleteConceptAndComponents(fakeDiseaseId, "MAIN/projectA/taskB", false);
+
+		// Assert Concept deleted on task B
+		concept = conceptService.find(fakeDiseaseId, "MAIN/projectA/taskB");
+		assertNull(concept);
+
+		// Add Description to Concept on task C
+		concept = conceptService.find(fakeDiseaseId, "MAIN/projectA/taskC");
+		concept.addDescription(new Description("Not a real disease").setTypeId(SYNONYM));
+		conceptService.update(concept, "MAIN/projectA/taskC");
+
+		// Assert Concept exists on project before promotion
+		concept = conceptService.find(fakeDiseaseId, "MAIN/projectA");
+		assertNotNull(concept);
+
+		// Promote task B (Concept has been deleted)
+		branchMergeService.mergeBranchSync("MAIN/projectA/taskB", "MAIN/projectA", Collections.emptySet());
+
+		// Assert Concept doesn't exist on project after promotion
+		concept = conceptService.find(fakeDiseaseId, "MAIN/projectA");
+		assertNull(concept);
+
+		// Prepare task C for promotion by rebasing (deleted Concept onto new Description)
+		mergeReview = getMergeReviewInCurrentState("MAIN/projectA", "MAIN/projectA/taskC");
+		conflicts = reviewService.getMergeReviewConflictingConcepts(mergeReview.getId(), new ArrayList<>());
+		assertFalse(conflicts.isEmpty());
+	}
+
+	@Test
+	void testRebaseDescriptionOntoDeletedCodeSystemConcept() throws ServiceException, InterruptedException {
+		Concept concept;
+		MergeReview mergeReview;
+		Collection<MergeReviewConceptVersions> conflicts;
+
+		// Create project
+		branchService.create("MAIN/projectA");
+
+		// Create task A
+		branchService.create("MAIN/projectA/taskA");
+
+		// Create Concept on task A
+		String fakeDiseaseId = conceptService.create(new Concept()
+				.addDescription(new Description("Fake disease (disorder)").setTypeId(FSN))
+				.addDescription(new Description("Fake disease").setTypeId(SYNONYM))
+				.addAxiom(new Relationship(ISA, SNOMEDCT_ROOT)), "MAIN/projectA/taskA").getConceptId();
+
+		// Promote task A to project
+		branchMergeService.mergeBranchSync("MAIN/projectA/taskA", "MAIN/projectA", Collections.emptySet());
+
+		// Assert Concept exists on project
+		concept = conceptService.find(fakeDiseaseId, "MAIN/projectA");
+		assertNotNull(concept);
+
+		// Promote project to code system
+		branchMergeService.mergeBranchSync("MAIN/projectA", "MAIN", Collections.emptySet());
+
+		// Assert Concept exists on code system
+		concept = conceptService.find(fakeDiseaseId, "MAIN");
+		assertNotNull(concept);
+
+		// Create task B (for deleting Concept)
+		branchService.create("MAIN/projectA/taskB");
+
+		// Create task C (for adding Description)
+		branchService.create("MAIN/projectA/taskC");
+
+		// Assert Concept exists on task B before deletion
+		concept = conceptService.find(fakeDiseaseId, "MAIN/projectA/taskB");
+		assertNotNull(concept);
+
+		// Delete Concept on task B
+		conceptService.deleteConceptAndComponents(fakeDiseaseId, "MAIN/projectA/taskB", false);
+
+		// Assert Concept deleted on task B
+		concept = conceptService.find(fakeDiseaseId, "MAIN/projectA/taskB");
+		assertNull(concept);
+
+		// Add Description to Concept on task C
+		concept = conceptService.find(fakeDiseaseId, "MAIN/projectA/taskC");
+		concept.addDescription(new Description("Not a real disease").setTypeId(SYNONYM));
+		conceptService.update(concept, "MAIN/projectA/taskC");
+
+		// Assert Concept exists on project before promotion
+		concept = conceptService.find(fakeDiseaseId, "MAIN/projectA");
+		assertNotNull(concept);
+
+		// Promote task B (Concept has been deleted)
+		branchMergeService.mergeBranchSync("MAIN/projectA/taskB", "MAIN/projectA", Collections.emptySet());
+
+		// Assert Concept doesn't exist on project after promotion
+		concept = conceptService.find(fakeDiseaseId, "MAIN/projectA");
+		assertNull(concept);
+
+		// Promote project (Concept has been deleted)
+		branchMergeService.mergeBranchSync("MAIN/projectA", "MAIN", Collections.emptySet());
+
+		// Assert Concept doesn't exist on code system after promotion
+		concept = conceptService.find(fakeDiseaseId, "MAIN");
+		assertNull(concept);
+
+		// Prepare task C for promotion by rebasing (deleted Concept onto new Description)
+		mergeReview = getMergeReviewInCurrentState("MAIN/projectA", "MAIN/projectA/taskC");
+		conflicts = reviewService.getMergeReviewConflictingConcepts(mergeReview.getId(), new ArrayList<>());
+		assertFalse(conflicts.isEmpty());
+	}
+
+	@Test
+	void testRebaseDeletedConceptOntoDescription() throws ServiceException, InterruptedException {
+		Concept concept;
+		MergeReview mergeReview;
+		Collection<MergeReviewConceptVersions> conflicts;
+
+		// Create project
+		branchService.create("MAIN/projectA");
+
+		// Create task A
+		branchService.create("MAIN/projectA/taskA");
+
+		// Create Concept on task A
+		String fakeDiseaseId = conceptService.create(new Concept()
+				.addDescription(new Description("Fake disease (disorder)").setTypeId(FSN))
+				.addDescription(new Description("Fake disease").setTypeId(SYNONYM))
+				.addAxiom(new Relationship(ISA, SNOMEDCT_ROOT)), "MAIN/projectA/taskA").getConceptId();
+
+		// Promote task A to project
+		branchMergeService.mergeBranchSync("MAIN/projectA/taskA", "MAIN/projectA", Collections.emptySet());
+
+		// Assert Concept exists on project
+		concept = conceptService.find(fakeDiseaseId, "MAIN/projectA");
+		assertNotNull(concept);
+
+		// Create task B (for deleting Concept)
+		branchService.create("MAIN/projectA/taskB");
+
+		// Create task C (for adding Description)
+		branchService.create("MAIN/projectA/taskC");
+
+		// Assert Concept exists on task B before deletion
+		concept = conceptService.find(fakeDiseaseId, "MAIN/projectA/taskB");
+		assertNotNull(concept);
+
+		// Delete Concept on task B
+		conceptService.deleteConceptAndComponents(fakeDiseaseId, "MAIN/projectA/taskB", false);
+
+		// Assert Concept deleted on task B
+		concept = conceptService.find(fakeDiseaseId, "MAIN/projectA/taskB");
+		assertNull(concept);
+
+		// Add Description to Concept on task C
+		concept = conceptService.find(fakeDiseaseId, "MAIN/projectA/taskC");
+		concept.addDescription(new Description("Not a real disease").setTypeId(SYNONYM));
+		conceptService.update(concept, "MAIN/projectA/taskC");
+
+		// Assert Concept's Descriptions before promotion
+		concept = conceptService.find(fakeDiseaseId, "MAIN/projectA");
+		assertEquals(2, concept.getDescriptions().size());
+
+		// Promote task C (Concept has new Description)
+		branchMergeService.mergeBranchSync("MAIN/projectA/taskC", "MAIN/projectA", Collections.emptySet());
+
+		// Assert Concept's Descriptions after promotion
+		concept = conceptService.find(fakeDiseaseId, "MAIN/projectA");
+		assertEquals(3, concept.getDescriptions().size());
+
+		// Prepare task C for promotion by rebasing (new Description onto deleted Concept)
+		mergeReview = getMergeReviewInCurrentState("MAIN/projectA", "MAIN/projectA/taskB");
+		conflicts = reviewService.getMergeReviewConflictingConcepts(mergeReview.getId(), new ArrayList<>());
+		assertEquals(1, conflicts.size());
+	}
+
+	@Test
+	void testRebasedDeletedConceptOntoRevertedDescription() throws ServiceException, InterruptedException {
+		Concept concept;
+		MergeReview mergeReview;
+		Collection<MergeReviewConceptVersions> conflicts;
+		Description description;
+
+		// Create project
+		String project = "MAIN/project";
+		branchService.create(project);
+
+		// Create task A
+		String taskA = "MAIN/project/taskA";
+		branchService.create(taskA);
+
+		// Create Concept on task A
+		String vehicleId = conceptService.create(new Concept()
+				.addDescription(new Description("Vehicle (vehicle)").setTypeId(FSN))
+				.addDescription(new Description("Vehicle").setTypeId(SYNONYM))
+				.addAxiom(new Relationship(ISA, SNOMEDCT_ROOT)), taskA).getConceptId();
+
+		// Promote task A to project
+		branchMergeService.mergeBranchSync(taskA, project, Collections.emptySet());
+
+		// Create task B
+		String taskB = "MAIN/project/taskB";
+		branchService.create(taskB);
+
+		// Create task C
+		String taskC = "MAIN/project/taskC";
+		branchService.create(taskC);
+
+		// Delete on task B
+		conceptService.deleteConceptAndComponents(vehicleId, taskB, false);
+
+		// Add on task C
+		concept = conceptService.find(vehicleId, taskC);
+		concept.addDescription(new Description("Motorised vehicle").setTypeId(SYNONYM));
+		conceptService.update(concept, taskC);
+
+		// Promote task B
+		branchMergeService.mergeBranchSync(taskB, project, Collections.emptySet());
+
+		// Delete newly added Description
+		concept = conceptService.find(vehicleId, taskC);
+		description = getDescription(concept, "Motorised vehicle");
+		descriptionService.deleteDescription(description, taskC, false);
+
+		// Rebase task C
+		mergeReview = getMergeReviewInCurrentState(project, taskC);
+		conflicts = reviewService.getMergeReviewConflictingConcepts(mergeReview.getId(), new ArrayList<>());
+		assertTrue(conflicts.isEmpty()); // No conflicts as synonym was reverted.
+	}
+
+	@Test
+	void testRebasedRevertedDescriptionOntoDeletedConcept() throws ServiceException, InterruptedException {
+		Concept concept;
+		MergeReview mergeReview;
+		Collection<MergeReviewConceptVersions> conflicts;
+		Description description;
+
+		// Create project
+		String project = "MAIN/project";
+		branchService.create(project);
+
+		// Create task A
+		String taskA = "MAIN/project/taskA";
+		branchService.create(taskA);
+
+		// Create Concept on task A
+		String vehicleId = conceptService.create(new Concept()
+				.addDescription(new Description("Vehicle (vehicle)").setTypeId(FSN))
+				.addDescription(new Description("Vehicle").setTypeId(SYNONYM))
+				.addAxiom(new Relationship(ISA, SNOMEDCT_ROOT)), taskA).getConceptId();
+
+		// Promote task A to project
+		branchMergeService.mergeBranchSync(taskA, project, Collections.emptySet());
+
+		// Create task B
+		String taskB = "MAIN/project/taskB";
+		branchService.create(taskB);
+
+		// Create task C
+		String taskC = "MAIN/project/taskC";
+		branchService.create(taskC);
+
+		// Delete on task B
+		conceptService.deleteConceptAndComponents(vehicleId, taskB, false);
+
+		// Add on task C, delete on task D
+		concept = conceptService.find(vehicleId, taskC);
+		concept.addDescription(new Description("Motorised vehicle").setTypeId(SYNONYM));
+		conceptService.update(concept, taskC);
+		branchMergeService.mergeBranchSync(taskC, project, Collections.emptySet());
+		String taskD = "MAIN/project/taskD";
+		branchService.create(taskD);
+		concept = conceptService.find(vehicleId, taskD);
+		description = getDescription(concept, "Motorised vehicle");
+		descriptionService.deleteDescription(description, taskD, false);
+
+		// Promote task D
+		branchMergeService.mergeBranchSync(taskD, project, Collections.emptySet());
+
+		// Rebase task B
+		mergeReview = getMergeReviewInCurrentState(project, taskB);
+		conflicts = reviewService.getMergeReviewConflictingConcepts(mergeReview.getId(), new ArrayList<>());
+		assertTrue(conflicts.isEmpty()); // No conflicts as synonym was reverted.
+	}
+
+	@Test
+	void testRebasingDeletedAndModifiedDescriptionsAndConcepts() throws ServiceException, InterruptedException {
+		Concept concept;
+		MergeReview mergeReview;
+		Collection<MergeReviewConceptVersions> conflicts;
+
+		// Create project
+		String project = "MAIN/project";
+		branchService.create(project);
+
+		// Create task A
+		String taskA = "MAIN/project/taskA";
+		branchService.create(taskA);
+
+		// Create Concepts on task A
+		String vehicleId = conceptService.create(new Concept()
+				.addDescription(new Description("Vehicle (vehicle)").setTypeId(FSN))
+				.addDescription(new Description("Vehicle").setTypeId(SYNONYM))
+				.addAxiom(new Relationship(ISA, SNOMEDCT_ROOT)), taskA).getConceptId();
+
+		String deviceId = conceptService.create(new Concept()
+				.addDescription(new Description("Device (device)").setTypeId(FSN))
+				.addDescription(new Description("Device").setTypeId(SYNONYM))
+				.addAxiom(new Relationship(ISA, SNOMEDCT_ROOT)), taskA).getConceptId();
+
+		// Promote task A to project
+		branchMergeService.mergeBranchSync(taskA, project, Collections.emptySet());
+
+		// Create task B (delete Vehicle, modify Device)
+		String taskB = "MAIN/project/taskB";
+		branchService.create(taskB);
+
+		// Create task C (modify Vehicle, delete Device)
+		String taskC = "MAIN/project/taskC";
+		branchService.create(taskC);
+
+		// Apply changes on task B
+		conceptService.deleteConceptAndComponents(vehicleId, taskB, false);
+		concept = conceptService.find(deviceId, taskB);
+		concept.addDescription(new Description("Thing").setTypeId(SYNONYM));
+		conceptService.update(concept, taskB);
+
+		// Apply changes on task C
+		conceptService.deleteConceptAndComponents(deviceId, taskC, false);
+		concept = conceptService.find(vehicleId, taskC);
+		concept.addDescription(new Description("Motorised vehicle").setTypeId(SYNONYM));
+		conceptService.update(concept, taskC);
+
+		// Promote task B
+		branchMergeService.mergeBranchSync(taskB, project, Collections.emptySet());
+
+		// Rebase task C
+		mergeReview = getMergeReviewInCurrentState(project, taskC);
+		conflicts = reviewService.getMergeReviewConflictingConcepts(mergeReview.getId(), new ArrayList<>());
+		assertEquals(2, conflicts.size());
+	}
+
+	@Test
+	void testRebaseDeletedConceptOntoReferenceSetMember() throws ServiceException, InterruptedException {
+		Concept concept;
+		MergeReview mergeReview;
+		Collection<MergeReviewConceptVersions> conflicts;
+
+		// Create project
+		branchService.create("MAIN/projectA");
+
+		// Create task A
+		branchService.create("MAIN/projectA/taskA");
+
+		// Create Concept on task A
+		String fakeDiseaseId = conceptService.create(new Concept()
+				.addDescription(new Description("Fake disease (disorder)").setTypeId(FSN))
+				.addDescription(new Description("Fake disease").setTypeId(SYNONYM))
+				.addAxiom(new Relationship(ISA, SNOMEDCT_ROOT)), "MAIN/projectA/taskA").getConceptId();
+
+		// Promote task A to project
+		branchMergeService.mergeBranchSync("MAIN/projectA/taskA", "MAIN/projectA", Collections.emptySet());
+
+		// Assert Concept exists on project
+		concept = conceptService.find(fakeDiseaseId, "MAIN/projectA");
+		assertNotNull(concept);
+
+		// Create task B (for deleting Concept)
+		branchService.create("MAIN/projectA/taskB");
+
+		// Create task C (for adding Axiom)
+		branchService.create("MAIN/projectA/taskC");
+
+		// Assert Concept exists on task B before deletion
+		concept = conceptService.find(fakeDiseaseId, "MAIN/projectA/taskB");
+		assertNotNull(concept);
+
+		// Delete Concept on task B
+		conceptService.deleteConceptAndComponents(fakeDiseaseId, "MAIN/projectA/taskB", false);
+
+		// Assert Concept deleted on task B
+		concept = conceptService.find(fakeDiseaseId, "MAIN/projectA/taskB");
+		assertNull(concept);
+
+		// Add second Axiom to Concept on task C
+		concept = conceptService.find(fakeDiseaseId, "MAIN/projectA/taskC");
+		concept.addAxiom(new Relationship(ISA, SNOMEDCT_ROOT));
+		conceptService.update(concept, "MAIN/projectA/taskC");
+
+		// Assert Concept's Axioms before promotion
+		concept = conceptService.find(fakeDiseaseId, "MAIN/projectA");
+		assertEquals(1, concept.getClassAxioms().size());
+
+		// Promote task C (Concept has new second Axiom)
+		branchMergeService.mergeBranchSync("MAIN/projectA/taskC", "MAIN/projectA", Collections.emptySet());
+
+		// Assert Concept's Axiomd after promotion
+		concept = conceptService.find(fakeDiseaseId, "MAIN/projectA");
+		assertEquals(2, concept.getClassAxioms().size());
+
+		// Prepare task C for promotion by rebasing (new Axiom onto deleted Concept)
+		mergeReview = getMergeReviewInCurrentState("MAIN/projectA", "MAIN/projectA/taskB");
+		conflicts = reviewService.getMergeReviewConflictingConcepts(mergeReview.getId(), new ArrayList<>());
+		assertEquals(1, conflicts.size());
+	}
+
+	@Test
+	void testRebaseDeletedConceptsOntoDescriptions() throws ServiceException, InterruptedException {
+		Concept concept;
+		MergeReview mergeReview;
+		Collection<MergeReviewConceptVersions> conflicts;
+
+		// Create project
+		branchService.create("MAIN/projectA");
+
+		// Create task A
+		branchService.create("MAIN/projectA/taskA");
+
+		// Create Concept on task A
+		String fakeDiseaseId = conceptService.create(new Concept()
+				.addDescription(new Description("Fake disease (disorder)").setTypeId(FSN))
+				.addDescription(new Description("Fake disease").setTypeId(SYNONYM))
+				.addAxiom(new Relationship(ISA, SNOMEDCT_ROOT)), "MAIN/projectA/taskA").getConceptId();
+
+		String vehicleId = conceptService.create(new Concept()
+				.addDescription(new Description("Vehicle (vehicle)").setTypeId(FSN))
+				.addDescription(new Description("Vehicle").setTypeId(SYNONYM))
+				.addAxiom(new Relationship(ISA, SNOMEDCT_ROOT)), "MAIN/projectA/taskA").getConceptId();
+
+		// Promote task A to project
+		branchMergeService.mergeBranchSync("MAIN/projectA/taskA", "MAIN/projectA", Collections.emptySet());
+
+		// Assert Concept exists on project
+		concept = conceptService.find(fakeDiseaseId, "MAIN/projectA");
+		assertNotNull(concept);
+		concept = conceptService.find(vehicleId, "MAIN/projectA");
+		assertNotNull(concept);
+
+		// Create task B (for deleting Concept)
+		branchService.create("MAIN/projectA/taskB");
+
+		// Create task C (for adding Description)
+		branchService.create("MAIN/projectA/taskC");
+
+		// Assert Concept exists on task B before deletion
+		concept = conceptService.find(fakeDiseaseId, "MAIN/projectA/taskB");
+		assertNotNull(concept);
+		concept = conceptService.find(vehicleId, "MAIN/projectA/taskB");
+		assertNotNull(concept);
+
+		// Delete Concept on task B
+		conceptService.deleteConceptAndComponents(fakeDiseaseId, "MAIN/projectA/taskB", false);
+		conceptService.deleteConceptAndComponents(vehicleId, "MAIN/projectA/taskB", false);
+
+		// Assert Concept deleted on task B
+		concept = conceptService.find(fakeDiseaseId, "MAIN/projectA/taskB");
+		assertNull(concept);
+		concept = conceptService.find(vehicleId, "MAIN/projectA/taskB");
+		assertNull(concept);
+
+		// Add Description to Concept on task C
+		concept = conceptService.find(fakeDiseaseId, "MAIN/projectA/taskC");
+		concept.addDescription(new Description("Not a real disease").setTypeId(SYNONYM));
+		conceptService.update(concept, "MAIN/projectA/taskC");
+
+		concept = conceptService.find(vehicleId, "MAIN/projectA/taskC");
+		concept.addDescription(new Description("Motorised vehicle").setTypeId(SYNONYM));
+		conceptService.update(concept, "MAIN/projectA/taskC");
+
+		// Assert Concept's Descriptions before promotion
+		concept = conceptService.find(fakeDiseaseId, "MAIN/projectA");
+		assertEquals(2, concept.getDescriptions().size());
+
+		concept = conceptService.find(vehicleId, "MAIN/projectA");
+		assertEquals(2, concept.getDescriptions().size());
+
+		// Promote task C (Concept has new Description)
+		branchMergeService.mergeBranchSync("MAIN/projectA/taskC", "MAIN/projectA", Collections.emptySet());
+
+		// Assert Concept's Descriptions after promotion
+		concept = conceptService.find(fakeDiseaseId, "MAIN/projectA");
+		assertEquals(3, concept.getDescriptions().size());
+
+		concept = conceptService.find(vehicleId, "MAIN/projectA");
+		assertEquals(3, concept.getDescriptions().size());
+
+		// Prepare task C for promotion by rebasing (new Description onto deleted Concept)
+		mergeReview = getMergeReviewInCurrentState("MAIN/projectA", "MAIN/projectA/taskB");
+		conflicts = reviewService.getMergeReviewConflictingConcepts(mergeReview.getId(), new ArrayList<>());
+		assertEquals(2, conflicts.size());
+	}
+
+	@Test
+	void testRebaseDeletedConceptOntoRevertedDescription() throws ServiceException, InterruptedException {
+		Concept concept;
+		Description description;
+		MergeReview mergeReview;
+		Collection<MergeReviewConceptVersions> conflicts;
+
+		// Create project
+		String project = branchService.create("MAIN/project").getPath();
+
+		// Create Concept on project
+		String vehicleId = conceptService.create(new Concept()
+				.addDescription(new Description("Vehicle (vehicle)").setTypeId(FSN))
+				.addDescription(new Description("Vehicle").setTypeId(SYNONYM).setCaseSignificanceId(CASE_INSENSITIVE))
+				.addAxiom(new Relationship(ISA, SNOMEDCT_ROOT)), project).getConceptId();
+
+		// Create task A (for deleting)
+		String taskA = branchService.create("MAIN/project/taskA").getPath();
+
+		// Create task B (for modifying synonym)
+		String taskB = branchService.create("MAIN/project/taskB").getPath();
+
+		// Delete Concept on task A
+		concept = conceptService.find(vehicleId, taskA);
+		assertNotNull(concept);
+		conceptService.deleteConceptAndComponents(vehicleId, taskA, false);
+		concept = conceptService.find(vehicleId, taskA);
+		assertNull(concept);
+
+		// Modify Description on task B
+		concept = conceptService.find(vehicleId, taskB);
+		getDescription(concept, "Vehicle").setCaseSignificanceId(ENTIRE_TERM_CASE_SENSITIVE);
+		conceptService.update(concept, taskB);
+		concept = conceptService.find(vehicleId, taskB);
+		description = getDescription(concept, "Vehicle");
+		assertEquals(ENTIRE_TERM_CASE_SENSITIVE, description.getCaseSignificanceId());
+
+		// Promote modified Description from task B to project
+		branchMergeService.mergeBranchSync(taskB, project, Collections.emptySet());
+
+		// Revert recent Description on task C
+		String taskC = branchService.create("MAIN/project/taskC").getPath();
+		concept = conceptService.find(vehicleId, taskC);
+		getDescription(concept, "Vehicle").setCaseSignificanceId(CASE_INSENSITIVE);
+		conceptService.update(concept, taskC);
+		concept = conceptService.find(vehicleId, taskC);
+		description = getDescription(concept, "Vehicle");
+		assertEquals(CASE_INSENSITIVE, description.getCaseSignificanceId());
+
+		// Promote modified Description from task C to project
+		branchMergeService.mergeBranchSync(taskC, project, Collections.emptySet());
+
+		// Rebase task A
+		mergeReview = getMergeReviewInCurrentState(project, taskA);
+		conflicts = reviewService.getMergeReviewConflictingConcepts(mergeReview.getId(), new ArrayList<>());
+		assertFalse(conflicts.isEmpty());
+	}
+
+	@Test
+	void testAddingDescriptionToConceptPromotedAllTheWayToCodeSystem() throws ServiceException, InterruptedException {
+		Concept concept;
+		MergeReview mergeReview;
+		Collection<MergeReviewConceptVersions> conflicts;
+
+		// Create project
+		branchService.create("MAIN/projectA");
+
+		// Create task A
+		branchService.create("MAIN/projectA/taskA");
+
+		// Create Concept on task A
+		String fakeDiseaseId = conceptService.create(new Concept()
+				.addDescription(new Description("Fake disease (disorder)").setTypeId(FSN))
+				.addDescription(new Description("Fake disease").setTypeId(SYNONYM))
+				.addAxiom(new Relationship(ISA, SNOMEDCT_ROOT)), "MAIN/projectA/taskA").getConceptId();
+
+		// Promote task A to project
+		branchMergeService.mergeBranchSync("MAIN/projectA/taskA", "MAIN/projectA", Collections.emptySet());
+
+		// Create task B
+		branchService.create("MAIN/projectA/taskB");
+
+		// Add Description to Concept on task B
+		concept = conceptService.find(fakeDiseaseId, "MAIN/projectA/taskB");
+		concept.addDescription(new Description("Not a real disease").setTypeId(SYNONYM));
+		conceptService.update(concept, "MAIN/projectA/taskB");
+
+		// Promote Project to CodeSystem
+		branchMergeService.mergeBranchSync("MAIN/projectA", "MAIN", Collections.emptySet());
+
+		// Assert document representing Concept on Project has been ended
+		Concept docOnProject = getConceptDocument("MAIN/projectA", fakeDiseaseId);
+		Concept docOnCodeSystem = getConceptDocument("MAIN", fakeDiseaseId);
+		assertEquals(docOnProject.getEnd(), docOnCodeSystem.getStart()); // Document has therefore been promoted
+
+		// Prepare task B for promotion by rebasing
+		mergeReview = getMergeReviewInCurrentState("MAIN/projectA", "MAIN/projectA/taskB");
+		conflicts = reviewService.getMergeReviewConflictingConcepts(mergeReview.getId(), new ArrayList<>());
+		assertTrue(conflicts.isEmpty());
+	}
+
+	@Test
+	void testDeletingConceptBeforeProjectMovesAlong() throws ServiceException, InterruptedException {
+		MergeReview mergeReview;
+		Collection<MergeReviewConceptVersions> conflicts;
+
+		// Create project
+		String project = "MAIN/project";
+		branchService.create(project);
+
+		// Create task A
+		String taskA = "MAIN/project/taskA";
+		branchService.create(taskA);
+
+		// Create Concept on task A
+		String vehicleId = conceptService.create(new Concept()
+				.addDescription(new Description("Vehicle (vehicle)").setTypeId(FSN))
+				.addDescription(new Description("Vehicle").setTypeId(SYNONYM))
+				.addAxiom(new Relationship(ISA, SNOMEDCT_ROOT)), taskA).getConceptId();
+
+		// Promote task A to project
+		branchMergeService.mergeBranchSync(taskA, project, Collections.emptySet());
+
+		// Create task B
+		String taskB = "MAIN/project/taskB";
+		branchService.create(taskB);
+
+		// Delete on task B
+		conceptService.deleteConceptAndComponents(vehicleId, taskB, false);
+
+		// Create task C
+		String taskC = "MAIN/project/taskC";
+		branchService.create(taskC);
+
+		// Create Concept on task C
+		String deviceId = conceptService.create(new Concept()
+				.addDescription(new Description("Device (device)").setTypeId(FSN))
+				.addDescription(new Description("Device").setTypeId(SYNONYM))
+				.addAxiom(new Relationship(ISA, SNOMEDCT_ROOT)), taskC).getConceptId();
+
+		// Promote task C to project
+		branchMergeService.mergeBranchSync(taskC, project, Collections.emptySet());
+
+		// Rebase task B
+		mergeReview = getMergeReviewInCurrentState(project, taskB);
+		conflicts = reviewService.getMergeReviewConflictingConcepts(mergeReview.getId(), new ArrayList<>());
+		assertTrue(conflicts.isEmpty());
+	}
+
+	@Test
+	void testRebasingAxiomChanges() throws ServiceException, InterruptedException {
+		// Create hierarchy
+		String foodHierarchy = conceptService.create(new Concept()
+				.addDescription(new Description("Food (food)").setTypeId(FSN))
+				.addDescription(new Description("Food").setTypeId(SYNONYM))
+				.addRelationship(new Relationship(ISA, SNOMEDCT_ROOT)), "MAIN").getConceptId();
+
+		String pizzaHierarchy = conceptService.create(new Concept()
+				.addDescription(new Description("Pizza (food)").setTypeId(FSN))
+				.addDescription(new Description("Pizza").setTypeId(SYNONYM))
+				.addRelationship(new Relationship(ISA, foodHierarchy)), "MAIN").getConceptId();
+
+		String pieHierarchy = conceptService.create(new Concept()
+				.addDescription(new Description("Pie (food)").setTypeId(FSN))
+				.addDescription(new Description("Pie").setTypeId(SYNONYM))
+				.addRelationship(new Relationship(ISA, foodHierarchy)), "MAIN").getConceptId();
+
+		// Create project
+		branchService.create("MAIN/projectA");
+
+		// Create pizza on project (incorrectly as top-level)
+		String pizzaId = conceptService.create(new Concept()
+				.addDescription(new Description("Cheese pizza (food)").setTypeId(FSN))
+				.addDescription(new Description("Cheese pizza").setTypeId(SYNONYM))
+				.addAxiom(new Relationship(ISA, SNOMEDCT_ROOT)), "MAIN/projectA").getConceptId();
+
+		// Create task A
+		branchService.create("MAIN/projectA/taskA");
+
+		// Create task B
+		branchService.create("MAIN/projectA/taskB");
+
+		// Fix modelling of pizza on task A by moving to pizza hierarchy
+		Concept pizza = conceptService.find(pizzaId, "MAIN/projectA/taskA");
+		pizza.getClassAxioms().iterator().next().getRelationships().forEach(r -> r.setDestinationId(pizzaHierarchy));
+		conceptService.update(pizza, "MAIN/projectA/taskA");
+
+		// Fix modelling of pizza on task B by moving to pie hierarchy
+		pizza = conceptService.find(pizzaId, "MAIN/projectA/taskB");
+		pizza.getClassAxioms().iterator().next().getRelationships().forEach(r -> r.setDestinationId(pieHierarchy));
+		conceptService.update(pizza, "MAIN/projectA/taskB");
+
+		// Promote task A to project
+		branchMergeService.mergeBranchSync("MAIN/projectA/taskA", "MAIN/projectA", Collections.emptySet());
+
+		// Rebase task B
+		MergeReview review = getMergeReviewInCurrentState("MAIN/projectA", "MAIN/projectA/taskB");
+		Collection<MergeReviewConceptVersions> conflicts = reviewService.getMergeReviewConflictingConcepts(review.getId(), new ArrayList<>());
+		assertTrue(conflicts.size() != 0);
+	}
+
+	@Test
+	void testRebasingSynonymAdditions() throws ServiceException, InterruptedException {
+		Concept concept;
+		MergeReview mergeReview;
+		Collection<MergeReviewConceptVersions> conflicts;
+
+		// Create project
+		branchService.create("MAIN/projectA");
+
+		// Create task A
+		branchService.create("MAIN/projectA/taskA");
+
+		// Create Concept on task A
+		String fakeDiseaseId = conceptService.create(new Concept()
+				.addDescription(new Description("Fake disease (disorder)").setTypeId(FSN))
+				.addDescription(new Description("Fake disease").setTypeId(SYNONYM))
+				.addAxiom(new Relationship(ISA, SNOMEDCT_ROOT)), "MAIN/projectA/taskA").getConceptId();
+
+		// Promote task A to project
+		branchMergeService.mergeBranchSync("MAIN/projectA/taskA", "MAIN/projectA", Collections.emptySet());
+
+		// Create task B
+		branchService.create("MAIN/projectA/taskB");
+
+		// Create task C
+		branchService.create("MAIN/projectA/taskC");
+
+		// Add Description to Concept on task B
+		concept = conceptService.find(fakeDiseaseId, "MAIN/projectA/taskB");
+		concept.addDescription(new Description("Cry wolf disease").setTypeId(SYNONYM));
+		conceptService.update(concept, "MAIN/projectA/taskB");
+
+		// Add Description to Concept on task C
+		concept = conceptService.find(fakeDiseaseId, "MAIN/projectA/taskC");
+		concept.addDescription(new Description("Not a real disease").setTypeId(SYNONYM));
+		conceptService.update(concept, "MAIN/projectA/taskC");
+
+		// Promote task B
+		branchMergeService.mergeBranchSync("MAIN/projectA/taskB", "MAIN/projectA", Collections.emptySet());
+
+		// Prepare task C for promotion by rebasing
+		mergeReview = getMergeReviewInCurrentState("MAIN/projectA", "MAIN/projectA/taskC");
+		conflicts = reviewService.getMergeReviewConflictingConcepts(mergeReview.getId(), new ArrayList<>());
+		assertTrue(conflicts.isEmpty());
+
+		// Assert Concept's Descriptions before rebase
+		concept = conceptService.find(fakeDiseaseId, "MAIN/projectA/taskC");
+		assertEquals(3, concept.getDescriptions().size());
+
+		// Finalise rebase
+		reviewService.applyMergeReview(mergeReview);
+
+		// Assert Concept's Descriptions after rebase
+		concept = conceptService.find(fakeDiseaseId, "MAIN/projectA/taskC");
+		assertEquals(4, concept.getDescriptions().size()); // Silently merged synonym
+	}
+
+	private Concept getConceptDocument(String path, String conceptId) {
+		try (final SearchHitsIterator<Concept> stream = elasticsearchTemplate.searchForStream(new NativeSearchQueryBuilder()
+				.withQuery(
+						boolQuery()
+								.must(matchQuery(Concept.Fields.PATH, path))
+								.must(matchQuery(Concept.Fields.CONCEPT_ID, conceptId))
+				)
+				.build(), Concept.class)) {
+			return stream.next().getContent();
 		}
 	}
 
