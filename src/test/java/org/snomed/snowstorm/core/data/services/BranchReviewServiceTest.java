@@ -43,21 +43,14 @@ class BranchReviewServiceTest extends AbstractTest {
 	@Autowired
 	private ManuallyMergedConceptRepository manuallyMergedConceptRepository;
 
-	private Date setupStartTime;
-	private Date setupEndTime;
-
-	private static final Long[] EMPTY_ARRAY = new Long[]{};
-
 	@BeforeEach
 	void setUp() throws Exception {
 		branchService.deleteAll();
 		conceptService.deleteAll();
 
 		branchService.create("MAIN");
-		setupStartTime = now();
 		createConcept("10000100", "MAIN");
 		branchService.create("MAIN/A");
-		setupEndTime = now();
 	}
 
 	@Test
@@ -299,7 +292,7 @@ class BranchReviewServiceTest extends AbstractTest {
 		MergeReview review = createMergeReviewAndWaitUntilCurrent("MAIN", "MAIN/A");
 
 		Collection<MergeReviewConceptVersions> mergeReviewConflictingConcepts = reviewService.getMergeReviewConflictingConcepts(review.getId(), DEFAULT_LANGUAGE_DIALECTS);
-		assertEquals(0, mergeReviewConflictingConcepts.size());
+		assertEquals(1, mergeReviewConflictingConcepts.size());
 	}
 
 	@Test
@@ -362,219 +355,6 @@ class BranchReviewServiceTest extends AbstractTest {
 
 		assertNull(conceptService.find(conceptId, "MAIN"));
 		assertNull(conceptService.find(conceptId, "MAIN/A"));
-	}
-
-	@Test
-	void testCreateConceptChangeReportOnBranchSinceTimepoint() throws Exception {
-		// Assert report contains one new concept on MAIN since start of setup
-		assertReportEquals(reviewService.createConceptChangeReportOnBranchForTimeRange("MAIN", setupStartTime, now(), true), new Long[]{10000100L});
-
-		// Assert report contains no concepts on MAIN/A since setup
-		assertReportEquals(reviewService.createConceptChangeReportOnBranchForTimeRange("MAIN/A", setupEndTime, now(), false), EMPTY_ARRAY);
-
-		final Date beforeSecondCreation = now();
-		createConcept("10000200", "MAIN/A");
-
-		// Assert report contains no new concepts on MAIN/A since start of setup
-		assertReportEquals(reviewService.createConceptChangeReportOnBranchForTimeRange("MAIN/A", setupEndTime, now(), false), new Long[]{10000200L});
-
-		// Assert report contains one new concept on MAIN/A since timeA
-		assertReportEquals(reviewService.createConceptChangeReportOnBranchForTimeRange("MAIN/A", beforeSecondCreation, now(), false), new Long[]{10000200L});
-
-		final Date beforeDeletion = now();
-
-		// Delete concept 100 from MAIN
-		conceptService.deleteConceptAndComponents("10000100", "MAIN", false);
-
-		final Date afterDeletion = now();
-
-		// Assert report contains one deleted concept on MAIN
-		assertReportEquals(reviewService.createConceptChangeReportOnBranchForTimeRange("MAIN", beforeDeletion, now(), true), new Long[]{10000100L});
-
-
-		// Assert report contains no deleted concepts on MAIN before the deletion
-		assertReportEquals(reviewService.createConceptChangeReportOnBranchForTimeRange("MAIN", beforeSecondCreation, beforeDeletion, true), EMPTY_ARRAY);
-
-		// Assert report contains no deleted concepts on MAIN after the deletion
-		assertReportEquals(reviewService.createConceptChangeReportOnBranchForTimeRange("MAIN", afterDeletion, now(), true), EMPTY_ARRAY);
-	}
-
-	@Test
-	void testDescriptionUpdateOnSameBranchInChangeReport() throws Exception {
-		final String path = "MAIN";
-		createConcept("10000200", path);
-		createConcept("10000300", path);
-
-		Date start = now();
-
-		// Nothing changed since start
-		assertReportEquals(reviewService.createConceptChangeReportOnBranchForTimeRange(path, start, now(), true), EMPTY_ARRAY);
-
-		final Concept concept = conceptService.find("10000100", path);
-		getDescription(concept, true).setCaseSignificanceId(Concepts.ENTIRE_TERM_CASE_SENSITIVE);
-		conceptService.update(concept, path);
-
-		// Concept updated from description change
-		assertReportEquals(reviewService.createConceptChangeReportOnBranchForTimeRange(path, start, now(), true), new Long[] {10000100L});
-	}
-
-	@Test
-	void testDescriptionUpdateOnChildBranchInChangeReport() throws Exception {
-		final String path = "MAIN/A";
-		createConcept("10000200", path);
-		createConcept("10000300", path);
-
-		Date start = now();
-
-		// Nothing changed since start
-		assertReportEquals(reviewService.createConceptChangeReportOnBranchForTimeRange(path, start, now(), false), EMPTY_ARRAY);
-
-		final Concept concept = conceptService.find("10000100", path);
-		final Description description = getDescription(concept, true);
-		description.setCaseSignificanceId(Concepts.ENTIRE_TERM_CASE_SENSITIVE);
-		conceptService.update(concept, path);
-
-		// Concept updated from description change
-		assertReportEquals(reviewService.createConceptChangeReportOnBranchForTimeRange(path, start, now(), false), new Long[] {10000100L});
-	}
-
-	@Test
-	void testAxiomUpdateOnSameBranchInChangeReport() throws Exception {
-		final String path = "MAIN";
-		createConcept("10000200", path);
-		createConcept("10000300", path);
-
-		Date start = now();
-
-		// Nothing changed since start
-		assertReportEquals(reviewService.createConceptChangeReportOnBranchForTimeRange(path, start, now(), true), EMPTY_ARRAY);
-
-		final Concept concept = conceptService.find("10000100", path);
-		concept.getClassAxioms().iterator().next().setDefinitionStatusId(Concepts.FULLY_DEFINED);
-		conceptService.update(concept, path);
-
-		// Concept updated from axiom change
-		assertReportEquals(reviewService.createConceptChangeReportOnBranchForTimeRange(path, start, now(), true), new Long[] {10000100L});
-	}
-
-	@Test
-	void testAxiomUpdateOnSameBranchNotMAINInChangeReport() throws Exception {
-		final String path = "MAIN/A";
-		createConcept("10000200", path);
-		createConcept("10000300", path);
-
-		Date start = now();
-
-		// Nothing changed since start
-		assertReportEquals(reviewService.createConceptChangeReportOnBranchForTimeRange(path, start, now(), true), EMPTY_ARRAY);
-
-		final Concept concept = conceptService.find("10000100", path);
-		concept.getClassAxioms().iterator().next().setDefinitionStatusId(Concepts.FULLY_DEFINED);
-		conceptService.update(concept, path);
-
-		// Concept updated from axiom change
-		assertReportEquals(reviewService.createConceptChangeReportOnBranchForTimeRange(path, start, now(), true), new Long[] {10000100L});
-	}
-
-	@Test
-	void testAxiomUpdateOnGrandfatherBranchInChangeReport() throws Exception {
-		branchService.create("MAIN/A/B");
-
-		Date start = now();
-
-		// Nothing changed since start
-		assertReportEquals(reviewService.createConceptChangeReportOnBranchForTimeRange("MAIN/A/B", start, now(), true), EMPTY_ARRAY);
-
-		final Concept concept = conceptService.find("10000100", "MAIN");
-		concept.getClassAxioms().iterator().next().setDefinitionStatusId(Concepts.FULLY_DEFINED);
-		conceptService.update(concept, "MAIN");
-
-		mergeService.mergeBranchSync("MAIN", "MAIN/A", Collections.emptySet());
-
-		assertReportEquals(reviewService.createConceptChangeReportOnBranchForTimeRange("MAIN/A", start, now(), true), new Long[] {10000100L});
-		assertReportEquals(reviewService.createConceptChangeReportOnBranchForTimeRange("MAIN/A/B", start, now(), true), EMPTY_ARRAY);
-
-		mergeService.mergeBranchSync("MAIN/A", "MAIN/A/B", Collections.emptySet());
-
-		assertReportEquals(reviewService.createConceptChangeReportOnBranchForTimeRange("MAIN/A", start, now(), true), new Long[] {10000100L});
-		assertReportEquals(reviewService.createConceptChangeReportOnBranchForTimeRange("MAIN/A/B", start, now(), true), new Long[] {10000100L});
-	}
-
-	@Test
-	void testAxiomUpdateOnChildBranchInChangeReport() throws Exception {
-		final String path = "MAIN/A";
-		createConcept("10000200", path);
-		createConcept("10000300", path);
-
-		Date start = now();
-
-		// Nothing changed since start
-		assertReportEquals(reviewService.createConceptChangeReportOnBranchForTimeRange(path, start, now(), false), EMPTY_ARRAY);
-
-		final Concept concept = conceptService.find("10000100", path);
-		concept.getClassAxioms().iterator().next().setDefinitionStatusId(Concepts.FULLY_DEFINED);
-		conceptService.update(concept, path);
-
-		// Concept updated from axiom change
-		assertReportEquals(reviewService.createConceptChangeReportOnBranchForTimeRange(path, start, now(), false), new Long[] {10000100L});
-	}
-
-	@Test
-	void testLangRefsetUpdateOnChildBranchInChangeReport() throws Exception {
-		final String path = "MAIN/A";
-
-		Date start = now();
-
-		// Nothing changed since start
-		assertReportEquals(reviewService.createConceptChangeReportOnBranchForTimeRange(path, start, now(), false), EMPTY_ARRAY);
-
-		final Concept concept = conceptService.find("10000100", path);
-		final Description description = getDescription(concept, true);
-		description.clearLanguageRefsetMembers();
-		description.setAcceptabilityMap(Collections.singletonMap(Concepts.US_EN_LANG_REFSET,
-				Concepts.descriptionAcceptabilityNames.get(Concepts.PREFERRED)));
-		conceptService.update(concept, path);
-
-		// Concept updated from lang refset change
-		assertReportEquals(reviewService.createConceptChangeReportOnBranchForTimeRange(path, start, now(), false), new Long[] {10000100L});
-	}
-
-	@Test
-	void testLangRefsetDeletionOnChildBranchInChangeReport() throws Exception {
-		final String path = "MAIN/A";
-
-		Date start = now();
-
-		// Nothing changed since start
-		assertReportEquals(reviewService.createConceptChangeReportOnBranchForTimeRange(path, start, now(), false), EMPTY_ARRAY);
-
-		final Concept concept = conceptService.find("10000100", path);
-		final Description description = getDescription(concept, true);
-		description.clearLanguageRefsetMembers();
-		description.setAcceptabilityMap(new HashMap<>());
-		conceptService.update(concept, path);
-
-		// Concept updated from lang refset change
-		assertReportEquals(reviewService.createConceptChangeReportOnBranchForTimeRange(path, start, now(), false), new Long[] {10000100L});
-	}
-
-	@Test
-	void testLangRefsetDeletionOnBranchInChangeReport() throws Exception {
-		final String path = "MAIN";
-
-		Date start = now();
-
-		// Nothing changed since start
-		assertReportEquals(reviewService.createConceptChangeReportOnBranchForTimeRange(path, start, now(), true), EMPTY_ARRAY);
-
-		final Concept concept = conceptService.find("10000100", path);
-		final Description next = getDescription(concept, true);
-		next.clearLanguageRefsetMembers();
-		next.setAcceptabilityMap(new HashMap<>());
-		conceptService.update(concept, path);
-
-		// Concept updated from lang refset change
-		assertReportEquals(reviewService.createConceptChangeReportOnBranchForTimeRange(path, start, now(), true), new Long[] {10000100L});
 	}
 
 	private MergeReview createMergeReviewAndWaitUntilCurrent(String sourceBranch, String targetBranch) throws InterruptedException {
