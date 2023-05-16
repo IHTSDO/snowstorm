@@ -22,6 +22,7 @@ public abstract class SnomedComponent<C> extends DomainEntity<C> implements IdAn
 		String RELEASE_HASH = "releaseHash";
 		String RELEASED_EFFECTIVE_TIME = "releasedEffectiveTime";
 		String PATH = "path";
+		String START = "start";
 		String END = "end";
 	}
 
