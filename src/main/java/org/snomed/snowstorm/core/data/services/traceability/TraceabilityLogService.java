@@ -296,18 +296,18 @@ public class TraceabilityLogService implements CommitListener {
 	}
 
 	private Activity.ComponentChange getChange(SnomedComponent<?> component) {
+		boolean isSuperseded = component.getEnd() != null && !component.isDeleted();
 		Activity.ChangeType type;
 		if (component.isCreating()) {
 			type = Activity.ChangeType.CREATE;
 		} else if (component.isDeleted()) {
 			type = Activity.ChangeType.DELETE;
-		} else if (!component.isActive() && component.getReleaseHash().startsWith("true")) {
-			// Make sure previous state is active
+		} else if (!component.isActive() && (isSuperseded || component.buildReleaseHash().equals(component.getReleaseHash()))) {
+			// When a change is not superseded and the release hash is different, it means there is change for inactive component (e.g module id change)
 			type = Activity.ChangeType.INACTIVATE;
 		} else {
 			type = Activity.ChangeType.UPDATE;
 		}
-
 
 		final Activity.ComponentChange componentChange = new Activity.ComponentChange(
 				Activity.ComponentType.valueOf(component.getClass().getSimpleName().replaceAll("([a-z])([A-Z]+)", "$1_$2").toUpperCase()),
@@ -315,9 +315,7 @@ public class TraceabilityLogService implements CommitListener {
 				component.getId(),
 				type,
 				component.getEffectiveTime() == null);
-		if (component.getEnd() != null && !component.isDeleted()) {
-			componentChange.setSuperseded(true);
-		}
+		componentChange.setSuperseded(isSuperseded);
 		logger.debug("Component change {} for component {}", componentChange, component);
 		return componentChange;
 	}
