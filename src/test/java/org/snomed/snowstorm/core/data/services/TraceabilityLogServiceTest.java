@@ -21,8 +21,7 @@ import java.io.IOException;
 import java.util.*;
 
 import static org.junit.jupiter.api.Assertions.*;
-import static org.snomed.snowstorm.core.data.domain.Concepts.ISA;
-import static org.snomed.snowstorm.core.data.domain.Concepts.PRIMITIVE;
+import static org.snomed.snowstorm.core.data.domain.Concepts.*;
 import static org.snomed.snowstorm.core.data.services.traceability.Activity.ActivityType.*;
 
 class TraceabilityLogServiceTest extends AbstractTest {
@@ -733,6 +732,33 @@ class TraceabilityLogServiceTest extends AbstractTest {
 		assertEquals(componentId, relationshipToBeInactivated);
 		assertEquals(Activity.ChangeType.INACTIVATE, changeType);
 		assertTrue(superseded);
+	}
+
+	@Test
+	void testUpdateInactiveComponents() throws ServiceException, InterruptedException {
+		// Create a concept
+		Concept disease = conceptService.create(new Concept("1000001").addFSN("Disease (disorder)"), "MAIN");
+		assertEquals(CORE_MODULE, disease.getModuleId());
+		// Version
+		final CodeSystem codeSystem = codeSystemService.createCodeSystem(new CodeSystem("SNOMEDCT", MAIN));
+		codeSystemService.createVersion(codeSystem, 20230131, "20230131 release");
+		// Inactivation
+		disease = conceptService.find(disease.getConceptId(), MAIN);
+		disease.setActive(false);
+		conceptService.update(disease, MAIN);
+		// Version again
+		codeSystemService.createVersion(codeSystem, 20230331, "20230331 release");
+		disease = conceptService.find(disease.getConceptId(), MAIN);
+		assertFalse(disease.isActive());
+		// Update module id
+		disease.setModuleId(MODEL_MODULE);
+		conceptService.update(disease, "MAIN");
+		// Verify traceability change type is "update" not "inactivation"
+		Activity activity = getTraceabilityActivity();
+		assertEquals(1, activity.getChangesMap().size());
+		final Set<Activity.ComponentChange> componentChanges = activity.getChanges().iterator().next().getComponentChanges();
+		assertEquals(1, componentChanges.size());
+		assertEquals(Activity.ChangeType.UPDATE, componentChanges.iterator().next().getChangeType());
 	}
 
 	private List<String> getRelationshipIds(Concept concept) {
