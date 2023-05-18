@@ -301,7 +301,8 @@ public class TraceabilityLogService implements CommitListener {
 			type = Activity.ChangeType.CREATE;
 		} else if (component.isDeleted()) {
 			type = Activity.ChangeType.DELETE;
-		} else if (!component.isActive()) {
+		} else if (!component.isActive() && component.getReleaseHash().startsWith("true")) {
+			// Make sure previous state is active
 			type = Activity.ChangeType.INACTIVATE;
 		} else {
 			type = Activity.ChangeType.UPDATE;
