@@ -707,7 +707,8 @@ class TraceabilityLogServiceTest extends AbstractTest {
 		for (Activity.ComponentChange componentChange : componentChanges) {
 			String componentId = componentChange.getComponentId();
 			if (relationshipToBeInactivated.equals(componentId)) {
-				assertEquals(Activity.ChangeType.INACTIVATE, componentChange.getChangeType());
+				// Module id change for inactive relationship
+				assertEquals(Activity.ChangeType.UPDATE, componentChange.getChangeType());
 			} else {
 				assertEquals(Activity.ChangeType.CREATE, componentChange.getChangeType());
 			}
