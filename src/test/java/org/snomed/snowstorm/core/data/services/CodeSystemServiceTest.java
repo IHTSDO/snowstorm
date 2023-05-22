@@ -1,12 +1,14 @@
 package org.snomed.snowstorm.core.data.services;
 
+import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.domain.Branch;
+import io.kaicode.elasticvc.domain.Metadata;
 import org.junit.jupiter.api.Test;
 import org.snomed.snowstorm.AbstractTest;
 import org.snomed.snowstorm.core.data.domain.CodeSystem;
+import org.snomed.snowstorm.core.data.domain.CodeSystemVersion;
 import org.springframework.beans.factory.annotation.Autowired;
 
-import java.time.Instant;
 import java.util.Set;
 
 import static java.time.Instant.now;
@@ -16,6 +18,12 @@ class CodeSystemServiceTest extends AbstractTest {
 
 	@Autowired
 	private CodeSystemService codeSystemService;
+
+	@Autowired
+	private BranchService branchService;
+
+	@Autowired
+	private  CodeSystemUpgradeService codeSystemUpgradeService;
 
 	@Test
 	void createCodeSystems() {
@@ -106,6 +114,54 @@ class CodeSystemServiceTest extends AbstractTest {
 
 		// Time points out of order
 		assertThrows(IllegalArgumentException.class, () -> codeSystemService.findVersionsByCodeSystemAndBaseTimepointRange(codeSystem, now().toEpochMilli(), now().minusMillis(2000L).toEpochMilli()));
+	}
+
+	@Test
+	void testUpdateCodeSystemBranchMetadata() throws ServiceException {
+		CodeSystem codeSystem = new CodeSystem("SNOMEDCT", "MAIN");
+		codeSystemService.createCodeSystem(codeSystem);
+		codeSystemService.createVersion(codeSystem, 20230131, "");
+		CodeSystemVersion codeSystemVersion = codeSystemService.findVersion("MAIN/2023-01-31");
+		codeSystemService.updateCodeSystemVersionPackage(codeSystemVersion, "SnomedCT_InternationalRF2_PRODUCTION_20230131T120000Z.zip");
+
+		CodeSystem extensionCodeSystem = new CodeSystem("SNOMEDCT-TEST", "MAIN/SNOMEDCT-TEST");
+		codeSystemService.createCodeSystem(extensionCodeSystem);
+		codeSystemService.createVersion(extensionCodeSystem, 20230331, "");
+		CodeSystemVersion extensionCodeSystemVersion = codeSystemService.findVersion("MAIN/SNOMEDCT-TEST/2023-03-31");
+		codeSystemService.updateCodeSystemVersionPackage(extensionCodeSystemVersion, "SnomedCT_TEST_RF2_20230331T120000Z.zip");
+
+		// Update code system branch for the first time
+		codeSystemService.updateCodeSystemBranchMetadata(extensionCodeSystem);
+		Metadata metadata = branchService.findLatest(extensionCodeSystem.getBranchPath()).getMetadata();
+		assertEquals("20230331", metadata.getString(BranchMetadataKeys.PREVIOUS_RELEASE));
+		assertEquals("SnomedCT_TEST_RF2_20230331T120000Z.zip", metadata.getString(BranchMetadataKeys.PREVIOUS_PACKAGE));
+		assertEquals("SnomedCT_InternationalRF2_PRODUCTION_20230131T120000Z.zip", metadata.getString(BranchMetadataKeys.DEPENDENCY_PACKAGE));
+		assertEquals("SnomedCT_InternationalRF2_PRODUCTION_20230131T120000Z.zip", metadata.getString(BranchMetadataKeys.PREVIOUS_DEPENDENCY_PACKAGE));
+
+		codeSystemService.createVersion(codeSystem, 20230331, "");
+		codeSystemVersion = codeSystemService.findVersion("MAIN/2023-03-31");
+		codeSystemService.updateCodeSystemVersionPackage(codeSystemVersion, "SnomedCT_InternationalRF2_PRODUCTION_20230331T120000Z.zip");
+
+		// Upgrade extension code system branch
+		codeSystemUpgradeService.upgrade(null, extensionCodeSystem, 20230331, true);
+		metadata = branchService.findLatest(extensionCodeSystem.getBranchPath()).getMetadata();
+		assertEquals("20230331", metadata.getString(BranchMetadataKeys.PREVIOUS_RELEASE));
+		assertEquals("SnomedCT_TEST_RF2_20230331T120000Z.zip", metadata.getString(BranchMetadataKeys.PREVIOUS_PACKAGE));
+		assertEquals("SnomedCT_InternationalRF2_PRODUCTION_20230331T120000Z.zip", metadata.getString(BranchMetadataKeys.DEPENDENCY_PACKAGE));
+		assertEquals("SnomedCT_InternationalRF2_PRODUCTION_20230131T120000Z.zip", metadata.getString(BranchMetadataKeys.PREVIOUS_DEPENDENCY_PACKAGE));
+
+		// Another extension release
+		codeSystemService.createVersion(extensionCodeSystem, 20230430, "");
+		extensionCodeSystemVersion = codeSystemService.findVersion("MAIN/SNOMEDCT-TEST/2023-04-30");
+		codeSystemService.updateCodeSystemVersionPackage(extensionCodeSystemVersion, "SnomedCT_TEST_RF2_20230430T120000Z.zip");
+
+		// Update metadata after another extension release
+		codeSystemService.updateCodeSystemBranchMetadata(extensionCodeSystem);
+		metadata = branchService.findLatest(extensionCodeSystem.getBranchPath()).getMetadata();
+		assertEquals("20230430", metadata.getString(BranchMetadataKeys.PREVIOUS_RELEASE));
+		assertEquals("SnomedCT_TEST_RF2_20230430T120000Z.zip", metadata.getString(BranchMetadataKeys.PREVIOUS_PACKAGE));
+		assertEquals("SnomedCT_InternationalRF2_PRODUCTION_20230331T120000Z.zip", metadata.getString(BranchMetadataKeys.DEPENDENCY_PACKAGE));
+		assertEquals("SnomedCT_InternationalRF2_PRODUCTION_20230131T120000Z.zip", metadata.getString(BranchMetadataKeys.PREVIOUS_DEPENDENCY_PACKAGE));
 	}
 
 }
