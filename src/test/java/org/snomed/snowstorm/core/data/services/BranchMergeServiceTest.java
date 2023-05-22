@@ -4640,6 +4640,112 @@ class BranchMergeServiceTest extends AbstractTest {
 		assertEquals(4, concept.getDescriptions().size()); // Silently merged synonym
 	}
 
+	@Test
+	void testRebasingDeletedConceptOntoModifiedReferenceSetMember() throws ServiceException, InterruptedException {
+		MergeReview mergeReview;
+		Collection<MergeReviewConceptVersions> conflicts;
+		Map<String, String> intPreferred = Map.of(US_EN_LANG_REFSET, descriptionAcceptabilityNames.get(PREFERRED), GB_EN_LANG_REFSET, descriptionAcceptabilityNames.get(PREFERRED));
+		Map<String, String> intAcceptable = Map.of(US_EN_LANG_REFSET, descriptionAcceptabilityNames.get(PREFERRED), GB_EN_LANG_REFSET, descriptionAcceptabilityNames.get(ACCEPTABLE));
+		Concept concept;
+		Description description;
+
+		// Create project
+		String project = "MAIN/project";
+		branchService.create(project);
+
+		// Create task A
+		String taskA = "MAIN/project/taskA";
+		branchService.create(taskA);
+
+		// Create Concept on task A
+		String vehicleId = conceptService.create(new Concept()
+				.addDescription(new Description("Vehicle (vehicle)").setTypeId(FSN).setAcceptabilityMap(intPreferred))
+				.addDescription(new Description("Vehicle").setTypeId(SYNONYM).setAcceptabilityMap(intPreferred))
+				.addDescription(new Description("Motorised vehicle").setTypeId(SYNONYM).setAcceptabilityMap(intAcceptable))
+				.addAxiom(new Relationship(ISA, SNOMEDCT_ROOT)), taskA).getConceptId();
+
+		// Promote task A to project
+		branchMergeService.mergeBranchSync(taskA, project, Collections.emptySet());
+
+		// Create task B
+		String taskB = "MAIN/project/taskB";
+		branchService.create(taskB);
+
+		// Delete on task B
+		conceptService.deleteConceptAndComponents(vehicleId, taskB, false);
+
+		// Create task C
+		String taskC = "MAIN/project/taskC";
+		branchService.create(taskC);
+
+		// Modify acceptability on task C
+		concept = conceptService.find(vehicleId, taskC);
+		description = getDescription(concept, "Motorised vehicle");
+		String memberId = description.getLangRefsetMembers().iterator().next().getMemberId();
+		memberService.deleteMember(taskC, memberId);
+
+		// Promote task B (deletion)
+		branchMergeService.mergeBranchSync(taskB, project, Collections.emptySet());
+
+		// Rebase task C (modification)
+		mergeReview = getMergeReviewInCurrentState(project, taskC);
+		conflicts = reviewService.getMergeReviewConflictingConcepts(mergeReview.getId(), new ArrayList<>());
+		assertEquals(1, conflicts.size());
+	}
+
+	@Test
+	void testRebasingModifiedReferenceSetMemberOntoDeletedConcept() throws ServiceException, InterruptedException {
+		MergeReview mergeReview;
+		Collection<MergeReviewConceptVersions> conflicts;
+		Map<String, String> intPreferred = Map.of(US_EN_LANG_REFSET, descriptionAcceptabilityNames.get(PREFERRED), GB_EN_LANG_REFSET, descriptionAcceptabilityNames.get(PREFERRED));
+		Map<String, String> intAcceptable = Map.of(US_EN_LANG_REFSET, descriptionAcceptabilityNames.get(PREFERRED), GB_EN_LANG_REFSET, descriptionAcceptabilityNames.get(ACCEPTABLE));
+		Concept concept;
+		Description description;
+
+		// Create project
+		String project = "MAIN/project";
+		branchService.create(project);
+
+		// Create task A
+		String taskA = "MAIN/project/taskA";
+		branchService.create(taskA);
+
+		// Create Concept on task A
+		String vehicleId = conceptService.create(new Concept()
+				.addDescription(new Description("Vehicle (vehicle)").setTypeId(FSN).setAcceptabilityMap(intPreferred))
+				.addDescription(new Description("Vehicle").setTypeId(SYNONYM).setAcceptabilityMap(intPreferred))
+				.addDescription(new Description("Motorised vehicle").setTypeId(SYNONYM).setAcceptabilityMap(intAcceptable))
+				.addAxiom(new Relationship(ISA, SNOMEDCT_ROOT)), taskA).getConceptId();
+
+		// Promote task A to project
+		branchMergeService.mergeBranchSync(taskA, project, Collections.emptySet());
+
+		// Create task B
+		String taskB = "MAIN/project/taskB";
+		branchService.create(taskB);
+
+		// Delete on task B
+		conceptService.deleteConceptAndComponents(vehicleId, taskB, false);
+
+		// Create task C
+		String taskC = "MAIN/project/taskC";
+		branchService.create(taskC);
+
+		// Modify acceptability on task C
+		concept = conceptService.find(vehicleId, taskC);
+		description = getDescription(concept, "Motorised vehicle");
+		String memberId = description.getLangRefsetMembers().iterator().next().getMemberId();
+		memberService.deleteMember(taskC, memberId);
+
+		// Promote task C (modification)
+		branchMergeService.mergeBranchSync(taskC, project, Collections.emptySet());
+
+		// Rebase task B (deletion)
+		mergeReview = getMergeReviewInCurrentState(project, taskB);
+		conflicts = reviewService.getMergeReviewConflictingConcepts(mergeReview.getId(), new ArrayList<>());
+		assertEquals(1, conflicts.size());
+	}
+
 	private Concept getConceptDocument(String path, String conceptId) {
 		try (final SearchHitsIterator<Concept> stream = elasticsearchTemplate.searchForStream(new NativeSearchQueryBuilder()
 				.withQuery(
