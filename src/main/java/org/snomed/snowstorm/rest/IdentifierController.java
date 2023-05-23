@@ -11,8 +11,10 @@ import org.snomed.snowstorm.core.data.domain.Identifier;
 import org.snomed.snowstorm.core.data.services.ConceptService;
 import org.snomed.snowstorm.core.data.services.DescriptionService;
 import org.snomed.snowstorm.core.data.services.IdentifierComponentService;
+import org.snomed.snowstorm.core.data.services.NotFoundException;
 import org.snomed.snowstorm.core.data.services.identifier.IdentifierService;
 import org.snomed.snowstorm.core.data.services.pojo.IdentifierSearchRequest;
+import org.snomed.snowstorm.core.data.services.pojo.ResultMapPage;
 import org.snomed.snowstorm.core.pojo.LanguageDialect;
 import org.snomed.snowstorm.rest.pojo.ItemsPage;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -20,10 +22,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -73,6 +72,33 @@ public class IdentifierController {
 		);
 		joinReferencedComponents(identifiers.getContent(), ControllerHelper.parseAcceptLanguageHeaderWithDefaultFallback(acceptLanguageHeader), branch);
 		return new ItemsPage<>(identifiers);
+	}
+
+	@GetMapping(value = "/{branch}/identifiers/{alternateIdentifier}/referenced-concept", produces = {"application/json", "text/csv"})
+	@JsonView(value = View.Component.class)
+	public ConceptMini findIdentifierReferencedConcept(
+			@PathVariable String branch,
+			@PathVariable String alternateIdentifier,
+			@Parameter(description = "Accept-Language header can take the format en-x-900000000000508004 which sets the language reference set to use in the results.")
+			@RequestHeader(value = "Accept-Language", defaultValue = Config.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) {
+		branch = BranchPathUriUtil.decodePath(branch);
+		Page<Identifier> identifiers = identifierComponentService.findIdentifiers(
+				branch,
+				new IdentifierSearchRequest().alternateIdentifier(alternateIdentifier),
+				ControllerHelper.getPageRequest(0, 50, null)
+		);
+		if (identifiers.getTotalElements() != 1) {
+			if (identifiers.getTotalElements() == 0) {
+				throw new NotFoundException(String.format("Identifier not found for alternateIdentifier %s.", alternateIdentifier) );
+			} else {
+				throw new IllegalStateException(String.format("Found more than one identifier with alternateIdentifier %s.", alternateIdentifier));
+			}
+		}
+		ResultMapPage<String, ConceptMini> conceptMinis = conceptService.findConceptMinis(branch, Collections.singleton(identifiers.getContent().iterator().next().getReferencedComponentId()),
+				ControllerHelper.parseAcceptLanguageHeaderWithDefaultFallback(acceptLanguageHeader));
+
+		ConceptMini concept = conceptMinis.getTotalElements() > 0 ? conceptMinis.getResultsMap().values().iterator().next() : null;
+		return ControllerHelper.throwIfNotFound("Concept", concept);
 	}
 
 	private void joinReferencedComponents(List<Identifier> identifiers, List<LanguageDialect> languageDialects, String branch) {
