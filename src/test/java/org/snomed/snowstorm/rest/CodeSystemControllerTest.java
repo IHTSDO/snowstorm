@@ -216,7 +216,7 @@ class CodeSystemControllerTest extends AbstractTest {
 
         Optional<CodeSystem> parentCodeSystem = codeSystemService.findByBranchPath(PathUtil.getParentPath(codeSystem.getBranchPath()));
         CodeSystemVersion parentCodeSystemVersion = codeSystemService.findVersion(parentCodeSystem.get().getShortName(), codeSystem.getDependantVersionEffectiveTime());
-        assertEquals(parentCodeSystemVersion.getReleasePackage(), receivedMetaData.get("previousDependencyPackage"));
+        assertEquals(parentCodeSystemVersion.getReleasePackage(), receivedMetaData.get("dependencyPackage"));
     }
 
     //Wrapper for given blocks as used throughout test class
