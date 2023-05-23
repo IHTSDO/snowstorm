@@ -6,6 +6,7 @@ import io.kaicode.elasticvc.api.PathUtil;
 import io.kaicode.elasticvc.api.VersionControlHelper;
 import io.kaicode.elasticvc.domain.Branch;
 import io.kaicode.elasticvc.domain.Metadata;
+import org.apache.activemq.command.ActiveMQTopic;
 import org.elasticsearch.common.Strings;
 import org.elasticsearch.search.aggregations.AggregationBuilders;
 import org.elasticsearch.search.aggregations.bucket.MultiBucketsAggregation;
@@ -37,6 +38,7 @@ import org.springframework.data.elasticsearch.core.SearchHits;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQuery;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
 import org.springframework.data.util.Pair;
+import org.springframework.jms.core.JmsTemplate;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 
@@ -95,6 +97,12 @@ public class CodeSystemService {
 
 	@Autowired
 	private ModelMapper modelMapper;
+
+	@Value("${jms.queue.prefix}")
+	private String jmsQueuePrefix;
+
+	@Autowired
+	private JmsTemplate jmsTemplate;
 
 	@Value("${codesystem.all.latest-version.allow-future}")
 	private boolean latestVersionCanBeFuture;
@@ -242,6 +250,14 @@ public class CodeSystemService {
 		versionRepository.save(new CodeSystemVersion(codeSystem.getShortName(), branch.getHead(), branchPath, effectiveDate, version, description, internalRelease));
 
 		logger.info("Versioning complete.");
+
+		Map payload = new HashMap();
+		payload.put("codeSystemShortName", codeSystem.getShortName());
+		payload.put("effectiveDate", String.valueOf(effectiveDate));
+		payload.put("versioningDate", String.valueOf(new Date().getTime()));
+		String topicDestination = jmsQueuePrefix + ".versioning.complete";
+		logger.info("Sending JMS Topic - destination {}, payload {}...", topicDestination, payload);
+		jmsTemplate.convertAndSend(new ActiveMQTopic(topicDestination), payload);
 
 		return version;
 	}
