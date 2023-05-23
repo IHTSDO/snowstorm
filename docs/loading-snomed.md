@@ -7,7 +7,7 @@ Before anything, get hold of the most recent [SNOMED CT International Edition RF
 - [Loading Release Snapshot](#loading-release-snapshot)
   * [Via REST](#via-rest)
   * [Via Command line](#via-command-line)
-- [Do not use Generated Delta Files](#do-not-use-generated-delta-files)
+- [Generated Delta File Warning](#generated-delta-file-warning)
 - [Loading Release Full Files](#loading-release-full-files)
 - [Stopping After Loading](#stopping-after-loading)
 
