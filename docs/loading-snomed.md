@@ -45,9 +45,9 @@ To delete any existing Snowstorm Elasticsearch indices and load the RF2 **Snapsh
 
 This will take between 30-60 minutes depending on the performance of your machine.
 
-## Do not use Generated Delta Files
-**Do not attempt to import generated delta files into Snowstorm!**
-Since Janurary 2022 the International Edition no longer contains RF2 delta files. There is a tool to generate delta files if required but Snowstorm can not currently import these because they can contain multiple states of SNOMED CT components. When importing generated delta files the import will complete but the content will be inconsistent. Instead use the SNAPSHOT import type when importing a new version of any release that does not contain delta files. Using a Snapshot import is slightly slower than a delta but will result in the same outcome.
+## Generated Delta File Warning
+**-latest-state flag must be used when generating delta files!**  
+Since Janurary 2022 the International Edition no longer contains RF2 delta files. There is a [tool to generate delta files](https://github.com/IHTSDO/delta-generator-tool) if they are required. If using this tool then the `-latest-state` flag **must** be used in the delta-generator-tool to prevent multiple states of components existing at the same time within Snowstorm. Alternatively simply import the new release using the SNAPSHOT import type when updating a code system. Using a Snapshot import is slightly slower than a delta but will result in the same outcome.
  
 ## Loading Release Full Files
 
