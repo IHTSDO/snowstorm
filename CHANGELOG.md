@@ -3,6 +3,15 @@ All notable changes to this project will be documented in this file.
 
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 8.2.1 Release (May 2023)
+This release improves the code system versioning process as well as upgrades project dependencies. 
+
+### Features
+- CRS-713 Send message to JMS topic when code system has been versioned.
+
+### Improvements
+- PIP-268 Upgrade spring-boot to 2.7.12.
+
 ## 8.2.0 Release (May 2023)
 This release adds the ability to load, persist and search the RF2 Identifier file (e.g. sct2_Identifier_Snapshot_INT_20230509.txt). 
 As well as this, several critical security vulnerabilities have been fixed with a mechanism implemented to fix any future 
