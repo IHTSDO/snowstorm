@@ -7,9 +7,11 @@ import org.snomed.snowstorm.config.Config;
 import org.snomed.snowstorm.core.data.domain.ConceptMini;
 import org.snomed.snowstorm.core.data.services.ServiceException;
 import org.snomed.snowstorm.mrcm.MRCMService;
+import org.snomed.snowstorm.mrcm.MRCMUpdateService;
 import org.snomed.snowstorm.mrcm.model.ContentType;
 import org.snomed.snowstorm.rest.pojo.ItemsPage;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Set;
@@ -23,6 +25,9 @@ public class MRCMController {
 
 	@Autowired
 	private MRCMService mrcmService;
+
+	@Autowired
+	private MRCMUpdateService mrcmUpdateService;
 
 	@Operation(summary = "Retrieve MRCM domain attributes applicable for the given stated parents.",
 			description = "The parentIds must be the set ids of stated parents. If creating post-coordinated expressions be sure to set the content type to POSTCOORDINATED.")
@@ -61,4 +66,11 @@ public class MRCMController {
 		return mrcmService.retrieveConceptModelAttributeHierarchy(branch, parseAcceptLanguageHeaderWithDefaultFallback(acceptLanguageHeader));
 	}
 
+	@Operation(summary = "Update MRCM domain templates on Branch.")
+	@PostMapping(value = "/mrcm/{branch}/update-domain-templates")
+	@PreAuthorize("hasPermission('AUTHOR', #branch)")
+	public void updateDomainTemplates(@PathVariable String branch) throws ServiceException {
+		branch = BranchPathUriUtil.decodePath(branch);
+		mrcmUpdateService.updateDomainTemplates(branch);
+	}
 }
