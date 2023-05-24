@@ -25,6 +25,7 @@ public class BranchMetadataHelper {
 	private static final String DISABLE_CONTENT_AUTOMATIONS_TRANSIENT_METADATA_KEY = transientKey("disableContentAutomations");
 	private static final String CREATING_CODE_SYSTEM_VERSION_TRANSIENT_METADATA_KEY = transientKey("creatingCodeSystemVersion");
 	private static final String CLASSIFICATION_COMMIT_TRANSIENT_METADATA_KEY = transientKey("classificationCommit");
+	private static final String MRCM_SKIP_COMMIT_LISTENER_TRANSIENT_METADATA_KEY = transientKey("skipMrcmUpdateService");
 
 	public static final String AUTHOR_FLAGS_METADATA_KEY = "authorFlags";
 	public static final String IMPORTING_CODE_SYSTEM_VERSION = "importingCodeSystemVersion";
@@ -61,6 +62,14 @@ public class BranchMetadataHelper {
 
 	public static boolean isClassificationCommit(Commit commit) {
 		return isTrue(getInternal(commit).get(CLASSIFICATION_COMMIT_TRANSIENT_METADATA_KEY));
+	}
+
+	public static void skipMrcmUpdateServiceCommit(Commit commit) {
+		getInternal(commit).put(MRCM_SKIP_COMMIT_LISTENER_TRANSIENT_METADATA_KEY, "true");
+	}
+
+	public static boolean isSkipMrcmUpdateServiceCommit(Commit commit) {
+		return isTrue(getInternal(commit).get(MRCM_SKIP_COMMIT_LISTENER_TRANSIENT_METADATA_KEY));
 	}
 
 	@SuppressWarnings("unchecked")

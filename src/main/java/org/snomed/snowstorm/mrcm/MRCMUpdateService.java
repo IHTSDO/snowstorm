@@ -1,7 +1,9 @@
 package org.snomed.snowstorm.mrcm;
 
 import io.kaicode.elasticvc.api.*;
+import io.kaicode.elasticvc.domain.Branch;
 import io.kaicode.elasticvc.domain.Commit;
+import io.kaicode.elasticvc.domain.Metadata;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.config.Config;
@@ -9,9 +11,7 @@ import org.snomed.snowstorm.core.data.domain.ConceptMini;
 import org.snomed.snowstorm.core.data.domain.Concepts;
 import org.snomed.snowstorm.core.data.domain.ReferenceSetMember;
 import org.snomed.snowstorm.core.data.services.BranchMetadataHelper;
-import org.snomed.snowstorm.core.data.services.ConceptService;
-import org.snomed.snowstorm.core.data.services.ReferenceSetMemberService;
-import org.snomed.snowstorm.core.data.services.ServiceException;
+import org.snomed.snowstorm.core.data.services.*;
 import org.snomed.snowstorm.ecl.ECLQueryService;
 import org.snomed.snowstorm.mrcm.model.AttributeDomain;
 import org.snomed.snowstorm.mrcm.model.AttributeRange;
@@ -66,8 +66,11 @@ public class MRCMUpdateService extends ComponentService implements CommitListene
 
 	@Override
 	public void preCommitCompletion(Commit commit) {
-		if (BranchMetadataHelper.isImportingCodeSystemVersion(commit)) {
-			logger.info("MRCM auto update is disabled on branch {}", commit.getBranch().getPath());
+		Branch branch = commit.getBranch();
+		String branchPath = branch.getPath();
+
+		if (BranchMetadataHelper.isImportingCodeSystemVersion(commit) || BranchMetadataHelper.isSkipMrcmUpdateServiceCommit(commit)) {
+			logger.info("MRCM auto update is disabled on branch {}", branchPath);
 			return;
 		}
 		if (commit.getCommitType() == CONTENT) {
