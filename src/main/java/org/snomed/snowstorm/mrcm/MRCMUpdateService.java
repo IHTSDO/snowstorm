@@ -234,7 +234,13 @@ public class MRCMUpdateService extends ComponentService implements CommitListene
 	}
 
 	private Set<String> getMRCMRefsetComponentsChanged(Commit commit) {
-		BranchCriteria branchCriteria = versionControlHelper.getBranchCriteriaChangesAndDeletionsWithinOpenCommitOnly(commit);
+		BranchCriteria branchCriteria;
+		if (BranchMetadataHelper.isSkipMrcmUpdateServiceCommit(commit)) {
+			branchCriteria = versionControlHelper.getBranchCriteria(commit.getBranch());
+		} else {
+			branchCriteria = versionControlHelper.getBranchCriteriaChangesAndDeletionsWithinOpenCommitOnly(commit);
+		}
+
 		Set<String> result = new HashSet<>();
 		try (final SearchHitsIterator<ReferenceSetMember> mrcmMembers = elasticsearchTemplate.searchForStream(new NativeSearchQueryBuilder()
 				.withQuery(boolQuery()
