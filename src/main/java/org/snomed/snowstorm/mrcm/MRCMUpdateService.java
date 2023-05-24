@@ -88,6 +88,7 @@ public class MRCMUpdateService extends ComponentService implements CommitListene
 	public void updateAllDomainTemplatesAndAttributeRules(String path) throws ServiceException {
 		logger.info("Updating all MRCM domain templates and attribute rules on branch {}.", path);
 		try (Commit commit = branchService.openCommit(path, branchMetadataHelper.getBranchLockMetadata("Updating all MRCM components."))) {
+			BranchMetadataHelper.skipMrcmUpdateServiceCommit(commit); // Transient property to skip own preCommitCompletion.
 			performUpdate(true, true, true, commit);
 			commit.markSuccessful();
 		} catch (Exception e) {
