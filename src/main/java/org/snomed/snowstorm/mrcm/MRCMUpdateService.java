@@ -73,13 +73,14 @@ public class MRCMUpdateService extends ComponentService implements CommitListene
 			logger.info("MRCM auto update is disabled on branch {}", branchPath);
 			return;
 		}
+
 		if (commit.getCommitType() == CONTENT) {
-			logger.debug("Start updating MRCM domain templates and attribute rules on branch {}.", commit.getBranch().getPath());
+			logger.debug("MRCM auto update starting for branch {}.", branchPath);
 			try {
-				performUpdate(false, commit);
-				logger.debug("End updating MRCM domain templates and attribute rules on branch {}.", commit.getBranch().getPath());
+				performUpdate(false, true, isUpdateMRCMDomainTemplates(branch), commit);
+				logger.debug("MRCM auto update ending for branch {}.", branchPath);
 			} catch (Exception e) {
-				throw new IllegalStateException("Failed to update MRCM domain templates and attribute rules." + e, e);
+				throw new IllegalStateException("Failed to run MRCM auto update for branch " + branchPath, e);
 			}
 		}
 	}
@@ -87,7 +88,7 @@ public class MRCMUpdateService extends ComponentService implements CommitListene
 	public void updateAllDomainTemplatesAndAttributeRules(String path) throws ServiceException {
 		logger.info("Updating all MRCM domain templates and attribute rules on branch {}.", path);
 		try (Commit commit = branchService.openCommit(path, branchMetadataHelper.getBranchLockMetadata("Updating all MRCM components."))) {
-			performUpdate(true, commit);
+			performUpdate(true, true, true, commit);
 			commit.markSuccessful();
 		} catch (Exception e) {
 			throw new ServiceException("Failed to update MRCM domain templates and attribute rules for all components.", e);
@@ -120,7 +121,9 @@ public class MRCMUpdateService extends ComponentService implements CommitListene
 		return domainMembers;
 	}
 
-	private void performUpdate(boolean allComponents, Commit commit) throws ServiceException {
+	private void performUpdate(boolean allComponents, boolean updateAttributeRules, boolean updateDomainTemplates, Commit commit) throws ServiceException {
+		logger.trace("MRCM auto update configuration: allComponents {}, updateAttributeRules: {}, updateDomainTemplates: {}", allComponents, updateAttributeRules, updateDomainTemplates);
+
 		String branchPath = commit.getBranch().getPath();
 		Set<String> mrcmComponentsChangedOnTask =  getMRCMRefsetComponentsChanged(commit);
 		if (!allComponents) {
@@ -168,10 +171,16 @@ public class MRCMUpdateService extends ComponentService implements CommitListene
 
 		List<ReferenceSetMember> toUpdate = new ArrayList<>();
 		List<Long> dataAttributes = getDataAttributes(branchCriteria, branchPath);
-		// Attribute rule
-		toUpdate.addAll(updateAttributeRules(commit, domainMapByDomainId, attributeToDomainsMap, attributeToRangesMap, conceptToTermMap, dataAttributes));
-		// domain templates
-		toUpdate.addAll(updateDomainTemplates(commit, domainMapByDomainId, domainToAttributesMap, attributeToRangesMap, conceptToTermMap, dataAttributes));
+		if (updateAttributeRules) {
+			// attribute rules
+			toUpdate.addAll(updateAttributeRules(commit, domainMapByDomainId, attributeToDomainsMap, attributeToRangesMap, conceptToTermMap, dataAttributes));
+		}
+
+		if (updateDomainTemplates) {
+			// domain templates
+			toUpdate.addAll(updateDomainTemplates(commit, domainMapByDomainId, domainToAttributesMap, attributeToRangesMap, conceptToTermMap, dataAttributes));
+		}
+
 		// update effective time
 		toUpdate.forEach(ReferenceSetMember::updateEffectiveTime);
 
