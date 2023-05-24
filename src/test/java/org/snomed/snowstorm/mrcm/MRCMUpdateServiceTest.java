@@ -6,9 +6,9 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.snomed.snowstorm.AbstractTest;
-import org.snomed.snowstorm.commitexplorer.CommitExplorer;
 import org.snomed.snowstorm.config.Config;
 import org.snomed.snowstorm.core.data.domain.*;
+import org.snomed.snowstorm.core.data.services.BranchMergeService;
 import org.snomed.snowstorm.core.data.services.ConceptService;
 import org.snomed.snowstorm.core.data.services.ReferenceSetMemberService;
 import org.snomed.snowstorm.core.data.services.ServiceTestUtil;
@@ -39,6 +39,12 @@ class MRCMUpdateServiceTest extends AbstractTest {
 
 	@Autowired
 	private MRCMService mrcmService;
+
+	@Autowired
+	private MRCMUpdateService mrcmUpdateService;
+
+	@Autowired
+	private BranchMergeService branchMergeService;
 
 	private ServiceTestUtil testUtil;
 
@@ -232,6 +238,135 @@ class MRCMUpdateServiceTest extends AbstractTest {
 		assertNotNull("[[0..*]] { [[0..1]] 3264475007 |CD has presentation strength numerator value| = [[+dec(>#0..)]] }",
 				biologicProductDomain.getAdditionalField("domainTemplateForPostcoordination"));
 		strengthNumeratorAttribute = memberService.findMember(branch.getPath(), strengthNumeratorAttribute.getMemberId());
+		assertNotNull(strengthNumeratorAttribute);
+	}
+
+	@Test
+	void testDomainTemplatesUpdatedOnProjectThroughTrigger() throws Exception {
+		// Create project
+		String project = "MAIN/MRCM";
+		branchService.create(project);
+
+		// Create task
+		String task = "MAIN/MRCM/task";
+		branchService.create(task);
+
+		// Create Concepts on task
+		testUtil.createConceptWithPathIdAndTerm(task, Concepts.CONCEPT_MODEL_DATA_ATTRIBUTE, "Concept model data attribute (attribute)");
+		Concept strengthConcept = new Concept("3264475007");
+		strengthConcept.addDescription(new Description("CD has presentation strength numerator value"));
+		strengthConcept.addAxiom(new Relationship(Concepts.ISA, Concepts.CONCEPT_MODEL_DATA_ATTRIBUTE));
+		conceptService.create(strengthConcept, task);
+		testUtil.createConceptWithPathIdAndTerm(task, "373873005", "Pharmaceutical / biologic product (product)");
+
+		// Create MRCM reference sets on task
+		ReferenceSetMember biologicProductDomain = new ReferenceSetMember(null, null, true,
+				Concepts.CORE_MODULE, Concepts.REFSET_MRCM_DOMAIN_INTERNATIONAL, "373873005")
+				.setAdditionalField("domainConstraint", "<< 373873005 |Pharmaceutical / biologic product (product)|")
+				.setAdditionalField("parentDomain", null)
+				.setAdditionalField("proximalPrimitiveConstraint", null)
+				.setAdditionalField("proximalPrimitiveRefinement", null)
+				.setAdditionalField("guideURL", "");
+
+		ReferenceSetMember strengthNumeratorAttribute = new ReferenceSetMember(null, null, true,
+				Concepts.CORE_MODULE, Concepts.REFSET_MRCM_ATTRIBUTE_DOMAIN_INTERNATIONAL, "3264475007")
+				.setAdditionalField("domainId", "373873005")
+				.setAdditionalField("grouped", "1")
+				.setAdditionalField("attributeCardinality", "0..*")
+				.setAdditionalField("attributeInGroupCardinality", "0..1")
+				.setAdditionalField("ruleStrengthId", "723597001")
+				.setAdditionalField("contentTypeId", "723596005");
+
+		ReferenceSetMember range = new ReferenceSetMember(null, null, true,
+				Concepts.CORE_MODULE, Concepts.REFSET_MRCM_ATTRIBUTE_RANGE_INTERNATIONAL, "3264475007")
+				.setAdditionalField("rangeConstraint", "dec(>#0..)")
+				.setAdditionalField("attributeRule", null)
+				.setAdditionalField("ruleStrengthId", "723597001")
+				.setAdditionalField("contentTypeId", "723596005");
+
+		Set<ReferenceSetMember> mrcmMembers = new HashSet<>();
+		mrcmMembers.add(biologicProductDomain);
+		mrcmMembers.add(strengthNumeratorAttribute);
+		mrcmMembers.add(range);
+		memberService.createMembers(task, mrcmMembers);
+
+		// Promote task to project
+		branchMergeService.mergeBranchSync(task, project, Collections.emptySet());
+
+		// Promote project to code system
+		branchMergeService.mergeBranchSync(project, "MAIN", Collections.emptySet());
+
+		// Assert project MRCM before trigger
+		range = memberService.findMember(project, range.getMemberId());
+		assertNotNull(range);
+		assertEquals(
+				"dec(>#0..)",
+				range.getAdditionalField("rangeConstraint")
+		);
+
+		assertEquals(
+				"<< 373873005 |Pharmaceutical / biologic product (product)|: [0..*] { [0..1] 3264475007 |CD has presentation strength numerator value| > #0 }",
+				range.getAdditionalField("attributeRule")
+		);
+
+		biologicProductDomain = memberService.findMember(project, biologicProductDomain.getMemberId());
+		assertNotNull(biologicProductDomain);
+
+		assertNull(biologicProductDomain.getAdditionalField("domainTemplateForPrecoordination"));
+		assertNull(biologicProductDomain.getAdditionalField("domainTemplateForPostcoordination"));
+
+		strengthNumeratorAttribute = memberService.findMember(project, strengthNumeratorAttribute.getMemberId());
+		assertNotNull(strengthNumeratorAttribute);
+
+		// Update project's MRCM domain templates
+		mrcmUpdateService.updateDomainTemplates(project);
+
+		// Assert project MRCM after trigger
+		range = memberService.findMember(project, range.getMemberId());
+		assertNotNull(range);
+		assertEquals(
+				"dec(>#0..)",
+				range.getAdditionalField("rangeConstraint")
+		);
+
+		assertEquals(
+				"<< 373873005 |Pharmaceutical / biologic product (product)|: [0..*] { [0..1] 3264475007 |CD has presentation strength numerator value| > #0 }",
+				range.getAdditionalField("attributeRule")
+		);
+
+		biologicProductDomain = memberService.findMember(project, biologicProductDomain.getMemberId());
+		assertNotNull(biologicProductDomain);
+		assertEquals(
+				"[[0..*]] { [[0..1]] 3264475007 |CD has presentation strength numerator value| = [[+dec(>#0..)]] }",
+				biologicProductDomain.getAdditionalField("domainTemplateForPrecoordination")
+		);
+		assertEquals(
+				"[[0..*]] { [[0..1]] 3264475007 |CD has presentation strength numerator value| = [[+dec(>#0..)]] }",
+				biologicProductDomain.getAdditionalField("domainTemplateForPostcoordination")
+		);
+
+		strengthNumeratorAttribute = memberService.findMember(project, strengthNumeratorAttribute.getMemberId());
+		assertNotNull(strengthNumeratorAttribute);
+
+		// Assert code system MRCM after trigger (domain templates only exist on project)
+		range = memberService.findMember("MAIN", range.getMemberId());
+		assertNotNull(range);
+		assertEquals(
+				"dec(>#0..)",
+				range.getAdditionalField("rangeConstraint")
+		);
+
+		assertEquals(
+				"<< 373873005 |Pharmaceutical / biologic product (product)|: [0..*] { [0..1] 3264475007 |CD has presentation strength numerator value| > #0 }",
+				range.getAdditionalField("attributeRule")
+		);
+
+		biologicProductDomain = memberService.findMember("MAIN", biologicProductDomain.getMemberId());
+		assertNotNull(biologicProductDomain);
+		assertNull(biologicProductDomain.getAdditionalField("domainTemplateForPrecoordination"));
+		assertNull(biologicProductDomain.getAdditionalField("domainTemplateForPostcoordination"));
+
+		strengthNumeratorAttribute = memberService.findMember("MAIN", strengthNumeratorAttribute.getMemberId());
 		assertNotNull(strengthNumeratorAttribute);
 	}
 }
