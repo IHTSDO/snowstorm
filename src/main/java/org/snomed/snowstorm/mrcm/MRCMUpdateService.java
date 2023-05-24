@@ -279,4 +279,17 @@ public class MRCMUpdateService extends ComponentService implements CommitListene
 	private List<Long> getDataAttributes(BranchCriteria branchCriteria, String branchPath) {
 		return eclQueryService.selectConceptIds("<<" + Concepts.CONCEPT_MODEL_DATA_ATTRIBUTE, branchCriteria, true, LARGE_PAGE).getContent();
 	}
+
+	private boolean isUpdateMRCMDomainTemplates(Branch branch) {
+		Metadata metadata = branch.getMetadata();
+		// getMapOrCreate() adds flag to Branch which is unnecessary config, therefore getMap for simple check.
+		Map<String, String> authorFlags = metadata.getMap(BranchMetadataHelper.AUTHOR_FLAGS_METADATA_KEY);
+		if (authorFlags == null) {
+			return false;
+		}
+
+		return Boolean.parseBoolean(
+				authorFlags.getOrDefault(BranchMetadataKeys.UPDATE_MRCM_DOMAIN_TEMPLATES, "false")
+		);
+	}
 }

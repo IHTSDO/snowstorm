@@ -11,4 +11,5 @@ public interface BranchMetadataKeys {
 	String SHORTNAME = "shortname";
 	String DEPENDENCY_RELEASE = "dependencyRelease";
 	String PREVIOUS_RELEASE = "previousRelease";
+	String UPDATE_MRCM_DOMAIN_TEMPLATES = "updateMRCMDomainTemplates"; // Toggle whether MRCM Domain Templates are updated during commit.
 }
