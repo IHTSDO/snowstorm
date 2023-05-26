@@ -28,6 +28,7 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 import static io.kaicode.elasticvc.domain.Commit.CommitType.CONTENT;
+import static io.kaicode.elasticvc.domain.Commit.CommitType.REBASE;
 import static java.lang.Long.parseLong;
 import static org.elasticsearch.index.query.QueryBuilders.boolQuery;
 import static org.elasticsearch.index.query.QueryBuilders.termQuery;
@@ -70,7 +71,7 @@ public class MRCMUpdateService extends ComponentService implements CommitListene
 			logger.info("MRCM auto update is disabled on branch {}", commit.getBranch().getPath());
 			return;
 		}
-		if (commit.getCommitType() == CONTENT) {
+		if (commit.getCommitType() == CONTENT || commit.getCommitType() == REBASE) {
 			logger.debug("Start updating MRCM domain templates and attribute rules on branch {}.", commit.getBranch().getPath());
 			try {
 				performUpdate(false, commit);
