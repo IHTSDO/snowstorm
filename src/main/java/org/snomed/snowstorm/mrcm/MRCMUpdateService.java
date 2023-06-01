@@ -2,6 +2,7 @@ package org.snomed.snowstorm.mrcm;
 
 import io.kaicode.elasticvc.api.*;
 import io.kaicode.elasticvc.domain.Commit;
+import io.kaicode.elasticvc.domain.Metadata;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.config.Config;
@@ -170,8 +171,22 @@ public class MRCMUpdateService extends ComponentService implements CommitListene
 		toUpdate.addAll(updateAttributeRules(commit, domainMapByDomainId, attributeToDomainsMap, attributeToRangesMap, conceptToTermMap, dataAttributes));
 		// domain templates
 		toUpdate.addAll(updateDomainTemplates(commit, domainMapByDomainId, domainToAttributesMap, attributeToRangesMap, conceptToTermMap, dataAttributes));
-		// update effective time
-		toUpdate.forEach(ReferenceSetMember::updateEffectiveTime);
+
+		// update effective time, and module if default is configured
+		Metadata metadata = branchService.findBranchOrThrow(branchPath, true).getMetadata();
+		if (metadata.containsKey(Config.DEFAULT_MODULE_ID_KEY)) {
+			String defaultModuleId = metadata.getString(Config.DEFAULT_MODULE_ID_KEY);
+			toUpdate.forEach(referenceSetMember -> {
+				logger.trace("Updating ReferenceSetMember {}'s module & effectiveTime before committing.", referenceSetMember.getMemberId());
+				referenceSetMember.setModuleId(defaultModuleId);
+				referenceSetMember.updateEffectiveTime();
+			});
+		} else {
+			toUpdate.forEach(referenceSetMember -> {
+				logger.trace("Updating ReferenceSetMember {}'s effectiveTime before committing.", referenceSetMember.getMemberId());
+				referenceSetMember.updateEffectiveTime();
+			});
+		}
 
 		// Find MRCM members where new versions have already been created in the current commit.
 		// Update these documents to avoid having two versions of the same concepts in the commit.
