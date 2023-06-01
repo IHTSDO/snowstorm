@@ -6,23 +6,18 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.snomed.snowstorm.AbstractTest;
-import org.snomed.snowstorm.commitexplorer.CommitExplorer;
 import org.snomed.snowstorm.config.Config;
 import org.snomed.snowstorm.core.data.domain.*;
-import org.snomed.snowstorm.core.data.services.ConceptService;
-import org.snomed.snowstorm.core.data.services.ReferenceSetMemberService;
-import org.snomed.snowstorm.core.data.services.ServiceTestUtil;
+import org.snomed.snowstorm.core.data.services.*;
 import org.snomed.snowstorm.mrcm.model.ContentType;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
-import java.util.Collection;
-import java.util.Collections;
-import java.util.HashSet;
-import java.util.Set;
+import java.util.*;
 
 import static org.junit.Assert.*;
+import static org.snomed.snowstorm.core.data.domain.Concepts.*;
 
 @Testcontainers
 @ExtendWith(SpringExtension.class)
@@ -39,6 +34,12 @@ class MRCMUpdateServiceTest extends AbstractTest {
 
 	@Autowired
 	private MRCMService mrcmService;
+
+	@Autowired
+	private BranchMergeService branchMergeService;
+
+	@Autowired
+	private CodeSystemService codeSystemService;
 
 	private ServiceTestUtil testUtil;
 
@@ -233,5 +234,246 @@ class MRCMUpdateServiceTest extends AbstractTest {
 				biologicProductDomain.getAdditionalField("domainTemplateForPostcoordination"));
 		strengthNumeratorAttribute = memberService.findMember(branch.getPath(), strengthNumeratorAttribute.getMemberId());
 		assertNotNull(strengthNumeratorAttribute);
+	}
+
+	@Test
+	void testModuleChangesWhenExtensionModifiesMRCM() throws ServiceException {
+		Concept concept;
+
+		// Create starting hierarchy (incl MRCM)
+		concept = new Concept(CONCEPT_MODEL_DATA_ATTRIBUTE)
+				.addDescription(new Description("Concept model data attribute (attribute)").setTypeId(FSN))
+				.addDescription(new Description("Concept model data attribute").setTypeId(SYNONYM))
+				.addAxiom(new Relationship(ISA, CONCEPT_MODEL_ATTRIBUTE));
+		conceptService.create(concept, "MAIN");
+
+		concept = new Concept("373873005")
+				.addDescription(new Description("Pharmaceutical / biologic product (product)").setTypeId(FSN))
+				.addDescription(new Description("Pharmaceutical / biologic product").setTypeId(SYNONYM))
+				.addAxiom(new Relationship(ISA, SNOMEDCT_ROOT));
+		concept = conceptService.create(concept, "MAIN");
+		String biologicProductId = concept.getConceptId();
+
+		String biologicProductDomainId = memberService.createMember("MAIN", new ReferenceSetMember(null, null, true,
+				CORE_MODULE, REFSET_MRCM_DOMAIN_INTERNATIONAL, biologicProductId)
+				.setAdditionalField("domainConstraint", "<< 373873005 |Pharmaceutical / biologic product (product)|")
+				.setAdditionalField("parentDomain", null)
+				.setAdditionalField("proximalPrimitiveConstraint", null)
+				.setAdditionalField("proximalPrimitiveRefinement", null)
+				.setAdditionalField("guideURL", "")).getMemberId();
+
+		// International authors new attribute (incl MRCM)
+		String intProject = "MAIN/project";
+		branchService.create(intProject);
+		String intTaskA = "MAIN/project/taskA";
+		branchService.create(intTaskA);
+
+		concept = new Concept()
+				.addDescription(new Description("Has strength (attribute)").setTypeId(FSN))
+				.addDescription(new Description("Has strength").setTypeId(SYNONYM))
+				.addAxiom(new Relationship(ISA, CONCEPT_MODEL_DATA_ATTRIBUTE));
+		concept = conceptService.create(concept, intTaskA);
+		String hasStrengthId = concept.getConceptId();
+
+		String strengthAttributeId = memberService.createMember(intTaskA, new ReferenceSetMember(null, null, true,
+				CORE_MODULE, REFSET_MRCM_ATTRIBUTE_DOMAIN_INTERNATIONAL, hasStrengthId)
+				.setAdditionalField("domainId", biologicProductId)
+				.setAdditionalField("grouped", "1")
+				.setAdditionalField("attributeCardinality", "0..*")
+				.setAdditionalField("attributeInGroupCardinality", "0..1")
+				.setAdditionalField("ruleStrengthId", "723597001")
+				.setAdditionalField("contentTypeId", "723596005")).getMemberId();
+
+		String strengthRangeId = memberService.createMember(intTaskA, new ReferenceSetMember(null, null, true,
+				CORE_MODULE, REFSET_MRCM_ATTRIBUTE_RANGE_INTERNATIONAL, hasStrengthId)
+				.setAdditionalField("rangeConstraint", "dec(>#0..)")
+				.setAdditionalField("attributeRule", null)
+				.setAdditionalField("ruleStrengthId", "723597001")
+				.setAdditionalField("contentTypeId", "723596005")).getMemberId();
+
+		// International promotes work to MAIN & versions
+		branchMergeService.mergeBranchSync(intTaskA, intProject, Collections.emptySet());
+		branchMergeService.mergeBranchSync(intProject, "MAIN", Collections.emptySet());
+
+		codeSystemService.createCodeSystem(new CodeSystem("SNOMEDCT", "MAIN"));
+		codeSystemService.createVersion(codeSystemService.find("SNOMEDCT"), 20220131, "20220131");
+
+		// Create new Extension
+		codeSystemService.createCodeSystem(new CodeSystem("SNOMEDCT-XX", "MAIN/SNOMEDCT-XX"));
+		concept = conceptService.create(
+				new Concept()
+						.addDescription(new Description("Extension maintained module").setTypeId(FSN))
+						.addDescription(new Description("Extension maintained").setTypeId(SYNONYM))
+						.addAxiom(new Relationship(ISA, MODULE)),
+				"MAIN/SNOMEDCT-XX"
+		);
+		String extDefaultModule = concept.getConceptId();
+		branchService.updateMetadata("MAIN/SNOMEDCT-XX", Map.of(Config.DEFAULT_MODULE_ID_KEY, extDefaultModule));
+
+		// Extension authors new attribute (incl MRCM)
+		String extProject = "MAIN/SNOMEDCT-XX/project";
+		branchService.create(extProject);
+		String extTaskA = "MAIN/SNOMEDCT-XX/project/taskA";
+		branchService.create(extTaskA);
+
+		concept = new Concept()
+				.addDescription(new Description("Occurrence (attribute)").setTypeId(FSN))
+				.addDescription(new Description("Occurrence").setTypeId(SYNONYM))
+				.addAxiom(new Relationship(ISA, CONCEPT_MODEL_DATA_ATTRIBUTE));
+		concept = conceptService.create(concept, extTaskA);
+		String occurrenceId = concept.getConceptId();
+
+		String occurrenceAttributeId = memberService.createMember(extTaskA, new ReferenceSetMember(null, null, true,
+				extDefaultModule, REFSET_MRCM_ATTRIBUTE_DOMAIN_INTERNATIONAL, occurrenceId)
+				.setAdditionalField("domainId", biologicProductId)
+				.setAdditionalField("grouped", "1")
+				.setAdditionalField("attributeCardinality", "0..*")
+				.setAdditionalField("attributeInGroupCardinality", "0..1")
+				.setAdditionalField("ruleStrengthId", "723597001")
+				.setAdditionalField("contentTypeId", "723596005")).getMemberId();
+
+		String occurrenceRangeId = memberService.createMember(extTaskA, new ReferenceSetMember(null, null, true,
+				extDefaultModule, REFSET_MRCM_ATTRIBUTE_RANGE_INTERNATIONAL, occurrenceId)
+				.setAdditionalField("rangeConstraint", "dec(>#1..)")
+				.setAdditionalField("attributeRule", null)
+				.setAdditionalField("ruleStrengthId", "723597001")
+				.setAdditionalField("contentTypeId", "723596005")).getMemberId();
+
+		// Assert members belong to International
+		ReferenceSetMember member = memberService.findMember(extTaskA, strengthAttributeId);
+		assertEquals(CORE_MODULE, member.getModuleId());
+
+		member = memberService.findMember(extTaskA, strengthRangeId);
+		assertEquals(CORE_MODULE, member.getModuleId());
+
+		// Assert members belong to Extension
+		member = memberService.findMember(extTaskA, occurrenceAttributeId);
+		assertEquals(extDefaultModule, member.getModuleId());
+
+		member = memberService.findMember(extTaskA, occurrenceRangeId);
+		assertEquals(extDefaultModule, member.getModuleId());
+
+		// Assert member moved to Extension & templates updated
+		member = memberService.findMember(extTaskA, biologicProductDomainId);
+		assertEquals(extDefaultModule, member.getModuleId());
+		assertTrue(member.getReleasedEffectiveTime().equals(20220131));
+
+		String domainTemplateForPrecoordination = member.getAdditionalField("domainTemplateForPrecoordination");
+		assertEquals(2, Arrays.asList(domainTemplateForPrecoordination.split(",")).size());
+		assertTrue(domainTemplateForPrecoordination.contains(String.format("[[0..1]] %s |Occurrence| = [[+dec(>#1..)]]", occurrenceId)));
+		assertTrue(domainTemplateForPrecoordination.contains(String.format("[[0..1]] %s |Has strength| = [[+dec(>#0..)]]", hasStrengthId)));
+
+		String domainTemplateForPostcoordination = member.getAdditionalField("domainTemplateForPostcoordination");
+		assertEquals(2, Arrays.asList(domainTemplateForPrecoordination.split(",")).size());
+		assertTrue(domainTemplateForPostcoordination.contains(String.format("[[0..1]] %s |Occurrence| = [[+dec(>#1..)]]", occurrenceId)));
+		assertTrue(domainTemplateForPostcoordination.contains(String.format("[[0..1]] %s |Has strength| = [[+dec(>#0..)]]", hasStrengthId)));
+	}
+
+	@Test
+	void testInternationalDoesNotLoseModuleWhenModifyingMRCM() throws ServiceException {
+		Concept concept;
+
+		// Create starting hierarchy (incl MRCM)
+		concept = new Concept(CONCEPT_MODEL_DATA_ATTRIBUTE)
+				.addDescription(new Description("Concept model data attribute (attribute)").setTypeId(FSN))
+				.addDescription(new Description("Concept model data attribute").setTypeId(SYNONYM))
+				.addAxiom(new Relationship(ISA, CONCEPT_MODEL_ATTRIBUTE));
+		conceptService.create(concept, "MAIN");
+
+		concept = new Concept("373873005")
+				.addDescription(new Description("Pharmaceutical / biologic product (product)").setTypeId(FSN))
+				.addDescription(new Description("Pharmaceutical / biologic product").setTypeId(SYNONYM))
+				.addAxiom(new Relationship(ISA, SNOMEDCT_ROOT));
+		concept = conceptService.create(concept, "MAIN");
+		String biologicProductId = concept.getConceptId();
+
+		String biologicProductDomainId = memberService.createMember("MAIN", new ReferenceSetMember(null, null, true,
+				CORE_MODULE, REFSET_MRCM_DOMAIN_INTERNATIONAL, biologicProductId)
+				.setAdditionalField("domainConstraint", "<< 373873005 |Pharmaceutical / biologic product (product)|")
+				.setAdditionalField("parentDomain", null)
+				.setAdditionalField("proximalPrimitiveConstraint", null)
+				.setAdditionalField("proximalPrimitiveRefinement", null)
+				.setAdditionalField("guideURL", "")).getMemberId();
+
+		// International authors new attribute (incl MRCM)
+		concept = new Concept()
+				.addDescription(new Description("Has strength (attribute)").setTypeId(FSN))
+				.addDescription(new Description("Has strength").setTypeId(SYNONYM))
+				.addAxiom(new Relationship(ISA, CONCEPT_MODEL_DATA_ATTRIBUTE));
+		concept = conceptService.create(concept, "MAIN");
+		String hasStrengthId = concept.getConceptId();
+
+		String strengthAttributeId = memberService.createMember("MAIN", new ReferenceSetMember(null, null, true,
+				CORE_MODULE, REFSET_MRCM_ATTRIBUTE_DOMAIN_INTERNATIONAL, hasStrengthId)
+				.setAdditionalField("domainId", biologicProductId)
+				.setAdditionalField("grouped", "1")
+				.setAdditionalField("attributeCardinality", "0..*")
+				.setAdditionalField("attributeInGroupCardinality", "0..1")
+				.setAdditionalField("ruleStrengthId", "723597001")
+				.setAdditionalField("contentTypeId", "723596005")).getMemberId();
+
+		String strengthRangeId = memberService.createMember("MAIN", new ReferenceSetMember(null, null, true,
+				CORE_MODULE, REFSET_MRCM_ATTRIBUTE_RANGE_INTERNATIONAL, hasStrengthId)
+				.setAdditionalField("rangeConstraint", "dec(>#0..)")
+				.setAdditionalField("attributeRule", null)
+				.setAdditionalField("ruleStrengthId", "723597001")
+				.setAdditionalField("contentTypeId", "723596005")).getMemberId();
+
+		// International versions
+		codeSystemService.createCodeSystem(new CodeSystem("SNOMEDCT", "MAIN"));
+		codeSystemService.createVersion(codeSystemService.find("SNOMEDCT"), 20220131, "20220131");
+
+		// International authors new attribute (incl MRCM)
+		concept = new Concept()
+				.addDescription(new Description("Occurrence (attribute)").setTypeId(FSN))
+				.addDescription(new Description("Occurrence").setTypeId(SYNONYM))
+				.addAxiom(new Relationship(ISA, CONCEPT_MODEL_DATA_ATTRIBUTE));
+		concept = conceptService.create(concept, "MAIN");
+		String occurrenceId = concept.getConceptId();
+
+		String occurrenceAttributeId = memberService.createMember("MAIN", new ReferenceSetMember(null, null, true,
+				CORE_MODULE, REFSET_MRCM_ATTRIBUTE_DOMAIN_INTERNATIONAL, occurrenceId)
+				.setAdditionalField("domainId", biologicProductId)
+				.setAdditionalField("grouped", "1")
+				.setAdditionalField("attributeCardinality", "0..*")
+				.setAdditionalField("attributeInGroupCardinality", "0..1")
+				.setAdditionalField("ruleStrengthId", "723597001")
+				.setAdditionalField("contentTypeId", "723596005")).getMemberId();
+
+		String occurrenceRangeId = memberService.createMember("MAIN", new ReferenceSetMember(null, null, true,
+				CORE_MODULE, REFSET_MRCM_ATTRIBUTE_RANGE_INTERNATIONAL, occurrenceId)
+				.setAdditionalField("rangeConstraint", "dec(>#1..)")
+				.setAdditionalField("attributeRule", null)
+				.setAdditionalField("ruleStrengthId", "723597001")
+				.setAdditionalField("contentTypeId", "723596005")).getMemberId();
+
+		// Assert members belong to International
+		ReferenceSetMember member = memberService.findMember("MAIN", strengthAttributeId);
+		assertEquals(CORE_MODULE, member.getModuleId());
+
+		member = memberService.findMember("MAIN", strengthRangeId);
+		assertEquals(CORE_MODULE, member.getModuleId());
+
+		// Assert members belong to Extension
+		member = memberService.findMember("MAIN", occurrenceAttributeId);
+		assertEquals(CORE_MODULE, member.getModuleId());
+
+		member = memberService.findMember("MAIN", occurrenceRangeId);
+		assertEquals(CORE_MODULE, member.getModuleId());
+
+		// Assert member moved to Extension & templates updated
+		member = memberService.findMember("MAIN", biologicProductDomainId);
+		assertEquals(CORE_MODULE, member.getModuleId());
+		assertTrue(member.getReleasedEffectiveTime().equals(20220131));
+
+		String domainTemplateForPrecoordination = member.getAdditionalField("domainTemplateForPrecoordination");
+		assertEquals(2, Arrays.asList(domainTemplateForPrecoordination.split(",")).size());
+		assertTrue(domainTemplateForPrecoordination.contains(String.format("[[0..1]] %s |Occurrence| = [[+dec(>#1..)]]", occurrenceId)));
+		assertTrue(domainTemplateForPrecoordination.contains(String.format("[[0..1]] %s |Has strength| = [[+dec(>#0..)]]", hasStrengthId)));
+
+		String domainTemplateForPostcoordination = member.getAdditionalField("domainTemplateForPostcoordination");
+		assertEquals(2, Arrays.asList(domainTemplateForPrecoordination.split(",")).size());
+		assertTrue(domainTemplateForPostcoordination.contains(String.format("[[0..1]] %s |Occurrence| = [[+dec(>#1..)]]", occurrenceId)));
+		assertTrue(domainTemplateForPostcoordination.contains(String.format("[[0..1]] %s |Has strength| = [[+dec(>#0..)]]", hasStrengthId)));
 	}
 }
