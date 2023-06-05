@@ -36,6 +36,7 @@ public class HapiParametersMapper implements FHIRConstants {
 			parameters.addParameter("result", valid);
 		}
 		parameters.addParameter("display", concept.getPt().getTerm());
+		parameters.addParameter("inactive", !concept.isActive());
 		addSystemAndVersion(parameters, codeSystemVersion);
 		return parameters;
 	}
