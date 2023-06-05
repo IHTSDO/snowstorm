@@ -82,6 +82,13 @@ public class ImportService {
 			throw new IllegalArgumentException(String.format("Branch %s does not exist.", branchPath));
 		}
 
+		if (importConfiguration.getType() == FULL) {
+			Branch latest = branchService.findLatest(branchPath);
+			if (!branchPath.equals("MAIN") || latest.isContainsContent()) {
+				throw new IllegalArgumentException("FULL import is only implemented for the MAIN branch and when there is no existing content.");
+			}
+		}
+
 		if (importConfiguration.isCreateCodeSystemVersion()) {
 			// Check there is a code system on this branch
 			Optional<CodeSystem> optionalCodeSystem = codeSystemService.findAll().stream().filter(codeSystem -> codeSystem.getBranchPath().equals(branchPath)).findAny();
