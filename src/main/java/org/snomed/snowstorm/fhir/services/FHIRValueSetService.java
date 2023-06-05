@@ -341,7 +341,7 @@ public class FHIRValueSetService {
 					ValueSet.ValueSetExpansionContainsComponent component = new ValueSet.ValueSetExpansionContainsComponent()
 							.setSystem(idAndVersionToUrl.get(concept.getCodeSystemVersion()))
 							.setCode(concept.getCode())
-							.setInactiveElement(concept.isActive() ? null : new BooleanType(false))
+							.setInactiveElement(concept.isActive() ? null : new BooleanType(true))
 							.setDisplay(concept.getDisplay());
 					if (includeDesignations) {
 						for (FHIRDesignation designation : concept.getDesignations()) {
