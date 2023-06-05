@@ -41,16 +41,16 @@ class FHIRCodeSystemProviderLookupTest extends AbstractFHIRTest {
 	void testParameterActiveWhenActive() {
 		String url = "http://localhost:" + port + "/fhir/CodeSystem/$lookup?system=http://snomed.info/sct&code=" + sampleSCTID + "&property=normalForm&property=sufficientlyDefined&_format=json";
 		Parameters p = getParameters(url);
-		Boolean active = toBoolean(getProperty(p, "active"));
-		assertTrue(active);
+		Boolean inactive = toBoolean(getProperty(p, "inactive"));
+		assertFalse(inactive);
 	}
 
 	@Test
 	void testParameterActiveWhenInactive() {
 		String url = "http://localhost:" + port + "/fhir/CodeSystem/$lookup?system=http://snomed.info/sct&code=" + sampleInactiveSCTID + "&property=normalForm&property=sufficientlyDefined&_format=json";
 		Parameters p = getParameters(url);
-		Boolean active = toBoolean(getProperty(p, "active"));
-		assertFalse(active);
+		Boolean inactive = toBoolean(getProperty(p, "inactive"));
+		assertTrue(inactive);
 	}
 	
 	@Test
