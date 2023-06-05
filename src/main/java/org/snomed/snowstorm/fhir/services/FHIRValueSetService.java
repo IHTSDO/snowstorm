@@ -584,6 +584,9 @@ public class FHIRValueSetService {
 		for (Coding codingA : codings) {
 			FHIRConcept concept = findInValueSet(codingA, resolvedCodeSystemVersionsMatchingCodings, codeSelectionCriteria, languageDialects);
 			if (concept != null) {
+				if (codings.size() == 1 && FHIRHelper.isSnomedUri(codingA.getSystem())) {
+					response.addParameter("inactive", !concept.isActive());
+				}
 				String codingADisplay = codingA.getDisplay();
 				if (codingADisplay == null) {
 					response.addParameter("result", true);
