@@ -9,6 +9,7 @@ import org.springframework.http.ResponseEntity;
 
 import java.io.InputStream;
 import java.util.List;
+import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -160,15 +161,30 @@ class FHIRValueSetProviderExpandEclTest extends AbstractFHIRTest {
 			deleteVs("reason-for-encounter");
 		}
 	}
-	
+
 	@Test
 	void testECLWithUnpublishedVersion() {
 		//Asking for 5 at a time, expect 13 Total - 10 on MAIN + 3 in the sample module + 1 Root concept
-		String url = baseUrl + "/ValueSet/$expand?system-version=http://snomed.info/xsct|http://snomed.info/xsct/1234000008&" +
-				"url=http://snomed.info/sct/" + sampleModuleId + "?fhir_vs=ecl/<<" + Concepts.SNOMEDCT_ROOT + 
+		String url = baseUrl + "/ValueSet/$expand?" +
+				"url=http://snomed.info/xsct/" + sampleModuleId + "?fhir_vs=ecl/<<" + Concepts.SNOMEDCT_ROOT +
 				"&_format=json";
 		ValueSet v = getValueSet(url);
-		assertEquals(14,v.getExpansion().getContains().size());
+		assertEquals(14, v.getExpansion().getContains().size());
+		Optional<ValueSet.ValueSetExpansionParameterComponent> versionParam = v.getExpansion().getParameter().stream().filter(param -> "version".equals(param.getName())).findFirst();
+		assertTrue(versionParam.isPresent());
+		assertEquals("UriType[http://snomed.info/xsct|http://snomed.info/xsct/1234000008]", versionParam.get().getValue().toString());
+	}
+
+	@Test
+	void testECLWithLatestVersionOfSpecificEdition() {
+		String url = baseUrl + "/ValueSet/$expand?system-version=http://snomed.info/sct|http://snomed.info/sct/1234000008&" +
+				"url=http://snomed.info/sct/" + sampleModuleId + "?fhir_vs=ecl/<<" + Concepts.SNOMEDCT_ROOT +
+				"&_format=json";
+		ValueSet v = getValueSet(url);
+		assertEquals(14, v.getExpansion().getContains().size());
+		Optional<ValueSet.ValueSetExpansionParameterComponent> versionParam = v.getExpansion().getParameter().stream().filter(param -> "version".equals(param.getName())).findFirst();
+		assertTrue(versionParam.isPresent());
+		assertEquals("UriType[http://snomed.info/sct|http://snomed.info/sct/1234000008/version/20190731]", versionParam.get().getValue().toString());
 	}
 
 	@Test
