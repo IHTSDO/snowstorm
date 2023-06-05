@@ -223,6 +223,19 @@ class ImportServiceTest extends AbstractTest {
 		assertNull(report2011JanInferred.getRelationshipsWithMissingOrInactiveDestination());
 	}
 
+	@Test
+	void testImportFullOnChildCodeSystem() {
+		String branchPath = "MAIN/SNOMEDCT-TEST";
+		codeSystemService.createCodeSystem(new CodeSystem("SNOMEDCT-TEST", branchPath));
+
+		try {
+			importService.createJob(RF2Type.FULL, branchPath, true, false);
+			fail("Should have thrown error before this line");
+		} catch (IllegalArgumentException e) {
+			assertEquals("FULL import is only implemented for the MAIN branch and when there is no existing content.", e.getMessage());
+		}
+	}
+
 	private String mapToString(Map<Long, Long> map) {
 		// Sort the map before converting to string to ensure consistent output
 		return new TreeMap<>(map).toString();
@@ -694,8 +707,7 @@ class ImportServiceTest extends AbstractTest {
 	@Test
 	public void importArchive_ShouldSuccessfullyImportConcreteRelationship_WhenImportingFull() throws IOException, ReleaseImportException {
 		//given
-		final String branchPath = "MAIN/CDI-29";
-		branchService.create(branchPath);
+		final String branchPath = "MAIN";
 		final String importJobId = importService.createJob(RF2Type.FULL, branchPath, false, false);
 		final File zipFile = ZipUtil.zipDirectoryRemovingCommentsAndBlankLines("src/test/resources/dummy-snomed-content/SnomedCT_MiniRF2");
 		final FileInputStream releaseFileStream = new FileInputStream(zipFile);
