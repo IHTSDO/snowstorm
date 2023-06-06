@@ -41,12 +41,14 @@ import org.snomed.snowstorm.core.data.services.pojo.PageWithBucketAggregations;
 import org.snomed.snowstorm.core.data.services.pojo.PageWithBucketAggregationsFactory;
 import org.snomed.snowstorm.core.data.services.pojo.SimpleAggregation;
 import org.snomed.snowstorm.core.util.DescriptionHelper;
+import org.snomed.snowstorm.core.util.PageHelper;
+import org.snomed.snowstorm.core.util.SearchAfterPage;
 import org.snomed.snowstorm.core.util.TimerUtil;
 import org.snomed.snowstorm.ecl.ECLQueryService;
 import org.snomed.snowstorm.ecl.domain.expressionconstraint.SExpressionConstraint;
+import org.snomed.snowstorm.rest.converter.SearchAfterHelper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
@@ -77,6 +79,14 @@ public class DescriptionService extends ComponentService {
 
 	// Query value used to prevent matching
 	private static final String NO_MATCH = "no-match";
+	private static final Function<Description, Object[]> DESCRIPTION_ID_SEARCH_AFTER_EXTRACTOR = description -> {
+		if (description == null) {
+			return null;
+		}
+
+		String id = description.getId();
+		return id == null ? null : SearchAfterHelper.convertToTokenAndBack(new Object[]{id});
+	};
 
 	@Autowired
 	private SearchLanguagesConfiguration searchLanguagesConfiguration;
@@ -148,7 +158,7 @@ public class DescriptionService extends ComponentService {
 		}
 	}
 
-	public Page<Description> findDescriptions(String branch, String exactTerm, Set<String> descriptionIds, Set<String> conceptIds, PageRequest pageRequest) {
+	public SearchAfterPage<Description> findDescriptions(String branch, String exactTerm, Set<String> descriptionIds, Set<String> conceptIds, PageRequest pageRequest) {
 		BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(branch);
 		BoolQueryBuilder query = boolQuery().must(branchCriteria.getEntityBranchCriteria(Description.class));
 		if (!CollectionUtils.isEmpty(descriptionIds)) {
@@ -170,7 +180,8 @@ public class DescriptionService extends ComponentService {
 		joinLangRefsetMembers(branchCriteria,
 				content.stream().map(Description::getConceptId).collect(Collectors.toSet()),
 				content.stream().collect(Collectors.toMap(Description::getDescriptionId, Function.identity())));
-		return new PageImpl<>(content, pageRequest, descriptions.getTotalHits());
+		PageImpl<Description> descriptionPage = new PageImpl<>(content, pageRequest, descriptions.getTotalHits());
+		return PageHelper.toSearchAfterPage(descriptionPage, DESCRIPTION_ID_SEARCH_AFTER_EXTRACTOR);
 	}
 
 	public Set<Description> findDescriptionsByConceptId(String branchPath, Set<String> conceptIds, boolean fetchLangRefsetMembers) {
