@@ -1,16 +1,21 @@
 package org.snomed.snowstorm;
 
+import com.amazonaws.auth.DefaultAWSCredentialsProviderChain;
+import com.amazonaws.services.s3.AmazonS3Client;
+import com.amazonaws.services.s3.AmazonS3ClientBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.config.Config;
 import org.snomed.snowstorm.core.data.services.traceability.TraceabilityLogService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.autoconfigure.data.elasticsearch.ElasticsearchDataAutoConfiguration;
 import org.springframework.boot.autoconfigure.elasticsearch.ElasticsearchRestClientAutoConfiguration;
 import org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.cloud.aws.autoconfigure.context.*;
+import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.PropertySource;
 import org.springframework.data.elasticsearch.client.ClientConfiguration;
 import org.springframework.data.elasticsearch.client.RestClients;
@@ -41,6 +46,14 @@ public class TestConfig extends Config {
 	static final boolean useLocalElasticsearch = false;
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(TestConfig.class);
+
+	@Bean
+	public AmazonS3Client amazonS3Client(@Value("${cloud.aws.region.static}") String region) {
+		return (AmazonS3Client) AmazonS3ClientBuilder.standard()
+				.withRegion(region)
+				.withCredentials(new DefaultAWSCredentialsProviderChain())
+				.build();
+	}
 
 	@Container
 	private static final ElasticsearchContainer elasticsearchContainer;
