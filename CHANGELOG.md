@@ -3,6 +3,16 @@ All notable changes to this project will be documented in this file.
 
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 8.2.2 Release (June 2023)
+Maintenance release with bug fixes and improvements.
+
+### Fixes
+- MAINT-2222 Fix Daily Build Imports no longer working with spring-boot 2.7.12 .
+
+### Improvements
+- PIP-270 Upgrade tomcat-embed library from 9.0.73 to 9.0.74.
+
+
 ## 8.2.1 Release (May 2023)
 This release improves the code system versioning process as well as upgrades project dependencies. 
 
