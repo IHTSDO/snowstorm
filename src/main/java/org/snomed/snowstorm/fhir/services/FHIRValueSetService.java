@@ -116,11 +116,11 @@ public class FHIRValueSetService {
 		return Optional.empty();
 	}
 
-	public void saveAllValueSetsOfCodeSystemVersion(List<ValueSet> valueSets) {
+	public void saveAllValueSetsOfCodeSystemVersionWithoutExpandValidation(List<ValueSet> valueSets) {
 		for (ValueSet valueSet : orEmpty(valueSets)) {
 			try {
 				logger.info("Saving ValueSet {}", valueSet.getIdElement());
-				createOrUpdateValueset(valueSet);
+				createOrUpdateValuesetWithoutExpandValidation(valueSet);
 			} catch (SnowstormFHIRServerResponseException e) {
 				logger.error("Failed to store value set {}", valueSet.getIdElement(), e);
 			}
