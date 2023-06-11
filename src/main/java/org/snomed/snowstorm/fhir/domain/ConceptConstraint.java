@@ -1,6 +1,9 @@
 package org.snomed.snowstorm.fhir.domain;
 
+import org.springframework.util.CollectionUtils;
+
 import java.util.Collection;
+import java.util.Objects;
 import java.util.Set;
 
 public class ConceptConstraint {
@@ -15,6 +18,10 @@ public class ConceptConstraint {
 
 	public ConceptConstraint(Collection<String> code) {
 		this.code = code;
+	}
+
+	public boolean isSimpleCodeSet() {
+		return CollectionUtils.isEmpty(parent) && CollectionUtils.isEmpty(ancestor) && ecl == null && !CollectionUtils.isEmpty(code);
 	}
 
 	public ConceptConstraint setParent(Set<String> parent) {
@@ -50,5 +57,18 @@ public class ConceptConstraint {
 
 	public String getEcl() {
 		return ecl;
+	}
+
+	@Override
+	public boolean equals(Object o) {
+		if (this == o) return true;
+		if (o == null || getClass() != o.getClass()) return false;
+		ConceptConstraint that = (ConceptConstraint) o;
+		return Objects.equals(code, that.code) && Objects.equals(parent, that.parent) && Objects.equals(ancestor, that.ancestor) && Objects.equals(ecl, that.ecl);
+	}
+
+	@Override
+	public int hashCode() {
+		return Objects.hash(code, parent, ancestor, ecl);
 	}
 }

@@ -2,6 +2,7 @@ package org.snomed.snowstorm.fhir.services;
 
 import org.snomed.snowstorm.fhir.domain.ConceptConstraint;
 import org.snomed.snowstorm.fhir.domain.FHIRCodeSystemVersion;
+import org.springframework.util.CollectionUtils;
 
 import java.util.*;
 
@@ -17,6 +18,11 @@ public class CodeSelectionCriteria {
 		inclusionConstraints = new HashMap<>();
 		nestedSelections = new HashSet<>();
 		exclusionConstraints = new HashMap<>();
+	}
+
+	public boolean isOnlyInclusionsForOneVersionAndAllSimple() {
+		return CollectionUtils.isEmpty(nestedSelections) && CollectionUtils.isEmpty(exclusionConstraints) && !CollectionUtils.isEmpty(inclusionConstraints)
+				&& inclusionConstraints.keySet().size() == 1 && inclusionConstraints.values().stream().flatMap(Collection::stream).allMatch(ConceptConstraint::isSimpleCodeSet);
 	}
 
 	public Set<ConceptConstraint> addInclusion(FHIRCodeSystemVersion codeSystemVersion) {
@@ -63,5 +69,18 @@ public class CodeSelectionCriteria {
 			nestedSelection.doGatherAllInclusionVersions(versions);
 		}
 		return versions;
+	}
+
+	@Override
+	public boolean equals(Object o) {
+		if (this == o) return true;
+		if (o == null || getClass() != o.getClass()) return false;
+		CodeSelectionCriteria that = (CodeSelectionCriteria) o;
+		return Objects.equals(valueSetUserRef, that.valueSetUserRef) && Objects.equals(inclusionConstraints, that.inclusionConstraints) && Objects.equals(nestedSelections, that.nestedSelections) && Objects.equals(exclusionConstraints, that.exclusionConstraints);
+	}
+
+	@Override
+	public int hashCode() {
+		return Objects.hash(valueSetUserRef, inclusionConstraints, nestedSelections, exclusionConstraints);
 	}
 }
