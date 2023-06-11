@@ -392,8 +392,10 @@ public class FHIRValueSetService {
 	private QueryBuilder doGetFhirConceptQuery(CodeSelectionCriteria codeSelectionCriteria) {
 		BoolQueryBuilder valueSetQuery = new BoolQueryBuilder();
 
-		Map<FHIRCodeSystemVersion, Set<ConceptConstraint>> inclusionConstraints = codeSelectionCriteria.getInclusionConstraints();
-		Set<CodeSelectionCriteria> nestedSelections = codeSelectionCriteria.getNestedSelections();
+		// Attempt to combine value set constraints to reduce the required Elasticsearch clause count.
+		// (Some LOINC nested value sets exceed the default 1024 clause limit).
+		Map<FHIRCodeSystemVersion, Set<ConceptConstraint>> inclusionConstraints = combineConstraints(codeSelectionCriteria.getInclusionConstraints());
+		Set<CodeSelectionCriteria> nestedSelections = combineConstraints(codeSelectionCriteria.getNestedSelections(), codeSelectionCriteria.getValueSetUserRef());
 		Map<FHIRCodeSystemVersion, Set<ConceptConstraint>> exclusionConstraints = codeSelectionCriteria.getExclusionConstraints();
 
 		// Inclusions
@@ -415,6 +417,52 @@ public class FHIRValueSetService {
 		}
 
 		return valueSetQuery;
+	}
+
+	private Map<FHIRCodeSystemVersion, Set<ConceptConstraint>> combineConstraints(Map<FHIRCodeSystemVersion, Set<ConceptConstraint>> constraints) {
+		Map<FHIRCodeSystemVersion, Set<ConceptConstraint>> combinedConstraints = new HashMap<>();
+		Map<FHIRCodeSystemVersion, ConceptConstraint> simpleConstraints = new HashMap<>();
+		for (Map.Entry<FHIRCodeSystemVersion, Set<ConceptConstraint>> entry : constraints.entrySet()) {
+			for (ConceptConstraint conceptConstraint : entry.getValue()) {
+				if (conceptConstraint.isSimpleCodeSet()) {
+					simpleConstraints.computeIfAbsent(entry.getKey(), k -> new ConceptConstraint(new HashSet<>())).getCode().addAll(conceptConstraint.getCode());
+				} else {
+					combinedConstraints.computeIfAbsent(entry.getKey(), k -> new HashSet<>()).add(conceptConstraint);
+				}
+			}
+			if (entry.getValue().isEmpty()) {
+				combinedConstraints.computeIfAbsent(entry.getKey(), k -> new HashSet<>());
+			}
+		}
+
+		for (Map.Entry<FHIRCodeSystemVersion, ConceptConstraint> entry : simpleConstraints.entrySet()) {
+			combinedConstraints.computeIfAbsent(entry.getKey(), k -> new HashSet<>()).add(entry.getValue());
+		}
+
+		return combinedConstraints;
+	}
+
+	private Set<CodeSelectionCriteria> combineConstraints(Set<CodeSelectionCriteria> nestedSelections, String valueSetUserRef) {
+		Set<CodeSelectionCriteria> combinedConstraints = new HashSet<>();
+		Map<FHIRCodeSystemVersion, Set<ConceptConstraint>> simpleInclusionConstraints = new HashMap<>();
+		for (CodeSelectionCriteria nestedSelection : nestedSelections) {
+			if (nestedSelection.isOnlyInclusionsForOneVersionAndAllSimple()) {
+				FHIRCodeSystemVersion codeSystemVersion = nestedSelection.getInclusionConstraints().keySet().iterator().next();
+				for (Set<ConceptConstraint> value : nestedSelection.getInclusionConstraints().values()) {
+					simpleInclusionConstraints.computeIfAbsent(codeSystemVersion, v -> new HashSet<>()).addAll(value);
+				}
+			} else {
+				combinedConstraints.add(nestedSelection);
+			}
+		}
+
+		for (Map.Entry<FHIRCodeSystemVersion, Set<ConceptConstraint>> entry : simpleInclusionConstraints.entrySet()) {
+			CodeSelectionCriteria selectionCriteria = new CodeSelectionCriteria(format("nested within %s", valueSetUserRef));
+			selectionCriteria.addInclusion(entry.getKey()).addAll(entry.getValue());
+			combinedConstraints.add(selectionCriteria);
+		}
+		
+		return combinedConstraints;
 	}
 
 	@NotNull

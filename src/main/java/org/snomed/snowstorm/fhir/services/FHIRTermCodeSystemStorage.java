@@ -81,6 +81,7 @@ public class FHIRTermCodeSystemStorage implements ITermCodeSystemStorageSvc {
 			}
 		}
 
+		logger.info("Code System import complete for {}.", codeSystem.getUrl());
 		return new IdType("CodeSystem", codeSystemVersion.getId(), codeSystemVersion.getVersion());
 	}
 
