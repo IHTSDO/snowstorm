@@ -4682,7 +4682,11 @@ class BranchMergeServiceTest extends AbstractTest {
 		concept = conceptService.find(vehicleId, taskC);
 		description = getDescription(concept, "Motorised vehicle");
 		String memberId = description.getLangRefsetMembers().iterator().next().getMemberId();
-		memberService.deleteMember(taskC, memberId);
+		Set<ReferenceSetMember> languageRefsetMembers = description.getLangRefsetMembers();
+		languageRefsetMembers.stream().forEach(member -> {
+			member.setAdditionalField("acceptabilityId", "900000000000549004");
+			memberService.updateMember(taskC, member);
+		});
 
 		// Promote task B (deletion)
 		branchMergeService.mergeBranchSync(taskB, project, Collections.emptySet());

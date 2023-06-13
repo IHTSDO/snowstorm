@@ -265,8 +265,6 @@ public class ConceptChangeHelper {
             Set<String> modifiedOnTarget = new HashSet<>();
             modifiedOnTarget.addAll(getConceptsWithModifiedDescriptionsOnBranch(target, null, deletedOnSource));
             modifiedOnTarget.addAll(getConceptsWithModifiedReferenceSetMembersOnBranch(target, null, deletedOnSource));
-            modifiedOnTarget.addAll(getReferenceSetMembersDeletedOnBranch(target));
-
             contradictoryChanges.addAll(modifiedOnTarget);
         }
 
@@ -276,8 +274,6 @@ public class ConceptChangeHelper {
             Set<String> modifiedOnSource = new HashSet<>();
             modifiedOnSource.addAll(getConceptsWithModifiedDescriptionsOnBranch(source, rangeQuery("start").gt(target.getBaseTimestamp()), deletedOnTarget));
             modifiedOnSource.addAll(getConceptsWithModifiedReferenceSetMembersOnBranch(source, rangeQuery("start").gt(target.getBaseTimestamp()), deletedOnTarget));
-            modifiedOnSource.addAll(getReferenceSetMembersDeletedOnBranch(source));
-
             contradictoryChanges.addAll(modifiedOnSource);
         }
 
@@ -408,98 +404,5 @@ public class ConceptChangeHelper {
         }
 
         return conceptsWithModifiedReferenceSetMembers;
-    }
-
-    private Set<String> getReferenceSetMembersDeletedOnBranch(Branch branch) {
-        String branchPath = branch.getPath();
-        Set<String> membersReplacedOnBranch = getMembersByInternalIds(branchService.findLatest(branchPath).getVersionsReplaced(ReferenceSetMember.class));
-
-        // Find ended ReferenceSetMembers on this Branch.
-        Set<String> referenceSetMembersEndedOnBranch = elasticsearchTemplate
-                .search(new NativeSearchQueryBuilder()
-                        .withQuery(
-                                boolQuery()
-                                        .must(termQuery(ReferenceSetMember.Fields.PATH, branchPath))
-                                        .mustNot(termsQuery(ReferenceSetMember.Fields.MEMBER_ID, membersReplacedOnBranch))
-                        )
-                        .withFields(ReferenceSetMember.Fields.MEMBER_ID, ReferenceSetMember.Fields.END)
-                        .withSort(SortBuilders.fieldSort(ReferenceSetMember.Fields.START).order(SortOrder.DESC))
-                        // Group by conceptId. Query will return most recent document for each Concept.
-                        .withCollapseField(ReferenceSetMember.Fields.MEMBER_ID)
-                        .build(), ReferenceSetMember.class)
-                .getSearchHits()
-                .stream()
-                .map(SearchHit::getContent)
-                .filter(c -> c.getEnd() != null)
-                .map(ReferenceSetMember::getMemberId)
-                .collect(Collectors.toSet());
-
-        List<String> branchPathAncestors = SPathUtil.getAncestors(branchPath);
-        if (!branchPathAncestors.isEmpty() && !referenceSetMembersEndedOnBranch.isEmpty()) {
-            try (final SearchHitsIterator<ReferenceSetMember> stream = elasticsearchTemplate.searchForStream(new NativeSearchQueryBuilder()
-                    .withQuery(
-                            boolQuery()
-                                    .must(termsQuery(ReferenceSetMember.Fields.CONCEPT_ID, referenceSetMembersEndedOnBranch))
-                                    .must(termsQuery(ReferenceSetMember.Fields.PATH, branchPathAncestors))
-                                    .mustNot(existsQuery("end"))
-                    )
-                    .withFields(ReferenceSetMember.Fields.MEMBER_ID)
-                    .build(), ReferenceSetMember.class)) {
-                // ReferenceSetMember exists on an ancestor, therefore promoted rather than deleted.
-                stream.forEachRemaining(hit -> referenceSetMembersEndedOnBranch.removeIf(id -> id.equals(hit.getContent().getMemberId())));
-            }
-        }
-
-        Set<String> referenceSetMembersDeleted = new HashSet<>(referenceSetMembersEndedOnBranch);
-
-        // Find ReferenceSetMembers that have not been replaced on this Branch, i.e. deleted.
-        if (!membersReplacedOnBranch.isEmpty()) {
-            try (final SearchHitsIterator<ReferenceSetMember> stream = elasticsearchTemplate.searchForStream(new NativeSearchQueryBuilder()
-                    .withQuery(
-                            boolQuery()
-                                    .must(termsQuery(Concept.Fields.CONCEPT_ID, membersReplacedOnBranch))
-                                    .must(termQuery(Concept.Fields.PATH, branchPath))
-                                    .mustNot(existsQuery(Concept.Fields.END))
-                    )
-                    .withFields(Concept.Fields.CONCEPT_ID)
-                    .build(), ReferenceSetMember.class)) {
-                // ReferenceSetMembers not replaced on current branch, therefore deleted.
-                stream.forEachRemaining(hit -> membersReplacedOnBranch.removeIf(id -> id.equals(hit.getContent().getMemberId())));
-            }
-        }
-
-        referenceSetMembersDeleted.addAll(membersReplacedOnBranch);
-
-        // Get conceptIds from referenceSetMembers
-        Set<String> conceptsWithDeletedReferenceSetMembers = new HashSet<>();
-        try (final SearchHitsIterator<ReferenceSetMember> stream = elasticsearchTemplate.searchForStream(new NativeSearchQueryBuilder()
-                .withQuery(boolQuery().must(termsQuery(ReferenceSetMember.Fields.MEMBER_ID, referenceSetMembersDeleted)))
-                .withFields(Concept.Fields.CONCEPT_ID)
-                .build(), ReferenceSetMember.class)) {
-            stream.forEachRemaining(hit -> {
-                conceptsWithDeletedReferenceSetMembers.add(hit.getContent().getConceptId());
-            });
-        }
-
-        return conceptsWithDeletedReferenceSetMembers;
-    }
-
-    private Set<String> getMembersByInternalIds(Set<String> internalIds) {
-        if (internalIds.isEmpty()) {
-            return Collections.emptySet();
-        }
-
-        Set<String> memberIds = new HashSet<>();
-        try (final SearchHitsIterator<ReferenceSetMember> stream = elasticsearchTemplate.searchForStream(new NativeSearchQueryBuilder()
-                .withPageable(PageRequest.of(0, internalIds.size()))
-                .withQuery(
-                        boolQuery().must(termsQuery("_id", internalIds)) // ES identifier, not an SCT identifier.
-                )
-                .withFields(ReferenceSetMember.Fields.MEMBER_ID)
-                .build(), ReferenceSetMember.class)) {
-            stream.forEachRemaining(hit -> memberIds.add(hit.getContent().getMemberId()));
-        }
-
-        return memberIds;
     }
 }
