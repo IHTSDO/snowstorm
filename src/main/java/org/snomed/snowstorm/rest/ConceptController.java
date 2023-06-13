@@ -93,6 +93,9 @@ public class ConceptController {
 	@Autowired
 	private CodeSystemService codeSystemService;
 
+	@Autowired
+	private IdentifierComponentService identifierComponentService;
+
 	@Value("${snowstorm.rest-api.allowUnlimitedConceptPagination:false}")
 	private boolean allowUnlimitedConceptPagination;
 
@@ -136,7 +139,7 @@ public class ConceptController {
 			@RequestParam(required = false) String statedEcl,
 			@RequestParam(required = false) Set<String> conceptIds,
 			@RequestParam(required = false) boolean returnIdOnly,
-			
+
 			@RequestParam(required = false, defaultValue = "0") int offset,
 			@RequestParam(required = false, defaultValue = "50") int limit,
 			@RequestParam(required = false) String searchAfter,
@@ -214,6 +217,36 @@ public class ConceptController {
 
 		ConceptMini concept = conceptMinis.getTotalElements() > 0 ? conceptMinis.getResultsMap().values().iterator().next() : null;
 		return ControllerHelper.throwIfNotFound("Concept", concept);
+	}
+
+	@GetMapping(value = "/{branch}/concepts/(componentId}/concept-or-identifier-ref-concept", produces = {"application/json", "text/csv"})
+	public Collection<ConceptMini> findConceptOrIdentifierReferencedConcept(
+			@PathVariable String branch,
+			@PathVariable String componentId,
+			@RequestParam(required = false) String identifierScheme,
+			@RequestHeader(value = "Accept-Language", defaultValue = Config.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) {
+		branch = BranchPathUriUtil.decodePath(branch);
+		Set<String> conceptIds = new HashSet<>();
+		conceptIds.add(componentId);
+
+		IdentifierSearchRequest identifierSearchRequest = new IdentifierSearchRequest().alternateIdentifier(componentId);
+		if (identifierScheme != null) {
+			identifierSearchRequest.identifierSchemeId(identifierScheme);
+		}
+		Page<Identifier> identifiers = identifierComponentService.findIdentifiers(
+				branch,
+				identifierSearchRequest,
+				ControllerHelper.getPageRequest(0, 100, null)
+		);
+		if (identifiers.getTotalElements() != 0) {
+			identifiers.getContent().forEach(item -> conceptIds.add(item.getReferencedComponentId()));
+		}
+
+		ResultMapPage<String, ConceptMini> conceptMinis = conceptService.findConceptMinis(branch, conceptIds,
+				ControllerHelper.parseAcceptLanguageHeaderWithDefaultFallback(acceptLanguageHeader));
+
+		Collection<ConceptMini> concepts = conceptMinis.getTotalElements() > 0 ? conceptMinis.getResultsMap().values() : null;
+		return ControllerHelper.throwIfNotFound("Concept", concepts);
 	}
 
 	@PostMapping(value = "/{branch}/concepts/search", produces = {"application/json", "text/csv"})
