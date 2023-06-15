@@ -41,6 +41,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.util.Assert;
+import org.springframework.util.CollectionUtils;
 import org.springframework.web.bind.annotation.*;
 
 import javax.validation.Valid;
@@ -219,11 +220,17 @@ public class ConceptController {
 		return ControllerHelper.throwIfNotFound("Concept", concept);
 	}
 
-	@GetMapping(value = "/{branch}/concepts/(componentId}/concept-or-identifier-ref-concept", produces = {"application/json", "text/csv"})
-	public Collection<ConceptMini> findConceptOrIdentifierReferencedConcept(
+	@GetMapping(value = "/browser/{branch}/concepts/{componentId}/concept-or-identifier-ref-concept", produces = {"application/json", "text/csv"})
+	@JsonView(value = View.Component.class)
+	public Collection<Concept> findConceptOrIdentifierReferencedConcept(
 			@PathVariable String branch,
+
+			@Parameter(description = "Concept id or alternative identifier.")
 			@PathVariable String componentId,
+
+			@Parameter(description = "Identifier scheme id to combine with alternative identifier")
 			@RequestParam(required = false) String identifierScheme,
+
 			@RequestHeader(value = "Accept-Language", defaultValue = Config.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) {
 		branch = BranchPathUriUtil.decodePath(branch);
 		Set<String> conceptIds = new HashSet<>();
@@ -242,11 +249,8 @@ public class ConceptController {
 			identifiers.getContent().forEach(item -> conceptIds.add(item.getReferencedComponentId()));
 		}
 
-		ResultMapPage<String, ConceptMini> conceptMinis = conceptService.findConceptMinis(branch, conceptIds,
-				ControllerHelper.parseAcceptLanguageHeaderWithDefaultFallback(acceptLanguageHeader));
-
-		Collection<ConceptMini> concepts = conceptMinis.getTotalElements() > 0 ? conceptMinis.getResultsMap().values() : null;
-		return ControllerHelper.throwIfNotFound("Concept", concepts);
+		Collection<Concept> concepts = conceptService.find(branch, conceptIds, ControllerHelper.parseAcceptLanguageHeaderWithDefaultFallback(acceptLanguageHeader));
+		return ControllerHelper.throwIfNotFound("Concept", CollectionUtils.isEmpty(concepts) ? null : concepts);
 	}
 
 	@PostMapping(value = "/{branch}/concepts/search", produces = {"application/json", "text/csv"})
