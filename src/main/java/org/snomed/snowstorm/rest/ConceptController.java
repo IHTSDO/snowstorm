@@ -222,7 +222,7 @@ public class ConceptController {
 
 	@GetMapping(value = "/browser/{branch}/concepts/{componentId}/concept-or-identifier-ref-concept", produces = {"application/json", "text/csv"})
 	@JsonView(value = View.Component.class)
-	public Collection<Concept> findConceptOrIdentifierReferencedConcept(
+	public HttpEntity<ItemsPage<?>> findConceptOrIdentifierReferencedConcept(
 			@PathVariable String branch,
 
 			@Parameter(description = "Concept id or alternative identifier.")
@@ -250,7 +250,10 @@ public class ConceptController {
 		}
 
 		Collection<Concept> concepts = conceptService.find(branch, conceptIds, ControllerHelper.parseAcceptLanguageHeaderWithDefaultFallback(acceptLanguageHeader));
-		return ControllerHelper.throwIfNotFound("Concept", CollectionUtils.isEmpty(concepts) ? null : concepts);
+		if (CollectionUtils.isEmpty(concepts)) {
+			throw new NotFoundException("Concept not found");
+		}
+		return new HttpEntity<>(new ItemsPage<>(concepts));
 	}
 
 	@PostMapping(value = "/{branch}/concepts/search", produces = {"application/json", "text/csv"})
