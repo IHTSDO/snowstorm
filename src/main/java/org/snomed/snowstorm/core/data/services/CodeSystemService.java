@@ -253,6 +253,7 @@ public class CodeSystemService {
 
 		Map payload = new HashMap();
 		payload.put("codeSystemShortName", codeSystem.getShortName());
+		payload.put("codeSystemBranchPath", codeSystem.getBranchPath());
 		payload.put("effectiveDate", String.valueOf(effectiveDate));
 		payload.put("versioningDate", String.valueOf(new Date().getTime()));
 		String topicDestination = jmsQueuePrefix + ".versioning.complete";
