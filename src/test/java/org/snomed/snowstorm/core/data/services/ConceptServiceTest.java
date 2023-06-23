@@ -703,6 +703,49 @@ class ConceptServiceTest extends AbstractTest {
 		inactiveConcept = conceptService.find(inactiveConcept.getId(), path);
 		assertEquals("OUTDATED", inactiveConcept.getInactivationIndicator());
 	}
+
+	@Test
+	void testConceptInactivationThenVersionThenAddDescription() throws ServiceException {
+		String path = "MAIN";
+		branchService.updateMetadata(path, Map.of(BranchMetadataKeys.DEFAULT_MODULE_ID, "900000000000207008"));
+		conceptService.batchCreate(Lists.newArrayList(new Concept("107658001"), new Concept("116680003")), path);
+		final Concept concept = new Concept("50960005", 20020131, true, "900000000000207008", "900000000000074008");
+		concept.addDescription(new Description("84923010", 20020131, true, "900000000000207008", "50960005", "en", "900000000000013009", "Bleeding", "900000000000020002"));
+		concept.addAxiom(new Relationship(ISA, "107658001"));
+		Concept savedConcept = conceptService.create(concept, path);
+
+		codeSystemService.createVersion(codeSystem, 20200131, "");
+
+		// Make concept inactive
+		savedConcept.setActive(false);
+
+		conceptService.update(savedConcept, path);
+		Concept foundInactiveConcept = conceptService.find(savedConcept.getConceptId(), path);
+
+		assertFalse(foundInactiveConcept.isActive());
+
+		foundInactiveConcept.addDescription(new Description("New").setModuleId(null));
+		conceptService.update(foundInactiveConcept, path);
+		foundInactiveConcept = conceptService.find(savedConcept.getConceptId(), path);
+		Optional<Description> inactiveDescriptionOptional = foundInactiveConcept.getDescriptions().stream().filter(d -> d.getTerm().equals("New")).findFirst();
+		assertTrue(inactiveDescriptionOptional.isPresent());
+		Description inactiveDescription = inactiveDescriptionOptional.get();
+		assertEquals("900000000000207008", inactiveDescription.getModuleId());
+
+		// Check description inactivation indicator reference set member was created
+		Page<ReferenceSetMember> descriptionInactivationMembers = 
+				referenceSetMemberService.findMembers(path, new MemberSearchRequest()
+						.referenceSet(DESCRIPTION_INACTIVATION_INDICATOR_REFERENCE_SET)
+						.referencedComponentId(inactiveDescription.getDescriptionId()),
+						PageRequest.of(0, 1));
+		assertEquals(1, descriptionInactivationMembers.getTotalElements());
+		ReferenceSetMember descriptionInactivationIndicatorMember = descriptionInactivationMembers.get().iterator().next();
+		assertNotNull(descriptionInactivationIndicatorMember);
+		assertTrue(descriptionInactivationIndicatorMember.isActive());
+		assertEquals(Concepts.DESCRIPTION_INACTIVATION_INDICATOR_REFERENCE_SET, descriptionInactivationIndicatorMember.getRefsetId());
+		assertEquals(CONCEPT_NON_CURRENT, descriptionInactivationIndicatorMember.getAdditionalField("valueId"));
+		assertEquals("900000000000207008", descriptionInactivationIndicatorMember.getModuleId());
+	}
 	
 	@Test
 	void testConceptReactivationInExtension() throws ServiceException {
