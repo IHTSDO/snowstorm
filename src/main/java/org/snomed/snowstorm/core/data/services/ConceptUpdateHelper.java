@@ -287,6 +287,7 @@ public class ConceptUpdateHelper extends ComponentService {
 		doSaveBatchDescriptions(descriptionsToPersist, commit);
 		doSaveBatchRelationships(relationshipsToPersist, commit);
 
+		refsetMembersToPersist.stream().filter(m -> m.getModuleId() == null).forEach(m -> m.setModuleId(defaultModuleId));
 		memberService.doSaveBatchMembers(refsetMembersToPersist, commit);
 		refsetMembersToPersist.addAll(doDeleteMembersWhereReferencedComponentDeleted(commit.getEntitiesDeleted(), commit));
 
