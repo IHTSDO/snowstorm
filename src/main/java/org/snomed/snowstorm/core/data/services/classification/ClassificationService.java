@@ -1,5 +1,6 @@
 package org.snomed.snowstorm.core.data.services.classification;
 
+import com.google.common.base.Strings;
 import com.google.common.collect.Lists;
 import io.kaicode.elasticvc.api.BranchCriteria;
 import io.kaicode.elasticvc.api.BranchService;
@@ -9,7 +10,6 @@ import io.kaicode.elasticvc.domain.Commit;
 import io.kaicode.elasticvc.domain.Metadata;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 import org.elasticsearch.ElasticsearchException;
-import org.elasticsearch.common.Strings;
 import org.elasticsearch.common.util.concurrent.UncategorizedExecutionException;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.search.sort.SortBuilders;
@@ -43,6 +43,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.elasticsearch.core.*;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
+import org.springframework.jms.core.JmsTemplate;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -113,6 +114,9 @@ public class ClassificationService {
 	@Autowired
 	private RelationshipService relationshipService;
 
+	@Autowired
+	private JmsTemplate jmsTemplate;
+
 	private final List<Classification> classificationsInProgress;
 	private final Map<String, SecurityContext> classificationUserIdToUserContextMap;
 
@@ -127,6 +131,9 @@ public class ClassificationService {
 	private static final PageRequest PAGE_FIRST_1K = PageRequest.of(0, 1000);
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
+
+	@Value("${jms.queue.prefix")
+	private String jmsQueuePrefix;
 
 	public ClassificationService() {
 		classificationsInProgress = new ArrayList<>();
@@ -243,11 +250,15 @@ public class ClassificationService {
 											classification.setStatus(ClassificationStatus.FAILED);
 											String message = "Failed to capture remote classification results.";
 											classification.setErrorMessage(message);
+											// Update status response for authoring service
+											statusResponse.setStatus(classification.getStatus());
+											statusResponse.setErrorMessage(classification.getErrorMessage());
 											logger.error(message, e);
 										}
 									}
 
 									classificationRepository.save(classification);
+									jmsTemplate.convertAndSend(jmsQueuePrefix + ".authoring.classification.status", statusResponse);
 									logger.info("Classification {} {} after {} seconds.", classification.getId(), classification.getStatus(), getSecondsSince(classification.getCreationDate()));
 								});
 							}
