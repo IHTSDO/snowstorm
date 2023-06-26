@@ -132,7 +132,7 @@ public class ClassificationService {
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
-	@Value("${jms.queue.prefix")
+	@Value("${jms.queue.prefix}")
 	private String jmsQueuePrefix;
 
 	public ClassificationService() {
