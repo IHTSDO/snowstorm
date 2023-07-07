@@ -3,6 +3,29 @@ All notable changes to this project will be documented in this file.
 
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 8.3.0 Release (August 2023)
+Maintenance release with bug fixes and improvements.
+
+### Features
+- BROWSE-638 Add support for finding the referenced Component of an alternative Identifier.
+- MAINT-2220 Add new `/identifier` endpoint for searching for Concepts by their alternative Identifiers.
+
+### Improvements
+- PIP-254 Change role group name from PROJECT_LEAD to PROJECT_LEAD.
+- MAINT-2216 Enable MRCM Domain Templates to be updated during a rebase commit.
+- MAINT-2188 Move MRCM Domain Templates into appropriate module when edited.
+- MAINT-1988 Stop writing logs to redundant `tmp/spring.log` file.
+- MAINT-2228 Add CodeSystem's Branch path to message when versioning.
+- MAINT-2258 Send Classification status to a new response queue for authoring
+- PIP-288 Fix vulnerabilities in guava, jackson-databind and tomcat-embed-core libraries.
+- PIP-279 Explicitly add `drools-engine` and `drools-core-dynamic` as dependencies.
+
+### Fixes
+- MAINT-2192 Fix bug which resulted in modifying an inactive Component being audited as an 'inactivation'.
+- FRI-526 Only update dependency package in Branch metadata during an Extension's upgrade routine.
+- ISTO-94 Fix `active` flag in FHIR interface when expanding a ValueSet.
+- ISTO-97 Fix bug which resulted in a blank moduleId when adding a Description to an inactive Concept.
+
 ## 8.2.2 Release (June 2023)
 Maintenance release with bug fixes and improvements.
 
