@@ -3,6 +3,17 @@ All notable changes to this project will be documented in this file.
 
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 8.3.0 Release (July 2023)
+
+### Features
+- 
+
+### Fixes
+- 
+
+### Improvements
+- 
+
 ## 8.2.2 Release (June 2023)
 Maintenance release with bug fixes and improvements.
 
