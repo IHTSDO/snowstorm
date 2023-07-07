@@ -1,6 +1,7 @@
 package org.snomed.snowstorm.core.data.services.pojo;
 
 import org.snomed.snowstorm.core.data.services.DescriptionService;
+import org.snomed.snowstorm.rest.pojo.MultibranchDescriptionSearchRequest;
 import org.springframework.util.CollectionUtils;
 
 import java.util.Collection;
@@ -30,6 +31,9 @@ public class DescriptionCriteria {
 	private Set<Long> acceptableIn;
 	private Set<Long> preferredOrAcceptableIn;
 	private List<DisjunctionAcceptabilityCriteria> disjunctionAcceptabilityCriteria;
+	private Set<Long> conceptIds;
+	private String ecl;
+	private MultibranchDescriptionSearchRequest includeBranches;
 
 	public static void configure(int searchTermMinimumLength, int searchTermMaximumLength) {
 		searchTermMinLength = searchTermMinimumLength;
@@ -205,6 +209,33 @@ public class DescriptionCriteria {
 
 	public List<DisjunctionAcceptabilityCriteria> getDisjunctionAcceptabilityCriteria() {
 		return disjunctionAcceptabilityCriteria;
+	}
+	
+	public DescriptionCriteria conceptIds(Set<Long> conceptIds) {
+		this.conceptIds = conceptIds;
+		return this;
+	}
+
+	public Set<Long> getConceptIds() {
+		return conceptIds;
+	}
+	
+	public DescriptionCriteria ecl(String ecl) {
+		this.ecl = ecl;
+		return this;
+	}
+	
+	public String getEcl() {
+		return ecl;
+	}
+	
+	public DescriptionCriteria includeBranches(MultibranchDescriptionSearchRequest includeBranches) {
+		this.includeBranches = includeBranches;
+		return this;
+	}
+	
+	public MultibranchDescriptionSearchRequest getIncludeBranches() {
+		return includeBranches;
 	}
 
 	@Override
