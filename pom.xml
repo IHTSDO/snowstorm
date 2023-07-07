@@ -133,6 +133,14 @@
 			<artifactId>branch-path-uri-rewrite-filter</artifactId>
 		</dependency>
 		<dependency>
+			<groupId>org.drools</groupId>
+			<artifactId>drools-engine</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.drools</groupId>
+			<artifactId>drools-core-dynamic</artifactId>
+		</dependency>
+		<dependency>
 			<groupId>org.ihtsdo.drools</groupId>
 			<artifactId>snomed-drools-engine</artifactId>
 		</dependency>
