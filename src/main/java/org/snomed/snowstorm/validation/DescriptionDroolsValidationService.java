@@ -142,8 +142,8 @@ public class DescriptionDroolsValidationService implements org.ihtsdo.drools.ser
 	}
 
 	@Override
-	public boolean isRecognisedSemanticTag(String semanticTag) {
-		return semanticTag != null && !semanticTag.isEmpty() && testResourceProvider.getSemanticTags().contains(semanticTag);
+	public boolean isRecognisedSemanticTag(String semanticTag, String language) {
+		return semanticTag != null && !semanticTag.isEmpty() && testResourceProvider.getSemanticTagsByLanguage(Collections.singleton(language)).contains(semanticTag);
 	}
 
 	private String findStatedHierarchyRootId(org.ihtsdo.drools.domain.Concept concept) {
