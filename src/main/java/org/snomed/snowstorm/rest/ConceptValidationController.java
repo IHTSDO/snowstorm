@@ -56,8 +56,8 @@ public class ConceptValidationController {
 
 	@GetMapping(value = "/validation-maintenance/semantic-tags")
 	@Operation(description = "Retrieve all semantic tags.")
-	public Set<String> getSemantictTags() {
-		return validationService.getSemanticTags();
+	public Set<String> getSemantictTags(@RequestParam(required = false, defaultValue="en") String language) {
+		return validationService.getSemanticTags(language);
 	}
 
 	@GetMapping(value = "/{branch}/report/inactive-concepts-without-association")
