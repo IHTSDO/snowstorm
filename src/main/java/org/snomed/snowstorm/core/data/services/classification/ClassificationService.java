@@ -449,7 +449,7 @@ public class ClassificationService {
 						classification.setSaveDate(commit.getTimepoint());
 						classificationRepository.save(classification);// Must save classification before commit closes for branch classification status
 					}
-				} catch (ServiceException | IllegalStateException e) {
+				} catch (ServiceException | IllegalStateException | NotFoundException e) {
 					classification.setStatus(SAVE_FAILED);
 					logger.error("Classification save failed {} {}", classification.getPath(), classificationId, e);
 				}
