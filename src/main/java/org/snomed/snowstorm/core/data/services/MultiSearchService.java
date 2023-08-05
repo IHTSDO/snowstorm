@@ -12,7 +12,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.services.pojo.ConceptCriteria;
-import org.snomed.snowstorm.core.data.services.pojo.DescriptionCriteria;
+import org.snomed.snowstorm.core.data.services.pojo.MultiSearchDescriptionCriteria;
 import org.snomed.snowstorm.core.data.services.pojo.PageWithBucketAggregations;
 import org.snomed.snowstorm.core.data.services.pojo.PageWithBucketAggregationsFactory;
 import org.snomed.snowstorm.ecl.ECLQueryService;
@@ -68,15 +68,25 @@ public class MultiSearchService implements CommitListener {
 	private MultiBranchCriteria cachedBranchCriteria = null;
 	private LocalDate cacheDate = null;
 
-	public Page<Description> findDescriptions(DescriptionCriteria criteria, PageRequest pageRequest) {
+	public Page<Description> findDescriptions(MultiSearchDescriptionCriteria criteria, PageRequest pageRequest) {
 
 		MultiBranchCriteria cachedBranchesQuery = getBranchesQuery();
 		
 		MultiBranchCriteria branchesQuery = new MultiBranchCriteria("all-released-plus-requested",cachedBranchesQuery.getTimepoint(),new ArrayList<>(cachedBranchesQuery.getBranchCriteria()));
 		if (criteria.getIncludeBranches() != null && criteria.getIncludeBranches().getBranches() != null) {
-			for(String branch : criteria.getIncludeBranches().getBranches()) {
-				if (!branchesQuery.getBranchCriteria().contains(versionControlHelper.getBranchCriteria(branch))) {
-					branchesQuery.getBranchCriteria().add(versionControlHelper.getBranchCriteria(branch));
+			// Check branches passed in by user
+			// Only add if not already present in the branches returned by the query
+			final List<BranchCriteria> branchesQueryBranchCriteria = branchesQuery.getBranchCriteria();
+			for(String includedBranch : criteria.getIncludeBranches().getBranches()) {
+				boolean branchAlreadyPresent = false;
+				for(BranchCriteria branchesQueryBranchCriterion : branchesQueryBranchCriteria) {
+					if(branchesQueryBranchCriterion.getBranchPath().equals(includedBranch)) {
+						branchAlreadyPresent = true;
+						break;
+					}
+				}
+				if(!branchAlreadyPresent) {
+					branchesQueryBranchCriteria.add(versionControlHelper.getBranchCriteria(includedBranch));
 				}
 			}
 		}
@@ -94,7 +104,7 @@ public class MultiSearchService implements CommitListener {
 		return new PageImpl<>(searchHits.get().map(SearchHit::getContent).collect(Collectors.toList()), pageRequest, searchHits.getTotalHits());
 	}
 	
-	public PageWithBucketAggregations<Description> findDescriptionsReferenceSets(DescriptionCriteria criteria, PageRequest pageRequest) {
+	public PageWithBucketAggregations<Description> findDescriptionsReferenceSets(MultiSearchDescriptionCriteria criteria, PageRequest pageRequest) {
 
 		// all search results are required to determine total refset bucket membership
 		SearchHits<Description> allSearchHits = findDescriptionsHelper(criteria, null, getBranchesQuery());
@@ -124,7 +134,7 @@ public class MultiSearchService implements CommitListener {
 		return PageWithBucketAggregationsFactory.createPage(searchHits, new Aggregations(allAggregations), pageRequest);
 	}
 	
-	private SearchHits<Description> findDescriptionsHelper(DescriptionCriteria criteria, PageRequest pageRequest, MultiBranchCriteria branchCriteria) {
+	private SearchHits<Description> findDescriptionsHelper(MultiSearchDescriptionCriteria criteria, PageRequest pageRequest, MultiBranchCriteria branchCriteria) {
 		final BoolQueryBuilder branchesQuery = branchCriteria.getEntityBranchCriteria(Description.class);
 		final BoolQueryBuilder descriptionQuery = boolQuery()
 				.must(branchesQuery);

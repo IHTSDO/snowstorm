@@ -14,6 +14,7 @@ import org.snomed.snowstorm.core.data.services.QueryService;
 import org.snomed.snowstorm.core.data.services.TooCostlyException;
 import org.snomed.snowstorm.core.data.services.pojo.ConceptCriteria;
 import org.snomed.snowstorm.core.data.services.pojo.DescriptionCriteria;
+import org.snomed.snowstorm.core.data.services.pojo.MultiSearchDescriptionCriteria;
 import org.snomed.snowstorm.core.data.services.pojo.PageWithBucketAggregations;
 import org.snomed.snowstorm.core.pojo.LanguageDialect;
 import org.snomed.snowstorm.core.util.TimerUtil;
@@ -69,13 +70,14 @@ public class MultiSearchController {
 
 		TimerUtil timer = new TimerUtil("MultiSearch - Descriptions");
 
-		DescriptionCriteria descriptionCriteria = new DescriptionCriteria()
+		MultiSearchDescriptionCriteria descriptionCriteria = (MultiSearchDescriptionCriteria) new DescriptionCriteria()
 				.term(term)
 				.active(active)
 				.modules(module)
 				.searchLanguageCodes(language)
 				.type(type)
-				.conceptActive(conceptActive)
+				.conceptActive(conceptActive);
+		descriptionCriteria
 				.ecl(ecl);
 
 		return findDescriptionsHelper(descriptionCriteria, offset, limit, acceptLanguageHeader, timer);
@@ -107,14 +109,16 @@ public class MultiSearchController {
 
 		TimerUtil timer = new TimerUtil("MultiSearch - Descriptions");
 
-		DescriptionCriteria descriptionCriteria = new DescriptionCriteria()
+		MultiSearchDescriptionCriteria descriptionCriteria = (MultiSearchDescriptionCriteria) new DescriptionCriteria()
 				.term(term)
 				.active(active)
 				.modules(module)
 				.searchLanguageCodes(language)
 				.type(type)
-				.conceptActive(conceptActive)
-				.ecl(ecl)
+				.conceptActive(conceptActive);
+		descriptionCriteria
+				.ecl(ecl);
+		descriptionCriteria
 				.includeBranches(includeBranches);
 
 		return findDescriptionsHelper(descriptionCriteria, offset, limit, acceptLanguageHeader, timer);
@@ -144,7 +148,7 @@ public class MultiSearchController {
 
 		TimerUtil timer = new TimerUtil("MultiSearch - Descriptions with Reference Set buckets");
 
-		DescriptionCriteria descriptionCriteria = new DescriptionCriteria()
+		MultiSearchDescriptionCriteria multiSearchDescriptionCriteria = (MultiSearchDescriptionCriteria) new DescriptionCriteria()
 				.term(term)
 				.active(active)
 				.modules(module)
@@ -153,7 +157,7 @@ public class MultiSearchController {
 				.conceptActive(conceptActive);
 
 		PageRequest pageRequest = ControllerHelper.getPageRequest(offset, limit);
-		PageWithBucketAggregations<Description> page = multiSearchService.findDescriptionsReferenceSets(descriptionCriteria, pageRequest);
+		PageWithBucketAggregations<Description> page = multiSearchService.findDescriptionsReferenceSets(multiSearchDescriptionCriteria, pageRequest);
 		timer.checkpoint("description search with reference sets");
 
 		Map<String, List<Description>> branchDescriptions = new HashMap<>();
@@ -206,7 +210,7 @@ public class MultiSearchController {
 		return new ItemsPage<>(new PageImpl<>(minis, pageRequest, concepts.getTotalElements()));
 	}
 	
-	private ItemsPage<BrowserDescriptionSearchResult> findDescriptionsHelper(DescriptionCriteria descriptionCriteria, int offset, int limit, String acceptLanguageHeader, TimerUtil timer) {
+	private ItemsPage<BrowserDescriptionSearchResult> findDescriptionsHelper(MultiSearchDescriptionCriteria descriptionCriteria, int offset, int limit, String acceptLanguageHeader, TimerUtil timer) {
 		PageRequest pageRequest = ControllerHelper.getPageRequest(offset, limit);
 		Page<Description> descriptions = multiSearchService.findDescriptions(descriptionCriteria, pageRequest);
 		timer.checkpoint("description search");
