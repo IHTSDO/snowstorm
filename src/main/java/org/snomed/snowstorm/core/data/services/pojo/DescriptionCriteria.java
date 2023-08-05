@@ -31,9 +31,6 @@ public class DescriptionCriteria {
 	private Set<Long> acceptableIn;
 	private Set<Long> preferredOrAcceptableIn;
 	private List<DisjunctionAcceptabilityCriteria> disjunctionAcceptabilityCriteria;
-	private Set<Long> conceptIds;
-	private String ecl;
-	private MultibranchDescriptionSearchRequest includeBranches;
 
 	public static void configure(int searchTermMinimumLength, int searchTermMaximumLength) {
 		searchTermMinLength = searchTermMinimumLength;
@@ -211,33 +208,6 @@ public class DescriptionCriteria {
 		return disjunctionAcceptabilityCriteria;
 	}
 	
-	public DescriptionCriteria conceptIds(Set<Long> conceptIds) {
-		this.conceptIds = conceptIds;
-		return this;
-	}
-
-	public Set<Long> getConceptIds() {
-		return conceptIds;
-	}
-	
-	public DescriptionCriteria ecl(String ecl) {
-		this.ecl = ecl;
-		return this;
-	}
-	
-	public String getEcl() {
-		return ecl;
-	}
-	
-	public DescriptionCriteria includeBranches(MultibranchDescriptionSearchRequest includeBranches) {
-		this.includeBranches = includeBranches;
-		return this;
-	}
-	
-	public MultibranchDescriptionSearchRequest getIncludeBranches() {
-		return includeBranches;
-	}
-
 	@Override
 	public boolean equals(Object o) {
 		if (this == o) return true;
