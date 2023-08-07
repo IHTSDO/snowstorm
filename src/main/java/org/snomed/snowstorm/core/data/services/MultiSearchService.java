@@ -1,36 +1,21 @@
 package org.snomed.snowstorm.core.data.services;
 
-import static org.elasticsearch.index.query.QueryBuilders.boolQuery;
-import static org.elasticsearch.index.query.QueryBuilders.termQuery;
-import static org.elasticsearch.index.query.QueryBuilders.termsQuery;
-
-import static org.snomed.snowstorm.config.Config.AGGREGATION_SEARCH_SIZE;
-
-import java.time.LocalDate;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.stream.Collectors;
-
+import io.kaicode.elasticvc.api.*;
+import io.kaicode.elasticvc.domain.Branch;
+import io.kaicode.elasticvc.domain.Commit;
+import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.search.aggregations.Aggregation;
 import org.elasticsearch.search.aggregations.AggregationBuilders;
 import org.elasticsearch.search.aggregations.Aggregations;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.snomed.snowstorm.core.data.domain.CodeSystem;
-import org.snomed.snowstorm.core.data.domain.CodeSystemVersion;
-import org.snomed.snowstorm.core.data.domain.Concept;
-import org.snomed.snowstorm.core.data.domain.Description;
-import org.snomed.snowstorm.core.data.domain.ReferenceSetMember;
+import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.services.pojo.ConceptCriteria;
-import org.snomed.snowstorm.core.data.services.pojo.DescriptionCriteria;
+import org.snomed.snowstorm.core.data.services.pojo.MultiSearchDescriptionCriteria;
 import org.snomed.snowstorm.core.data.services.pojo.PageWithBucketAggregations;
 import org.snomed.snowstorm.core.data.services.pojo.PageWithBucketAggregationsFactory;
+import org.snomed.snowstorm.ecl.ECLQueryService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
@@ -44,13 +29,13 @@ import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilde
 import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;
 
-import io.kaicode.elasticvc.api.CommitListener;
-import io.kaicode.elasticvc.api.PathUtil;
-import io.kaicode.elasticvc.api.VersionControlHelper;
-import io.kaicode.elasticvc.domain.Branch;
-import io.kaicode.elasticvc.domain.Commit;
-import io.kaicode.elasticvc.domain.Commit.CommitType;
-import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
+import java.time.LocalDate;
+import java.util.*;
+import java.util.stream.Collectors;
+
+import static io.kaicode.elasticvc.api.ComponentService.LARGE_PAGE;
+import static org.elasticsearch.index.query.QueryBuilders.*;
+import static org.snomed.snowstorm.config.Config.AGGREGATION_SEARCH_SIZE;
 
 @Service
 /*
@@ -63,6 +48,9 @@ public class MultiSearchService implements CommitListener {
 
 	@Autowired
 	private ConceptService	conceptService;
+	
+	@Autowired
+	private ECLQueryService eclQueryService;
 
 	@Autowired
 	private CodeSystemService codeSystemService;
@@ -75,23 +63,53 @@ public class MultiSearchService implements CommitListener {
 	
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 	
-	Map<String, String> publishedBranches = new HashMap<>();
-	
-	BoolQueryBuilder cachedBranchesQuery = null;
-	LocalDate cacheDate = null;
+	private final Map<String, String> publishedBranches = new HashMap<>();
 
-	public Page<Description> findDescriptions(DescriptionCriteria criteria, PageRequest pageRequest) {
+	private MultiBranchCriteria cachedBranchCriteria = null;
+	private LocalDate cacheDate = null;
+
+	public Page<Description> findDescriptions(MultiSearchDescriptionCriteria criteria, PageRequest pageRequest) {
+
+		MultiBranchCriteria cachedBranchesQuery = getBranchesQuery();
 		
-		SearchHits<Description> searchHits = findDescriptionsHelper(criteria, pageRequest);
+		MultiBranchCriteria branchesQuery = new MultiBranchCriteria("all-released-plus-requested",cachedBranchesQuery.getTimepoint(),new ArrayList<>(cachedBranchesQuery.getBranchCriteria()));
+		if (criteria.getIncludeBranches() != null && criteria.getIncludeBranches().getBranches() != null) {
+			// Check branches passed in by user
+			// Only add if not already present in the branches returned by the query
+			final List<BranchCriteria> branchesQueryBranchCriteria = branchesQuery.getBranchCriteria();
+			for(String includedBranch : criteria.getIncludeBranches().getBranches()) {
+				boolean branchAlreadyPresent = false;
+				for(BranchCriteria branchesQueryBranchCriterion : branchesQueryBranchCriteria) {
+					if(branchesQueryBranchCriterion.getBranchPath().equals(includedBranch)) {
+						branchAlreadyPresent = true;
+						break;
+					}
+				}
+				if(!branchAlreadyPresent) {
+					branchesQueryBranchCriteria.add(versionControlHelper.getBranchCriteria(includedBranch));
+				}
+			}
+		}
+
+		if (criteria.getEcl() != null) {
+			Set<Long> conceptIds = new HashSet<>();
+			for(BranchCriteria branchCriteria : branchesQuery.getBranchCriteria())
+			{
+				conceptIds.addAll(eclQueryService.selectConceptIds(criteria.getEcl(), branchCriteria, true, null, null).getContent());
+			}
+			criteria.conceptIds(conceptIds);
+		}
+
+		SearchHits<Description> searchHits = findDescriptionsHelper(criteria, pageRequest, branchesQuery);
 		return new PageImpl<>(searchHits.get().map(SearchHit::getContent).collect(Collectors.toList()), pageRequest, searchHits.getTotalHits());
 	}
 	
-	public PageWithBucketAggregations<Description> findDescriptionsReferenceSets(DescriptionCriteria criteria, PageRequest pageRequest) {
+	public PageWithBucketAggregations<Description> findDescriptionsReferenceSets(MultiSearchDescriptionCriteria criteria, PageRequest pageRequest) {
 
 		// all search results are required to determine total refset bucket membership
-		SearchHits<Description> allSearchHits = findDescriptionsHelper(criteria, null);
+		SearchHits<Description> allSearchHits = findDescriptionsHelper(criteria, null, getBranchesQuery());
 		// paged results are required for the list of descriptions returned
-		SearchHits<Description> searchHits = findDescriptionsHelper(criteria, pageRequest);
+		SearchHits<Description> searchHits = findDescriptionsHelper(criteria, pageRequest, getBranchesQuery());
 		
 		List<Aggregation> allAggregations = new ArrayList<>();
 		Set<Long> conceptIds = new HashSet<>();
@@ -116,8 +134,8 @@ public class MultiSearchService implements CommitListener {
 		return PageWithBucketAggregationsFactory.createPage(searchHits, new Aggregations(allAggregations), pageRequest);
 	}
 	
-	private SearchHits<Description> findDescriptionsHelper(DescriptionCriteria criteria, PageRequest pageRequest) {
-		final BoolQueryBuilder branchesQuery = getBranchesQuery();
+	private SearchHits<Description> findDescriptionsHelper(MultiSearchDescriptionCriteria criteria, PageRequest pageRequest, MultiBranchCriteria branchCriteria) {
+		final BoolQueryBuilder branchesQuery = branchCriteria.getEntityBranchCriteria(Description.class);
 		final BoolQueryBuilder descriptionQuery = boolQuery()
 				.must(branchesQuery);
 
@@ -131,6 +149,10 @@ public class MultiSearchService implements CommitListener {
 		Collection<String> modules = criteria.getModules();
 		if (!CollectionUtils.isEmpty(modules)) {
 			descriptionQuery.must(termsQuery(Description.Fields.MODULE_ID, modules));
+		}
+		
+		if (!CollectionUtils.isEmpty(criteria.getConceptIds())) {
+			descriptionQuery.must(termsQuery(Description.Fields.CONCEPT_ID, criteria.getConceptIds()));
 		}
 
 		NativeSearchQueryBuilder queryBuilder;
@@ -161,7 +183,7 @@ public class MultiSearchService implements CommitListener {
 		try (final SearchHitsIterator<Description> descriptions = elasticsearchTemplate.searchForStream(new NativeSearchQueryBuilder()
 				.withQuery(descriptionQuery)
 				.withFields(Description.Fields.CONCEPT_ID)
-				.withPageable(ConceptService.LARGE_PAGE).build(), Description.class)) {
+				.withPageable(LARGE_PAGE).build(), Description.class)) {
 			while (descriptions.hasNext()) {
 				conceptIdsMatched.add(Long.valueOf(descriptions.next().getContent().getConceptId()));
 		}
@@ -176,7 +198,7 @@ public class MultiSearchService implements CommitListener {
 					)
 					.withFilter(boolQuery().must(termQuery(Concept.Fields.ACTIVE, conceptActiveFlag)))
 					.withFields(Concept.Fields.CONCEPT_ID)
-					.withPageable(ConceptService.LARGE_PAGE).build(), Concept.class)) {
+					.withPageable(LARGE_PAGE).build(), Concept.class)) {
 				while (concepts.hasNext()) {
 					result.add(Long.valueOf(concepts.next().getContent().getConceptId()));
 				}
@@ -185,32 +207,36 @@ public class MultiSearchService implements CommitListener {
 		return result;
 	}
 
-	private BoolQueryBuilder getBranchesQuery() {
+	private MultiBranchCriteria getBranchesQuery() {
 		LocalDate today = LocalDate.now();
-		if (cachedBranchesQuery == null || !cacheDate.equals(today)) {
-			long startTime = System.currentTimeMillis();
-			Set<String> branchPaths = getAllPublishedVersionBranchPaths();
-			//long endTime = System.currentTimeMillis();
-			//logger.info("Mutisearch finding published paths took " + (endTime - startTime) + "ms");
-			
-			cachedBranchesQuery = boolQuery();
-			if (branchPaths.isEmpty()) {
-				cachedBranchesQuery.must(termQuery("path", "this-will-match-nothing"));
-			}
-			for (String branchPath : branchPaths) {
-				BoolQueryBuilder branchQuery = boolQuery();
-				if (!Branch.MAIN.equals(PathUtil.getParentPath(branchPath))) {
-					// Prevent content on MAIN being found in every other code system
-					branchQuery.mustNot(termQuery("path", Branch.MAIN));
+		if (cachedBranchCriteria == null || !cacheDate.equals(today)) {
+			synchronized (this) {
+				// Check again, may have been populated while waiting for the lock
+				if (cachedBranchCriteria == null || !cacheDate.equals(today)) {
+					long startTime = System.currentTimeMillis();
+					Set<String> branchPaths = getAllPublishedVersionBranchPaths();
+
+					List<BranchCriteria> branchCriteriaList = new ArrayList<>();
+					for (String branchPath : branchPaths) {
+						BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(branchPath);
+						if (!Branch.MAIN.equals(PathUtil.getParentPath(branchPath))) {
+							// Prevent content on MAIN being found in every other code system
+							branchCriteria.excludeContentFromPath(Branch.MAIN);
+						}
+						branchCriteriaList.add(branchCriteria);
+					}
+					
+					Date maxTimepoint = branchCriteriaList.stream().map(BranchCriteria::getTimepoint).max(Comparator.naturalOrder()).orElseGet(Date::new);
+					MultiBranchCriteria multiBranchCriteria = new MultiBranchCriteria("all-released", maxTimepoint, branchCriteriaList);
+					
+					long endTime = System.currentTimeMillis();
+					logger.info("Mutisearch branches query took " + (endTime - startTime) + "ms");
+					cachedBranchCriteria = multiBranchCriteria;
+					cacheDate = today;
 				}
-				branchQuery.must(versionControlHelper.getBranchCriteria(branchPath).getEntityBranchCriteria(Description.class));
-				cachedBranchesQuery.should(branchQuery);
 			}
-			long endTime = System.currentTimeMillis();
-			logger.info("Mutisearch branches query took " + (endTime - startTime) + "ms");
 		}
-		cacheDate = today;
-		return cachedBranchesQuery;
+		return cachedBranchCriteria;
 	}
 
 	public Set<String> getAllPublishedVersionBranchPaths() {
@@ -259,7 +285,7 @@ public class MultiSearchService implements CommitListener {
 	}
 
 	public Page<Concept> findConcepts(ConceptCriteria criteria, PageRequest pageRequest) {
-		final BoolQueryBuilder conceptQuery = boolQuery().must(getBranchesQuery());
+		final BoolQueryBuilder conceptQuery = boolQuery().must(getBranchesQuery().getEntityBranchCriteria(Description.class));
 		conceptService.addClauses(criteria.getConceptIds(), criteria.getActive(), conceptQuery);
 		NativeSearchQuery query = new NativeSearchQueryBuilder()
 				.withQuery(conceptQuery)
@@ -276,8 +302,19 @@ public class MultiSearchService implements CommitListener {
 
 	@Override
 	public void preCommitCompletion(Commit commit) throws IllegalStateException {
-		if (commit.getCommitType().equals(CommitType.CONTENT)) {
-			cachedBranchesQuery = null;
+		if (cachedBranchCriteria != null) {
+			if (BranchMetadataHelper.isCreatingCodeSystemVersion(commit)) {
+				cachedBranchCriteria = null;
+			} else {
+				for (BranchCriteria branchCriterion : cachedBranchCriteria.getBranchCriteria()) {
+					String branchPath = branchCriterion.getBranchPath();
+					if (branchPath.equals(commit.getBranch().getPath())) {
+						// Commit made on branch in cached criteria - clear criteria cache
+						cachedBranchCriteria = null;
+						break;
+					}
+				}
+			}
 		}
 	}
 }
