@@ -10,6 +10,7 @@ import org.snomed.snowstorm.core.data.domain.Concept;
 import org.snomed.snowstorm.core.data.domain.Concepts;
 import org.snomed.snowstorm.core.data.domain.Description;
 import org.snomed.snowstorm.core.data.services.pojo.DescriptionCriteria;
+import org.snomed.snowstorm.core.data.services.pojo.MultiSearchDescriptionCriteria;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -93,7 +94,7 @@ class MultiSearchServiceTest extends AbstractTest {
 	}
 
 	private Page<Description> runSearch(String term) {
-		DescriptionCriteria criteria = new DescriptionCriteria().term(term);
+		MultiSearchDescriptionCriteria criteria = (MultiSearchDescriptionCriteria) new DescriptionCriteria().term(term);
 		return multiSearchService.findDescriptions(criteria, PageRequest.of(0, 10));
 	}
 
@@ -101,7 +102,7 @@ class MultiSearchServiceTest extends AbstractTest {
 		if (conceptActive == null) {
 			return runSearch(term);
 		} else {
-			DescriptionCriteria criteria = new DescriptionCriteria().term(term).conceptActive(conceptActive);
+			MultiSearchDescriptionCriteria criteria = (MultiSearchDescriptionCriteria) new DescriptionCriteria().term(term).conceptActive(conceptActive);
 			return multiSearchService.findDescriptions(criteria, PageRequest.of(0, 10));
 		}
 	}
