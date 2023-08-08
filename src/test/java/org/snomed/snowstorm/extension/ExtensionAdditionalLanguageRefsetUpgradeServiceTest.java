@@ -252,4 +252,56 @@ class ExtensionAdditionalLanguageRefsetUpgradeServiceTest extends AbstractTest {
 			}
 		}
 	}
+
+	@Test
+	void testGenerateAdditionalLanguageRefsetsWithDeltaOnly_shouldNotUpdateOrAddNewAdditionalRefsetMember_ifAlreadyExistAPreferredTermInExtension() throws ServiceException {
+		// Complete copy for the first time
+		extensionAdditionalLanguageRefsetUpgradeService.generateAdditionalLanguageRefsetDelta(snomedctNZ, snomedctNZ.getBranchPath(), "900000000000508004", true);
+		// search for nz-en
+		MemberSearchRequest nzEnSearchRequest = new MemberSearchRequest();
+		nzEnSearchRequest.referenceSet("271000210107");
+		Page<ReferenceSetMember> updatedResult =  referenceSetMemberService.findMembers(snomedctNZ.getBranchPath(), nzEnSearchRequest, PageRequest.of(0, 10));
+		assertNotNull(updatedResult);
+		assertEquals(1, updatedResult.getContent().size());
+		String nzExistingMemberId = updatedResult.getContent().get(0).getMemberId();
+		// Version NZ extension
+		codeSystemService.createVersion(snomedctNZ, 20200331, "NZ release");
+		// Add new en-gb in international for 2 monthly releases
+		conceptService.create(constructTestConcept("100002", "675173020"), MAIN);
+		codeSystemService.createVersion(snomedct, 20200228, "international release 20200228");
+
+		conceptService.create(constructTestConcept("100003", "675173021"), MAIN);
+		codeSystemService.createVersion(snomedct, 20200331, "international release 20200331");
+
+		// roll up upgrade extension
+		String jobId = codeSystemUpgradeService.createJob(snomedctNZ.getShortName(), 20200331);
+		codeSystemUpgradeService.upgrade(jobId, snomedctNZ, 20200331, false);
+
+		snomedctNZ = codeSystemService.find(snomedctNZ.getShortName());
+
+		// Find INT concept and add a extension PREFERRED term
+		Concept concept = conceptService.find("100002", snomedctNZ.getBranchPath());
+		ReferenceSetMember extensionLanguageMember = new ReferenceSetMember(null,null, true,
+				"21000210109", "271000210107", "2156578010");
+		extensionLanguageMember.setAdditionalField(ReferenceSetMember.LanguageFields.ACCEPTABILITY_ID, "900000000000548007");
+
+		Description description = new Description("2156578010", "2156578010 testing");
+		description.addLanguageRefsetMember(extensionLanguageMember);
+		concept.addDescription(description);
+		conceptService.update(concept, snomedctNZ.getBranchPath());
+
+		// This step will not copy the EN-GB from concept 100002 as there is a existing extension PREFERRED term
+		extensionAdditionalLanguageRefsetUpgradeService.generateAdditionalLanguageRefsetDelta(snomedctNZ, snomedctNZ.getBranchPath(), "900000000000508004",false);
+		updatedResult =  referenceSetMemberService.findMembers(snomedctNZ.getBranchPath(), nzEnSearchRequest, PageRequest.of(0, 10));
+		assertNotNull(updatedResult);
+		assertEquals(3, updatedResult.getContent().size());
+		// Only 1 is released
+		List<ReferenceSetMember> published = updatedResult.get().filter(referenceSetMember -> referenceSetMember.isReleased()).collect(Collectors.toList());
+		assertEquals(1, published.size());
+		assertEquals(nzExistingMemberId, published.get(0).getMemberId());
+
+		assertEquals(1, updatedResult.get().filter(referenceSetMember -> referenceSetMember.getReferencedComponentId().equals("2156578010")).collect(Collectors.toList()).size());
+		assertEquals(1, updatedResult.get().filter(referenceSetMember -> referenceSetMember.getReferencedComponentId().equals("675173021")).collect(Collectors.toList()).size());
+		assertEquals(0, updatedResult.get().filter(referenceSetMember -> referenceSetMember.getReferencedComponentId().equals("675173020")).collect(Collectors.toList()).size());
+	}
 }
