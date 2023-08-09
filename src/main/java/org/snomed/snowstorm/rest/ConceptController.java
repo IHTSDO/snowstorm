@@ -442,7 +442,7 @@ public class ConceptController {
 		ControllerHelper.validatePageSize(offset, limit);
 
 		MapPage<Long, Set<Long>> conceptReferencesPage = semanticIndexService.findConceptReferences(branch, conceptId, stated, ControllerHelper.getPageRequest(offset, limit));
-		Map<Long, Set<Long>> conceptReferences = conceptReferencesPage.getMap();
+		Map<Long, Set<Long>> conceptReferences = conceptReferencesPage.map();
 
 		// Join concept minis with FSN and PT
 		Set<Long> allConceptIds = new LongOpenHashSet();
@@ -459,7 +459,7 @@ public class ConceptController {
 				referencingConcepts.add(conceptMiniMap.get(referencingConceptId.toString()));
 			}
 		}
-		return new ConceptReferencesResult(typeSets, conceptReferencesPage.getPageable(), conceptReferencesPage.getTotalElements());
+		return new ConceptReferencesResult(typeSets, conceptReferencesPage.pageable(), conceptReferencesPage.totalElements());
 	}
 
 	@PostMapping(value = "/browser/{branch}/concepts")
@@ -474,18 +474,18 @@ public class ConceptController {
 		Concept concept = (Concept) conceptView;
 		if (validate) {
 			final InvalidContentWithSeverityStatus invalidContent = ConceptValidationHelper.validate(concept, BranchPathUriUtil.decodePath(branch), validationService);
-			if (invalidContent.getSeverity() == Severity.WARNING) {
+			if (invalidContent.severity() == Severity.WARNING) {
 				// Remove temporary ids before the underlying create operation.
 				concept = ConceptValidationHelper.stripTemporaryUUIDsIfSet(concept);
 
 				final Concept createdConcept = conceptService.create(concept, ControllerHelper.parseAcceptLanguageHeaderWithDefaultFallback(acceptLanguageHeader),
 						BranchPathUriUtil.decodePath(branch));
-				createdConcept.setValidationResults(ConceptValidationHelper.replaceTemporaryUUIDWithSCTID(invalidContent.getInvalidContents(), createdConcept));
+				createdConcept.setValidationResults(ConceptValidationHelper.replaceTemporaryUUIDWithSCTID(invalidContent.invalidContents(), createdConcept));
 				HttpHeaders createdLocationHeaders = getCreatedLocationHeaders(createdConcept.getId());
 				joinDescriptorMembersHeader(concept, branch, createdLocationHeaders);
 				return new ResponseEntity<>(createdConcept, createdLocationHeaders, HttpStatus.OK);
 			}
-			concept.setValidationResults(invalidContent.getInvalidContents());
+			concept.setValidationResults(invalidContent.invalidContents());
 			return new ResponseEntity<>(concept, HttpStatus.BAD_REQUEST);
 		}
 
@@ -511,18 +511,18 @@ public class ConceptController {
 		Concept concept = (Concept) conceptView;
 		if (validate) {
 			final InvalidContentWithSeverityStatus invalidContent = ConceptValidationHelper.validate(concept, BranchPathUriUtil.decodePath(branch), validationService);
-			if (invalidContent.getSeverity() == Severity.WARNING) {
+			if (invalidContent.severity() == Severity.WARNING) {
 				// Remove temporary ids before the underlying update operation.
 				concept = ConceptValidationHelper.stripTemporaryUUIDsIfSet(concept);
 
 				final Concept updatedConcept = conceptService.update(concept, ControllerHelper.parseAcceptLanguageHeaderWithDefaultFallback(acceptLanguageHeader),
 						BranchPathUriUtil.decodePath(branch));
-				updatedConcept.setValidationResults(ConceptValidationHelper.replaceTemporaryUUIDWithSCTID(invalidContent.getInvalidContents(), updatedConcept));
+				updatedConcept.setValidationResults(ConceptValidationHelper.replaceTemporaryUUIDWithSCTID(invalidContent.invalidContents(), updatedConcept));
 				HttpHeaders updatedLocationHeaders = getCreatedLocationHeaders(conceptId);
 				joinDescriptorMembersHeader(concept, branch, updatedLocationHeaders);
 				return new ResponseEntity<>(updatedConcept, updatedLocationHeaders, HttpStatus.OK);
 			}
-			concept.setValidationResults(invalidContent.getInvalidContents());
+			concept.setValidationResults(invalidContent.invalidContents());
 			return new ResponseEntity<>(concept, HttpStatus.BAD_REQUEST);
 		}
 

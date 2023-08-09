@@ -123,7 +123,7 @@ public class ComparableExpression extends Expression implements Comparable<Compa
 
 	@Override
 	public List<String> getFocusConcepts() {
-		return sortedFocusConcepts == null ? null : Collections.unmodifiableList(new ArrayList<>(sortedFocusConcepts));
+		return sortedFocusConcepts == null ? null : List.copyOf(sortedFocusConcepts);
 	}
 
 	@Override
@@ -140,7 +140,7 @@ public class ComparableExpression extends Expression implements Comparable<Compa
 
 	@Override
 	public List<Attribute> getAttributes() {
-		return comparableAttributes == null ? null : Collections.unmodifiableList(new ArrayList<>(this.comparableAttributes));
+		return comparableAttributes == null ? null : List.copyOf(this.comparableAttributes);
 	}
 
 	@Override
@@ -157,7 +157,7 @@ public class ComparableExpression extends Expression implements Comparable<Compa
 
 	@Override
 	public Set<AttributeGroup> getAttributeGroups() {
-		return comparableAttributeGroups == null ? null : Collections.unmodifiableSet(new HashSet<>(comparableAttributeGroups));
+		return comparableAttributeGroups == null ? null : Set.copyOf(comparableAttributeGroups);
 	}
 
 	private String getDefinitionStatusString() {

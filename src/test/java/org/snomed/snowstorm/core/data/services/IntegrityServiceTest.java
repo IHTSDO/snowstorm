@@ -21,7 +21,7 @@ import org.springframework.test.context.junit.jupiter.SpringExtension;
 import java.util.*;
 import java.util.stream.Collectors;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 import static org.snomed.snowstorm.core.data.domain.Concepts.ISA;
 import static org.snomed.snowstorm.core.data.services.BranchMetadataHelper.INTERNAL_METADATA_KEY;
 import static org.snomed.snowstorm.core.data.services.IntegrityService.INTEGRITY_ISSUE_METADATA_KEY;
@@ -100,26 +100,26 @@ class IntegrityServiceTest extends AbstractTest {
 		assertEquals(2, reportProjectTest2.getRelationshipsWithMissingOrInactiveDestination().size());
 
 		// Let's make concept 5 inactive on MAIN/project
-		conceptService.update((Concept) new Concept("100005").setActive(false), "MAIN/PROJECT");
+		conceptService.update(new Concept("100005").setActive(false), "MAIN/PROJECT");
 
 		// MAIN/project should have no new issues. Concept 5's relationship will not have a missing source concept because the relationship will have been deleted automatically
 
 		// Still just two bad relationships are on MAIN/project
-		assertEquals("MAIN/PROJECT report should be unchanged.", reportProject, integrityService.findAllComponentsWithBadIntegrity(branchService.findLatest("MAIN/PROJECT"), true));
+		assertEquals(reportProject, integrityService.findAllComponentsWithBadIntegrity(branchService.findLatest("MAIN/PROJECT"), true), "MAIN/PROJECT report should be unchanged.");
 
 		// There is a relationship on MAIN/project/test2 which will break now that concept 5 is inactive,
 		// however the report on MAIN/project/test2 should not have changed yet because we have not rebased.
-		assertEquals("MAIN/PROJECT/TEST2 report should be unchanged", reportProjectTest2, integrityService.findAllComponentsWithBadIntegrity(branchService.findLatest("MAIN/PROJECT/TEST2"), true));
+		assertEquals(reportProjectTest2, integrityService.findAllComponentsWithBadIntegrity(branchService.findLatest("MAIN/PROJECT/TEST2"), true), "MAIN/PROJECT/TEST2 report should be unchanged");
 
 		// Let's rebase MAIN/project/test2
 		branchMergeService.mergeBranchSync("MAIN/PROJECT", "MAIN/PROJECT/TEST2", Collections.emptySet());
 
 		// MAIN/project/test2 should now have a new issue because the stated relationship on concept 6 points to the inactive concept 5.
 		IntegrityIssueReport reportProjectTest2Run2 = integrityService.findAllComponentsWithBadIntegrity(branchService.findLatest("MAIN/PROJECT/TEST2"), true);
-		assertNotEquals("MAIN/PROJECT/TEST2 report should be unchanged", reportProjectTest2, reportProjectTest2Run2);
+		assertNotEquals(reportProjectTest2, reportProjectTest2Run2, "MAIN/PROJECT/TEST2 report should be unchanged");
 		assertNull(reportProjectTest2Run2.getRelationshipsWithMissingOrInactiveSource());
 		assertEquals(1, reportProjectTest2Run2.getRelationshipsWithMissingOrInactiveType().size());
-		assertEquals("There should be an extra rel with missing destination.", 3, reportProjectTest2Run2.getRelationshipsWithMissingOrInactiveDestination().size());
+		assertEquals(3, reportProjectTest2Run2.getRelationshipsWithMissingOrInactiveDestination().size(), "There should be an extra rel with missing destination.");
 
 		// Making relationships inactive should remove them from the report
 		Set<Long> ids = new HashSet<>(reportProjectTest2Run2.getRelationshipsWithMissingOrInactiveType().keySet());
@@ -193,7 +193,7 @@ class IntegrityServiceTest extends AbstractTest {
 				"MAIN/PROJECT/TEST2");
 
 		Concept wrongConcept = conceptService.find("100009", "MAIN/PROJECT/TEST2");
-		wrongConcept.getRelationships().stream().forEach(System.out::println);
+		wrongConcept.getRelationships().forEach(System.out::println);
 		assertNotNull(wrongConcept);
 		try {
 			integrityService.findChangedComponentsWithBadIntegrityNotFixed(branchService.findLatest("MAIN"));
@@ -218,7 +218,7 @@ class IntegrityServiceTest extends AbstractTest {
 		assertNull(reportProjectTest1.getAxiomsWithMissingOrInactiveReferencedConcept());
 
 		// MAIN/project/test2 was created after the bad relationships and axiom so can see the issues on MAIN/project,
-		// however this method only reports issues created on that branch so we are only expecting the 1 issue created on MAIN/project/test2 to be reported
+		// however this method only reports issues created on that branch, so we are only expecting the 1 issue created on MAIN/project/test2 to be reported
 		IntegrityIssueReport reportProjectTest2 = integrityService.findChangedComponentsWithBadIntegrityNotFixed(branchService.findLatest("MAIN/PROJECT/TEST2"));
 		assertNull(reportProjectTest2.getRelationshipsWithMissingOrInactiveSource());
 		assertEquals(1, reportProjectTest2.getRelationshipsWithMissingOrInactiveType().size());
@@ -227,16 +227,16 @@ class IntegrityServiceTest extends AbstractTest {
 		assertEquals("100008", reportProjectTest2.getAxiomsWithMissingOrInactiveReferencedConcept().values().iterator().next().getConceptId());
 
 		// Let's make concept 5 inactive on MAIN/project
-		conceptService.update((Concept) new Concept("100005").setActive(false), "MAIN/PROJECT");
+		conceptService.update(new Concept("100005").setActive(false), "MAIN/PROJECT");
 
 		// MAIN/project should have no new issues. Concept 5's relationship will not have a missing source concept because the relationship will have been deleted automatically
 
 		// Still just two bad relationships are on MAIN/project
-		assertEquals("MAIN/PROJECT report should be unchanged.", reportProject, integrityService.findChangedComponentsWithBadIntegrityNotFixed(branchService.findLatest("MAIN/PROJECT")));
+		assertEquals(reportProject, integrityService.findChangedComponentsWithBadIntegrityNotFixed(branchService.findLatest("MAIN/PROJECT")), "MAIN/PROJECT report should be unchanged.");
 
 		// There is a relationship and an axiom on MAIN/project/test2 which will break now that concept 5 is inactive,
 		// however the report on MAIN/project/test2 should not have changed yet because we have not rebased.
-		assertEquals("MAIN/PROJECT/TEST2 report should be unchanged", reportProjectTest2, integrityService.findChangedComponentsWithBadIntegrityNotFixed(branchService.findLatest("MAIN/PROJECT/TEST2")));
+		assertEquals(reportProjectTest2, integrityService.findChangedComponentsWithBadIntegrityNotFixed(branchService.findLatest("MAIN/PROJECT/TEST2")), "MAIN/PROJECT/TEST2 report should be unchanged");
 
 		// Let's rebase MAIN/project/test2
 		branchMergeService.mergeBranchSync("MAIN/PROJECT", "MAIN/PROJECT/TEST2", Collections.emptySet());
@@ -245,13 +245,13 @@ class IntegrityServiceTest extends AbstractTest {
 		// Although this method only reports changes on that branch and the concept was not made inactive on that branch because the relationship was created (or modified) on
 		// that branch it will still be reported.
 		IntegrityIssueReport reportProjectTest2Run2 = integrityService.findChangedComponentsWithBadIntegrityNotFixed(branchService.findLatest("MAIN/PROJECT/TEST2"));
-		assertNotEquals("MAIN/PROJECT/TEST2 report should be unchanged", reportProjectTest2, reportProjectTest2Run2);
+		assertNotEquals(reportProjectTest2, reportProjectTest2Run2, "MAIN/PROJECT/TEST2 report should be unchanged");
 		assertNull(reportProjectTest2Run2.getRelationshipsWithMissingOrInactiveSource());
 		assertEquals(1, reportProjectTest2Run2.getRelationshipsWithMissingOrInactiveType().size());
 		assertEquals(1, reportProjectTest2.getAxiomsWithMissingOrInactiveReferencedConcept().size());
 		assertEquals("100008", reportProjectTest2.getAxiomsWithMissingOrInactiveReferencedConcept().values().iterator().next().getConceptId());
-		assertEquals("There should be an extra rel with missing destination.", 2, reportProjectTest2Run2.getRelationshipsWithMissingOrInactiveDestination().size());
-		assertEquals("There should be an extra axiom with missing referenced concept.", 2, reportProjectTest2Run2.getAxiomsWithMissingOrInactiveReferencedConcept().size());
+		assertEquals(2, reportProjectTest2Run2.getRelationshipsWithMissingOrInactiveDestination().size(), "There should be an extra rel with missing destination.");
+		assertEquals(2, reportProjectTest2Run2.getAxiomsWithMissingOrInactiveReferencedConcept().size(), "There should be an extra axiom with missing referenced concept.");
 		assertEquals("[100005, 10000201]", getAxiomReferencedConcepts(reportProjectTest2Run2));
 	}
 
@@ -296,7 +296,7 @@ class IntegrityServiceTest extends AbstractTest {
 		assertTrue(Boolean.parseBoolean(integrityIssueFound));
 
 		// rebase extension project branch and check the integrity flag is updated in branch metadata
-		branchMergeService.mergeBranchSync(codeSystem.getBranchPath(), project, Collections.EMPTY_LIST);
+		branchMergeService.mergeBranchSync(codeSystem.getBranchPath(), project, Collections.emptyList());
 		branch = branchService.findLatest(project);
 		metadata = branch.getMetadata();
 		assertTrue(metadata.containsKey(INTERNAL_METADATA_KEY));
@@ -349,7 +349,7 @@ class IntegrityServiceTest extends AbstractTest {
 		branch = branchService.findLatest(project);
 		metadata = branch.getMetadata();
 		integrityIssueFound = metadata.getMapOrCreate(INTERNAL_METADATA_KEY).get(INTEGRITY_ISSUE_METADATA_KEY);
-		assertNull("The integrityIssue flag should be removed after all issues are fixed on the project", integrityIssueFound);
+		assertNull(integrityIssueFound, "The integrityIssue flag should be removed after all issues are fixed on the project");
 
 		// promote project
 		branchMergeService.mergeBranchSync(project, codeSystem.getBranchPath(), null);
@@ -360,7 +360,7 @@ class IntegrityServiceTest extends AbstractTest {
 		metadata = branch.getMetadata();
 		integrityIssueFound = metadata.getMapOrCreate(INTERNAL_METADATA_KEY).get(INTEGRITY_ISSUE_METADATA_KEY);
 		// CodeSystem integrity issue flag should be cleared
-		assertNull("The integrityIssue flag should be removed after all issues are fixed", integrityIssueFound);
+		assertNull(integrityIssueFound, "The integrityIssue flag should be removed after all issues are fixed");
 	}
 
 	@Test

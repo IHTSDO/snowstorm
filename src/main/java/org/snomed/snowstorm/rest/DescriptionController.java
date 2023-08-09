@@ -34,6 +34,7 @@ import static org.apache.commons.lang3.StringUtils.isNotBlank;
 @RestController
 @Tag(name = "Descriptions", description = "-")
 @RequestMapping(produces = "application/json")
+@SuppressWarnings("unused")
 public class DescriptionController {
 
 	@Autowired

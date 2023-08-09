@@ -138,18 +138,18 @@ public class MRCMUpdateService extends ComponentService implements CommitListene
 		Set<Long> domainIds = new HashSet<>();
 		// map domains by domain id
 		Map<String, Domain> domainMapByDomainId = new HashMap<>();
-		for (Domain domain : mrcm.getDomains()) {
+		for (Domain domain : mrcm.domains()) {
 			domainMapByDomainId.put(domain.getReferencedComponentId(), domain);
 		}
 
-		for (AttributeDomain attributeDomain : mrcm.getAttributeDomains()) {
+		for (AttributeDomain attributeDomain : mrcm.attributeDomains()) {
 			domainIds.add(parseLong(attributeDomain.getDomainId()));
 			attributeToDomainsMap.computeIfAbsent(attributeDomain.getReferencedComponentId(), v -> new ArrayList<>()).add(attributeDomain);
 			domainToAttributesMap.computeIfAbsent(attributeDomain.getDomainId(), v ->  new ArrayList<>()).add(attributeDomain);
 		}
 		Set<Long> conceptIds = new HashSet<>(domainIds);
 		Map<String, List<AttributeRange>> attributeToRangesMap = new HashMap<>();
-		for (AttributeRange range : mrcm.getAttributeRanges()) {
+		for (AttributeRange range : mrcm.attributeRanges()) {
 			conceptIds.add(parseLong(range.getReferencedComponentId()));
 			attributeToRangesMap.computeIfAbsent(range.getReferencedComponentId(), ranges -> new ArrayList<>()).add(range);
 		}

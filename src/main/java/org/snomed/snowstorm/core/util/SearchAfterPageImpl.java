@@ -4,9 +4,11 @@ import org.snomed.snowstorm.rest.converter.SearchAfterHelper;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 
+import java.io.Serial;
 import java.util.List;
 
 public class SearchAfterPageImpl<T> extends PageImpl<T> implements SearchAfterPage<T> {
+	@Serial
 	private static final long serialVersionUID = -281372840330069871L;
 
 	private final String searchAfter;
@@ -24,10 +26,9 @@ public class SearchAfterPageImpl<T> extends PageImpl<T> implements SearchAfterPa
 	@Override
 	public boolean equals(Object o) {
 		if (this == o) return true;
-		if (!(o instanceof SearchAfterPageImpl)) return false;
+		if (!(o instanceof SearchAfterPageImpl<?> that)) return false;
 		if (!super.equals(o)) return false;
 
-		SearchAfterPageImpl<?> that = (SearchAfterPageImpl<?>) o;
 		return SearchAfterHelper.toSearchAfterToken(getSearchAfter()).equals(SearchAfterHelper.toSearchAfterToken(that.getSearchAfter()));
 	}
 

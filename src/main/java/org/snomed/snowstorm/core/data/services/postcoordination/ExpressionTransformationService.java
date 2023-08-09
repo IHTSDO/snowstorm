@@ -277,7 +277,7 @@ public class ExpressionTransformationService {
 	}
 
 	private AttributeDomain getAttributeDomainOrThrow(ExpressionContext context, String attributeId) throws ServiceException {
-		final Optional<AttributeDomain> attributeDomainOptional = context.getBranchMRCM().getAttributeDomains().stream()
+		final Optional<AttributeDomain> attributeDomainOptional = context.getBranchMRCM().attributeDomains().stream()
 				.filter(attDom -> attDom.getReferencedComponentId().equals(attributeId)).findFirst();
 		if (attributeDomainOptional.isEmpty()) {
 			throw new TransformationException(String.format("MRCM attribute domain for attribute %s not found.", attributeId));

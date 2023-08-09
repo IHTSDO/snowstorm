@@ -5,7 +5,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.Date;
-import java.util.concurrent.Callable;
 import java.util.function.Supplier;
 
 public class TimerUtil {
@@ -57,7 +56,7 @@ public class TimerUtil {
 		checkpoint(() -> name);
 	}
 
-	public void checkpoint(Supplier nameSupplier) {
+	public void checkpoint(Supplier<String> nameSupplier) {
 		final long now = new Date().getTime();
 		float secondsTaken = getDuration(lastCheck, now);
 		lastCheck = now;
@@ -86,24 +85,15 @@ public class TimerUtil {
 	}
 
 	private void log(String s, Object... o) {
-		switch (loggingLevel.toString()) {
-			case "TRACE":
-				logger.trace(s, o);
-				break;
-			case "DEBUG":
-				logger.debug(s, o);
-				break;
-			case "WARN":
-				logger.warn(s, o);
-				break;
-			case "ERROR":
-				logger.error(s, o);
-				break;
-			case "OFF":
-				break;
-			default:
-				logger.info(s, o);
-		}
+        switch (loggingLevel.toString()) {
+            case "TRACE" -> logger.trace(s, o);
+            case "DEBUG" -> logger.debug(s, o);
+            case "WARN" -> logger.warn(s, o);
+            case "ERROR" -> logger.error(s, o);
+            case "OFF" -> {
+            }
+            default -> logger.info(s, o);
+        }
 	}
 
 }

@@ -81,7 +81,7 @@ public class RelationshipService extends ComponentService {
 
 		boolean isConcrete;
 		boolean isInferred;
-		List<AttributeRange> attributeRanges = mrcm.getAttributeRanges();
+		List<AttributeRange> attributeRanges = mrcm.attributeRanges();
 		for (Relationship relationship : relationships) {
 			isConcrete = relationship.isConcrete();
 			isInferred = relationship.getCharacteristicTypeId().equals(Relationship.CharacteristicType.inferred.getConceptId());

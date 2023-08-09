@@ -59,11 +59,11 @@ public class ConcreteValue {
 				throw new IllegalArgumentException("'value' cannot be null or less than 2 characters long. Received: '" + value + "'");
 			}
 			//We'll have to assume a decimal given a # symbol with no further information
-			switch (value.charAt(0)) {
-				case '\"': return DataType.STRING;
-				case '#': return DataType.DECIMAL;
-				default : throw new IllegalArgumentException("Unrecognised concrete value prefix in  '" + value + "'");
-			}
+            return switch (value.charAt(0)) {
+                case '\"' -> DataType.STRING;
+                case '#' -> DataType.DECIMAL;
+                default -> throw new IllegalArgumentException("Unrecognised concrete value prefix in  '" + value + "'");
+            };
 		}
 	}
 
@@ -164,11 +164,11 @@ public class ConcreteValue {
 	
 	@Override
 	public String toString() {
-		switch (dataType) {
-			case STRING : return "\"" + this.value + "\"";
-			default: return "#" + this.value;
-		}
-	}
+        if (Objects.requireNonNull(dataType) == DataType.STRING) {
+            return "\"" + this.value + "\"";
+        }
+        return "#" + this.value;
+    }
 
 	@Override
 	public boolean equals(Object o) {

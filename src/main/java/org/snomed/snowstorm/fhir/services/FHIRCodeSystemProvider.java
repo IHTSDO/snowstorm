@@ -245,8 +245,8 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants 
 		fhirHelper.setLanguageOptions(designations, displayLanguage, acceptLanguageHeader);
 		if (codeSystemParams.isSnomed()) {
 			ConceptAndSystemResult conceptAndSystemResult = fhirCodeSystemService.findSnomedConcept(code, designations, codeSystemParams);
-			Concept concept = conceptAndSystemResult.getConcept();
-			FHIRCodeSystemVersion codeSystemVersion = conceptAndSystemResult.getCodeSystemVersion();
+			Concept concept = conceptAndSystemResult.concept();
+			FHIRCodeSystemVersion codeSystemVersion = conceptAndSystemResult.codeSystemVersion();
 			if (concept == null) {
 				throw exception(format("Code '%s' not found for system '%s'.", code, codeSystemVersion.getUrl()), IssueType.NOTFOUND, 404);
 			}
@@ -312,8 +312,8 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants 
 		List<LanguageDialect> languageDialects = fhirHelper.getLanguageDialects(null, acceptLanguageHeader);
 		if (codeSystemParams.isSnomed()) {
 			ConceptAndSystemResult conceptAndSystemResult = fhirCodeSystemService.findSnomedConcept(code, languageDialects, codeSystemParams);
-			Concept concept = conceptAndSystemResult.getConcept();
-			FHIRCodeSystemVersion codeSystemVersion = conceptAndSystemResult.getCodeSystemVersion();
+			Concept concept = conceptAndSystemResult.concept();
+			FHIRCodeSystemVersion codeSystemVersion = conceptAndSystemResult.codeSystemVersion();
 
 			if (concept != null) {
 				return pMapper.mapToFHIRValidateDisplayTerm(concept, display, codeSystemVersion);

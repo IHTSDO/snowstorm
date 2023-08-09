@@ -91,8 +91,7 @@ public class ECLQueryService {
 	}
 
 	public static boolean isMemberFieldsSearch(SExpressionConstraint expressionConstraint) {
-		if (expressionConstraint instanceof SSubExpressionConstraint) {
-			SSubExpressionConstraint constraint = (SSubExpressionConstraint) expressionConstraint;
+		if (expressionConstraint instanceof SSubExpressionConstraint constraint) {
 			return constraint.getOperator() == Operator.memberOf && (constraint.isReturnAllMemberFields() || constraint.getMemberFieldsToReturn() != null);
 		}
 		return false;

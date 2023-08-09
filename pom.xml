@@ -210,6 +210,16 @@
 			</exclusions>
 		</dependency>
 		<dependency>
+			<groupId>ca.uhn.hapi.fhir</groupId>
+			<artifactId>hapi-fhir-jpaserver-model</artifactId>
+			<exclusions>
+				<exclusion>
+					<groupId>org.hibernate</groupId>
+					<artifactId>*</artifactId>
+				</exclusion>
+			</exclusions>
+		</dependency>
+		<dependency>
 			<groupId>com.amazonaws</groupId>
 			<artifactId>aws-java-sdk-core</artifactId>
 			<scope>compile</scope>
@@ -304,6 +314,13 @@
 	</dependencyManagement>
 	<build>
 		<plugins>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-surefire-plugin</artifactId>
+				<configuration>
+					<argLine>--add-opens java.base/java.lang=ALL-UNNAMED</argLine>
+				</configuration>
+			</plugin>
 			<!-- Docker Image Build -->
 			<plugin>
 				<groupId>com.google.cloud.tools</groupId>
@@ -364,6 +381,7 @@
 			<plugin>
 				<groupId>org.jacoco</groupId>
 				<artifactId>jacoco-maven-plugin</artifactId>
+				<version>${jacoco-maven-plugin.version}</version>
 				<executions>
 					<execution>
 						<goals>
@@ -383,8 +401,10 @@
 			<plugin>
 				<groupId>org.springframework.boot</groupId>
 				<artifactId>spring-boot-maven-plugin</artifactId>
+				<version>${spring-boot.version}</version>
 				<configuration>
 					<mainClass>org.snomed.snowstorm.SnowstormApplication</mainClass>
+					<jvmArguments>--add-opens java.base/java.lang=ALL-UNNAMED</jvmArguments>
 				</configuration>
 				<executions>
 					<execution>
@@ -451,10 +471,12 @@
 					<plugin>
 						<groupId>org.apache.maven.plugins</groupId>
 						<artifactId>maven-surefire-plugin</artifactId>
+						<version>${maven-surefire-plugin.version}</version>
 						<configuration>
 							<excludes>
 								<exclude>TraceabilityLogServiceTest</exclude>
 							</excludes>
+							<argLine>--add-opens java.base/java.lang=ALL-UNNAMED</argLine>
 						</configuration>
 					</plugin>
 				</plugins>

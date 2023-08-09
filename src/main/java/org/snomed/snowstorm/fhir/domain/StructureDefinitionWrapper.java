@@ -5,7 +5,7 @@ import ca.uhn.fhir.parser.IParser;
 
 import org.hl7.fhir.r4.model.*;
 import org.springframework.data.annotation.Id;
-import org.springframework.data.annotation.PersistenceConstructor;
+import org.springframework.data.annotation.PersistenceCreator;
 import org.springframework.data.elasticsearch.annotations.Document;
 
 @Document(indexName = "fhir-structure-definition")
@@ -17,11 +17,12 @@ public class StructureDefinitionWrapper {
 	private String id;
 	
 	private StructureDefinition structureDefinition;
-	
+
+	@SuppressWarnings("unused")
 	public StructureDefinitionWrapper () {
 	}
 
-	@PersistenceConstructor
+	@PersistenceCreator
 	public StructureDefinitionWrapper (IdType id, StructureDefinition vs) {
 		this.structureDefinition = vs;
 		this.id = id.getIdPart();
@@ -42,6 +43,7 @@ public class StructureDefinitionWrapper {
 		return structureDefinition;
 	}
 
+	@SuppressWarnings("unused")
 	public void setStructureDefinition(StructureDefinition structureDefinition) {
 		this.structureDefinition = structureDefinition;
 	}

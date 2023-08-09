@@ -201,8 +201,7 @@ public class MRCMLoader implements CommitListener {
             if (ecl instanceof SubExpressionConstraint) {
                 SubExpressionConstraint sub = (SubExpressionConstraint) ecl;
                 return new Constraint(constraint, sub.getConceptId(), sub.getOperator());
-            } else if (ecl instanceof RefinedExpressionConstraint) {
-                RefinedExpressionConstraint refined = (RefinedExpressionConstraint) ecl;
+            } else if (ecl instanceof RefinedExpressionConstraint refined) {
                 SubExpressionConstraint sub = refined.getSubexpressionConstraint();
                 return new Constraint(constraint, sub.getConceptId(), sub.getOperator());
             } else {

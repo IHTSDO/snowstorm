@@ -83,19 +83,12 @@ public class TraceabilityLogService implements CommitListener {
 			return;
 		}
 
-		Activity.ActivityType activityType = null;
-		switch (commit.getCommitType()) {
-			case CONTENT:
-				activityType = Activity.ActivityType.CONTENT_CHANGE;
-				break;
-			case PROMOTION:
-				activityType = Activity.ActivityType.PROMOTION;
-				break;
-			case REBASE:
-				activityType = Activity.ActivityType.REBASE;
-				break;
-		}
-		if (BranchMetadataHelper.isClassificationCommit(commit)) {
+		Activity.ActivityType activityType = switch (commit.getCommitType()) {
+            case CONTENT -> Activity.ActivityType.CONTENT_CHANGE;
+            case PROMOTION -> Activity.ActivityType.PROMOTION;
+            case REBASE -> Activity.ActivityType.REBASE;
+        };
+        if (BranchMetadataHelper.isClassificationCommit(commit)) {
 			activityType = Activity.ActivityType.CLASSIFICATION_SAVE;
 		}
 		if (BranchMetadataHelper.isCreatingCodeSystemVersion(commit)) {

@@ -5,8 +5,6 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import io.kaicode.elasticvc.domain.Entity;
 
 import java.util.Date;
-import java.util.Map;
-import java.util.Set;
 
 public abstract class CodeSystemVersionMixIn {
 

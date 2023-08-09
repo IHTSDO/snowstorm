@@ -4,7 +4,6 @@ import org.snomed.snowstorm.core.data.domain.review.BranchReview;
 import org.springframework.data.elasticsearch.annotations.Query;
 import org.springframework.data.elasticsearch.repository.ElasticsearchRepository;
 
-import java.util.Date;
 
 public interface BranchReviewRepository extends ElasticsearchRepository<BranchReview, String> {
 

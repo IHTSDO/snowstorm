@@ -1,15 +1,9 @@
 package org.snomed.snowstorm.ecl;
 
-import io.kaicode.elasticvc.api.BranchService;
 import org.jetbrains.annotations.NotNull;
-import org.snomed.snowstorm.TestConfig;
 import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.services.*;
-import org.snomed.snowstorm.core.data.services.classification.ClassificationService;
-import org.springframework.beans.factory.annotation.Autowired;
-
 import javax.annotation.PostConstruct;
-import javax.annotation.PreDestroy;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;

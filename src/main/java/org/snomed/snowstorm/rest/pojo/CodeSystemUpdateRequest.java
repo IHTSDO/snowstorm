@@ -39,14 +39,14 @@ public class CodeSystemUpdateRequest {
 	}
 
 	public CodeSystemUpdateRequest populate(CodeSystemConfiguration configuration) {
-		if (configuration.getName() != null) {
-			name = configuration.getName();
+		if (configuration.name() != null) {
+			name = configuration.name();
 		}
-		if (configuration.getCountryCode() != null) {
-			countryCode = configuration.getCountryCode();
+		if (configuration.countryCode() != null) {
+			countryCode = configuration.countryCode();
 		}
-		if (configuration.getOwner() != null) {
-			owner = configuration.getOwner();
+		if (configuration.owner() != null) {
+			owner = configuration.owner();
 		}
 		return this;
 	}

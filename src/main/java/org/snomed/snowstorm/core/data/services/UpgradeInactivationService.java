@@ -24,7 +24,6 @@ import java.util.stream.Collectors;
 import static io.kaicode.elasticvc.api.ComponentService.CLAUSE_LIMIT;
 import static org.elasticsearch.index.query.QueryBuilders.*;
 import static org.snomed.snowstorm.core.data.domain.ReferenceSetMember.Fields.*;
-import static org.snomed.snowstorm.core.data.domain.SnomedComponent.Fields.ACTIVE;
 
 @Service
 public class UpgradeInactivationService {

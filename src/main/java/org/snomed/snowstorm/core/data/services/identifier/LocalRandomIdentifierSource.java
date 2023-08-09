@@ -48,27 +48,20 @@ public class LocalRandomIdentifierSource implements IdentifierSource {
 				// Bulk unique check
 				List<Long> alreadyExistingIdentifiers = new LongArrayList();
 				for (List<Long> newIdentifierBatch : Lists.partition(newIdentifierList, 10_000)) {
-					switch (partitionId) {
-						case "00":
-						case "10":
-							// Concept identifier
-							alreadyExistingIdentifiers.addAll(findExistingIdentifiersInAnyBranch(newIdentifierBatch, Concept.class, Concept.Fields.CONCEPT_ID));
-							break;
-						case "01":
-						case "11":
-							// Description identifier
-							alreadyExistingIdentifiers.addAll(findExistingIdentifiersInAnyBranch(newIdentifierBatch, Description.class, Description.Fields.DESCRIPTION_ID));
-							break;
-						case "02":
-						case "12":
-							// Relationship identifier
-							alreadyExistingIdentifiers.addAll(findExistingIdentifiersInAnyBranch(newIdentifierBatch, Relationship.class, Relationship.Fields.RELATIONSHIP_ID));
-							break;
-						case "06":
-							// Expression identifier
-							alreadyExistingIdentifiers.addAll(findExistingIdentifiersInAnyBranch(newIdentifierBatch, ReferenceSetMember.class, ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID));
-							break;
-					}
+                    switch (partitionId) {
+                        case "00", "10" ->
+                            // Concept identifier
+                                alreadyExistingIdentifiers.addAll(findExistingIdentifiersInAnyBranch(newIdentifierBatch, Concept.class, Concept.Fields.CONCEPT_ID));
+                        case "01", "11" ->
+                            // Description identifier
+                                alreadyExistingIdentifiers.addAll(findExistingIdentifiersInAnyBranch(newIdentifierBatch, Description.class, Description.Fields.DESCRIPTION_ID));
+                        case "02", "12" ->
+                            // Relationship identifier
+                                alreadyExistingIdentifiers.addAll(findExistingIdentifiersInAnyBranch(newIdentifierBatch, Relationship.class, Relationship.Fields.RELATIONSHIP_ID));
+                        case "06" ->
+                            // Expression identifier
+                                alreadyExistingIdentifiers.addAll(findExistingIdentifiersInAnyBranch(newIdentifierBatch, ReferenceSetMember.class, ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID));
+                    }
 				}
 				// Remove any identifiers which already exist in storage - more will be generated in the next loop.
 				newIdentifiers.removeAll(alreadyExistingIdentifiers);
