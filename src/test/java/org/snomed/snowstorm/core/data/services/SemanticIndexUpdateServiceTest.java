@@ -1085,9 +1085,7 @@ class SemanticIndexUpdateServiceTest extends AbstractTest {
 				// The data type is String for 396070081 but actual value is an integer
 				.addRelationship(new Relationship("4332956027", null, true, "900000000000207008", "34020007",
 						"#10", 1, "396070081", "900000000000011006", "900000000000451002")));
-		Exception exception = assertThrows(IllegalStateException.class, () -> {
-			simulateRF2Import(path, concepts);
-		});
+		Exception exception = assertThrows(IllegalStateException.class, () -> simulateRF2Import(path, concepts));
 		assertEquals("Concrete value 10 with data type DECIMAL in relationship is not matching data type STRING defined in the MRCM for attribute 396070081",
 				exception.getMessage());
 	}
@@ -1115,9 +1113,7 @@ class SemanticIndexUpdateServiceTest extends AbstractTest {
 		concepts.add(new Concept("34020007").addRelationship(new Relationship(UUID.randomUUID().toString(), ISA, "34020006"))
 				.addRelationship(new Relationship("3332956025", null, true, "900000000000207008", "34020007",
 						"#10.01", 1, "396070082", "900000000000011006", "900000000000451002")));
-		Exception exception = assertThrows(IllegalStateException.class, () -> {
-			simulateRF2Import(path, concepts);
-		});
+		Exception exception = assertThrows(IllegalStateException.class, () -> simulateRF2Import(path, concepts));
 		assertEquals("Concrete value 10.01 with data type DECIMAL in relationship is not matching data type INTEGER defined in the MRCM for attribute 396070082",
 				exception.getMessage());
 	}

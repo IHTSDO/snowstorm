@@ -42,33 +42,34 @@ public class FHIRValueSetProviderExpandGenericTest extends AbstractFHIRTest {
 		conceptService.saveAllConceptsOfCodeSystemVersion(codeSystem.getConcept(), codeSystemVersion);
 
 		// Create ValueSet that is included in a test
-		HttpEntity<String> expandRequest = new HttpEntity<>("{\n" +
-				"	\"resourceType\": \"ValueSet\",\n" +
-				"	\"url\": \"http://example.com/fhir/vs/sex\",\n" +
-				"	\"version\": \"0.1\",\n" +
-				"	\"name\": \"Sex\",\n" +
-				"	\"description\": \"List of possible sexes for patient details capture.\",\n" +
-				"	\"status\": \"draft\",\n" +
-				"	\"experimental\": true,\n" +
-				"	\"compose\": {\n" +
-				"		\"include\": [\n" +
-				"			{\n" +
-				"				\"system\": \"http://terminology.hl7.org/CodeSystem/v3-ContextControl\",\n" +
-				"				\"concept\": [\n" +
-				"					{\n" +
-				"						\"code\": \"AP\"\n" +
-				"					},\n" +
-				"					{\n" +
-				"						\"code\": \"AN\"\n" +
-				"					},\n" +
-				"					{\n" +
-				"						\"code\": \"ON\"\n" +
-				"					}\n" +
-				"				]\n" +
-				"			}\n" +
-				"		]\n" +
-				"	}\n" +
-				"}", headers);
+		HttpEntity<String> expandRequest = new HttpEntity<>("""
+                {
+                	"resourceType": "ValueSet",
+                	"url": "http://example.com/fhir/vs/sex",
+                	"version": "0.1",
+                	"name": "Sex",
+                	"description": "List of possible sexes for patient details capture.",
+                	"status": "draft",
+                	"experimental": true,
+                	"compose": {
+                		"include": [
+                			{
+                				"system": "http://terminology.hl7.org/CodeSystem/v3-ContextControl",
+                				"concept": [
+                					{
+                						"code": "AP"
+                					},
+                					{
+                						"code": "AN"
+                					},
+                					{
+                						"code": "ON"
+                					}
+                				]
+                			}
+                		]
+                	}
+                }""", headers);
 		ResponseEntity<String> expandResponse = restTemplate.exchange(baseUrl + "/ValueSet", HttpMethod.POST, expandRequest, String.class);
 		assertEquals(HttpStatus.CREATED, expandResponse.getStatusCode());
 	}
@@ -85,31 +86,31 @@ public class FHIRValueSetProviderExpandGenericTest extends AbstractFHIRTest {
 
 	@Test
 	public void testExpandUsingHierarchy() {
-		HttpEntity<String> expandRequest = new HttpEntity<>("{\n" +
-				"	\"resourceType\": \"Parameters\",\n" +
-				"	\"parameter\": [\n" +
-				"		{\n" +
-				"			\"name\": \"valueSet\",\n" +
-				"			\"resource\": {\n" +
-				"				\"resourceType\": \"ValueSet\",\n" +
-				"					\"compose\": {\n" +
-				"						\"include\": [\n" +
-				"							{\n" +
-				"								\"system\": \"http://terminology.hl7.org/CodeSystem/v3-ContextControl\"," +
-				"								\"filter\": [\n" +
-				"									{\n" +
-				"										\"property\": \"concept\",\n" +
-				"										\"op\": \"is-a\",\n" +
-				"										\"value\": \"_ContextControlAdditive\"\n" +
-				"									}\n" +
-				"								]\n" +
-				"							}\n" +
-				"						]\n" +
-				"					}\n" +
-				"				}\n" +
-				"			}\n" +
-				"		]\n" +
-				"}", headers);
+		HttpEntity<String> expandRequest = new HttpEntity<>("""
+                {
+                	"resourceType": "Parameters",
+                	"parameter": [
+                		{
+                			"name": "valueSet",
+                			"resource": {
+                				"resourceType": "ValueSet",
+                					"compose": {
+                						"include": [
+                							{
+                								"system": "http://terminology.hl7.org/CodeSystem/v3-ContextControl",								"filter": [
+                									{
+                										"property": "concept",
+                										"op": "is-a",
+                										"value": "_ContextControlAdditive"
+                									}
+                								]
+                							}
+                						]
+                					}
+                				}
+                			}
+                		]
+                }""", headers);
 		ResponseEntity<String> expandResponse = restTemplate.exchange(baseUrl + "/ValueSet/$expand", HttpMethod.POST, expandRequest, String.class);
 		assertEquals(HttpStatus.OK, expandResponse.getStatusCode(), expandResponse.getBody());
 		ValueSet valueSet = fhirJsonParser.parseResource(ValueSet.class, expandResponse.getBody());
@@ -118,41 +119,40 @@ public class FHIRValueSetProviderExpandGenericTest extends AbstractFHIRTest {
 
 	@Test
 	public void testExpandUsingHierarchyWithExclude() {
-		HttpEntity<String> expandRequest = new HttpEntity<>("{\n" +
-				"	\"resourceType\": \"Parameters\",\n" +
-				"	\"parameter\": [\n" +
-				"		{\n" +
-				"			\"name\": \"valueSet\",\n" +
-				"			\"resource\": {\n" +
-				"				\"resourceType\": \"ValueSet\",\n" +
-				"					\"compose\": {\n" +
-				"						\"include\": [\n" +
-				"							{\n" +
-				"								\"system\": \"http://terminology.hl7.org/CodeSystem/v3-ContextControl\"," +
-				"								\"filter\": [\n" +
-				"									{\n" +
-				"										\"property\": \"concept\",\n" +
-				"										\"op\": \"is-a\",\n" +
-				"										\"value\": \"_ContextControlAdditive\"\n" +
-				"									}\n" +
-				"								]\n" +
-				"							}\n" +
-				"						]," +
-				"						\"exclude\": [\n" +
-				"							{\n" +
-				"								\"system\": \"http://terminology.hl7.org/CodeSystem/v3-ContextControl\",\n" +
-				"								\"concept\": [\n" +
-				"			  						{\n" +
-				"										\"code\": \"_ContextControlAdditive\"\n" +
-				"			 						}\n" +
-				"								]\n" +
-				"							}\n" +
-				"						]\n" +
-				"					}\n" +
-				"				}\n" +
-				"			}\n" +
-				"		]\n" +
-				"}", headers);
+		HttpEntity<String> expandRequest = new HttpEntity<>("""
+                {
+                	"resourceType": "Parameters",
+                	"parameter": [
+                		{
+                			"name": "valueSet",
+                			"resource": {
+                				"resourceType": "ValueSet",
+                					"compose": {
+                						"include": [
+                							{
+                								"system": "http://terminology.hl7.org/CodeSystem/v3-ContextControl",								"filter": [
+                									{
+                										"property": "concept",
+                										"op": "is-a",
+                										"value": "_ContextControlAdditive"
+                									}
+                								]
+                							}
+                						],						"exclude": [
+                							{
+                								"system": "http://terminology.hl7.org/CodeSystem/v3-ContextControl",
+                								"concept": [
+                			  						{
+                										"code": "_ContextControlAdditive"
+                			 						}
+                								]
+                							}
+                						]
+                					}
+                				}
+                			}
+                		]
+                }""", headers);
 		ResponseEntity<String> expandResponse = restTemplate.exchange(baseUrl + "/ValueSet/$expand", HttpMethod.POST, expandRequest, String.class);
 		System.out.println(expandResponse.getBody());
 		assertEquals(HttpStatus.OK, expandResponse.getStatusCode(), expandResponse.getBody());
@@ -162,34 +162,33 @@ public class FHIRValueSetProviderExpandGenericTest extends AbstractFHIRTest {
 
 	@Test
 	public void testExpandIncludesOtherValueSet() {
-		HttpEntity<String> expandRequest = new HttpEntity<>("{\n" +
-				"	\"resourceType\": \"Parameters\",\n" +
-				"	\"parameter\": [\n" +
-				"		{\n" +
-				"			\"name\": \"valueSet\",\n" +
-				"			\"resource\": {\n" +
-				"				\"resourceType\": \"ValueSet\",\n" +
-				"					\"compose\": {\n" +
-				"						\"include\": [\n" +
-				"							{\n" +
-				"								\"valueSet\": \"http://example.com/fhir/vs/sex\"" +
-				"							}\n" +
-				"						]," +
-				"						\"exclude\": [\n" +
-				"							{\n" +
-				"								\"system\": \"http://terminology.hl7.org/CodeSystem/v3-ContextControl\",\n" +
-				"								\"concept\": [\n" +
-				"									{\n" +
-				"										\"code\": \"ON\"\n" +
-				"									}\n" +
-				"								]\n" +
-				"							}\n" +
-				"						]\n" +
-				"					}\n" +
-				"				}\n" +
-				"			}\n" +
-				"		]\n" +
-				"}", headers);
+		HttpEntity<String> expandRequest = new HttpEntity<>("""
+                {
+                	"resourceType": "Parameters",
+                	"parameter": [
+                		{
+                			"name": "valueSet",
+                			"resource": {
+                				"resourceType": "ValueSet",
+                					"compose": {
+                						"include": [
+                							{
+                								"valueSet": "http://example.com/fhir/vs/sex"							}
+                						],						"exclude": [
+                							{
+                								"system": "http://terminology.hl7.org/CodeSystem/v3-ContextControl",
+                								"concept": [
+                									{
+                										"code": "ON"
+                									}
+                								]
+                							}
+                						]
+                					}
+                				}
+                			}
+                		]
+                }""", headers);
 		ResponseEntity<String> expandResponse = restTemplate.exchange(baseUrl + "/ValueSet/$expand", HttpMethod.POST, expandRequest, String.class);
 		System.out.println(expandResponse.getBody());
 		assertEquals(HttpStatus.OK, expandResponse.getStatusCode(), expandResponse.getBody());

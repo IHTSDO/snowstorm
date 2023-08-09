@@ -41,9 +41,7 @@ class ControllerHelperTest {
 
 	@Test
 	void getPageRequestTwoAndAHalf() {
-		Assertions.assertThrows(IllegalArgumentException.class, () -> {
-			ControllerHelper.getPageRequest(250, 100);
-		});
+		Assertions.assertThrows(IllegalArgumentException.class, () -> ControllerHelper.getPageRequest(250, 100));
 	}
 
 	@Test

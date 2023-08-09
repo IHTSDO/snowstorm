@@ -1,7 +1,6 @@
 package org.snomed.snowstorm.validation.domain;
 
 import org.ihtsdo.drools.domain.OntologyAxiom;
-import org.snomed.snowstorm.core.data.domain.Relationship;
 
 import java.util.Collection;
 

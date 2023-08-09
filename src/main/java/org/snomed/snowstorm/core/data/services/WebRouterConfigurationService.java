@@ -76,12 +76,8 @@ public class WebRouterConfigurationService {
 				String namespace = namespaceAliasArr[0];
 				String alias = namespaceAliasArr[1];
 				//Have we seen this namespace before?
-				Map<String, WebRoute> webRouteAliases = webRoutesNamespaceMap.get(namespace);
-				if (webRouteAliases == null) {
-					webRouteAliases = new HashMap<String, WebRoute>();
-					webRoutesNamespaceMap.put(namespace, webRouteAliases);
-				}
-				WebRoute webRoute = parseAcceptHeaderRoute(namespaceConfig.get(key));
+                Map<String, WebRoute> webRouteAliases = webRoutesNamespaceMap.computeIfAbsent(namespace, k -> new HashMap<>());
+                WebRoute webRoute = parseAcceptHeaderRoute(namespaceConfig.get(key));
 				if (alias.equals(DEFAULT_ROUTE_INDICATOR)) {
 					webRoute.setDefaultRoute(true);
 				}

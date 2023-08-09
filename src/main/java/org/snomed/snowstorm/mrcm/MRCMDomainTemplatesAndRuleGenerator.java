@@ -186,7 +186,7 @@ public class MRCMDomainTemplatesAndRuleGenerator {
 			if (counter++ > 0) {
 				ruleBuilder.append(" OR ");
 			}
-			ruleBuilder.append(domainConstraint.getExpression());
+			ruleBuilder.append(domainConstraint.expression());
 		}
 		if (counter > 1) {
 			ruleBuilder.insert(0, "(");
@@ -378,7 +378,7 @@ public class MRCMDomainTemplatesAndRuleGenerator {
 			} else {
 				templateBuilder.append("[[+scg(");
 			}
-			templateBuilder.append(domain.getProximalPrimitiveConstraint().getExpression());
+			templateBuilder.append(domain.getProximalPrimitiveConstraint().expression());
 			templateBuilder.append(")]]: ");
 		}
 
@@ -632,9 +632,8 @@ public class MRCMDomainTemplatesAndRuleGenerator {
 		}
 		if (constraint == null) return rangeConstraint;
 
-		if (constraint instanceof CompoundExpressionConstraint) {
+		if (constraint instanceof CompoundExpressionConstraint compound) {
 			StringBuilder expressionBuilder = new StringBuilder();
-			CompoundExpressionConstraint compound = (CompoundExpressionConstraint) constraint;
 			if (compound.getConjunctionExpressionConstraints() != null) {
 				List<SubExpressionConstraint> conJunctions = compound.getConjunctionExpressionConstraints();
 				conJunctions.sort(EXPRESSION_CONSTRAINT_COMPARATOR_BY_CONCEPT_ID);

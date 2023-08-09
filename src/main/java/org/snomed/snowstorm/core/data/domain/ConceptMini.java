@@ -145,14 +145,10 @@ public class ConceptMini implements Serializable {
 	}
 
 	public ConceptMini setLeaf(Relationship.CharacteristicType relationshipType, boolean bool) {
-		switch (relationshipType) {
-			case inferred:
-				setLeafInferred(bool);
-				break;
-			case stated:
-				setLeafStated(bool);
-				break;
-		}
+        switch (relationshipType) {
+            case inferred -> setLeafInferred(bool);
+            case stated -> setLeafStated(bool);
+        }
 		return this;
 	}
 

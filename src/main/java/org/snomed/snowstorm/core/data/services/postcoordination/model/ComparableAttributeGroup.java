@@ -61,7 +61,7 @@ public class ComparableAttributeGroup extends AttributeGroup implements Comparab
 
 	@Override
 	public List<Attribute> getAttributes() {
-		return sortedAttributes == null ? null : Collections.unmodifiableList(new ArrayList<>(sortedAttributes));
+		return sortedAttributes == null ? null : List.copyOf(sortedAttributes);
 	}
 
 	private Set<ComparableAttribute> getSortedAttributes() {

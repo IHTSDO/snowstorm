@@ -13,32 +13,33 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class FHIRValueSetProviderExpandTest extends AbstractFHIRTest {
 
-	private static final String VALUE_SET_EXPANSION_POST_BODY_WITH_VERSION = "{\n" +
-			"    \"resourceType\": \"Parameters\",\n" +
-			"    \"parameter\": [\n" +
-			"        {\n" +
-			"            \"name\": \"valueSet\",\n" +
-			"            \"resource\": {\n" +
-			"                \"resourceType\": \"ValueSet\",\n" +
-			"                \"compose\": {\n" +
-			"                    \"include\": [\n" +
-			"                        {\n" +
-			"                            \"valueSet\": \"http://snomed.info/sct?fhir_vs=ecl/32570581000036105\" \n" +
-			"                        }\n" +
-			"                    ]\n" +
-			"                }\n" +
-			"            }\n" +
-			"        },\n" +
-			"        {\n" +
-			"            \"name\": \"displayLanguage\",\n" +
-			"            \"valueString\": \"en-GB\"\n" +
-			"        },\n" +
-			"        {\n" +
-			"            \"name\": \"version\",\n" +
-			"            \"valueString\": \"test\"\n" +
-			"        }\n" +
-			"    ]\n" +
-			"}";
+	private static final String VALUE_SET_EXPANSION_POST_BODY_WITH_VERSION = """
+            {
+                "resourceType": "Parameters",
+                "parameter": [
+                    {
+                        "name": "valueSet",
+                        "resource": {
+                            "resourceType": "ValueSet",
+                            "compose": {
+                                "include": [
+                                    {
+                                        "valueSet": "http://snomed.info/sct?fhir_vs=ecl/32570581000036105"\s
+                                    }
+                                ]
+                            }
+                        }
+                    },
+                    {
+                        "name": "displayLanguage",
+                        "valueString": "en-GB"
+                    },
+                    {
+                        "name": "version",
+                        "valueString": "test"
+                    }
+                ]
+            }""";
 
 	private static final String VALUE_SET_WITH_INACTIVE_CODE = "{\n" +
 			"    \"resourceType\": \"Parameters\",\n" +

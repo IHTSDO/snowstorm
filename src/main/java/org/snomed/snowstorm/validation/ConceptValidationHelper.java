@@ -55,8 +55,7 @@ public final class ConceptValidationHelper {
 		replaceInvalidContentTemporaryUUIDWithSCTIDIn(invalidContentWarnings, concept.getDescriptions(),
 				(final InvalidContent invalidContentWarning, final Description description) -> {
 					final Component component = invalidContentWarning.getComponent();
-					if (component instanceof DroolsDescription) {
-						final DroolsDescription droolsDescription = (DroolsDescription) component;
+					if (component instanceof DroolsDescription droolsDescription) {
 						if (description != null && description.getReleaseHash() != null &&
 								description.getReleaseHash().equals(droolsDescription.getReleaseHash())) {
 							invalidContentWarning.setComponent(new DroolsDescription(description));
@@ -66,8 +65,7 @@ public final class ConceptValidationHelper {
 		replaceInvalidContentTemporaryUUIDWithSCTIDIn(invalidContentWarnings, concept.getRelationships(),
 				(final InvalidContent invalidContentWarning, final Relationship relationship) -> {
 					final Component component = invalidContentWarning.getComponent();
-					if (component instanceof DroolsRelationship) {
-						final DroolsRelationship droolsRelationship = (DroolsRelationship) component;
+					if (component instanceof DroolsRelationship droolsRelationship) {
 						if (relationship != null && relationship.getReleaseHash() != null &&
 								relationship.getReleaseHash().equals(droolsRelationship.getReleaseHash())) {
 							invalidContentWarning.setComponent(new DroolsRelationship(null, false, relationship));
@@ -82,8 +80,7 @@ public final class ConceptValidationHelper {
 	private static void replaceInvalidContentTemporaryUUIDWithSCTIDInAxiom(final List<InvalidContent> invalidContentWarnings, final Set<Axiom> axioms, final boolean axiomGci) {
 		axioms.forEach(axiom -> axiom.getRelationships().stream().<Consumer<? super InvalidContent>>map(relationship -> invalidContent -> {
 			final Component component = invalidContent.getComponent();
-			if (component instanceof DroolsRelationship) {
-				final DroolsRelationship droolsRelationship = (DroolsRelationship) component;
+			if (component instanceof DroolsRelationship droolsRelationship) {
 				if (relationship != null && relationship.getReleaseHash() != null &&
 						relationship.getReleaseHash().equals(droolsRelationship.getReleaseHash()) &&
 						relationship.getId().equals(droolsRelationship.getId())) {
@@ -113,22 +110,7 @@ public final class ConceptValidationHelper {
 		invalidContentWarnings.addAll(newInvalidContentWarnings);
 	}
 
-	public static class InvalidContentWithSeverityStatus {
+	public record InvalidContentWithSeverityStatus(List<InvalidContent> invalidContents, Severity severity) {
 
-		private final List<InvalidContent> invalidContents;
-		private final Severity severity;
-
-		public InvalidContentWithSeverityStatus(final List<InvalidContent> invalidContents, final Severity severity) {
-			this.invalidContents = invalidContents;
-			this.severity = severity;
-		}
-
-		public final List<InvalidContent> getInvalidContents() {
-			return invalidContents;
-		}
-
-		public final Severity getSeverity() {
-			return severity;
-		}
 	}
 }

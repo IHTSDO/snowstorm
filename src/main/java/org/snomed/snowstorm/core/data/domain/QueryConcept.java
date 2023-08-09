@@ -10,7 +10,6 @@ import org.springframework.data.elasticsearch.annotations.Field;
 import org.springframework.data.elasticsearch.annotations.FieldType;
 
 import java.util.*;
-import java.util.stream.Collectors;
 
 /**
  * Represents an active concept with fields to assist logical searching.
@@ -133,7 +132,7 @@ public class QueryConcept extends DomainEntity<QueryConcept> implements FHIRGrap
 		return GroupedAttributesMapSerializer.serializeFlatMap(getGroupedAttributesMap());
 	}
 
-	public void setAttr(Map attr) {
+	public void setAttr(Map<String, Set<Object>> attr) {
 		this.attr = attr;
 	}
 
@@ -375,22 +374,20 @@ public class QueryConcept extends DomainEntity<QueryConcept> implements FHIRGrap
 			Set<Object> allValues = new HashSet<>();
 			Set<Object> allNumericValues = new HashSet<>();
 			if (groupedAttributesMap != null) {
-				groupedAttributesMap.forEach((group, attributes) -> {
-					attributes.forEach((type, values) -> {
-						Set<Object> valueList = attributesMap.computeIfAbsent(type, (t) -> new HashSet<>());
-						valueList.addAll(values);
-						// add numeric concrete values to all numeric values field for wildcard query
-						List<Object> numericValues = values.stream().filter(v -> !(v instanceof String)).collect(Collectors.toList());
-						if (!numericValues.isEmpty()) {
-							for (Object numericValue : numericValues) {
-								// to make sure the all_numeric field is set to float data type
-								allNumericValues.add(Float.valueOf(numericValue.toString()));
-							}
-						} else {
-							allValues.addAll(values);
+				groupedAttributesMap.forEach((group, attributes) -> attributes.forEach((type, values) -> {
+					Set<Object> valueList = attributesMap.computeIfAbsent(type, (t) -> new HashSet<>());
+					valueList.addAll(values);
+					// add numeric concrete values to all numeric values field for wildcard query
+					List<Object> numericValues = values.stream().filter(v -> !(v instanceof String)).toList();
+					if (!numericValues.isEmpty()) {
+						for (Object numericValue : numericValues) {
+							// to make sure the all_numeric field is set to float data type
+							allNumericValues.add(Float.valueOf(numericValue.toString()));
 						}
-					});
-				});
+					} else {
+						allValues.addAll(values);
+					}
+				}));
 			}
 			attributesMap.put(ATTR_TYPE_WILDCARD, allValues);
 			if (!allNumericValues.isEmpty()) {

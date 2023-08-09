@@ -193,7 +193,7 @@ public class SSubExpressionConstraint extends SubExpressionConstraint implements
 				if (getConceptFilterConstraints() != null) {
 					Set<Long> results = eclContentService.applyConceptFilters(getConceptFilterConstraints(), conceptIdSortedSet, branchCriteria, stated);
 					// Need to keep the original order
-					conceptIdSortedSet = new LongLinkedOpenHashSet(conceptIdSortedSet.stream().filter(c -> results.contains(c)).collect(Collectors.toList()));
+					conceptIdSortedSet = new LongLinkedOpenHashSet(conceptIdSortedSet.stream().filter(results::contains).collect(Collectors.toList()));
 				}
 				if (getDescriptionFilterConstraints() != null) {
 					// For each filter constraint all sub-filters (term, language, etc) must apply.
@@ -278,61 +278,54 @@ public class SSubExpressionConstraint extends SubExpressionConstraint implements
 		BranchCriteria branchCriteria = refinementBuilder.getBranchCriteria();
 		boolean stated = refinementBuilder.isStated();
 
-		switch (operator) {
-			case childof:
-				// <!
-				query.must(termsQuery(QueryConcept.Fields.PARENTS, conceptIds));
-				break;
-			case childorselfof:
-				// <<!
-				query.must(
-						boolQuery()
-								.should(termsQuery(QueryConcept.Fields.PARENTS, conceptIds))
-								.should(termsQuery(QueryConcept.Fields.CONCEPT_ID, conceptIds))
-				);
-				break;
-			case descendantof:
-				// <
-				query.must(termsQuery(QueryConcept.Fields.ANCESTORS, conceptIds));
-				break;
-			case descendantorselfof:
-				// <<
-				query.must(
-						boolQuery()
-								.should(termsQuery(QueryConcept.Fields.ANCESTORS, conceptIds))
-								.should(termsQuery(QueryConcept.Fields.CONCEPT_ID, conceptIds))
-				);
-				break;
-			case parentof:
-				// >!
-				query.must(termsQuery(QueryConcept.Fields.CONCEPT_ID, retrieveAllParents(conceptIds, branchCriteria, stated, conceptSelector)));
-				break;
-			case parentorselfof:
-				// >>!
-				query.must(
-						boolQuery()
-								.should(termsQuery(QueryConcept.Fields.CONCEPT_ID, retrieveAllParents(conceptIds, branchCriteria, stated, conceptSelector)))
-								.should(termsQuery(QueryConcept.Fields.CONCEPT_ID, conceptIds))
-				);
-				break;
-			case ancestorof:
-				// >
-				query.must(termsQuery(QueryConcept.Fields.CONCEPT_ID, retrieveAllAncestors(conceptIds, branchCriteria, stated, conceptSelector)));
-				break;
-			case ancestororselfof:
-				// >>
-				query.must(
-						boolQuery()
-								.should(termsQuery(QueryConcept.Fields.CONCEPT_ID, retrieveAllAncestors(conceptIds, branchCriteria, stated, conceptSelector)))
-								.should(termsQuery(QueryConcept.Fields.CONCEPT_ID, conceptIds))
-				);
-				break;
-			case memberOf:
-				// ^
-				Set<Long> conceptIdsInReferenceSet = conceptSelector.findConceptIdsInReferenceSet(conceptIds, getMemberFilterConstraints(), refinementBuilder);
-				query.filter(termsQuery(QueryConcept.Fields.CONCEPT_ID, conceptIdsInReferenceSet));
-				return conceptIdsInReferenceSet;
-		}
+        switch (operator) {
+            case childof ->
+                // <!
+                    query.must(termsQuery(QueryConcept.Fields.PARENTS, conceptIds));
+            case childorselfof ->
+                // <<!
+                    query.must(
+                            boolQuery()
+                                    .should(termsQuery(QueryConcept.Fields.PARENTS, conceptIds))
+                                    .should(termsQuery(QueryConcept.Fields.CONCEPT_ID, conceptIds))
+                    );
+            case descendantof ->
+                // <
+                    query.must(termsQuery(QueryConcept.Fields.ANCESTORS, conceptIds));
+            case descendantorselfof ->
+                // <<
+                    query.must(
+                            boolQuery()
+                                    .should(termsQuery(QueryConcept.Fields.ANCESTORS, conceptIds))
+                                    .should(termsQuery(QueryConcept.Fields.CONCEPT_ID, conceptIds))
+                    );
+            case parentof ->
+                // >!
+                    query.must(termsQuery(QueryConcept.Fields.CONCEPT_ID, retrieveAllParents(conceptIds, branchCriteria, stated, conceptSelector)));
+            case parentorselfof ->
+                // >>!
+                    query.must(
+                            boolQuery()
+                                    .should(termsQuery(QueryConcept.Fields.CONCEPT_ID, retrieveAllParents(conceptIds, branchCriteria, stated, conceptSelector)))
+                                    .should(termsQuery(QueryConcept.Fields.CONCEPT_ID, conceptIds))
+                    );
+            case ancestorof ->
+                // >
+                    query.must(termsQuery(QueryConcept.Fields.CONCEPT_ID, retrieveAllAncestors(conceptIds, branchCriteria, stated, conceptSelector)));
+            case ancestororselfof ->
+                // >>
+                    query.must(
+                            boolQuery()
+                                    .should(termsQuery(QueryConcept.Fields.CONCEPT_ID, retrieveAllAncestors(conceptIds, branchCriteria, stated, conceptSelector)))
+                                    .should(termsQuery(QueryConcept.Fields.CONCEPT_ID, conceptIds))
+                    );
+            case memberOf -> {
+                // ^
+                Set<Long> conceptIdsInReferenceSet = conceptSelector.findConceptIdsInReferenceSet(conceptIds, getMemberFilterConstraints(), refinementBuilder);
+                query.filter(termsQuery(QueryConcept.Fields.CONCEPT_ID, conceptIdsInReferenceSet));
+                return conceptIdsInReferenceSet;
+            }
+        }
 		return null;
 	}
 

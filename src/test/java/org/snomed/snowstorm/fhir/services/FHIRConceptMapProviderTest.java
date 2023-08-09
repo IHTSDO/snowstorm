@@ -1,11 +1,8 @@
 package org.snomed.snowstorm.fhir.services;
 
 import org.hl7.fhir.r4.model.Parameters;
-import org.hl7.fhir.r4.model.Type;
 import org.junit.jupiter.api.Test;
 import org.snomed.snowstorm.core.data.domain.Concepts;
-
-import java.util.List;
 
 import static org.hibernate.validator.internal.util.Contracts.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;

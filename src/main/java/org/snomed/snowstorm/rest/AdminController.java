@@ -81,12 +81,10 @@ public class AdminController {
 	}
 
 	@Operation(summary = "Rebuild the semantic index of the branch.",
-			description = "You are unlikely to need this action. " +
-					"If something has gone wrong with processing of content updates on the branch then semantic index, " +
-					"which supports the ECL queries, can be rebuilt on demand. \n" +
-					"Setting the dryRun to true when rebuilding the 'MAIN' branch will log a summary of the changes required without persisting the changes. This " +
-					"parameter can not be used on other branches. \n" +
-					"If no changes are required or dryRun is set the empty commit used to run this function will be rolled back.")
+			description = """
+                    You are unlikely to need this action. If something has gone wrong with processing of content updates on the branch then semantic index, which supports the ECL queries, can be rebuilt on demand.\s
+                    Setting the dryRun to true when rebuilding the 'MAIN' branch will log a summary of the changes required without persisting the changes. This parameter can not be used on other branches.\s
+                    If no changes are required or dryRun is set the empty commit used to run this function will be rolled back.""")
 	@PostMapping(value = "/{branch}/actions/rebuild-semantic-index")
 	@PreAuthorize("hasPermission('ADMIN', #branch)")
 	public UpdatedDocumentCount rebuildBranchTransitiveClosure(@PathVariable String branch, @RequestParam(required = false, defaultValue = "false") boolean dryRun)
@@ -242,10 +240,14 @@ public class AdminController {
 	}
 
 	@Operation(summary = "Clean newly inactive inferred relationships during authoring.",
-			description = "The previous release and dependant release (if applicable) branches are considered.\n\n" +
-					"For inactive inferred relationships with no effectiveTime:\n\n" +
-					" - if they were already inactive then restore that version\n\n" +
-					" - if they did not previously exist then delete them")
+			description = """
+                    The previous release and dependant release (if applicable) branches are considered.
+
+                    For inactive inferred relationships with no effectiveTime:
+
+                     - if they were already inactive then restore that version
+
+                     - if they did not previously exist then delete them""")
 	@PostMapping(value = "/{branch}/actions/clean-inferred")
 	@PreAuthorize("hasPermission('ADMIN', #branch)")
 	public void cleanInferredRelationships(@PathVariable String branch) {

@@ -23,7 +23,7 @@ import org.springframework.boot.configurationprocessor.json.JSONException;
 import org.springframework.boot.configurationprocessor.json.JSONObject;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.client.TestRestTemplate;
-import org.springframework.boot.web.server.LocalServerPort;
+import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.*;
@@ -482,7 +482,8 @@ class ConceptControllerTest extends AbstractTest {
 
 		// Fetch all in one page
 		ResponseEntity<ItemsPagePojo<Long>> responseEntity = this.restTemplate.exchange("http://localhost:" + port + "/MAIN/concepts?activeFilter=true&statedEcl=<138875005&returnIdOnly=true&limit=100",
-				HttpMethod.GET, new HttpEntity<>(null), new ParameterizedTypeReference<ItemsPagePojo<Long>>() {});
+				HttpMethod.GET, new HttpEntity<>(null), new ParameterizedTypeReference<>() {
+                });
 		assertEquals(200, responseEntity.getStatusCode().value());
 		ItemsPagePojo<Long> page = responseEntity.getBody();
 		assertNotNull(page);
@@ -492,7 +493,8 @@ class ConceptControllerTest extends AbstractTest {
 
 		// Fetch first page
 		responseEntity = this.restTemplate.exchange("http://localhost:" + port + "/MAIN/concepts?activeFilter=true&statedEcl=<138875005&returnIdOnly=true&limit=1",
-				HttpMethod.GET, new HttpEntity<>(null), new ParameterizedTypeReference<ItemsPagePojo<Long>>() {});
+				HttpMethod.GET, new HttpEntity<>(null), new ParameterizedTypeReference<>() {
+                });
 		assertEquals(200, responseEntity.getStatusCode().value());
 		page = responseEntity.getBody();
 		assertNotNull(page);
@@ -505,7 +507,8 @@ class ConceptControllerTest extends AbstractTest {
 
 		// Fetch second page
 		responseEntity = this.restTemplate.exchange("http://localhost:" + port + "/MAIN/concepts?activeFilter=true&statedEcl=<138875005&returnIdOnly=true&limit=1&searchAfter=" + searchAfterFromFirstPage,
-				HttpMethod.GET, new HttpEntity<>(null), new ParameterizedTypeReference<ItemsPagePojo<Long>>() {});
+				HttpMethod.GET, new HttpEntity<>(null), new ParameterizedTypeReference<>() {
+                });
 		assertEquals(200, responseEntity.getStatusCode().value());
 		page = responseEntity.getBody();
 		assertNotNull(page);
@@ -523,7 +526,8 @@ class ConceptControllerTest extends AbstractTest {
 
 		// Fetch first page
 		ResponseEntity<ItemsPagePojo<ConceptMini>> responseEntity = this.restTemplate.exchange("http://localhost:" + port + "/MAIN/concepts?activeFilter=true&limit=1",
-				HttpMethod.GET, new HttpEntity<>(null), new ParameterizedTypeReference<ItemsPagePojo<ConceptMini>>() {});
+				HttpMethod.GET, new HttpEntity<>(null), new ParameterizedTypeReference<>() {
+                });
 		assertEquals(200, responseEntity.getStatusCode().value());
 		ItemsPagePojo<ConceptMini> page = responseEntity.getBody();
 		assertNotNull(page);
@@ -537,7 +541,8 @@ class ConceptControllerTest extends AbstractTest {
 		// Fetch second page
 		System.out.println("searchAfter '" + searchAfterFromFirstPage + "'");
 		responseEntity = this.restTemplate.exchange("http://localhost:" + port + "/MAIN/concepts?activeFilter=true&limit=1&searchAfter=" + searchAfterFromFirstPage,
-				HttpMethod.GET, new HttpEntity<>(null), new ParameterizedTypeReference<ItemsPagePojo<ConceptMini>>() {});
+				HttpMethod.GET, new HttpEntity<>(null), new ParameterizedTypeReference<>() {
+                });
 		assertEquals(200, responseEntity.getStatusCode().value());
 		page = responseEntity.getBody();
 		assertNotNull(page);
@@ -553,8 +558,8 @@ class ConceptControllerTest extends AbstractTest {
 		String requestUrl = "http://localhost:" + port + "/browser/MAIN/concepts/12345/history";
 
 		//when
-		ResponseEntity<ConceptHistory> responseEntity = this.restTemplate.exchange(requestUrl, HttpMethod.GET, new HttpEntity<>(null), new ParameterizedTypeReference<ConceptHistory>() {
-		});
+		ResponseEntity<ConceptHistory> responseEntity = this.restTemplate.exchange(requestUrl, HttpMethod.GET, new HttpEntity<>(null), new ParameterizedTypeReference<>() {
+        });
 
 		//then
 		assertEquals(404, responseEntity.getStatusCodeValue());
@@ -566,8 +571,8 @@ class ConceptControllerTest extends AbstractTest {
 		String requestUrl = "http://localhost:" + port + "/browser/MAIN/concepts/257751006/history";
 
 		//when
-		ResponseEntity<ConceptHistory> responseEntity = this.restTemplate.exchange(requestUrl, HttpMethod.GET, new HttpEntity<>(null), new ParameterizedTypeReference<ConceptHistory>() {
-		});
+		ResponseEntity<ConceptHistory> responseEntity = this.restTemplate.exchange(requestUrl, HttpMethod.GET, new HttpEntity<>(null), new ParameterizedTypeReference<>() {
+        });
 
 		//then
 		assertEquals(200, responseEntity.getStatusCodeValue());
@@ -644,8 +649,8 @@ class ConceptControllerTest extends AbstractTest {
 		methodTestDataFixture.insert();
 
 		//when
-		ResponseEntity<ConceptHistory> responseEntity = this.restTemplate.exchange(requestUrl, HttpMethod.GET, new HttpEntity<>(null), new ParameterizedTypeReference<ConceptHistory>() {
-		});
+		ResponseEntity<ConceptHistory> responseEntity = this.restTemplate.exchange(requestUrl, HttpMethod.GET, new HttpEntity<>(null), new ParameterizedTypeReference<>() {
+        });
 		ConceptHistory conceptHistory = responseEntity.getBody();
 		List<ConceptHistory.ConceptHistoryItem> history = conceptHistory.getHistory();
 		ConceptHistory.ConceptHistoryItem januaryRelease = conceptHistory.getConceptHistoryItem("20200131").get();
@@ -716,8 +721,8 @@ class ConceptControllerTest extends AbstractTest {
 		methodTestDataFixture.insert();
 
 		//when
-		ResponseEntity<ConceptHistory> responseEntity = this.restTemplate.exchange(requestUrl, HttpMethod.GET, new HttpEntity<>(null), new ParameterizedTypeReference<ConceptHistory>() {
-		});
+		ResponseEntity<ConceptHistory> responseEntity = this.restTemplate.exchange(requestUrl, HttpMethod.GET, new HttpEntity<>(null), new ParameterizedTypeReference<>() {
+        });
 		ConceptHistory conceptHistory = responseEntity.getBody();
 		List<ConceptHistory.ConceptHistoryItem> history = conceptHistory.getHistory();
 		ConceptHistory.ConceptHistoryItem januaryRelease = conceptHistory.getConceptHistoryItem("20200131").get();
@@ -811,8 +816,8 @@ class ConceptControllerTest extends AbstractTest {
 		methodTestDataFixture.insert();
 
 		//when
-		ResponseEntity<ConceptHistory> responseEntity = this.restTemplate.exchange(requestUrl, HttpMethod.GET, new HttpEntity<>(null), new ParameterizedTypeReference<ConceptHistory>() {
-		});
+		ResponseEntity<ConceptHistory> responseEntity = this.restTemplate.exchange(requestUrl, HttpMethod.GET, new HttpEntity<>(null), new ParameterizedTypeReference<>() {
+        });
 		ConceptHistory conceptHistory = responseEntity.getBody();
 		List<ConceptHistory.ConceptHistoryItem> history = conceptHistory.getHistory();
 
@@ -898,8 +903,8 @@ class ConceptControllerTest extends AbstractTest {
 		methodTestDataFixture.insert();
 
 		//when
-		ResponseEntity<ConceptHistory> responseEntity = this.restTemplate.exchange(requestUrl, HttpMethod.GET, new HttpEntity<>(null), new ParameterizedTypeReference<ConceptHistory>() {
-		});
+		ResponseEntity<ConceptHistory> responseEntity = this.restTemplate.exchange(requestUrl, HttpMethod.GET, new HttpEntity<>(null), new ParameterizedTypeReference<>() {
+        });
 		ConceptHistory conceptHistory = responseEntity.getBody();
 		List<ConceptHistory.ConceptHistoryItem> history = conceptHistory.getHistory();
 
@@ -1244,15 +1249,11 @@ class ConceptControllerTest extends AbstractTest {
 
 		List<Description> descriptions = concept.getActiveDescriptions();
 		assertEquals(3, descriptions.size());
-		descriptions.forEach(description -> {
-			assertDescription(description, destinationBranch, CORE_MODULE);
-		});
+		descriptions.forEach(description -> assertDescription(description, destinationBranch, CORE_MODULE));
 
 		List<ReferenceSetMember> axioms = referenceSetMemberService.findMembers(destinationBranch, concept.getConceptId(), ComponentService.LARGE_PAGE).getContent();
 		assertEquals(1, axioms.size());
-		axioms.forEach(axiom -> {
-			assertRefsetMember(axiom, CORE_MODULE, OWL_AXIOM_REFERENCE_SET);
-		});
+		axioms.forEach(axiom -> assertRefsetMember(axiom, CORE_MODULE, OWL_AXIOM_REFERENCE_SET));
 	}
 
 	@Test
@@ -1284,15 +1285,11 @@ class ConceptControllerTest extends AbstractTest {
 
 		List<Description> descriptions = concept.getActiveDescriptions();
 		assertEquals(3, descriptions.size());
-		descriptions.forEach(description -> {
-			assertDescription(description, destinationBranch, CORE_MODULE);
-		});
+		descriptions.forEach(description -> assertDescription(description, destinationBranch, CORE_MODULE));
 
 		List<ReferenceSetMember> axioms = referenceSetMemberService.findMembers(destinationBranch, concept.getConceptId(), ComponentService.LARGE_PAGE).getContent();
 		assertEquals(1, axioms.size());
-		axioms.forEach(axiom -> {
-			assertRefsetMember(axiom, CORE_MODULE, OWL_AXIOM_REFERENCE_SET);
-		});
+		axioms.forEach(axiom -> assertRefsetMember(axiom, CORE_MODULE, OWL_AXIOM_REFERENCE_SET));
 
 		// Dependant concept
 		concept = conceptService.find("100000", destinationBranch);
@@ -1301,15 +1298,11 @@ class ConceptControllerTest extends AbstractTest {
 
 		descriptions = concept.getActiveDescriptions();
 		assertEquals(1, descriptions.size());
-		descriptions.forEach(description -> {
-			assertDescription(description, destinationBranch, CORE_MODULE);
-		});
+		descriptions.forEach(description -> assertDescription(description, destinationBranch, CORE_MODULE));
 
 		axioms = referenceSetMemberService.findMembers(destinationBranch, concept.getConceptId(), ComponentService.LARGE_PAGE).getContent();
 		assertEquals(1, axioms.size());
-		axioms.forEach(axiom -> {
-			assertRefsetMember(axiom, CORE_MODULE, OWL_AXIOM_REFERENCE_SET);
-		});
+		axioms.forEach(axiom -> assertRefsetMember(axiom, CORE_MODULE, OWL_AXIOM_REFERENCE_SET));
 	}
 
 	@Test
@@ -1340,15 +1333,11 @@ class ConceptControllerTest extends AbstractTest {
 
 		List<Description> descriptions = concept.getActiveDescriptions();
 		assertEquals(3, descriptions.size());
-		descriptions.forEach(description -> {
-			assertDescription(description, destinationBranch, CORE_MODULE);
-		});
+		descriptions.forEach(description -> assertDescription(description, destinationBranch, CORE_MODULE));
 
 		List<ReferenceSetMember> axioms = referenceSetMemberService.findMembers(destinationBranch, concept.getConceptId(), ComponentService.LARGE_PAGE).getContent();
 		assertEquals(1, axioms.size());
-		axioms.forEach(axiom -> {
-			assertRefsetMember(axiom, CORE_MODULE, OWL_AXIOM_REFERENCE_SET);
-		});
+		axioms.forEach(axiom -> assertRefsetMember(axiom, CORE_MODULE, OWL_AXIOM_REFERENCE_SET));
 	}
 
 	private ResponseEntity<String> putConcept(String conceptId, String conceptJson) {

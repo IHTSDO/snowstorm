@@ -32,8 +32,7 @@ public class ExpressionUtil {
 
 		if (constraint instanceof CompoundExpressionConstraint) {
 			return constructExpression((CompoundExpressionConstraint) constraint);
-		} else if (constraint instanceof RefinedExpressionConstraint) {
-			RefinedExpressionConstraint refinedExpressionConstraint = (RefinedExpressionConstraint) constraint;
+		} else if (constraint instanceof RefinedExpressionConstraint refinedExpressionConstraint) {
 			return constructExpression(refinedExpressionConstraint);
 		} else {
 			return expressionConstraint;
@@ -44,11 +43,10 @@ public class ExpressionUtil {
 		StringBuilder expressionBuilder = new StringBuilder();
 		if (compound.getConjunctionExpressionConstraints() != null) {
 			List<SubExpressionConstraint> conJunctions = compound.getConjunctionExpressionConstraints();
-			Collections.sort(conJunctions, EXPRESSION_CONSTRAINT_COMPARATOR_BY_CONCEPT_ID);
+			conJunctions.sort(EXPRESSION_CONSTRAINT_COMPARATOR_BY_CONCEPT_ID);
 			for (SubExpressionConstraint subExpressionConstraint : conJunctions) {
 				if (subExpressionConstraint.getConceptId() == null && subExpressionConstraint.getNestedExpressionConstraint() != null) {
-					if (subExpressionConstraint.getNestedExpressionConstraint() instanceof  RefinedExpressionConstraint) {
-						RefinedExpressionConstraint refinedExpressionConstraint = (RefinedExpressionConstraint) subExpressionConstraint.getNestedExpressionConstraint();
+					if (subExpressionConstraint.getNestedExpressionConstraint() instanceof RefinedExpressionConstraint refinedExpressionConstraint) {
 						refinedExpressionConstraint.getSubexpressionConstraint();
 						refinedExpressionConstraint.getEclRefinement();
 					}
@@ -67,7 +65,7 @@ public class ExpressionUtil {
 			if (!refinedExpressionConstraints.isEmpty()) {
 				expressionBuilder.append(constructExpression(refinedExpressionConstraints, false));
 			} else {
-				Collections.sort(disJunctions, EXPRESSION_CONSTRAINT_COMPARATOR_BY_CONCEPT_ID);
+				disJunctions.sort(EXPRESSION_CONSTRAINT_COMPARATOR_BY_CONCEPT_ID);
 				for (int i = 0; i < disJunctions.size(); i++) {
 					if (i > 0) {
 						expressionBuilder.append( " OR ");
@@ -327,8 +325,7 @@ public class ExpressionUtil {
 				} else if (nestedExpressionConstraint instanceof SubExpressionConstraint) {
 					builder.append(constructExpression((SubExpressionConstraint) nestedExpressionConstraint));
 				}
-				if (nestedExpressionConstraint instanceof CompoundExpressionConstraint) {
-					CompoundExpressionConstraint compoundAndNested = (CompoundExpressionConstraint) nestedExpressionConstraint;
+				if (nestedExpressionConstraint instanceof CompoundExpressionConstraint compoundAndNested) {
 					builder.append("(");
 					builder.append(constructExpression(compoundAndNested));
 					builder.append(")");

@@ -234,45 +234,8 @@ public class DescriptionCriteria {
 		return Objects.hash(term, searchLanguageCodes, active, modules, semanticTag, semanticTags, conceptActive, conceptRefset, groupByConcept, searchMode, type, preferredIn, acceptableIn, preferredOrAcceptableIn);
 	}
 
-	public static class DisjunctionAcceptabilityCriteria {
-
-		private final Set<Long> preferred;
-
-		private final Set<Long> acceptable;
-
-		private final Set<Long> preferredOrAcceptable;
-
-		public DisjunctionAcceptabilityCriteria(Set<Long> preferred, Set<Long> acceptable, Set<Long> preferredOrAcceptable) {
-			this.preferred = preferred;
-			this.acceptable = acceptable;
-			this.preferredOrAcceptable = preferredOrAcceptable;
-		}
-
-		public Set<Long> getPreferred() {
-			return preferred;
-		}
-
-		public Set<Long> getAcceptable() {
-			return acceptable;
-		}
-
-		public Set<Long> getPreferredOrAcceptable() {
-			return preferredOrAcceptable;
-		}
-
-		public boolean hasMultiple() {
-			int counter = 0;
-			if (preferred != null && !preferred.isEmpty()) {
-				counter++;
-			}
-			if (acceptable != null && !acceptable.isEmpty()) {
-				counter++;
-			}
-			if (preferredOrAcceptable != null && !preferredOrAcceptable.isEmpty()) {
-				counter++;
-			}
-			return counter > 1;
-		}
+	public record DisjunctionAcceptabilityCriteria(Set<Long> preferred, Set<Long> acceptable,
+												   Set<Long> preferredOrAcceptable) {
 	}
 
 }

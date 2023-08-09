@@ -9,7 +9,6 @@ import org.springframework.context.annotation.Lazy;
 import org.springframework.jms.core.JmsTemplate;
 import org.springframework.stereotype.Component;
 
-import java.util.Iterator;
 import java.util.List;
 
 @Component
@@ -44,12 +43,11 @@ public class TraceabilityConsumer {
 		int changeListSize = activity.getChanges().size();
 		logger.info("Number of changes (concept activities) is {} and is larger than max ({}).", changeListSize, maxConceptActiviesPerMessage );
 
-		Iterator<List<Activity.ConceptActivity>> activityListItr = Iterables.partition(activity.getChanges(), maxConceptActiviesPerMessage).iterator();
-		while (activityListItr.hasNext()) {
-			Activity activityChunk = new Activity(activity.getUserId(), activity.getBranchPath(),
-			activity.getCommitTimestamp(), activity.getSourceBranch(), activity.getActivityType());
-			activityChunk.setChanges(activityListItr.next());
-			jmsTemplate.convertAndSend(jmsQueuePrefix + ".traceability", activityChunk);
-		}
+        for (List<Activity.ConceptActivity> conceptActivities : Iterables.partition(activity.getChanges(), maxConceptActiviesPerMessage)) {
+            Activity activityChunk = new Activity(activity.getUserId(), activity.getBranchPath(),
+                    activity.getCommitTimestamp(), activity.getSourceBranch(), activity.getActivityType());
+            activityChunk.setChanges(conceptActivities);
+            jmsTemplate.convertAndSend(jmsQueuePrefix + ".traceability", activityChunk);
+        }
 	}
 }

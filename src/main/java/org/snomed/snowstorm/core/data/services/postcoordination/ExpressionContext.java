@@ -4,7 +4,6 @@ import io.kaicode.elasticvc.api.BranchCriteria;
 import io.kaicode.elasticvc.api.VersionControlHelper;
 import org.snomed.snowstorm.core.data.services.ServiceException;
 import org.snomed.snowstorm.core.util.TimerUtil;
-import org.snomed.snowstorm.mrcm.MRCMLoader;
 import org.snomed.snowstorm.mrcm.MRCMService;
 import org.snomed.snowstorm.mrcm.model.MRCM;
 

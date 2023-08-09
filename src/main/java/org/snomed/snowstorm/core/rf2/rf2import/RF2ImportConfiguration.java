@@ -18,6 +18,7 @@ public final class RF2ImportConfiguration {
 	// Used to remove the effectiveTime from imported RF2 rows - for daily build.
 	private Boolean clearEffectiveTimes;
 
+	@SuppressWarnings("unused")
 	public RF2ImportConfiguration() {
 	}
 
@@ -70,7 +71,7 @@ public final class RF2ImportConfiguration {
 	}
 
 	public Set<String> getModuleIds() {
-		return moduleIds != null ? moduleIds : Collections.EMPTY_SET;
+		return moduleIds != null ? moduleIds : Collections.emptySet();
 	}
 
 	public void setModuleIds(Set<String> moduleIds) {

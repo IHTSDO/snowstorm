@@ -43,14 +43,12 @@ public class PageWithBucketAggregationsFactory {
 		Map<String, Aggregation> aggregationMap = aggregations.getAsMap();
 		for (String aggregationGroup : aggregationMap.keySet()) {
 			Aggregation aggregation = aggregationMap.get(aggregationGroup);
-			if (aggregation instanceof SimpleAggregation) {
-				SimpleAggregation simpleAggregation = (SimpleAggregation) aggregation;
+			if (aggregation instanceof SimpleAggregation simpleAggregation) {
 				bucketAggregations.put(simpleAggregation.getName(), simpleAggregation.getBuckets());
 			} else {
 				HashMap<String, Long> values = new HashMap<>();
 				bucketAggregations.put(aggregationGroup, values);
-				if (aggregation instanceof ParsedStringTerms) {
-					ParsedStringTerms termsBucketAggregation = (ParsedStringTerms) aggregation;
+				if (aggregation instanceof ParsedStringTerms termsBucketAggregation) {
 					for (Terms.Bucket bucket : termsBucketAggregation.getBuckets()) {
 						String aggregationBucketName = bucket.getKeyAsString();
 						values.put(aggregationBucketName, bucket.getDocCount());

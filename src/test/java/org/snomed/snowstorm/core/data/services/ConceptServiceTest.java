@@ -10,7 +10,6 @@ import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.api.ComponentService;
 import io.kaicode.elasticvc.domain.Branch;
 import io.kaicode.elasticvc.domain.Commit;
-import org.assertj.core.util.Maps;
 import org.elasticsearch.common.collect.MapBuilder;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -1111,7 +1110,7 @@ class ConceptServiceTest extends AbstractTest {
 
 		// Check inactivation indicator reference set member was re-used
 		assertEquals(2, concept.getInactivationIndicatorMembers().size());
-		ReferenceSetMember newlyActiveinactivationIndicatorMember = concept.getInactivationIndicatorMembers().stream().filter(member -> member.isActive()).findFirst().orElse(null);
+		ReferenceSetMember newlyActiveinactivationIndicatorMember = concept.getInactivationIndicatorMembers().stream().filter(SnomedComponent::isActive).findFirst().orElse(null);
 		assertNotNull(newlyActiveinactivationIndicatorMember);
 		assertEquals(Concepts.CONCEPT_NON_CURRENT, newlyActiveinactivationIndicatorMember.getAdditionalField("valueId"));
 

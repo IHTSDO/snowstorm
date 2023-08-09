@@ -1,7 +1,6 @@
 package org.snomed.snowstorm.core.data.domain;
 
 import org.snomed.snowstorm.core.data.services.ApiError;
-import org.snomed.snowstorm.core.data.services.pojo.IntegrityIssueReport;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.elasticsearch.annotations.Document;
 
