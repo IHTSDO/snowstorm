@@ -17,7 +17,6 @@ import java.util.Set;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
-import static org.snomed.snowstorm.config.Config.DEFAULT_LANGUAGE_DIALECTS;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.snomed.snowstorm.TestConcepts.*;

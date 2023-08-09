@@ -122,10 +122,10 @@ public class MRCMService {
 			allAncestors.addAll(parentIds);
 
 			// Find matching domains
-			Set<Domain> matchedDomains = branchMRCM.getDomains().stream().filter(domain -> {
+			Set<Domain> matchedDomains = branchMRCM.domains().stream().filter(domain -> {
 				Constraint constraint = proximalPrimitiveModeling ? domain.getProximalPrimitiveConstraint() : domain.getDomainConstraint();
-				Long domainConceptId = parseLong(constraint.getConceptId());
-				Operator operator = constraint.getOperator();
+				Long domainConceptId = parseLong(constraint.conceptId());
+				Operator operator = constraint.operator();
 				if ((operator == null || operator == Operator.descendantorselfof)
 						&& parentIds.contains(domainConceptId)) {
 					return true;
@@ -136,7 +136,7 @@ public class MRCMService {
 			Set<String> domainReferenceComponents = matchedDomains.stream().map(Domain::getReferencedComponentId).collect(Collectors.toSet());
 
 			// Find applicable attributes
-			attributeDomains.addAll(branchMRCM.getAttributeDomains().stream()
+			attributeDomains.addAll(branchMRCM.attributeDomains().stream()
 					.filter(attributeDomain -> attributeDomain.getContentType().ruleAppliesToContentType(contentType)
 							&& domainReferenceComponents.contains(attributeDomain.getDomainId())).collect(Collectors.toList()));
 		}
@@ -155,7 +155,7 @@ public class MRCMService {
 
 	private void addAttributeRangesToExtraConceptMiniFields(final ConceptMini attributeConceptMini, final ContentType contentType, final MRCM branchMRCM) {
 		attributeConceptMini.addExtraField("attributeRange",
-				branchMRCM.getAttributeRanges().stream()
+				branchMRCM.attributeRanges().stream()
 						.filter(attributeRange -> attributeRange.getReferencedComponentId().equals(attributeConceptMini.getConceptId()))
 						.filter(attributeRange -> contentType.ruleAppliesToContentType(attributeRange.getContentType()))
 						.collect(Collectors.toList()));

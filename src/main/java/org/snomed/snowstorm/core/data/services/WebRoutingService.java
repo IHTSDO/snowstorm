@@ -211,7 +211,7 @@ public class WebRoutingService {
 	}
 
 	private String getNamespaceFromConfig(String str) {
-		return webRoutes.getNamespaceMap().containsKey(str) ? webRoutes.getNamespaceMap().get(str) : null;
+		return webRoutes.getNamespaceMap().getOrDefault(str, null);
 	}
 
 	private class UriParts {

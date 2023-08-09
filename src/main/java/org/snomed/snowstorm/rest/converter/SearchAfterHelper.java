@@ -3,17 +3,16 @@ package org.snomed.snowstorm.rest.converter;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.http.HttpHeaders;
-import org.springframework.util.StringUtils;
-
 import java.io.IOException;
 import java.util.Base64;
 
 public class SearchAfterHelper {
 
-	private static ObjectMapper objectMapper = new ObjectMapper();
+	private static final ObjectMapper objectMapper = new ObjectMapper();
 
-	private static final TypeReference<Object[]> OBJECT_ARRAY_TYPE_REF = new TypeReference<Object[]>() {};
+	private static final TypeReference<Object[]> OBJECT_ARRAY_TYPE_REF = new TypeReference<>() {};
 
 	public static String toSearchAfterToken(final Object[] searchAfter) {
 		if (searchAfter == null) {

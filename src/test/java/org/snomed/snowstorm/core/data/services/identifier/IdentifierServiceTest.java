@@ -79,7 +79,7 @@ class IdentifierServiceTest extends AbstractTest {
 	}
 
 	private List<Concept> createTestData() {
-		List<Concept> testData = new ArrayList<Concept>();
+		List<Concept> testData = new ArrayList<>();
 		//Total 2 concepts + 4 descriptions + 3 relationships = 9 identifiers
 		//NB Relationship must be given type/destination or the set that holds it will see a duplicate
 		testData.add( new Concept(null)
@@ -95,7 +95,7 @@ class IdentifierServiceTest extends AbstractTest {
 	}
 	
 	private List<Concept> createTestDataLarge(int size) throws ServiceException {
-		List<Concept> testData = new ArrayList<Concept>();
+		List<Concept> testData = new ArrayList<>();
 		for (int x=0; x<size; x++)
 			testData.add(new Concept());
 		return testData;

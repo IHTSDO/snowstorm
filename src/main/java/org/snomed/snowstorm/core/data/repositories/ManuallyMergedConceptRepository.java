@@ -5,8 +5,6 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.elasticsearch.repository.ElasticsearchRepository;
 
-import java.util.List;
-
 public interface ManuallyMergedConceptRepository extends ElasticsearchRepository<ManuallyMergedConcept, String> {
 
 	ManuallyMergedConcept findOneByMergeReviewIdAndConceptId(String mergeReviewId, String conceptId);

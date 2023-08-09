@@ -6,14 +6,7 @@ import com.fasterxml.jackson.databind.DeserializationContext;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.deser.std.StdDeserializer;
-import org.snomed.langauges.ecl.domain.expressionconstraint.SubExpressionConstraint;
 import org.snomed.langauges.ecl.domain.refinement.EclRefinement;
-import org.snomed.langauges.ecl.domain.refinement.Refinement;
-import org.snomed.snowstorm.ecl.domain.expressionconstraint.SCompoundExpressionConstraint;
-import org.snomed.snowstorm.ecl.domain.expressionconstraint.SDottedExpressionConstraint;
-import org.snomed.snowstorm.ecl.domain.expressionconstraint.SRefinedExpressionConstraint;
-import org.snomed.snowstorm.ecl.domain.expressionconstraint.SSubExpressionConstraint;
-import org.snomed.snowstorm.ecl.domain.refinement.SEclAttribute;
 import org.snomed.snowstorm.ecl.domain.refinement.SEclRefinement;
 
 import java.io.IOException;

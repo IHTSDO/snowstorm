@@ -129,24 +129,18 @@ public class ContentReportService {
 		return results;
 	}
 
-	public static final class InactivationTypeAndConceptIdList {
+	public record InactivationTypeAndConceptIdList(ConceptMini inactivationIndicator, Collection<Long> conceptIds) {
 
-		private final ConceptMini inactivationIndicator;
-		private final Collection<Long> conceptIds;
-
-		public InactivationTypeAndConceptIdList(ConceptMini inactivationIndicator, Collection<Long> conceptIds) {
-			this.inactivationIndicator = inactivationIndicator;
-			this.conceptIds = conceptIds;
-		}
-
+		@Override
 		@JsonView(value = View.Component.class)
-		public ConceptMini getInactivationIndicator() {
-			return inactivationIndicator;
-		}
+			public ConceptMini inactivationIndicator() {
+				return inactivationIndicator;
+			}
 
-		@JsonView(value = View.Component.class)
-		public Collection<Long> getConceptIds() {
-			return conceptIds;
+			@Override
+			@JsonView(value = View.Component.class)
+			public Collection<Long> conceptIds() {
+				return conceptIds;
+			}
 		}
-	}
 }

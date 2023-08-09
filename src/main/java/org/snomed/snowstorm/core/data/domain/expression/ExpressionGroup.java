@@ -21,7 +21,7 @@ public class ExpressionGroup {
 	}
 	
 	public String toString(boolean includeTerms) {
-		StringBuffer sb = new StringBuffer();
+		StringBuilder sb = new StringBuilder();
 		sb.append("{ ");
 		sb.append(attributes.stream()
 			.map(a -> a.toString(includeTerms))

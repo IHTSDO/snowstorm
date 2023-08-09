@@ -474,7 +474,7 @@ public class SemanticIndexUpdateService extends ComponentService implements Comm
 
 	private Map<String, ConcreteValue.DataType> getConcreteAttributeDataTypeMap(Commit commit) throws ServiceException {
 		MRCM mrcm = mrcmLoader.loadActiveMRCM(commit.getBranch().getPath(), versionControlHelper.getBranchCriteriaIncludingOpenCommit(commit));
-		return mrcm.getAttributeRanges().stream().filter(r -> r.getDataType() != null)
+		return mrcm.attributeRanges().stream().filter(r -> r.getDataType() != null)
 				.collect(Collectors.toMap(AttributeRange::getReferencedComponentId, AttributeRange::getDataType, (r1, r2) -> r2));
 	}
 

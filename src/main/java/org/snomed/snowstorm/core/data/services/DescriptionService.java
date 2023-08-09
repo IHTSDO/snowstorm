@@ -102,7 +102,7 @@ public class DescriptionService extends ComponentService {
 	private int aggregationMaxProcessableResultsSize;
 
 	public enum SearchMode {
-		STANDARD, REGEX, WHOLE_WORD, WILDCARD;
+		STANDARD, REGEX, WHOLE_WORD, WILDCARD
 	}
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
@@ -199,7 +199,7 @@ public class DescriptionService extends ComponentService {
 
 		// Fetch all matching description and concept ids
 		// ids of concepts where all descriptions and concept criteria are met
-		DescriptionMatches descriptionMatches = findDescriptionAndConceptIds(criteria, Collections.EMPTY_SET, branchCriteria, timer);
+		DescriptionMatches descriptionMatches = findDescriptionAndConceptIds(criteria, Collections.emptySet(), branchCriteria, timer);
 		BoolQueryBuilder descriptionQuery = descriptionMatches.getDescriptionQuery();
 
 		// Apply concept and acceptability filtering for final search
@@ -236,7 +236,9 @@ public class DescriptionService extends ComponentService {
 		if (!semanticTagFiltering) {
 			fsnQueryBuilder.withPageable(PAGE_OF_ONE);
 			SearchHits<Description> semanticTagResults = elasticsearchTemplate.search(fsnQueryBuilder.build(), Description.class);
-			allAggregations.add(semanticTagResults.getAggregations().get("semanticTags"));
+			if (semanticTagResults.getAggregations() != null) {
+				allAggregations.add(semanticTagResults.getAggregations().get("semanticTags"));
+			}
 			timer.checkpoint("Semantic tag aggregation");
 		} else {
 			// Apply semantic tag filter
@@ -253,7 +255,9 @@ public class DescriptionService extends ComponentService {
 			} else {
 				SearchHits<Description> semanticTagResults = elasticsearchTemplate.search(fsnQueryBuilder.build(), Description.class);
 				semanticTagResults.stream().forEach((hit -> conceptSemanticTagMatches.add(parseLong(hit.getContent().getConceptId()))));
-				allAggregations.add(semanticTagResults.getAggregations().get("semanticTags"));
+				if (semanticTagResults.getAggregations() != null) {
+					allAggregations.add(semanticTagResults.getAggregations().get("semanticTags"));
+				}
 			}
 
 			conceptIds = conceptSemanticTagMatches;
@@ -269,7 +273,9 @@ public class DescriptionService extends ComponentService {
 				.withPageable(PAGE_OF_ONE)
 				.addAggregation(AggregationBuilders.terms("membership").field(REFSET_ID))
 				.build(), ReferenceSetMember.class);
-		allAggregations.add(membershipResults.getAggregations().get("membership"));
+		if (membershipResults.getAggregations() != null) {
+			allAggregations.add(membershipResults.getAggregations().get("membership"));
+		}
 		timer.checkpoint("Concept refset membership aggregation");
 
 		// Perform final paged description search with description property aggregations
@@ -282,7 +288,9 @@ public class DescriptionService extends ComponentService {
 		NativeSearchQuery aggregateQuery = addTermSort(queryBuilder.build());
 		aggregateQuery.setTrackTotalHits(true);
 		SearchHits<Description> descriptions = elasticsearchTemplate.search(aggregateQuery, Description.class);
-		allAggregations.addAll(descriptions.getAggregations().asList());
+		if (descriptions.getAggregations() != null) {
+			allAggregations.addAll(descriptions.getAggregations().asList());
+		}
 		timer.checkpoint("Fetch descriptions including module and language aggregations");
 		timer.finish();
 
@@ -357,8 +365,8 @@ public class DescriptionService extends ComponentService {
 
 		SemanticTagCacheEntry semanticTagCacheEntry = semanticTagAggregationCache.get(branch);
 		if (semanticTagCacheEntry != null) {
-			if (semanticTagCacheEntry.getBranchHeadTime() == branchObject.getHead().getTime()) {
-				return semanticTagCacheEntry.getTagCounts();
+			if (semanticTagCacheEntry.branchHeadTime() == branchObject.getHead().getTime()) {
+				return semanticTagCacheEntry.tagCounts();
 			}
 		}
 
@@ -388,9 +396,11 @@ public class DescriptionService extends ComponentService {
 		Map<String, Long> tagCounts = new TreeMap<>();
 		if (page.hasAggregations()) {
 			ParsedStringTerms semanticTags = page.getAggregations().get("semanticTags");
-			List<? extends Terms.Bucket> buckets = semanticTags.getBuckets();
-			for (Terms.Bucket bucket : buckets) {
-				tagCounts.put(bucket.getKeyAsString(), bucket.getDocCount());
+			if (semanticTags != null) {
+				List<? extends Terms.Bucket> buckets = semanticTags.getBuckets();
+				for (Terms.Bucket bucket : buckets) {
+					tagCounts.put(bucket.getKeyAsString(), bucket.getDocCount());
+				}
 			}
 		}
 		// Cache result
@@ -420,35 +430,33 @@ public class DescriptionService extends ComponentService {
 				members.forEachRemaining(hit -> {
 					ReferenceSetMember member = hit.getContent();
 					String referencedComponentId = member.getReferencedComponentId();
-					switch (member.getRefsetId()) {
-						case Concepts.CONCEPT_INACTIVATION_INDICATOR_REFERENCE_SET:
-							conceptIdMap.get(referencedComponentId).addInactivationIndicatorMember(member);
-							break;
-						case Concepts.DESCRIPTION_INACTIVATION_INDICATOR_REFERENCE_SET:
-							descriptionIdMap.get(referencedComponentId).addInactivationIndicatorMember(member);
-							break;
-						default:
-							if (IdentifierService.isConceptId(referencedComponentId)) {
-								Concept concept = conceptIdMap.get(referencedComponentId);
-								if (concept != null) {
-									concept.addAssociationTargetMember(member);
-								} else {
-									logger.warn("Association ReferenceSetMember {} references concept {} " +
-											"which is not in scope.", member.getId(), referencedComponentId);
-								}
-							} else if (IdentifierService.isDescriptionId(referencedComponentId)) {
-								Description description = descriptionIdMap.get(referencedComponentId);
-								if (description != null) {
-									description.addAssociationTargetMember(member);
-								} else {
-									logger.warn("Association ReferenceSetMember {} references description {} " +
-											"which is not in scope.", member.getId(), referencedComponentId);
-								}
-							} else {
-								logger.error("Association ReferenceSetMember {} references unexpected component type {}", member.getId(), referencedComponentId);
-							}
-							break;
-					}
+                    switch (member.getRefsetId()) {
+                        case Concepts.CONCEPT_INACTIVATION_INDICATOR_REFERENCE_SET ->
+                                conceptIdMap.get(referencedComponentId).addInactivationIndicatorMember(member);
+                        case Concepts.DESCRIPTION_INACTIVATION_INDICATOR_REFERENCE_SET ->
+                                descriptionIdMap.get(referencedComponentId).addInactivationIndicatorMember(member);
+                        default -> {
+                            if (IdentifierService.isConceptId(referencedComponentId)) {
+                                Concept concept = conceptIdMap.get(referencedComponentId);
+                                if (concept != null) {
+                                    concept.addAssociationTargetMember(member);
+                                } else {
+                                    logger.warn("Association ReferenceSetMember {} references concept {} " +
+                                            "which is not in scope.", member.getId(), referencedComponentId);
+                                }
+                            } else if (IdentifierService.isDescriptionId(referencedComponentId)) {
+                                Description description = descriptionIdMap.get(referencedComponentId);
+                                if (description != null) {
+                                    description.addAssociationTargetMember(member);
+                                } else {
+                                    logger.warn("Association ReferenceSetMember {} references description {} " +
+                                            "which is not in scope.", member.getId(), referencedComponentId);
+                                }
+                            } else {
+                                logger.error("Association ReferenceSetMember {} references unexpected component type {}", member.getId(), referencedComponentId);
+                            }
+                        }
+                    }
 				});
 			}
 		}
@@ -717,19 +725,15 @@ public class DescriptionService extends ComponentService {
 			if (criteria.getDisjunctionAcceptabilityCriteria() != null) {
 				for (DescriptionCriteria.DisjunctionAcceptabilityCriteria disjunctionCriteria : criteria.getDisjunctionAcceptabilityCriteria()) {
 					BoolQueryBuilder shouldClause = boolQuery();
-					if (!CollectionUtils.isEmpty(disjunctionCriteria.getPreferred())) {
-						disjunctionCriteria.getPreferred().forEach(refsetId -> {
-							shouldClause.should(boolQuery()
-									.must(termQuery(REFSET_ID, refsetId))
-									.must(termQuery(ACCEPTABILITY_ID_FIELD_PATH, Concepts.PREFERRED)));
-						});
+					if (!CollectionUtils.isEmpty(disjunctionCriteria.preferred())) {
+						disjunctionCriteria.preferred().forEach(refsetId -> shouldClause.should(boolQuery()
+								.must(termQuery(REFSET_ID, refsetId))
+								.must(termQuery(ACCEPTABILITY_ID_FIELD_PATH, Concepts.PREFERRED))));
 					}
 					if (!CollectionUtils.isEmpty(acceptableIn)) {
-						disjunctionCriteria.getPreferred().forEach(refsetId -> {
-							shouldClause.should(boolQuery()
-									.must(termQuery(REFSET_ID, refsetId))
-									.must(termQuery(ACCEPTABILITY_ID_FIELD_PATH, Concepts.ACCEPTABLE)));
-						});
+						disjunctionCriteria.preferred().forEach(refsetId -> shouldClause.should(boolQuery()
+								.must(termQuery(REFSET_ID, refsetId))
+								.must(termQuery(ACCEPTABILITY_ID_FIELD_PATH, Concepts.ACCEPTABLE))));
 					}
 					if (!CollectionUtils.isEmpty(preferredOrAcceptableIn)) {
 						shouldClause.should(boolQuery()
@@ -1002,23 +1006,7 @@ public class DescriptionService extends ComponentService {
 		return query;
 	}
 
-	private static class SemanticTagCacheEntry {
-
-		private final long branchHeadTime;
-		private final Map<String, Long> tagCounts;
-
-		SemanticTagCacheEntry(long branchHeadTime, Map<String, Long> tagCounts) {
-			this.branchHeadTime = branchHeadTime;
-			this.tagCounts = tagCounts;
-		}
-
-		private long getBranchHeadTime() {
-			return branchHeadTime;
-		}
-
-		private Map<String, Long> getTagCounts() {
-			return tagCounts;
-		}
+	private record SemanticTagCacheEntry(long branchHeadTime, Map<String, Long> tagCounts) {
 	}
 
 	static class DescriptionMatches {

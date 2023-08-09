@@ -103,9 +103,7 @@ public class ConceptSelectorHelper {
 			searchQueryBuilder.withPageable(LARGE_PAGE);
 			List<Long> addIds = new LongArrayList();
 			try (SearchHitsIterator<QueryConcept> stream = conceptSelector.streamQueryResults(searchQueryBuilder.build())) {
-				stream.forEachRemaining(hit -> {
-					addIds.add(hit.getContent().getConceptIdL());
-				});
+				stream.forEachRemaining(hit -> addIds.add(hit.getContent().getConceptIdL()));
 			}
 
 			// Stream search doesn't sort for us

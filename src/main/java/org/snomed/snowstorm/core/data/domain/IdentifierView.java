@@ -2,7 +2,6 @@ package org.snomed.snowstorm.core.data.domain;
 
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 
-import java.util.Map;
 
 @JsonDeserialize(as = Identifier.class)
 public interface IdentifierView {

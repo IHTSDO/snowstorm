@@ -11,9 +11,7 @@ import java.util.*;
  */
 public class ConceptHistory {
     private static final Comparator<String> STRING_COMPARATOR = Comparator.reverseOrder();
-    private static final Comparator<ConceptHistoryItem> CONCEPT_HISTORY_ITEM_COMPARATOR = (o1, o2) -> {
-        return o2.getEffectiveTime().compareTo(o1.getEffectiveTime());
-    };
+    private static final Comparator<ConceptHistoryItem> CONCEPT_HISTORY_ITEM_COMPARATOR = (o1, o2) -> o2.getEffectiveTime().compareTo(o1.getEffectiveTime());
 
     private final String conceptId;
     private final List<ConceptHistoryItem> history = new ArrayList<>();

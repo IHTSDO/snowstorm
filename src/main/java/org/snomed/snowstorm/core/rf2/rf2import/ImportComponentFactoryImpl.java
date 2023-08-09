@@ -194,7 +194,6 @@ public class ImportComponentFactoryImpl extends ImpotentComponentFactory {
 						.build(), componentClass)) {
 					stream.forEachRemaining(hit -> {
 						T t = idToUnreleasedComponentMap.get(hit.getContent().getId());
-						// noinspection unchecked
 						t.copyReleaseDetails(hit.getContent());
 						t.updateEffectiveTime();
 					});

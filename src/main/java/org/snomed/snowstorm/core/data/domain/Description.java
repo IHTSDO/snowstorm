@@ -545,9 +545,9 @@ public class Description extends SnomedComponent<Description> implements SnomedC
 			return true;
 		}
 
-		if (term != null ? !term.equals(that.term) : that.term != null) return false;
-		if (languageCode != null ? !languageCode.equals(that.languageCode) : that.languageCode != null) return false;
-		return typeId != null ? typeId.equals(that.typeId) : that.typeId == null;
+		if (!Objects.equals(term, that.term)) return false;
+		if (!Objects.equals(languageCode, that.languageCode)) return false;
+		return Objects.equals(typeId, that.typeId);
 	}
 
 	@Override

@@ -7,9 +7,7 @@ import org.snomed.langauges.ecl.domain.filter.TypedSearchTerm;
 import org.snomed.snowstorm.ecl.domain.expressionconstraint.SSubExpressionConstraint;
 
 import java.util.Collection;
-import java.util.Collections;
 import java.util.List;
-import java.util.Set;
 
 public class ECLToStringUtil {
 

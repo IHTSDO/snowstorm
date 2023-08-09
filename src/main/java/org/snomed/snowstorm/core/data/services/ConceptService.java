@@ -234,8 +234,7 @@ public class ConceptService extends ComponentService {
 					documentType
 			);
 			for (SearchHit<? extends DomainEntity<?>> searchHit : searchHits.getSearchHits()) {
-				if (searchHit.getContent() instanceof SnomedComponent<?>) {
-					SnomedComponent<?> snomedComponent = (SnomedComponent<?>) searchHit.getContent();
+				if (searchHit.getContent() instanceof SnomedComponent<?> snomedComponent) {
 					conceptHistory.addToHistory(snomedComponent.getReleasedEffectiveTime().toString(), snomedComponent.getPath(), componentType);
 				}
 			}

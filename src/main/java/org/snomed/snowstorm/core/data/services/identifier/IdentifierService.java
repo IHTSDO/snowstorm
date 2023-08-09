@@ -65,15 +65,13 @@ public class IdentifierService {
 		if (!VerhoeffCheck.validateLastChecksumDigit(sctid)) {
 			errorMsg = sctid + " does not have a valid check digit";
 		} else if (componentType != null) {
-			boolean isValid = false;
-			switch (componentType) {
-				case Concept : isValid = isConceptId(sctid);
-								break;
-				case Description : isValid = isDescriptionId(sctid);
-								break;
-				case Relationship : isValid = isRelationshipId(sctid);
-			}
-			if (!isValid) {
+			boolean isValid = switch (componentType) {
+                case Concept -> isConceptId(sctid);
+                case Description -> isDescriptionId(sctid);
+                case Relationship -> isRelationshipId(sctid);
+                default -> false;
+            };
+            if (!isValid) {
 				errorMsg = sctid + " is not a valid id for a " + componentType;
 			}
 		}

@@ -69,10 +69,10 @@ public class ItemsPageCSVConverter extends AbstractGenericHttpMessageConverter<I
 						writer.write(TAB);
 						writer.write(concept.getDefinitionStatus());
 						if (!CollectionUtils.isEmpty(ptColumns)) {
-							for (int i = 0; i < ptColumns.size(); i++) {
-								writer.write(TAB);
-								writer.write(extraFields.get(ptColumns.get(i)));
-							}
+                            for (String ptColumn : ptColumns) {
+                                writer.write(TAB);
+                                writer.write(extraFields.get(ptColumn));
+                            }
 						}
 						writer.newLine();
 						count++;

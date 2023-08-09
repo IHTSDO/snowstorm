@@ -8,7 +8,6 @@ import org.hl7.fhir.r4.model.CodeSystem;
 import org.hl7.fhir.r4.model.CodeType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.snomed.snowstorm.core.data.domain.Concept;
 import org.snomed.snowstorm.core.util.PageHelper;
 import org.snomed.snowstorm.core.util.SearchAfterPage;
 import org.snomed.snowstorm.fhir.domain.FHIRCodeSystemVersion;

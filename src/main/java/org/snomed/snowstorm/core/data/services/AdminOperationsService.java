@@ -535,8 +535,7 @@ public class AdminOperationsService {
 
 						// For Snomed Components (this does not include the semantic index QueryConcept) set the effectiveTime
 						// and related fields to simulate a release
-						if (entity instanceof SnomedComponent) {
-							SnomedComponent component = (SnomedComponent) entity;
+						if (entity instanceof SnomedComponent component) {
 							if (component.getEffectiveTime() == null) {
 								component.release(latestImportedVersion.getEffectiveDate());
 							}

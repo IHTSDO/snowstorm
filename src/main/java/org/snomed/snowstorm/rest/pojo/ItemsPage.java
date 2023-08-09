@@ -51,8 +51,7 @@ public class ItemsPage<T> {
 		this.limit = page.getSize();
 		this.total = page.getTotalElements();
 		boolean searchAfterRequested = false;
-		if (page instanceof SearchAfterPage) {
-			SearchAfterPage searchAfterPage = (SearchAfterPage) page;
+		if (page instanceof SearchAfterPage searchAfterPage) {
 			Object[] searchAfterArray = searchAfterPage.getSearchAfter();
 			this.searchAfter = SearchAfterHelper.toSearchAfterToken(searchAfterArray);
 			this.searchAfterArray = searchAfterArray;

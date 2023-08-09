@@ -174,7 +174,7 @@ public class AuthoringStatsService {
 		Query query = getNewDescriptionCriteria(selectionBranchCriteria).withPageable(LARGE_PAGE).build();
 		return elasticsearchOperations.search(query, Description.class)
 				.get().map(SearchHit::getContent)
-				.map(d -> new DescriptionMicro(d))
+				.map(DescriptionMicro::new)
 				.collect(Collectors.toList());
 	}
 
