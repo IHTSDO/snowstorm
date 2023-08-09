@@ -14,7 +14,7 @@ import org.snomed.snowstorm.rest.pojo.ItemsPage;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.client.TestRestTemplate;
-import org.springframework.boot.web.server.LocalServerPort;
+import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.http.ResponseEntity;
 import org.springframework.test.context.ActiveProfiles;
 
@@ -278,11 +278,7 @@ class CodeSystemControllerTest extends AbstractTest {
             List<LinkedHashMap<?, ?>> itemsList = (ArrayList) items;
             LinkedHashMap<?, ?> linkedHashMap = itemsList.get(index);
             LinkedHashMap<?, ?> latestVersion = (LinkedHashMap) linkedHashMap.get("latestVersion");
-            if (latestVersion != null) {
-                return (Integer) latestVersion.get("dependantVersionEffectiveTime");
-            } else {
-                return (Integer) linkedHashMap.get("dependantVersionEffectiveTime");
-            }
+            return (Integer) Objects.requireNonNullElse(latestVersion, linkedHashMap).get("dependantVersionEffectiveTime");
         }
 
         return null;

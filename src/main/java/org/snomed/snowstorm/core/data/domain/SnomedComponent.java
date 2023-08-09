@@ -82,18 +82,15 @@ public abstract class SnomedComponent<C> extends DomainEntity<C> implements IdAn
 		setReleasedEffectiveTime(component.getReleasedEffectiveTime());
 	}
 
-	public boolean isReleasedMoreRecentlyThan(SnomedComponent another) {
+	public boolean isReleasedMoreRecentlyThan(SnomedComponent<C> another) {
 		if (another == null) {
 			return this.isReleased();
 		}
 		if (this.isReleased() && another.isReleased() && (this.getReleasedEffectiveTime() > another.getReleasedEffectiveTime())) {
 			return true;
 		}
-		if (this.isReleased() && !another.isReleased()) {
-			return true;
-		}
-		return false;
-	}
+        return this.isReleased() && !another.isReleased();
+    }
 
 	public void copyReleaseDetails(SnomedComponent<C> existingComponent, SnomedComponent<C> existingParentComponent) {
 		// Copy release details from the existing component, or the rebase parent branch version, whichever has been versioned more recently

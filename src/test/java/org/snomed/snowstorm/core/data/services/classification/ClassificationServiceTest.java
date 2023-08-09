@@ -88,19 +88,19 @@ class ClassificationServiceTest extends AbstractTest {
 		Classification classification = createClassification(branch, classificationId);
 
 		// Standard relationships
-		classificationService.saveRelationshipChanges(classification, new ByteArrayInputStream(("" +
-				"id\teffectiveTime\tactive\tmoduleId\tsourceId\tdestinationId\trelationshipGroup\ttypeId\tcharacteristicTypeId\tmodifierId\n" +
-				"\t\t1\t\t123123123001\t138875005\t0\t116680003\t900000000000227009\t900000000000451002\n" +
-				"\t\t1\t\t123123123001\t84301002\t0\t363698007\t900000000000227009\t900000000000451002\n" +
-				"\t\t1\t\t123123123001\t50960005\t0\t116676008\t900000000000227009\t900000000000451002\n" +
-				"\t\t1\t\t123123123001\t247247001\t0\t116680003\t900000000000227009\t900000000000451002\n" +
-				"").getBytes()), false);
+		classificationService.saveRelationshipChanges(classification, new ByteArrayInputStream(("""
+                id\teffectiveTime\tactive\tmoduleId\tsourceId\tdestinationId\trelationshipGroup\ttypeId\tcharacteristicTypeId\tmodifierId
+                \t\t1\t\t123123123001\t138875005\t0\t116680003\t900000000000227009\t900000000000451002
+                \t\t1\t\t123123123001\t84301002\t0\t363698007\t900000000000227009\t900000000000451002
+                \t\t1\t\t123123123001\t50960005\t0\t116676008\t900000000000227009\t900000000000451002
+                \t\t1\t\t123123123001\t247247001\t0\t116680003\t900000000000227009\t900000000000451002
+                """).getBytes()), false);
 		// Concrete relationships
-		classificationService.saveRelationshipChanges(classification, new ByteArrayInputStream(("" +
-				"id\teffectiveTime\tactive\tmoduleId\tsourceId\tvalue\trelationshipGroup\ttypeId\tcharacteristicTypeId\tmodifierId\n" +
-				"\t\t1\t\t123123123001\t#5\t0\t1142139005\t900000000000227009\t900000000000451002\n" +
-				"\t\t1\t\t123123123001\t#55.5\t0\t1142135004\t900000000000227009\t900000000000451002\n" +
-				"").getBytes()), true);
+		classificationService.saveRelationshipChanges(classification, new ByteArrayInputStream(("""
+                id\teffectiveTime\tactive\tmoduleId\tsourceId\tvalue\trelationshipGroup\ttypeId\tcharacteristicTypeId\tmodifierId
+                \t\t1\t\t123123123001\t#5\t0\t1142139005\t900000000000227009\t900000000000451002
+                \t\t1\t\t123123123001\t#55.5\t0\t1142135004\t900000000000227009\t900000000000451002
+                """).getBytes()), true);
 
 		// Collect changes persisted to change repo (ready for author change review)
 		List<RelationshipChange> relationshipChanges = relationshipChangeRepository.findByClassificationId(classificationId, LARGE_PAGE).getContent();
@@ -110,12 +110,14 @@ class ClassificationServiceTest extends AbstractTest {
 						.append(change.getDestinationOrValue()).append(" inferredNotStated:").append(change.isInferredNotStated()).append("\n"));
 
 		// Assert that the changes which were not previously stated are marked as inferredNotStated:true
-		assertEquals("123123123001 -> 1142135004 -> #55.5 inferredNotStated:false\n" +
-				"123123123001 -> 1142139005 -> #5 inferredNotStated:true\n" +
-				"123123123001 -> 116676008 -> 50960005 inferredNotStated:true\n" +
-				"123123123001 -> 116680003 -> 138875005 inferredNotStated:false\n" +
-				"123123123001 -> 116680003 -> 247247001 inferredNotStated:true\n" +
-				"123123123001 -> 363698007 -> 84301002 inferredNotStated:false\n", allChanges.toString());
+		assertEquals("""
+                123123123001 -> 1142135004 -> #55.5 inferredNotStated:false
+                123123123001 -> 1142139005 -> #5 inferredNotStated:true
+                123123123001 -> 116676008 -> 50960005 inferredNotStated:true
+                123123123001 -> 116680003 -> 138875005 inferredNotStated:false
+                123123123001 -> 116680003 -> 247247001 inferredNotStated:true
+                123123123001 -> 363698007 -> 84301002 inferredNotStated:false
+                """, allChanges.toString());
 
 		// Save the classification results to branch
 		assertEquals(SAVED, saveClassificationAndWaitForCompletion(branch, classification.getId()));
@@ -173,14 +175,12 @@ class ClassificationServiceTest extends AbstractTest {
 		Classification classification = createClassification(branch, classificationId);
 
 		// Standard relationships
-		classificationService.saveRelationshipChanges(classification, new ByteArrayInputStream(("" +
-				"id\teffectiveTime\tactive\tmoduleId\tsourceId\tdestinationId\trelationshipGroup\ttypeId\tcharacteristicTypeId\tmodifierId\n" +
-				"\t\t1\t\t10000000001\t20000000001\t0\t116680003\t900000000000227009\t900000000000451002\n" +
-				"").getBytes()), false);
+		classificationService.saveRelationshipChanges(classification, new ByteArrayInputStream(("""
+                id\teffectiveTime\tactive\tmoduleId\tsourceId\tdestinationId\trelationshipGroup\ttypeId\tcharacteristicTypeId\tmodifierId
+                \t\t1\t\t10000000001\t20000000001\t0\t116680003\t900000000000227009\t900000000000451002
+                """).getBytes()), false);
 		// Concrete relationships
-		classificationService.saveRelationshipChanges(classification, new ByteArrayInputStream(("" +
-				"id\teffectiveTime\tactive\tmoduleId\tsourceId\tvalue\trelationshipGroup\ttypeId\tcharacteristicTypeId\tmodifierId\n" +
-				"").getBytes()), true);
+		classificationService.saveRelationshipChanges(classification, new ByteArrayInputStream(("id\teffectiveTime\tactive\tmoduleId\tsourceId\tvalue\trelationshipGroup\ttypeId\tcharacteristicTypeId\tmodifierId\n").getBytes()), true);
 
 		// Collect changes persisted to change repo (ready for author change review)
 		List<RelationshipChange> relationshipChanges = relationshipChangeRepository.findByClassificationId(classificationId, LARGE_PAGE).getContent();
@@ -216,13 +216,13 @@ class ClassificationServiceTest extends AbstractTest {
 
 		// Save mock classification results
 		Classification classification = createClassification(extensionBranchPath, UUID.randomUUID().toString());
-		classificationService.saveRelationshipChanges(classification, new ByteArrayInputStream(("" +
-				"id\teffectiveTime\tactive\tmoduleId\tsourceId\tdestinationId\trelationshipGroup\ttypeId\tcharacteristicTypeId\tmodifierId\n" +
-				"\t\t1\t\t123123123001\t138875005\t0\t116680003\t900000000000227009\t900000000000451002\n" +
-				"\t\t1\t\t123123123001\t84301002\t0\t363698007\t900000000000227009\t900000000000451002\n" +
-				"\t\t1\t\t123123123001\t50960005\t0\t116676008\t900000000000227009\t900000000000451002\n" +
-				"\t\t1\t\t123123123001\t247247001\t0\t116680003\t900000000000227009\t900000000000451002\n" +
-				"").getBytes()), false);
+		classificationService.saveRelationshipChanges(classification, new ByteArrayInputStream(("""
+                id\teffectiveTime\tactive\tmoduleId\tsourceId\tdestinationId\trelationshipGroup\ttypeId\tcharacteristicTypeId\tmodifierId
+                \t\t1\t\t123123123001\t138875005\t0\t116680003\t900000000000227009\t900000000000451002
+                \t\t1\t\t123123123001\t84301002\t0\t363698007\t900000000000227009\t900000000000451002
+                \t\t1\t\t123123123001\t50960005\t0\t116676008\t900000000000227009\t900000000000451002
+                \t\t1\t\t123123123001\t247247001\t0\t116680003\t900000000000227009\t900000000000451002
+                """).getBytes()), false);
 
 		assertEquals(SAVED, saveClassificationAndWaitForCompletion(extensionBranchPath, classification.getId()));
 		final Branch latest = branchService.findLatest(extensionBranchPath);
@@ -276,10 +276,10 @@ class ClassificationServiceTest extends AbstractTest {
 		
 		// Save mock classification results - an extension inactivation of an international relationship
 		Classification classification = createClassification(extensionBranchPath, UUID.randomUUID().toString());
-		classificationService.saveRelationshipChanges(classification, new ByteArrayInputStream(("" +
-				"id\teffectiveTime\tactive\tmoduleId\tsourceId\tdestinationId\trelationshipGroup\ttypeId\tcharacteristicTypeId\tmodifierId\n" +
-				"123456020\t\t0\t\t123123123001\t138875005\t0\t116680003\t900000000000227009\t900000000000451002\n" +
-				"").getBytes()), false);
+		classificationService.saveRelationshipChanges(classification, new ByteArrayInputStream(("""
+                id\teffectiveTime\tactive\tmoduleId\tsourceId\tdestinationId\trelationshipGroup\ttypeId\tcharacteristicTypeId\tmodifierId
+                123456020\t\t0\t\t123123123001\t138875005\t0\t116680003\t900000000000227009\t900000000000451002
+                """).getBytes()), false);
 
 		assertEquals(SAVED, saveClassificationAndWaitForCompletion(extensionBranchPath, classification.getId()));
 	
@@ -305,13 +305,13 @@ class ClassificationServiceTest extends AbstractTest {
 
 		// Save mock classification results
 		Classification classification = createClassification(extensionBranchPath, UUID.randomUUID().toString());
-		classificationService.saveRelationshipChanges(classification, new ByteArrayInputStream(("" +
-				"id\teffectiveTime\tactive\tmoduleId\tsourceId\tdestinationId\trelationshipGroup\ttypeId\tcharacteristicTypeId\tmodifierId\n" +
-				"\t\t1\t\t123123123001\t138875005\t0\t116680003\t900000000000227009\t900000000000451002\n" +
-				"\t\t1\t\t123123123001\t84301002\t0\t363698007\t900000000000227009\t900000000000451002\n" +
-				"\t\t1\t\t123123123001\t50960005\t0\t116676008\t900000000000227009\t900000000000451002\n" +
-				"\t\t1\t\t123123123001\t247247001\t0\t116680003\t900000000000227009\t900000000000451002\n" +
-				"").getBytes()), false);
+		classificationService.saveRelationshipChanges(classification, new ByteArrayInputStream(("""
+                id\teffectiveTime\tactive\tmoduleId\tsourceId\tdestinationId\trelationshipGroup\ttypeId\tcharacteristicTypeId\tmodifierId
+                \t\t1\t\t123123123001\t138875005\t0\t116680003\t900000000000227009\t900000000000451002
+                \t\t1\t\t123123123001\t84301002\t0\t363698007\t900000000000227009\t900000000000451002
+                \t\t1\t\t123123123001\t50960005\t0\t116676008\t900000000000227009\t900000000000451002
+                \t\t1\t\t123123123001\t247247001\t0\t116680003\t900000000000227009\t900000000000451002
+                """).getBytes()), false);
 
 		assertEquals(SAVED, saveClassificationAndWaitForCompletion(extensionBranchPath, classification.getId()));
 		final Branch latest = branchService.findLatest(extensionBranchPath);
@@ -489,11 +489,11 @@ class ClassificationServiceTest extends AbstractTest {
 		Classification classification = createClassification(branch, classificationId);
 
 		// Concrete relationships
-		classificationService.saveRelationshipChanges(classification, new ByteArrayInputStream(("" +
-				"id\teffectiveTime\tactive\tmoduleId\tsourceId\tvalue\trelationshipGroup\ttypeId\tcharacteristicTypeId\tmodifierId\n" +
-				"\t\t1\t\t123123123001\t#10\t0\t1142139005\t900000000000227009\t900000000000451002\n" +
-				"\t\t1\t\t123123123001\t#500.0\t0\t1142135004\t900000000000227009\t900000000000451002\n" +
-				"").getBytes()), true);
+		classificationService.saveRelationshipChanges(classification, new ByteArrayInputStream(("""
+                id\teffectiveTime\tactive\tmoduleId\tsourceId\tvalue\trelationshipGroup\ttypeId\tcharacteristicTypeId\tmodifierId
+                \t\t1\t\t123123123001\t#10\t0\t1142139005\t900000000000227009\t900000000000451002
+                \t\t1\t\t123123123001\t#500.0\t0\t1142135004\t900000000000227009\t900000000000451002
+                """).getBytes()), true);
 		// Save the classification results to branch
 		assertEquals(SAVED, saveClassificationAndWaitForCompletion(branch, classification.getId()));
 

@@ -2,7 +2,6 @@ package org.snomed.snowstorm.fhir.utils;
 
 import org.jetbrains.annotations.NotNull;
 import org.springframework.data.domain.PageImpl;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.elasticsearch.core.SearchHit;
 import org.springframework.data.elasticsearch.core.SearchHits;

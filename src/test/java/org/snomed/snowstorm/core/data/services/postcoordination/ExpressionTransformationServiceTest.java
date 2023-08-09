@@ -1,17 +1,11 @@
 package org.snomed.snowstorm.core.data.services.postcoordination;
 
-import io.kaicode.elasticvc.api.VersionControlHelper;
-import org.ihtsdo.otf.snomedboot.ReleaseImportException;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.snomed.languages.scg.domain.model.Expression;
 import org.snomed.snowstorm.core.data.services.ServiceException;
 import org.snomed.snowstorm.core.data.services.postcoordination.model.ComparableExpression;
-import org.snomed.snowstorm.core.util.TimerUtil;
-import org.snomed.snowstorm.mrcm.MRCMService;
 import org.springframework.beans.factory.annotation.Autowired;
 
-import java.io.IOException;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 

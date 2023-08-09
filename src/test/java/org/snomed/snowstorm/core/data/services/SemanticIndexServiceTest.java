@@ -52,11 +52,11 @@ class SemanticIndexServiceTest extends AbstractTest {
 
 	@Test
 	void findConceptReferences() {
-		Map<Long, Set<Long>> conceptReferences = semanticIndexService.findConceptReferences(PATH, 100005L, false, LARGE_PAGE).getMap();
+		Map<Long, Set<Long>> conceptReferences = semanticIndexService.findConceptReferences(PATH, 100005L, false, LARGE_PAGE).map();
 		assertEquals(2, conceptReferences.size());
 		assertEquals("[100008]", Arrays.toString(conceptReferences.get(parseLong(ISA)).toArray()));
 		assertEquals("[100003]", Arrays.toString(conceptReferences.get(parseLong(Concepts.ALL_OR_PART_OF)).toArray()));
 
-		assertEquals(0, semanticIndexService.findConceptReferences(PATH, parseLong(ISA), true, LARGE_PAGE).getTotalElements());
+		assertEquals(0, semanticIndexService.findConceptReferences(PATH, parseLong(ISA), true, LARGE_PAGE).totalElements());
 	}
 }

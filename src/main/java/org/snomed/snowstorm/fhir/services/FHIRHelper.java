@@ -56,13 +56,13 @@ public class FHIRHelper implements FHIRConstants {
 	}
 
 	static String translateDescType(String typeSctid) {
-		switch (typeSctid) {
-			case Concepts.FSN : return "Fully specified name";
-			case Concepts.SYNONYM : return "Synonym";
-			case Concepts.TEXT_DEFINITION : return "Text definition";
-		}
-		return null;
-	}
+        return switch (typeSctid) {
+            case Concepts.FSN -> "Fully specified name";
+            case Concepts.SYNONYM -> "Synonym";
+            case Concepts.TEXT_DEFINITION -> "Text definition";
+            default -> null;
+        };
+    }
 
 	public static SnowstormFHIRServerResponseException exception(String message, IssueType issueType, int theStatusCode) {
 		return exception(message, issueType, theStatusCode, null);

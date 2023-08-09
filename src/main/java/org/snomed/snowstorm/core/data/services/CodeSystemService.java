@@ -50,6 +50,7 @@ import java.util.stream.Collectors;
 
 import static io.kaicode.elasticvc.api.ComponentService.LARGE_PAGE;
 import static java.lang.String.format;
+import static java.util.stream.Collectors.toList;
 import static org.elasticsearch.index.query.QueryBuilders.*;
 import static org.snomed.snowstorm.config.Config.DEFAULT_LANGUAGE_CODES;
 import static org.snomed.snowstorm.core.data.services.BranchMetadataKeys.*;
@@ -113,13 +114,13 @@ public class CodeSystemService {
 	// Cache to prevent expensive aggregations. Entry per branch. Expires if there is a new commit.
 	private final ConcurrentHashMap<String, Pair<Date, CodeSystem>> contentInformationCache = new ConcurrentHashMap<>();
 
-	private Map<String, Integer> versionCommitEffectiveTimeCache = new HashMap<>();
+	private final Map<String, Integer> versionCommitEffectiveTimeCache = new HashMap<>();
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
 	public synchronized void init() {
 		// Create default code system if it does not yet exist
-		if (!repository.findById(SNOMEDCT).isPresent()) {
+		if (repository.findById(SNOMEDCT).isEmpty()) {
 			createCodeSystem(new CodeSystem(SNOMEDCT, MAIN));
 		}
 		logger.info("{} code system configurations available.", codeSystemConfigurationService.getConfigurations().size());
@@ -194,12 +195,11 @@ public class CodeSystemService {
 
 	public Optional<CodeSystem> findByBranchPath(String branchPath) {
 		List<CodeSystem> codeSystems = elasticsearchOperations.search(
-				new NativeSearchQueryBuilder()
-						.withQuery(boolQuery().must(termsQuery(CodeSystem.Fields.BRANCH_PATH, branchPath)))
-						.build(), CodeSystem.class)
+						new NativeSearchQueryBuilder()
+								.withQuery(boolQuery().must(termsQuery(CodeSystem.Fields.BRANCH_PATH, branchPath)))
+								.build(), CodeSystem.class)
 				.stream()
-				.map(SearchHit::getContent)
-				.collect(Collectors.toList());
+				.map(SearchHit::getContent).toList();
 
 		return codeSystems.isEmpty() ? Optional.empty() : Optional.of(codeSystems.get(0));
 	}
@@ -251,7 +251,7 @@ public class CodeSystemService {
 
 		logger.info("Versioning complete.");
 
-		Map payload = new HashMap();
+		Map<String, String> payload = new HashMap<>();
 		payload.put("codeSystemShortName", codeSystem.getShortName());
 		payload.put("codeSystemBranchPath", codeSystem.getBranchPath());
 		payload.put("effectiveDate", String.valueOf(effectiveDate));
@@ -322,7 +322,7 @@ public class CodeSystemService {
 
 	public synchronized void createVersionIfCodeSystemFoundOnPath(String branchPath, Integer releaseDate, boolean internalRelease) {
 		List<CodeSystem> codeSystems = elasticsearchOperations.search(new NativeSearchQuery(termQuery(CodeSystem.Fields.BRANCH_PATH, branchPath)), CodeSystem.class)
-				.get().map(SearchHit::getContent).collect(Collectors.toList());
+				.get().map(SearchHit::getContent).toList();
 		if (!codeSystems.isEmpty()) {
 			CodeSystem codeSystem = codeSystems.get(0);
 			createVersion(codeSystem, releaseDate, format("%s %s import.", codeSystem.getShortName(), releaseDate), internalRelease);
@@ -337,7 +337,7 @@ public class CodeSystemService {
 
 	@Cacheable("code-system-branches")
 	public List<String> findAllCodeSystemBranchesUsingCache() {
-		return repository.findAll(PageRequest.of(0, 1000, Sort.by(CodeSystem.Fields.SHORT_NAME))).getContent().stream().map(CodeSystem::getBranchPath).sorted().collect(Collectors.toList());
+		return repository.findAll(PageRequest.of(0, 1000, Sort.by(CodeSystem.Fields.SHORT_NAME))).getContent().stream().map(CodeSystem::getBranchPath).sorted().collect(toList());
 	}
 
 	private void joinContentInformation(List<CodeSystem> codeSystems) {
@@ -415,7 +415,7 @@ public class CodeSystemService {
 					// sort by number of active descriptions in each language
 					.sorted(Comparator.comparing(MultiBucketsAggregation.Bucket::getDocCount).reversed())
 					.map(MultiBucketsAggregation.Bucket::getKeyAsString)
-					.collect(Collectors.toList());
+					.collect(toList());
 
 			// Push english to the bottom to show any translated content first in browsers.
 			languageCodesSorted.remove("en");
@@ -448,7 +448,7 @@ public class CodeSystemService {
 		if (memberPage.hasAggregations()) {
 			Map<String, Long> modulesOfActiveMembers = PageWithBucketAggregationsFactory.createPage(memberPage, PageRequest.of(0, 1))
 					.getBuckets().get("module");
-			List<LanguageDialect> languageDialects = acceptableLanguageCodes.stream().map(LanguageDialect::new).collect(Collectors.toList());
+			List<LanguageDialect> languageDialects = acceptableLanguageCodes.stream().map(LanguageDialect::new).collect(toList());
 			codeSystem.setModules(conceptService.findConceptMinis(branchCriteria, modulesOfActiveMembers.keySet(), languageDialects).getResultsMap().values());
 		}
 
@@ -506,7 +506,7 @@ public class CodeSystemService {
 		if (codeSystemConfiguration == null) {
 			return null;
 		}
-		return find(codeSystemConfiguration.getShortName());
+		return find(codeSystemConfiguration.shortName());
 	}
 
 	public CodeSystemVersion findVersion(String shortName, int effectiveTime) {
@@ -550,7 +550,7 @@ public class CodeSystemService {
 		return content.stream()
 				.filter(version -> includeFutureVersions || (codeSystemsWithVersionVisibleAfterPublishedDate.contains(shortName) ? version.getEffectiveDate() < todaysEffectiveTime : version.getEffectiveDate() <= todaysEffectiveTime))
 				.filter(version -> includeInternalReleases || !version.isInternalRelease())
-				.collect(Collectors.toList());
+				.collect(toList());
 	}
 
 	public CodeSystemVersion findLatestImportedVersion(String shortName) {
@@ -577,7 +577,7 @@ public class CodeSystemService {
 	CodeSystem findOneByBranchPath(String path) {
 		List<CodeSystem> results = elasticsearchOperations.search(
 				new NativeSearchQueryBuilder().withQuery(termQuery(CodeSystem.Fields.BRANCH_PATH, path)).build(), CodeSystem.class)
-				.get().map(SearchHit::getContent).collect(Collectors.toList());
+				.get().map(SearchHit::getContent).toList();
 		return results.isEmpty() ? null : results.get(0);
 	}
 
@@ -619,7 +619,7 @@ public class CodeSystemService {
 	public void updateDetailsFromConfig() {
 		logger.info("Updating the details of all code systems using values from configuration.");
 		final Map<String, CodeSystemConfiguration> configurationsMap = codeSystemConfigurationService.getConfigurations().stream()
-				.collect(Collectors.toMap(CodeSystemConfiguration::getShortName, Function.identity()));
+				.collect(Collectors.toMap(CodeSystemConfiguration::shortName, Function.identity()));
 		for (CodeSystem codeSystem : findAll()) {
 			final CodeSystemConfiguration configuration = configurationsMap.get(codeSystem.getShortName());
 			if (configuration != null) {
@@ -695,7 +695,7 @@ public class CodeSystemService {
 			return Collections.emptySet();
 		}
 
-		List<CodeSystemVersion> codeSystemVersions = queryCodeSystemVersions.getSearchHits().stream().map(SearchHit::getContent).collect(Collectors.toList());
+		List<CodeSystemVersion> codeSystemVersions = queryCodeSystemVersions.getSearchHits().stream().map(SearchHit::getContent).toList();
 		Set<String> branchPaths = codeSystemVersions.stream().map(CodeSystemVersion::getBranchPath).collect(Collectors.toSet());
 		SearchHits<Branch> queryBranches = elasticsearchOperations.search(
 				new NativeSearchQueryBuilder()

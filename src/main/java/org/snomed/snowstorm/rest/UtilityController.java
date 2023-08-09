@@ -59,17 +59,7 @@ public class UtilityController {
 		}
 	}
 
-	public static final class EclString {
-
-		private final String eclString;
-
-		public EclString(String eclString) {
-			this.eclString = eclString;
-		}
-
-		public String getEclString() {
-			return eclString;
-		}
+	public record EclString(String eclString) {
 	}
 
 }

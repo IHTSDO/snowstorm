@@ -174,8 +174,8 @@ public class ModuleDependencyService extends ComponentService {
 		//Having said that, NZ for example defines a module with no content
 		//So add modules from existing active MDRS members
 		Set<String> activeModules = rmPage.getContent().stream()
-				.filter(rm -> rm.isActive())
-				.map(rm -> rm.getModuleId())
+				.filter(SnomedComponent::isActive)
+				.map(SnomedComponent::getModuleId)
 				.collect(Collectors.toSet());
 		modulesRequired.addAll(activeModules);
 		
@@ -265,7 +265,7 @@ public class ModuleDependencyService extends ComponentService {
 				String sourceModule = rm.getModuleId();
 				String targetModule = rm.getReferencedComponentId();
 				if (mdrsMembers.stream()
-						.filter(rm2 -> rm2.isActive())
+						.filter(SnomedComponent::isActive)
 						.filter(rm2 -> rm2.getModuleId().equals(targetModule))
 						.anyMatch(rm2 -> rm2.getReferencedComponentId().contentEquals(sourceModule))) {
 					populateMutualDependency(mutualDependencies, sourceModule, targetModule);
@@ -281,12 +281,8 @@ public class ModuleDependencyService extends ComponentService {
 
 	private void populateMutualDependency(Map<String, Set<String>> mutualDependencies, String sourceModule,
 			String targetModule) {
-		Set<String> dependencies = mutualDependencies.get(sourceModule);
-		if (dependencies == null) {
-			dependencies = new HashSet<>();
-			mutualDependencies.put(sourceModule, dependencies);
-		}
-		dependencies.add(targetModule);
+        Set<String> dependencies = mutualDependencies.computeIfAbsent(sourceModule, k -> new HashSet<>());
+        dependencies.add(targetModule);
 	}
 
 	private void mapTopLevelExtensionModuleToCore(Map<String, Map<String, Long>> moduleCountMap,
@@ -373,9 +369,9 @@ public class ModuleDependencyService extends ComponentService {
 	private List<String> findAncestorModules(String module, List<String> targetSet,
 			Set<ReferenceSetMember> existingRefsetMembers) {
 		Set<String> ancestors = existingRefsetMembers.stream()
-				.filter(rm -> rm.isActive())
-				.map(rm -> rm.getReferencedComponentId())
-				.filter(m -> targetSet.contains(m))
+				.filter(SnomedComponent::isActive)
+				.map(ReferenceSetMember::getReferencedComponentId)
+				.filter(targetSet::contains)
 				.collect(Collectors.toSet());
 		return new ArrayList<>(ancestors);
 	}
@@ -490,7 +486,7 @@ public class ModuleDependencyService extends ComponentService {
 				
 				//Debug. If we end up with nothing missing here, then what did we have already that we didn't recover?
 				if (allMissing.isEmpty()) {
-					Set<String> found = modulePage.getContent().stream().map(c -> c.getId()).collect(Collectors.toSet());
+					Set<String> found = modulePage.getContent().stream().map(Concept::getId).collect(Collectors.toSet());
 					logger.warn("MDRS Requested: " + StringUtils.join(conceptIds, ','));
 					logger.warn("MDRS Received: " + StringUtils.join(found, ','));
 				} else {

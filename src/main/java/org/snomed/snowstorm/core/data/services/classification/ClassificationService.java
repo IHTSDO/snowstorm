@@ -488,40 +488,40 @@ public class ClassificationService {
 	private void applyRelationshipChangesToConcept(Concept concept, List<RelationshipChange> relationshipChanges, boolean copyDescriptions) throws ServiceException {
 		for (RelationshipChange relationshipChange : relationshipChanges) {
 			Relationship relationship = null;
-			switch (relationshipChange.getChangeNature()) {
-				case INFERRED:
-					if (Strings.isNullOrEmpty(relationshipChange.getRelationshipId())) {
-						// Newly inferred relationship
-						relationship = new Relationship(
-								null,
-								null,
-								true,
-								concept.getModuleId(),
-								null,
-								relationshipChange.getDestinationOrValue(),
-								relationshipChange.getGroup(),
-								relationshipChange.getTypeId(),
-								relationshipChange.getCharacteristicTypeId(),
-								relationshipChange.getModifierId());
+            switch (relationshipChange.getChangeNature()) {
+                case INFERRED -> {
+                    if (Strings.isNullOrEmpty(relationshipChange.getRelationshipId())) {
+                        // Newly inferred relationship
+                        relationship = new Relationship(
+                                null,
+                                null,
+                                true,
+                                concept.getModuleId(),
+                                null,
+                                relationshipChange.getDestinationOrValue(),
+                                relationshipChange.getGroup(),
+                                relationshipChange.getTypeId(),
+                                relationshipChange.getCharacteristicTypeId(),
+                                relationshipChange.getModifierId());
 
-						concept.addRelationship(relationship);
-					} else {
-						// Existing relationship change - could be a reactivation or group change
-						relationship = concept.getRelationship(relationshipChange.getRelationshipId());
-						if (relationship == null) {
-							throw new ServiceException(String.format("Relationship %s not found within Concept %s so can not apply update.", relationshipChange.getRelationshipId(), concept.getConceptId()));
-						}
-						relationship.setActive(true);
-						relationship.setGroupId(relationshipChange.getGroup());
-					}
-					break;
-				case REDUNDANT:
-					int before = concept.getRelationships().size();
-					if (!concept.getRelationships().remove(new Relationship(relationshipChange.getRelationshipId())) || concept.getRelationships().size() == before) {
-						throw new ServiceException(String.format("Failed to remove relationship '%s' from concept %s.", relationshipChange.getRelationshipId(), concept.getConceptId()));
-					}
-					break;
-			}
+                        concept.addRelationship(relationship);
+                    } else {
+                        // Existing relationship change - could be a reactivation or group change
+                        relationship = concept.getRelationship(relationshipChange.getRelationshipId());
+                        if (relationship == null) {
+                            throw new ServiceException(String.format("Relationship %s not found within Concept %s so can not apply update.", relationshipChange.getRelationshipId(), concept.getConceptId()));
+                        }
+                        relationship.setActive(true);
+                        relationship.setGroupId(relationshipChange.getGroup());
+                    }
+                }
+                case REDUNDANT -> {
+                    int before = concept.getRelationships().size();
+                    if (!concept.getRelationships().remove(new Relationship(relationshipChange.getRelationshipId())) || concept.getRelationships().size() == before) {
+                        throw new ServiceException(String.format("Failed to remove relationship '%s' from concept %s.", relationshipChange.getRelationshipId(), concept.getConceptId()));
+                    }
+                }
+            }
 			if (copyDescriptions && relationship != null) {
 				relationship.setSource(relationshipChange.getSource());
 				relationship.setType(relationshipChange.getType());

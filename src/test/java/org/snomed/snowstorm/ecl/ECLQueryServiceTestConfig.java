@@ -1,21 +1,15 @@
 package org.snomed.snowstorm.ecl;
 
 import com.google.common.collect.Sets;
-import io.kaicode.elasticvc.api.BranchService;
 import org.elasticsearch.search.sort.SortBuilders;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.snomed.snowstorm.TestConfig;
 import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.services.*;
-import org.snomed.snowstorm.core.data.services.classification.ClassificationService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.elasticsearch.core.ElasticsearchRestTemplate;
 import org.springframework.data.elasticsearch.core.SearchHit;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
 
 import javax.annotation.PostConstruct;
-import javax.annotation.PreDestroy;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;

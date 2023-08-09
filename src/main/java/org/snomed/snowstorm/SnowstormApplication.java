@@ -60,8 +60,7 @@ public class SnowstormApplication extends Config implements ApplicationRunner {
 		try {
 			SpringApplication.run(SnowstormApplication.class, args);
 		} catch (BeanCreationException e) {
-			if (e.getCause() instanceof StartupException) {
-				StartupException startupException = (StartupException) e.getCause();
+			if (e.getCause() instanceof StartupException startupException) {
 				logger.error("Error creating Snowstorm Spring context:", e);
 				System.out.println();
 				System.out.println();

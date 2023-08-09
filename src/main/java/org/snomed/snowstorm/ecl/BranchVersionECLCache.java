@@ -101,8 +101,7 @@ public class BranchVersionECLCache {
 			this.ecl = ecl != null ? normaliseEclString(ecl) : "";
 			this.stated = stated;
 			this.pageRequest = pageRequest;
-			if (pageRequest instanceof SearchAfterPageRequest) {
-				SearchAfterPageRequest searchAfterPageRequest = (SearchAfterPageRequest) pageRequest;
+			if (pageRequest instanceof SearchAfterPageRequest searchAfterPageRequest) {
 				this.searchAfter = searchAfterPageRequest.getSearchAfter();
 			} else {
 				this.searchAfter = null;

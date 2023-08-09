@@ -3,29 +3,18 @@ package org.snomed.snowstorm.mrcm.model;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import org.snomed.langauges.ecl.domain.refinement.Operator;
 
-public class Constraint {
+public record Constraint(String expression, String conceptId, Operator operator) {
 
-	private final String expression;
-	private final String conceptId;
-	private final Operator operator;
 
-	public Constraint(String expression, String conceptId, Operator operator) {
-		this.expression = expression;
-		this.conceptId = conceptId;
-		this.operator = operator;
-	}
-
-	public String getExpression() {
-		return expression;
-	}
-
+	@Override
 	@JsonIgnore
-	public String getConceptId() {
+	public String conceptId() {
 		return conceptId;
 	}
 
+	@Override
 	@JsonIgnore
-	public Operator getOperator() {
+	public Operator operator() {
 		return operator;
 	}
 }

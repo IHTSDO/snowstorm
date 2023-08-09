@@ -9,6 +9,7 @@ import io.kaicode.elasticvc.api.VersionControlHelper;
 import io.kaicode.elasticvc.domain.Commit;
 import io.kaicode.elasticvc.domain.DomainEntity;
 import io.kaicode.elasticvc.domain.Metadata;
+import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.otf.owltoolkit.conversion.ConversionException;
@@ -30,7 +31,6 @@ import org.springframework.data.elasticsearch.core.SearchHitsIterator;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQuery;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
 import org.springframework.stereotype.Service;
-import org.springframework.util.StringUtils;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
@@ -367,8 +367,7 @@ public class ConceptUpdateHelper extends ComponentService {
 			String indicatorReferenceSet,
 			String defaultModuleId) {
 
-		if (newComponent instanceof Description) {
-			Description newDescription = (Description) newComponent;
+		if (newComponent instanceof Description newDescription) {
 			if (newDescription.isActive()) {
 				for (ReferenceSetMember inactivationIndicatorMember : newDescription.getInactivationIndicatorMembers()) {
 					if (inactivationIndicatorMember.isActive() && !inactivationIndicatorMember.getAdditionalField("valueId").equals(CONCEPT_NON_CURRENT)) {
@@ -430,7 +429,7 @@ public class ConceptUpdateHelper extends ComponentService {
 		}
 
 		// Find existing members to keep - use an existing one that has the same value in release hash if we can
-		if (membersRequired.size() > 0 && toKeep.isEmpty()) {
+		if (!membersRequired.isEmpty() && toKeep.isEmpty()) {
 			notNeeded.clear();
 			for (ReferenceSetMember existingMember : existingMembers) {
 				final String refsetId = existingMember.getRefsetId();
@@ -452,7 +451,7 @@ public class ConceptUpdateHelper extends ComponentService {
 		}
 
 		//Otherwise, value is mutable, so we can re-use any member with the same refsetId and modify the value
-		if (membersRequired.size() > 0 && toKeep.isEmpty()) {
+		if (!membersRequired.isEmpty() && toKeep.isEmpty()) {
 			notNeeded.clear();
 			Set<String> reUsedMemberIds = new HashSet<>();
 			//Any existing refset members that exactly matched refsetId + value would have matched above
@@ -476,7 +475,7 @@ public class ConceptUpdateHelper extends ComponentService {
 					}
 				}
 			}
-			notNeeded.addAll(existingMembers.stream().filter(member -> !reUsedMemberIds.contains(member.getMemberId())).collect(Collectors.toList()));
+			notNeeded.addAll(existingMembers.stream().filter(member -> !reUsedMemberIds.contains(member.getMemberId())).toList());
 		}
 
 		List<ReferenceSetMember> toPersist = new ArrayList<>();
@@ -631,8 +630,9 @@ public class ConceptUpdateHelper extends ComponentService {
 		return membersToDelete;
 	}
 
+	@SuppressWarnings("unchecked")
 	private <C extends SnomedComponent, T extends SnomedComponent<?>> void markDeletionsAndUpdates(T newConcept, T existingConcept, T existingConceptFromParent,
-			Function<T, Collection<C>> getter, String defaultModuleId, Collection<C> componentsToPersist, boolean rebase) {
+																								   Function<T, Collection<C>> getter, String defaultModuleId, Collection<C> componentsToPersist, boolean rebase) {
 
 		final Collection<C> newComponents = getExistingComponents(newConcept, getter);
 		final Collection<C> existingComponents = getExistingComponents(existingConcept, getter);

@@ -31,12 +31,9 @@ import java.util.stream.Collectors;
 /**
  * Test script to support load testing.
  * This script was written quickly for occasional non-production use.
- *
  * Any number of users can be simulated concurrently. The number of times the users create a concept can be set.
  * NOTE: These are manic turbo-users who are faster than humanly possible!
- *
  * Each time this script is run a load-test branch will be created with all work performed in subbranches.
- *
  * Each user will run the create concept procedure which is:
  * - Create branch
  * - Randomly pick a hierarchy to work in
@@ -47,7 +44,6 @@ import java.util.stream.Collectors;
  * - Validate the concept
  * - Save the cloned concept
  * - Repeat all
- *
  * Update CONCURRENT_USERS to set the number of users simulated concurrently.
  * Update CONCEPTS_TO_CREATE_PER_USER to set the number times each user will run through the authoring procedure.
  * Update HIERARCHIES_TO_AUTHOR_IN to use more hierarchies.
@@ -67,7 +63,8 @@ class ManualLoadTest {
 	);
 
 	// Internal variables
-	private static final ParameterizedTypeReference<ItemsPagePojo<ConceptResult>> PAGE_OF_CONCEPTS_TYPE = new ParameterizedTypeReference<ItemsPagePojo<ConceptResult>>() {};
+	private static final ParameterizedTypeReference<ItemsPagePojo<ConceptResult>> PAGE_OF_CONCEPTS_TYPE = new ParameterizedTypeReference<>() {
+    };
 	private static final Logger LOGGER = LoggerFactory.getLogger(ManualLoadTest.class);
 
 	private RestTemplate restTemplate;
@@ -127,8 +124,7 @@ class ManualLoadTest {
 
 		System.out.println();
 		System.out.println("Report ---");
-		System.out.println(String.format("%s concurrent users, %s runs each",
-				concurrentUsers, conceptsToClonePerUser));
+		System.out.printf("%s concurrent users, %s runs each%n", concurrentUsers, conceptsToClonePerUser);
 		for (String operation : times.keySet()) {
 			List<Float> operationTimes = times.get(operation);
 			if (!operationTimes.isEmpty()) {
@@ -141,7 +137,7 @@ class ManualLoadTest {
 					}
 				}
 				float seconds = Math.round((sum * 100) / (float) operationTimes.size()) / 100f;
-				System.out.println(String.format("%s average = %s seconds, max = %s (%s times)", operation, seconds, max, operationTimes.size()));
+				System.out.printf("%s average = %s seconds, max = %s (%s times)%n", operation, seconds, max, operationTimes.size());
 			}
 		}
 

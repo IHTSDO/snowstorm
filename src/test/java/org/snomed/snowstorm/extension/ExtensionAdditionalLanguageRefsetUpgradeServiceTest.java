@@ -10,10 +10,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.snomed.snowstorm.AbstractTest;
 import org.snomed.snowstorm.TestConfig;
 import org.snomed.snowstorm.config.Config;
-import org.snomed.snowstorm.core.data.domain.CodeSystem;
-import org.snomed.snowstorm.core.data.domain.Concept;
-import org.snomed.snowstorm.core.data.domain.Description;
-import org.snomed.snowstorm.core.data.domain.ReferenceSetMember;
+import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.services.*;
 import org.snomed.snowstorm.core.data.services.pojo.MemberSearchRequest;
 import org.snomed.snowstorm.core.rf2.rf2import.ImportService;
@@ -115,27 +112,28 @@ class ExtensionAdditionalLanguageRefsetUpgradeServiceTest extends AbstractTest {
 		metaData.put("defaultNamespace", "1000210");
 		metaData.put("shortname", "NZ");
 		final TypeReference<List<Map<String, String>>> listTypeReference = new TypeReference<>() {};
-		List<Map<String, String>> requiredLanguageRefsets = objectMapper.readValue("[{\n" +
-				"        \"default\": \"false\",\n" +
-				"        \"en\": \"900000000000508004\",\n" +
-				"        \"readOnly\": \"true\",\n" +
-				"        \"dialectName\": \"en-gb\"\n" +
-				"      },\n" +
-				"      {\n" +
-				"        \"default\": \"true\",\n" +
-				"        \"en\": \"271000210107\",\n" +
-				"        \"dialectName\": \"en-nz\"\n" +
-				"      },\n" +
-				"      {\n" +
-				"        \"default\": \"false\",\n" +
-				"        \"mi\": \"291000210106\"\n" +
-				"      },\n" +
-				"      {\n" +
-				"        \"default\": \"false\",\n" +
-				"        \"en\": \"900000000000509007\",\n" +
-				"        \"dialectName\": \"en-us\"\n" +
-				"      }\n" +
-				"    ]", listTypeReference);
+		List<Map<String, String>> requiredLanguageRefsets = objectMapper.readValue("""
+                [{
+                        "default": "false",
+                        "en": "900000000000508004",
+                        "readOnly": "true",
+                        "dialectName": "en-gb"
+                      },
+                      {
+                        "default": "true",
+                        "en": "271000210107",
+                        "dialectName": "en-nz"
+                      },
+                      {
+                        "default": "false",
+                        "mi": "291000210106"
+                      },
+                      {
+                        "default": "false",
+                        "en": "900000000000509007",
+                        "dialectName": "en-us"
+                      }
+                    ]""", listTypeReference);
 		metaData.put("requiredLanguageRefsets", requiredLanguageRefsets);
 
 		branchService.updateMetadata("MAIN/SNOMEDCT-NZ", metaData);
@@ -239,7 +237,7 @@ class ExtensionAdditionalLanguageRefsetUpgradeServiceTest extends AbstractTest {
 		assertNotNull(updatedResult);
 		assertEquals(3, updatedResult.getContent().size());
 		// Only 1 is released
-		List<ReferenceSetMember> published = updatedResult.get().filter(referenceSetMember -> referenceSetMember.isReleased()).collect(Collectors.toList());
+		List<ReferenceSetMember> published = updatedResult.get().filter(SnomedComponent::isReleased).collect(Collectors.toList());
 		assertEquals(1, published.size());
 		assertEquals(nzExistingMemberId, published.get(0).getMemberId());
 

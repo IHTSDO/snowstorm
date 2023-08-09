@@ -150,8 +150,7 @@ public class QueryService implements ApplicationContextAware {
 	}
 
 	private PageRequest updatePageRequestSort(PageRequest pageRequest, Sort newSort) {
-		if (pageRequest instanceof SearchAfterPageRequest) {
-			SearchAfterPageRequest searchAfterPageRequest = (SearchAfterPageRequest) pageRequest;
+		if (pageRequest instanceof SearchAfterPageRequest searchAfterPageRequest) {
 			return SearchAfterPageRequest.of(searchAfterPageRequest.getSearchAfter(), searchAfterPageRequest.getPageSize(), newSort);
 		}
 		return PageRequest.of(pageRequest.getPageNumber(), pageRequest.getPageSize(), newSort);

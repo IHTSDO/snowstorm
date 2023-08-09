@@ -36,7 +36,7 @@ public class ExpressionsDiffUtil {
 		String published = args[1];
 		String actual = args[2];
 		if (args.length == 5 && IGNORE_SORTING_ARG.equals(args[3])) {
-			ignoreSorting = Boolean.valueOf(args[4]);
+			ignoreSorting = Boolean.parseBoolean(args[4]);
 		}
 
 		// load MRCM refsets

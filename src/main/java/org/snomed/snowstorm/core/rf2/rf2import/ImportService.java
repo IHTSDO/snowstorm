@@ -161,16 +161,14 @@ public class ImportService {
 	 */
 	private Integer importFiles(final InputStream releaseFileStream, final ImportJob job, final RF2Type importType, final String branchPath, final Integer patchReleaseVersion,
 			final ReleaseImporter releaseImporter, final LoadingProfile loadingProfile) throws ReleaseImportException {
-		switch (importType) {
-			case DELTA:
-				return deltaImport(releaseFileStream, job, branchPath, patchReleaseVersion, releaseImporter, loadingProfile);
-			case SNAPSHOT:
-				return snapshotImport(releaseFileStream, job, branchPath, patchReleaseVersion, releaseImporter, loadingProfile);
-			case FULL:
-				return fullImport(releaseFileStream, branchPath, releaseImporter, loadingProfile);
-			default:
-				throw new IllegalStateException("Unexpected import type: " + importType);
-		}
+        return switch (importType) {
+            case DELTA ->
+                    deltaImport(releaseFileStream, job, branchPath, patchReleaseVersion, releaseImporter, loadingProfile);
+            case SNAPSHOT ->
+                    snapshotImport(releaseFileStream, job, branchPath, patchReleaseVersion, releaseImporter, loadingProfile);
+            case FULL -> fullImport(releaseFileStream, branchPath, releaseImporter, loadingProfile);
+            default -> throw new IllegalStateException("Unexpected import type: " + importType);
+        };
 	}
 
 	private void setImportMetadata(RF2Type importType, String branchPath, boolean createCodeSystemVersion) {

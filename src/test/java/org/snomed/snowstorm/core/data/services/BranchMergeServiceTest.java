@@ -1578,7 +1578,7 @@ class BranchMergeServiceTest extends AbstractTest {
 		List<Concept> conceptsOnTaskB1 = new ArrayList<>();
 		conceptsOnTaskB1.add(conceptService.find("100003", taskB1));
 		conceptsOnTaskB1.add(conceptService.find("100002", taskB1));
-		conceptsOnTaskB1.stream().forEach(concept -> { assertTrue(concept.isReleased()); });
+		conceptsOnTaskB1.forEach(concept -> assertTrue(concept.isReleased()));
 
 		// Create a new version on MAIN/B/B2 and promote to project
 		Concept conceptOnTaskB2 = conceptService.find("100003", taskB2);

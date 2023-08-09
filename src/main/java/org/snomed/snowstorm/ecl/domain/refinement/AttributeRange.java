@@ -76,20 +76,26 @@ class AttributeRange {
 				if (!(conceptAttributeValue instanceof String)) {
 					final float attributeValue = Float.parseFloat(conceptAttributeValue.toString());
 					final int i = Float.compare(attributeValue, concreteNumberValue);
-					switch (operator) {
-						case "=":
-							return i == 0;
-						case "!=":
-							return i != 0;
-						case ">=":
-							return i == 0 || i > 0;
-						case ">":
-							return i > 0;
-						case "<=":
-							return i == 0 || i < 0;
-						case "<":
-							return i < 0;
-					}
+                    switch (operator) {
+                        case "=" -> {
+                            return i == 0;
+                        }
+                        case "!=" -> {
+                            return i != 0;
+                        }
+                        case ">=" -> {
+                            return i == 0 || i > 0;
+                        }
+                        case ">" -> {
+                            return i > 0;
+                        }
+                        case "<=" -> {
+                            return i == 0 || i < 0;
+                        }
+                        case "<" -> {
+                            return i < 0;
+                        }
+                    }
 				}
 				return false;
 			} else {

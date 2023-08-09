@@ -334,34 +334,30 @@ public class ECLContentService {
 	}
 
 	public static void addNumericConstraint(NumericComparisonOperator operator, String field, Collection<? extends Number> values, BoolQueryBuilder query) {
-		switch (operator) {
-			case EQUAL:
-				query.must(termsQuery(field, values));
-				break;
-			case NOT_EQUAL:
-				query.mustNot(termsQuery(field, values));
-				break;
-			case LESS_THAN_OR_EQUAL:
-				for (Number effectiveTime : values) {
-					query.must(rangeQuery(field).lte(effectiveTime));
-				}
-				break;
-			case LESS_THAN:
-				for (Number effectiveTime : values) {
-					query.must(rangeQuery(field).lt(effectiveTime));
-				}
-				break;
-			case GREATER_THAN_OR_EQUAL:
-				for (Number effectiveTime : values) {
-					query.must(rangeQuery(field).gte(effectiveTime));
-				}
-				break;
-			case GREATER_THAN:
-				for (Number effectiveTime : values) {
-					query.must(rangeQuery(field).gt(effectiveTime));
-				}
-				break;
-		}
+        switch (operator) {
+            case EQUAL -> query.must(termsQuery(field, values));
+            case NOT_EQUAL -> query.mustNot(termsQuery(field, values));
+            case LESS_THAN_OR_EQUAL -> {
+                for (Number effectiveTime : values) {
+                    query.must(rangeQuery(field).lte(effectiveTime));
+                }
+            }
+            case LESS_THAN -> {
+                for (Number effectiveTime : values) {
+                    query.must(rangeQuery(field).lt(effectiveTime));
+                }
+            }
+            case GREATER_THAN_OR_EQUAL -> {
+                for (Number effectiveTime : values) {
+                    query.must(rangeQuery(field).gte(effectiveTime));
+                }
+            }
+            case GREATER_THAN -> {
+                for (Number effectiveTime : values) {
+                    query.must(rangeQuery(field).gt(effectiveTime));
+                }
+            }
+        }
 	}
 
 	public Set<Long> findHistoricConcepts(SortedSet<Long> initialConcepts, HistorySupplement historySupplement, BranchCriteria branchCriteria) {

@@ -14,7 +14,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.client.TestRestTemplate;
-import org.springframework.boot.web.server.LocalServerPort;
+import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.http.*;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -138,11 +138,9 @@ public class AbstractFHIRTest {
 		if (value == null) {
 			return null;
 		}
-		if (value instanceof Coding) {
-			Coding codingValue = (Coding)value;
+		if (value instanceof Coding codingValue) {
 			return "[ " + codingValue.getSystem() + " : " + codingValue.getCode() + "|" + codingValue.getDisplay()  + "| ]";
-		} else if (value instanceof CodeType) {
-			CodeType codeValue = (CodeType)value;
+		} else if (value instanceof CodeType codeValue) {
 			return  codeValue.getCode();
 		} else if (value instanceof StringType) {
 			return value.castToString(value).asStringValue();
