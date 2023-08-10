@@ -308,11 +308,36 @@
 	</dependencyManagement>
 	<build>
 		<plugins>
+			<!--
+               Add the Add-Opens to the manifest file to allow snomed-owl-toolkit to work with java 17. Remove this when the owl-api is updated to use version 5
+           -->
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-jar-plugin</artifactId>
+				<version>3.3.0</version>
+				<executions>
+					<execution>
+						<id>default-jar</id>
+						<phase>package</phase>
+						<goals>
+							<goal>jar</goal>
+						</goals>
+						<configuration>
+							<archive>
+								<manifestEntries>
+									<!-- required by owl toolkit and spring data elasticsearch version 4 -->
+									<Add-Opens>java.base/java.lang java.base/java.util</Add-Opens>
+								</manifestEntries>
+							</archive>
+						</configuration>
+					</execution>
+				</executions>
+			</plugin>
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-surefire-plugin</artifactId>
 				<configuration>
-					<argLine>--add-opens java.base/java.lang=ALL-UNNAMED</argLine>
+					<argLine>--add-opens java.base/java.util=ALL-UNNAMED --add-opens java.base/java.lang=ALL-UNNAMED</argLine>
 				</configuration>
 			</plugin>
 			<!-- Docker Image Build -->
@@ -353,7 +378,6 @@
 				<version>${spring-boot.version}</version>
 				<configuration>
 					<mainClass>org.snomed.snowstorm.SnowstormApplication</mainClass>
-					<jvmArguments>--add-opens java.base/java.lang=ALL-UNNAMED</jvmArguments>
 				</configuration>
 				<executions>
 					<execution>
@@ -425,7 +449,6 @@
 							<excludes>
 								<exclude>TraceabilityLogServiceTest</exclude>
 							</excludes>
-							<argLine>--add-opens java.base/java.lang=ALL-UNNAMED</argLine>
 						</configuration>
 					</plugin>
 				</plugins>
