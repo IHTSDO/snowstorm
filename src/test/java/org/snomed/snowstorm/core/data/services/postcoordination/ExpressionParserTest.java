@@ -22,12 +22,14 @@ class ExpressionParserTest extends AbstractTest {
 	@Test
 	public void testParseSimpleExpressionSorting() throws ServiceException {
 		ComparableExpression comparableExpression = expressionParser.parseExpression("""
-                === 64887002 |Operation on ovary (procedure)|
-                    450669005 |Excision of adnexa of uterus (procedure)|
+                === 64887002 |Operation on ovary (procedure)| +\s
+                    450669005 |Excision of adnexa of uterus (procedure)| +\s
                     107983004 |Endocrine system excision (procedure)| :
-                            { 				405813007 |Procedure site - Direct (attribute)| = 15497006 |Ovarian structure (body structure)|,
-                            				260686004 |Method (attribute)| = 129304002 |Excision - action (qualifier value)|
-                            }""");
+                            {
+                               405813007 |Procedure site - Direct (attribute)| = 15497006 |Ovarian structure (body structure)|,
+                               260686004 |Method (attribute)| = 129304002 |Excision - action (qualifier value)|
+                            }
+                """);
 		assertEquals("=== 107983004 + 450669005 + 64887002 : { 260686004 = 129304002, 405813007 = 15497006 }", comparableExpression.toString());
 	}
 
