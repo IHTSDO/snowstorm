@@ -259,11 +259,8 @@ public class ConceptController {
 			identifiers.getContent().forEach(item -> conceptIds.add(item.getReferencedComponentId()));
 		}
 
-		Collection<Concept> concepts = conceptService.find(branch, conceptIds, ControllerHelper.parseAcceptLanguageHeaderWithDefaultFallback(acceptLanguageHeader));
-		if (CollectionUtils.isEmpty(concepts)) {
-			throw new NotFoundException("Concept not found");
-		}
-		return new HttpEntity<>(new ItemsPage<>(concepts));
+		ResultMapPage<String, ConceptMini> concepts = conceptService.findConceptMinis(branch, conceptIds, ControllerHelper.parseAcceptLanguageHeaderWithDefaultFallback(acceptLanguageHeader));
+		return new HttpEntity<>(new ItemsPage<>(concepts.getResultsMap().values()));
 	}
 
 	@PostMapping(value = "/{branch}/concepts/search", produces = {"application/json", "text/csv"})
