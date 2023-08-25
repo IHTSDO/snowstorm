@@ -9,10 +9,7 @@ import io.kaicode.elasticvc.domain.Metadata;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.snomed.snowstorm.core.data.domain.CodeSystem;
-import org.snomed.snowstorm.core.data.domain.Concepts;
-import org.snomed.snowstorm.core.data.domain.Description;
-import org.snomed.snowstorm.core.data.domain.ReferenceSetMember;
+import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.services.BranchMetadataHelper;
 import org.snomed.snowstorm.core.data.services.CodeSystemVersionService;
 import org.snomed.snowstorm.core.data.services.NotFoundException;
@@ -135,7 +132,7 @@ public class ExtensionAdditionalLanguageRefsetUpgradeService {
 				.withQuery(boolQuery()
 						.must(branchCriteria.getEntityBranchCriteria(ReferenceSetMember.class))
 						.must(termQuery(REFSET_ID, languageRefsetId)))
-				.withFields(REFERENCED_COMPONENT_ID, ACTIVE, ACCEPTABILITY_ID_FIELD_PATH)
+				.withFields(REFERENCED_COMPONENT_ID, ACTIVE, ACCEPTABILITY_ID_FIELD_PATH, CONCEPT_ID)
 				.withPageable(LARGE_PAGE);
 		if (lastDependantEffectiveTime != null) {
 			// for roll up upgrade every 6 months for example
@@ -154,67 +151,52 @@ public class ExtensionAdditionalLanguageRefsetUpgradeService {
 	private List<ReferenceSetMember> addOrUpdateLanguageRefsetComponents(String branchPath, AdditionalRefsetExecutionConfig config, Map<Long, ReferenceSetMember> languageRefsetMembersToCopy) {
 		BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(branchPath);
 		List<ReferenceSetMember> result = new ArrayList<>();
-		// batch here as the max allowed in terms query is 65536
 
-		// Get all concepts that need changing from ToCopy members
-		Set<String> conceptIds = new HashSet<>();
-		for (List<Long> batch : partition(languageRefsetMembersToCopy.keySet(), 10_000)) {
+		// Collect all concepts that need changing from ToCopy members
+		Set<String> conceptIds = new HashSet<>(languageRefsetMembersToCopy.values().stream().map(ReferenceSetMember:: getConceptId).collect(Collectors.toSet()));
+
+		// Collect all relevant description IDs
+		Set<Long> descriptionIds = new HashSet<>();
+		descriptionIds.addAll(languageRefsetMembersToCopy.values().stream().map(item -> Long.valueOf(item.getReferencedComponentId())).collect(Collectors.toSet()));
+
+		// Get all existing language reference set members
+		Map<String, ReferenceSetMember> existingLanguageRefsetMembersToUpdate = new HashMap<>();
+		for (List<String> batch : partition(conceptIds, 10_000)) {
+			NativeSearchQueryBuilder queryBuilder = new NativeSearchQueryBuilder()
+					.withQuery(boolQuery()
+							.must(branchCriteria.getEntityBranchCriteria(ReferenceSetMember.class))
+							.must(termQuery(REFSET_ID, config.getDefaultEnglishLanguageRefsetId()))
+							.must(termsQuery(ACCEPTABILITY_ID_FIELD_PATH, Concepts.PREFERRED, Concepts.ACCEPTABLE))
+							.must(termsQuery(CONCEPT_ID, batch))
+					).withFields(REFERENCED_COMPONENT_ID, ACTIVE, ACCEPTABILITY_ID_FIELD_PATH)
+					.withPageable(LARGE_PAGE);
+
+			try (final SearchHitsIterator<ReferenceSetMember> searchHitsIterator = elasticsearchTemplate.searchForStream(queryBuilder.build(), ReferenceSetMember.class)) {
+				searchHitsIterator.forEachRemaining(hit -> {
+					existingLanguageRefsetMembersToUpdate.put(hit.getContent().getReferencedComponentId(), hit.getContent());
+					descriptionIds.add(Long.valueOf(hit.getContent().getReferencedComponentId()));
+				});
+			}
+		}
+
+		// Get all relevant descriptions
+		Map<Long, Set<Description>> conceptToDescriptionsMap = new Long2ObjectOpenHashMap<>();
+		for (List<Long> batch : partition(descriptionIds, 10_000)) {
 			NativeSearchQueryBuilder queryBuilder = new NativeSearchQueryBuilder()
 					.withQuery(boolQuery().must(branchCriteria.getEntityBranchCriteria(Description.class)))
 					.withFilter(termsQuery(DESCRIPTION_ID, batch))
 					.withPageable(LARGE_PAGE);
 
 			try (final SearchHitsIterator<Description> searchHitsIterator = elasticsearchTemplate.searchForStream(queryBuilder.build(), Description.class)) {
-				searchHitsIterator.forEachRemaining(hit -> conceptIds.add(hit.getContent().getConceptId()));
-			}
-		}
-
-		// Get all relevant descriptions
-		Set<Long> descriptionIds = new HashSet<>();
-		Set<Long> extensionDescriptionIds = new HashSet<>();
-		Map<Long, Set<Description>> conceptToDescriptionsMap = new Long2ObjectOpenHashMap<>();
-		for (List<String> batch : partition(conceptIds, 10_000)) {
-			NativeSearchQueryBuilder queryBuilder = new NativeSearchQueryBuilder()
-					.withQuery(boolQuery().must(branchCriteria.getEntityBranchCriteria(Description.class)))
-					.withFilter(termsQuery(CONCEPT_ID, batch))
-					.withPageable(LARGE_PAGE);
-
-			try (final SearchHitsIterator<Description> searchHitsIterator = elasticsearchTemplate.searchForStream(queryBuilder.build(), Description.class)) {
 				searchHitsIterator.forEachRemaining(hit -> {
-					descriptionIds.add(Long.valueOf(hit.getContent().getId()));
 					conceptToDescriptionsMap.computeIfAbsent(Long.valueOf(hit.getContent().getConceptId()), k -> new HashSet<>()).add(hit.getContent());
-					if (hit.getContent().getModuleId().equals(config.getDefaultModuleId())) {
-						extensionDescriptionIds.add(Long.valueOf(hit.getContent().getId()));
-					}
 				});
 			}
 		}
 
-		// Get all existing language refset members
-		List<ReferenceSetMember> existingLanguageRefsetMembersToUpdate =  new ArrayList<>();
-		List<ReferenceSetMember> existingExtensionLanguageRefsetMembers =  new ArrayList<>();
-		for (List<Long> batch : partition(descriptionIds, 10_000)) {
-			NativeSearchQueryBuilder queryBuilder = new NativeSearchQueryBuilder()
-					.withQuery(boolQuery()
-							.must(branchCriteria.getEntityBranchCriteria(ReferenceSetMember.class))
-							.must(termQuery(REFSET_ID, config.getDefaultEnglishLanguageRefsetId()))
-					).withFilter(termsQuery(REFERENCED_COMPONENT_ID, batch))
-					.withPageable(LARGE_PAGE);
-
-			try (final SearchHitsIterator<ReferenceSetMember> searchHitsIterator = elasticsearchTemplate.searchForStream(queryBuilder.build(), ReferenceSetMember.class)) {
-				searchHitsIterator.forEachRemaining(hit -> {
-					if (extensionDescriptionIds.contains(Long.valueOf(hit.getContent().getReferencedComponentId()))) {
-						existingExtensionLanguageRefsetMembers.add(hit.getContent());
-					} else {
-						existingLanguageRefsetMembersToUpdate.add(hit.getContent());
-					}
-				});
-			}
-		}
-
-		// Update the existing language refset member if needed
-		existingLanguageRefsetMembersToUpdate.forEach(item -> {
-			if (isAbleToAddOrUpdate(item.getReferencedComponentId(), existingExtensionLanguageRefsetMembers, conceptToDescriptionsMap, languageRefsetMembersToCopy)) {
+		// Update the existing language reference set members if needed
+		existingLanguageRefsetMembersToUpdate.values().forEach(item -> {
+			if (isAbleToAddOrUpdate(item.getReferencedComponentId(), config.getDefaultModuleId(), conceptToDescriptionsMap, languageRefsetMembersToCopy, existingLanguageRefsetMembersToUpdate)) {
 				update(item, languageRefsetMembersToCopy, result);
 			}
 		});
@@ -225,7 +207,7 @@ public class ExtensionAdditionalLanguageRefsetUpgradeService {
 		for (Long referencedComponentId : languageRefsetMembersToCopy.keySet()) {
 			if (!updated.contains(referencedComponentId.toString())) {
 				ReferenceSetMember memberToAdd = languageRefsetMembersToCopy.get(referencedComponentId);
-				if (isAbleToAddOrUpdate(referencedComponentId.toString(), existingExtensionLanguageRefsetMembers, conceptToDescriptionsMap, languageRefsetMembersToCopy)) {
+				if (isAbleToAddOrUpdate(referencedComponentId.toString(), config.getDefaultModuleId(), conceptToDescriptionsMap, languageRefsetMembersToCopy, existingLanguageRefsetMembersToUpdate)) {
 					ReferenceSetMember toAdd = new ReferenceSetMember(UUID.randomUUID().toString(), null, memberToAdd.isActive(),
 							config.getDefaultModuleId(), config.getDefaultEnglishLanguageRefsetId(), memberToAdd.getReferencedComponentId());
 					toAdd.setAdditionalField(ACCEPTABILITY_ID, memberToAdd.getAdditionalField(ACCEPTABILITY_ID));
@@ -237,19 +219,26 @@ public class ExtensionAdditionalLanguageRefsetUpgradeService {
 		return result;
 	}
 
-	private boolean isAbleToAddOrUpdate(String referencedComponentId, List<ReferenceSetMember> existingExtensionLanguageRefsetMembers, Map<Long, Set<Description>> conceptToDescriptionsMap, Map<Long, ReferenceSetMember> languageRefsetMembersToCopy) {
+	private boolean isAbleToAddOrUpdate(String referencedComponentId, String defaultModuleId, Map<Long, Set<Description>> conceptToDescriptionsMap, Map<Long, ReferenceSetMember> languageRefsetMembersToCopy, Map<String, ReferenceSetMember> existingLanguageRefsetMembers) {
 		if (languageRefsetMembersToCopy.containsKey(Long.valueOf(referencedComponentId))) {
 			ReferenceSetMember languageReferenceSetMemberToCopy = languageRefsetMembersToCopy.get(Long.valueOf(referencedComponentId));
 			if (languageReferenceSetMemberToCopy.isActive() && Concepts.PREFERRED.equals(languageReferenceSetMemberToCopy.getAdditionalField(ACCEPTABILITY_ID))) {
-				Set<Description> descriptions = getAllDescriptionsForConcept(conceptToDescriptionsMap, languageReferenceSetMemberToCopy.getReferencedComponentId());
-				for (Description description : descriptions) {
-					// Check if the extension descriptions already have any PREFERRED term.
-					// If yes, skip the EN-GB Reference Set add/update.
-					if (!description.getDescriptionId().equals(languageReferenceSetMemberToCopy.getReferencedComponentId())) {
-						for (ReferenceSetMember referenceSetMember : existingExtensionLanguageRefsetMembers) {
-							if (description.getDescriptionId().equals(referenceSetMember.getReferencedComponentId())
-								&& referenceSetMember.isActive() && Concepts.PREFERRED.equals(referenceSetMember.getAdditionalField(ACCEPTABILITY_ID))) {
-								return false;
+				Set<Description> descriptions = conceptToDescriptionsMap.get(Long.valueOf(languageReferenceSetMemberToCopy.getConceptId()));
+				if (descriptions != null) {
+					Description descriptionOfReferenceSetMemberToCopy = descriptions.stream().filter(description -> description.getDescriptionId().equals(referencedComponentId)).findFirst().orElse(null);
+					if (descriptionOfReferenceSetMemberToCopy != null) {
+						for (Description description : descriptions) {
+							if (!descriptionOfReferenceSetMemberToCopy.getDescriptionId().equals(description.getDescriptionId())
+									&& description.getModuleId().equals(defaultModuleId)
+									&& descriptionOfReferenceSetMemberToCopy.getType().equals(description.getType()) /* make sure that we're checking for the same description type */) {
+								// Check if the extension descriptions already have any PREFERRED term.
+								// If yes, skip the EN-GB Reference Set add/update.
+								if (!description.getDescriptionId().equals(languageReferenceSetMemberToCopy.getReferencedComponentId())) {
+									ReferenceSetMember existing = existingLanguageRefsetMembers.get(description.getDescriptionId());
+									if (existing != null && existing.isActive() && Concepts.PREFERRED.equals(existing.getAdditionalField(ACCEPTABILITY_ID))) {
+										return false;
+									}
+								}
 							}
 						}
 					}
@@ -258,17 +247,6 @@ public class ExtensionAdditionalLanguageRefsetUpgradeService {
 			return true;
 		}
 		return false;
-	}
-
-	private Set<Description> getAllDescriptionsForConcept(Map<Long, Set<Description>> conceptToDescriptionsMap, String descriptionId) {
-		for (Map.Entry<Long, Set<Description>> entry : conceptToDescriptionsMap.entrySet()) {
-			for (Description description : entry.getValue()) {
-				if (description.getDescriptionId().equals(descriptionId)) {
-					return conceptToDescriptionsMap.get(entry.getKey()).stream().filter(item -> item.getType().equals(description.getType())).collect(Collectors.toSet());
-				}
-			}
-		}
-		return Collections.EMPTY_SET;
 	}
 
 	private ReferenceSetMember copy(ReferenceSetMember enGbMember, AdditionalRefsetExecutionConfig config) {

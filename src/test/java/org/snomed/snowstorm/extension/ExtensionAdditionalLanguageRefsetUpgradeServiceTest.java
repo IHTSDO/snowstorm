@@ -70,11 +70,11 @@ class ExtensionAdditionalLanguageRefsetUpgradeServiceTest extends AbstractTest {
 		conceptService.create(concept, snomedct.getBranchPath());
 		codeSystemService.createVersion(snomedct, 20190731, "2019-07-31 release");
 
-		ReferenceSetMember enGbLanguageMemberLatest = new ReferenceSetMember(null, null, true,
+		ReferenceSetMember enGbLanguageMemberLatest = new ReferenceSetMember(UUID.randomUUID().toString(), null, true,
 				"900000000000207008", "900000000000508004", "675173019");
 		enGbLanguageMemberLatest.setAdditionalField(ReferenceSetMember.LanguageFields.ACCEPTABILITY_ID, "900000000000548007");
 
-		ReferenceSetMember enUsLanguageMemberLatest = new ReferenceSetMember(null, null, true,
+		ReferenceSetMember enUsLanguageMemberLatest = new ReferenceSetMember(UUID.randomUUID().toString(), null, true,
 				"900000000000207008", "900000000000509007", "675173019");
 		enUsLanguageMemberLatest.setAdditionalField(ReferenceSetMember.LanguageFields.ACCEPTABILITY_ID, "900000000000549004");
 
@@ -221,10 +221,12 @@ class ExtensionAdditionalLanguageRefsetUpgradeServiceTest extends AbstractTest {
 		// Version NZ extension
 		codeSystemService.createVersion(snomedctNZ, 20200331, "NZ release");
 		// Add new en-gb in international for 2 monthly releases
-		conceptService.create(constructTestConcept("100002", "675173020"), MAIN);
+		Concept conceptA = constructTestConcept("100002", "71183010");
+		conceptService.create(conceptA, MAIN);
 		codeSystemService.createVersion(snomedct, 20200228, "international release 20200228");
 
-		conceptService.create(constructTestConcept("100003", "675173021"), MAIN);
+		Concept conceptB = constructTestConcept("100003", "75183010");
+		conceptService.create(conceptB, MAIN);
 		codeSystemService.createVersion(snomedct, 20200331, "international release 20200331");
 
 		// roll up upgrade extension
@@ -267,10 +269,10 @@ class ExtensionAdditionalLanguageRefsetUpgradeServiceTest extends AbstractTest {
 		// Version NZ extension
 		codeSystemService.createVersion(snomedctNZ, 20200331, "NZ release");
 		// Add new en-gb in international for 2 monthly releases
-		conceptService.create(constructTestConcept("100002", "675173020"), MAIN);
+		conceptService.create(constructTestConcept("100002", "288524019"), MAIN);
 		codeSystemService.createVersion(snomedct, 20200228, "international release 20200228");
 
-		conceptService.create(constructTestConcept("100003", "675173021"), MAIN);
+		conceptService.create(constructTestConcept("100003", "268524019"), MAIN);
 		codeSystemService.createVersion(snomedct, 20200331, "international release 20200331");
 
 		// roll up upgrade extension
@@ -281,11 +283,10 @@ class ExtensionAdditionalLanguageRefsetUpgradeServiceTest extends AbstractTest {
 
 		// Find INT concept and add a extension PREFERRED term
 		Concept concept = conceptService.find("100002", snomedctNZ.getBranchPath());
-		ReferenceSetMember extensionLanguageMember = new ReferenceSetMember(null,null, true,
+		ReferenceSetMember extensionLanguageMember = new ReferenceSetMember(UUID.randomUUID().toString(),null, true,
 				"21000210109", "271000210107", "2156578010");
 		extensionLanguageMember.setAdditionalField(ReferenceSetMember.LanguageFields.ACCEPTABILITY_ID, "900000000000548007");
-
-		Description description = new Description("2156578010", "2156578010 testing");
+		Description description = new Description("588524019", "58852401 testing");
 		description.addLanguageRefsetMember(extensionLanguageMember);
 		concept.addDescription(description);
 		conceptService.update(concept, snomedctNZ.getBranchPath());
@@ -300,8 +301,8 @@ class ExtensionAdditionalLanguageRefsetUpgradeServiceTest extends AbstractTest {
 		assertEquals(1, published.size());
 		assertEquals(nzExistingMemberId, published.get(0).getMemberId());
 
-		assertEquals(1, updatedResult.get().filter(referenceSetMember -> referenceSetMember.getReferencedComponentId().equals("2156578010")).collect(Collectors.toList()).size());
-		assertEquals(1, updatedResult.get().filter(referenceSetMember -> referenceSetMember.getReferencedComponentId().equals("675173021")).collect(Collectors.toList()).size());
-		assertEquals(0, updatedResult.get().filter(referenceSetMember -> referenceSetMember.getReferencedComponentId().equals("675173020")).collect(Collectors.toList()).size());
+		assertEquals(1, updatedResult.get().filter(referenceSetMember -> referenceSetMember.getReferencedComponentId().equals("268524019")).collect(Collectors.toList()).size());
+		assertEquals(1, updatedResult.get().filter(referenceSetMember -> referenceSetMember.getReferencedComponentId().equals("588524019")).collect(Collectors.toList()).size());
+		assertEquals(0, updatedResult.get().filter(referenceSetMember -> referenceSetMember.getReferencedComponentId().equals("288524019")).collect(Collectors.toList()).size());
 	}
 }
