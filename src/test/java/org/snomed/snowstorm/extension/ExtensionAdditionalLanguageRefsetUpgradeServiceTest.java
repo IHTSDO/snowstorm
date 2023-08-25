@@ -269,10 +269,17 @@ class ExtensionAdditionalLanguageRefsetUpgradeServiceTest extends AbstractTest {
 		// Version NZ extension
 		codeSystemService.createVersion(snomedctNZ, 20200331, "NZ release");
 		// Add new en-gb in international for 2 monthly releases
-		conceptService.create(constructTestConcept("100002", "288524019"), MAIN);
+		Concept conceptA = constructTestConcept("100002", "288524019");
+
+		// Add TEXT Definition to concept A
+		Description textDefinitionDesc = constructTestTextDefinitionDescription("282524019");
+		conceptA.addDescription(textDefinitionDesc);
+
+		conceptService.create(conceptA, MAIN);
 		codeSystemService.createVersion(snomedct, 20200228, "international release 20200228");
 
-		conceptService.create(constructTestConcept("100003", "268524019"), MAIN);
+		Concept conceptB = constructTestConcept("100003", "268524019");
+		conceptService.create(conceptB, MAIN);
 		codeSystemService.createVersion(snomedct, 20200331, "international release 20200331");
 
 		// roll up upgrade extension
@@ -281,7 +288,7 @@ class ExtensionAdditionalLanguageRefsetUpgradeServiceTest extends AbstractTest {
 
 		snomedctNZ = codeSystemService.find(snomedctNZ.getShortName());
 
-		// Find INT concept and add a extension PREFERRED term
+		// Find INT concept and add an extension PREFERRED term
 		Concept concept = conceptService.find("100002", snomedctNZ.getBranchPath());
 		ReferenceSetMember extensionLanguageMember = new ReferenceSetMember(UUID.randomUUID().toString(),null, true,
 				"21000210109", "271000210107", "2156578010");
@@ -295,7 +302,7 @@ class ExtensionAdditionalLanguageRefsetUpgradeServiceTest extends AbstractTest {
 		extensionAdditionalLanguageRefsetUpgradeService.generateAdditionalLanguageRefsetDelta(snomedctNZ, snomedctNZ.getBranchPath(), "900000000000508004",false);
 		updatedResult =  referenceSetMemberService.findMembers(snomedctNZ.getBranchPath(), nzEnSearchRequest, PageRequest.of(0, 10));
 		assertNotNull(updatedResult);
-		assertEquals(3, updatedResult.getContent().size());
+		assertEquals(4, updatedResult.getContent().size());
 		// Only 1 is released
 		List<ReferenceSetMember> published = updatedResult.get().filter(referenceSetMember -> referenceSetMember.isReleased()).collect(Collectors.toList());
 		assertEquals(1, published.size());
@@ -303,6 +310,22 @@ class ExtensionAdditionalLanguageRefsetUpgradeServiceTest extends AbstractTest {
 
 		assertEquals(1, updatedResult.get().filter(referenceSetMember -> referenceSetMember.getReferencedComponentId().equals("268524019")).collect(Collectors.toList()).size());
 		assertEquals(1, updatedResult.get().filter(referenceSetMember -> referenceSetMember.getReferencedComponentId().equals("588524019")).collect(Collectors.toList()).size());
+		assertEquals(1, updatedResult.get().filter(referenceSetMember -> referenceSetMember.getReferencedComponentId().equals("282524019")).collect(Collectors.toList()).size());
 		assertEquals(0, updatedResult.get().filter(referenceSetMember -> referenceSetMember.getReferencedComponentId().equals("288524019")).collect(Collectors.toList()).size());
+	}
+
+	@NotNull
+	private static Description constructTestTextDefinitionDescription(String descriptionId) {
+		ReferenceSetMember enGbLanguageMember = new ReferenceSetMember(null,null, true,
+				"900000000000207008", "900000000000508004", descriptionId);
+		enGbLanguageMember.setAdditionalField(ReferenceSetMember.LanguageFields.ACCEPTABILITY_ID, "900000000000548007");
+		ReferenceSetMember enUsLanguageMember = new ReferenceSetMember(null, null, true,
+				"900000000000207008","900000000000509007", descriptionId);
+		enUsLanguageMember.setAdditionalField(ReferenceSetMember.LanguageFields.ACCEPTABILITY_ID, "900000000000549004");
+		Description description = new Description("282524019", descriptionId + " testing");
+		description.setTypeId(Concepts.TEXT_DEFINITION);
+		description.addLanguageRefsetMember(enGbLanguageMember);
+		description.addLanguageRefsetMember(enUsLanguageMember);
+		return description;
 	}
 }
