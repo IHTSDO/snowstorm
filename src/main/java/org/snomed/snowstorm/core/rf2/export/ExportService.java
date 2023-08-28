@@ -16,6 +16,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.domain.jobs.ExportConfiguration;
+import org.snomed.snowstorm.core.data.domain.jobs.ExportStatus;
 import org.snomed.snowstorm.core.data.repositories.ExportConfigurationRepository;
 import org.snomed.snowstorm.core.data.services.BranchMetadataHelper;
 import org.snomed.snowstorm.core.data.services.BranchMetadataKeys;
@@ -38,6 +39,7 @@ import org.springframework.util.CollectionUtils;
 import java.io.*;
 import java.nio.file.Files;
 import java.util.*;
+import java.util.concurrent.ExecutorService;
 import java.util.stream.Collectors;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
@@ -73,6 +75,9 @@ public class ExportService {
 	@Autowired
 	private CodeSystemService codeSystemService;
 
+	@Autowired
+	private ExecutorService executorService;
+
 	private final Set<String> refsetTypesRequiredForClassification = Sets.newHashSet(Concepts.REFSET_MRCM_ATTRIBUTE_DOMAIN, Concepts.OWL_EXPRESSION_TYPE_REFERENCE_SET);
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
@@ -86,6 +91,7 @@ public class ExportService {
 		}
 		branchService.findBranchOrThrow(exportConfiguration.getBranchPath());
 		exportConfiguration.setId(UUID.randomUUID().toString());
+		exportConfiguration.setStatus(ExportStatus.PENDING);
 		if (exportConfiguration.getFilenameEffectiveDate() == null) {
 			exportConfiguration.setFilenameEffectiveDate(DateUtil.DATE_STAMP_FORMAT.format(new Date()));
 		}
@@ -107,6 +113,7 @@ public class ExportService {
 				throw new IllegalStateException("Export already started.");
 			}
 			exportConfiguration.setStartDate(new Date());
+			exportConfiguration.setStatus(ExportStatus.RUNNING);
 			exportConfigurationRepository.save(exportConfiguration);
 		}
 
@@ -118,8 +125,12 @@ public class ExportService {
 		try (FileInputStream inputStream = new FileInputStream(exportFile)) {
 			long fileSize = Files.size(exportFile.toPath());
 			long bytesTransferred = Streams.copy(inputStream, outputStream, false);
+			exportConfiguration.setStatus(ExportStatus.COMPLETED);
+			exportConfigurationRepository.save(exportConfiguration);
 			logger.info("Transmitted " + bytesTransferred + "bytes (file size = " + fileSize + "bytes) for export " + exportConfiguration.getId());
 		} catch (IOException e) {
+			exportConfiguration.setStatus(ExportStatus.FAILED);
+			exportConfigurationRepository.save(exportConfiguration);
 			throw new ExportException("Failed to copy RF2 data into output stream.", e);
 		} finally {
 			exportFile.delete();
@@ -129,6 +140,64 @@ public class ExportService {
 
 	public File exportRF2ArchiveFile(String branchPath, String filenameEffectiveDate, RF2Type exportType, boolean forClassification) throws ExportException {
 		return exportRF2ArchiveFile(branchPath, filenameEffectiveDate, exportType, forClassification, false, null, null, null, true, new HashSet<>(), null);
+	}
+
+	public void exportRF2ArchiveAsync(ExportConfiguration exportConfiguration) {
+		executorService.execute(() -> {
+			synchronized (this) {
+				if (exportConfiguration.getStartDate() != null) {
+					throw new IllegalStateException("Export already started.");
+				}
+
+				exportConfiguration.setStartDate(new Date());
+				exportConfiguration.setStatus(ExportStatus.RUNNING);
+				exportConfigurationRepository.save(exportConfiguration);
+			}
+
+			File file = null;
+			try {
+				file = exportRF2ArchiveFile(exportConfiguration.getBranchPath(), exportConfiguration.getFilenameEffectiveDate(),
+						exportConfiguration.getType(), exportConfiguration.isConceptsAndRelationshipsOnly(), exportConfiguration.isUnpromotedChangesOnly(),
+						exportConfiguration.getTransientEffectiveTime(), exportConfiguration.getStartEffectiveTime(), exportConfiguration.getModuleIds(),
+						exportConfiguration.isLegacyZipNaming(), exportConfiguration.getRefsetIds(), exportConfiguration.getId());
+
+				exportConfiguration.setExportFilePath(file.getAbsolutePath());
+				exportConfiguration.setStatus(ExportStatus.COMPLETED);
+			} catch (ExportException | SecurityException e) {
+				exportConfiguration.setExportFilePath(null);
+				exportConfiguration.setStatus(ExportStatus.FAILED);
+			} finally {
+				exportConfigurationRepository.save(exportConfiguration);
+				if (file != null) {
+					file.deleteOnExit();
+				}
+			}
+		});
+	}
+
+	public void copyRF2Archive(ExportConfiguration exportConfiguration, OutputStream outputStream) {
+		File archive = new File(exportConfiguration.getExportFilePath());
+		if (archive.isFile()) {
+			try (FileInputStream inputStream = new FileInputStream(archive)) {
+				long fileSize = Files.size(archive.toPath());
+				long bytesTransferred = Streams.copy(inputStream, outputStream, false);
+				logger.info("Transmitted " + bytesTransferred + "bytes (file size = " + fileSize + "bytes) for export " + exportConfiguration.getId());
+			} catch (IOException e) {
+				throw new ExportException("Failed to copy RF2 data into output stream.", e);
+			} finally {
+				boolean delete = archive.delete();
+				if (delete) {
+					logger.error("Deleted {} export file.", exportConfiguration.getId());
+					exportConfiguration.setStatus(ExportStatus.DOWNLOADED);
+					exportConfigurationRepository.save(exportConfiguration);
+				} else {
+					logger.error("Failed to delete {} export file.", exportConfiguration.getId());
+				}
+			}
+		} else {
+			exportConfiguration.setStatus(ExportStatus.FAILED);
+			exportConfigurationRepository.save(exportConfiguration);
+		}
 	}
 
 	private File exportRF2ArchiveFile(String branchPath, String filenameEffectiveDate, RF2Type exportType, boolean forClassification,
