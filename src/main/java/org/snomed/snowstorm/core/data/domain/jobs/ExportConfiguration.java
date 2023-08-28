@@ -3,6 +3,8 @@ package org.snomed.snowstorm.core.data.domain.jobs;
 import io.swagger.v3.oas.annotations.media.Schema;
 import org.snomed.snowstorm.core.rf2.RF2Type;
 import org.springframework.data.elasticsearch.annotations.Document;
+import org.springframework.data.elasticsearch.annotations.Field;
+import org.springframework.data.elasticsearch.annotations.FieldType;
 
 import javax.validation.constraints.NotNull;
 import javax.validation.constraints.Pattern;
@@ -47,6 +49,16 @@ public class ExportConfiguration {
 
 	@Schema(description = "If refsetIds are included, this indicates that the export will be a refset-only export.")
 	private Set<String> refsetIds;
+
+	@Schema(defaultValue = "PENDING")
+	private ExportStatus status;
+
+	@Schema
+	@Field(type = FieldType.Keyword)
+	private String exportFilePath;
+
+	@Schema(defaultValue = "false")
+	private boolean startExport;
 
 	public ExportConfiguration() {
 	}
@@ -150,5 +162,29 @@ public class ExportConfiguration {
 
 	public void setRefsetIds(Set<String> refsetIds) {
 		this.refsetIds = refsetIds;
+	}
+
+	public ExportStatus getStatus() {
+		return status;
+	}
+
+	public void setStatus(ExportStatus status) {
+		this.status = status;
+	}
+
+	public String getExportFilePath() {
+		return exportFilePath;
+	}
+
+	public void setExportFilePath(String exportFilePath) {
+		this.exportFilePath = exportFilePath;
+	}
+
+	public boolean isStartExport() {
+		return startExport;
+	}
+
+	public void setStartExport(boolean startExport) {
+		this.startExport = startExport;
 	}
 }
