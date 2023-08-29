@@ -6,6 +6,7 @@ import org.ihtsdo.otf.snomedboot.ReleaseImportException;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 import org.snomed.otf.snomedboot.testutil.ZipUtil;
 import org.snomed.snowstorm.AbstractTest;
 import org.snomed.snowstorm.config.Config;
@@ -21,6 +22,7 @@ import java.io.IOException;
 import java.util.*;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.any;
 import static org.snomed.snowstorm.core.data.domain.Concepts.*;
 import static org.snomed.snowstorm.core.data.services.traceability.Activity.ActivityType.*;
 
@@ -760,6 +762,29 @@ class TraceabilityLogServiceTest extends AbstractTest {
 		final Set<Activity.ComponentChange> componentChanges = activity.getChanges().iterator().next().getComponentChanges();
 		assertEquals(1, componentChanges.size());
 		assertEquals(Activity.ChangeType.UPDATE, componentChanges.iterator().next().getChangeType());
+	}
+
+	@Test
+	void testTraceabilityOnlyLogsIfNoExceptionsThrown() throws ServiceException {
+		// Create root concept
+		conceptService.create(new Concept(Concepts.SNOMEDCT_ROOT), "MAIN");
+
+		// Create project
+		branchService.create("MAIN/project");
+
+		// Add new hierarchy to project
+		conceptService.create(new Concept()
+				.addDescription(new Description("Vehicle (vehicle)").setTypeId(FSN))
+				.addDescription(new Description("Vehicle").setTypeId(SYNONYM))
+				.addAxiom(new Relationship(ISA, SNOMEDCT_ROOT)), "MAIN/project");
+
+		// Promote project to code system
+		Mockito.doThrow(IllegalStateException.class).when(commitServiceHookClient).preCommitCompletion(any()); // When SAC is incomplete, IllegalStateException is thrown.
+		assertThrows(IllegalStateException.class, () -> branchMergeService.mergeBranchSync("MAIN/project", "MAIN", Collections.emptySet()));
+
+		// Only two content changes should be recorded, no promotions
+		Stack<Activity> traceabilityActivitiesLogged = getTraceabilityActivitiesLogged();
+		assertEquals(2, traceabilityActivitiesLogged.size());
 	}
 
 	private List<String> getRelationshipIds(Concept concept) {

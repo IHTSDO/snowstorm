@@ -88,10 +88,10 @@ class SemanticIndexUpdateServiceTest extends AbstractTest {
 		assertEquals(MRCMUpdateService.class, commitListeners.get(3).getClass());
 		assertEquals(BranchClassificationStatusService.class, commitListeners.get(4).getClass());
 		assertEquals(RefsetDescriptorUpdaterService.class, commitListeners.get(5).getClass());
-		assertEquals(TraceabilityLogService.class, commitListeners.get(6).getClass());
-		assertEquals(IntegrityService.class, commitListeners.get(7).getClass());
-		assertEquals(MultiSearchService.class, commitListeners.get(8).getClass());
-		assertEquals(ECLPreprocessingService.class, commitListeners.get(9).getClass());
+		assertEquals(IntegrityService.class, commitListeners.get(6).getClass());
+		assertEquals(MultiSearchService.class, commitListeners.get(7).getClass());
+		assertEquals(ECLPreprocessingService.class, commitListeners.get(8).getClass());
+		assertEquals(TraceabilityLogService.class, commitListeners.get(10).getClass());
 	}
 
 	@Test
