@@ -86,7 +86,7 @@ public class LocalSequentialIdentifierSource implements IdentifierSource {
 				componentClass = Relationship.class;
 				idField = Relationship.Fields.RELATIONSHIP_ID;
 				break;
-			case "06":
+			case "16":
 				// Expression identifier
 				componentClass = ReferenceSetMember.class;
 				idField = ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID;
