@@ -93,7 +93,7 @@ public class LocalSequentialIdentifierSource implements IdentifierSource {
 				break;
 		}
 		if (idField == null) {
-			throw new IllegalStateException(String.format("Partition '%s' is not handled by the configured identifier generator.", partitionId));
+			throw new IllegalArgumentException(String.format("Partition '%s' is not handled by the configured identifier generator.", partitionId));
 		}
 
 		String regex;
@@ -138,6 +138,11 @@ public class LocalSequentialIdentifierSource implements IdentifierSource {
 				highestSequence = Integer.parseInt(highestSctid.substring(0, highestSctid.lastIndexOf(namespaceId + "")));
 			}
 		}
+
+		if (namespaceId == 0 && highestSequence < 100) {
+			highestSequence = 100;
+		}
+
 		return highestSequence;
 	}
 
