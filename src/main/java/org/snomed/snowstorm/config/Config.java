@@ -113,6 +113,7 @@ public abstract class Config extends ElasticsearchConfig {
 	// Branch metadata values
 	public static final String DEFAULT_MODULE_ID_KEY = "defaultModuleId";
 	public static final String DEFAULT_NAMESPACE_KEY = "defaultNamespace";
+	public static final String EXPECTED_EXTENSION_MODULES = "expectedExtensionModules";
 
 	@Value("${elasticsearch.index.max.terms.count}")
 	private int indexMaxTermsCount;
