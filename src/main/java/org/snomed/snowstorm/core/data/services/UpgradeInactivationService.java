@@ -5,11 +5,15 @@ import io.kaicode.elasticvc.api.BranchCriteria;
 import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.api.ComponentService;
 import io.kaicode.elasticvc.api.VersionControlHelper;
+import io.kaicode.elasticvc.domain.Branch;
 import io.kaicode.elasticvc.domain.Commit;
+import io.kaicode.elasticvc.domain.Metadata;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
+import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.snomed.snowstorm.config.Config;
 import org.snomed.snowstorm.core.data.domain.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
@@ -66,38 +70,49 @@ public class UpgradeInactivationService {
 		}
 
 		List<ReferenceSetMember> membersToSave = new ArrayList<>();
-
+		List<String> expectedExtensionModules = getExpectedExtensionModules(branchPath);
 		// find descriptions with inactivation indicators on the extension branch only
 		BranchCriteria changesOnBranchOnly = versionControlHelper.getChangesOnBranchCriteria(codeSystem.getBranchPath());
 		for (List<Long> batch : Iterables.partition(inactiveConceptIds, CLAUSE_LIMIT)) {
-			NativeSearchQuery descriptionInactivationQuery = new NativeSearchQueryBuilder()
-					.withQuery(boolQuery()
-							.must(changesOnBranchOnly.getEntityBranchCriteria(ReferenceSetMember.class))
-							.must(termQuery(REFSET_ID, Concepts.DESCRIPTION_INACTIVATION_INDICATOR_REFERENCE_SET))
-							.must(termQuery(ReferenceSetMember.Fields.ADDITIONAL_FIELDS_PREFIX + "valueId", Concepts.CONCEPT_NON_CURRENT))
-							.must(termsQuery(CONCEPT_ID, batch))
-							.must(termQuery(ACTIVE, true)))
+			BoolQueryBuilder queryDescriptionsWithInactivationIndicators = boolQuery()
+					.must(changesOnBranchOnly.getEntityBranchCriteria(ReferenceSetMember.class))
+					.must(termQuery(REFSET_ID, Concepts.DESCRIPTION_INACTIVATION_INDICATOR_REFERENCE_SET))
+					.must(termQuery(ADDITIONAL_FIELDS_PREFIX + "valueId", Concepts.CONCEPT_NON_CURRENT))
+					.must(termsQuery(CONCEPT_ID, batch))
+					.must(termQuery(ACTIVE, true));
+
+			if (expectedExtensionModules != null) {
+				queryDescriptionsWithInactivationIndicators.must(termsQuery(MODULE_ID, expectedExtensionModules));
+			}
+
+			NativeSearchQuery descriptionsWithInactivationIndicators = new NativeSearchQueryBuilder()
+					.withQuery(queryDescriptionsWithInactivationIndicators)
 					.withFields(REFERENCED_COMPONENT_ID)
 					.withPageable(ComponentService.LARGE_PAGE)
 					.build();
 
 			List<Long> descriptionIdsWithIndicators = new LongArrayList();
-			try (SearchHitsIterator<ReferenceSetMember> memberResults = elasticsearchTemplate.searchForStream(descriptionInactivationQuery, ReferenceSetMember.class)) {
+			try (SearchHitsIterator<ReferenceSetMember> memberResults = elasticsearchTemplate.searchForStream(descriptionsWithInactivationIndicators, ReferenceSetMember.class)) {
 				memberResults.forEachRemaining(hit -> descriptionIdsWithIndicators.add(Long.parseLong(hit.getContent().getReferencedComponentId())));
 			}
 
 			// find active descriptions without description inactivation indicators for inactive concepts
-			NativeSearchQuery descriptionQuery = new NativeSearchQueryBuilder()
-					.withQuery(boolQuery()
-							.must(changesOnBranchOnly.getEntityBranchCriteria(Description.class))
-							.must(termQuery(SnomedComponent.Fields.ACTIVE, true))
-							.must(termsQuery(Description.Fields.CONCEPT_ID, batch))
-							.mustNot(termsQuery(Description.Fields.DESCRIPTION_ID, descriptionIdsWithIndicators)))
+			BoolQueryBuilder queryDescriptionsWithoutInactivationIndicators = boolQuery()
+					.must(changesOnBranchOnly.getEntityBranchCriteria(Description.class))
+					.must(termQuery(SnomedComponent.Fields.ACTIVE, true))
+					.must(termsQuery(Description.Fields.CONCEPT_ID, batch))
+					.mustNot(termsQuery(Description.Fields.DESCRIPTION_ID, descriptionIdsWithIndicators));
+
+			if (expectedExtensionModules != null) {
+				queryDescriptionsWithoutInactivationIndicators.must(termsQuery(MODULE_ID, expectedExtensionModules));
+			}
+
+			NativeSearchQuery descriptionsWithoutInactivationIndicators = new NativeSearchQueryBuilder()
+					.withQuery(queryDescriptionsWithoutInactivationIndicators)
 					.withPageable(ComponentService.LARGE_PAGE)
 					.build();
 
-
-			try (SearchHitsIterator<Description> descriptions = elasticsearchTemplate.searchForStream(descriptionQuery, Description.class)) {
+			try (SearchHitsIterator<Description> descriptions = elasticsearchTemplate.searchForStream(descriptionsWithoutInactivationIndicators, Description.class)) {
 				descriptions.forEachRemaining(hit -> {
 					Description description = hit.getContent();
 					// add description inactivation indicators
@@ -254,5 +269,24 @@ public class UpgradeInactivationService {
 			inactiveDescriptions.forEachRemaining(hit -> result.add(Long.parseLong(hit.getContent().getDescriptionId())));
 		}
 		return result;
+	}
+
+	private List<String> getExpectedExtensionModules(String branchPath) {
+		Branch branch = branchService.findLatest(branchPath);
+		if (branch == null) {
+			return null;
+		}
+
+		Metadata metadata = branch.getMetadata();
+		if (metadata == null) {
+			return null;
+		}
+
+		List<String> expectedExtensionModules = metadata.getList(Config.EXPECTED_EXTENSION_MODULES);
+		if (expectedExtensionModules == null || expectedExtensionModules.isEmpty()) {
+			return null;
+		}
+
+		return expectedExtensionModules;
 	}
 }
