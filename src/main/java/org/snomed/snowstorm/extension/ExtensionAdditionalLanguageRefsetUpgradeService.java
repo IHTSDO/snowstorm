@@ -9,7 +9,10 @@ import io.kaicode.elasticvc.domain.Metadata;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.snomed.snowstorm.core.data.domain.*;
+import org.snomed.snowstorm.core.data.domain.CodeSystem;
+import org.snomed.snowstorm.core.data.domain.Concepts;
+import org.snomed.snowstorm.core.data.domain.Description;
+import org.snomed.snowstorm.core.data.domain.ReferenceSetMember;
 import org.snomed.snowstorm.core.data.services.BranchMetadataHelper;
 import org.snomed.snowstorm.core.data.services.CodeSystemVersionService;
 import org.snomed.snowstorm.core.data.services.NotFoundException;
@@ -28,9 +31,9 @@ import java.util.stream.Collectors;
 import static com.google.common.collect.Iterables.partition;
 import static io.kaicode.elasticvc.api.ComponentService.LARGE_PAGE;
 import static org.elasticsearch.index.query.QueryBuilders.*;
-import static org.snomed.snowstorm.core.data.domain.Description.Fields.*;
-import static org.snomed.snowstorm.core.data.domain.ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID;
-import static org.snomed.snowstorm.core.data.domain.ReferenceSetMember.Fields.REFSET_ID;
+import static org.snomed.snowstorm.core.data.domain.Description.Fields.DESCRIPTION_ID;
+import static org.snomed.snowstorm.core.data.domain.Description.Fields.TYPE_ID;
+import static org.snomed.snowstorm.core.data.domain.ReferenceSetMember.Fields.*;
 import static org.snomed.snowstorm.core.data.domain.ReferenceSetMember.LanguageFields.ACCEPTABILITY_ID;
 import static org.snomed.snowstorm.core.data.domain.ReferenceSetMember.LanguageFields.ACCEPTABILITY_ID_FIELD_PATH;
 import static org.snomed.snowstorm.core.data.domain.SnomedComponent.Fields.ACTIVE;
@@ -174,8 +177,8 @@ public class ExtensionAdditionalLanguageRefsetUpgradeService {
 							.must(branchCriteria.getEntityBranchCriteria(ReferenceSetMember.class))
 							.must(termQuery(REFSET_ID, config.getDefaultEnglishLanguageRefsetId()))
 							.must(termsQuery(ACCEPTABILITY_ID_FIELD_PATH, Concepts.PREFERRED, Concepts.ACCEPTABLE))
-							.must(termsQuery(CONCEPT_ID, batch))
-					).withFields(REFERENCED_COMPONENT_ID, ACTIVE, ACCEPTABILITY_ID_FIELD_PATH, CONCEPT_ID)
+							.must(termsQuery(ReferenceSetMember.Fields.CONCEPT_ID, batch))
+					).withFields(MEMBER_ID, EFFECTIVE_TIME, ACTIVE, MODULE_ID, REFSET_ID, REFERENCED_COMPONENT_ID, ACCEPTABILITY_ID_FIELD_PATH, CONCEPT_ID)
 					.withPageable(LARGE_PAGE);
 
 			try (final SearchHitsIterator<ReferenceSetMember> searchHitsIterator = elasticsearchTemplate.searchForStream(queryBuilder.build(), ReferenceSetMember.class)) {
