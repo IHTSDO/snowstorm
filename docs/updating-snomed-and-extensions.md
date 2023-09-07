@@ -2,11 +2,11 @@
 
 ## Contents
 
-- [Extensions vs Editions](#extensions-vs-editions)
-- [Loading the initial data](#loading-the-initial-data)
-- [Loading another Extension](#loading-another-extension)
+- [Editions vs Extensions](#editions-vs-extensions)
+- [Loading an Edition](#loading-an-edition)
+- [Loading Extensions](#loading-extensions)
 - [Importing a new International Edition](#importing-a-new-international-edition)
-- [Upgrading an Extension to the new International Edition](#upgrading-an-extension-to-the-new-international-edition)
+- [Upgrading an Extension/Edition to the new International Edition](#upgrading-an-extensionedition-to-the-new-international-edition)
 - [Upgrading to a new local Edition or Extension](#upgrading-to-a-new-local-edition-or-extension)
 
 ## Editions vs Extensions
