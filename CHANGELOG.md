@@ -3,6 +3,30 @@ All notable changes to this project will be documented in this file.
 
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 9.0.0 Release (September 2023)
+Major release with Java 17 upgrade.
+
+### Breaking
+- Java 17 must be used with this release.
+
+### Features
+- MAINT-2282 Add `POST multisearch/descriptions` endpoint for searching Descriptions across multiple CodeSystems
+
+### Improvements
+- MAINT-1038 Raise merge conflict when one branch has a deleted Concept and the other has a new Synonym on the same Concept
+- MAINT-1930 Retrieve semantic tag based on language, with default being en
+- PIP-289 Upgrade from Java 11 to Java 17
+- MAINT-2199 Improve en-gb language refsets copying during IE and NZ extension upgrade to detect any existing preferred terms created in extension module
+
+### Fixes
+- ISTO-95 Block `FULL` RF2 imports unless request is on an empty `MAIN` branch
+- PIP-267 Stop classification status becoming stuck when encountering a `NotFoundException`
+- MAINT-2227 Fix bug preventing loading of all content in LOINC (2.72) package
+- MAINT-2296 Stop throwing exception when no Concepts found when querying `concept-or-identifier-ref-concept` endpoint
+- MAINT-2280 Do not record any Traceability Activities if an exception occurs
+- MAINT-2310 Suppress `EC2MetadataUtils` warning message
+- FRI-543 Stop duplicate Concept Not Current indicators from being generated when a CodeSystem upgrades its dependency
+
 ## 8.3.0 Release (August 2023)
 Maintenance release with bug fixes and improvements.
 
