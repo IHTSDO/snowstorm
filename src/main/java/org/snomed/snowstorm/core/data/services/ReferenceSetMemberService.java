@@ -669,10 +669,13 @@ public class ReferenceSetMemberService extends ComponentService {
 		return PageWithBucketAggregationsFactory.createPage(pageResults, pageResults.getAggregations(), pageRequest);
 	}
 
-	public Map<String, String> findRefsetTypes(Set<String> referenceSetIds, BranchCriteria branchCriteria, String branch) {
-		List<Long> allRefsetTypes = eclQueryService.selectConceptIds("<!" + Concepts.REFSET, branchCriteria, false, LARGE_PAGE).getContent();
+	public Map<String, String> findRefsetTypes(Set<String> referenceSetIds, BranchCriteria branchCriteria) {
+		// Refset types are either first level children of 900000000000455006 |Refset| or are specifically configured in the Snowstorm config. For example each MRCM refset type.
+		List<Long> refsetTypesFromHierarchy = eclQueryService.selectConceptIds("<!" + Concepts.REFSET, branchCriteria, false, LARGE_PAGE).getContent();
+		Set<String> refsetTypesFromConfig = getConfiguredTypesMap().keySet();
 
-		final NativeSearchQuery searchQuery = new NativeSearchQueryBuilder()
+		// Load the semantic index entry for all the refsets we are interested in, so we can check their ancestors
+		final NativeSearchQuery refsetQuery = new NativeSearchQueryBuilder()
 				.withQuery(boolQuery()
 						.must(branchCriteria.getEntityBranchCriteria(QueryConcept.class))
 						.must(termsQuery(QueryConcept.Fields.CONCEPT_ID, referenceSetIds))
@@ -680,21 +683,39 @@ public class ReferenceSetMemberService extends ComponentService {
 				)
 				.withPageable(LARGE_PAGE)
 				.build();
-		final List<QueryConcept> concepts = elasticsearchTemplate.search(searchQuery, QueryConcept.class).stream().map(SearchHit::getContent).collect(Collectors.toList());
+		final List<QueryConcept> refsetConceptIndexEntry = elasticsearchTemplate.search(refsetQuery, QueryConcept.class).stream()
+				.map(SearchHit::getContent).collect(Collectors.toList());
 
-		Map<String, String> refsetTypes = new HashMap<>();
-		for (QueryConcept concept : concepts) {
-			String conceptId = concept.getConceptIdL().toString();
-			if (allRefsetTypes.contains(concept.getConceptIdL())) {
-				refsetTypes.put(conceptId, conceptId);
+		// Build map of refset id to type id
+		Map<String, String> refsetToTypeMap = new HashMap<>();
+		for (QueryConcept semanticIndexRefsetConcept : refsetConceptIndexEntry) {
+			String conceptId = semanticIndexRefsetConcept.getConceptIdL().toString();
+			if (refsetTypesFromHierarchy.contains(semanticIndexRefsetConcept.getConceptIdL())) {
+				// Refset is actually a type, map to itself
+				refsetToTypeMap.put(conceptId, conceptId);
 			} else {
-				for (Long ancestor : concept.getAncestors()) {
-					if (allRefsetTypes.contains(ancestor)) {
-						refsetTypes.put(conceptId, ancestor.toString());
+				String type = null;
+				for (Long ancestor : semanticIndexRefsetConcept.getAncestors()) {
+					if (refsetTypesFromConfig.contains(ancestor.toString())) {
+						// Refset ancestor matches one of the configured types. These are generally more specific than those in the hierarchy.
+						type = ancestor.toString();
 					}
 				}
+				if (type == null) {
+					for (Long ancestor : semanticIndexRefsetConcept.getAncestors()) {
+						if (refsetTypesFromHierarchy.contains(ancestor)) {
+							// Refset ancestor matches on of the "type" refsets from the hierarchy
+							type = ancestor.toString();
+						}
+					}
+				}
+				refsetToTypeMap.put(conceptId, type);
 			}
 		}
-		return refsetTypes;
+		return refsetToTypeMap;
+	}
+
+	public Map<String, ReferenceSetType> getConfiguredTypesMap() {
+		return referenceSetTypesConfigurationService.getConfiguredTypes().stream().collect(Collectors.toMap(ReferenceSetType::getConceptId, Function.identity()));
 	}
 }
