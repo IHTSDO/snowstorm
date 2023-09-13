@@ -695,10 +695,15 @@ public class ReferenceSetMemberService extends ComponentService {
 				refsetToTypeMap.put(conceptId, conceptId);
 			} else {
 				String type = null;
-				for (Long ancestor : semanticIndexRefsetConcept.getAncestors()) {
-					if (refsetTypesFromConfig.contains(ancestor.toString())) {
-						// Refset ancestor matches one of the configured types. These are generally more specific than those in the hierarchy.
-						type = ancestor.toString();
+				if (refsetTypesFromConfig.contains(conceptId)) {
+					// Refset matches one of the configured types. These are generally more specific than those in the hierarchy.
+					type = conceptId;
+				} else {
+					for (Long ancestor : semanticIndexRefsetConcept.getAncestors()) {
+						if (refsetTypesFromConfig.contains(ancestor.toString())) {
+							// Refset ancestor matches one of the configured types. These are generally more specific than those in the hierarchy.
+							type = ancestor.toString();
+						}
 					}
 				}
 				if (type == null) {
