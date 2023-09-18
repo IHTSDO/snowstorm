@@ -21,7 +21,7 @@ import static org.elasticsearch.index.query.QueryBuilders.termsQuery;
  */
 public class LocalRandomIdentifierSource implements IdentifierSource {
 
-	public static final String POSTCOORDINATED_EXPRESSION_PARTITION_ID = "06";
+	public static final String POSTCOORDINATED_EXPRESSION_PARTITION_ID = "16";
 
 	private final ElasticsearchRestTemplate elasticsearchTemplate;
 
