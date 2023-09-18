@@ -68,33 +68,30 @@ public class LocalSequentialIdentifierSource implements IdentifierSource {
 	private int findHighestIdentifierSequence(int namespaceId, String partitionId) {
 
 		Class<? extends SnomedComponent<?>> componentClass = null;
-		String idField = null;
-
-		switch (partitionId) {
-			case "00":
-			case "10":
+		String idField = switch (partitionId) {
+			case "00", "10" -> {
 				// Concept identifier
 				componentClass = Concept.class;
-				idField = Concept.Fields.CONCEPT_ID;
-				break;
-			case "01":
-			case "11":
+				yield Concept.Fields.CONCEPT_ID;
+			}
+			case "01", "11" -> {
 				// Description identifier
 				componentClass = Description.class;
-				idField = Description.Fields.DESCRIPTION_ID;
-				break;
-			case "02":
-			case "12":
+				yield Description.Fields.DESCRIPTION_ID;
+			}
+			case "02", "12" -> {
 				// Relationship identifier
 				componentClass = Relationship.class;
-				idField = Relationship.Fields.RELATIONSHIP_ID;
-				break;
-			case "16":
+				yield Relationship.Fields.RELATIONSHIP_ID;
+			}
+			case "16" -> {
 				// Expression identifier
 				componentClass = ReferenceSetMember.class;
-				idField = ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID;
-				break;
-		}
+				yield ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID;
+			}
+			default -> null;
+		};
+
 		if (idField == null) {
 			throw new IllegalArgumentException(String.format("Partition '%s' is not handled by the configured identifier generator.", partitionId));
 		}
