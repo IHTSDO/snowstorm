@@ -21,8 +21,8 @@ class ExpressionRepositoryServiceTest extends AbstractExpressionTest {
 		PostCoordinatedExpression expression = expressionRepository.createExpression(branch, "83152002 |Oophorectomy|", "");
 		String expressionId = expression.getId();
 		System.out.println("Expression ID is " + expressionId);
-		assertEquals("06", LocalRandomIdentifierSource.POSTCOORDINATED_EXPRESSION_PARTITION_ID);
-		assertEquals("06", expressionId.substring(expressionId.length() - 3, expressionId.length() - 1));
+		assertEquals("16", LocalRandomIdentifierSource.POSTCOORDINATED_EXPRESSION_PARTITION_ID);
+		assertEquals("16", expressionId.substring(expressionId.length() - 3, expressionId.length() - 1));
 
 		// Single concept
 		assertEquals("=== 83152002",
