@@ -14,7 +14,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.jms.annotation.JmsListener;
 import org.springframework.stereotype.Component;
 
-import javax.jms.JMSException;
+import jakarta.jms.JMSException;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
