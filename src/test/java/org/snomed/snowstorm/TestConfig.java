@@ -22,7 +22,7 @@ import org.testcontainers.DockerClientFactory;
 import org.testcontainers.elasticsearch.ElasticsearchContainer;
 import org.testcontainers.junit.jupiter.Container;
 
-import javax.annotation.PostConstruct;
+import jakarta.annotation.PostConstruct;
 
 @PropertySource("application.properties")
 @PropertySource("application-test.properties")
@@ -37,7 +37,7 @@ import javax.annotation.PostConstruct;
 				DataSourceAutoConfiguration.class})
 public class TestConfig extends Config {
 
-	private static final String ELASTIC_SEARCH_SERVER_VERSION = "7.10.0";
+	private static final String ELASTIC_SEARCH_SERVER_VERSION = "8.7.1";
 
 	// set it to true to use local instance instead of test container
 	static final boolean useLocalElasticsearch = false;
