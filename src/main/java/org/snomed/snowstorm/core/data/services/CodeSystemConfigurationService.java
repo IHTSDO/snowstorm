@@ -2,7 +2,7 @@ package org.snomed.snowstorm.core.data.services;
 
 import org.snomed.snowstorm.core.data.services.pojo.CodeSystemConfiguration;
 
-import javax.annotation.PostConstruct;
+import jakarta.annotation.PostConstruct;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;

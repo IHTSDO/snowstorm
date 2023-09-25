@@ -3,7 +3,7 @@ package org.snomed.snowstorm.ecl;
 import org.jetbrains.annotations.NotNull;
 import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.services.*;
-import javax.annotation.PostConstruct;
+import jakarta.annotation.PostConstruct;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
