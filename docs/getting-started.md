@@ -2,7 +2,7 @@
 
 ## Prerequisites
 
-- Java 11
+- Java 17
 - Maven 3
 - [SNOMED CT International Edition RF2 release files](https://www.snomed.org/snomed-ct/get-snomed)
 - About 8G of memory
@@ -16,7 +16,8 @@ Elasticsearch will work best with another 4G of memory left free on the server f
 ### Install Elasticsearch
 Download and install [Elasticsearch version 7](https://www.elastic.co/downloads/past-releases/elasticsearch-7-10-2) (tested against 7.10.2). 
 
-Update the configuration file _config/jvm.options_ with the memory options `-Xms4g` and `-Xmx4g`.
+Update the configuration file _config/jvm.options_ with the memory options `-Xms4g` and `-Xmx4g`.  
+See [Set JVM Options](https://www.elastic.co/guide/en/elasticsearch/reference/7.17/advanced-configuration.html#set-jvm-options).
 
 ### Get Snowstorm Application Jar
 Download the latest release jar from the [releases page](https://github.com/IHTSDO/snowstorm/releases).
