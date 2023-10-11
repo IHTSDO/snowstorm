@@ -52,7 +52,7 @@ Use the following in the request to create the branch:
 {
   "shortName": "SNOMEDCT-ES",
   "branchPath": "MAIN/SNOMEDCT-ES",
-  "dependantVersion": 20210131
+  "dependantVersionEffectiveTime": 20210131
 }
 ```
 The dependantVersion is the version of the Edition which the extension being imported is dependant on. For example an extension with an effective date of 20210430 might be dependant on the International Edition 20210131.
