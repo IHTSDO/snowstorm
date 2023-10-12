@@ -535,6 +535,16 @@ public class Concept extends SnomedComponent<Concept> implements ConceptView, Sn
 		}
 
 		setGciAxioms(gciAxioms);
+
+		// Annotations
+		Set<Annotation> annotations = new HashSet<>();
+		for (Annotation annotation : concept.getAnnotations()) {
+			Annotation clone = new Annotation();
+			clone.clone(annotation);
+			annotations.add(clone);
+		}
+
+		setAnnotations(annotations);
 	}
 
 	@Override
