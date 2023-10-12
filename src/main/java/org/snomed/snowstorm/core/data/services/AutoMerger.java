@@ -518,7 +518,7 @@ public class AutoMerger {
     }
 
     private void reapplyAnnotationMemberChanges(Map<String, ReferenceSetMember> sourceMembers, Map<String, ReferenceSetMember> targetMembersOld, Map<String, ReferenceSetMember> targetMembersNew, Set<String> changedComponentIds, Concept mergedConcept) {
-        Set<ReferenceSetMember> mergedReferenceSetMembers = new HashSet<>();
+        Map<String, ReferenceSetMember> mergedReferenceSetMembers = new HashMap<>();
         for (String changedMemberId : changedComponentIds) {
             ReferenceSetMember sourceReferenceSetMember = sourceMembers.get(changedMemberId);
             ReferenceSetMember targetReferenceSetMemberOld = targetMembersOld.get(changedMemberId);
@@ -565,11 +565,23 @@ public class AutoMerger {
             }
 
             mergedReferenceSetMember.updateEffectiveTime();
-            mergedReferenceSetMembers.add(mergedReferenceSetMember);
+            mergedReferenceSetMembers.put(mergedReferenceSetMember.getMemberId(), mergedReferenceSetMember);
         }
+        // Merge unchanged Annotatations
+        for (Map.Entry<String, ReferenceSetMember> entrySet : sourceMembers.entrySet()) {
+            String unchangedAnnotationId = entrySet.getKey();
+            ReferenceSetMember annotationMember = entrySet.getValue();
+
+            // There are no target edits if the identifier is absent; therefore, take from source.
+            mergedReferenceSetMembers.putIfAbsent(unchangedAnnotationId, annotationMember);
+        }
+
         if (!mergedReferenceSetMembers.isEmpty()) {
             Set<Annotation> annotations = new HashSet<>();
-            mergedReferenceSetMembers.forEach(member -> annotations.add(new Annotation().fromRefsetMember(member)));
+            mergedReferenceSetMembers.values().forEach(item -> {
+                Annotation annotation = new Annotation().fromRefsetMember(item);
+                annotations.add(annotation);
+            });
             mergedConcept.setAnnotations(annotations);
         }
     }
