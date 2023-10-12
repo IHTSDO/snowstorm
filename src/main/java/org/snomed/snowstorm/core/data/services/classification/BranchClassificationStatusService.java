@@ -1,5 +1,7 @@
 package org.snomed.snowstorm.core.data.services.classification;
 
+import co.elastic.clients.elasticsearch._types.query_dsl.BoolQuery;
+import co.elastic.clients.elasticsearch._types.query_dsl.Query;
 import io.kaicode.elasticvc.api.BranchCriteria;
 import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.api.CommitListener;
@@ -8,7 +10,7 @@ import io.kaicode.elasticvc.domain.Branch;
 import io.kaicode.elasticvc.domain.Commit;
 import io.kaicode.elasticvc.domain.DomainEntity;
 import io.kaicode.elasticvc.domain.Metadata;
-import org.elasticsearch.index.query.BoolQueryBuilder;
+
 import org.snomed.snowstorm.core.data.domain.Concept;
 import org.snomed.snowstorm.core.data.domain.Concepts;
 import org.snomed.snowstorm.core.data.domain.ReferenceSetMember;
@@ -17,12 +19,12 @@ import org.snomed.snowstorm.core.data.domain.classification.ClassificationStatus
 import org.snomed.snowstorm.core.data.repositories.ClassificationRepository;
 import org.snomed.snowstorm.core.data.services.BranchMetadataHelper;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.elasticsearch.core.ElasticsearchRestTemplate;
-import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
+import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
+import org.springframework.data.elasticsearch.client.elc.NativeQueryBuilder;
 import org.springframework.stereotype.Service;
 
-import static org.elasticsearch.index.query.QueryBuilders.boolQuery;
-import static org.elasticsearch.index.query.QueryBuilders.termQuery;
+import static co.elastic.clients.elasticsearch._types.query_dsl.QueryBuilders.bool;
+import static io.kaicode.elasticvc.helper.QueryHelper.termQuery;
 
 @Service
 public class BranchClassificationStatusService implements CommitListener {
@@ -33,7 +35,7 @@ public class BranchClassificationStatusService implements CommitListener {
 	private VersionControlHelper versionControlHelper;
 
 	@Autowired
-	private ElasticsearchRestTemplate elasticsearchRestTemplate;
+	private ElasticsearchOperations elasticsearchRestTemplate;
 
 	@Autowired
 	private ClassificationRepository classificationRepository;
@@ -100,22 +102,22 @@ public class BranchClassificationStatusService implements CommitListener {
 		final BranchCriteria branchCriteria = versionControlHelper.getBranchCriteriaUnpromotedChangesAndDeletions(branch);
 		return anyChangeOfType(branchCriteria, Concept.class, null) ||
 				anyChangeOfType(branchCriteria, Relationship.class, null) ||
-				anyChangeOfType(branchCriteria, ReferenceSetMember.class, boolQuery().must(termQuery(ReferenceSetMember.Fields.REFSET_ID, Concepts.OWL_AXIOM_REFERENCE_SET)));
+				anyChangeOfType(branchCriteria, ReferenceSetMember.class, bool(b -> b.must(termQuery(ReferenceSetMember.Fields.REFSET_ID, Concepts.OWL_AXIOM_REFERENCE_SET))));
 	}
 
 	private boolean anyClassifiableChange(Commit commit) {
 		final BranchCriteria branchCriteria = versionControlHelper.getBranchCriteriaChangesAndDeletionsWithinOpenCommitOnly(commit);
 		return anyChangeOfType(branchCriteria, Concept.class, null) ||
 				anyChangeOfType(branchCriteria, Relationship.class, null) ||
-				anyChangeOfType(branchCriteria, ReferenceSetMember.class, boolQuery().must(termQuery(ReferenceSetMember.Fields.REFSET_ID, Concepts.OWL_AXIOM_REFERENCE_SET)));
+				anyChangeOfType(branchCriteria, ReferenceSetMember.class, termQuery(ReferenceSetMember.Fields.REFSET_ID, Concepts.OWL_AXIOM_REFERENCE_SET));
 	}
 
-	private boolean anyChangeOfType(BranchCriteria branchCriteria, Class<? extends DomainEntity<?>> entityClass, BoolQueryBuilder additionalCriteria) {
-		final BoolQueryBuilder queryBuilder = branchCriteria.getEntityBranchCriteria(entityClass);
+	private boolean anyChangeOfType(BranchCriteria branchCriteria, Class<? extends DomainEntity<?>> entityClass, Query additionalCriteria) {
+		final BoolQuery.Builder queryBuilder = bool().must(branchCriteria.getEntityBranchCriteria(entityClass));
 		if (additionalCriteria != null) {
 			queryBuilder.must(additionalCriteria);
 		}
-		return elasticsearchRestTemplate.count(new NativeSearchQueryBuilder().withQuery(queryBuilder).build(), entityClass) > 0;
+		return elasticsearchRestTemplate.count(new NativeQueryBuilder().withQuery(queryBuilder.build()._toQuery()).build(), entityClass) > 0;
 	}
 
 }

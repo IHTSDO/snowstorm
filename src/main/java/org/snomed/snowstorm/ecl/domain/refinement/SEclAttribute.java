@@ -1,8 +1,10 @@
 package org.snomed.snowstorm.ecl.domain.refinement;
 
+import co.elastic.clients.elasticsearch._types.query_dsl.BoolQuery;
+import co.elastic.clients.json.JsonData;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import io.kaicode.elasticvc.api.BranchCriteria;
-import org.elasticsearch.index.query.BoolQueryBuilder;
+
 import org.snomed.langauges.ecl.domain.filter.SearchType;
 import org.snomed.langauges.ecl.domain.filter.TypedSearchTerm;
 import org.snomed.langauges.ecl.domain.refinement.EclAttribute;
@@ -23,7 +25,8 @@ import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 import static com.google.common.collect.Sets.newHashSet;
-import static org.elasticsearch.index.query.QueryBuilders.*;
+import static co.elastic.clients.elasticsearch._types.query_dsl.QueryBuilders.*;
+import static io.kaicode.elasticvc.helper.QueryHelper.*;
 
 public class SEclAttribute extends EclAttribute implements SRefinement {
 
@@ -42,7 +45,7 @@ public class SEclAttribute extends EclAttribute implements SRefinement {
 			throw new IllegalArgumentException("Within cardinality constraints the minimum must not be greater than the maximum.");
 		}
 
-		BoolQueryBuilder query = refinementBuilder.getQuery();
+		BoolQuery.Builder query = refinementBuilder.getQueryBuilder();
 		BranchCriteria branchCriteria = refinementBuilder.getBranchCriteria();
 		boolean stated = refinementBuilder.isStated();
 
@@ -74,7 +77,7 @@ public class SEclAttribute extends EclAttribute implements SRefinement {
 		return super.getParentGroup();
 	}
 
-	private void updateQueryWithCardinalityCriteria(BoolQueryBuilder query, CardinalityCriteria cardinalityCriteria) {
+	private void updateQueryWithCardinalityCriteria(BoolQuery.Builder query, CardinalityCriteria cardinalityCriteria) {
 		boolean mustOccur = cardinalityCriteria.mustOccur;
 		boolean mustNotOccur = cardinalityCriteria.mustNotOccur;
 		boolean specificCardinality = cardinalityCriteria.specificCardinality;
@@ -90,16 +93,16 @@ public class SEclAttribute extends EclAttribute implements SRefinement {
 		if (possibleAttributeValues == null) {
 			if (mustOccur || mustNotOccur) {
 				// Value is wildcard
-				BoolQueryBuilder oneOf = boolQuery();
-				if (mustOccur == equalsOperator) {
-					// Attribute just needs to exist
-					query.must(oneOf);
-				} else {
-					// Attribute must not exist
-					query.mustNot(oneOf);
-				}
+				BoolQuery.Builder oneOf = bool();
 				for (String attributeTypeProperty : attributeTypeProperties) {
 					oneOf.should(existsQuery(getAttributeTypeField(attributeTypeProperty)));
+				}
+				if (mustOccur == equalsOperator) {
+					// Attribute just needs to exist
+					query.must(oneOf.build()._toQuery());
+				} else {
+					// Attribute must not exist
+					query.mustNot(oneOf.build()._toQuery());
 				}
 			}
 		} else {
@@ -117,14 +120,13 @@ public class SEclAttribute extends EclAttribute implements SRefinement {
 					} else {
 						if (equalsOperator) {
 							// One of the attributes in the range must have a value in the range
-							BoolQueryBuilder oneOf = boolQuery();
-							query.must(oneOf);
+							BoolQuery.Builder oneOf = bool();
 							for (String attributeTypeProperty : attributeTypeProperties) {
 								oneOf.should(termsQuery(getAttributeTypeField(attributeTypeProperty), possibleAttributeValues));
 							}
+							query.must(oneOf.build()._toQuery());
 						} else {
-							BoolQueryBuilder oneOf = boolQuery();
-							query.must(oneOf);
+							BoolQuery.Builder oneOf = bool();
 							// One of the attributes in the range must be present.
 							// A concept may have the attribute value twice, one in and one outside the range.
 							// This can not be expressed in this concept level query
@@ -132,6 +134,7 @@ public class SEclAttribute extends EclAttribute implements SRefinement {
 							for (String attributeTypeProperty : attributeTypeProperties) {
 								oneOf.should(existsQuery(getAttributeTypeField(attributeTypeProperty)));
 							}
+							query.must(oneOf.build()._toQuery());
 						}
 					}
 				}
@@ -151,29 +154,28 @@ public class SEclAttribute extends EclAttribute implements SRefinement {
 		}
 	}
 
-	private void updateQueryWithConcreteValue(BoolQueryBuilder query, List<String> possibleAttributeValues, Set<String> attributeTypeProperties) {
+	private void updateQueryWithConcreteValue(BoolQuery.Builder query, List<String> possibleAttributeValues, Set<String> attributeTypeProperties) {
 		if (isEqualOperator()) {
 			// One of the attributes in the range must have a value in the range
-			BoolQueryBuilder oneOf = boolQuery();
-			query.must(oneOf);
+			BoolQuery.Builder oneOf = bool();
 			for (String attributeTypeProperty : attributeTypeProperties) {
 				oneOf.should(termsQuery(getAttributeTypeField(attributeTypeProperty), possibleAttributeValues));
 			}
+			query.must(oneOf.build()._toQuery());
 		} else {
-			BoolQueryBuilder oneOf = boolQuery();
-			query.must(oneOf);
+			BoolQuery.Builder oneOf = bool();
 			String comparisonOperator = getAttributeRange().getOperator();
 			for (String attributeTypeProperty : attributeTypeProperties) {
 				if (getAttributeRange().isNumericQuery()) {
 					String numericValue = possibleAttributeValues.get(0);// Restricted to single value in ECL language.
 					if (">=".equals(comparisonOperator)) {
-						oneOf.must(rangeQuery(getAttributeTypeField(attributeTypeProperty)).gte(numericValue));
+						oneOf.must(range().field(getAttributeTypeField(attributeTypeProperty)).gte(JsonData.of(numericValue)).build()._toQuery());
 					} else if (">".equals(comparisonOperator)) {
-						oneOf.must(rangeQuery(getAttributeTypeField(attributeTypeProperty)).gt(numericValue));
+						oneOf.must(range().field(getAttributeTypeField(attributeTypeProperty)).gt(JsonData.of(numericValue)).build()._toQuery());
 					} else if ("<=".equals(comparisonOperator)) {
-						oneOf.must(rangeQuery(getAttributeTypeField(attributeTypeProperty)).lte(numericValue));
+						oneOf.must(range().field(getAttributeTypeField(attributeTypeProperty)).lte(JsonData.of(numericValue)).build()._toQuery());
 					} else if ("<".equals(comparisonOperator)) {
-						oneOf.must(rangeQuery(getAttributeTypeField(attributeTypeProperty)).lt(numericValue));
+						oneOf.must(range().field(getAttributeTypeField(attributeTypeProperty)).lt(JsonData.of(numericValue)).build()._toQuery());
 					} else if ("!=".equals(comparisonOperator)) {
 						oneOf.must(existsQuery(getAttributeTypeField(attributeTypeProperty)));
 						oneOf.mustNot(termQuery(getAttributeTypeField(attributeTypeProperty), numericValue));
@@ -184,6 +186,7 @@ public class SEclAttribute extends EclAttribute implements SRefinement {
 						oneOf.mustNot(termsQuery(getAttributeTypeField(attributeTypeProperty), possibleAttributeValues));
 					}
 				}
+				query.must(oneOf.build()._toQuery());
 			}
 		}
 	}

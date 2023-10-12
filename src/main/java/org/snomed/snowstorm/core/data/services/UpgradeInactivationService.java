@@ -1,5 +1,6 @@
 package org.snomed.snowstorm.core.data.services;
 
+import co.elastic.clients.elasticsearch._types.query_dsl.BoolQuery;
 import com.google.common.collect.Iterables;
 import io.kaicode.elasticvc.api.BranchCriteria;
 import io.kaicode.elasticvc.api.BranchService;
@@ -10,7 +11,7 @@ import io.kaicode.elasticvc.domain.Commit;
 import io.kaicode.elasticvc.domain.Metadata;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
-import org.elasticsearch.index.query.BoolQueryBuilder;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.config.Config;
@@ -18,15 +19,16 @@ import org.snomed.snowstorm.core.data.domain.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.data.elasticsearch.core.SearchHitsIterator;
-import org.springframework.data.elasticsearch.core.query.NativeSearchQuery;
-import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
+import org.springframework.data.elasticsearch.client.elc.NativeQuery;
+import org.springframework.data.elasticsearch.client.elc.NativeQueryBuilder;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
 import java.util.stream.Collectors;
 
 import static io.kaicode.elasticvc.api.ComponentService.CLAUSE_LIMIT;
-import static org.elasticsearch.index.query.QueryBuilders.*;
+import static co.elastic.clients.elasticsearch._types.query_dsl.QueryBuilders.*;
+import static io.kaicode.elasticvc.helper.QueryHelper.*;
 import static org.snomed.snowstorm.core.data.domain.ReferenceSetMember.Fields.*;
 
 @Service
@@ -57,10 +59,10 @@ public class UpgradeInactivationService {
 		logger.info("Start auto description inactivation for inactive concepts for code system {} on branch {}", codeSystem.getShortName(), branchPath);
 		BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(branchPath);
 		// find inactive concept ids
-		NativeSearchQuery inactiveConceptQuery = new NativeSearchQueryBuilder()
-				.withQuery(boolQuery()
+		NativeQuery inactiveConceptQuery = new NativeQueryBuilder()
+				.withQuery(bool(b -> b
 						.must(branchCriteria.getEntityBranchCriteria(Concept.class))
-						.must(termQuery(SnomedComponent.Fields.ACTIVE, false)))
+						.must(termQuery(SnomedComponent.Fields.ACTIVE, false))))
 				.withFields(Concept.Fields.CONCEPT_ID)
 				.withPageable(ComponentService.LARGE_PAGE)
 				.build();
@@ -74,7 +76,7 @@ public class UpgradeInactivationService {
 		// find descriptions with inactivation indicators on the extension branch only
 		BranchCriteria changesOnBranchOnly = versionControlHelper.getChangesOnBranchCriteria(codeSystem.getBranchPath());
 		for (List<Long> batch : Iterables.partition(inactiveConceptIds, CLAUSE_LIMIT)) {
-			BoolQueryBuilder queryDescriptionsWithInactivationIndicators = boolQuery()
+			BoolQuery.Builder queryDescriptionsWithInactivationIndicators = bool()
 					.must(changesOnBranchOnly.getEntityBranchCriteria(ReferenceSetMember.class))
 					.must(termQuery(REFSET_ID, Concepts.DESCRIPTION_INACTIVATION_INDICATOR_REFERENCE_SET))
 					.must(termQuery(ADDITIONAL_FIELDS_PREFIX + "valueId", Concepts.CONCEPT_NON_CURRENT))
@@ -85,8 +87,8 @@ public class UpgradeInactivationService {
 				queryDescriptionsWithInactivationIndicators.must(termsQuery(MODULE_ID, expectedExtensionModules));
 			}
 
-			NativeSearchQuery descriptionsWithInactivationIndicators = new NativeSearchQueryBuilder()
-					.withQuery(queryDescriptionsWithInactivationIndicators)
+			NativeQuery descriptionsWithInactivationIndicators = new NativeQueryBuilder()
+					.withQuery(queryDescriptionsWithInactivationIndicators.build()._toQuery())
 					.withFields(REFERENCED_COMPONENT_ID)
 					.withPageable(ComponentService.LARGE_PAGE)
 					.build();
@@ -97,7 +99,7 @@ public class UpgradeInactivationService {
 			}
 
 			// find active descriptions without description inactivation indicators for inactive concepts
-			BoolQueryBuilder queryDescriptionsWithoutInactivationIndicators = boolQuery()
+			BoolQuery.Builder queryDescriptionsWithoutInactivationIndicators = bool()
 					.must(changesOnBranchOnly.getEntityBranchCriteria(Description.class))
 					.must(termQuery(SnomedComponent.Fields.ACTIVE, true))
 					.must(termsQuery(Description.Fields.CONCEPT_ID, batch))
@@ -107,8 +109,8 @@ public class UpgradeInactivationService {
 				queryDescriptionsWithoutInactivationIndicators.must(termsQuery(MODULE_ID, expectedExtensionModules));
 			}
 
-			NativeSearchQuery descriptionsWithoutInactivationIndicators = new NativeSearchQueryBuilder()
-					.withQuery(queryDescriptionsWithoutInactivationIndicators)
+			NativeQuery descriptionsWithoutInactivationIndicators = new NativeQueryBuilder()
+					.withQuery(queryDescriptionsWithoutInactivationIndicators.build()._toQuery())
 					.withPageable(ComponentService.LARGE_PAGE)
 					.build();
 
@@ -148,12 +150,12 @@ public class UpgradeInactivationService {
 		// get active language refset members for inactive descriptions
 		BranchCriteria changesOnBranchCriteria = versionControlHelper.getChangesOnBranchCriteria(codeSystem.getBranchPath());
 		for (List<Long> batch : Iterables.partition(inactiveDescriptionIds, CLAUSE_LIMIT)) {
-			NativeSearchQueryBuilder searchQueryBuilder = new NativeSearchQueryBuilder()
-					.withQuery(boolQuery()
+			NativeQueryBuilder searchQueryBuilder = new NativeQueryBuilder()
+					.withQuery(bool(b -> b
 							.must(changesOnBranchCriteria.getEntityBranchCriteria(ReferenceSetMember.class))
 							.must(termQuery(ACTIVE, true))
 							.must(termsQuery(REFERENCED_COMPONENT_ID, batch))
-							.must(existsQuery(ReferenceSetMember.LanguageFields.ACCEPTABILITY_ID_FIELD_PATH)))
+							.must(existsQuery(ReferenceSetMember.LanguageFields.ACCEPTABILITY_ID_FIELD_PATH))))
 					.withPageable(ComponentService.LARGE_PAGE);
 			try (final SearchHitsIterator<ReferenceSetMember> activeMembers = elasticsearchTemplate.searchForStream(searchQueryBuilder.build(), ReferenceSetMember.class)) {
 				activeMembers.forEachRemaining(hit -> removeOrInactivate(hit.getContent(), toDelete, toInactivate));
@@ -181,11 +183,11 @@ public class UpgradeInactivationService {
 		// find active axioms changed on extension MAIN branch
 		Map<Long, List<ReferenceSetMember>> conceptToAxiomsMap = new HashMap<>();
 		BranchCriteria changesOnBranchCriteria = versionControlHelper.getChangesOnBranchCriteria(codeSystem.getBranchPath());
-		NativeSearchQueryBuilder activeAxiomsQueryBuilder = new NativeSearchQueryBuilder()
-				.withQuery(boolQuery()
+		NativeQueryBuilder activeAxiomsQueryBuilder = new NativeQueryBuilder()
+				.withQuery(bool(b -> b
 						.must(changesOnBranchCriteria.getEntityBranchCriteria(ReferenceSetMember.class))
 						.must(termQuery(SnomedComponent.Fields.ACTIVE, true))
-						.must(termQuery(ReferenceSetMember.Fields.REFSET_ID, Concepts.OWL_AXIOM_REFERENCE_SET)))
+						.must(termQuery(ReferenceSetMember.Fields.REFSET_ID, Concepts.OWL_AXIOM_REFERENCE_SET))))
 				.withPageable(ComponentService.LARGE_PAGE);
 		try (SearchHitsIterator<ReferenceSetMember> activeAxioms = elasticsearchTemplate.searchForStream(activeAxiomsQueryBuilder.build(), ReferenceSetMember.class)) {
 			activeAxioms.forEachRemaining(hit -> conceptToAxiomsMap.computeIfAbsent(Long.parseLong(hit.getContent().getReferencedComponentId()), axioms -> new ArrayList<>()).add(hit.getContent()));
@@ -197,11 +199,11 @@ public class UpgradeInactivationService {
 		}
 		Set<Long> activeConceptIds = new LongOpenHashSet();
 		BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(codeSystem.getBranchPath());
-		NativeSearchQueryBuilder activeConceptsQueryBuilder = new NativeSearchQueryBuilder()
-				.withQuery(boolQuery()
+		NativeQueryBuilder activeConceptsQueryBuilder = new NativeQueryBuilder()
+				.withQuery(bool(b -> b
 						.must(branchCriteria.getEntityBranchCriteria(Concept.class))
 						.must(termQuery(SnomedComponent.Fields.ACTIVE, true))
-						.must(termsQuery(Concept.Fields.CONCEPT_ID, conceptToAxiomsMap.keySet()))
+						.must(termsQuery(Concept.Fields.CONCEPT_ID, conceptToAxiomsMap.keySet())))
 				)
 				.withFields(Concept.Fields.CONCEPT_ID)
 				.withPageable(ComponentService.LARGE_PAGE);
@@ -258,9 +260,9 @@ public class UpgradeInactivationService {
 	private List<Long> findInactiveDescriptions(String branchPath) {
 		BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(branchPath);
 		List<Long> result = new LongArrayList();
-		NativeSearchQueryBuilder searchQueryBuilder = new NativeSearchQueryBuilder()
-				.withQuery(boolQuery()
-						.must(branchCriteria.getEntityBranchCriteria(Description.class)))
+		NativeQueryBuilder searchQueryBuilder = new NativeQueryBuilder()
+				.withQuery(bool(b -> b
+						.must(branchCriteria.getEntityBranchCriteria(Description.class))))
 				.withFilter(termQuery(ACTIVE, false))
 				.withFields(Description.Fields.DESCRIPTION_ID)
 				.withPageable(ComponentService.LARGE_PAGE);

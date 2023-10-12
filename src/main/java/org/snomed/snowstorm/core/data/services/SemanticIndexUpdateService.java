@@ -1,6 +1,8 @@
 package org.snomed.snowstorm.core.data.services;
 
 import ch.qos.logback.classic.Level;
+import co.elastic.clients.elasticsearch._types.SortOptions;
+import co.elastic.clients.elasticsearch._types.query_dsl.BoolQuery;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import io.kaicode.elasticvc.api.*;
@@ -10,8 +12,7 @@ import io.kaicode.elasticvc.domain.Entity;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 import org.apache.commons.lang3.math.NumberUtils;
-import org.elasticsearch.index.query.BoolQueryBuilder;
-import org.elasticsearch.search.sort.SortBuilders;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.otf.owltoolkit.conversion.ConversionException;
@@ -32,8 +33,8 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.data.elasticsearch.core.SearchHits;
 import org.springframework.data.elasticsearch.core.SearchHitsIterator;
-import org.springframework.data.elasticsearch.core.query.NativeSearchQuery;
-import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
+import org.springframework.data.elasticsearch.client.elc.NativeQuery;
+import org.springframework.data.elasticsearch.client.elc.NativeQueryBuilder;
 import org.springframework.data.elasticsearch.core.query.Query;
 import org.springframework.stereotype.Service;
 
@@ -46,8 +47,10 @@ import java.util.stream.Collectors;
 
 import static java.lang.Long.parseLong;
 import static java.lang.String.format;
-import static org.elasticsearch.index.query.QueryBuilders.*;
+import static co.elastic.clients.elasticsearch._types.query_dsl.QueryBuilders.*;
+import static io.kaicode.elasticvc.helper.QueryHelper.*;
 import static org.snomed.snowstorm.core.data.domain.Concepts.CONCEPT_MODEL_OBJECT_ATTRIBUTE;
+import static org.springframework.data.elasticsearch.client.elc.Queries.idsQueryAsQuery;
 
 @Service
 public class SemanticIndexUpdateService extends ComponentService implements CommitListener {
@@ -246,34 +249,32 @@ public class SemanticIndexUpdateService extends ComponentService implements Comm
 			requiredActiveConcepts.add(type);
 		};
 
-		final BoolQueryBuilder sourceFilter = completeRebuild ? boolQuery() : boolQuery().must(termsQuery(Relationship.Fields.SOURCE_ID, updatedConceptIds));
-		try (final SearchHitsIterator<Relationship> activeRelationships = elasticsearchTemplate.searchForStream(new NativeSearchQueryBuilder()
-				.withQuery(boolQuery()
+		final BoolQuery.Builder sourceFilter = completeRebuild ? bool() : bool().must(termsQuery(Relationship.Fields.SOURCE_ID, updatedConceptIds));
+		try (final SearchHitsIterator<Relationship> activeRelationships = elasticsearchTemplate.searchForStream(new NativeQueryBuilder()
+				.withQuery(bool(b -> b
 						.must(newStateCriteria.getEntityBranchCriteria(Relationship.class))
 						.must(termQuery(SnomedComponent.Fields.ACTIVE, true))
 						.must(termsQuery(Relationship.Fields.CHARACTERISTIC_TYPE_ID, form.getCharacteristicTypeIds()))
-						.filter(sourceFilter)
+						.filter(sourceFilter.build()._toQuery()))
 				)
-				.withSort(SortBuilders.fieldSort(SnomedComponent.Fields.EFFECTIVE_TIME))
-				.withSort(SortBuilders.fieldSort(SnomedComponent.Fields.ACTIVE))
-				.withSort(SortBuilders.fieldSort("start"))
+				.withSort(SortOptions.of(s -> s.field(f -> f.field(SnomedComponent.Fields.EFFECTIVE_TIME))))
+				.withSort(SortOptions.of(s -> s.field(f -> f.field(SnomedComponent.Fields.ACTIVE))))
+				.withSort(SortOptions.of(s -> s.field(f -> f.field("start"))))
 				.withPageable(LARGE_PAGE).build(), Relationship.class)) {
 			activeRelationships.forEachRemaining(hit -> relationshipConsumer.accept(hit.getContent(), hit.getContent()));
 		}
 		timer.checkpoint("Update graph using relationships of concepts with changed modelling.");
 
 		if (form.isStated()) {
-			final BoolQueryBuilder referencedComponentFilter = boolQuery();
-			final NativeSearchQueryBuilder axiomSearchBuilder = new NativeSearchQueryBuilder()
-					.withQuery(boolQuery()
+			final NativeQueryBuilder axiomSearchBuilder = new NativeQueryBuilder()
+					.withQuery(bool(b -> b
 							.must(newStateCriteria.getEntityBranchCriteria(ReferenceSetMember.class))
 							.must(termQuery(ReferenceSetMember.Fields.REFSET_ID, Concepts.OWL_AXIOM_REFERENCE_SET))
-							.must(termQuery(SnomedComponent.Fields.ACTIVE, true))
-							.filter(referencedComponentFilter)
+							.must(termQuery(SnomedComponent.Fields.ACTIVE, true)))
 					)
-					.withSort(SortBuilders.fieldSort(SnomedComponent.Fields.EFFECTIVE_TIME))
-					.withSort(SortBuilders.fieldSort(SnomedComponent.Fields.ACTIVE))
-					.withSort(SortBuilders.fieldSort("start"))
+					.withSort(SortOptions.of(s -> s.field(f -> f.field(SnomedComponent.Fields.EFFECTIVE_TIME))))
+					.withSort(SortOptions.of(s -> s.field(f -> f.field(SnomedComponent.Fields.ACTIVE))))
+					.withSort(SortOptions.of(s -> s.field(f -> f.field("start"))))
 					.withPageable(LARGE_PAGE);
 			if (completeRebuild) {
 				try (final SearchHitsIterator<ReferenceSetMember> activeAxioms = elasticsearchTemplate.searchForStream(axiomSearchBuilder.build(), ReferenceSetMember.class)) {
@@ -281,9 +282,8 @@ public class SemanticIndexUpdateService extends ComponentService implements Comm
 				}
 			} else {
 				for (List<Long> batch : Iterables.partition(updatedConceptIds, CLAUSE_LIMIT)) {
-					referencedComponentFilter.must().clear();
-					referencedComponentFilter.must(termsQuery(ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID, batch));
-					try (final SearchHitsIterator<ReferenceSetMember> activeAxioms = elasticsearchTemplate.searchForStream(axiomSearchBuilder.build(), ReferenceSetMember.class)) {
+					final BoolQuery.Builder referencedComponentFilter = bool().must(termsQuery(ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID, batch));
+					try (final SearchHitsIterator<ReferenceSetMember> activeAxioms = elasticsearchTemplate.searchForStream(axiomSearchBuilder.withFilter(referencedComponentFilter.build()._toQuery()).build(), ReferenceSetMember.class)) {
 						axiomStreamToRelationshipStream(activeAxioms, relationship -> true, relationshipConsumer);
 					}
 				}
@@ -316,20 +316,20 @@ public class SemanticIndexUpdateService extends ComponentService implements Comm
 		// either by authoring or importing the new version of the extension.
 		boolean throwExceptionIfTransitiveClosureLoopFound = !commit.isRebase();
 
-		final BoolQueryBuilder filter = boolQuery()
+		final BoolQuery.Builder filter = bool()
 				// Exclude those QueryConcepts which were removed in this commit
-				.mustNot(boolQuery()
+				.mustNot(bool(b -> b
 						.must(termQuery("path", branchPath))
-						.must(termQuery("end", commit.getTimepoint().getTime()))
+						.must(termQuery("end", commit.getTimepoint().getTime())))
 				);
 		if (!completeRebuild) {
 			filter.must(termsQuery(QueryConcept.Fields.CONCEPT_ID, conceptIdsToUpdate));
 		}
-		try (final SearchHitsIterator<QueryConcept> existingQueryConcepts = elasticsearchTemplate.searchForStream(new NativeSearchQueryBuilder()
-				.withQuery(boolQuery()
+		try (final SearchHitsIterator<QueryConcept> existingQueryConcepts = elasticsearchTemplate.searchForStream(new NativeQueryBuilder()
+				.withQuery(bool(b -> b
 						.must(previousStateCriteria.getEntityBranchCriteria(QueryConcept.class))
-						.must(termsQuery(QueryConcept.Fields.STATED, form.isStated()))
-						.filter(filter)
+						.must(termQuery(QueryConcept.Fields.STATED, form.isStated()))
+						.filter(filter.build()._toQuery()))
 				)
 				.withPageable(LARGE_PAGE).build(), QueryConcept.class)) {
 			while (existingQueryConcepts.hasNext()) {
@@ -488,18 +488,18 @@ public class SemanticIndexUpdateService extends ComponentService implements Comm
 		Set<Long> existingDescendants = new LongOpenHashSet();
 
 		// Step: Collect source and destinations of changed is-a relationships
-		try (final SearchHitsIterator<Relationship> changedIsARelationships = elasticsearchTemplate.searchForStream(new NativeSearchQueryBuilder()
-				.withQuery(boolQuery().filter(
-								boolQuery()
+		try (final SearchHitsIterator<Relationship> changedIsARelationships = elasticsearchTemplate.searchForStream(new NativeQueryBuilder()
+				.withQuery(bool(b -> b.filter(
+								bool(f -> f
 										.must(termQuery("typeId", Concepts.ISA))
 										.must(termsQuery("characteristicTypeId", form.getCharacteristicTypeIds()))
-										.must(boolQuery()
+										.must(bool(r -> r
 												// Either on this branch
 												.should(changesCriteria.getEntityBranchCriteria(Relationship.class))
 												// Or on parent branch and deleted/replaced on this branch
-												.should(idsQuery().addIds(internalIdsOfDeletedComponents.toArray(new String[]{})))
+												.should(idsQueryAsQuery(internalIdsOfDeletedComponents.stream().toList())))
 										)
-						)
+						)))
 				)
 				.withFields(Relationship.Fields.SOURCE_ID, Relationship.Fields.DESTINATION_ID)
 				.withPageable(LARGE_PAGE).build(), Relationship.class)) {
@@ -512,17 +512,17 @@ public class SemanticIndexUpdateService extends ComponentService implements Comm
 
 		if (form.isStated()) {
 			// Step: Collect source and destinations of is-a fragments within changed axioms
-			try (final SearchHitsIterator<ReferenceSetMember> changedAxioms = elasticsearchTemplate.searchForStream(new NativeSearchQueryBuilder()
-					.withQuery(boolQuery().filter(
-									boolQuery()
+			try (final SearchHitsIterator<ReferenceSetMember> changedAxioms = elasticsearchTemplate.searchForStream(new NativeQueryBuilder()
+					.withQuery(bool(b -> b.filter(
+									bool(f -> f
 											.must(termQuery(ReferenceSetMember.Fields.REFSET_ID, Concepts.OWL_AXIOM_REFERENCE_SET))
-											.must(boolQuery()
+											.must(bool(bq -> bq
 													// Either on this branch
 													.should(changesCriteria.getEntityBranchCriteria(ReferenceSetMember.class))
 													// Or on parent branch and deleted/replaced on this branch
-													.should(termsQuery("internalId", internalIdsOfDeletedComponents))
-											)
-							)
+													.should(termsQuery("internalId", internalIdsOfDeletedComponents)))
+											))
+							))
 					)
 					.withFields(ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID, ReferenceSetMember.OwlExpressionFields.OWL_EXPRESSION_FIELD_PATH)
 					.withPageable(LARGE_PAGE).build(), ReferenceSetMember.class)) {
@@ -545,21 +545,21 @@ public class SemanticIndexUpdateService extends ComponentService implements Comm
 		}
 
 		// Collect source of any other changed relationships
-		try (SearchHitsIterator<Relationship> otherChangedRelationships = elasticsearchTemplate.searchForStream(new NativeSearchQueryBuilder()
-				.withQuery(boolQuery().filter(
-								boolQuery()
+		try (SearchHitsIterator<Relationship> otherChangedRelationships = elasticsearchTemplate.searchForStream(new NativeQueryBuilder()
+				.withQuery(bool(b -> b.filter(
+								bool(bq -> bq
 										// Not 'is a'
 										.mustNot(termQuery("typeId", Concepts.ISA))
 										.must(termsQuery("characteristicTypeId", form.getCharacteristicTypeIds()))
-										.must(boolQuery()
+										.must(bool(r -> r
 												// Either on this branch
 												.should(changesCriteria.getEntityBranchCriteria(Relationship.class))
 												// Or on parent branch and deleted/replaced on this branch
 												.should(termsQuery("internalId", internalIdsOfDeletedComponents))
-										)
+										))
 										// Skip concepts already in the list
 										.mustNot(termsQuery(Relationship.Fields.SOURCE_ID, updateSource))
-						)
+						)))
 				)
 				.withFields(Relationship.Fields.SOURCE_ID)
 				.withPageable(LARGE_PAGE)
@@ -578,11 +578,11 @@ public class SemanticIndexUpdateService extends ComponentService implements Comm
 
 		// Step: Identify existing TC of updated nodes
 		// Strategy: Find existing nodes where ID matches updated relationship source or destination ids, record TC
-		NativeSearchQuery query = new NativeSearchQueryBuilder()
-				.withQuery(boolQuery()
+		NativeQuery query = new NativeQueryBuilder()
+				.withQuery(bool(b -> b
 						.must(existingContentCriteria.getEntityBranchCriteria(QueryConcept.class))
-						.must(termsQuery("stated", form.isStated()))
-						.filter(termsQuery(QueryConcept.Fields.CONCEPT_ID, Sets.union(updateSource, updateDestination)))
+						.must(termQuery("stated", form.isStated()))
+						.filter(termsQuery(QueryConcept.Fields.CONCEPT_ID, Sets.union(updateSource, updateDestination))))
 				)
 				.withFields(QueryConcept.Fields.ANCESTORS)
 				.withPageable(LARGE_PAGE).build();
@@ -593,11 +593,11 @@ public class SemanticIndexUpdateService extends ComponentService implements Comm
 
 		// Step: Identify existing descendants
 		// Strategy: Find existing nodes where TC matches updated relationship source ids
-		try (final SearchHitsIterator<QueryConcept> existingQueryConcepts = elasticsearchTemplate.searchForStream(new NativeSearchQueryBuilder()
-				.withQuery(boolQuery()
+		try (final SearchHitsIterator<QueryConcept> existingQueryConcepts = elasticsearchTemplate.searchForStream(new NativeQueryBuilder()
+				.withQuery(bool(b -> b
 						.must(existingContentCriteria.getEntityBranchCriteria(QueryConcept.class))
-						.must(termsQuery("stated", form.isStated()))
-						.filter(termsQuery("ancestors", updateSource))
+						.must(termQuery("stated", form.isStated()))
+						.filter(termsQuery("ancestors", updateSource)))
 				)
 				.withFields(QueryConcept.Fields.CONCEPT_ID)
 				.withPageable(LARGE_PAGE).build(), QueryConcept.class)) {
@@ -635,11 +635,11 @@ public class SemanticIndexUpdateService extends ComponentService implements Comm
 	private void buildGraphFromExistingNodes(Set<Long> nodesToLoad, boolean stated, GraphBuilder graphBuilder, BranchCriteria branchCriteriaForAlreadyCommittedContent,
 			Consumer<QueryConcept> alternativeAncestorCollector) {
 
-		NativeSearchQueryBuilder queryConceptQuery = new NativeSearchQueryBuilder()
-				.withQuery(boolQuery()
+		NativeQueryBuilder queryConceptQuery = new NativeQueryBuilder()
+				.withQuery(bool(b -> b
 						.must(branchCriteriaForAlreadyCommittedContent.getEntityBranchCriteria(QueryConcept.class))
 						.must(termQuery(QueryConcept.Fields.STATED, stated))
-						.filter(termsQuery(QueryConcept.Fields.CONCEPT_ID, nodesToLoad))
+						.filter(termsQuery(QueryConcept.Fields.CONCEPT_ID, nodesToLoad)))
 				)
 				.withFields(QueryConcept.Fields.CONCEPT_ID, QueryConcept.Fields.PARENTS, QueryConcept.Fields.ANCESTORS)
 				.withPageable(LARGE_PAGE);
@@ -727,11 +727,11 @@ public class SemanticIndexUpdateService extends ComponentService implements Comm
 		// We can't select the concepts which are not there!
 		// For speed first we will count the concepts which are there and active
 		// If the count doesn't match we load the ids of the concepts which are there so we can work out those which are not.
-		NativeSearchQueryBuilder queryBuilder = new NativeSearchQueryBuilder()
-				.withQuery(boolQuery()
+		NativeQueryBuilder queryBuilder = new NativeQueryBuilder()
+				.withQuery(bool(b -> b
 						.must(branchCriteria.getEntityBranchCriteria(Concept.class))
 						.must(termQuery(SnomedComponent.Fields.ACTIVE, true))
-						.filter(termsQuery(Concept.Fields.CONCEPT_ID, requiredActiveConcepts))
+						.filter(termsQuery(Concept.Fields.CONCEPT_ID, requiredActiveConcepts)))
 				)
 				.withFields(Concept.Fields.CONCEPT_ID)
 				.withPageable(PageRequest.of(0, 1));

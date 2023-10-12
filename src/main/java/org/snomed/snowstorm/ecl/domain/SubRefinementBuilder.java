@@ -1,7 +1,8 @@
 package org.snomed.snowstorm.ecl.domain;
 
+import co.elastic.clients.elasticsearch._types.query_dsl.BoolQuery;
 import io.kaicode.elasticvc.api.BranchCriteria;
-import org.elasticsearch.index.query.BoolQueryBuilder;
+
 import org.snomed.snowstorm.core.data.domain.QueryConcept;
 import org.snomed.snowstorm.ecl.ECLContentService;
 
@@ -10,15 +11,15 @@ import java.util.function.Function;
 public class SubRefinementBuilder implements RefinementBuilder {
 
 	private final RefinementBuilder refinementBuilder;
-	private final BoolQueryBuilder query;
+	private final BoolQuery.Builder query;
 
-	public SubRefinementBuilder(RefinementBuilder refinementBuilder, BoolQueryBuilder query) {
+	public SubRefinementBuilder(RefinementBuilder refinementBuilder, BoolQuery.Builder queryBuilder) {
 		this.refinementBuilder = refinementBuilder;
-		this.query = query;
+		this.query = queryBuilder;
 	}
 
 	@Override
-	public BoolQueryBuilder getQuery() {
+	public BoolQuery.Builder getQueryBuilder() {
 		return query;
 	}
 

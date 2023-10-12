@@ -1,5 +1,6 @@
 package org.snomed.snowstorm.core.data.services;
 
+import co.elastic.clients.elasticsearch._types.query_dsl.BoolQuery;
 import com.google.common.collect.Iterables;
 import io.kaicode.elasticvc.api.BranchCriteria;
 import io.kaicode.elasticvc.api.BranchService;
@@ -10,7 +11,7 @@ import io.kaicode.rest.util.branchpathrewrite.BranchPathUriUtil;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 import it.unimi.dsi.fastutil.longs.LongArraySet;
 import it.unimi.dsi.fastutil.longs.LongComparators;
-import org.elasticsearch.index.query.BoolQueryBuilder;
+
 import org.snomed.snowstorm.core.data.domain.Concepts;
 import org.snomed.snowstorm.core.data.domain.ConcreteValue;
 import org.snomed.snowstorm.core.data.domain.Relationship;
@@ -25,15 +26,16 @@ import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.data.elasticsearch.core.SearchHit;
 import org.springframework.data.elasticsearch.core.SearchHits;
 import org.springframework.data.elasticsearch.core.SearchHitsIterator;
-import org.springframework.data.elasticsearch.core.query.NativeSearchQuery;
-import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
+import org.springframework.data.elasticsearch.client.elc.NativeQuery;
+import org.springframework.data.elasticsearch.client.elc.NativeQueryBuilder;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
 import java.util.stream.Collectors;
 
 import static java.lang.Long.parseLong;
-import static org.elasticsearch.index.query.QueryBuilders.*;
+import static co.elastic.clients.elasticsearch._types.query_dsl.QueryBuilders.*;
+import static io.kaicode.elasticvc.helper.QueryHelper.*;
 
 @Service
 public class RelationshipService extends ComponentService {
@@ -119,39 +121,39 @@ public class RelationshipService extends ComponentService {
 
 		BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(branchPath);
 
-		BoolQueryBuilder query = boolQuery()
+		BoolQuery.Builder queryBuilder = bool()
 				.must(branchCriteria.getEntityBranchCriteria(Relationship.class));
 
 		if (relationshipId != null) {
-			query.must(termQuery(Relationship.Fields.RELATIONSHIP_ID, relationshipId));
+			queryBuilder.must(termQuery(Relationship.Fields.RELATIONSHIP_ID, relationshipId));
 		}
 		if (active != null) {
-			query.must(termQuery(Relationship.Fields.ACTIVE, active));
+			queryBuilder.must(termQuery(Relationship.Fields.ACTIVE, active));
 		}
 		if (moduleId != null) {
-			query.must(termQuery(Relationship.Fields.MODULE_ID, moduleId));
+			queryBuilder.must(termQuery(Relationship.Fields.MODULE_ID, moduleId));
 		}
 		if (effectiveTime != null) {
-			query.must(termQuery(Relationship.Fields.EFFECTIVE_TIME, effectiveTime));
+			queryBuilder.must(termQuery(Relationship.Fields.EFFECTIVE_TIME, effectiveTime));
 		}
 		if (sourceId != null) {
-			query.must(termQuery(Relationship.Fields.SOURCE_ID, sourceId));
+			queryBuilder.must(termQuery(Relationship.Fields.SOURCE_ID, sourceId));
 		}
 		if (typeId != null) {
-			query.must(termQuery(Relationship.Fields.TYPE_ID, typeId));
+			queryBuilder.must(termQuery(Relationship.Fields.TYPE_ID, typeId));
 		}
 		if (destinationId != null) {
-			query.must(termQuery(Relationship.Fields.DESTINATION_ID, destinationId));
+			queryBuilder.must(termQuery(Relationship.Fields.DESTINATION_ID, destinationId));
 		}
 		if (group != null) {
-			query.must(termQuery(Relationship.Fields.RELATIONSHIP_GROUP, group));
+			queryBuilder.must(termQuery(Relationship.Fields.RELATIONSHIP_GROUP, group));
 		}
 		if (characteristicType != null) {
-			query.must(termQuery(Relationship.Fields.CHARACTERISTIC_TYPE_ID, characteristicType.getConceptId()));
+			queryBuilder.must(termQuery(Relationship.Fields.CHARACTERISTIC_TYPE_ID, characteristicType.getConceptId()));
 		}
 
-		NativeSearchQuery searchQuery = new NativeSearchQueryBuilder()
-				.withQuery(query)
+		NativeQuery searchQuery = new NativeQueryBuilder()
+				.withQuery(queryBuilder.build()._toQuery())
 				.withPageable(page)
 				.build();
 		searchQuery.setTrackTotalHits(true);
@@ -162,10 +164,10 @@ public class RelationshipService extends ComponentService {
 
 	private List<Relationship> findRelationships(Set<String> relationshipIds, String branchPath) {
 		BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(branchPath);
-		return elasticsearchOperations.search(new NativeSearchQueryBuilder()
-				.withQuery(boolQuery()
+		return elasticsearchOperations.search(new NativeQueryBuilder()
+				.withQuery(bool(b -> b
 						.must(branchCriteria.getEntityBranchCriteria(Relationship.class))
-						.must(termsQuery(Relationship.Fields.RELATIONSHIP_ID, relationshipIds))
+						.must(termsQuery(Relationship.Fields.RELATIONSHIP_ID, relationshipIds)))
 				)
 				.withPageable(PageRequest.of(0, relationshipIds.size()))
 				.build(), Relationship.class)
@@ -179,7 +181,7 @@ public class RelationshipService extends ComponentService {
 
 		Set<Long> destinationIds = new LongArraySet();
 		if (sourceConceptIds == null) {
-			NativeSearchQuery query = constructDestinationSearchQuery(null, attributeTypeIds, branchCriteria, stated);
+			NativeQuery query = constructDestinationSearchQuery(null, attributeTypeIds, branchCriteria, stated);
 			try (SearchHitsIterator<Relationship> stream = elasticsearchOperations.searchForStream(query, Relationship.class)) {
 				stream.forEachRemaining(hit -> {
 					if (hit.getContent().getDestinationId() != null) {
@@ -189,7 +191,7 @@ public class RelationshipService extends ComponentService {
 			}
 		} else {
 			for (List<Long> batch : Iterables.partition(sourceConceptIds, CLAUSE_LIMIT)) {
-				NativeSearchQuery query = constructDestinationSearchQuery(batch, attributeTypeIds, branchCriteria, stated);
+				NativeQuery query = constructDestinationSearchQuery(batch, attributeTypeIds, branchCriteria, stated);
 				try (SearchHitsIterator<Relationship> stream = elasticsearchOperations.searchForStream(query, Relationship.class)) {
 					stream.forEachRemaining(hit -> {
 						if (hit.getContent().getDestinationId() != null) {
@@ -206,22 +208,22 @@ public class RelationshipService extends ComponentService {
 		return sortedIds;
 	}
 
-	private NativeSearchQuery constructDestinationSearchQuery(Collection<Long> sourceConceptIds, Collection<Long> attributeTypeIds, BranchCriteria branchCriteria, boolean stated) {
-		BoolQueryBuilder boolQuery = boolQuery()
+	private NativeQuery constructDestinationSearchQuery(Collection<Long> sourceConceptIds, Collection<Long> attributeTypeIds, BranchCriteria branchCriteria, boolean stated) {
+		BoolQuery.Builder boolQueryBuilder = bool()
 				.must(branchCriteria.getEntityBranchCriteria(Relationship.class))
-				.must(termsQuery(Relationship.Fields.CHARACTERISTIC_TYPE_ID, stated ? Concepts.STATED_RELATIONSHIP : Concepts.INFERRED_RELATIONSHIP))
+				.must(termQuery(Relationship.Fields.CHARACTERISTIC_TYPE_ID, stated ? Concepts.STATED_RELATIONSHIP : Concepts.INFERRED_RELATIONSHIP))
 				.must(termQuery(Relationship.Fields.ACTIVE, true));
 
 		if (attributeTypeIds != null) {
-			boolQuery.must(termsQuery(Relationship.Fields.TYPE_ID, attributeTypeIds));
+			boolQueryBuilder.must(termsQuery(Relationship.Fields.TYPE_ID, attributeTypeIds));
 		}
 
 		if (sourceConceptIds != null) {
-			boolQuery.must(termsQuery(Relationship.Fields.SOURCE_ID, sourceConceptIds));
+			boolQueryBuilder.must(termsQuery(Relationship.Fields.SOURCE_ID, sourceConceptIds));
 		}
 
-		return new NativeSearchQueryBuilder()
-				.withQuery(boolQuery)
+		return new NativeQueryBuilder()
+				.withQuery(boolQueryBuilder.build()._toQuery())
 				.withFields(Relationship.Fields.DESTINATION_ID)
 				.withPageable(LARGE_PAGE)
 				.build();

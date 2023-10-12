@@ -1,18 +1,18 @@
 package org.snomed.snowstorm.ecl;
 
 import com.google.common.collect.Sets;
-import org.elasticsearch.search.sort.SortBuilders;
+
+import io.kaicode.elasticvc.helper.SortBuilders;
 import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.services.*;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.elasticsearch.core.ElasticsearchRestTemplate;
+import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.data.elasticsearch.core.SearchHit;
-import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
+import org.springframework.data.elasticsearch.client.elc.NativeQueryBuilder;
 
 import jakarta.annotation.PostConstruct;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.stream.Collectors;
 
 import static io.kaicode.elasticvc.api.VersionControlHelper.LARGE_PAGE;
 import static org.junit.Assert.assertEquals;
@@ -24,7 +24,7 @@ import static org.snomed.snowstorm.core.data.domain.Concepts.*;
 public class ECLQueryServiceTestConfig extends ECLQueryTestConfig {
 
 	@Autowired
-	private ElasticsearchRestTemplate elasticsearchTemplate;
+	private ElasticsearchOperations elasticsearchTemplate;
 
 	@PostConstruct
 	public void beforeAll() throws ServiceException , InterruptedException {
@@ -130,10 +130,10 @@ public class ECLQueryServiceTestConfig extends ECLQueryTestConfig {
 				new ReferenceSetMember(Concepts.CORE_MODULE, REFSET_SIMPLE, BODY_STRUCTURE)));
 
 		List<QueryConcept> queryConcepts = elasticsearchTemplate.search(
-						new NativeSearchQueryBuilder()
+						new NativeQueryBuilder()
 								.withSort(SortBuilders.fieldSort(QueryConcept.Fields.CONCEPT_ID))
 								.withPageable(LARGE_PAGE).build(), QueryConcept.class)
-				.stream().map(SearchHit::getContent).collect(Collectors.toList());
+				.stream().map(SearchHit::getContent).toList();
 		assertEquals(34, queryConcepts.size());
 	}
 

@@ -1,5 +1,7 @@
 package org.snomed.snowstorm.core.data.services;
 
+import co.elastic.clients.elasticsearch._types.query_dsl.BoolQuery;
+import co.elastic.clients.elasticsearch._types.query_dsl.Query;
 import com.google.common.base.Strings;
 import com.google.common.collect.Iterables;
 import io.kaicode.elasticvc.api.BranchCriteria;
@@ -8,8 +10,7 @@ import io.kaicode.elasticvc.api.ComponentService;
 import io.kaicode.elasticvc.api.VersionControlHelper;
 import io.kaicode.elasticvc.domain.Commit;
 import io.kaicode.elasticvc.domain.Metadata;
-import org.elasticsearch.index.query.BoolQueryBuilder;
-import org.elasticsearch.index.query.QueryBuilder;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.config.Config;
@@ -19,7 +20,6 @@ import org.snomed.snowstorm.core.data.services.pojo.IdentifierSearchRequest;
 import org.snomed.snowstorm.core.pojo.LanguageDialect;
 import org.snomed.snowstorm.core.util.PageHelper;
 import org.snomed.snowstorm.core.util.TimerUtil;
-import org.snomed.snowstorm.ecl.ECLQueryService;
 import org.snomed.snowstorm.rest.converter.SearchAfterHelper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
@@ -29,8 +29,8 @@ import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.data.elasticsearch.core.SearchHit;
 import org.springframework.data.elasticsearch.core.SearchHits;
 import org.springframework.data.elasticsearch.core.SearchHitsIterator;
-import org.springframework.data.elasticsearch.core.query.NativeSearchQuery;
-import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
+import org.springframework.data.elasticsearch.client.elc.NativeQuery;
+import org.springframework.data.elasticsearch.client.elc.NativeQueryBuilder;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
@@ -39,7 +39,9 @@ import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
-import static org.elasticsearch.index.query.QueryBuilders.*;
+import static co.elastic.clients.elasticsearch._types.query_dsl.QueryBuilders.*;
+import static io.kaicode.elasticvc.helper.QueryHelper.*;
+import static org.snomed.snowstorm.core.util.SearchAfterQueryHelper.updateQueryWithSearchAfter;
 
 @Service
 public class IdentifierComponentService extends ComponentService {
@@ -58,9 +60,6 @@ public class IdentifierComponentService extends ComponentService {
 
 	@Autowired
 	private BranchService branchService;
-
-	@Autowired
-	private ECLQueryService eclQueryService;
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
@@ -92,12 +91,13 @@ public class IdentifierComponentService extends ComponentService {
 
 	public Page<Identifier> findIdentifiers(String branch, IdentifierSearchRequest searchRequest, PageRequest pageRequest) {
 		BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(branch);
-		return findIdentifiers(branch, branchCriteria, searchRequest, pageRequest);
+		return findIdentifiers(branchCriteria, searchRequest, pageRequest);
 	}
 
-	public Page<Identifier> findIdentifiers(String branch, BranchCriteria branchCriteria, IdentifierSearchRequest searchRequest, PageRequest pageRequest) {
-		NativeSearchQuery query = new NativeSearchQueryBuilder().withQuery(buildIdentifierQuery(searchRequest, branch, branchCriteria)).withPageable(pageRequest).build();
+	public Page<Identifier> findIdentifiers( BranchCriteria branchCriteria, IdentifierSearchRequest searchRequest, PageRequest pageRequest) {
+		NativeQuery query = new NativeQueryBuilder().withQuery(buildIdentifierQuery(searchRequest, branchCriteria)).withPageable(pageRequest).build();
 		query.setTrackTotalHits(true);
+		updateQueryWithSearchAfter(query, pageRequest);
 		SearchHits<Identifier> searchHits = elasticsearchTemplate.search(query, Identifier.class);
 		PageImpl<Identifier> identifiers = new PageImpl<>(searchHits.get().map(SearchHit::getContent).collect(Collectors.toList()), pageRequest, searchHits.getTotalHits());
 		return PageHelper.toSearchAfterPage(identifiers, IDENTIFIER_ID_SEARCH_AFTER_EXTRACTOR);
@@ -130,44 +130,44 @@ public class IdentifierComponentService extends ComponentService {
 		}
 	}
 
-	private QueryBuilder buildIdentifierQuery(IdentifierSearchRequest searchRequest, String branch, BranchCriteria branchCriteria) {
-		BoolQueryBuilder query = boolQuery().must(branchCriteria.getEntityBranchCriteria(Identifier.class));
+	private Query buildIdentifierQuery(IdentifierSearchRequest searchRequest, BranchCriteria branchCriteria) {
+		BoolQuery.Builder queryBuilder = bool().must(branchCriteria.getEntityBranchCriteria(Identifier.class));
 
 		if (searchRequest.getActive() != null) {
-			query.must(termQuery(Identifier.Fields.ACTIVE, searchRequest.getActive()));
+			queryBuilder.must(termQuery(Identifier.Fields.ACTIVE, searchRequest.getActive()));
 		}
 
 		if (searchRequest.isNullEffectiveTime() != null) {
 			if (searchRequest.isNullEffectiveTime()) {
-				query.mustNot(existsQuery(Identifier.Fields.EFFECTIVE_TIME));
+				queryBuilder.mustNot(existsQuery(Identifier.Fields.EFFECTIVE_TIME));
 			} else {
-				query.must(existsQuery(Identifier.Fields.EFFECTIVE_TIME));
+				queryBuilder.must(existsQuery(Identifier.Fields.EFFECTIVE_TIME));
 			}
 		}
 
 		if (searchRequest.getAlternateIdentifier() != null) {
-			query.must(termQuery(Identifier.Fields.ALTERNATE_IDENTIFIER, searchRequest.getAlternateIdentifier()));
+			queryBuilder.must(termQuery(Identifier.Fields.ALTERNATE_IDENTIFIER, searchRequest.getAlternateIdentifier()));
 		}
 
 		if (searchRequest.getIdentifierSchemeId() != null) {
-			query.must(termQuery(Identifier.Fields.IDENTIFIER_SCHEME_ID, searchRequest.getIdentifierSchemeId()));
+			queryBuilder.must(termQuery(Identifier.Fields.IDENTIFIER_SCHEME_ID, searchRequest.getIdentifierSchemeId()));
 		}
 
 
 		String module = searchRequest.getModule();
 		if (!Strings.isNullOrEmpty(module)) {
-			query.must(termsQuery(Identifier.Fields.MODULE_ID, module));
+			queryBuilder.must(termQuery(Identifier.Fields.MODULE_ID, module));
 		}
 
 		Collection<? extends Serializable> referencedComponentIds = searchRequest.getReferencedComponentIds();
 		if (referencedComponentIds != null && referencedComponentIds.size() > 0) {
-			query.must(termsQuery(Identifier.Fields.REFERENCED_COMPONENT_ID, referencedComponentIds));
+			queryBuilder.must(termsQuery(Identifier.Fields.REFERENCED_COMPONENT_ID, referencedComponentIds));
 		}
 
-		return query;
+		return queryBuilder.build()._toQuery();
 	}
 	void joinIdentifiers(BranchCriteria branchCriteria, Map<String, Concept> conceptIdMap, Map<String, ConceptMini> conceptMiniMap, List<LanguageDialect> languageDialects, TimerUtil timer) {
-		final NativeSearchQueryBuilder queryBuilder = new NativeSearchQueryBuilder();
+		final NativeQueryBuilder queryBuilder = new NativeQueryBuilder();
 
 		final Set<String> allConceptIds = new HashSet<>();
 		if (conceptIdMap != null) {
@@ -179,10 +179,10 @@ public class IdentifierComponentService extends ComponentService {
 
 		// Fetch Identifier
 		for (List<String> conceptIds : Iterables.partition(allConceptIds, CLAUSE_LIMIT)) {
-			queryBuilder.withQuery(boolQuery()
+			queryBuilder.withQuery(bool(b -> b
 					.must(branchCriteria.getEntityBranchCriteria(Identifier.class))
 					.must(termQuery(Identifier.Fields.ACTIVE, true))
-					.must(termsQuery(Identifier.Fields.REFERENCED_COMPONENT_ID, conceptIds)))
+					.must(termsQuery(Identifier.Fields.REFERENCED_COMPONENT_ID, conceptIds))))
 					.withPageable(LARGE_PAGE);
 			try (final SearchHitsIterator<Identifier> identifiers = elasticsearchTemplate.searchForStream(queryBuilder.build(), Identifier.class)) {
 				identifiers.forEachRemaining(hit -> {

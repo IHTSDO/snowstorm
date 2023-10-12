@@ -1,8 +1,8 @@
 package org.snomed.snowstorm.core.rf2.export;
 
-import org.elasticsearch.common.Strings;
 import org.snomed.snowstorm.core.data.domain.ReferenceSetMember;
 import org.snomed.snowstorm.core.rf2.RF2Constants;
+import org.springframework.util.StringUtils;
 
 import java.io.BufferedWriter;
 import java.io.IOException;
@@ -19,7 +19,7 @@ class ReferenceSetMemberExportWriter extends ExportWriter<ReferenceSetMember> {
 
 	@Override
 	void writeHeader() throws IOException {
-		String extraFields = Strings.collectionToDelimitedString(extraFieldNames, TAB);
+		String extraFields = StringUtils.collectionToDelimitedString(extraFieldNames, TAB);
 		bufferedWriter.write(RF2Constants.SIMPLE_REFSET_HEADER);
 		if (!extraFields.isEmpty()) {
 			bufferedWriter.write(TAB);

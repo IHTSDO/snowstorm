@@ -1,31 +1,27 @@
 package org.snomed.snowstorm.config.elasticsearch;
 
 import org.springframework.data.elasticsearch.core.mapping.IndexCoordinates;
-import org.springframework.data.elasticsearch.core.mapping.SimpleElasticsearchPersistentEntity;
 import org.springframework.data.util.TypeInformation;
 
-public class SnowstormSimpleElasticsearchPersistentEntity<T> extends SimpleElasticsearchPersistentEntity<T> {
+public class SnowstormSimpleElasticsearchPersistentEntity<T> {
 
 	private final IndexConfig indexConfig;
 	private final String indexNamePrefix;
 
+
 	SnowstormSimpleElasticsearchPersistentEntity(IndexConfig indexConfig, TypeInformation<T> typeInformation) {
-		super(typeInformation);
 		this.indexConfig = indexConfig;
 		this.indexNamePrefix = indexConfig.getIndexNamePrefix() != null ? indexConfig.getIndexNamePrefix() : "";
 	}
 
-	@Override
 	public IndexCoordinates getIndexCoordinates() {
-		return IndexCoordinates.of(indexNamePrefix + super.getIndexCoordinates().getIndexName());
+		return IndexCoordinates.of(indexNamePrefix);
 	}
 
-	@Override
 	public short getShards() {
 		return indexConfig.getIndexShards();
 	}
 
-	@Override
 	public short getReplicas() {
 		return indexConfig.getIndexReplicas();
 	}

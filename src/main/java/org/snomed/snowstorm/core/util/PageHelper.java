@@ -1,9 +1,9 @@
 package org.snomed.snowstorm.core.util;
 
+import org.snomed.snowstorm.rest.pojo.SearchAfterPageRequest;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.elasticsearch.core.SearchAfterPageRequest;
 import org.springframework.data.elasticsearch.core.SearchHit;
 import org.springframework.data.elasticsearch.core.SearchHits;
 

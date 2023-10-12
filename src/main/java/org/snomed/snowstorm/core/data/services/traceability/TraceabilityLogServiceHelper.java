@@ -1,32 +1,34 @@
 package org.snomed.snowstorm.core.data.services.traceability;
 
+import co.elastic.clients.elasticsearch._types.SortOptions;
+import co.elastic.clients.elasticsearch._types.query_dsl.BoolQuery;
 import io.kaicode.elasticvc.api.BranchCriteria;
 import io.kaicode.elasticvc.domain.Commit;
-import org.elasticsearch.index.query.BoolQueryBuilder;
-import org.elasticsearch.search.sort.SortBuilders;
+
 import org.snomed.snowstorm.core.data.domain.SnomedComponent;
 import org.snomed.snowstorm.core.data.services.BranchMetadataHelper;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.elasticsearch.core.ElasticsearchRestTemplate;
+import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.data.elasticsearch.core.SearchHitsIterator;
-import org.springframework.data.elasticsearch.core.query.NativeSearchQuery;
-import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
+import org.springframework.data.elasticsearch.client.elc.NativeQuery;
+import org.springframework.data.elasticsearch.client.elc.NativeQueryBuilder;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
 
+import static co.elastic.clients.elasticsearch._types.query_dsl.QueryBuilders.bool;
 import static io.kaicode.elasticvc.api.VersionControlHelper.LARGE_PAGE;
-import static org.elasticsearch.index.query.QueryBuilders.*;
+import static io.kaicode.elasticvc.helper.QueryHelper.*;
 
 @Service
 public class TraceabilityLogServiceHelper {
 
 	@Autowired
-	private ElasticsearchRestTemplate elasticsearchTemplate;
+	private ElasticsearchOperations elasticsearchTemplate;
 	public <T extends SnomedComponent<T>> Iterable<T> loadChangesAndDeletionsWithinOpenCommitOnly(Class<T> clazz, BranchCriteria changesAndDeletionsWithinOpenCommitCriteria,
 			String branchPath, Commit commit) {
 
-		final BoolQueryBuilder branchCriteria = changesAndDeletionsWithinOpenCommitCriteria.getEntityBranchCriteria(clazz);
+		final BoolQuery.Builder branchCriteria = bool().must(changesAndDeletionsWithinOpenCommitCriteria.getEntityBranchCriteria(clazz));
 
 		if (commit.isRebase()) {
 			// The rebase branch criteria usually includes component versions brought in from ancestor branches. We will exclude those from traceability.
@@ -34,18 +36,18 @@ public class TraceabilityLogServiceHelper {
 			if (versionsReplaced.isEmpty()) {
 				branchCriteria.must(termQuery(SnomedComponent.Fields.PATH, branchPath));
 			} else {
-				branchCriteria.must(boolQuery()
+				branchCriteria.must(bool(b -> b
 						// Either on the target branch
 						.should(termQuery(SnomedComponent.Fields.PATH, branchPath))
 						// Or on an ancestor branch and replaced in this commit (update or delete)
-						.should(termsQuery("_id", versionsReplaced))
+						.should(termsQuery("_id", versionsReplaced)))
 				);
 			}
 		}
 
-		final NativeSearchQuery searchQuery = new NativeSearchQueryBuilder()
-				.withQuery(branchCriteria)
-				.withSort(SortBuilders.fieldSort("start"))
+		final NativeQuery searchQuery = new NativeQueryBuilder()
+				.withQuery(branchCriteria.build()._toQuery())
+				.withSort(SortOptions.of(s -> s.field(f-> f.field("start"))))
 				.withPageable(LARGE_PAGE)
 				.build();
 

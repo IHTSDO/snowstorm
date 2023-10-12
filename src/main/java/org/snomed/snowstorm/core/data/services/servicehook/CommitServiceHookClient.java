@@ -81,7 +81,7 @@ public class CommitServiceHookClient implements CommitListener {
 			logRequest(commit, authenticationToken, commit.getBranch());
 			ResponseEntity<?> responseEntity = restTemplate.postForEntity("/integration/snowstorm/commit",
 					new HttpEntity<>(new CommitInformation(commit), httpHeaders), Void.class);
-			logger.info("External system returned HTTP status code {}.", responseEntity.getStatusCodeValue());
+			logger.info("External system returned HTTP status code {}.", responseEntity.getStatusCode().value());
 		} catch (HttpClientErrorException.Conflict e) {
 			// External system indicates criteria has not been completed.
 			logger.error("External system indicates not all criteria have been completed.");

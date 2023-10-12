@@ -5,15 +5,15 @@ import it.unimi.dsi.fastutil.longs.LongArrayList;
 import it.unimi.dsi.fastutil.longs.LongLinkedOpenHashSet;
 import org.snomed.snowstorm.core.data.domain.*;
 import org.springframework.data.domain.PageRequest;
-import org.springframework.data.elasticsearch.core.ElasticsearchRestTemplate;
-import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
+import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
+import org.springframework.data.elasticsearch.client.elc.NativeQueryBuilder;
 
 import java.util.Collection;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import static org.elasticsearch.index.query.QueryBuilders.termsQuery;
+import static io.kaicode.elasticvc.helper.QueryHelper.termsQuery;
 
 /**
  * Generates SNOMED Component identifiers locally using random numbers.
@@ -23,12 +23,15 @@ public class LocalRandomIdentifierSource implements IdentifierSource {
 
 	public static final String POSTCOORDINATED_EXPRESSION_PARTITION_ID = "16";
 
-	private final ElasticsearchRestTemplate elasticsearchTemplate;
+	private final ElasticsearchOperations elasticsearchOperations;
 
 	private ItemIdProvider itemIdProvider;
 
-	public LocalRandomIdentifierSource(ElasticsearchRestTemplate elasticsearchTemplate) {
-		this.elasticsearchTemplate = elasticsearchTemplate;
+	public LocalRandomIdentifierSource(ElasticsearchOperations elasticsearchOperations) {
+		if (elasticsearchOperations == null) {
+			System.out.println("ElasticsearchOperations must not be null.");
+		}
+		this.elasticsearchOperations = elasticsearchOperations;
 		itemIdProvider = new RandomItemIdProvider();
 	}
 
@@ -73,10 +76,10 @@ public class LocalRandomIdentifierSource implements IdentifierSource {
 
 	// Finds and returns matching existing identifiers
 	private List<Long> findExistingIdentifiersInAnyBranch(List<Long> identifiers, Class<? extends SnomedComponent> snomedComponentClass, String idField) {
-		NativeSearchQueryBuilder queryBuilder = new NativeSearchQueryBuilder()
+		NativeQueryBuilder queryBuilder = new NativeQueryBuilder()
 				.withQuery(termsQuery(idField, identifiers))
 				.withPageable(PageRequest.of(0, identifiers.size()));
-		return elasticsearchTemplate.search(queryBuilder.build(), snomedComponentClass)
+		return elasticsearchOperations.search(queryBuilder.build(), snomedComponentClass)
 				.stream().map(hit -> Long.parseLong(hit.getContent().getId())).collect(Collectors.toList());
 	}
 
