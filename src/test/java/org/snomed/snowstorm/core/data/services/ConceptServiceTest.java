@@ -10,7 +10,6 @@ import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.api.ComponentService;
 import io.kaicode.elasticvc.domain.Branch;
 import io.kaicode.elasticvc.domain.Commit;
-import org.elasticsearch.common.collect.MapBuilder;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
@@ -29,8 +28,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
-import org.springframework.data.elasticsearch.core.query.NativeSearchQuery;
-import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
+import org.springframework.data.elasticsearch.client.elc.NativeQuery;
+import org.springframework.data.elasticsearch.client.elc.NativeQueryBuilder;
 import org.springframework.security.core.context.SecurityContextHolder;
 
 import java.io.IOException;
@@ -39,7 +38,7 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 import static io.kaicode.elasticvc.api.ComponentService.LARGE_PAGE;
-import static org.elasticsearch.index.query.QueryBuilders.termQuery;
+import static io.kaicode.elasticvc.helper.QueryHelper.termQuery;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.snomed.snowstorm.config.Config.DEFAULT_LANGUAGE_DIALECTS;
 import static org.snomed.snowstorm.core.data.domain.Concepts.*;
@@ -465,7 +464,7 @@ class ConceptServiceTest extends AbstractTest {
 
 		// Create a new version on MAIN/A/A2 and promote to project
 		conceptService.update(new Concept("100003", "10000222"), "MAIN/A/A2");
-		branchMergeService.mergeBranchSync("MAIN/A/A2", "MAIN/A", Arrays.asList(conceptService.find("100003", "MAIN/A/A2")));
+		branchMergeService.mergeBranchSync("MAIN/A/A2", "MAIN/A", Collections.singletonList(conceptService.find("100003", "MAIN/A/A2")));
 
 		final List<Long> conceptIds = Arrays.asList(100003L, 100001L, 100002L);
 		final Page<Concept> conceptsOnProject = conceptService.find(conceptIds, DEFAULT_LANGUAGE_DIALECTS, "MAIN/A", ServiceTestUtil.PAGE_REQUEST);
@@ -504,7 +503,9 @@ class ConceptServiceTest extends AbstractTest {
 		assertEquals(1, description.getAcceptabilityMapFromLangRefsetMembers().size());
 
 		description.clearLanguageRefsetMembers();
-		description.setAcceptabilityMap(MapBuilder.newMapBuilder(new HashMap<String, String>()).put(US_EN_LANG_REFSET, PREFERRED_CONSTANT).map());
+		Map<String, String> acceptabilityMap =  new HashMap<>();
+		acceptabilityMap.put(US_EN_LANG_REFSET, PREFERRED_CONSTANT);
+		description.setAcceptabilityMap(acceptabilityMap);
 
 		Concept updatedConcept = conceptService.update(savedConcept, DEFAULT_LANGUAGE_DIALECTS, "MAIN");
 		assertEquals("Bleeding (morphologic abnormality)", updatedConcept.getFsn().getTerm());
@@ -1885,7 +1886,7 @@ class ConceptServiceTest extends AbstractTest {
 		conceptService.update(concept, branch);
 
 		Branch latestCommit = branchService.findLatest(branch);
-		NativeSearchQuery query = new NativeSearchQueryBuilder().withQuery(termQuery("start", latestCommit.getHeadTimestamp())).build();
+		NativeQuery query = new NativeQueryBuilder().withQuery(termQuery("start", latestCommit.getHeadTimestamp())).build();
 		assertEquals(0, elasticsearchOperations.count(query, Concept.class));
 		assertEquals(0, elasticsearchOperations.count(query, Relationship.class));
 		assertEquals(0, elasticsearchOperations.count(query, Description.class));

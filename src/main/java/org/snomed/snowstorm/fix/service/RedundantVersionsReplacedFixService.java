@@ -1,5 +1,7 @@
 package org.snomed.snowstorm.fix.service;
 
+import co.elastic.clients.elasticsearch._types.SortOptions;
+import co.elastic.clients.elasticsearch._types.SortOrder;
 import com.google.common.collect.Iterables;
 import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.api.PathUtil;
@@ -7,8 +9,6 @@ import io.kaicode.elasticvc.api.VersionControlHelper;
 import io.kaicode.elasticvc.domain.Branch;
 import io.kaicode.elasticvc.domain.Commit;
 import io.kaicode.elasticvc.domain.Entity;
-import org.elasticsearch.search.sort.SortBuilders;
-import org.elasticsearch.search.sort.SortOrder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.core.data.domain.ReferenceSetMember;
@@ -20,13 +20,14 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.data.elasticsearch.core.SearchHit;
 import org.springframework.data.elasticsearch.core.SearchHits;
-import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
+import org.springframework.data.elasticsearch.client.elc.NativeQueryBuilder;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
 import java.util.stream.Collectors;
 
-import static org.elasticsearch.index.query.QueryBuilders.*;
+import static co.elastic.clients.elasticsearch._types.query_dsl.QueryBuilders.*;
+import static io.kaicode.elasticvc.helper.QueryHelper.*;
 
 @Service
 public class RedundantVersionsReplacedFixService {
@@ -54,10 +55,11 @@ public class RedundantVersionsReplacedFixService {
 		}
 
 		// Get latest version of the branch
-		SearchHits<Branch> hits = elasticsearchOperations.search(new NativeSearchQueryBuilder().withQuery(
-				boolQuery()
+		SearchHits<Branch> hits = elasticsearchOperations.search(new NativeQueryBuilder().withQuery(
+				bool(b -> b
 						.must(termQuery(Branch.Fields.PATH, branchPath))
 						.mustNot(existsQuery("end")))
+				)
 				.build(), Branch.class);
 		if (hits.isEmpty()) {
 			throw new NotFoundException("Branch not found.");
@@ -81,9 +83,9 @@ public class RedundantVersionsReplacedFixService {
 
 			Map<String, List<ReferenceSetMember>> membersReplacedMap = new HashMap<>();
 			elasticsearchOperations.search(
-					new NativeSearchQueryBuilder()
+					new NativeQueryBuilder()
 							.withQuery(termsQuery("_id", internalIdBatch))
-							.withSort(SortBuilders.fieldSort("start").order(SortOrder.DESC))
+							.withSort(SortOptions.of(s -> s.field(f -> f.field("start").order(SortOrder.Desc))))
 							.withPageable(PageRequest.of(0, batchSize)).build(),
 					ReferenceSetMember.class).stream().map(SearchHit::getContent)
 					.forEach(member -> membersReplacedMap.computeIfAbsent(member.getMemberId(), key -> new ArrayList<>()).add(member));

@@ -1,10 +1,10 @@
 package org.snomed.snowstorm.core.data.services;
 
+import co.elastic.clients.json.JsonData;
 import com.google.common.collect.Lists;
 import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.api.CommitListener;
 import io.kaicode.elasticvc.domain.Commit;
-import org.elasticsearch.index.query.QueryBuilders;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -23,10 +23,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
-import org.springframework.data.elasticsearch.core.ElasticsearchRestTemplate;
 import org.springframework.data.elasticsearch.core.SearchHit;
 import org.springframework.data.elasticsearch.core.SearchHits;
-import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
+import org.springframework.data.elasticsearch.client.elc.NativeQueryBuilder;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
 
@@ -35,7 +34,8 @@ import java.util.stream.Collectors;
 
 import static io.kaicode.elasticvc.api.ComponentService.LARGE_PAGE;
 import static java.lang.Long.parseLong;
-import static org.elasticsearch.index.query.QueryBuilders.*;
+import static co.elastic.clients.elasticsearch._types.query_dsl.QueryBuilders.*;
+import static io.kaicode.elasticvc.helper.QueryHelper.*;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.snomed.snowstorm.core.data.domain.Concepts.*;
 
@@ -62,7 +62,7 @@ class SemanticIndexUpdateServiceTest extends AbstractTest {
 	private ConceptUpdateHelper conceptUpdateHelper;
 
 	@Autowired
-	private ElasticsearchRestTemplate elasticsearchTemplate;
+	private ElasticsearchOperations elasticsearchTemplate;
 
 	@Autowired
 	private ReferenceSetMemberService referenceSetMemberService;
@@ -250,10 +250,10 @@ class SemanticIndexUpdateServiceTest extends AbstractTest {
 
 		// Extreme hack, without version control, to break the semantic index
 		// Remove attributes from existing semantic entry
-		final SearchHit<QueryConcept> hit = elasticsearchTemplate.searchOne(new NativeSearchQueryBuilder()
-				.withQuery(QueryBuilders.boolQuery()
+		final SearchHit<QueryConcept> hit = elasticsearchTemplate.searchOne(new NativeQueryBuilder()
+				.withQuery(bool(b -> b
 						.must(termQuery(QueryConcept.Fields.CONCEPT_ID_FORM, hamPizza.getId() + "_i"))
-						.mustNot(existsQuery("end"))
+						.mustNot(existsQuery("end")))
 				).build(), QueryConcept.class);
 		assertNotNull(hit);
 		QueryConcept queryConcept = hit.getContent();
@@ -810,13 +810,13 @@ class SemanticIndexUpdateServiceTest extends AbstractTest {
 
 		// Delete all documents in semantic index and rebuild
 
-		List<QueryConcept> queryConcepts = elasticsearchTemplate.search(new NativeSearchQueryBuilder().build(), QueryConcept.class)
+		List<QueryConcept> queryConcepts = elasticsearchTemplate.search(new NativeQueryBuilder().build(), QueryConcept.class)
 				.stream().map(SearchHit::getContent).collect(Collectors.toList());
 		assertEquals(5, queryConcepts.size());
 
-		deleteAllAndRefresh(QueryConcept.class);
+		deleteAllAndRefresh();
 
-		queryConcepts = elasticsearchTemplate.search(new NativeSearchQueryBuilder().build(), QueryConcept.class)
+		queryConcepts = elasticsearchTemplate.search(new NativeQueryBuilder().build(), QueryConcept.class)
 				.stream().map(SearchHit::getContent).collect(Collectors.toList());
 		assertEquals(0, queryConcepts.size());
 
@@ -1306,8 +1306,9 @@ class SemanticIndexUpdateServiceTest extends AbstractTest {
 
 		// Assert
 		// No unnecessary semantic index changes are made.
-		SearchHits<QueryConcept> semanticChanges =
-				elasticsearchOperations.search(new NativeSearchQueryBuilder().withQuery(rangeQuery("start").gte(now.getTime())).build(), QueryConcept.class);
+		SearchHits<QueryConcept> semanticChanges = elasticsearchOperations.search(new NativeQueryBuilder()
+				.withQuery(range().field("start").gte(JsonData.of(now.getTime())).build()._toQuery())
+				.build(), QueryConcept.class);
 		assertEquals(0, semanticChanges.getTotalHits());
 
 		// Then..
@@ -1325,7 +1326,9 @@ class SemanticIndexUpdateServiceTest extends AbstractTest {
 
 		// Assert
 		// No unnecessary semantic index changes are made.
-		semanticChanges = elasticsearchOperations.search(new NativeSearchQueryBuilder().withQuery(rangeQuery("start").gte(now.getTime())).build(), QueryConcept.class);
+		semanticChanges = elasticsearchOperations.search(new NativeQueryBuilder()
+				.withQuery(range().field("start").gte(JsonData.of(now.getTime())).build()._toQuery())
+				.build(), QueryConcept.class);
 		assertEquals(0, semanticChanges.getTotalHits());
 	}
 

@@ -14,7 +14,7 @@ import java.util.Map;
 @JsonPropertyOrder({"buckets", "languageNames", "bucketConcepts"})
 public class PageWithBucketAggregations<T> extends PageImpl<T> {
 
-	private Map<String, Map<String, Long>> buckets;
+	private final Map<String, Map<String, Long>> buckets;
 	private Map<String, String> languageNames;
 	private Map<String, ConceptMini> bucketConcepts;
 	private Object[] searchAfterArray;

@@ -1,13 +1,14 @@
 package org.snomed.snowstorm.core.data.services;
 
 import ch.qos.logback.classic.Level;
+import co.elastic.clients.elasticsearch._types.aggregations.AggregationBuilders;
+import co.elastic.clients.elasticsearch._types.aggregations.TermsAggregation;
+import co.elastic.clients.elasticsearch._types.query_dsl.BoolQuery;
 import io.kaicode.elasticvc.api.BranchCriteria;
 import io.kaicode.elasticvc.api.VersionControlHelper;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
-import org.elasticsearch.index.query.BoolQueryBuilder;
-import org.elasticsearch.search.aggregations.AggregationBuilders;
-import org.elasticsearch.search.aggregations.bucket.terms.TermsAggregationBuilder;
+
 import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.services.pojo.AuthoringStatsSummary;
 import org.snomed.snowstorm.core.data.services.pojo.PageWithBucketAggregations;
@@ -20,8 +21,8 @@ import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.data.elasticsearch.core.SearchHit;
 import org.springframework.data.elasticsearch.core.SearchHits;
 import org.springframework.data.elasticsearch.core.SearchHitsIterator;
-import org.springframework.data.elasticsearch.core.query.NativeSearchQuery;
-import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
+import org.springframework.data.elasticsearch.client.elc.NativeQuery;
+import org.springframework.data.elasticsearch.client.elc.NativeQueryBuilder;
 import org.springframework.data.elasticsearch.core.query.Query;
 import org.springframework.stereotype.Service;
 
@@ -30,7 +31,8 @@ import java.util.stream.Collectors;
 
 import static io.kaicode.elasticvc.api.VersionControlHelper.LARGE_PAGE;
 import static java.lang.Long.parseLong;
-import static org.elasticsearch.index.query.QueryBuilders.*;
+import static co.elastic.clients.elasticsearch._types.query_dsl.QueryBuilders.*;
+import static io.kaicode.elasticvc.helper.QueryHelper.*;
 import static org.snomed.snowstorm.config.Config.AGGREGATION_SEARCH_SIZE;
 
 @Service
@@ -38,10 +40,10 @@ public class AuthoringStatsService {
 	
 	public static final PageRequest NULL_PAGE = PageRequest.of(0,1);
 	public static final String AGGREGATION_COUNTS_BY_MODULE = "countByModule";
-	public static final TermsAggregationBuilder MODULE_AGGREGATION = AggregationBuilders
-			.terms(AGGREGATION_COUNTS_BY_MODULE)
+	public static final TermsAggregation MODULE_AGGREGATION = AggregationBuilders
+			.terms()
 			.field(SnomedComponent.Fields.MODULE_ID)
-			.size(AGGREGATION_SEARCH_SIZE);
+			.size(AGGREGATION_SEARCH_SIZE).build();
 
 	@Autowired
 	private VersionControlHelper versionControlHelper;
@@ -116,14 +118,14 @@ public class AuthoringStatsService {
 		return authoringStatsSummary;
 	}
 
-	private NativeSearchQueryBuilder getNewSynonymsOnExistingConceptsCriteria(BranchCriteria branchCriteria, TimerUtil timer) {
+	private NativeQueryBuilder getNewSynonymsOnExistingConceptsCriteria(BranchCriteria branchCriteria, TimerUtil timer) {
 		Set<Long> newSynonymConceptIds = new LongOpenHashSet();
-		try (SearchHitsIterator<Description> stream = elasticsearchOperations.searchForStream(new NativeSearchQueryBuilder()
-				.withQuery(boolQuery()
+		try (SearchHitsIterator<Description> stream = elasticsearchOperations.searchForStream(new NativeQueryBuilder()
+				.withQuery(bool(bq -> bq
 						.must(branchCriteria.getEntityBranchCriteria(Description.class))
 						.must(termQuery(Description.Fields.TYPE_ID, Concepts.SYNONYM))
 						.must(termQuery(Concept.Fields.ACTIVE, true))
-						.must(termQuery(Concept.Fields.RELEASED, "false")))
+						.must(termQuery(Concept.Fields.RELEASED, "false"))))
 				.withFields(Description.Fields.CONCEPT_ID)
 				.withPageable(LARGE_PAGE)
 				.build(), Description.class)) {
@@ -132,11 +134,11 @@ public class AuthoringStatsService {
 		if (timer != null) timer.checkpoint("new synonym concept ids");
 
 		Set<Long> existingConceptsWithNewSynonyms = new LongOpenHashSet();
-		try (SearchHitsIterator<Concept> stream = elasticsearchOperations.searchForStream(new NativeSearchQueryBuilder()
-				.withQuery(boolQuery()
+		try (SearchHitsIterator<Concept> stream = elasticsearchOperations.searchForStream(new NativeQueryBuilder()
+				.withQuery(bool(b -> b
 						.must(branchCriteria.getEntityBranchCriteria(Concept.class))
 						.must(termQuery(Concept.Fields.RELEASED, "true"))
-						.filter(termsQuery(Concept.Fields.CONCEPT_ID, newSynonymConceptIds))
+						.filter(termsQuery(Concept.Fields.CONCEPT_ID, newSynonymConceptIds)))
 				)
 				.withFields(Concept.Fields.CONCEPT_ID)
 				.withPageable(LARGE_PAGE)
@@ -145,14 +147,14 @@ public class AuthoringStatsService {
 		}
 		if (timer != null) timer.checkpoint("existing concepts with new synonyms");
 
-		return new NativeSearchQueryBuilder()
-				.withQuery(boolQuery()
+		return new NativeQueryBuilder()
+				.withQuery(bool(b -> b
 						.must(branchCriteria.getEntityBranchCriteria(Description.class))
 						.must(termQuery(Description.Fields.TYPE_ID, Concepts.SYNONYM))
 						.must(termQuery(Description.Fields.ACTIVE, true))
 						.mustNot(existsQuery(Concept.Fields.EFFECTIVE_TIME))
 						.must(termQuery(Description.Fields.RELEASED, "false"))
-						.filter(termsQuery(Description.Fields.CONCEPT_ID, existingConceptsWithNewSynonyms))
+						.filter(termsQuery(Description.Fields.CONCEPT_ID, existingConceptsWithNewSynonyms)))
 				);
 	}
 
@@ -223,7 +225,7 @@ public class AuthoringStatsService {
 		return getDescriptionResults(getReactivatedSynonymsCriteria(branchCriteria));
 	}
 
-	private List<ConceptMicro> getDescriptionResults(NativeSearchQueryBuilder criteria) {
+	private List<ConceptMicro> getDescriptionResults(NativeQueryBuilder criteria) {
 		List<ConceptMicro> micros = new ArrayList<>();
 		try (SearchHitsIterator<Description> stream = elasticsearchOperations.searchForStream(criteria.withPageable(LARGE_PAGE).build(), Description.class)) {
 			stream.forEachRemaining(hit -> micros.add(new ConceptMicro(hit.getContent().getConceptId(), hit.getContent().getTerm())));
@@ -232,83 +234,83 @@ public class AuthoringStatsService {
 		return micros;
 	}
 
-	private NativeSearchQueryBuilder getNewConceptCriteria(BranchCriteria branchCriteria) {
-		return new NativeSearchQueryBuilder()
-				.withQuery(boolQuery()
+	private NativeQueryBuilder getNewConceptCriteria(BranchCriteria branchCriteria) {
+		return new NativeQueryBuilder()
+				.withQuery(bool(b -> b
 						.must(branchCriteria.getEntityBranchCriteria(Concept.class))
 						.must(termQuery(Concept.Fields.ACTIVE, "true"))
 						.mustNot(existsQuery(Concept.Fields.EFFECTIVE_TIME))
-						.must(termQuery(Concept.Fields.RELEASED, "false")))
+						.must(termQuery(Concept.Fields.RELEASED, "false"))))
 				.withFields(Concept.Fields.CONCEPT_ID);
 	}
 	
-	private NativeSearchQueryBuilder getNewDescriptionCriteria(BranchCriteria branchCriteria) {
-		return new NativeSearchQueryBuilder()
-				.withQuery(boolQuery()
+	private NativeQueryBuilder getNewDescriptionCriteria(BranchCriteria branchCriteria) {
+		return new NativeQueryBuilder()
+				.withQuery(bool(bq -> bq
 						.must(branchCriteria.getEntityBranchCriteria(Description.class))
 						.must(termQuery(Concept.Fields.ACTIVE, "true"))
 						.mustNot(existsQuery(Concept.Fields.EFFECTIVE_TIME))
-						.must(termQuery(Concept.Fields.RELEASED, "false")))
+						.must(termQuery(Concept.Fields.RELEASED, "false"))))
 				.withFields(Description.Fields.DESCRIPTION_ID, Description.Fields.CONCEPT_ID, Description.Fields.TERM);
 	}
 
-	private NativeSearchQueryBuilder getInactivatedConceptsCriteria(BranchCriteria branchCriteria) {
-		return new NativeSearchQueryBuilder()
-				.withQuery(boolQuery()
+	private NativeQueryBuilder getInactivatedConceptsCriteria(BranchCriteria branchCriteria) {
+		return new NativeQueryBuilder()
+				.withQuery(bool(bq -> bq
 						.must(branchCriteria.getEntityBranchCriteria(Concept.class))
 						.must(termQuery(Concept.Fields.ACTIVE, "false"))
 						.must(termQuery(Concept.Fields.RELEASED, "true"))
 						.mustNot(existsQuery(Concept.Fields.EFFECTIVE_TIME))
-				)
+				))
 				.withFields(Concept.Fields.CONCEPT_ID);
 	}
 
-	private NativeSearchQueryBuilder getReactivatedConceptsCriteria(BranchCriteria branchCriteria) {
-		return new NativeSearchQueryBuilder()
-				.withQuery(boolQuery()
+	private NativeQueryBuilder getReactivatedConceptsCriteria(BranchCriteria branchCriteria) {
+		return new NativeQueryBuilder()
+				.withQuery(bool(bq -> bq
 						.must(branchCriteria.getEntityBranchCriteria(Concept.class))
 						.must(termQuery(Concept.Fields.ACTIVE, "true"))
 						.mustNot(existsQuery(Concept.Fields.EFFECTIVE_TIME))
 						.must(termQuery(Concept.Fields.RELEASED, "true"))
 						// Previously released as active=false
 						.must(prefixQuery(Concept.Fields.RELEASE_HASH, "false"))
-				)
+				))
 				.withFields(Concept.Fields.CONCEPT_ID);
 	}
 
-	private NativeSearchQueryBuilder getChangedFSNsCriteria(BranchCriteria branchCriteria) {
-		return new NativeSearchQueryBuilder()
-				.withQuery(boolQuery()
+	private NativeQueryBuilder getChangedFSNsCriteria(BranchCriteria branchCriteria) {
+		return new NativeQueryBuilder()
+				.withQuery(bool(bq -> bq
 						.must(branchCriteria.getEntityBranchCriteria(Description.class))
 						// To get the concepts with changed FSNs
 						// just select published FSNs which have been changed.
 						// This will cover: minor changes to term, change to case significance and replaced FSNs.
 						.must(termQuery(Description.Fields.TYPE_ID, Concepts.FSN))
 						.mustNot(existsQuery(Concept.Fields.EFFECTIVE_TIME))
-						.must(termQuery(Concept.Fields.RELEASED, "true")))
+						.must(termQuery(Concept.Fields.RELEASED, "true"))))
 				.withFields(Description.Fields.CONCEPT_ID);
 	}
 
-	private NativeSearchQueryBuilder getInactivatedSynonymCriteria(BranchCriteria branchCriteria) {
-		return new NativeSearchQueryBuilder()
-				.withQuery(boolQuery()
+	private NativeQueryBuilder getInactivatedSynonymCriteria(BranchCriteria branchCriteria) {
+		return new NativeQueryBuilder()
+				.withQuery(bool(bq -> bq
 						.must(branchCriteria.getEntityBranchCriteria(Description.class))
 						.must(termQuery(Description.Fields.TYPE_ID, Concepts.SYNONYM))
 						.must(termQuery(Concept.Fields.ACTIVE, false))
 						.mustNot(existsQuery(Concept.Fields.EFFECTIVE_TIME))
-						.must(termQuery(Concept.Fields.RELEASED, "true")));
+						.must(termQuery(Concept.Fields.RELEASED, "true"))));
 	}
 
-	private NativeSearchQueryBuilder getReactivatedSynonymsCriteria(BranchCriteria branchCriteria) {
-		return new NativeSearchQueryBuilder()
-				.withQuery(boolQuery()
+	private NativeQueryBuilder getReactivatedSynonymsCriteria(BranchCriteria branchCriteria) {
+		return new NativeQueryBuilder()
+				.withQuery(bool(bq -> bq
 						.must(branchCriteria.getEntityBranchCriteria(Description.class))
 						.must(termQuery(Description.Fields.TYPE_ID, Concepts.SYNONYM))
 						.must(termQuery(Description.Fields.ACTIVE, true))
 						.mustNot(existsQuery(Concept.Fields.EFFECTIVE_TIME))
 						// Previously released as active=false
 						.must(prefixQuery(Description.Fields.RELEASE_HASH, "false"))
-						.must(termQuery(Description.Fields.RELEASED, "true")));
+						.must(termQuery(Description.Fields.RELEASED, "true"))));
 	}
 
 	private List<ConceptMicro> getConceptMicros(List<Long> conceptIds, List<LanguageDialect> languageDialects, BranchCriteria branchCriteria) {
@@ -331,13 +333,13 @@ public class AuthoringStatsService {
 
 	private Map<String, Long> getModuleCounts(String branchPath, Class<? extends SnomedComponent<?>> componentClass) {
 		BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(branchPath);
-		BoolQueryBuilder query = boolQuery()
-				.must(branchCriteria.getEntityBranchCriteria(componentClass)
-				.mustNot(existsQuery("end")));
-		NativeSearchQuery searchQuery = new NativeSearchQueryBuilder()
-				.withQuery(query)
+		BoolQuery.Builder queryBuilder = bool()
+				.must(branchCriteria.getEntityBranchCriteria(componentClass))
+				.mustNot(existsQuery("end"));
+		NativeQuery searchQuery = new NativeQueryBuilder()
+				.withQuery(queryBuilder.build()._toQuery())
 				.withPageable(NULL_PAGE)
-				.addAggregation(MODULE_AGGREGATION)
+				.withAggregation(AGGREGATION_COUNTS_BY_MODULE, MODULE_AGGREGATION._toAggregation())
 				.build();
 
 		SearchHits<? extends SnomedComponent<?>> pageResults = elasticsearchOperations.search(searchQuery, componentClass);

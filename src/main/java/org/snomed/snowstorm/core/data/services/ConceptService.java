@@ -1,6 +1,9 @@
 package org.snomed.snowstorm.core.data.services;
 
 import ch.qos.logback.classic.Level;
+import co.elastic.clients.elasticsearch._types.query_dsl.BoolQuery;
+import co.elastic.clients.elasticsearch._types.query_dsl.Query;
+import com.google.common.base.Strings;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.Iterables;
@@ -10,8 +13,7 @@ import io.kaicode.elasticvc.domain.Branch;
 import io.kaicode.elasticvc.domain.Commit;
 import io.kaicode.elasticvc.domain.DomainEntity;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
-import org.elasticsearch.common.Strings;
-import org.elasticsearch.index.query.BoolQueryBuilder;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.otf.owltoolkit.conversion.ConversionException;
@@ -29,12 +31,12 @@ import org.springframework.context.annotation.Lazy;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
-import org.springframework.data.elasticsearch.core.ElasticsearchRestTemplate;
+import org.springframework.data.elasticsearch.client.elc.NativeQuery;
+import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.data.elasticsearch.core.SearchHit;
 import org.springframework.data.elasticsearch.core.SearchHits;
 import org.springframework.data.elasticsearch.core.SearchHitsIterator;
-import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
-import org.springframework.data.elasticsearch.core.query.Query;
+import org.springframework.data.elasticsearch.client.elc.NativeQueryBuilder;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -42,6 +44,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.Assert;
 
 import jakarta.annotation.Nullable;
+
 import java.time.Duration;
 import java.util.*;
 import java.util.concurrent.*;
@@ -49,8 +52,10 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
-import static org.elasticsearch.index.query.QueryBuilders.*;
+import static co.elastic.clients.elasticsearch._types.query_dsl.QueryBuilders.*;
+import static io.kaicode.elasticvc.helper.QueryHelper.*;
 import static org.snomed.snowstorm.config.Config.DEFAULT_LANGUAGE_DIALECTS;
+import static org.snomed.snowstorm.core.util.SearchAfterQueryHelper.updateQueryWithSearchAfter;
 import static org.springframework.util.CollectionUtils.isEmpty;
 
 @Service
@@ -106,7 +111,7 @@ public class ConceptService extends ComponentService {
 	private VersionControlHelper versionControlHelper;
 
 	@Autowired
-	private ElasticsearchRestTemplate elasticsearchTemplate;
+	private ElasticsearchOperations elasticsearchOperations;
 
 	@Autowired
 	@Lazy
@@ -180,55 +185,56 @@ public class ConceptService extends ComponentService {
 			codeSystemVersionBranchCriteria.put(branchPath, getBranchCriteria(branchPath));
 		}
 
-		Function<ComponentType, BoolQueryBuilder> defaultFullQuery = componentType -> {
-			BoolQueryBuilder fullQuery = boolQuery();
-			fullQuery.must(
-					boolQuery() //Query for released Components
+		Function<ComponentType, BoolQuery.Builder> defaultFullQuery = componentType -> {
+			BoolQuery.Builder fullQueryBuilder = bool();
+			fullQueryBuilder.must(
+					bool(bq -> bq
+							//Query for released Components
 							.must(existsQuery(SnomedComponent.Fields.EFFECTIVE_TIME))
 							.must(existsQuery(SnomedComponent.Fields.PATH))
-			);
+			));
 
 			if (ComponentType.Axiom.equals(componentType)) {
-				fullQuery.must(
-						boolQuery() //Query for Axioms
+				fullQueryBuilder.must(
+						bool(bq -> bq //Query for Axioms
 								.must(termQuery(ReferenceSetMember.Fields.REFSET_ID, Concepts.OWL_AXIOM_REFERENCE_SET))
-								.must(boolQuery()
+								.must(bool(sb -> sb
 										// One of:
 										.should(termQuery(ReferenceSetMember.Fields.CONCEPT_ID, conceptId))
-										.should(termQuery(ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID, conceptId)))
-				);
+										.should(termQuery(ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID, conceptId))))
+				));
 			} else {
-				fullQuery.must(
-						boolQuery() //Query for Concepts, Descriptions & Relationships
+				fullQueryBuilder.must(
+						bool(bq -> bq //Query for Concepts, Descriptions & Relationships
 								// One of:
 								.should(termQuery(Concept.Fields.CONCEPT_ID, conceptId))
-								.should(termQuery(Relationship.Fields.SOURCE_ID, conceptId))
+								.should(termQuery(Relationship.Fields.SOURCE_ID, conceptId)))
 				);
 			}
-			return fullQuery;
+			return fullQueryBuilder;
 		};
 
 		ConceptHistory conceptHistory = new ConceptHistory(conceptId);
 		for (Map.Entry<ComponentType, Class<? extends DomainEntity<?>>> entrySet : COMPONENT_DOCUMENT_TYPES.entrySet()) {
 			ComponentType componentType = entrySet.getKey();
 			Class<? extends DomainEntity<?>> documentType = entrySet.getValue();
-			BoolQueryBuilder componentQuery = defaultFullQuery.apply(componentType);
+			BoolQuery.Builder componentQueryBuilder = defaultFullQuery.apply(componentType);
 
-			BoolQueryBuilder codeSystemQuery = boolQuery();
+			BoolQuery.Builder codeSystemQuery = bool();
 			for (CodeSystemVersion codeSystemVersion : codeSystemVersions) {
 				codeSystemQuery
 						.should(
-								boolQuery()
+								bool(bq -> bq
 										.must(termQuery(SnomedComponent.Fields.EFFECTIVE_TIME, codeSystemVersion.getEffectiveDate()))
 										// Branch criteria for this code system version and component type
-										.must(codeSystemVersionBranchCriteria.get(codeSystemVersion.getBranchPath()).getEntityBranchCriteria(documentType))
+										.must(codeSystemVersionBranchCriteria.get(codeSystemVersion.getBranchPath()).getEntityBranchCriteria(documentType)))
 						);
 			}
-			componentQuery.must(codeSystemQuery);
+			componentQueryBuilder.must(codeSystemQuery.build()._toQuery());
 
-			SearchHits<? extends DomainEntity<?>> searchHits = elasticsearchTemplate.search(
-					new NativeSearchQueryBuilder()
-							.withQuery(componentQuery)
+			SearchHits<? extends DomainEntity<?>> searchHits = elasticsearchOperations.search(
+					new NativeQueryBuilder()
+							.withQuery(componentQueryBuilder.build()._toQuery())
 							.withPageable(LARGE_PAGE)
 							.build(),
 					documentType
@@ -249,13 +255,13 @@ public class ConceptService extends ComponentService {
 	}
 
 	public Collection<String> getNonExistentConceptIds(Collection<String> ids, BranchCriteria branchCriteria) {
-		final BoolQueryBuilder builder = boolQuery()
+		final Query query = bool(bq -> bq
 				.must(branchCriteria.getEntityBranchCriteria(Concept.class))
-				.must(termsQuery(Concept.Fields.CONCEPT_ID, ids));
+				.must(termsQuery(Concept.Fields.CONCEPT_ID, ids)));
 
 		Set<String> conceptsNotFound = new HashSet<>(ids);
-		try (final SearchHitsIterator<Concept> conceptStream = elasticsearchTemplate.searchForStream(new NativeSearchQueryBuilder()
-				.withQuery(builder)
+		try (final SearchHitsIterator<Concept> conceptStream = elasticsearchOperations.searchForStream(new NativeQueryBuilder()
+				.withQuery(query)
 				.withPageable(LARGE_PAGE)
 				.build(), Concept.class)) {
 			conceptStream.forEachRemaining(hit -> conceptsNotFound.remove(hit.getContent().getConceptId()));
@@ -368,7 +374,7 @@ public class ConceptService extends ComponentService {
 		final TimerUtil timer = new TimerUtil("Find concept", Level.DEBUG);
 		timer.checkpoint("get branch criteria");
 
-		NativeSearchQueryBuilder queryBuilder = new NativeSearchQueryBuilder();
+		NativeQueryBuilder queryBuilder = new NativeQueryBuilder();
 
 		Page<Concept> concepts;
 		if (!isEmpty(conceptIdsToFind)) {
@@ -377,22 +383,23 @@ public class ConceptService extends ComponentService {
 			}
 			List<Concept> allConcepts = new ArrayList<>();
 			queryBuilder
-					.withQuery(boolQuery()
+					.withQuery(bool(bq -> bq
 							.must(branchCriteria.getEntityBranchCriteria(Concept.class))
-							.must(termsQuery(Concept.Fields.CONCEPT_ID, conceptIdsToFind)))
+							.must(termsQuery(Concept.Fields.CONCEPT_ID, conceptIdsToFind))))
 					.withPageable(LARGE_PAGE);
 
-			try (final SearchHitsIterator<Concept> searchHits = elasticsearchTemplate.searchForStream(queryBuilder.build(), Concept.class)) {
+			try (final SearchHitsIterator<Concept> searchHits = elasticsearchOperations.searchForStream(queryBuilder.build(), Concept.class)) {
 				searchHits.forEachRemaining(hit -> allConcepts.add(hit.getContent()));
 			}
 			concepts = new PageImpl<>(allConcepts, pageRequest, allConcepts.size());
 		} else {
-			Query conceptQuery = new NativeSearchQueryBuilder()
-					.withQuery(boolQuery().must(branchCriteria.getEntityBranchCriteria(Concept.class)))
+			NativeQuery conceptQuery = new NativeQueryBuilder()
+					.withQuery(bool(bq -> bq.must(branchCriteria.getEntityBranchCriteria(Concept.class))))
 					.withPageable(pageRequest)
 					.build();
 			conceptQuery.setTrackTotalHits(true);
-			SearchHits<Concept> searchHits = elasticsearchTemplate.search(conceptQuery, Concept.class);
+			updateQueryWithSearchAfter(conceptQuery, pageRequest);
+			SearchHits<Concept> searchHits = elasticsearchOperations.search(conceptQuery, Concept.class);
 			concepts = PageHelper.toSearchAfterPage(searchHits, pageRequest);
 		}
 		timer.checkpoint("find concept");
@@ -413,13 +420,13 @@ public class ConceptService extends ComponentService {
 
 			// Fetch Axioms
 			for (List<String> conceptIds : Iterables.partition(conceptIdMap.keySet(), CLAUSE_LIMIT)) {
-				queryBuilder.withQuery(boolQuery()
+				queryBuilder.withQuery(bool(bq -> bq
 						.must(termQuery(ReferenceSetMember.Fields.REFSET_ID, Concepts.OWL_AXIOM_REFERENCE_SET))
 						.must(termsQuery(ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID, conceptIds))
-						.must(branchCriteria.getEntityBranchCriteria(ReferenceSetMember.class)))
+						.must(branchCriteria.getEntityBranchCriteria(ReferenceSetMember.class))))
 						.withPageable(LARGE_PAGE);
 
-				try (final SearchHitsIterator<ReferenceSetMember> axiomMembers = elasticsearchTemplate.searchForStream(queryBuilder.build(), ReferenceSetMember.class)) {
+				try (final SearchHitsIterator<ReferenceSetMember> axiomMembers = elasticsearchOperations.searchForStream(queryBuilder.build(), ReferenceSetMember.class)) {
 					axiomMembers.forEachRemaining(axiomMember -> joinAxiom(axiomMember.getContent(), conceptIdMap, conceptMiniMap, languageDialects));
 				}
 			}
@@ -436,11 +443,11 @@ public class ConceptService extends ComponentService {
 
 		// Fetch ConceptMini definition statuses
 		for (List<String> conceptIds : Iterables.partition(conceptMiniMap.keySet(), CLAUSE_LIMIT)) {
-			queryBuilder.withQuery(boolQuery()
+			queryBuilder.withQuery(bool(bq -> bq
 					.must(termsQuery("conceptId", conceptIds))
-					.must(branchCriteria.getEntityBranchCriteria(Concept.class)))
+					.must(branchCriteria.getEntityBranchCriteria(Concept.class))))
 					.withPageable(LARGE_PAGE);
-			try (final SearchHitsIterator<Concept> conceptsForMini = elasticsearchTemplate.searchForStream(queryBuilder.build(), Concept.class)) {
+			try (final SearchHitsIterator<Concept> conceptsForMini = elasticsearchOperations.searchForStream(queryBuilder.build(), Concept.class)) {
 				conceptsForMini.forEachRemaining(hit ->
 				{
 					Concept concept = hit.getContent();
@@ -466,16 +473,16 @@ public class ConceptService extends ComponentService {
 	public void joinRelationships(Map<String, Concept> conceptIdMap, Map<String, ConceptMini> typeAndTargetConceptMiniMap, List<LanguageDialect> languageDialects,
 			String branchPath, BranchCriteria branchCriteria, TimerUtil timer, boolean activeOnly) {
 
-		NativeSearchQueryBuilder queryBuilder = new NativeSearchQueryBuilder();
+		NativeQueryBuilder queryBuilder = new NativeQueryBuilder();
 		for (List<String> conceptIds : Iterables.partition(conceptIdMap.keySet(), CLAUSE_LIMIT)) {
-			final BoolQueryBuilder boolQuery = boolQuery()
-					.must(termsQuery("sourceId", conceptIds))
-					.must(branchCriteria.getEntityBranchCriteria(Relationship.class));
+			final BoolQuery.Builder boolQueryBuilder = bool();
+			boolQueryBuilder.must(termsQuery("sourceId", conceptIds));
+			boolQueryBuilder.must(branchCriteria.getEntityBranchCriteria(Relationship.class));
 			if (activeOnly) {
-				boolQuery.must(termsQuery("active", true));
+				boolQueryBuilder.must(termQuery("active", true));
 			}
-			queryBuilder.withQuery(boolQuery).withPageable(LARGE_PAGE);
-			try (final SearchHitsIterator<Relationship> relationships = elasticsearchTemplate.searchForStream(queryBuilder.build(), Relationship.class)) {
+			queryBuilder.withQuery(boolQueryBuilder.build()._toQuery()).withPageable(LARGE_PAGE);
+			try (final SearchHitsIterator<Relationship> relationships = elasticsearchOperations.searchForStream(queryBuilder.build(), Relationship.class)) {
 				relationships.forEachRemaining(hit -> {
 					//Set concrete value
 					Relationship relationship = hit.getContent();
@@ -836,25 +843,25 @@ public class ConceptService extends ComponentService {
 	}
 
 	public Collection<Long> findAllActiveConcepts(BranchCriteria branchCriteria) {
-		NativeSearchQueryBuilder queryBuilder = new NativeSearchQueryBuilder()
-				.withQuery(boolQuery()
+		NativeQueryBuilder queryBuilder = new NativeQueryBuilder()
+				.withQuery(bool(bq -> bq
 						.must(branchCriteria.getEntityBranchCriteria(Concept.class))
-						.must(termQuery(SnomedComponent.Fields.ACTIVE, true)))
+						.must(termQuery(SnomedComponent.Fields.ACTIVE, true))))
 				.withPageable(LARGE_PAGE)
 				.withFields(Concept.Fields.CONCEPT_ID);
 		List<Long> ids = new LongArrayList();
-		try (SearchHitsIterator<Concept> conceptStream = elasticsearchTemplate.searchForStream(queryBuilder.build(), Concept.class)) {
+		try (SearchHitsIterator<Concept> conceptStream = elasticsearchOperations.searchForStream(queryBuilder.build(), Concept.class)) {
 			conceptStream.forEachRemaining(c -> ids.add(c.getContent().getConceptIdAsLong()));
 		}
 
 		return ids;
 	}
 
-	public void addClauses(Set<String> conceptIds, Boolean active, BoolQueryBuilder conceptQuery) {
+	public void addClauses(Set<String> conceptIds, Boolean active, BoolQuery.Builder conceptQuery) {
 		conceptQuery.must(termsQuery(Concept.Fields.CONCEPT_ID, conceptIds));
 		
 		if (active != null) {
-			conceptQuery.must(termsQuery(SnomedComponent.Fields.ACTIVE, active));
+			conceptQuery.must(termQuery(SnomedComponent.Fields.ACTIVE, active));
 		}
 	}
 
@@ -1008,7 +1015,7 @@ public class ConceptService extends ComponentService {
 									langRefsetMember.isActive() &&
 											langRefsetMember.getEffectiveTime() != null &&
 											langRefsetMember.getRefsetId().equals(Concepts.US_EN_LANG_REFSET))
-							.collect(Collectors.toList()));
+							.toList());
 				});
 
 		Concept conceptCreated = create(conceptVersion, destinationBranchPath);

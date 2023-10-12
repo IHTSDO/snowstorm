@@ -1,21 +1,18 @@
 package org.snomed.snowstorm.core.data.services.identifier;
 
-import org.elasticsearch.script.Script;
-import org.elasticsearch.search.sort.FieldSortBuilder;
-import org.elasticsearch.search.sort.ScriptSortBuilder;
-import org.elasticsearch.search.sort.SortOrder;
+import co.elastic.clients.elasticsearch._types.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.core.data.domain.*;
 import org.springframework.data.domain.PageRequest;
-import org.springframework.data.elasticsearch.core.ElasticsearchRestTemplate;
+import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.data.elasticsearch.core.SearchHit;
 import org.springframework.data.elasticsearch.core.SearchHits;
-import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
+import org.springframework.data.elasticsearch.client.elc.NativeQueryBuilder;
 
 import java.util.*;
 
-import static org.elasticsearch.index.query.QueryBuilders.*;
+import static io.kaicode.elasticvc.helper.QueryHelper.*;
 
 /**
  * Generates SNOMED Component identifiers locally using sequential identifiers.
@@ -24,11 +21,11 @@ import static org.elasticsearch.index.query.QueryBuilders.*;
  */
 public class LocalSequentialIdentifierSource implements IdentifierSource {
 
-	private final ElasticsearchRestTemplate elasticsearchTemplate;
+	private final ElasticsearchOperations elasticsearchTemplate;
 	private final Map<String, Integer> namespaceAndPartitionHighestSequenceCache = Collections.synchronizedMap(new HashMap<>());
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
-	public LocalSequentialIdentifierSource(ElasticsearchRestTemplate elasticsearchTemplate) {
+	public LocalSequentialIdentifierSource(ElasticsearchOperations elasticsearchTemplate) {
 		this.elasticsearchTemplate = elasticsearchTemplate;
 	}
 
@@ -106,16 +103,16 @@ public class LocalSequentialIdentifierSource implements IdentifierSource {
 			regex = String.format("[0-9]*%s%s[0-9]", namespaceId, partitionId);
 		}
 
-		SearchHits<? extends SnomedComponent<?>> searchHits = elasticsearchTemplate.search(new NativeSearchQueryBuilder()
+		SearchHits<? extends SnomedComponent<?>> searchHits = elasticsearchTemplate.search(new NativeQueryBuilder()
 
 				// Regex query
 				.withQuery(regexpQuery(idField, regex))
 
 				// Numbers as strings require sorting by length and characters:
-				// Sort by string length first..
-				.withSort(new ScriptSortBuilder(new Script(String.format("doc['%s'].value.length()", idField)), ScriptSortBuilder.ScriptSortType.NUMBER).order(SortOrder.DESC))
+				// Sort by string length first.
+				.withSort(scriptSortByIdLengthInDesc(idField))
 				// then sort by characters.
-				.withSort(new FieldSortBuilder(idField).order(SortOrder.DESC))
+				.withSort(SortOptions.of(s -> s.field(f -> f.field(idField).order(SortOrder.Desc))))
 
 				// One item
 				.withPageable(PageRequest.of(0, 1))
@@ -158,4 +155,9 @@ public class LocalSequentialIdentifierSource implements IdentifierSource {
 		// Not required for this implementation.
 	}
 
+	private SortOptions scriptSortByIdLengthInDesc(String idField) {
+		return SortOptions.of(s -> s.script(ScriptSort.of(b -> b.type(ScriptSortType.Number)
+				.script(sb -> sb.inline(InlineScript.of(is -> is.source(String.format("doc['%s'].value.length()", idField)))))
+				.order(SortOrder.Desc))));
+	}
 }

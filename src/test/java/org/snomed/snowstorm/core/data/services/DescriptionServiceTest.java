@@ -1,8 +1,8 @@
 package org.snomed.snowstorm.core.data.services;
 
+import com.google.common.collect.Sets;
 import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.domain.Commit;
-import org.elasticsearch.common.util.set.Sets;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -22,7 +22,7 @@ import java.util.stream.Collectors;
 
 import static com.google.common.collect.Lists.newArrayList;
 import static java.lang.Long.parseLong;
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 import static org.snomed.snowstorm.core.data.domain.Concepts.*;
 import static org.snomed.snowstorm.core.data.services.DescriptionService.SearchMode.REGEX;
 import static org.snomed.snowstorm.core.data.services.DescriptionService.SearchMode.WHOLE_WORD;
@@ -116,9 +116,9 @@ class DescriptionServiceTest extends AbstractTest {
 		assertEquals(1, descriptionService.findDescriptionsWithAggregations("MAIN", "dåficit", languageCodes, ServiceTestUtil.PAGE_REQUEST).getTotalElements());
 		assertEquals(1, descriptionService.findDescriptionsWithAggregations("MAIN", "thing", languageCodes, ServiceTestUtil.PAGE_REQUEST).getTotalElements());
 
-		assertNull("No configuration exists for the de language.", searchLanguagesConfiguration.getCharactersNotFolded().get("de"));
-		assertEquals("Match a term containing special characters using a language which is not configured.",
-				1, descriptionService.findDescriptionsWithAggregations("MAIN", "Ernährungsberater", languageCodes, ServiceTestUtil.PAGE_REQUEST).getTotalElements());
+		assertNull(searchLanguagesConfiguration.getCharactersNotFolded().get("de"), "No configuration exists for the de language.");
+		assertEquals(1, descriptionService.findDescriptionsWithAggregations("MAIN", "Ernährungsberater", languageCodes, ServiceTestUtil.PAGE_REQUEST).getTotalElements(),
+				"Match a term containing special characters using a language which is not configured.");
 	}
 
 	@Test
@@ -257,6 +257,7 @@ class DescriptionServiceTest extends AbstractTest {
 		assertEquals(1, page.getTotalElements());
 		assertEquals(1, page.getContent().size());
 		Map<String, Map<String, Long>> soPizzaAggs = page.getBuckets();
+		soPizzaAggs.forEach((k, v) -> System.out.println(k + " -> " + v));
 		assertEquals("{900000000000207008=1}", getAggregationString("module", soPizzaAggs));
 		assertEquals("{en=1}", getAggregationString("language", soPizzaAggs));
 		assertEquals("{so pizza=1}", getAggregationString("semanticTags", soPizzaAggs));
@@ -378,13 +379,13 @@ class DescriptionServiceTest extends AbstractTest {
 				.term("pizza");
 
 		descriptionCriteria.conceptActive(null);
-		assertEquals("Should find all three pizza concepts", 3, descriptionService.findDescriptionsWithAggregations(path, descriptionCriteria, PageRequest.of(0, 10)).getTotalElements());
+		assertEquals(3, descriptionService.findDescriptionsWithAggregations(path, descriptionCriteria, PageRequest.of(0, 10)).getTotalElements(), "Should find all three pizza concepts");
 
 		descriptionCriteria.conceptActive(true);
-		assertEquals("Should find the two active pizza concepts", 2, descriptionService.findDescriptionsWithAggregations(path, descriptionCriteria, PageRequest.of(0, 10)).getTotalElements());
+		assertEquals(2, descriptionService.findDescriptionsWithAggregations(path, descriptionCriteria, PageRequest.of(0, 10)).getTotalElements(), "Should find the two active pizza concepts");
 
 		descriptionCriteria.conceptActive(false);
-		assertEquals("Should find the one inactive pizza concept", 1, descriptionService.findDescriptionsWithAggregations(path, descriptionCriteria, PageRequest.of(0, 10)).getTotalElements());
+		assertEquals(1, descriptionService.findDescriptionsWithAggregations(path, descriptionCriteria, PageRequest.of(0, 10)).getTotalElements(), "Should find the one inactive pizza concept");
 	}
 
 	@Test

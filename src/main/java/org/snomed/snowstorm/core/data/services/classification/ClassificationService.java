@@ -1,5 +1,9 @@
 package org.snomed.snowstorm.core.data.services.classification;
 
+import co.elastic.clients.elasticsearch._types.ElasticsearchException;
+import co.elastic.clients.elasticsearch._types.SortOptions;
+import co.elastic.clients.elasticsearch._types.SortOrder;
+import co.elastic.clients.elasticsearch._types.query_dsl.BoolQuery;
 import com.google.common.base.Strings;
 import com.google.common.collect.Lists;
 import io.kaicode.elasticvc.api.BranchCriteria;
@@ -9,11 +13,6 @@ import io.kaicode.elasticvc.domain.Branch;
 import io.kaicode.elasticvc.domain.Commit;
 import io.kaicode.elasticvc.domain.Metadata;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
-import org.elasticsearch.ElasticsearchException;
-import org.elasticsearch.common.util.concurrent.UncategorizedExecutionException;
-import org.elasticsearch.index.query.BoolQueryBuilder;
-import org.elasticsearch.search.sort.SortBuilders;
-import org.elasticsearch.search.sort.SortOrder;
 import org.ihtsdo.otf.snomedboot.domain.rf2.RelationshipFieldIndexes;
 import org.ihtsdo.sso.integration.SecurityUtil;
 import org.slf4j.Logger;
@@ -35,14 +34,17 @@ import org.snomed.snowstorm.core.rf2.RF2Type;
 import org.snomed.snowstorm.core.rf2.export.ExportException;
 import org.snomed.snowstorm.core.rf2.export.ExportService;
 import org.snomed.snowstorm.core.util.DateUtil;
+import org.snomed.snowstorm.rest.pojo.SearchAfterPageRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
+import org.springframework.data.elasticsearch.UncategorizedElasticsearchException;
+import org.springframework.data.elasticsearch.client.elc.NativeQuery;
 import org.springframework.data.elasticsearch.core.*;
-import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
+import org.springframework.data.elasticsearch.client.elc.NativeQueryBuilder;
 import org.springframework.jms.core.JmsTemplate;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.security.core.context.SecurityContext;
@@ -66,9 +68,12 @@ import java.util.zip.ZipInputStream;
 
 import static io.kaicode.elasticvc.api.ComponentService.LARGE_PAGE;
 import static java.lang.Long.parseLong;
-import static org.elasticsearch.index.query.QueryBuilders.*;
+import static co.elastic.clients.elasticsearch._types.query_dsl.QueryBuilders.*;
+import static io.kaicode.elasticvc.helper.QueryHelper.*;
 import static org.snomed.snowstorm.core.data.domain.classification.ClassificationStatus.*;
+import static org.snomed.snowstorm.core.data.domain.classification.RelationshipChange.Fields.INTERNAL_ID;
 import static org.snomed.snowstorm.core.data.domain.classification.RelationshipChange.Fields.SOURCE_ID;
+import static org.snomed.snowstorm.core.util.SearchAfterQueryHelper.updateQueryWithSearchAfter;
 
 @Service
 public class ClassificationService {
@@ -147,13 +152,13 @@ public class ClassificationService {
 			if (!elasticsearchOperations.indexOps(Concept.class).exists()) {
 				throw new StartupException("Elasticsearch Concept index does not exist.");
 			}
-		} catch (UncategorizedExecutionException e) {
+		} catch (UncategorizedElasticsearchException e) {
 			throw new StartupException("Not able to connect to Elasticsearch. " +
 					"Check that Elasticsearch is running and that you have the right version installed.", e);
 		}
 
-		NativeSearchQueryBuilder queryBuilder = new NativeSearchQueryBuilder()
-				.withQuery(termsQuery(Classification.Fields.STATUS, ClassificationStatus.SCHEDULED.name(), ClassificationStatus.RUNNING.name()))
+		NativeQueryBuilder queryBuilder = new NativeQueryBuilder()
+				.withQuery(termsQuery(Classification.Fields.STATUS, List.of(ClassificationStatus.SCHEDULED.name(), ClassificationStatus.RUNNING.name())))
 				.withPageable(PAGE_FIRST_1K);
 
 		// Mark running classifications as failed. This could be improved in the future.
@@ -299,9 +304,9 @@ public class ClassificationService {
 	}
 
 	public Page<Classification> findClassifications(String path) {
-		NativeSearchQueryBuilder queryBuilder = new NativeSearchQueryBuilder()
+		NativeQueryBuilder queryBuilder = new NativeQueryBuilder()
 				.withQuery(termQuery(Classification.Fields.PATH, path))
-				.withSort(SortBuilders.fieldSort(Classification.Fields.CREATION_DATE).order(SortOrder.ASC))
+				.withSort(SortOptions.of(s -> s.field(f -> f.field(Classification.Fields.CREATION_DATE).order(SortOrder.Asc))))
 				.withPageable(PAGE_FIRST_1K);
 		SearchHits<Classification> searchHits = elasticsearchOperations.search(queryBuilder.build(), Classification.class);
 		List<Classification>classifications = searchHits.stream().map(SearchHit::getContent).collect(Collectors.toList());
@@ -390,21 +395,22 @@ public class ClassificationService {
 
 							PageRequest pageRequest;
 							if (searchAfterToken != null) {
-								pageRequest = SearchAfterPageRequest.of(searchAfterToken, LARGE_PAGE.getPageSize(), Sort.by(SOURCE_ID, "_id"));
+								pageRequest = SearchAfterPageRequest.of(searchAfterToken, LARGE_PAGE.getPageSize(), Sort.by(SOURCE_ID, INTERNAL_ID));
 							} else {
-								pageRequest = PageRequest.of(0, LARGE_PAGE.getPageSize(), Sort.by(SOURCE_ID, "_id"));
+								pageRequest = PageRequest.of(0, LARGE_PAGE.getPageSize(), Sort.by(SOURCE_ID, INTERNAL_ID));
 							}
 
-							NativeSearchQueryBuilder queryBuilder = new NativeSearchQueryBuilder()
+							NativeQuery relationshipChangeQuery = new NativeQueryBuilder()
 									.withQuery(termQuery("classificationId", classificationId))
-									.withPageable(pageRequest);
+									.withPageable(pageRequest)
+									.build();
 
-							final SearchHits<RelationshipChange> searchHits = elasticsearchOperations.search(queryBuilder.build(), RelationshipChange.class);
+							updateQueryWithSearchAfter(relationshipChangeQuery, pageRequest);
+							final SearchHits<RelationshipChange> searchHits = elasticsearchOperations.search(relationshipChangeQuery, RelationshipChange.class);
 							for (SearchHit<RelationshipChange> searchHit : searchHits) {
 								changesBatch.add(searchHit.getContent());
 								searchAfterToken = searchHit.getSortValues().toArray();
 							}
-
 							if (changesBatch.isEmpty()) {
 								break;
 							}
@@ -667,18 +673,17 @@ public class ClassificationService {
 
 		// The max clauses for bool query in elastic search by default is 1024
 		for (List<RelationshipChange> relationshipChangePartition : Lists.partition(relationshipChanges, 1000)) {
-			BoolQueryBuilder allConceptsQuery = boolQuery();
+			BoolQuery.Builder allConceptsQueryBuilder = bool();
 			for (RelationshipChange relationshipChange : relationshipChangePartition) {
 				if (relationshipChange.isActive()) {
 					Long sourceId = parseLong(relationshipChange.getSourceId());
-					BoolQueryBuilder conceptQuery = boolQuery()
-							.must(termQuery(QueryConcept.Fields.CONCEPT_ID, sourceId));
+					BoolQuery.Builder conceptQuery = bool().must(termQuery(QueryConcept.Fields.CONCEPT_ID, sourceId));
 					if (relationshipChange.getTypeId().equals(Concepts.ISA)) {
 						conceptQuery.mustNot(termQuery(QueryConcept.Fields.PARENTS, relationshipChange.getDestinationId()));
 					} else {
 						conceptQuery.mustNot(termQuery(QueryConcept.Fields.ATTR + "." + relationshipChange.getTypeId(), relationshipChange.getDestinationOrValueWithoutPrefix()));
 					}
-					allConceptsQuery.should(conceptQuery);
+					allConceptsQueryBuilder.should(conceptQuery.build()._toQuery());
 					activeConceptChanges.computeIfAbsent(sourceId, id -> new ArrayList<>()).add(relationshipChange);
 					rowsProcessed++;
 					if (rowsProcessed % 1_000 == 0) {
@@ -688,17 +693,17 @@ public class ClassificationService {
 			}
 
 			// make sure the should clause is not empty before running semantic index search
-			if (allConceptsQuery.should().isEmpty()) {
+			if (!allConceptsQueryBuilder.hasClauses()) {
 				continue;
 			}
 
 			BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(classification.getPath());
 			try (SearchHitsIterator<QueryConcept> semanticIndexConcepts = elasticsearchOperations.searchForStream(
-					new NativeSearchQueryBuilder()
-							.withQuery(boolQuery()
+					new NativeQueryBuilder()
+							.withQuery(bool(b -> b
 									.must(branchCriteria.getEntityBranchCriteria(QueryConcept.class))
-									.must(termQuery(QueryConcept.Fields.STATED, true)))
-							.withFilter(allConceptsQuery)
+									.must(termQuery(QueryConcept.Fields.STATED, true))))
+							.withFilter(allConceptsQueryBuilder.build()._toQuery())
 							.withPageable(LARGE_PAGE).build(),
 					QueryConcept.class)) {
 

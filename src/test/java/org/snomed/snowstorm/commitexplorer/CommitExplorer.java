@@ -1,43 +1,40 @@
 package org.snomed.snowstorm.commitexplorer;
 
+import co.elastic.clients.elasticsearch._types.aggregations.AggregationBuilders;
 import io.kaicode.elasticvc.domain.Branch;
-import org.elasticsearch.action.search.SearchRequest;
-import org.elasticsearch.action.search.SearchResponse;
-import org.elasticsearch.client.RequestOptions;
-import org.elasticsearch.search.aggregations.AggregationBuilders;
-import org.elasticsearch.search.aggregations.bucket.terms.Terms;
-import org.elasticsearch.search.builder.SearchSourceBuilder;
-import org.elasticsearch.search.sort.SortBuilders;
-import org.elasticsearch.search.sort.SortOrder;
+import io.kaicode.elasticvc.helper.SortBuilders;
 import org.snomed.snowstorm.config.ElasticsearchConfig;
 import org.snomed.snowstorm.core.data.domain.Relationship;
 import org.snomed.snowstorm.core.data.domain.SnomedComponent;
+import org.snomed.snowstorm.core.util.AggregationUtils;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.autoconfigure.data.elasticsearch.ElasticsearchDataAutoConfiguration;
 import org.springframework.boot.autoconfigure.elasticsearch.ElasticsearchRestClientAutoConfiguration;
 import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.cloud.aws.autoconfigure.context.ContextStackAutoConfiguration;
 import org.springframework.context.ApplicationContext;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.elasticsearch.annotations.Document;
-import org.springframework.data.elasticsearch.core.ElasticsearchRestTemplate;
+import org.springframework.data.elasticsearch.client.elc.Aggregation;
+import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.data.elasticsearch.core.SearchHit;
 import org.springframework.data.elasticsearch.core.SearchHits;
-import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
+import org.springframework.data.elasticsearch.client.elc.NativeQueryBuilder;
 
+import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
 import static java.lang.String.format;
-import static org.elasticsearch.index.query.QueryBuilders.*;
+import static co.elastic.clients.elasticsearch._types.query_dsl.QueryBuilders.*;
+import static io.kaicode.elasticvc.helper.QueryHelper.*;
 
 /**
  * Local utility for exploring content within Snowstorm indices.
  */
 public class CommitExplorer {
 
-	private final ElasticsearchRestTemplate template;
+	private final ElasticsearchOperations operations;
 	private final String elasticsearchClusterHost;
 	private final String indexNamePrefix;
 
@@ -70,7 +67,7 @@ public class CommitExplorer {
 	private CommitExplorer(String indexPrefix, String elasticsearchClusterHost) {
 		ApplicationContext applicationContext = SpringApplication.run(Config.class, "--elasticsearch.urls=" + elasticsearchClusterHost,
 				"--elasticsearch.index.prefix=" + indexPrefix, "--server.port=8099");
-		template = applicationContext.getBean(ElasticsearchRestTemplate.class);
+		operations = applicationContext.getBean(ElasticsearchOperations.class);
 		this.indexNamePrefix = indexPrefix;
 		this.elasticsearchClusterHost = elasticsearchClusterHost;
 	}
@@ -89,9 +86,9 @@ public class CommitExplorer {
 	private <T extends SnomedComponent> void listRecentVersions(String id, Class<T> componentClass) {
 		int size = 20;
 		System.out.println();
-		SearchHits<T> searchHits = template.search(new NativeSearchQueryBuilder()
+		SearchHits<T> searchHits = operations.search(new NativeQueryBuilder()
 				.withQuery(termQuery(getIdField(componentClass), id))
-				.withSort(SortBuilders.fieldSort("start").order(SortOrder.DESC))
+				.withSort(SortBuilders.fieldSortDesc("start"))
 				.withPageable(PageRequest.of(0, size))
 				.build(), componentClass);
 		System.out.printf("Latest %s versions of %s '%s'%n", searchHits.getTotalHits(), componentClass.getSimpleName(), id);
@@ -123,9 +120,9 @@ public class CommitExplorer {
 	private void listCommits(String path) {
 		int size = 5;
 		System.out.println();
-		SearchHits<Branch> branchVersions = template.search(new NativeSearchQueryBuilder()
+		SearchHits<Branch> branchVersions = operations.search(new NativeQueryBuilder()
 				.withQuery(termQuery("path", path))
-				.withSort(SortBuilders.fieldSort("start").order(SortOrder.DESC))
+				.withSort(SortBuilders.fieldSortDesc("start"))
 				.withPageable(PageRequest.of(0, size))
 				.build(), Branch.class);
 		System.out.printf("Latest %s commits on %s%n", branchVersions.getSearchHits().size(), path);
@@ -133,27 +130,30 @@ public class CommitExplorer {
 			Branch branchVersion = hit.getContent();
 			System.out.printf("%s (%s, base %s) versions replaced %s%n", branchVersion.getStartDebugFormat(), branchVersion.getStart().getTime(),
 					branchVersion.getBaseTimestamp(), branchVersion.getVersionsReplacedCounts());
-			final SearchResponse searchResponse = template.execute(restHighLevelClient -> restHighLevelClient.search(new SearchRequest(new String[]{""},
-					new SearchSourceBuilder().query(boolQuery()
+			final SearchHits<SnomedComponent> results = operations.search(new NativeQueryBuilder()
+					.withQuery(bool(b -> b
 							.must(termQuery("path", path))
 							.must(termQuery("start", branchVersion.getHead())))
-							.aggregation(AggregationBuilders.terms("types").field("_type"))
-			), RequestOptions.DEFAULT));
+					)
+					.withAggregation("types", AggregationBuilders.terms().field("_type").build()._toAggregation())
+					.build(), SnomedComponent.class);
 
-			final SearchHits<Branch> childBranches = template.search(new NativeSearchQueryBuilder()
+			final SearchHits<Branch> childBranches = operations.search(new NativeQueryBuilder()
 					.withQuery(
-							boolQuery()
+							bool(b -> b
 									.must(prefixQuery("path", path + "/"))
 									.must(termQuery("base", branchVersion.getHead()))
-									.mustNot(existsQuery("end"))
+									.mustNot(existsQuery("end")))
 					).build(), Branch.class);
 			final Set<String> childPaths = childBranches.getSearchHits().stream().map(childHit -> childHit.getContent().getPath()).collect(Collectors.toSet());
 			System.out.printf(" > %s children with this base: %s%n", childPaths.size(), childPaths);
-
-			final Terms types = searchResponse.getAggregations().get("types");
-			for (Terms.Bucket bucket : types.getBuckets()) {
-				System.out.printf(" - %s %s\n", bucket.getDocCount(), bucket.getKey());
+			if (results.hasAggregations()) {
+				final List<Aggregation> types = AggregationUtils.getAggregations(results.getAggregations(),"types");
+				for (Aggregation aggregation : types) {
+					aggregation.getAggregate().sterms().buckets().array().forEach(bucket -> System.out.printf(" - %s %s\n", bucket.docCount(), bucket.key().stringValue()));
+				}
 			}
+
 		}
 		System.out.printf("%s total%n", branchVersions.getTotalHits());
 	}
@@ -171,7 +171,6 @@ public class CommitExplorer {
 			exclude = {
 					ElasticsearchDataAutoConfiguration.class,
 					ElasticsearchRestClientAutoConfiguration.class,
-					ContextStackAutoConfiguration.class
 			}
 	)
 	public static class Config extends ElasticsearchConfig {

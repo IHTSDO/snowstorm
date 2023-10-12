@@ -1,12 +1,14 @@
 package org.snomed.snowstorm.ecl;
 
+import co.elastic.clients.elasticsearch._types.query_dsl.BoolQuery;
+import co.elastic.clients.elasticsearch._types.query_dsl.Query;
+import co.elastic.clients.json.JsonData;
 import io.kaicode.elasticvc.api.BranchCriteria;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 import it.unimi.dsi.fastutil.longs.LongArraySet;
 import it.unimi.dsi.fastutil.longs.LongComparators;
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
-import org.elasticsearch.index.query.BoolQueryBuilder;
-import org.elasticsearch.index.query.TermsQueryBuilder;
+
 import org.snomed.langauges.ecl.domain.ConceptReference;
 import org.snomed.langauges.ecl.domain.expressionconstraint.SubExpressionConstraint;
 import org.snomed.langauges.ecl.domain.filter.*;
@@ -26,11 +28,11 @@ import org.springframework.context.annotation.Lazy;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.elasticsearch.core.ElasticsearchRestTemplate;
+import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.data.elasticsearch.core.SearchHits;
 import org.springframework.data.elasticsearch.core.SearchHitsIterator;
-import org.springframework.data.elasticsearch.core.query.NativeSearchQuery;
-import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
+import org.springframework.data.elasticsearch.client.elc.NativeQuery;
+import org.springframework.data.elasticsearch.client.elc.NativeQueryBuilder;
 import org.springframework.stereotype.Service;
 
 import jakarta.annotation.PostConstruct;
@@ -39,7 +41,8 @@ import java.util.stream.Collectors;
 
 import static io.kaicode.elasticvc.api.ComponentService.LARGE_PAGE;
 import static java.lang.Long.parseLong;
-import static org.elasticsearch.index.query.QueryBuilders.*;
+import static co.elastic.clients.elasticsearch._types.query_dsl.QueryBuilders.*;
+import static io.kaicode.elasticvc.helper.QueryHelper.*;
 import static org.snomed.snowstorm.core.util.CollectionUtils.orEmpty;
 
 /**
@@ -50,7 +53,7 @@ import static org.snomed.snowstorm.core.util.CollectionUtils.orEmpty;
 public class ECLContentService {
 
 	@Autowired
-	private ElasticsearchRestTemplate elasticsearchTemplate;
+	private ElasticsearchOperations elasticsearchTemplate;
 
 	@Autowired
 	private RelationshipService relationshipService;
@@ -87,14 +90,14 @@ public class ECLContentService {
 		return eclQueryService.doSelectConceptIds(sSubExpressionConstraint, branchCriteria, stated, null, null).getContent();
 	}
 
-	public Page<QueryConcept> queryForPage(NativeSearchQuery searchQuery) {
+	public Page<QueryConcept> queryForPage(NativeQuery searchQuery) {
 		searchQuery.setTrackTotalHits(true);
 		Pageable pageable = searchQuery.getPageable();
 		SearchHits<QueryConcept> searchHits = elasticsearchTemplate.search(searchQuery, QueryConcept.class);
 		return PageHelper.toSearchAfterPage(searchHits, pageable);
 	}
 
-	public SearchHitsIterator<QueryConcept> streamQueryResults(NativeSearchQuery searchQuery) {
+	public SearchHitsIterator<QueryConcept> streamQueryResults(NativeQuery searchQuery) {
 		return elasticsearchTemplate.searchForStream(searchQuery, QueryConcept.class);
 	}
 
@@ -102,7 +105,7 @@ public class ECLContentService {
 			List<String> memberFieldsToReturn, Collection<Long> conceptIdFilter, boolean stated, BranchCriteria branchCriteria, PageRequest pageRequest,
 			ECLContentService eclContentService) {
 
-		BoolQueryBuilder masterMemberQuery = buildECLMemberQuery(memberFilterConstraints, stated, branchCriteria);
+		BoolQuery.Builder masterMemberQuery = buildECLMemberQuery(memberFilterConstraints, stated, branchCriteria);
 		SearchAfterPageImpl<ReferenceSetMember> emptyPage = new SearchAfterPageImpl<>(Collections.emptyList(), pageRequest, 0, new Object[]{});
 
 		if (conceptIdFilter != null) {
@@ -125,12 +128,12 @@ public class ECLContentService {
 	}
 
 	public Set<Long> findConceptIdsInReferenceSet(Collection<Long> referenceSetIds, List<MemberFilterConstraint> memberFilterConstraints, RefinementBuilder refinementBuilder) {
-		BoolQueryBuilder masterMemberQuery = buildECLMemberQuery(memberFilterConstraints, refinementBuilder.isStated(), refinementBuilder.getBranchCriteria());
+		BoolQuery.Builder masterMemberQuery = buildECLMemberQuery(memberFilterConstraints, refinementBuilder.isStated(), refinementBuilder.getBranchCriteria());
 		return memberService.findConceptsInReferenceSet(referenceSetIds, memberFilterConstraints, refinementBuilder, masterMemberQuery);
 	}
 
-	private BoolQueryBuilder buildECLMemberQuery(List<MemberFilterConstraint> memberFilterConstraints, boolean stated, BranchCriteria branchCriteria) {
-		BoolQueryBuilder masterMemberQuery = branchCriteria.getEntityBranchCriteria(ReferenceSetMember.class);
+	private BoolQuery.Builder buildECLMemberQuery(List<MemberFilterConstraint> memberFilterConstraints, boolean stated, BranchCriteria branchCriteria) {
+		BoolQuery.Builder masterMemberQuery = bool().must(branchCriteria.getEntityBranchCriteria(ReferenceSetMember.class));
 
 		for (MemberFilterConstraint memberFilterConstraint : orEmpty(memberFilterConstraints)) {
 
@@ -161,26 +164,26 @@ public class ECLContentService {
 			return Collections.emptyList();
 		}
 
-		BoolQueryBuilder boolQuery = boolQuery()
+		BoolQuery.Builder boolQueryBuilder = bool()
 				.must(branchCriteria.getEntityBranchCriteria(QueryConcept.class))
-				.must(termsQuery(QueryConcept.Fields.STATED, stated));
+				.must(termQuery(QueryConcept.Fields.STATED, stated));
 
 		if (attributeTypeIds != null) {
-			BoolQueryBuilder shoulds = boolQuery();
-			boolQuery.must(shoulds);
+			BoolQuery.Builder shoulds = bool();
 			for (Long attributeTypeId : attributeTypeIds) {
 				if (!attributeTypeId.equals(Concepts.IS_A_LONG)) {
 					shoulds.should(existsQuery(QueryConcept.Fields.ATTR + "." + attributeTypeId));
 				}
 			}
+			boolQueryBuilder.must(shoulds.build()._toQuery());
 		}
 
 		if (sourceConceptIds != null) {
-			boolQuery.must(termsQuery(QueryConcept.Fields.CONCEPT_ID, sourceConceptIds));
+			boolQueryBuilder.must(termsQuery(QueryConcept.Fields.CONCEPT_ID, sourceConceptIds));
 		}
 
-		NativeSearchQuery query = new NativeSearchQueryBuilder()
-				.withQuery(boolQuery)
+		NativeQuery query = new NativeQueryBuilder()
+				.withQuery(boolQueryBuilder.build()._toQuery())
 				.withPageable(LARGE_PAGE)
 				.build();
 
@@ -225,27 +228,27 @@ public class ECLContentService {
 
 	public Set<Long> applyConceptFilters(List<ConceptFilterConstraint> conceptFilters, Set<Long> conceptIdsToFilter, BranchCriteria branchCriteria, boolean stated) {
 
-		BoolQueryBuilder superQuery = branchCriteria.getEntityBranchCriteria(Concept.class);
+		BoolQuery.Builder superQueryBuilder = bool().must(branchCriteria.getEntityBranchCriteria(Concept.class));
 		for (ConceptFilterConstraint conceptFilter : conceptFilters) {
-			BoolQueryBuilder conceptFilterQuery = boolQuery();
+			BoolQuery.Builder conceptFilterBuilder = bool();
 
 			// Active filter
-			applyActiveFilters(conceptFilter.getActiveFilters(), conceptFilterQuery);
+			applyActiveFilters(conceptFilter.getActiveFilters(), conceptFilterBuilder);
 
 			// Definition status filter
-			applyFieldFilters(conceptFilter.getDefinitionStatusFilters(), conceptFilterQuery, branchCriteria, stated, "<<900000000000444006 |Definition status (core metadata concept)|");
+			applyFieldFilters(conceptFilter.getDefinitionStatusFilters(), conceptFilterBuilder, branchCriteria, stated, "<<900000000000444006 |Definition status (core metadata concept)|");
 
 			// Module filter
-			applyFieldFilters(conceptFilter.getModuleFilters(), conceptFilterQuery, branchCriteria, stated, "<<900000000000443000 |Module (core metadata concept)|");
+			applyFieldFilters(conceptFilter.getModuleFilters(), conceptFilterBuilder, branchCriteria, stated, "<<900000000000443000 |Module (core metadata concept)|");
 
 			// EffectiveTimeFilter
-			applyEffectiveTimeFilters(conceptFilter.getEffectiveTimeFilters(), conceptFilterQuery);
+			applyEffectiveTimeFilters(conceptFilter.getEffectiveTimeFilters(), conceptFilterBuilder);
 
-			superQuery.must(conceptFilterQuery);
+			superQueryBuilder.must(conceptFilterBuilder.build()._toQuery());
 		}
 
-		NativeSearchQueryBuilder queryBuilder = new NativeSearchQueryBuilder()
-				.withQuery(superQuery)
+		NativeQueryBuilder queryBuilder = new NativeQueryBuilder()
+				.withQuery(superQueryBuilder.build()._toQuery())
 				.withFilter(termsQuery(Concept.Fields.CONCEPT_ID, conceptIdsToFilter))
 				.withFields(Concept.Fields.CONCEPT_ID)
 				.withPageable(LARGE_PAGE);
@@ -259,7 +262,7 @@ public class ECLContentService {
 
 	public SortedMap<Long, Long> applyDescriptionFilter(Collection<Long> conceptIds, DescriptionFilterConstraint descriptionFilter, BranchCriteria branchCriteria, boolean stated) {
 
-		BoolQueryBuilder masterDescriptionQuery = boolQuery();
+		BoolQuery.Builder masterDescriptionQuery = bool();
 
 		// Module filter
 		applyFieldFilters(descriptionFilter.getModuleFilters(), masterDescriptionQuery, branchCriteria, stated, "<<900000000000443000 |Module (core metadata concept)|");
@@ -279,7 +282,7 @@ public class ECLContentService {
 				branchCriteria, eclQueryService, masterDescriptionQuery);
 	}
 
-	private void applyFieldFilters(List<FieldFilter> fieldFilters, BoolQueryBuilder filterQuery, BranchCriteria branchCriteria, boolean stated, String eclContentFilter) {
+	private void applyFieldFilters(List<FieldFilter> fieldFilters, BoolQuery.Builder filterQuery, BranchCriteria branchCriteria, boolean stated, String eclContentFilter) {
 		for (FieldFilter fieldFilter : orEmpty(fieldFilters)) {
 			Set<String> values = null;
 			SubExpressionConstraint subExpressionConstraint = fieldFilter.getSubExpressionConstraint();
@@ -299,7 +302,7 @@ public class ECLContentService {
 			}
 			String field = fieldFilter.getField();
 			if (values != null) {
-				TermsQueryBuilder termsQuery = termsQuery(field, values);
+				Query termsQuery = termsQuery(field, values);
 				if (fieldFilter.isEquals()) {
 					filterQuery.must(termsQuery);
 				} else {
@@ -311,7 +314,7 @@ public class ECLContentService {
 		}
 	}
 
-	private void applyActiveFilters(List<ActiveFilter> activeFilters, BoolQueryBuilder componentFilterQuery) {
+	private void applyActiveFilters(List<ActiveFilter> activeFilters, BoolQuery.Builder componentFilterQuery) {
 		activeFilters = orEmpty(activeFilters);
 		if (activeFilters.isEmpty()) {
 			componentFilterQuery.must(termQuery(SnomedComponent.Fields.ACTIVE, true));
@@ -322,39 +325,39 @@ public class ECLContentService {
 		}
 	}
 
-	private void applyEffectiveTimeFilters(List<EffectiveTimeFilter> effectiveTimeFilters, BoolQueryBuilder componentFilterQuery) {
+	private void applyEffectiveTimeFilters(List<EffectiveTimeFilter> effectiveTimeFilters, BoolQuery.Builder componentFilterQuery) {
 		for (EffectiveTimeFilter effectiveTimeFilter : orEmpty(effectiveTimeFilters)) {
 			NumericComparisonOperator operator = effectiveTimeFilter.getOperator();
 			List<Integer> effectiveTimes = effectiveTimeFilter.getEffectiveTime();
-			BoolQueryBuilder query = boolQuery();
+			BoolQuery.Builder boolBuilder = bool();
 			String effectiveTimeField = SnomedComponent.Fields.EFFECTIVE_TIME;
-			addNumericConstraint(operator, effectiveTimeField, effectiveTimes, query);
-			componentFilterQuery.must(query);
+			addNumericConstraint(operator, effectiveTimeField, effectiveTimes, boolBuilder);
+			componentFilterQuery.must(boolBuilder.build()._toQuery());
 		}
 	}
 
-	public static void addNumericConstraint(NumericComparisonOperator operator, String field, Collection<? extends Number> values, BoolQueryBuilder query) {
+	public static void addNumericConstraint(NumericComparisonOperator operator, String field, Collection<? extends Number> values, BoolQuery.Builder query) {
         switch (operator) {
             case EQUAL -> query.must(termsQuery(field, values));
             case NOT_EQUAL -> query.mustNot(termsQuery(field, values));
             case LESS_THAN_OR_EQUAL -> {
                 for (Number effectiveTime : values) {
-                    query.must(rangeQuery(field).lte(effectiveTime));
+                    query.must(range().field(field).lte(JsonData.of(effectiveTime)).build()._toQuery());
                 }
             }
             case LESS_THAN -> {
                 for (Number effectiveTime : values) {
-                    query.must(rangeQuery(field).lt(effectiveTime));
+                    query.must(range().field(field).lt(JsonData.of(effectiveTime)).build()._toQuery());
                 }
             }
             case GREATER_THAN_OR_EQUAL -> {
                 for (Number effectiveTime : values) {
-                    query.must(rangeQuery(field).gte(effectiveTime));
+                    query.must(range().field(field).gte(JsonData.of(effectiveTime)).build()._toQuery());
                 }
             }
             case GREATER_THAN -> {
                 for (Number effectiveTime : values) {
-                    query.must(rangeQuery(field).gt(effectiveTime));
+                    query.must(range().field(field).gt(JsonData.of(effectiveTime)).build()._toQuery());
                 }
             }
         }
@@ -365,10 +368,11 @@ public class ECLContentService {
 
 		// Find all active historic associations where the target component id matches one of the initially selected concept.
 		// Return the referenced component, these are the inactive concepts with that association.
-		NativeSearchQueryBuilder queryBuilder = new NativeSearchQueryBuilder()
-				.withQuery(branchCriteria.getEntityBranchCriteria(ReferenceSetMember.class)
+		NativeQueryBuilder queryBuilder = new NativeQueryBuilder()
+				.withQuery(bool(b -> b
+						.must(branchCriteria.getEntityBranchCriteria(ReferenceSetMember.class))
 						.must(termQuery(ReferenceSetMember.Fields.ACTIVE, true))
-						.must(termsQuery(ReferenceSetMember.Fields.REFSET_ID, associationTypes)))
+						.must(termsQuery(ReferenceSetMember.Fields.REFSET_ID, associationTypes))))
 				.withFilter(termsQuery(ReferenceSetMember.Fields.ADDITIONAL_FIELDS_PREFIX + ReferenceSetMember.AssociationFields.TARGET_COMP_ID, initialConcepts))
 				.withFields(ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID)
 				.withPageable(LARGE_PAGE);

@@ -1,5 +1,6 @@
 package org.snomed.snowstorm.core.rf2.rf2import;
 
+import co.elastic.clients.json.JsonData;
 import com.google.common.collect.Sets;
 import io.kaicode.elasticvc.api.BranchCriteria;
 import io.kaicode.elasticvc.api.BranchService;
@@ -17,7 +18,7 @@ import org.snomed.snowstorm.core.data.services.ReferenceSetMemberService;
 import org.snomed.snowstorm.core.rf2.RF2Constants;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.data.elasticsearch.core.SearchHitsIterator;
-import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
+import org.springframework.data.elasticsearch.client.elc.NativeQueryBuilder;
 
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -27,7 +28,8 @@ import java.util.stream.Collectors;
 
 import static io.kaicode.elasticvc.api.ComponentService.LARGE_PAGE;
 import static java.lang.Long.parseLong;
-import static org.elasticsearch.index.query.QueryBuilders.*;
+import static co.elastic.clients.elasticsearch._types.query_dsl.QueryBuilders.*;
+import static io.kaicode.elasticvc.helper.QueryHelper.*;
 
 public class ImportComponentFactoryImpl extends ImpotentComponentFactory {
 
@@ -161,13 +163,13 @@ public class ImportComponentFactoryImpl extends ImpotentComponentFactory {
 				List<T> componentsAtDate = effectiveDateMap.get(effectiveTime);
 				String idField = componentsAtDate.get(0).getIdField();
 				AtomicInteger alreadyExistingComponentCount = new AtomicInteger();
-				try (SearchHitsIterator<T> componentsWithSameOrLaterEffectiveTime = elasticsearchTemplate.searchForStream(new NativeSearchQueryBuilder()
-						.withQuery(boolQuery()
+				try (SearchHitsIterator<T> componentsWithSameOrLaterEffectiveTime = elasticsearchTemplate.searchForStream(new NativeQueryBuilder()
+						.withQuery(bool(b -> b
 								.must(branchCriteriaBeforeOpenCommit.getEntityBranchCriteria(componentClass))
 								.must(termsQuery(idField, componentsAtDate.stream().map(T::getId).collect(Collectors.toList())))
 								.must(replacementOfThisEffectiveTimeAllowed ?
-										rangeQuery(SnomedComponent.Fields.EFFECTIVE_TIME).gt(effectiveTime)
-										: rangeQuery(SnomedComponent.Fields.EFFECTIVE_TIME).gte(effectiveTime)))
+										range().field(SnomedComponent.Fields.EFFECTIVE_TIME).gt(JsonData.of(effectiveTime)).build()._toQuery()
+										: range().field(SnomedComponent.Fields.EFFECTIVE_TIME).gte(JsonData.of(effectiveTime)).build()._toQuery())))
 						.withFields(idField)// Only fetch the id
 						.withPageable(LARGE_PAGE)
 						.build(), componentClass)) {
@@ -184,11 +186,11 @@ public class ImportComponentFactoryImpl extends ImpotentComponentFactory {
 			Map<String, T> idToUnreleasedComponentMap = components.stream().filter(component -> component.getEffectiveTime() == null).collect(Collectors.toMap(T::getId, Function.identity()));
 			if (!idToUnreleasedComponentMap.isEmpty()) {
 				String idField = idToUnreleasedComponentMap.values().iterator().next().getIdField();
-				try (SearchHitsIterator<T> stream = elasticsearchTemplate.searchForStream(new NativeSearchQueryBuilder()
-						.withQuery(boolQuery()
+				try (SearchHitsIterator<T> stream = elasticsearchTemplate.searchForStream(new NativeQueryBuilder()
+						.withQuery(bool(b -> b
 								.must(branchCriteriaBeforeOpenCommit.getEntityBranchCriteria(componentClass))
 								.must(termQuery(SnomedComponent.Fields.RELEASED, true))
-								.filter(termsQuery(idField, idToUnreleasedComponentMap.keySet()))
+								.filter(termsQuery(idField, idToUnreleasedComponentMap.keySet())))
 						)
 						.withPageable(LARGE_PAGE)
 						.build(), componentClass)) {
@@ -336,7 +338,7 @@ public class ImportComponentFactoryImpl extends ImpotentComponentFactory {
 
 	private abstract class PersistBuffer<E extends Entity> {
 
-		private List<E> entities = new ArrayList<>();
+		private final List<E> entities = new ArrayList<>();
 
 		PersistBuffer() {
 			persistBuffers.add(this);

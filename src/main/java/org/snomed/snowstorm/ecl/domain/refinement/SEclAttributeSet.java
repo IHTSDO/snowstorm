@@ -1,8 +1,9 @@
 package org.snomed.snowstorm.ecl.domain.refinement;
 
+import co.elastic.clients.elasticsearch._types.query_dsl.BoolQuery;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.google.common.collect.Sets;
-import org.elasticsearch.index.query.BoolQueryBuilder;
+
 import org.snomed.langauges.ecl.domain.refinement.EclAttributeGroup;
 import org.snomed.langauges.ecl.domain.refinement.EclAttributeSet;
 import org.snomed.langauges.ecl.domain.refinement.SubAttributeSet;
@@ -14,9 +15,9 @@ import org.snomed.snowstorm.ecl.domain.expressionconstraint.MatchContext;
 import java.util.*;
 import java.util.function.Consumer;
 
+import static co.elastic.clients.elasticsearch._types.query_dsl.QueryBuilders.bool;
 import static com.google.common.collect.Sets.newHashSet;
 import static java.util.stream.Collectors.toSet;
-import static org.elasticsearch.index.query.QueryBuilders.boolQuery;
 import static org.springframework.util.CollectionUtils.isEmpty;
 
 public class SEclAttributeSet extends EclAttributeSet implements SRefinement {
@@ -31,10 +32,8 @@ public class SEclAttributeSet extends EclAttributeSet implements SRefinement {
 		// The first two types of refinements have to be part of the first 'should' query because they may be the
 		// first half of a disjunction clause.
 
-		BoolQueryBuilder shouldQueries = boolQuery();
-		refinementBuilder.getQuery().must(shouldQueries);
-		BoolQueryBuilder firstShouldQuery = boolQuery();
-		shouldQueries.should(firstShouldQuery);
+		BoolQuery.Builder shouldQueries = bool();
+		BoolQuery.Builder firstShouldQuery = bool();
 
 		SubRefinementBuilder firstShouldRefinementBuilder = new SubRefinementBuilder(refinementBuilder, firstShouldQuery);
 		((SSubAttributeSet)subAttributeSet).addCriteria(firstShouldRefinementBuilder);
@@ -45,11 +44,13 @@ public class SEclAttributeSet extends EclAttributeSet implements SRefinement {
 		}
 		if (disjunctionAttributeSet != null && !disjunctionAttributeSet.isEmpty()) {
 			for (SubAttributeSet attributeSet : disjunctionAttributeSet) {
-				BoolQueryBuilder additionalShouldQuery = boolQuery();
-				shouldQueries.should(additionalShouldQuery);
+				BoolQuery.Builder additionalShouldQuery = bool();
 				((SSubAttributeSet)attributeSet).addCriteria(new SubRefinementBuilder(refinementBuilder, additionalShouldQuery));
+				shouldQueries.should(additionalShouldQuery.build()._toQuery());
 			}
 		}
+		shouldQueries.should(firstShouldQuery.build()._toQuery());
+		refinementBuilder.getQueryBuilder().must(shouldQueries.build()._toQuery());
 	}
 
 	@Override

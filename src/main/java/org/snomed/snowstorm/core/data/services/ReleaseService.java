@@ -9,17 +9,17 @@ import org.snomed.snowstorm.core.data.services.classification.BranchClassificati
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.data.elasticsearch.core.SearchHitsIterator;
-import org.springframework.data.elasticsearch.core.query.NativeSearchQuery;
-import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
+import org.springframework.data.elasticsearch.client.elc.NativeQuery;
+import org.springframework.data.elasticsearch.client.elc.NativeQueryBuilder;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 
+import static co.elastic.clients.elasticsearch._types.query_dsl.QueryBuilders.bool;
 import static io.kaicode.elasticvc.api.ComponentService.LARGE_PAGE;
-import static org.elasticsearch.index.query.QueryBuilders.boolQuery;
-import static org.elasticsearch.index.query.QueryBuilders.existsQuery;
+import static io.kaicode.elasticvc.helper.QueryHelper.existsQuery;
 
 @Service
 public class ReleaseService {
@@ -69,11 +69,11 @@ public class ReleaseService {
 	}
 
 	private <T extends SnomedComponent<?>> void releaseComponentsOfType(Class<T> componentType, Integer effectiveTime, Commit commit, BranchCriteria branchCriteria) {
-		NativeSearchQuery searchQuery = new NativeSearchQueryBuilder()
-				.withQuery(boolQuery()
+		NativeQuery searchQuery = new NativeQueryBuilder()
+				.withQuery(bool(bq -> bq
 						.must(branchCriteria.getEntityBranchCriteria(componentType))
 						.mustNot(existsQuery(SnomedComponent.Fields.EFFECTIVE_TIME))
-				)
+				))
 				.withPageable(LARGE_PAGE)
 				.build();
 

@@ -1,6 +1,6 @@
 package org.snomed.snowstorm.rest.security;
 
-import org.elasticsearch.common.Strings;
+import com.google.common.base.Strings;
 import org.ihtsdo.sso.integration.SecurityUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

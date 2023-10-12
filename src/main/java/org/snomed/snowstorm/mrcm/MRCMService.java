@@ -19,9 +19,9 @@ import org.snomed.snowstorm.core.util.TimerUtil;
 import org.snomed.snowstorm.mrcm.model.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.PageRequest;
-import org.springframework.data.elasticsearch.core.ElasticsearchRestTemplate;
+import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.data.elasticsearch.core.SearchHitsIterator;
-import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
+import org.springframework.data.elasticsearch.client.elc.NativeQueryBuilder;
 import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;
 
@@ -31,7 +31,8 @@ import java.util.stream.Collectors;
 
 import static io.kaicode.elasticvc.api.VersionControlHelper.LARGE_PAGE;
 import static java.lang.Long.parseLong;
-import static org.elasticsearch.index.query.QueryBuilders.*;
+import static co.elastic.clients.elasticsearch._types.query_dsl.QueryBuilders.*;
+import static io.kaicode.elasticvc.helper.QueryHelper.*;
 import static org.snomed.snowstorm.config.Config.DEFAULT_LANGUAGE_DIALECTS;
 import static org.snomed.snowstorm.mrcm.model.MRCM.IS_A_ATTRIBUTE_DOMAIN;
 
@@ -54,7 +55,7 @@ public class MRCMService {
 	private VersionControlHelper versionControlHelper;
 
 	@Autowired
-	private ElasticsearchRestTemplate elasticsearchTemplate;
+	private ElasticsearchOperations elasticsearchTemplate;
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
@@ -223,11 +224,11 @@ public class MRCMService {
 
 		BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(branch);
 
-		NativeSearchQueryBuilder queryConceptQuery = new NativeSearchQueryBuilder()
-				.withQuery(boolQuery()
+		NativeQueryBuilder queryConceptQuery = new NativeQueryBuilder()
+				.withQuery(bool(b -> b
 						.must(branchCriteria.getEntityBranchCriteria(QueryConcept.class))
 						.must(termQuery(QueryConcept.Fields.STATED, false))
-						.filter(termsQuery(QueryConcept.Fields.CONCEPT_ID, remainingAttributes))
+						.filter(termsQuery(QueryConcept.Fields.CONCEPT_ID, remainingAttributes)))
 				)
 				.withFields(QueryConcept.Fields.CONCEPT_ID, QueryConcept.Fields.PARENTS)
 				.withPageable(LARGE_PAGE);
