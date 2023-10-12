@@ -3,13 +3,14 @@ package org.snomed.snowstorm.core.data.domain;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonView;
 import io.kaicode.elasticvc.domain.DomainEntity;
-import org.elasticsearch.common.Strings;
 import org.snomed.snowstorm.rest.View;
 import org.springframework.data.annotation.Transient;
 import org.springframework.data.elasticsearch.annotations.Field;
 import org.springframework.data.elasticsearch.annotations.FieldType;
 
 import jakarta.validation.constraints.Size;
+import org.springframework.util.StringUtils;
+
 import java.io.Serializable;
 
 public abstract class SnomedComponent<C> extends DomainEntity<C> implements IdAndEffectiveTimeComponent, Serializable {
@@ -116,7 +117,7 @@ public abstract class SnomedComponent<C> extends DomainEntity<C> implements IdAn
 	}
 
 	public String buildReleaseHash() {
-		return Strings.arrayToDelimitedString(getReleaseHashObjects(), "|");
+		return StringUtils.arrayToDelimitedString(getReleaseHashObjects(), "|");
 	}
 
 	protected abstract Object[] getReleaseHashObjects();

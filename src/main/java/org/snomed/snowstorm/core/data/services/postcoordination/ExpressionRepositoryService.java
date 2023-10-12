@@ -1,7 +1,7 @@
 package org.snomed.snowstorm.core.data.services.postcoordination;
 
+import com.google.common.collect.Sets;
 import io.kaicode.elasticvc.api.VersionControlHelper;
-import org.elasticsearch.common.util.set.Sets;
 import org.snomed.languages.scg.SCGException;
 import org.snomed.languages.scg.domain.model.Attribute;
 import org.snomed.languages.scg.domain.model.AttributeValue;

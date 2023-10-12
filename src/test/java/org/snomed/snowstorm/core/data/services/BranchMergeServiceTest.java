@@ -1,5 +1,6 @@
 package org.snomed.snowstorm.core.data.services;
 
+import co.elastic.clients.elasticsearch._types.query_dsl.Query;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import io.kaicode.elasticvc.api.BranchCriteria;
@@ -8,9 +9,10 @@ import io.kaicode.elasticvc.api.VersionControlHelper;
 import io.kaicode.elasticvc.domain.Branch;
 import io.kaicode.elasticvc.domain.Commit;
 import io.kaicode.elasticvc.domain.Metadata;
+import io.kaicode.elasticvc.helper.SortBuilders;
 import org.assertj.core.util.Maps;
-import org.elasticsearch.index.query.BoolQueryBuilder;
-import org.elasticsearch.search.sort.SortBuilders;
+
+
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -31,10 +33,10 @@ import org.snomed.snowstorm.rest.pojo.MergeRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
-import org.springframework.data.elasticsearch.core.ElasticsearchRestTemplate;
+import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.data.elasticsearch.core.SearchHit;
 import org.springframework.data.elasticsearch.core.SearchHitsIterator;
-import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
+import org.springframework.data.elasticsearch.client.elc.NativeQueryBuilder;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
 
 import java.util.*;
@@ -45,7 +47,8 @@ import java.util.stream.IntStream;
 
 import static io.kaicode.elasticvc.api.ComponentService.LARGE_PAGE;
 import static java.util.function.Predicate.not;
-import static org.elasticsearch.index.query.QueryBuilders.*;
+import static co.elastic.clients.elasticsearch._types.query_dsl.QueryBuilders.*;
+import static io.kaicode.elasticvc.helper.QueryHelper.*;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.snomed.snowstorm.config.Config.DEFAULT_LANGUAGE_DIALECTS;
@@ -85,7 +88,7 @@ class BranchMergeServiceTest extends AbstractTest {
 	private TraceabilityLogService traceabilityLogService;
 
 	@Autowired
-	private ElasticsearchRestTemplate elasticsearchTemplate;
+	private ElasticsearchOperations elasticsearchTemplate;
 
 	@Autowired
 	private VersionControlHelper versionControlHelper;
@@ -823,10 +826,10 @@ class BranchMergeServiceTest extends AbstractTest {
 
 	public List<Description> getDescriptions(String branchPath, String conceptId) {
 		final BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(branchPath);
-		BoolQueryBuilder query = boolQuery().must(branchCriteria.getEntityBranchCriteria(Description.class))
-				.must(termsQuery("conceptId", conceptId));
+		Query query = bool(b -> b.must(branchCriteria.getEntityBranchCriteria(Description.class))
+				.must(termQuery("conceptId", conceptId)));
 		return elasticsearchTemplate.search(
-				new NativeSearchQueryBuilder().withQuery(query).build(), Description.class)
+				new NativeQueryBuilder().withQuery(query).build(), Description.class)
 				.stream().map(SearchHit::getContent).collect(Collectors.toList());
 	}
 
@@ -874,21 +877,21 @@ class BranchMergeServiceTest extends AbstractTest {
 		branchMergeService.mergeBranchSync("MAIN/A", "MAIN/A/A1", Collections.emptySet());
 		assertEquals(1, countRelationships("MAIN/A/A1", conceptId, Relationship.CharacteristicType.inferred));
 
-		List<Relationship> rels = elasticsearchTemplate.search(new NativeSearchQueryBuilder()
-				.withQuery(boolQuery()
-						.must(termsQuery(Relationship.Fields.SOURCE_ID, conceptId))
-						.must(termsQuery(Relationship.Fields.CHARACTERISTIC_TYPE_ID, Concepts.INFERRED_RELATIONSHIP)))
+		List<Relationship> rels = elasticsearchTemplate.search(new NativeQueryBuilder()
+				.withQuery(bool(b -> b
+						.must(termQuery(Relationship.Fields.SOURCE_ID, conceptId))
+						.must(termQuery(Relationship.Fields.CHARACTERISTIC_TYPE_ID, Concepts.INFERRED_RELATIONSHIP))))
 				.withPageable(LARGE_PAGE)
 				.withSort(SortBuilders.fieldSort("start")).build(), Relationship.class)
-				.stream().map(SearchHit::getContent).collect(Collectors.toList());
+				.stream().map(SearchHit::getContent).toList();
 		for (Relationship rel : rels) {
 			System.out.println(rel);
 		}
 
-		List<QueryConcept> queryConceptsAcrossBranches = elasticsearchTemplate.search(new NativeSearchQueryBuilder()
-				.withQuery(boolQuery()
-						.must(termsQuery(QueryConcept.Fields.CONCEPT_ID, conceptId))
-						.must(termsQuery(QueryConcept.Fields.STATED, false)))
+		List<QueryConcept> queryConceptsAcrossBranches = elasticsearchTemplate.search(new NativeQueryBuilder()
+				.withQuery(bool(b -> b
+						.must(termQuery(QueryConcept.Fields.CONCEPT_ID, conceptId))
+						.must(termQuery(QueryConcept.Fields.STATED, false))))
 				.withPageable(LARGE_PAGE)
 				.withSort(SortBuilders.fieldSort("start")).build(), QueryConcept.class)
 				.stream().map(SearchHit::getContent).collect(Collectors.toList());
@@ -896,7 +899,7 @@ class BranchMergeServiceTest extends AbstractTest {
 			System.out.println(queryConceptsAcrossBranch);
 		}
 
-		List<Branch> branches = elasticsearchTemplate.search(new NativeSearchQueryBuilder()
+		List<Branch> branches = elasticsearchTemplate.search(new NativeQueryBuilder()
 				.withSort(SortBuilders.fieldSort("start"))
 				.withPageable(LARGE_PAGE)
 				.build(), Branch.class)
@@ -1584,7 +1587,7 @@ class BranchMergeServiceTest extends AbstractTest {
 		Concept conceptOnTaskB2 = conceptService.find("100003", taskB2);
 		conceptOnTaskB2.setModuleId("10000222");
 		conceptService.update(conceptOnTaskB2, taskB2);
-		branchMergeService.mergeBranchSync(taskB2, "MAIN/B", Arrays.asList(conceptOnTaskB2));
+		branchMergeService.mergeBranchSync(taskB2, "MAIN/B", List.of(conceptOnTaskB2));
 
 		// Rebase taskB1
 		branchMergeService.mergeBranchSync("MAIN/B", taskB1, conceptsOnTaskB1);
@@ -3477,7 +3480,6 @@ class BranchMergeServiceTest extends AbstractTest {
 		Map<String, String> intAcceptable = Map.of(US_EN_LANG_REFSET, descriptionAcceptabilityNames.get(PREFERRED), GB_EN_LANG_REFSET, descriptionAcceptabilityNames.get(ACCEPTABLE));
 		String ci = "CASE_INSENSITIVE";
 		Concept concept;
-		Description description;
 		CodeSystem codeSystem;
 		List<ReferenceSetMember> members;
 		ReferenceSetMember member;
@@ -3652,7 +3654,6 @@ class BranchMergeServiceTest extends AbstractTest {
 		Map<String, String> intAcceptable = Map.of(US_EN_LANG_REFSET, descriptionAcceptabilityNames.get(PREFERRED), GB_EN_LANG_REFSET, descriptionAcceptabilityNames.get(ACCEPTABLE));
 		String ci = "CASE_INSENSITIVE";
 		Concept concept;
-		Description description;
 		CodeSystem codeSystem;
 		List<ReferenceSetMember> members;
 		ReferenceSetMember member;
@@ -3751,7 +3752,6 @@ class BranchMergeServiceTest extends AbstractTest {
 		Map<String, String> intAcceptable = Map.of(US_EN_LANG_REFSET, descriptionAcceptabilityNames.get(PREFERRED), GB_EN_LANG_REFSET, descriptionAcceptabilityNames.get(ACCEPTABLE));
 		String ci = "CASE_INSENSITIVE";
 		Concept concept;
-		Description description;
 		CodeSystem codeSystem;
 		List<ReferenceSetMember> members;
 		ReferenceSetMember member;
@@ -4697,11 +4697,11 @@ class BranchMergeServiceTest extends AbstractTest {
 	}
 
 	private Concept getConceptDocument(String path, String conceptId) {
-		try (final SearchHitsIterator<Concept> stream = elasticsearchTemplate.searchForStream(new NativeSearchQueryBuilder()
+		try (final SearchHitsIterator<Concept> stream = elasticsearchTemplate.searchForStream(new NativeQueryBuilder()
 				.withQuery(
-						boolQuery()
-								.must(matchQuery(Concept.Fields.PATH, path))
-								.must(matchQuery(Concept.Fields.CONCEPT_ID, conceptId))
+						bool(b -> b
+								.must(termQuery(Concept.Fields.PATH, path))
+								.must(termQuery(Concept.Fields.CONCEPT_ID, conceptId)))
 				)
 				.build(), Concept.class)) {
 			return stream.next().getContent();
@@ -5387,7 +5387,7 @@ class BranchMergeServiceTest extends AbstractTest {
 		// 9. Rebase Extension project
 		review = getMergeReviewInCurrentState(extMain, extProject);
 		conflicts = reviewService.getMergeReviewConflictingConcepts(review.getId(), new ArrayList<>());
-		assertTrue(conflicts.size() == 1);
+        assertEquals(1, conflicts.size());
 
 		for (MergeReviewConceptVersions conflict : conflicts) {
 			Concept sourceConcept = conflict.getSourceConcept();

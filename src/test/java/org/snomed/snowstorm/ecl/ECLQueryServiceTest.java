@@ -18,5 +18,4 @@ public class ECLQueryServiceTest extends AbstractECLQueryServiceTest {
 		allConceptIds = eclQueryService.selectConceptIds("*", branchCriteria, false, PageRequest.of(0, 1000))
 				.getContent().stream().map(Object::toString).collect(Collectors.toSet());
 	}
-
 }

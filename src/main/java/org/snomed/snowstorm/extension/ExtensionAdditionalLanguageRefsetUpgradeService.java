@@ -1,5 +1,6 @@
 package org.snomed.snowstorm.extension;
 
+import co.elastic.clients.json.JsonData;
 import io.kaicode.elasticvc.api.BranchCriteria;
 import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.api.VersionControlHelper;
@@ -20,7 +21,7 @@ import org.snomed.snowstorm.core.data.services.ReferenceSetMemberService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.data.elasticsearch.core.SearchHitsIterator;
-import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
+import org.springframework.data.elasticsearch.client.elc.NativeQueryBuilder;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 
@@ -30,7 +31,8 @@ import java.util.stream.Collectors;
 
 import static com.google.common.collect.Iterables.partition;
 import static io.kaicode.elasticvc.api.ComponentService.LARGE_PAGE;
-import static org.elasticsearch.index.query.QueryBuilders.*;
+import static co.elastic.clients.elasticsearch._types.query_dsl.QueryBuilders.*;
+import static io.kaicode.elasticvc.helper.QueryHelper.*;
 import static org.snomed.snowstorm.core.data.domain.Description.Fields.DESCRIPTION_ID;
 import static org.snomed.snowstorm.core.data.domain.Description.Fields.TYPE_ID;
 import static org.snomed.snowstorm.core.data.domain.ReferenceSetMember.Fields.*;
@@ -113,10 +115,10 @@ public class ExtensionAdditionalLanguageRefsetUpgradeService {
 	private List<ReferenceSetMember> copyAll(String branchPath, AdditionalRefsetExecutionConfig config) {
 		BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(branchPath);
 		List<ReferenceSetMember> result = new ArrayList<>();
-		NativeSearchQueryBuilder searchQueryBuilder = new NativeSearchQueryBuilder()
-				.withQuery(boolQuery()
+		NativeQueryBuilder searchQueryBuilder = new NativeQueryBuilder()
+				.withQuery(bool(b -> b
 						.must(branchCriteria.getEntityBranchCriteria(ReferenceSetMember.class))
-						.must(termQuery(REFSET_ID, config.getLanguageRefsetIdToCopyFrom())))
+						.must(termQuery(REFSET_ID, config.getLanguageRefsetIdToCopyFrom()))))
 				.withFilter(termQuery(ACTIVE, true))
 				.withFields(REFERENCED_COMPONENT_ID, ACTIVE, ACCEPTABILITY_ID_FIELD_PATH)
 				.withPageable(LARGE_PAGE);
@@ -131,15 +133,15 @@ public class ExtensionAdditionalLanguageRefsetUpgradeService {
 		Objects.requireNonNull(currentDependantEffectiveTime, "Current dependant effective time can't be null");
 		BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(branchPath);
 		Map<Long, List<ReferenceSetMember>> result = new Long2ObjectOpenHashMap<>();
-		NativeSearchQueryBuilder searchQueryBuilder = new NativeSearchQueryBuilder()
-				.withQuery(boolQuery()
+		NativeQueryBuilder searchQueryBuilder = new NativeQueryBuilder()
+				.withQuery(bool(b -> b
 						.must(branchCriteria.getEntityBranchCriteria(ReferenceSetMember.class))
-						.must(termQuery(REFSET_ID, languageRefsetId)))
+						.must(termQuery(REFSET_ID, languageRefsetId))))
 				.withFields(REFERENCED_COMPONENT_ID, ACTIVE, ACCEPTABILITY_ID_FIELD_PATH, CONCEPT_ID)
 				.withPageable(LARGE_PAGE);
 		if (lastDependantEffectiveTime != null) {
 			// for roll up upgrade every 6 months for example
-			searchQueryBuilder.withFilter(rangeQuery(EFFECTIVE_TIME).gt(lastDependantEffectiveTime).lte(currentDependantEffectiveTime));
+			searchQueryBuilder.withFilter(range().field(EFFECTIVE_TIME).gt(JsonData.of(lastDependantEffectiveTime)).lte(JsonData.of(currentDependantEffectiveTime)).build()._toQuery());
 		} else {
 			// for incremental monthly upgrade
 			searchQueryBuilder.withFilter(termQuery(EFFECTIVE_TIME, currentDependantEffectiveTime));
@@ -152,16 +154,10 @@ public class ExtensionAdditionalLanguageRefsetUpgradeService {
 	}
 
 	private List<ReferenceSetMember> addOrUpdateLanguageRefsetComponents(String branchPath, AdditionalRefsetExecutionConfig config, Map<Long, List<ReferenceSetMember>> languageRefsetMembersToCopy) {
-		/**
-		 * Step 1: Get relevant en-gb language refset components to copy and map results by concept id (done in previous step - getReferencedComponents)
-		 * Step 2: Get all existing extension default english language refset components for given concepts in step 1 and map results by concept id
-		 * Step 3: Get all relevant descriptions with type SYN or DEF, and map results by concept id.
-		 * Step 4: Add a check to make sure no preferred language resfet component is neither updated nor added when there is a different PT existing already for a given concept in above step's results
-		 */
-
 		BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(branchPath);
 		List<ReferenceSetMember> result = new ArrayList<>();
 
+		// Step 1: Get relevant en-gb language refset components to copy and map results by concept id (done in previous step - getReferencedComponents)
 		// Collect all relevant description IDs
 		Set<Long> descriptionIds = new HashSet<>();
 		for (List<ReferenceSetMember> list : languageRefsetMembersToCopy.values()) {
@@ -172,12 +168,12 @@ public class ExtensionAdditionalLanguageRefsetUpgradeService {
 		// Get all existing language reference set members
 		Map<Long, List<ReferenceSetMember>> existingLanguageRefsetMembersToUpdate = new Long2ObjectOpenHashMap<>();
 		for (List<Long> batch : partition(languageRefsetMembersToCopy.keySet(), 10_000)) {
-			NativeSearchQueryBuilder queryBuilder = new NativeSearchQueryBuilder()
-					.withQuery(boolQuery()
+			NativeQueryBuilder queryBuilder = new NativeQueryBuilder()
+					.withQuery(bool(b -> b
 							.must(branchCriteria.getEntityBranchCriteria(ReferenceSetMember.class))
 							.must(termQuery(REFSET_ID, config.getDefaultEnglishLanguageRefsetId()))
-							.must(termsQuery(ACCEPTABILITY_ID_FIELD_PATH, Concepts.PREFERRED, Concepts.ACCEPTABLE))
-							.must(termsQuery(ReferenceSetMember.Fields.CONCEPT_ID, batch))
+							.must(termsQuery(ACCEPTABILITY_ID_FIELD_PATH, List.of(Concepts.PREFERRED, Concepts.ACCEPTABLE)))
+							.must(termsQuery(ReferenceSetMember.Fields.CONCEPT_ID, batch)))
 					).withFields(MEMBER_ID, EFFECTIVE_TIME, ACTIVE, MODULE_ID, REFSET_ID, REFERENCED_COMPONENT_ID, ACCEPTABILITY_ID_FIELD_PATH, CONCEPT_ID)
 					.withPageable(LARGE_PAGE);
 
@@ -193,17 +189,15 @@ public class ExtensionAdditionalLanguageRefsetUpgradeService {
 		// Get all relevant descriptions (requires only SYN and DEF)
 		Map<Long, Set<Description>> conceptToDescriptionsMap = new Long2ObjectOpenHashMap<>();
 		for (List<Long> batch : partition(descriptionIds, 10_000)) {
-			NativeSearchQueryBuilder queryBuilder = new NativeSearchQueryBuilder()
-					.withQuery(boolQuery()
+			NativeQueryBuilder queryBuilder = new NativeQueryBuilder()
+					.withQuery(bool(b -> b
 							.must(branchCriteria.getEntityBranchCriteria(Description.class))
-							.must(termsQuery(TYPE_ID, Concepts.SYNONYM, Concepts.TEXT_DEFINITION)))
+							.must(termsQuery(TYPE_ID, List.of(Concepts.SYNONYM, Concepts.TEXT_DEFINITION)))))
 					.withFilter(termsQuery(DESCRIPTION_ID, batch))
 					.withPageable(LARGE_PAGE);
 
 			try (final SearchHitsIterator<Description> searchHitsIterator = elasticsearchTemplate.searchForStream(queryBuilder.build(), Description.class)) {
-				searchHitsIterator.forEachRemaining(hit -> {
-					conceptToDescriptionsMap.computeIfAbsent(Long.valueOf(hit.getContent().getConceptId()), k -> new HashSet<>()).add(hit.getContent());
-				});
+				searchHitsIterator.forEachRemaining(hit -> conceptToDescriptionsMap.computeIfAbsent(Long.valueOf(hit.getContent().getConceptId()), k -> new HashSet<>()).add(hit.getContent()));
 			}
 		}
 

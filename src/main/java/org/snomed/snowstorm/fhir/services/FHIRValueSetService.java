@@ -1,9 +1,10 @@
 package org.snomed.snowstorm.fhir.services;
 
+import co.elastic.clients.elasticsearch._types.query_dsl.BoolQuery;
+import co.elastic.clients.elasticsearch._types.query_dsl.PrefixQuery;
+import com.google.common.base.Strings;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
-import org.elasticsearch.common.Strings;
-import org.elasticsearch.index.query.BoolQueryBuilder;
-import org.elasticsearch.index.query.QueryBuilder;
+
 import org.hl7.fhir.r4.model.*;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -25,13 +26,13 @@ import org.snomed.snowstorm.fhir.pojo.ValueSetExpansionParameters;
 import org.snomed.snowstorm.fhir.repositories.FHIRValueSetRepository;
 import org.snomed.snowstorm.fhir.services.context.CodeSystemVersionProvider;
 import org.snomed.snowstorm.rest.ControllerHelper;
+import org.snomed.snowstorm.rest.pojo.SearchAfterPageRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.*;
-import org.springframework.data.elasticsearch.core.ElasticsearchRestTemplate;
-import org.springframework.data.elasticsearch.core.SearchAfterPageRequest;
+import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.data.elasticsearch.core.SearchHits;
-import org.springframework.data.elasticsearch.core.query.NativeSearchQuery;
-import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
+import org.springframework.data.elasticsearch.client.elc.NativeQuery;
+import org.springframework.data.elasticsearch.client.elc.NativeQueryBuilder;
 import org.springframework.stereotype.Service;
 
 import java.net.URLDecoder;
@@ -42,7 +43,8 @@ import java.util.stream.Collectors;
 import static io.kaicode.elasticvc.api.ComponentService.LARGE_PAGE;
 import static java.lang.Boolean.TRUE;
 import static java.lang.String.format;
-import static org.elasticsearch.index.query.QueryBuilders.*;
+import static co.elastic.clients.elasticsearch._types.query_dsl.QueryBuilders.*;
+import static io.kaicode.elasticvc.helper.QueryHelper.*;
 import static org.snomed.snowstorm.core.data.services.ReferenceSetMemberService.AGGREGATION_MEMBER_COUNTS_BY_REFERENCE_SET;
 import static org.snomed.snowstorm.core.util.CollectionUtils.orEmpty;
 import static org.snomed.snowstorm.fhir.services.FHIRHelper.*;
@@ -75,14 +77,14 @@ public class FHIRValueSetService {
 	private ConceptService snomedConceptService;
 
 	@Autowired
-	private ElasticsearchRestTemplate elasticsearchTemplate;
+	private ElasticsearchOperations elasticsearchTemplate;
 
 	private final Map<String, Set<String>> codeSystemVersionToRefsetsWithMembersCache = new HashMap<>();
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
 	public Page<FHIRValueSet> findAll(Pageable pageable) {
-		NativeSearchQuery searchQuery = new NativeSearchQueryBuilder()
+		NativeQuery searchQuery = new NativeQueryBuilder()
 				.withPageable(pageable)
 				.build();
 		searchQuery.setTrackTotalHits(true);
@@ -277,7 +279,7 @@ public class FHIRValueSetService {
 			// FHIR Concept Expansion (non-SNOMED)
 			String sortField = filter != null ? "displayLen" : "code";
 			pageRequest = PageRequest.of(pageRequest.getPageNumber(), pageRequest.getPageSize(), Sort.Direction.ASC, sortField);
-			BoolQueryBuilder fhirConceptQuery = getFhirConceptQuery(codeSelectionCriteria, filter);
+			BoolQuery.Builder fhirConceptQuery = getFhirConceptQuery(codeSelectionCriteria, filter);
 
 			int offsetRequested = (int) pageRequest.getOffset();
 			int limitRequested = (int) (pageRequest.getOffset() + pageRequest.getPageSize());
@@ -379,18 +381,19 @@ public class FHIRValueSetService {
 	}
 
 	@NotNull
-	private BoolQueryBuilder getFhirConceptQuery(CodeSelectionCriteria codeSelectionCriteria, String termFilter) {
-		QueryBuilder contentQuery = doGetFhirConceptQuery(codeSelectionCriteria);
+	private BoolQuery.Builder getFhirConceptQuery(CodeSelectionCriteria codeSelectionCriteria, String termFilter) {
+		BoolQuery.Builder contentQuery = doGetFhirConceptQuery(codeSelectionCriteria);
 
-		BoolQueryBuilder masterQuery = boolQuery().must(contentQuery);
+		BoolQuery.Builder masterQuery = bool();
+		masterQuery.must(contentQuery.build()._toQuery());
 		if (termFilter != null) {
-			masterQuery.must(prefixQuery(FHIRConcept.Fields.DISPLAY, termFilter.toLowerCase()));
+			masterQuery.must(PrefixQuery.of(pq -> pq.field(FHIRConcept.Fields.DISPLAY).value(termFilter.toLowerCase()))._toQuery());
 		}
 		return masterQuery;
 	}
 
-	private QueryBuilder doGetFhirConceptQuery(CodeSelectionCriteria codeSelectionCriteria) {
-		BoolQueryBuilder valueSetQuery = new BoolQueryBuilder();
+	private BoolQuery.Builder doGetFhirConceptQuery(CodeSelectionCriteria codeSelectionCriteria) {
+		BoolQuery.Builder valueSetQuery = bool();
 
 		// Attempt to combine value set constraints to reduce the required Elasticsearch clause count.
 		// (Some LOINC nested value sets exceed the default 1024 clause limit).
@@ -400,20 +403,20 @@ public class FHIRValueSetService {
 
 		// Inclusions
 		for (Map.Entry<FHIRCodeSystemVersion, Set<ConceptConstraint>> versionInclusionConstraints : inclusionConstraints.entrySet()) {
-			BoolQueryBuilder versionQuery = getInclusionQueryBuilder(versionInclusionConstraints, codeSelectionCriteria.getValueSetUserRef());
-			valueSetQuery.should(versionQuery);// Must match at least one of these
+			BoolQuery.Builder versionQueryBuilder = getInclusionQueryBuilder(versionInclusionConstraints, codeSelectionCriteria.getValueSetUserRef());
+			valueSetQuery.should(versionQueryBuilder.build()._toQuery());// Must match at least one of these
 		}
 
 		// Nested value sets
 		for (CodeSelectionCriteria nestedSelection : nestedSelections) {
-			QueryBuilder nestedQuery = doGetFhirConceptQuery(nestedSelection);
-			valueSetQuery.should(nestedQuery);
+			BoolQuery.Builder nestedQueryBuilder = doGetFhirConceptQuery(nestedSelection);
+			valueSetQuery.should(nestedQueryBuilder.build()._toQuery());// Must match at least one of these
 		}
 
 		// Exclusions
 		for (Map.Entry<FHIRCodeSystemVersion, Set<ConceptConstraint>> versionExclusionConstraints : exclusionConstraints.entrySet()) {
-			BoolQueryBuilder versionQuery = getInclusionQueryBuilder(versionExclusionConstraints, codeSelectionCriteria.getValueSetUserRef());
-			valueSetQuery.mustNot(versionQuery);
+			BoolQuery.Builder versionQueryBuilder = getInclusionQueryBuilder(versionExclusionConstraints, codeSelectionCriteria.getValueSetUserRef());
+			valueSetQuery.mustNot(versionQueryBuilder.build()._toQuery());
 		}
 
 		return valueSetQuery;
@@ -466,17 +469,17 @@ public class FHIRValueSetService {
 	}
 
 	@NotNull
-	private BoolQueryBuilder getInclusionQueryBuilder(Map.Entry<FHIRCodeSystemVersion, Set<ConceptConstraint>> versionInclusionConstraints, String valueSetUserRef) {
-		BoolQueryBuilder versionQuery = boolQuery().must(termQuery(FHIRConcept.Fields.CODE_SYSTEM_VERSION, versionInclusionConstraints.getKey().getId()));
+	private BoolQuery.Builder getInclusionQueryBuilder(Map.Entry<FHIRCodeSystemVersion, Set<ConceptConstraint>> versionInclusionConstraints, String valueSetUserRef) {
+		BoolQuery.Builder versionQueryBuilder = bool().must(termQuery(FHIRConcept.Fields.CODE_SYSTEM_VERSION, versionInclusionConstraints.getKey().getId()));
 
-		BoolQueryBuilder disjunctionQueries = boolQuery();
-		versionQuery.must(disjunctionQueries);// Concept must meet one of the conditions
+		BoolQuery.Builder disjunctionQueries = bool();
 		for (ConceptConstraint inclusion : versionInclusionConstraints.getValue()) {
-			BoolQueryBuilder disjunctionQuery = boolQuery();
-			disjunctionQueries.should(disjunctionQuery);// "disjunctionQueries" contains only "should" conditions, Elasticsearch forces at least one of them to match.
-			addQueryCriteria(inclusion, disjunctionQuery, valueSetUserRef);
+			BoolQuery.Builder disjunctionQueryBuilder = bool();
+			addQueryCriteria(inclusion, disjunctionQueryBuilder, valueSetUserRef);
+			disjunctionQueries.should(disjunctionQueryBuilder.build()._toQuery());// "disjunctionQueries" contains only "should" conditions, Elasticsearch forces at least one of them to match.
 		}
-		return versionQuery;
+		versionQueryBuilder.must(disjunctionQueries.build()._toQuery());// Concept must meet one of the conditions
+		return versionQueryBuilder;
 	}
 
 	private QueryService.ConceptQueryBuilder getSnomedConceptQuery(String filter, boolean activeOnly, CodeSelectionCriteria codeSelectionCriteria,
@@ -751,7 +754,7 @@ public class FHIRValueSetService {
 		}
 
 		if (!genericVersions.isEmpty()) {
-			BoolQueryBuilder fhirConceptQuery = getFhirConceptQuery(codeSelectionCriteria, null);
+			BoolQuery.Builder fhirConceptQuery = getFhirConceptQuery(codeSelectionCriteria, null);
 			// Add criteria to select just this code
 			fhirConceptQuery.must(termQuery(FHIRConcept.Fields.CODE, coding.getCode()));
 			List<FHIRConcept> concepts = conceptService.findConcepts(fhirConceptQuery, PAGE_OF_ONE).getContent();
@@ -795,7 +798,7 @@ public class FHIRValueSetService {
 		return String.join(" OR ", inclusion.getCode());
 	}
 
-	private void addQueryCriteria(ConceptConstraint inclusion, BoolQueryBuilder versionQuery, String valueSetUserRef) {
+	private void addQueryCriteria(ConceptConstraint inclusion, BoolQuery.Builder versionQuery, String valueSetUserRef) {
 		if (inclusion.getCode() != null) {
 			versionQuery.must(termsQuery(FHIRConcept.Fields.CODE, inclusion.getCode()));
 		} else if (inclusion.getParent() != null) {
@@ -828,12 +831,12 @@ public class FHIRValueSetService {
 					// expressions, =, true/false
 					if ("concept".equals(property)) {
 						if (op == ValueSet.FilterOperator.ISA) {
-							if (Strings.isEmpty(value)) {
+							if (Strings.isNullOrEmpty(value)) {
 								throw exception("Value missing for SNOMED CT ValueSet concept 'is-a' filter", OperationOutcome.IssueType.INVALID, 400);
 							}
 							inclusionConstraints.add(new ConceptConstraint().setEcl("<< " + value));
 						} else if (op == ValueSet.FilterOperator.IN) {
-							if (Strings.isEmpty(value)) {
+							if (Strings.isNullOrEmpty(value)) {
 								throw exception("Value missing for SNOMED CT ValueSet concept 'in' filter.", OperationOutcome.IssueType.INVALID, 400);
 							}
 							// Concept must be in the specified refset
@@ -847,7 +850,7 @@ public class FHIRValueSetService {
 						}
 					} else if ("constraint".equals(property)) {
 						if (op == ValueSet.FilterOperator.EQUAL) {
-							if (Strings.isEmpty(value)) {
+							if (Strings.isNullOrEmpty(value)) {
 								throw exception("Value missing for SNOMED CT ValueSet 'constraint' filter.", OperationOutcome.IssueType.INVALID, 400);
 							}
 							inclusionConstraints.add(new ConceptConstraint().setEcl(value));
@@ -891,7 +894,7 @@ public class FHIRValueSetService {
 					// [property], =/regex, [value] - not supported
 					// copyright, =, LOINC/3rdParty - not supported
 
-					if (Strings.isEmpty(value)) {
+					if (Strings.isNullOrEmpty(value)) {
 						throw exception("Value missing for LOINC ValueSet filter", OperationOutcome.IssueType.INVALID, 400);
 					}
 					Set<String> values = op == ValueSet.FilterOperator.IN ? new HashSet<>(Arrays.asList(value.split(","))) : Collections.singleton(value);

@@ -1,5 +1,6 @@
 package org.snomed.snowstorm.core.data.services;
 
+import co.elastic.clients.json.JsonData;
 import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.api.PathUtil;
 import io.kaicode.elasticvc.domain.Branch;
@@ -7,8 +8,6 @@ import io.kaicode.elasticvc.domain.Commit;
 import io.kaicode.elasticvc.domain.DomainEntity;
 import io.kaicode.elasticvc.domain.Metadata;
 import io.kaicode.elasticvc.repositories.BranchRepository;
-import org.elasticsearch.index.query.QueryBuilders;
-import org.elasticsearch.search.sort.SortBuilders;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.core.data.domain.CodeSystem;
@@ -18,29 +17,33 @@ import org.snomed.snowstorm.core.data.services.servicehook.CommitServiceHookClie
 import org.snomed.snowstorm.rest.pojo.SetAuthorFlag;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.*;
-import org.springframework.data.elasticsearch.core.ElasticsearchRestTemplate;
+import org.springframework.data.elasticsearch.client.elc.NativeQuery;
+import org.springframework.data.elasticsearch.client.elc.NativeQueryBuilder;
+import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
+
 import org.springframework.data.elasticsearch.core.SearchHit;
 import org.springframework.data.elasticsearch.core.SearchHits;
-import org.springframework.data.elasticsearch.core.query.NativeSearchQuery;
-import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
 import java.util.*;
 import java.util.stream.Collectors;
 
+import static co.elastic.clients.elasticsearch._types.query_dsl.QueryBuilders.bool;
+import static co.elastic.clients.elasticsearch._types.query_dsl.QueryBuilders.range;
 import static java.lang.String.format;
-import static org.elasticsearch.index.query.QueryBuilders.*;
 import static org.snomed.snowstorm.core.data.services.BranchMetadataHelper.AUTHOR_FLAGS_METADATA_KEY;
 import static org.snomed.snowstorm.core.data.services.BranchMetadataHelper.INTERNAL_METADATA_KEY;
 import static org.snomed.snowstorm.core.data.services.IntegrityService.INTEGRITY_ISSUE_METADATA_KEY;
+import static io.kaicode.elasticvc.helper.QueryHelper.termsQuery;
+import static io.kaicode.elasticvc.helper.QueryHelper.termQuery;
 
 @Service
 // Snowstorm branch service has some methods in addition to the ElasticVC library service.
 public class SBranchService {
 
 	@Autowired
-	private ElasticsearchRestTemplate elasticsearchTemplate;
+	private ElasticsearchOperations elasticsearchOperations;
 
 	@Autowired
 	private BranchService branchService;
@@ -95,38 +98,38 @@ public class SBranchService {
 	}
 
 	public Page<Branch> findAllVersionsAfterOrEqualToTimestampAsLightCommits(String path, Date timestamp, Pageable pageable) {
-		NativeSearchQueryBuilder queryBuilder = new NativeSearchQueryBuilder()
-				.withQuery(boolQuery()
-						.must(QueryBuilders.termQuery("path", path))
-						.must(QueryBuilders.rangeQuery("start").gte(timestamp.getTime())))
+		NativeQueryBuilder queryBuilder = new NativeQueryBuilder()
+				.withQuery(bool(bq -> bq
+						.must(termQuery("path", path))
+						.must(range(rq -> rq.field("start").gte(JsonData.of(timestamp.getTime()))))))
 				.withFields("path", "start", "end", "head", "base", "locked")
-				.withSort(SortBuilders.fieldSort("start"))
+				.withSort(s -> s.field(fb -> fb.field("start")))
 				.withPageable(pageable);
 
-		SearchHits<Branch> searchHits = elasticsearchTemplate.search(queryBuilder.build(), Branch.class);
+		SearchHits<Branch> searchHits = elasticsearchOperations.search(queryBuilder.build(), Branch.class);
 		return new PageImpl<>(searchHits.get().map(SearchHit::getContent).collect(Collectors.toList()),
 				pageable, searchHits.getTotalHits());
 	}
 
 	public List<Branch> findByPathAndBaseTimepoint(Set<String> path, Date baseTimestamp, Sort sort) {
-		NativeSearchQueryBuilder queryBuilder = new NativeSearchQueryBuilder()
-				.withQuery(boolQuery()
+		NativeQueryBuilder queryBuilder = new NativeQueryBuilder()
+				.withQuery(bool(bq -> bq
 						.must(termsQuery("path", path))
-						.must(termQuery("base", baseTimestamp.getTime())))
-				.withSort(SortBuilders.fieldSort("start"))
+						.must(termQuery("base", baseTimestamp.getTime()))))
+				.withSort(s -> s.field(fb -> fb.field("start")))
 				.withPageable(PageRequest.of(0, path.size(), sort));
-		return elasticsearchTemplate.search(queryBuilder.build(), Branch.class)
+		return elasticsearchOperations.search(queryBuilder.build(), Branch.class)
 				.stream().map(SearchHit::getContent).collect(Collectors.toList());
 	}
 
 	public Branch findByPathAndHeadTimepoint(String path, long head) {
-		SearchHits<Branch> query = elasticsearchTemplate.search(
-				new NativeSearchQueryBuilder()
+		SearchHits<Branch> query = elasticsearchOperations.search(
+				new NativeQueryBuilder()
 						.withQuery(
-								boolQuery()
+								bool(bq -> bq
 										.must(termQuery("path", path))
 										.must(termQuery("head", head))
-						)
+						))
 						.withPageable(PageRequest.of(0, 1))
 						.build(), Branch.class
 		);
@@ -210,12 +213,12 @@ public class SBranchService {
 	public Date getPartialCommitTimestamp(String branchPath) {
 		Branch latestCompleteCommit = branchService.findLatest(branchPath);
 		for (Class<? extends DomainEntity> entityType : domainEntityConfiguration.getAllDomainEntityTypes()) {
-			NativeSearchQuery query = new NativeSearchQueryBuilder().withQuery(
-					boolQuery()
+			NativeQuery query = new NativeQueryBuilder().withQuery(
+					bool(bq -> bq
 							.must(termQuery("path", branchPath))
-							.must(rangeQuery("start").gt(latestCompleteCommit.getStart().getTime())))
+							.must(range(rq -> rq.field("start").gt(JsonData.of(latestCompleteCommit.getStart().getTime()))))))
 					.build();
-			List<? extends DomainEntity> domainEntities = elasticsearchTemplate.search(query, entityType).stream().map(SearchHit::getContent).collect(Collectors.toList());
+			List<? extends DomainEntity> domainEntities = elasticsearchOperations.search(query, entityType).stream().map(SearchHit::getContent).collect(Collectors.toList());
 			if (!domainEntities.isEmpty()) {
 				return domainEntities.get(0).getStart();
 			}

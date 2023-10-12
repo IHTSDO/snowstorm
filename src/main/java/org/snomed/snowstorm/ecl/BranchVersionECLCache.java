@@ -1,8 +1,8 @@
 package org.snomed.snowstorm.ecl;
 
+import org.snomed.snowstorm.rest.pojo.SearchAfterPageRequest;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
-import org.springframework.data.elasticsearch.core.SearchAfterPageRequest;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
@@ -32,8 +32,7 @@ public class BranchVersionECLCache {
 
 	public Page<Long> get(String ecl, boolean stated, PageRequest pageRequest) {
 		ECLCacheEntry key = new ECLCacheEntry(ecl, stated, pageRequest);
-		Page<Long> longs = eclToConceptsCache.get(key);
-		return longs;
+        return eclToConceptsCache.get(key);
 	}
 
 	public void put(String ecl, boolean stated, PageRequest pageRequest, Page<Long> page) {

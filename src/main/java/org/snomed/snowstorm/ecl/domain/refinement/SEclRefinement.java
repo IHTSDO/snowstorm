@@ -1,6 +1,7 @@
 package org.snomed.snowstorm.ecl.domain.refinement;
 
-import org.elasticsearch.index.query.BoolQueryBuilder;
+
+import co.elastic.clients.elasticsearch._types.query_dsl.BoolQuery;
 import org.snomed.langauges.ecl.domain.refinement.EclRefinement;
 import org.snomed.langauges.ecl.domain.refinement.SubRefinement;
 import org.snomed.snowstorm.ecl.domain.RefinementBuilder;
@@ -12,9 +13,9 @@ import java.util.List;
 import java.util.Set;
 import java.util.function.Consumer;
 
+import static co.elastic.clients.elasticsearch._types.query_dsl.QueryBuilders.bool;
 import static com.google.common.collect.Sets.newHashSet;
 import static java.util.stream.Collectors.toSet;
-import static org.elasticsearch.index.query.QueryBuilders.boolQuery;
 import static org.springframework.util.CollectionUtils.isEmpty;
 
 public class SEclRefinement extends EclRefinement implements SRefinement {
@@ -33,13 +34,13 @@ public class SEclRefinement extends EclRefinement implements SRefinement {
 			}
 		}
 		if (disjunctionSubRefinements != null && !disjunctionSubRefinements.isEmpty()) {
-			BoolQueryBuilder shouldQueries = boolQuery();
-			refinementBuilder.getQuery().must(shouldQueries);
+			BoolQuery.Builder shouldQueries = bool();
 			for (SubRefinement disjunctionSubRefinement : disjunctionSubRefinements) {
-				BoolQueryBuilder shouldQuery = boolQuery();
-				shouldQueries.should(shouldQuery);
+				BoolQuery.Builder shouldQuery = bool();
 				((SSubRefinement)disjunctionSubRefinement).addCriteria(new SubRefinementBuilder(refinementBuilder, shouldQuery));
+				shouldQueries.should(shouldQuery.build()._toQuery());
 			}
+			refinementBuilder.getQueryBuilder().must(shouldQueries.build()._toQuery());
 		}
 	}
 

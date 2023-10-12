@@ -1,9 +1,10 @@
 package org.snomed.snowstorm.ecl;
 
 import ch.qos.logback.classic.Level;
+import co.elastic.clients.elasticsearch._types.query_dsl.Query;
 import io.kaicode.elasticvc.api.BranchCriteria;
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
-import org.elasticsearch.index.query.BoolQueryBuilder;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.langauges.ecl.ECLException;
@@ -23,6 +24,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Slice;
 import org.springframework.stereotype.Service;
 
 import java.util.Collection;
@@ -183,9 +185,7 @@ public class ECLQueryService {
 		} else {
 			// Select 2
 			pageOptional = expressionConstraint.select(branchCriteria, stated, conceptIdFilter, pageRequest, eclContentService, true);
-			if (pageOptional.isPresent()) {
-				eclSlowQueryTimer.checkpoint(String.format("ecl:'%s', with %s results in this page, cache not enabled.", ecl, pageOptional.get().getNumberOfElements()));
-			}
+            pageOptional.ifPresent(longs -> eclSlowQueryTimer.checkpoint(String.format("ecl:'%s', with %s results in this page, cache not enabled.", ecl, longs.getNumberOfElements())));
 		}
 
 		if (pageOptional.isEmpty()) {
@@ -198,7 +198,7 @@ public class ECLQueryService {
 
 	private Page<Long> getWildcardPage(BranchCriteria branchCriteria, boolean stated, Collection<Long> conceptIdFilter, PageRequest pageRequest) {
 		// Wildcard expression. Grab a page of concepts with no criteria.
-		BoolQueryBuilder query = ConceptSelectorHelper.getBranchAndStatedQuery(branchCriteria.getEntityBranchCriteria(QueryConcept.class), stated);
+		Query query = ConceptSelectorHelper.getBranchAndStatedQuery(branchCriteria.getEntityBranchCriteria(QueryConcept.class), stated);
 		return ConceptSelectorHelper.fetchWildcardIds(query, conceptIdFilter, pageRequest, eclContentService);
 	}
 
@@ -206,8 +206,8 @@ public class ECLQueryService {
 		
 		SExpressionConstraint expressionConstraint = (SExpressionConstraint) eclQueryBuilder.createQuery(ecl);
 		Optional<Page<Long>> pageOptional = expressionConstraint.select(branchCriteria, stated, conceptIdFilter, ControllerHelper.getPageRequest(0,1), eclContentService, true);
-		
-		return pageOptional.get().hasContent();
+
+        return pageOptional.map(Slice::hasContent).orElse(false);
 	}
 	
 	private TimerUtil getEclSlowQueryTimer() {

@@ -1,7 +1,8 @@
 package org.snomed.snowstorm.ecl.domain;
 
+import co.elastic.clients.elasticsearch._types.query_dsl.BoolQuery;
 import io.kaicode.elasticvc.api.BranchCriteria;
-import org.elasticsearch.index.query.BoolQueryBuilder;
+
 import org.snomed.snowstorm.core.data.domain.QueryConcept;
 import org.snomed.snowstorm.ecl.ECLContentService;
 
@@ -9,7 +10,7 @@ import java.util.function.Function;
 
 public class RefinementBuilderImpl implements RefinementBuilder {
 
-	private final BoolQueryBuilder query;
+	private final BoolQuery.Builder queryBuilder;
 	private final String path;
 	private final BranchCriteria branchCriteria;
 	private final boolean stated;
@@ -17,16 +18,16 @@ public class RefinementBuilderImpl implements RefinementBuilder {
 	private Function<QueryConcept, Boolean> inclusionFilter;
 	private boolean inclusionFilterRequired;
 
-	public RefinementBuilderImpl(BoolQueryBuilder query, BranchCriteria branchCriteria, boolean stated, ECLContentService eclContentService) {
-		this.query = query;
+	public RefinementBuilderImpl(BoolQuery.Builder queryBuilder, BranchCriteria branchCriteria, boolean stated, ECLContentService eclContentService) {
+		this.queryBuilder = queryBuilder;
 		this.path = branchCriteria.getBranchPath();
 		this.branchCriteria = branchCriteria;
 		this.stated = stated;
 		this.eclContentService = eclContentService;
 	}
 
-	public BoolQueryBuilder getQuery() {
-		return query;
+	public BoolQuery.Builder getQueryBuilder() {
+		return queryBuilder;
 	}
 
 	@Override

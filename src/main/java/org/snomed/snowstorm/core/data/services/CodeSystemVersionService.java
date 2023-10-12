@@ -1,9 +1,10 @@
 package org.snomed.snowstorm.core.data.services;
 
+import co.elastic.clients.elasticsearch._types.query_dsl.BoolQuery;
 import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.api.PathUtil;
 import io.kaicode.elasticvc.domain.Branch;
-import org.elasticsearch.index.query.BoolQueryBuilder;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.core.data.domain.CodeSystem;
@@ -11,7 +12,7 @@ import org.snomed.snowstorm.core.data.domain.CodeSystemVersion;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.data.elasticsearch.core.SearchHit;
-import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
+import org.springframework.data.elasticsearch.client.elc.NativeQueryBuilder;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -19,8 +20,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 
-import static org.elasticsearch.index.query.QueryBuilders.boolQuery;
-import static org.elasticsearch.index.query.QueryBuilders.termQuery;
+import static co.elastic.clients.elasticsearch._types.query_dsl.QueryBuilders.bool;
+import static io.kaicode.elasticvc.helper.QueryHelper.termQuery;
 
 @Component
 public class CodeSystemVersionService {
@@ -107,10 +108,10 @@ public class CodeSystemVersionService {
         /*
          * Find parent branch, where the head matches base
          * */
-		final BoolQueryBuilder query = boolQuery()
+		final BoolQuery.Builder queryBuilder = bool()
 				.must(termQuery(Branch.Fields.PATH, codeSystemVersion.getParentBranchPath()))
 				.must(termQuery("head", targetBaseTimestamp));
-		final SearchHit<Branch> targetBranchHit = elasticsearchOperations.searchOne(new NativeSearchQueryBuilder().withQuery(query).build(), Branch.class);
+		final SearchHit<Branch> targetBranchHit = elasticsearchOperations.searchOne(new NativeQueryBuilder().withQuery(queryBuilder.build()._toQuery()).build(), Branch.class);
 		final Branch versionCommit = targetBranchHit != null ? targetBranchHit.getContent() : null;
 
         if (versionCommit == null) {
