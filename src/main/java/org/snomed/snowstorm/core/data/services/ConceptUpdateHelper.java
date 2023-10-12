@@ -28,8 +28,8 @@ import org.springframework.context.annotation.Lazy;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.data.elasticsearch.core.SearchHitsIterator;
-import org.springframework.data.elasticsearch.core.query.NativeSearchQuery;
-import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
+import org.springframework.data.elasticsearch.client.elc.NativeQuery;
+import org.springframework.data.elasticsearch.client.elc.NativeQueryBuilder;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
@@ -38,8 +38,8 @@ import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
-import static org.elasticsearch.index.query.QueryBuilders.boolQuery;
-import static org.elasticsearch.index.query.QueryBuilders.termsQuery;
+import static co.elastic.clients.elasticsearch._types.query_dsl.QueryBuilders.bool;
+import static io.kaicode.elasticvc.helper.QueryHelper.termsQuery;
 import static org.snomed.snowstorm.core.data.domain.Concepts.CONCEPT_NON_CURRENT;
 import static org.snomed.snowstorm.core.data.domain.Concepts.inactivationIndicatorNames;
 
@@ -638,11 +638,11 @@ public class ConceptUpdateHelper extends ComponentService {
 	}
 
 	List<ReferenceSetMember> doDeleteMembersWhereReferencedComponentDeleted(Set<String> entityVersionsDeleted, Commit commit) {
-		NativeSearchQuery query = new NativeSearchQueryBuilder()
+		NativeQuery query = new NativeQueryBuilder()
 				.withQuery(
-						boolQuery()
+						bool(b -> b
 								.must(versionControlHelper.getBranchCriteria(commit.getBranch()).getEntityBranchCriteria(ReferenceSetMember.class))
-								.must(termsQuery("referencedComponentId", entityVersionsDeleted))
+								.must(termsQuery("referencedComponentId", entityVersionsDeleted)))
 				).withPageable(LARGE_PAGE).build();
 
 		List<ReferenceSetMember> membersToDelete = new ArrayList<>();

@@ -1,13 +1,13 @@
 package org.snomed.snowstorm.core.data.services;
 
+import co.elastic.clients.elasticsearch._types.aggregations.AggregationBuilders;
+import co.elastic.clients.elasticsearch._types.query_dsl.BoolQuery;
+import co.elastic.clients.elasticsearch._types.query_dsl.Query;
 import io.kaicode.elasticvc.api.*;
 import io.kaicode.elasticvc.domain.Branch;
 import io.kaicode.elasticvc.domain.Commit;
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
-import org.elasticsearch.index.query.BoolQueryBuilder;
-import org.elasticsearch.search.aggregations.Aggregation;
-import org.elasticsearch.search.aggregations.AggregationBuilders;
-import org.elasticsearch.search.aggregations.Aggregations;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.core.data.domain.*;
@@ -20,12 +20,12 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
-import org.springframework.data.elasticsearch.core.ElasticsearchRestTemplate;
+import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.data.elasticsearch.core.SearchHit;
 import org.springframework.data.elasticsearch.core.SearchHits;
 import org.springframework.data.elasticsearch.core.SearchHitsIterator;
-import org.springframework.data.elasticsearch.core.query.NativeSearchQuery;
-import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
+import org.springframework.data.elasticsearch.client.elc.NativeQuery;
+import org.springframework.data.elasticsearch.client.elc.NativeQueryBuilder;
 import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;
 
@@ -34,7 +34,8 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 import static io.kaicode.elasticvc.api.ComponentService.LARGE_PAGE;
-import static org.elasticsearch.index.query.QueryBuilders.*;
+import static co.elastic.clients.elasticsearch._types.query_dsl.QueryBuilders.*;
+import static io.kaicode.elasticvc.helper.QueryHelper.*;
 import static org.snomed.snowstorm.config.Config.AGGREGATION_SEARCH_SIZE;
 
 @Service
@@ -59,7 +60,7 @@ public class MultiSearchService implements CommitListener {
 	private VersionControlHelper versionControlHelper;
 
 	@Autowired
-	private ElasticsearchRestTemplate elasticsearchTemplate;
+	private ElasticsearchOperations elasticsearchTemplate;
 	
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 	
@@ -111,65 +112,58 @@ public class MultiSearchService implements CommitListener {
 		// paged results are required for the list of descriptions returned
 		SearchHits<Description> searchHits = findDescriptionsHelper(criteria, pageRequest, getBranchesQuery());
 		
-		List<Aggregation> allAggregations = new ArrayList<>();
 		Set<Long> conceptIds = new HashSet<>();
 		for (SearchHit<Description> desc : allSearchHits) {
 			conceptIds.add(Long.parseLong(desc.getContent().getConceptId()));
 		}
 		// Fetch concept refset membership aggregation
-		SearchHits<ReferenceSetMember> membershipResults = elasticsearchTemplate.search(new NativeSearchQueryBuilder()
-						.withQuery(boolQuery()
-								//.must(branchCriteria.getEntityBranchCriteria(ReferenceSetMember.class))
-								.must(termsQuery(ReferenceSetMember.Fields.ACTIVE, true))
-								.filter(termsQuery(ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID, conceptIds))
+		SearchHits<ReferenceSetMember> membershipResults = elasticsearchTemplate.search(new NativeQueryBuilder()
+						.withQuery(bool(b -> b
+								.must(termQuery(ReferenceSetMember.Fields.ACTIVE, true))
+								.filter(termsQuery(ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID, conceptIds)))
 						)
 						.withPageable(PageRequest.of(0, 1))
-						.addAggregation(AggregationBuilders.terms("membership").field(ReferenceSetMember.Fields.REFSET_ID).size(AGGREGATION_SEARCH_SIZE))
+						.withAggregation("membership", AggregationBuilders.terms().field(ReferenceSetMember.Fields.REFSET_ID).size(AGGREGATION_SEARCH_SIZE).build()._toAggregation())
 						.build(), ReferenceSetMember.class);
-		Aggregations aggregations = membershipResults.getAggregations();
-		if (aggregations != null) {
-			allAggregations.add(aggregations.get("membership"));
-		}
-
-		return PageWithBucketAggregationsFactory.createPage(searchHits, new Aggregations(allAggregations), pageRequest);
+		return PageWithBucketAggregationsFactory.createPage(searchHits, membershipResults.getAggregations(), pageRequest);
 	}
 	
 	private SearchHits<Description> findDescriptionsHelper(MultiSearchDescriptionCriteria criteria, PageRequest pageRequest, MultiBranchCriteria branchCriteria) {
-		final BoolQueryBuilder branchesQuery = branchCriteria.getEntityBranchCriteria(Description.class);
-		final BoolQueryBuilder descriptionQuery = boolQuery()
-				.must(branchesQuery);
+		final Query branchesQuery = branchCriteria.getEntityBranchCriteria(Description.class);
+		final BoolQuery.Builder descriptionQueryBuilder = bool().must(branchesQuery);
 
-		descriptionService.addTermClauses(criteria.getTerm(), criteria.getSearchMode(), criteria.getSearchLanguageCodes(), criteria.getType(), descriptionQuery);
+		descriptionService.addTermClauses(criteria.getTerm(), criteria.getSearchMode(), criteria.getSearchLanguageCodes(), criteria.getType(), descriptionQueryBuilder);
 
 		Boolean active = criteria.getActive();
 		if (active != null) {
-			descriptionQuery.must(termQuery(Description.Fields.ACTIVE, active));
+			descriptionQueryBuilder.must(termQuery(Description.Fields.ACTIVE, active));
 		}
 
 		Collection<String> modules = criteria.getModules();
 		if (!CollectionUtils.isEmpty(modules)) {
-			descriptionQuery.must(termsQuery(Description.Fields.MODULE_ID, modules));
+			descriptionQueryBuilder.must(termsQuery(Description.Fields.MODULE_ID, modules));
 		}
 		
 		if (!CollectionUtils.isEmpty(criteria.getConceptIds())) {
-			descriptionQuery.must(termsQuery(Description.Fields.CONCEPT_ID, criteria.getConceptIds()));
+			descriptionQueryBuilder.must(termsQuery(Description.Fields.CONCEPT_ID, criteria.getConceptIds()));
 		}
 
-		NativeSearchQueryBuilder queryBuilder;
+		NativeQueryBuilder queryBuilder;
 		// if pageRequest is null, get all (needed for bucket membership
+		Query descriptionQuery = descriptionQueryBuilder.build()._toQuery();
 		if (pageRequest == null) {
-		  queryBuilder = new NativeSearchQueryBuilder()
+		  queryBuilder = new NativeQueryBuilder()
 				.withQuery(descriptionQuery);
 		} else {
-		  queryBuilder = new NativeSearchQueryBuilder()
+		  queryBuilder = new NativeQueryBuilder()
 						.withQuery(descriptionQuery)
 						.withPageable(pageRequest);
 		}
 		if (criteria.getConceptActive() != null) {
 			Set<Long> conceptsToFetch = getMatchedConcepts(criteria.getConceptActive(), branchesQuery, descriptionQuery);
-			queryBuilder.withFilter(boolQuery().must(termsQuery(Description.Fields.CONCEPT_ID, conceptsToFetch)));
+			queryBuilder.withFilter(bool(b -> b.must(termsQuery(Description.Fields.CONCEPT_ID, conceptsToFetch))));
 		}
-		NativeSearchQuery query = queryBuilder.build();
+		NativeQuery query = queryBuilder.build();
 		query.setTrackTotalHits(true);
 		DescriptionService.addTermSort(query);
 
@@ -177,10 +171,10 @@ public class MultiSearchService implements CommitListener {
 	}
 
 
-	private Set<Long> getMatchedConcepts(Boolean conceptActiveFlag, BoolQueryBuilder branchesQuery, BoolQueryBuilder descriptionQuery) {
+	private Set<Long> getMatchedConcepts(Boolean conceptActiveFlag, Query branchesQuery, Query descriptionQuery) {
 		// return description and concept ids
 		Set<Long> conceptIdsMatched = new LongOpenHashSet();
-		try (final SearchHitsIterator<Description> descriptions = elasticsearchTemplate.searchForStream(new NativeSearchQueryBuilder()
+		try (final SearchHitsIterator<Description> descriptions = elasticsearchTemplate.searchForStream(new NativeQueryBuilder()
 				.withQuery(descriptionQuery)
 				.withFields(Description.Fields.CONCEPT_ID)
 				.withPageable(LARGE_PAGE).build(), Description.class)) {
@@ -191,12 +185,12 @@ public class MultiSearchService implements CommitListener {
 		// filter description ids based on concept query results using active flag
 		Set<Long> result = new LongOpenHashSet();
 		if (!conceptIdsMatched.isEmpty()) {
-			try (final SearchHitsIterator<Concept> concepts = elasticsearchTemplate.searchForStream(new NativeSearchQueryBuilder()
-					.withQuery(boolQuery()
+			try (final SearchHitsIterator<Concept> concepts = elasticsearchTemplate.searchForStream(new NativeQueryBuilder()
+					.withQuery(bool(b -> b
 							.must(branchesQuery)
-							.must(termsQuery(Concept.Fields.CONCEPT_ID, conceptIdsMatched))
+							.must(termsQuery(Concept.Fields.CONCEPT_ID, conceptIdsMatched)))
 					)
-					.withFilter(boolQuery().must(termQuery(Concept.Fields.ACTIVE, conceptActiveFlag)))
+					.withFilter(bool(b ->b.must(termQuery(Concept.Fields.ACTIVE, conceptActiveFlag))))
 					.withFields(Concept.Fields.CONCEPT_ID)
 					.withPageable(LARGE_PAGE).build(), Concept.class)) {
 				while (concepts.hasNext()) {
@@ -285,10 +279,10 @@ public class MultiSearchService implements CommitListener {
 	}
 
 	public Page<Concept> findConcepts(ConceptCriteria criteria, PageRequest pageRequest) {
-		final BoolQueryBuilder conceptQuery = boolQuery().must(getBranchesQuery().getEntityBranchCriteria(Description.class));
+		final BoolQuery.Builder conceptQuery = bool().must(getBranchesQuery().getEntityBranchCriteria(Description.class));
 		conceptService.addClauses(criteria.getConceptIds(), criteria.getActive(), conceptQuery);
-		NativeSearchQuery query = new NativeSearchQueryBuilder()
-				.withQuery(conceptQuery)
+		NativeQuery query = new NativeQueryBuilder()
+				.withQuery(conceptQuery.build()._toQuery())
 				.withPageable(pageRequest)
 				.build();
 		SearchHits<Concept> searchHits = elasticsearchTemplate.search(query, Concept.class);

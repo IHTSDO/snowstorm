@@ -1,10 +1,11 @@
 package org.snomed.snowstorm.ecl.domain.expressionconstraint;
 
+import co.elastic.clients.elasticsearch._types.query_dsl.BoolQuery;
 import io.kaicode.elasticvc.api.BranchCriteria;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 import it.unimi.dsi.fastutil.longs.LongLinkedOpenHashSet;
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
-import org.elasticsearch.index.query.BoolQueryBuilder;
+
 import org.snomed.langauges.ecl.domain.expressionconstraint.CompoundExpressionConstraint;
 import org.snomed.langauges.ecl.domain.expressionconstraint.SubExpressionConstraint;
 import org.snomed.snowstorm.ecl.ConceptSelectorHelper;
@@ -21,10 +22,10 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.Consumer;
 
+import static co.elastic.clients.elasticsearch._types.query_dsl.QueryBuilders.bool;
 import static com.google.common.collect.Sets.newHashSet;
 import static com.google.common.collect.Sets.union;
 import static java.util.stream.Collectors.toSet;
-import static org.elasticsearch.index.query.QueryBuilders.boolQuery;
 
 public class SCompoundExpressionConstraint extends CompoundExpressionConstraint implements SExpressionConstraint {
 
@@ -101,13 +102,14 @@ public class SCompoundExpressionConstraint extends CompoundExpressionConstraint 
 				filteredOrSupplementedContentCallback.accept(result != null ? sortedList(result) : null);
 
 			} else {
-				BoolQueryBuilder shouldQueries = boolQuery();
-				refinementBuilder.getQuery().must(shouldQueries);
+				BoolQuery.Builder queryBuilder = bool();
 				for (SubExpressionConstraint disjunctionExpressionConstraint : disjunctionExpressionConstraints) {
-					BoolQueryBuilder shouldQuery = boolQuery();
-					shouldQueries.should(shouldQuery);
-					((SSubExpressionConstraint) disjunctionExpressionConstraint).addCriteria(new SubRefinementBuilder(refinementBuilder, shouldQuery), (ids) -> {}, triedCache);
+					BoolQuery.Builder shouldQueryBuilder = bool();
+					((SSubExpressionConstraint) disjunctionExpressionConstraint).addCriteria(new SubRefinementBuilder(refinementBuilder, shouldQueryBuilder), (ids) -> {}, triedCache);
+					queryBuilder.should(shouldQueryBuilder.build()._toQuery());
 				}
+				refinementBuilder.getQueryBuilder().must(queryBuilder.build()._toQuery());
+
 			}
 		} else {
 			SSubExpressionConstraint first = (SSubExpressionConstraint) exclusionExpressionConstraints.getFirst();
@@ -120,9 +122,9 @@ public class SCompoundExpressionConstraint extends CompoundExpressionConstraint 
 
 			} else {
 				first.addCriteria(refinementBuilder, (ids) -> {}, triedCache);
-				BoolQueryBuilder mustNotQuery = boolQuery();
-				refinementBuilder.getQuery().mustNot(mustNotQuery);
-				second.addCriteria(new SubRefinementBuilder(refinementBuilder, mustNotQuery), (ids) -> {}, triedCache);
+				BoolQuery.Builder mustNotQueryBuilder = bool();
+				second.addCriteria(new SubRefinementBuilder(refinementBuilder, mustNotQueryBuilder), (ids) -> {}, triedCache);
+				refinementBuilder.getQueryBuilder().mustNot(mustNotQueryBuilder.build()._toQuery());
 			}
 		}
 	}

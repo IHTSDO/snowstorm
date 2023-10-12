@@ -1,6 +1,7 @@
 package org.snomed.snowstorm.ecl.domain.refinement;
 
-import org.elasticsearch.index.query.BoolQueryBuilder;
+
+import co.elastic.clients.elasticsearch._types.query_dsl.BoolQuery;
 import org.snomed.langauges.ecl.domain.refinement.EclAttributeGroup;
 import org.snomed.snowstorm.ecl.domain.RefinementBuilder;
 import org.snomed.snowstorm.ecl.domain.SRefinement;
@@ -10,6 +11,8 @@ import org.snomed.snowstorm.ecl.domain.expressionconstraint.MatchContext;
 import java.util.List;
 import java.util.Set;
 import java.util.function.Consumer;
+
+import static co.elastic.clients.elasticsearch._types.query_dsl.QueryBuilders.bool;
 
 public class SEclAttributeGroup extends EclAttributeGroup implements SRefinement {
 
@@ -27,7 +30,7 @@ public class SEclAttributeGroup extends EclAttributeGroup implements SRefinement
 		// All grouping checks require the inclusion filter because it's not supported by the index
 		refinementBuilder.inclusionFilterRequired();
 
-		BoolQueryBuilder attributesQueryForSingleGroup = new BoolQueryBuilder();
+		BoolQuery.Builder attributesQueryForSingleGroup = bool();
 		((SEclAttributeSet)attributeSet).addCriteria(new SubRefinementBuilder(refinementBuilder, attributesQueryForSingleGroup));
 	}
 

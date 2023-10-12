@@ -72,7 +72,9 @@ public class FHIRStructureDefinitionProvider implements IResourceProvider, FHIRC
 	@Delete
 	public void deleteStructureDefinition(@IdParam IdType id) {
 		FHIRHelper.readOnlyCheck(readOnlyMode);
-		structureDefinitionRepository.deleteById(id.getIdPart());
+		if (id != null) {
+			structureDefinitionRepository.deleteById(id.getIdPart());
+		}
 	}
 	
 	//See https://build.fhir.org/structuredefinition.html#search

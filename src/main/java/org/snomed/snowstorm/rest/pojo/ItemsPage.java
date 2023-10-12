@@ -5,7 +5,6 @@ import org.snomed.snowstorm.core.util.SearchAfterPage;
 import org.snomed.snowstorm.rest.View;
 import org.snomed.snowstorm.rest.converter.SearchAfterHelper;
 import org.springframework.data.domain.Page;
-import org.springframework.data.elasticsearch.core.SearchAfterPageRequest;
 
 import java.util.Collection;
 

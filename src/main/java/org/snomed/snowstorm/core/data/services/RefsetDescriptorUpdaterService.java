@@ -16,13 +16,13 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.data.elasticsearch.core.SearchHit;
 import org.springframework.data.elasticsearch.core.SearchHits;
-import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
+import org.springframework.data.elasticsearch.client.elc.NativeQueryBuilder;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
 
-import static org.elasticsearch.index.query.QueryBuilders.boolQuery;
-import static org.elasticsearch.index.query.QueryBuilders.termQuery;
+import static co.elastic.clients.elasticsearch._types.query_dsl.QueryBuilders.bool;
+import static io.kaicode.elasticvc.helper.QueryHelper.termQuery;
 import static org.snomed.snowstorm.config.Config.DEFAULT_LANGUAGE_DIALECTS;
 
 @Service
@@ -66,12 +66,12 @@ public class RefsetDescriptorUpdaterService implements CommitListener {
 		}
 
 		SearchHits<QueryConcept> searchHits = elasticsearchTemplate.search(
-				new NativeSearchQueryBuilder()
+				new NativeQueryBuilder()
 						.withQuery(
-								boolQuery()
+								bool(b -> b
 										.must(termQuery(QueryConcept.Fields.START, commit.getTimepoint().getTime()))
 										.must(termQuery(QueryConcept.Fields.ANCESTORS, Concepts.REFSET))
-										.must(termQuery(QueryConcept.Fields.STATED, true)))
+										.must(termQuery(QueryConcept.Fields.STATED, true))))
 						.build(),
 				QueryConcept.class
 		);

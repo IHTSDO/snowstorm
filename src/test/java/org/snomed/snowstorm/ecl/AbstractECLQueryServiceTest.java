@@ -13,7 +13,7 @@ import java.util.HashSet;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.snomed.snowstorm.TestConcepts.NON_EXISTENT_CONCEPT;
 import static org.snomed.snowstorm.TestConcepts.*;
 import static org.snomed.snowstorm.core.data.domain.Concepts.*;
@@ -314,59 +314,59 @@ abstract class AbstractECLQueryServiceTest {
 
 
 		assertEquals(
-				"ECL without grouping finds both concepts",
 				Sets.newHashSet(PENTALOGY_OF_FALLOT, PENTALOGY_OF_FALLOT_INCORRECT_GROUPING),
-				strings(selectConceptIds(eclWithoutGrouping)));
+				strings(selectConceptIds(eclWithoutGrouping)),
+				"ECL without grouping finds both concepts");
 
 		assertEquals(
-				"ECL with grouping finds only the concept with matching groups",
 				Sets.newHashSet(PENTALOGY_OF_FALLOT),
-				strings(selectConceptIds(eclWithGrouping)));
+				strings(selectConceptIds(eclWithGrouping)),
+				"ECL with grouping finds only the concept with matching groups");
 	}
 
 	@Test
 	void attributeGroupCardinality() {
 		assertEquals(
-				"Match clinical finding with at least one grouped finding site attributes.",
 				Sets.newHashSet(PENTALOGY_OF_FALLOT, PENTALOGY_OF_FALLOT_INCORRECT_GROUPING),
-				strings(selectConceptIds("<404684003 |Clinical finding|: { 363698007 |Finding site| = * }")));
+				strings(selectConceptIds("<404684003 |Clinical finding|: { 363698007 |Finding site| = * }")),
+				"Match clinical finding with at least one grouped finding site attributes.");
 
 		assertEquals(
-				"Match clinical finding with zero grouped finding site attributes.",
 				Sets.newHashSet(DISORDER, BLEEDING, BLEEDING_SKIN),
-				strings(selectConceptIds("<404684003 |Clinical finding|: [0..0]{ 363698007 |Finding site| = * }")));
+				strings(selectConceptIds("<404684003 |Clinical finding|: [0..0]{ 363698007 |Finding site| = * }")),
+				"Match clinical finding with zero grouped finding site attributes.");
 
 		assertEquals(
-				"Match clinical finding with one grouped finding site attributes.",
 				Sets.newHashSet(),
-				strings(selectConceptIds("<404684003 |Clinical finding|: [1..1]{ 363698007 |Finding site| = * }")));
+				strings(selectConceptIds("<404684003 |Clinical finding|: [1..1]{ 363698007 |Finding site| = * }")),
+				"Match clinical finding with one grouped finding site attributes.");
 
 		assertEquals(
-				"Match clinical finding with one or two grouped finding site attributes.",
 				Sets.newHashSet(PENTALOGY_OF_FALLOT, PENTALOGY_OF_FALLOT_INCORRECT_GROUPING),
-				strings(selectConceptIds("<404684003 |Clinical finding|: [1..2]{ 363698007 |Finding site| = * }")));
+				strings(selectConceptIds("<404684003 |Clinical finding|: [1..2]{ 363698007 |Finding site| = * }")),
+				"Match clinical finding with one or two grouped finding site attributes.");
 
 		assertEquals(
-				"Match clinical finding with three or more grouped finding site attributes.",
 				Sets.newHashSet(),
-				strings(selectConceptIds("<404684003 |Clinical finding|: [3..*]{ 363698007 |Finding site| = * }")));
+				strings(selectConceptIds("<404684003 |Clinical finding|: [3..*]{ 363698007 |Finding site| = * }")),
+				"Match clinical finding with three or more grouped finding site attributes.");
 	}
 
 	@Test
 	void attributeGroupDisjunction() {
 		assertEquals(
-				"Match clinical finding with at least one grouped finding site attributes.",
 				Sets.newHashSet(PENTALOGY_OF_FALLOT, PENTALOGY_OF_FALLOT_INCORRECT_GROUPING),// No bleeding because |Associated morphology| must be grouped
-				strings(selectConceptIds("<404684003 |Clinical finding|: { 363698007 |Finding site| = * } OR { 116676008 |Associated morphology| = * }")));
+				strings(selectConceptIds("<404684003 |Clinical finding|: { 363698007 |Finding site| = * } OR { 116676008 |Associated morphology| = * }")),
+				"Match clinical finding with at least one grouped finding site attributes.");
 	}
 	
 	@Test
 	void attributeGroupDisjunction2() {
 		//Searching for Right OR Left foot site amputations should return ALL foot amputations: left, right and bilateral
 		assertEquals(
-			"Match procedure with left OR right foot (grouped)",
 			Sets.newHashSet(AMPUTATION_FOOT_LEFT, AMPUTATION_FOOT_RIGHT, AMPUTATION_FOOT_BILATERAL),
-			strings(selectConceptIds("< 71388002 |Procedure|: { 363704007 |Procedure site| = 22335008 |Left Foot| } OR { 363704007 |Procedure site| = 7769000 |Right Foot| }")));
+			strings(selectConceptIds("< 71388002 |Procedure|: { 363704007 |Procedure site| = 22335008 |Left Foot| } OR { 363704007 |Procedure site| = 7769000 |Right Foot| }")),
+				"Match procedure with left OR right foot (grouped)");
 
 	}
 

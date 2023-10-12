@@ -25,7 +25,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.data.elasticsearch.core.SearchHitsIterator;
-import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
+import org.springframework.data.elasticsearch.client.elc.NativeQueryBuilder;
 import org.springframework.stereotype.Service;
 import org.springframework.util.Assert;
 import org.springframework.util.StringUtils;
@@ -40,7 +40,8 @@ import java.util.stream.Collectors;
 
 import static io.kaicode.elasticvc.api.VersionControlHelper.LARGE_PAGE;
 import static java.lang.Long.parseLong;
-import static org.elasticsearch.index.query.QueryBuilders.*;
+import static co.elastic.clients.elasticsearch._types.query_dsl.QueryBuilders.*;
+import static io.kaicode.elasticvc.helper.QueryHelper.*;
 
 @Service
 public class DroolsValidationService {
@@ -155,7 +156,7 @@ public class DroolsValidationService {
 					long end = new Date().getTime() - startTime;
 					writer.printf("-\t-\t-\tValidated batch of %s concepts using ECL %s on branch %s\t0\t%s%n", total, ecl, branch, end);
 				} catch (FileNotFoundException e) {
-					e.printStackTrace();
+					logger.error("Failed to write validation batch to file {}.", fileName, e);
 				}
 
 				logger.info("Validated batch of {} concepts using ECL {} on branch {}, written to {}", total, ecl, branch, fileName);
@@ -188,11 +189,11 @@ public class DroolsValidationService {
 				relationshipMap.put(parseLong(relationship.getId()), relationship);
 			});
 		});
-		try (SearchHitsIterator<Concept> conceptStream = elasticsearchOperations.searchForStream(new NativeSearchQueryBuilder()
-				.withQuery(boolQuery()
+		try (SearchHitsIterator<Concept> conceptStream = elasticsearchOperations.searchForStream(new NativeQueryBuilder()
+				.withQuery(bool(b -> b
 						.must(branchCriteria.getEntityBranchCriteria(Concept.class))
 						.must(termQuery(Concept.Fields.RELEASED, true))
-						.must(termsQuery(Concept.Fields.CONCEPT_ID, conceptMap.keySet()))
+						.must(termsQuery(Concept.Fields.CONCEPT_ID, conceptMap.keySet())))
 				)
 				.withPageable(LARGE_PAGE)
 				.build(), Concept.class)) {
@@ -204,11 +205,11 @@ public class DroolsValidationService {
 				concept.updateEffectiveTime();
 			});
 		}
-		try (SearchHitsIterator<Description> descriptionStream = elasticsearchOperations.searchForStream(new NativeSearchQueryBuilder()
-				.withQuery(boolQuery()
+		try (SearchHitsIterator<Description> descriptionStream = elasticsearchOperations.searchForStream(new NativeQueryBuilder()
+				.withQuery(bool(b -> b
 						.must(branchCriteria.getEntityBranchCriteria(Description.class))
 						.must(termQuery(Concept.Fields.RELEASED, true))
-						.must(termsQuery(Description.Fields.DESCRIPTION_ID, descriptionMap.keySet()))
+						.must(termsQuery(Description.Fields.DESCRIPTION_ID, descriptionMap.keySet())))
 				)
 				.withPageable(LARGE_PAGE)
 				.build(), Description.class)) {
@@ -220,11 +221,11 @@ public class DroolsValidationService {
 				description.updateEffectiveTime();
 			});
 		}
-		try (SearchHitsIterator<Relationship> relationshipsFromStore = elasticsearchOperations.searchForStream(new NativeSearchQueryBuilder()
-				.withQuery(boolQuery()
+		try (SearchHitsIterator<Relationship> relationshipsFromStore = elasticsearchOperations.searchForStream(new NativeQueryBuilder()
+				.withQuery(bool(b -> b
 						.must(branchCriteria.getEntityBranchCriteria(Relationship.class))
 						.must(termQuery(Concept.Fields.RELEASED, true))
-						.must(termsQuery(Relationship.Fields.RELATIONSHIP_ID, relationshipMap.keySet()))
+						.must(termsQuery(Relationship.Fields.RELATIONSHIP_ID, relationshipMap.keySet())))
 				)
 				.withPageable(LARGE_PAGE)
 				.build(), Relationship.class)) {

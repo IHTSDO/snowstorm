@@ -6,9 +6,8 @@ import com.google.common.collect.Sets;
 import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.api.ComponentService;
 import io.kaicode.elasticvc.api.VersionControlHelper;
-import org.elasticsearch.action.admin.indices.settings.put.UpdateSettingsRequest;
-import org.elasticsearch.client.RequestOptions;
-import org.elasticsearch.common.settings.Settings;
+import org.elasticsearch.client.Request;
+import org.modelmapper.ModelMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.langauges.ecl.ECLQueryBuilder;
@@ -44,11 +43,10 @@ import org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration;
 import org.springframework.boot.autoconfigure.orm.jpa.HibernateJpaAutoConfiguration;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
-import org.springframework.cloud.aws.autoconfigure.context.ContextStackAutoConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.PropertySource;
 import org.springframework.data.domain.PageRequest;
-import org.springframework.data.elasticsearch.core.ElasticsearchRestTemplate;
+import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.data.elasticsearch.core.IndexOperations;
 import org.springframework.data.elasticsearch.core.document.Document;
 import org.springframework.data.elasticsearch.core.mapping.IndexCoordinates;
@@ -73,7 +71,6 @@ import static java.lang.Long.parseLong;
 		exclude = {
 				ElasticsearchDataAutoConfiguration.class,
 				ElasticsearchRestClientAutoConfiguration.class,
-				ContextStackAutoConfiguration.class,
 				FlywayAutoConfiguration.class,
 				HibernateJpaAutoConfiguration.class,
 				DataSourceHealthContributorAutoConfiguration.class,
@@ -89,7 +86,7 @@ import static java.lang.Long.parseLong;
 @EnableConfigurationProperties
 @PropertySource(value = "classpath:application.properties", encoding = "UTF-8")
 @EnableAsync
-public abstract class Config extends ElasticsearchConfig {
+public abstract class Config extends ElasticsearchConfig{
 
 	public static final String DEFAULT_LANGUAGE_CODE = "en";
 	public static final List<String> DEFAULT_LANGUAGE_CODES = Collections.singletonList(DEFAULT_LANGUAGE_CODE);
@@ -143,7 +140,7 @@ public abstract class Config extends ElasticsearchConfig {
 	private TraceabilityLogService traceabilityLogService;
 
 	@Autowired
-	private ElasticsearchRestTemplate elasticsearchTemplate;
+	private ElasticsearchOperations elasticsearchOperations;
 
 	@Autowired
 	private IntegrityService integrityService;
@@ -212,12 +209,13 @@ public abstract class Config extends ElasticsearchConfig {
 			@Value("${cis.username}") String username,
 			@Value("${cis.password}") String password,
 			@Value("${cis.softwareName}") String softwareName,
-			@Value("${cis.timeout}") int timeoutSeconds) {
+			@Value("${cis.timeout}") int timeoutSeconds,
+			@Autowired ElasticsearchOperations elasticsearchOperations) {
 
 		if (cisApiUrl.equals("local-random") || cisApiUrl.equals("local")) {// local is the legacy name
-			return new LocalRandomIdentifierSource(elasticsearchRestTemplate());
+			return new LocalRandomIdentifierSource(elasticsearchOperations);
 		} else if (cisApiUrl.equals("local-sequential")) {
-			return new LocalSequentialIdentifierSource(elasticsearchRestTemplate());
+			return new LocalSequentialIdentifierSource(elasticsearchOperations);
 		} else {
 			return new SnowstormCISClient(cisApiUrl, username, password, softwareName, timeoutSeconds);
 		}
@@ -289,6 +287,11 @@ public abstract class Config extends ElasticsearchConfig {
 		converter.setTypeIdPropertyName("_type");
 		return converter;
 	}
+	@Bean
+	public ModelMapper modelMapper() {
+		return new ModelMapper();
+	}
+
 
 	protected void updateIndexMaxTermsSettingForAllSnomedComponents() {
 		for (Class<? extends SnomedComponent> componentClass : domainEntityConfiguration.getComponentTypeRepositoryMap().keySet()) {
@@ -297,15 +300,16 @@ public abstract class Config extends ElasticsearchConfig {
 	}
 
 	protected void updateIndexMaxTermsSetting(Class domainEntityClass) {
-		IndexOperations indexOperations = elasticsearchTemplate.indexOps(elasticsearchTemplate.getIndexCoordinatesFor(domainEntityClass));
-		String existing = (String) indexOperations.getSettings().get(INDEX_MAX_TERMS_COUNT);
-		if (existing == null || indexMaxTermsCount != Integer.parseInt(existing)) {
-			Settings settings = Settings.builder().put(INDEX_MAX_TERMS_COUNT, indexMaxTermsCount).build();
-			String indexName = elasticsearchTemplate.getIndexCoordinatesFor(domainEntityClass).getIndexName();
-			UpdateSettingsRequest updateSettingsRequest = new UpdateSettingsRequest(settings, indexName);
+		IndexOperations indexOperations = elasticsearchOperations.indexOps(elasticsearchOperations.getIndexCoordinatesFor(domainEntityClass));
+		Integer existing = (Integer) indexOperations.getSettings().get(INDEX_MAX_TERMS_COUNT);
+		if (existing == null || indexMaxTermsCount != existing) {
+			// Update setting
+			String indexName = elasticsearchOperations.getIndexCoordinatesFor(domainEntityClass).getIndexName();
 			try {
 				indexMaxTermsCount = indexMaxTermsCount <= 65536 ? 65536 : indexMaxTermsCount;
-				elasticsearchRestClient().rest().indices().putSettings(updateSettingsRequest, RequestOptions.DEFAULT);
+				Request updateSettingsRequest = new Request("PUT", "/" + indexName + "/_settings");
+				updateSettingsRequest.setJsonEntity("{\"index.max_terms_count\": " + indexMaxTermsCount + "}");
+				elasticsearchRestClient(clientConfiguration()).performRequest(updateSettingsRequest);
 				logger.info("{} is updated to {} for {}", INDEX_MAX_TERMS_COUNT, indexMaxTermsCount, indexName);
 			} catch (IOException e) {
 				logger.error("Failed to update setting {} on index {}", INDEX_MAX_TERMS_COUNT, indexName, e);
@@ -317,7 +321,7 @@ public abstract class Config extends ElasticsearchConfig {
 		// Initialise Elasticsearch indices
 		Class<?>[] allDomainEntityTypes = domainEntityConfiguration.getAllDomainEntityTypes().toArray(new Class<?>[]{});
 		ComponentService.initialiseIndexAndMappingForPersistentClasses(
-				deleteExisting, elasticsearchTemplate,
+				deleteExisting, elasticsearchOperations,
 				allDomainEntityTypes
 		);
 		if (deleteExisting) {
@@ -331,12 +335,12 @@ public abstract class Config extends ElasticsearchConfig {
 					ExportConfiguration.class
 			);
 			for (Class aClass : objectsNotVersionControlled) {
-				IndexCoordinates indexCoordinates = elasticsearchTemplate.getIndexCoordinatesFor(aClass);
+				IndexCoordinates indexCoordinates = elasticsearchOperations.getIndexCoordinatesFor(aClass);
 				logger.info("Deleting index {}", indexCoordinates.getIndexName());
-				elasticsearchTemplate.indexOps(indexCoordinates).delete();
+				elasticsearchOperations.indexOps(indexCoordinates).delete();
 				logger.info("Creating index {}", indexCoordinates.getIndexName());
-				elasticsearchTemplate.indexOps(indexCoordinates).create();
-				IndexOperations indexOperations = elasticsearchTemplate.indexOps(indexCoordinates);
+				elasticsearchOperations.indexOps(indexCoordinates).create();
+				IndexOperations indexOperations = elasticsearchOperations.indexOps(indexCoordinates);
 				Document document = indexOperations.createMapping(aClass);
 				indexOperations.putMapping(document);
 			}
