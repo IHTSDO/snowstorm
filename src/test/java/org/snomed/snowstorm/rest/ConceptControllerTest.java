@@ -43,7 +43,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 import static org.snomed.snowstorm.core.data.domain.Concepts.*;
 
 @ActiveProfiles("test")
@@ -575,7 +575,7 @@ class ConceptControllerTest extends AbstractTest {
         });
 
 		//then
-		assertEquals(404, responseEntity.getStatusCodeValue());
+		assertEquals(404, responseEntity.getStatusCode().value());
 	}
 
 	@Test
@@ -588,7 +588,7 @@ class ConceptControllerTest extends AbstractTest {
         });
 
 		//then
-		assertEquals(200, responseEntity.getStatusCodeValue());
+		assertEquals(200, responseEntity.getStatusCode().value());
 	}
 
 	@Test
@@ -672,7 +672,7 @@ class ConceptControllerTest extends AbstractTest {
 		List<ComponentType> julyReleaseComponentTypes = new ArrayList<>(julyRelease.getComponentTypes());
 
 		//then
-		assertEquals(200, responseEntity.getStatusCodeValue());
+		assertEquals(200, responseEntity.getStatusCode().value());
 		assertEquals(2, history.size()); //Concept has changed since previous version.
 		assertEquals(4, januaryReleaseComponentTypes.size()); //Concept was created with Description, Relationship & Axiom
 		assertEquals(1, julyReleaseComponentTypes.size()); //Description was added
@@ -742,7 +742,7 @@ class ConceptControllerTest extends AbstractTest {
 		List<ComponentType> januaryReleaseComponentTypes = new ArrayList<>(januaryRelease.getComponentTypes());
 
 		//then
-		assertEquals(200, responseEntity.getStatusCodeValue());
+		assertEquals(200, responseEntity.getStatusCode().value());
 		assertEquals(1, history.size()); //Concept has not changed since first release.
 		assertEquals(4, januaryReleaseComponentTypes.size()); //Concept was created with Description, Relationship & Axiom
 		assertEquals(ComponentType.Concept, januaryReleaseComponentTypes.get(0));
@@ -982,7 +982,7 @@ class ConceptControllerTest extends AbstractTest {
 		ResponseEntity<?> responseEntity = this.restTemplate.exchange(request, Collection.class);
 
 		//then
-		assertEquals(200, responseEntity.getStatusCodeValue());
+		assertEquals(200, responseEntity.getStatusCode().value());
 	}
 
 	@Test
@@ -997,7 +997,7 @@ class ConceptControllerTest extends AbstractTest {
 		ResponseEntity<?> responseEntity = this.restTemplate.exchange(request, Collection.class);
 
 		//then
-		assertEquals(200, responseEntity.getStatusCodeValue());
+		assertEquals(200, responseEntity.getStatusCode().value());
 	}
 
 	@Test
@@ -1011,7 +1011,7 @@ class ConceptControllerTest extends AbstractTest {
 		ResponseEntity<?> responseEntity = this.restTemplate.exchange(request, Concept.class);
 
 		//then
-		assertEquals(200, responseEntity.getStatusCodeValue());
+		assertEquals(200, responseEntity.getStatusCode().value());
 	}
 
 	@Test

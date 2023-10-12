@@ -14,6 +14,7 @@ import org.springframework.data.elasticsearch.annotations.FieldType;
 
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
+
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;

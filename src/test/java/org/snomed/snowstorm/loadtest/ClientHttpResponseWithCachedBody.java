@@ -1,7 +1,7 @@
 package org.snomed.snowstorm.loadtest;
 
 import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpStatusCode;
 import org.springframework.http.client.ClientHttpResponse;
 
 import java.io.ByteArrayInputStream;
@@ -19,13 +19,13 @@ public class ClientHttpResponseWithCachedBody implements ClientHttpResponse {
 	}
 
 	@Override
-	public HttpStatus getStatusCode() throws IOException {
+	public HttpStatusCode getStatusCode() throws IOException {
 		return httpResponse.getStatusCode();
 	}
 
 	@Override
 	public int getRawStatusCode() throws IOException {
-		return httpResponse.getRawStatusCode();
+		return httpResponse.getStatusCode().value();
 	}
 
 	@Override

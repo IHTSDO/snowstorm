@@ -95,7 +95,7 @@ public class AbstractFHIRTest {
 
 	protected void expectResponse(ResponseEntity<String> response, int expectedStatusCode, String expectBodyContains) {
 		String body = response.getBody();
-		assertEquals(expectedStatusCode, response.getStatusCodeValue(), () -> format("Expected status code '%s' but was '%s', body: '%s'",
+		assertEquals(expectedStatusCode, response.getStatusCode().value(), () -> format("Expected status code '%s' but was '%s', body: '%s'",
 				expectedStatusCode, response.getStatusCode(), body));
 		if (expectBodyContains != null) {
 			assertNotNull(body);
@@ -179,7 +179,6 @@ public class AbstractFHIRTest {
 		String valueSetUrl = baseUrl + "/ValueSet/" + id;
 		ResponseEntity<MethodOutcome> response = restTemplate.exchange(valueSetUrl, HttpMethod.DELETE, request, MethodOutcome.class);
 		assertEquals(HttpStatus.NO_CONTENT, response.getStatusCode());
-
 		// Assert it's no longer there
 		assertEquals(HttpStatus.NOT_FOUND, restTemplate.getForEntity(valueSetUrl, String.class).getStatusCode());
 	}
