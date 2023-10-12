@@ -25,7 +25,7 @@ import static org.snomed.snowstorm.config.Config.DEFAULT_LANGUAGE_DIALECTS;
 
 @Document(indexName = "concept")
 @JsonPropertyOrder({"conceptId", "descendantCount", "fsn", "pt", "active", "effectiveTime", "released", "releasedEffectiveTime",  "inactivationIndicator", "associationTargets",
-		"moduleId", "definitionStatus", "definitionStatusId", "descriptions", "classAxioms", "gciAxioms", "relationships", "alternateIdentifiers", "validationResults"})
+		"moduleId", "definitionStatus", "definitionStatusId", "descriptions", "annotations", "classAxioms", "gciAxioms", "relationships", "alternateIdentifiers", "validationResults"})
 public class Concept extends SnomedComponent<Concept> implements ConceptView, SnomedComponentWithInactivationIndicator, SnomedComponentWithAssociations {
 
 	public interface Fields extends SnomedComponent.Fields {
@@ -65,6 +65,9 @@ public class Concept extends SnomedComponent<Concept> implements ConceptView, Sn
 	@Transient
 	private Set<Description> descriptions;
 
+	@Transient
+	private Set<Annotation> annotations;
+
 	@Valid
 	@Transient
 	private Set<Relationship> relationships;
@@ -93,6 +96,7 @@ public class Concept extends SnomedComponent<Concept> implements ConceptView, Sn
 		setModuleId(Concepts.CORE_MODULE);
 		definitionStatusId = Concepts.PRIMITIVE;
 		descriptions = new HashSet<>();
+		annotations = new HashSet<>();
 		relationships = new HashSet<>();
 		classAxioms = new HashSet<>();
 		generalConceptInclusionAxioms = new HashSet<>();
@@ -240,6 +244,11 @@ public class Concept extends SnomedComponent<Concept> implements ConceptView, Sn
 		return this;
 	}
 
+	public Concept addAnnotation(Annotation annotation) {
+		annotations.add(annotation);
+		return this;
+	}
+
 	public Concept addRelationship(String typeId, String destinationId) {
 		return addRelationship(new Relationship(typeId, destinationId));
 	}
@@ -286,6 +295,15 @@ public class Concept extends SnomedComponent<Concept> implements ConceptView, Sn
 	public Set<ReferenceSetMember> getAllOwlAxiomMembers() {
 		Set<ReferenceSetMember> members = classAxioms.stream().map(Axiom::getReferenceSetMember).collect(Collectors.toSet());
 		members.addAll(generalConceptInclusionAxioms.stream().map(Axiom::getReferenceSetMember).collect(Collectors.toSet()));
+		return members;
+	}
+
+	public Set<ReferenceSetMember> getAllAnnotationMembers() {
+		Set<ReferenceSetMember> members = annotations.stream().map(Annotation::toRefsetMember).collect(Collectors.toSet());
+		members.forEach(member -> {
+			member.setReferencedComponentId(getConceptId());
+			member.setConceptId(getConceptId());
+		});
 		return members;
 	}
 
@@ -384,6 +402,16 @@ public class Concept extends SnomedComponent<Concept> implements ConceptView, Sn
 
 	public void setDescriptions(Set<Description> descriptions) {
 		this.descriptions = descriptions;
+	}
+
+	@Override
+	@JsonView(value = View.Component.class)
+	public Set<Annotation> getAnnotations() {
+		return annotations;
+	}
+
+	public void setAnnotations(Set<Annotation> annotations) {
+		this.annotations = annotations;
 	}
 
 	@Override

@@ -60,6 +60,11 @@ public class ReferenceSetMember extends SnomedComponent<ReferenceSetMember> impl
 		String GROUPED = "grouped";
 	}
 
+	public interface AnnotationFields {
+		String ANNOTATION_TYPE_ID = "annotationTypeId";
+		String ANNOTATION_VALUE = "annotationValue";
+	}
+
 	@JsonView(value = View.Component.class)
 	@Field(type = FieldType.Keyword)
 	private String memberId;

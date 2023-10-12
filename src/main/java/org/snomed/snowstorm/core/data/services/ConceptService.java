@@ -162,7 +162,7 @@ public class ConceptService extends ComponentService {
 		if (isEmpty(conceptIds)) {
 			return Collections.emptySet();
 		}
-		return doFind(conceptIds, languageDialects, branchCriteria, PageRequest.of(0, conceptIds.size()), true, true, true, path).getContent();
+		return doFind(conceptIds, languageDialects, branchCriteria, PageRequest.of(0, conceptIds.size()), true, true, true, true, path).getContent();
 	}
 
 	public Page<Concept> find(List<Long> conceptIds, List<LanguageDialect> languageDialects, String path, PageRequest pageRequest) {
@@ -273,7 +273,7 @@ public class ConceptService extends ComponentService {
 
 	private Page<Concept> doFind(Collection<?> conceptIds, List<LanguageDialect> languageDialects, BranchTimepoint branchTimepoint, PageRequest pageRequest) {
 		final BranchCriteria branchCriteria = getBranchCriteria(branchTimepoint);
-		return doFind(conceptIds, languageDialects, branchCriteria, pageRequest, true, true, true, branchTimepoint.getBranchPath());
+		return doFind(conceptIds, languageDialects, branchCriteria, pageRequest, true, true, true, true, branchTimepoint.getBranchPath());
 	}
 
 	protected BranchCriteria getBranchCriteria(String branchPath) {
@@ -325,7 +325,7 @@ public class ConceptService extends ComponentService {
 		if (conceptIds != null && conceptIds.isEmpty()) {
 			return new ResultMapPage<>(new HashMap<>(), 0);
 		}
-		Page<Concept> concepts = doFind(conceptIds, languageDialects, branchCriteria, pageRequest, false, false, false, null);
+		Page<Concept> concepts = doFind(conceptIds, languageDialects, branchCriteria, pageRequest, false, false, false, false, null);
 		Map<String, Concept> conceptMap = new HashMap<>();
 		for (Concept concept : concepts) {
 			String id = concept.getId();
@@ -345,7 +345,7 @@ public class ConceptService extends ComponentService {
 	private void populateConceptMinis(BranchCriteria branchCriteria, Map<String, ConceptMini> minisToPopulate, List<LanguageDialect> languageDialects) {
 		if (!minisToPopulate.isEmpty()) {
 			Set<String> conceptIds = minisToPopulate.keySet();
-			Page<Concept> concepts = doFind(conceptIds, languageDialects, branchCriteria, PageRequest.of(0, conceptIds.size()), false, false, false, null);
+			Page<Concept> concepts = doFind(conceptIds, languageDialects, branchCriteria, PageRequest.of(0, conceptIds.size()), false, false, false, false, null);
 			concepts.getContent().forEach(c -> {
 				ConceptMini conceptMini = minisToPopulate.get(c.getConceptId());
 				conceptMini.setDefinitionStatus(c.getDefinitionStatus());
@@ -362,6 +362,7 @@ public class ConceptService extends ComponentService {
 			boolean includeRelationships,
 			boolean includeDescriptionInactivationInfo,
 			boolean includeIdentifiers,
+			boolean includeAnnotations,
 			String branchPath) {
 
 		final TimerUtil timer = new TimerUtil("Find concept", Level.DEBUG);
@@ -429,6 +430,10 @@ public class ConceptService extends ComponentService {
 			identifierComponentService.joinIdentifiers(branchCriteria, conceptIdMap, conceptMiniMap, languageDialects, timer);
 		}
 
+		if (includeAnnotations) {
+			joinAnnotations(branchCriteria, conceptIdMap, conceptMiniMap, languageDialects, timer);
+		}
+
 		// Fetch ConceptMini definition statuses
 		for (List<String> conceptIds : Iterables.partition(conceptMiniMap.keySet(), CLAUSE_LIMIT)) {
 			queryBuilder.withQuery(boolQuery()
@@ -487,6 +492,21 @@ public class ConceptService extends ComponentService {
 			}
 		}
 		timer.checkpoint("get relationships " + getFetchCount(conceptIdMap.size()));
+	}
+
+	private void joinAnnotation(ReferenceSetMember member, Map<String, Concept> conceptMap, Map<String, ConceptMini> conceptMiniMap, List<LanguageDialect> languageDialects) {
+		Annotation annotation = new Annotation();
+		annotation.fromRefsetMember(member);
+		annotation.setAnnotationType(getConceptMini(conceptMiniMap, annotation.getAnnotationTypeId(), languageDialects));
+
+		// Join annotations to concepts for loading whole concepts use case.
+		final String referencedComponentId = annotation.getReferencedComponentId();
+		if (conceptMap != null) {
+			final Concept concept = conceptMap.get(referencedComponentId);
+			if (concept != null) {
+				concept.addAnnotation(annotation);
+			}
+		}
 	}
 
 	/**
@@ -704,6 +724,7 @@ public class ConceptService extends ComponentService {
 				concept.getRelationships().clear();
 				concept.getClassAxioms().clear();
 				concept.getGciAxioms().clear();
+				concept.getAnnotations().clear();
 			}
 		}
 		Map<String, Description> descriptionMap = new HashMap<>();
@@ -726,6 +747,8 @@ public class ConceptService extends ComponentService {
 			if (!member.isDeleted()) {
 				if (Concepts.OWL_AXIOM_REFERENCE_SET.equals(member.getRefsetId())) {
 					joinAxiom(member, conceptMap, conceptMiniMap, languageDialects);
+				} else if (Concepts.ANNOTATION_REFERENCE_SET.equals(member.getRefsetId())) {
+					joinAnnotation(member, conceptMap, conceptMiniMap, languageDialects);
 				} else {
 					Set<String> strings = member.getAdditionalFields().keySet();
 					if (IdentifierService.isDescriptionId(member.getReferencedComponentId())
@@ -751,7 +774,7 @@ public class ConceptService extends ComponentService {
 		if (!conceptIds.isEmpty()) {
 			for (List<String> conceptIdPartition : Iterables.partition(conceptIds, 500)) {
 				final BranchCriteria branchCriteria = versionControlHelper.getBranchCriteriaIncludingOpenCommit(commit);
-				final List<Concept> existingConcepts = doFind(conceptIdPartition, DEFAULT_LANGUAGE_DIALECTS, branchCriteria, PageRequest.of(0, conceptIds.size()), true, true, true, null).getContent();
+				final List<Concept> existingConcepts = doFind(conceptIdPartition, DEFAULT_LANGUAGE_DIALECTS, branchCriteria, PageRequest.of(0, conceptIds.size()), true, true, true, true, null).getContent();
 				for (Concept existingConcept : existingConcepts) {
 					existingConceptsMap.put(existingConcept.getConceptId(), existingConcept);
 				}
@@ -855,6 +878,40 @@ public class ConceptService extends ComponentService {
 
 	private String getDefaultModuleId(Branch branch) {
 		return branch.getMetadata().containsKey(BranchMetadataKeys.DEFAULT_MODULE_ID) ? branch.getMetadata().getString(BranchMetadataKeys.DEFAULT_MODULE_ID) : Concepts.CORE_MODULE;
+	}
+
+	private void joinAnnotations(BranchCriteria branchCriteria, Map<String, Concept> conceptIdMap, Map<String, ConceptMini> conceptMiniMap, List<LanguageDialect> languageDialects, TimerUtil timer) {
+		final Set<String> allConceptIds = new HashSet<>();
+		if (conceptIdMap != null) {
+			allConceptIds.addAll(conceptIdMap.keySet());
+		}
+		if (allConceptIds.isEmpty()) {
+			return;
+		}
+
+		// Fetch Identifier
+		for (List<String> conceptIds : Iterables.partition(allConceptIds, CLAUSE_LIMIT)) {
+			List<ReferenceSetMember> annotationMembers = referenceSetMemberService.findMembers(
+					branchCriteria.getBranchPath(),
+					branchCriteria,
+					new MemberSearchRequest()
+							.referenceSet(Concepts.ANNOTATION_REFERENCE_SET)
+							.referencedComponentIds(conceptIds), LARGE_PAGE).getContent();
+
+			annotationMembers.forEach(member -> {
+				Annotation annotation = new Annotation().fromRefsetMember(member);
+				annotation.setAnnotationType(getConceptMini(conceptMiniMap, annotation.getAnnotationTypeId(), languageDialects));
+
+				// Join annotations to concepts for loading whole concepts use case.
+				final String referencedComponentId = annotation.getReferencedComponentId();
+				if (conceptIdMap != null) {
+					final Concept concept = conceptIdMap.get(referencedComponentId);
+					if (concept != null) {
+						concept.addAnnotation(annotation);
+					}
+				}
+			});
+		}
 	}
 
 	private List<ConceptMini> donateConcept(ConceptMini concept, String sourceBranchPath, String destinationBranchPath, List<LanguageDialect> languageDialects, boolean includeDependencies) throws ServiceException {

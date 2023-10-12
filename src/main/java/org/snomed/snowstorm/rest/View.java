@@ -4,4 +4,6 @@ public class View {
 
 	public interface Component {}
 
+	public interface Hidden {}
+
 }
