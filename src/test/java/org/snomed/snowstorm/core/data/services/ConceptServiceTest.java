@@ -239,9 +239,16 @@ class ConceptServiceTest extends AbstractTest {
 		conceptService.create(new Concept(SNOMEDCT_ROOT).setDefinitionStatusId(PRIMITIVE).addDescription(fsn("SNOMED CT Concept")), path);
 
 		String conceptId = "100001";
-		conceptService.create(new Concept(conceptId).addAxiom(new Relationship(ISA, SNOMEDCT_ROOT)), path);
 
-		assertEquals(1, referenceSetMemberService.findMembers(path, conceptId, ComponentService.LARGE_PAGE).getTotalElements());
+		Annotation annotation = new Annotation();
+		annotation.setModuleId("900000000000207008");
+		annotation.setAnnotationTypeId("123456");
+		annotation.setAnnotationValue("Annotation with language");
+		annotation.setAnnotationLanguage("en");
+
+		conceptService.create(new Concept(conceptId).addAxiom(new Relationship(ISA, SNOMEDCT_ROOT)).addAnnotation(annotation), path);
+
+		assertEquals(2, referenceSetMemberService.findMembers(path, conceptId, ComponentService.LARGE_PAGE).getTotalElements());
 
 		conceptService.deleteConceptAndComponents(conceptId, path, false);
 
@@ -505,6 +512,41 @@ class ConceptServiceTest extends AbstractTest {
 		description = updatedConcept.getDescriptions().iterator().next();
 		assertEquals("84923010", description.getDescriptionId());
 		assertEquals(1, description.getAcceptabilityMapFromLangRefsetMembers().size());
+	}
+
+	@Test
+	void testSaveConceptWithAnnotation() throws ServiceException {
+		final Concept concept = new Concept("50960005", 20020131, true, "900000000000207008", "900000000000074008");
+		concept.addDescription(new Description("84923010", 20020131, true, "900000000000207008", "50960005", "en", FSN,
+				"Bleeding (morphologic abnormality)", "900000000000020002").addLanguageRefsetMember(US_EN_LANG_REFSET, PREFERRED));
+		Annotation annotation1 = new Annotation();
+		annotation1.setModuleId("900000000000207008");
+		annotation1.setAnnotationTypeId("123456");
+		annotation1.setAnnotationValue("Annotation with language");
+		annotation1.setAnnotationLanguage("en");
+
+		Annotation annotation2 = new Annotation();
+		annotation2.setModuleId("900000000000207008");
+		annotation2.setAnnotationTypeId("123456789");
+		annotation2.setAnnotationValue("Annotation without language");
+
+		concept.addAnnotation(annotation1);
+		concept.addAnnotation(annotation2);
+		conceptService.create(concept, DEFAULT_LANGUAGE_DIALECTS, "MAIN");
+
+		Concept savedConcept = conceptService.find("50960005", "MAIN");
+		assertEquals(2, savedConcept.getAnnotations().size());
+		for (Annotation annotation : savedConcept.getAnnotations()) {
+			assertEquals(Concepts.ANNOTATION_REFERENCE_SET, annotation.getRefsetId());
+			if (annotation.getAnnotationLanguage() != null) {
+				assertEquals("123456", annotation.getAnnotationTypeId());
+				assertEquals("en", annotation.getAnnotationLanguage());
+				assertEquals("Annotation with language", annotation.getAnnotationValue());
+			} else {
+				assertEquals("123456789", annotation.getAnnotationTypeId());
+				assertEquals("Annotation without language", annotation.getAnnotationValue());
+			}
+		}
 	}
 
 	@Test
