@@ -16,11 +16,12 @@ public class RelationshipChange {
 
 	public interface Fields {
 		String SOURCE_ID = "sourceId";
+		String INTERNAL_ID = "internalId";
 		String GROUP = "group";
 	}
 
 	@Id
-	@Field
+	@Field(type = FieldType.Keyword)
 	private String internalId;
 
 	@Field(type = FieldType.Keyword)

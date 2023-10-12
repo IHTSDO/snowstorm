@@ -21,18 +21,19 @@ import org.snomed.snowstorm.mrcm.model.MRCM;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.data.elasticsearch.core.SearchHitsIterator;
-import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
+import org.springframework.data.elasticsearch.client.elc.NativeQueryBuilder;
 import org.springframework.data.elasticsearch.core.query.UpdateQuery;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
 import java.util.stream.Collectors;
 
+import static co.elastic.clients.elasticsearch._types.query_dsl.QueryBuilders.bool;
 import static io.kaicode.elasticvc.domain.Commit.CommitType.CONTENT;
 import static io.kaicode.elasticvc.domain.Commit.CommitType.REBASE;
+import static io.kaicode.elasticvc.helper.QueryHelper.termQuery;
 import static java.lang.Long.parseLong;
-import static org.elasticsearch.index.query.QueryBuilders.boolQuery;
-import static org.elasticsearch.index.query.QueryBuilders.termQuery;
+import static org.springframework.data.elasticsearch.core.ScriptType.INLINE;
 
 @Service
 public class MRCMUpdateService extends ComponentService implements CommitListener {
@@ -166,7 +167,7 @@ public class MRCMUpdateService extends ComponentService implements CommitListene
 		}
 
 		List<ReferenceSetMember> toUpdate = new ArrayList<>();
-		List<Long> dataAttributes = getDataAttributes(branchCriteria, branchPath);
+		List<Long> dataAttributes = getDataAttributes(branchCriteria);
 		// Attribute rule
 		toUpdate.addAll(updateAttributeRules(commit, domainMapByDomainId, attributeToDomainsMap, attributeToRangesMap, conceptToTermMap, dataAttributes));
 		// domain templates
@@ -240,14 +241,14 @@ public class MRCMUpdateService extends ComponentService implements CommitListene
 	private Set<String> getMRCMRefsetComponentsChanged(Commit commit) {
 		BranchCriteria branchCriteria = versionControlHelper.getBranchCriteriaChangesAndDeletionsWithinOpenCommitOnly(commit);
 		Set<String> result = new HashSet<>();
-		try (final SearchHitsIterator<ReferenceSetMember> mrcmMembers = elasticsearchTemplate.searchForStream(new NativeSearchQueryBuilder()
-				.withQuery(boolQuery()
+		try (final SearchHitsIterator<ReferenceSetMember> mrcmMembers = elasticsearchTemplate.searchForStream(new NativeQueryBuilder()
+				.withQuery(bool(b -> b
 						.must(branchCriteria.getEntityBranchCriteria(ReferenceSetMember.class))
 						// Must be at least one of the following should clauses:
-						.must(boolQuery()
+						.must(bool(bq -> bq
 								.should(termQuery(ReferenceSetMember.Fields.REFSET_ID, Concepts.REFSET_MRCM_DOMAIN_INTERNATIONAL))
 								.should(termQuery(ReferenceSetMember.Fields.REFSET_ID, Concepts.REFSET_MRCM_ATTRIBUTE_DOMAIN_INTERNATIONAL))
-								.should(termQuery(ReferenceSetMember.Fields.REFSET_ID, Concepts.REFSET_MRCM_ATTRIBUTE_RANGE_INTERNATIONAL))
+								.should(termQuery(ReferenceSetMember.Fields.REFSET_ID, Concepts.REFSET_MRCM_ATTRIBUTE_RANGE_INTERNATIONAL))))
 						)
 				)
 				.withPageable(LARGE_PAGE)
@@ -280,7 +281,7 @@ public class MRCMUpdateService extends ComponentService implements CommitListene
 		for (ReferenceSetMember member : referenceSetMembers) {
 			String script = constructAdditionalFieldUpdateScript(fieldNames, member);
 			if (!script.isEmpty()) {
-				updateQueries.add(UpdateQuery.builder(member.getInternalId()).withScript(script).build());
+				updateQueries.add(UpdateQuery.builder(member.getInternalId()).withScript(script).withScriptType(INLINE).build());
 			}
 		}
 		if (!updateQueries.isEmpty()) {
@@ -289,7 +290,7 @@ public class MRCMUpdateService extends ComponentService implements CommitListene
 		}
 	}
 
-	private List<Long> getDataAttributes(BranchCriteria branchCriteria, String branchPath) {
+	private List<Long> getDataAttributes(BranchCriteria branchCriteria) {
 		return eclQueryService.selectConceptIds("<<" + Concepts.CONCEPT_MODEL_DATA_ATTRIBUTE, branchCriteria, true, LARGE_PAGE).getContent();
 	}
 }

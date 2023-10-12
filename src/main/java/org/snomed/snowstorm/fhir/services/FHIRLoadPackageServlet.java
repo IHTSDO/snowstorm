@@ -2,7 +2,7 @@ package org.snomed.snowstorm.fhir.services;
 
 import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.parser.IParser;
-import org.apache.tomcat.util.http.fileupload.util.Streams;
+import org.apache.commons.fileupload.util.Streams;
 import org.hl7.fhir.r4.model.OperationOutcome;
 import org.springframework.web.context.WebApplicationContext;
 import org.springframework.web.context.support.WebApplicationContextUtils;

@@ -1,7 +1,7 @@
 package org.snomed.snowstorm.dailybuild;
 
 
-import com.amazonaws.services.s3.AmazonS3;
+import io.awspring.cloud.s3.S3PathMatchingResourcePatternResolver;
 import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.domain.Branch;
 import io.kaicode.elasticvc.domain.DomainEntity;
@@ -18,7 +18,6 @@ import org.snomed.snowstorm.core.data.services.SBranchService;
 import org.snomed.snowstorm.core.rf2.RF2Type;
 import org.snomed.snowstorm.core.rf2.rf2import.ImportService;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.cloud.aws.core.io.s3.PathMatchingSimpleStorageResourcePatternResolver;
 import org.springframework.context.ApplicationContext;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.ResourceLoader;
@@ -29,6 +28,8 @@ import org.springframework.stereotype.Service;
 import org.snomed.snowstorm.core.data.repositories.CodeSystemRepository;
 
 import jakarta.annotation.PostConstruct;
+import software.amazon.awssdk.services.s3.S3Client;
+
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
@@ -71,18 +72,19 @@ public class DailyBuildService {
 	private ApplicationContext applicationContext;
 
 	@Autowired
-	private AmazonS3 amazonS3;
+	private S3Client s3Client;
 
 	private ResourceManager resourceManager;
 
 	private ResourcePatternResolver resourcePatternResolver;
+
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
 	@PostConstruct
 	public void init() {
 		resourceManager = new ResourceManager(dailyBuildResourceConfig, resourceLoader);
-		resourcePatternResolver = new PathMatchingSimpleStorageResourcePatternResolver(amazonS3, applicationContext);
+		this.resourcePatternResolver = new S3PathMatchingResourcePatternResolver(s3Client, applicationContext);
 	}
 
 	public boolean hasLatestDailyBuild(String shortName) {

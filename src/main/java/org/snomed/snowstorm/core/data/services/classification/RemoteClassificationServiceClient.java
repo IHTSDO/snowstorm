@@ -1,7 +1,6 @@
 package org.snomed.snowstorm.core.data.services.classification;
 
 import org.apache.tomcat.util.http.fileupload.util.Streams;
-import org.elasticsearch.common.Strings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.core.data.services.classification.pojo.ClassificationStatusResponse;
@@ -13,6 +12,7 @@ import org.springframework.http.*;
 import org.springframework.stereotype.Service;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
+import org.springframework.util.StringUtils;
 import org.springframework.web.client.ResponseExtractor;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
@@ -60,10 +60,10 @@ class RemoteClassificationServiceClient {
 	 */
 	String createClassification(String previousPackage, String dependencyPackage, File deltaFile, String branchPath, String reasonerId) throws RestClientException {
 		MultiValueMap<String, Object> params = new LinkedMultiValueMap<>();
-		if (Strings.hasLength(previousPackage)) {
+		if (StringUtils.hasLength(previousPackage)) {
 			params.put("previousPackage", Collections.singletonList(previousPackage));
 		}
-		if (Strings.hasLength(dependencyPackage)) {
+		if (StringUtils.hasLength(dependencyPackage)) {
 			params.put("dependencyPackage", Collections.singletonList(dependencyPackage));
 		}
 		params.put("rf2Delta", Collections.singletonList(new FileSystemResource(deltaFile)));

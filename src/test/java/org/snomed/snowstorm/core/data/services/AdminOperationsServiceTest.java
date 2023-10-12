@@ -2,7 +2,8 @@ package org.snomed.snowstorm.core.data.services;
 
 import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.api.VersionControlHelper;
-import org.elasticsearch.search.sort.SortBuilders;
+
+import io.kaicode.elasticvc.helper.SortBuilders;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.snomed.otf.snomedboot.testutil.ZipUtil;
@@ -15,7 +16,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.data.elasticsearch.core.SearchHit;
-import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
+import org.springframework.data.elasticsearch.client.elc.NativeQueryBuilder;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
 
 import java.io.File;
@@ -25,9 +26,9 @@ import java.util.Date;
 import java.util.List;
 import java.util.stream.Collectors;
 
-import static org.elasticsearch.index.query.QueryBuilders.boolQuery;
-import static org.elasticsearch.index.query.QueryBuilders.termQuery;
-import static org.junit.Assert.*;
+import static co.elastic.clients.elasticsearch._types.query_dsl.QueryBuilders.bool;
+import static io.kaicode.elasticvc.helper.QueryHelper.termQuery;
+import static org.junit.jupiter.api.Assertions.*;
 import static org.snomed.snowstorm.core.data.domain.Concepts.SNOMEDCT_ROOT;
 
 @ExtendWith(SpringExtension.class)
@@ -115,10 +116,10 @@ class AdminOperationsServiceTest extends AbstractTest {
 		assertFalse(conv19Concept.isReleased());
 		assertNull(conv19Concept.getEffectiveTime());
 
-		List<Description> incisionOfMiddleEarDescriptions = elasticsearchOperations.search(new NativeSearchQueryBuilder().withQuery(
-				boolQuery()
+		List<Description> incisionOfMiddleEarDescriptions = elasticsearchOperations.search(new NativeQueryBuilder().withQuery(
+				bool(b -> b
 						.must(versionControlHelper.getBranchCriteria(releaseBranchPath).getEntityBranchCriteria(Description.class))
-						.must(termQuery(Description.Fields.DESCRIPTION_ID, "728558011"))).build(), Description.class)
+						.must(termQuery(Description.Fields.DESCRIPTION_ID, "728558011")))).build(), Description.class)
 				.stream().map(SearchHit::getContent).collect(Collectors.toList());
 		assertEquals(1, incisionOfMiddleEarDescriptions.size());
 
@@ -144,8 +145,7 @@ class AdminOperationsServiceTest extends AbstractTest {
 		assertNotNull(conceptForNewCycle);
 		assertFalse(conceptForNewCycle.isReleased());
 		assertNull(conceptForNewCycle.getEffectiveTime());
-		assertNull("Concept deleted in fix branch should still be deleted in fix branch.",
-				conceptService.find(conceptToDeleteAsFix, releaseBranchPath));
+		assertNull(conceptService.find(conceptToDeleteAsFix, releaseBranchPath), "Concept deleted in fix branch should still be deleted in fix branch.");
 
 		long totalConceptsOnMain = conceptService.findAll(mainBranch, PageRequest.of(0, 1)).getTotalElements();
 		assertEquals(19, totalConceptsOnMain);
@@ -161,10 +161,10 @@ class AdminOperationsServiceTest extends AbstractTest {
 		conceptForNewCycle = conceptService.find("131148009", releaseBranchPath);
 		assertNull(conceptForNewCycle);
 
-		incisionOfMiddleEarDescriptions = elasticsearchOperations.search(new NativeSearchQueryBuilder().withQuery(
-				boolQuery()
+		incisionOfMiddleEarDescriptions = elasticsearchOperations.search(new NativeQueryBuilder().withQuery(
+				bool(b -> b
 						.must(versionControlHelper.getBranchCriteria(releaseBranchPath).getEntityBranchCriteria(Description.class))
-						.must(termQuery(Description.Fields.DESCRIPTION_ID, "728558011"))).build(), Description.class)
+						.must(termQuery(Description.Fields.DESCRIPTION_ID, "728558011")))).build(), Description.class)
 				.stream().map(SearchHit::getContent).collect(Collectors.toList());
 		assertEquals(1, incisionOfMiddleEarDescriptions.size());
 	}
@@ -231,8 +231,7 @@ class AdminOperationsServiceTest extends AbstractTest {
 		assertNotNull(conceptForNewCycle);
 		assertFalse(conceptForNewCycle.isReleased());
 		assertNull(conceptForNewCycle.getEffectiveTime());
-		assertNull("Concept deleted in fix branch should still be deleted in fix branch.",
-				conceptService.find(conceptToDeleteAsFix, releaseBranchPath));
+		assertNull(conceptService.find(conceptToDeleteAsFix, releaseBranchPath), "Concept deleted in fix branch should still be deleted in fix branch.");
 
 		long totalConceptsOnMain = conceptService.findAll(mainBranch, PageRequest.of(0, 1)).getTotalElements();
 		assertEquals(18, totalConceptsOnMain);
@@ -270,10 +269,10 @@ class AdminOperationsServiceTest extends AbstractTest {
 
 	private void printAllVersionsOfConcept(String conceptId, String event) {
 		System.out.println("All versions of concept " + conceptId + ", " + event);
-		elasticsearchOperations.search(new NativeSearchQueryBuilder().withQuery(termQuery(Concept.Fields.CONCEPT_ID, conceptId)).withSort(SortBuilders.fieldSort("start")).build(), Concept.class)
+		elasticsearchOperations.search(new NativeQueryBuilder().withQuery(termQuery(Concept.Fields.CONCEPT_ID, conceptId)).withSort(SortBuilders.fieldSort("start")).build(), Concept.class)
 				.forEach(hit -> {
 					Concept c = hit.getContent();
-					System.out.println(String.format("start:%s end:%s path:%s", getTimeLong(c.getStart()), getTimeLong(c.getEnd()), c.getPath()));
+					System.out.printf("start:%s end:%s path:%s%n", getTimeLong(c.getStart()), getTimeLong(c.getEnd()), c.getPath());
 				});
 		System.out.println("--");
 	}

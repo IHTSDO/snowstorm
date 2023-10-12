@@ -1,6 +1,7 @@
 package org.snomed.snowstorm.fhir.services;
 
-import org.elasticsearch.index.query.BoolQueryBuilder;
+
+import co.elastic.clients.elasticsearch._types.query_dsl.BoolQuery;
 import org.hl7.fhir.r4.model.Coding;
 import org.hl7.fhir.r4.model.Enumerations;
 import org.hl7.fhir.r4.model.IdType;
@@ -18,9 +19,9 @@ import org.snomed.snowstorm.fhir.repositories.FHIRConceptMapRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
-import org.springframework.data.elasticsearch.core.ElasticsearchRestTemplate;
+import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.data.elasticsearch.core.SearchHit;
-import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
+import org.springframework.data.elasticsearch.client.elc.NativeQueryBuilder;
 import org.springframework.stereotype.Service;
 
 import jakarta.annotation.PostConstruct;
@@ -31,7 +32,8 @@ import java.util.stream.Collectors;
 
 import static java.lang.String.format;
 import static java.util.Comparator.*;
-import static org.elasticsearch.index.query.QueryBuilders.*;
+import static co.elastic.clients.elasticsearch._types.query_dsl.QueryBuilders.*;
+import static io.kaicode.elasticvc.helper.QueryHelper.*;
 import static org.snomed.snowstorm.fhir.config.FHIRConstants.SNOMED_URI;
 
 @Service
@@ -45,7 +47,7 @@ public class FHIRConceptMapService {
 	private FHIRConceptMapRepository conceptMapRepository;
 
 	@Autowired
-	private ElasticsearchRestTemplate elasticsearchTemplate;
+	private ElasticsearchOperations elasticsearchTemplate;
 
 	@Autowired
 	private FHIRCodeSystemService fhirCodeSystemService;
@@ -108,7 +110,7 @@ public class FHIRConceptMapService {
 	}
 
 	Collection<FHIRConceptMap> findMaps(String url, Coding coding, String targetSystem, String sourceValueSet, String targetValueSet) {
-		BoolQueryBuilder query = boolQuery();
+		BoolQuery.Builder query = bool();
 		List<Predicate<FHIRConceptMap>> snomedPredicates = new ArrayList<>();
 		if (url != null) {
 			if (FHIRHelper.isSnomedUri(url) && url.contains("?")) {
@@ -127,23 +129,23 @@ public class FHIRConceptMapService {
 			snomedPredicates.add(map -> map.getTargetUri().equals(targetSystem + WHOLE_SYSTEM_VALUE_SET_URI_POSTFIX));
 		}
 		if (sourceValueSet != null) {
-			query.must(boolQuery()
+			query.must(bool(b -> b
 					// Map either has no source (value set) or it matches the param
-					.should(boolQuery().mustNot(existsQuery(FHIRConceptMap.Fields.SOURCE)))
+					.should(bool(bq -> bq.mustNot(existsQuery(FHIRConceptMap.Fields.SOURCE))))
 					.should(termQuery(FHIRConceptMap.Fields.SOURCE, sourceValueSet))
-			);
+			));
 			snomedPredicates.add(map -> map.getSourceUri().equals(sourceValueSet));
 		}
 		if (targetValueSet != null) {
-			query.must(boolQuery()
+			query.must(bool(b -> b
 					// Map either has no target (value set) or it matches the param
-					.should(boolQuery().mustNot(existsQuery(FHIRConceptMap.Fields.TARGET)))
+					.should(bool(bq -> bq.mustNot(existsQuery(FHIRConceptMap.Fields.TARGET))))
 					.should(termQuery(FHIRConceptMap.Fields.TARGET, targetValueSet))
-			);
+			));
 			snomedPredicates.add(map -> map.getTargetUri().equals(targetValueSet));
 		}
-		NativeSearchQueryBuilder queryBuilder = new NativeSearchQueryBuilder()
-				.withQuery(query)
+		NativeQueryBuilder queryBuilder = new NativeQueryBuilder()
+				.withQuery(query.build()._toQuery())
 				.withPageable(PageRequest.of(0, 100));
 
 		// Grab maps from store
@@ -164,12 +166,12 @@ public class FHIRConceptMapService {
 		List<FHIRConceptMapGroup> groups = map.getGroup().stream()
 				.filter(group -> group.getSource().equals(coding.getSystem()))
 				.filter(group -> targetSystem == null || group.getTarget().equals(targetSystem))
-				.collect(Collectors.toList());
-		BoolQueryBuilder query = boolQuery()
+				.toList();
+		BoolQuery.Builder query = bool()
 				.must(termsQuery(FHIRMapElement.Fields.GROUP_ID, groups.stream().map(FHIRConceptMapGroup::getGroupId).collect(Collectors.toList())))
 				.must(termQuery(FHIRMapElement.Fields.CODE, coding.getCode()));
-		NativeSearchQueryBuilder queryBuilder = new NativeSearchQueryBuilder()
-				.withQuery(query)
+		NativeQueryBuilder queryBuilder = new NativeQueryBuilder()
+				.withQuery(query.build()._toQuery())
 				.withPageable(PAGE_OF_ONE_THOUSAND);
 		return searchForList(queryBuilder, FHIRMapElement.class);
 	}
@@ -300,7 +302,7 @@ public class FHIRConceptMapService {
 	}
 
 	@NotNull
-	private <T> List<T> searchForList(NativeSearchQueryBuilder queryBuilder, Class<T> clazz) {
+	private <T> List<T> searchForList(NativeQueryBuilder queryBuilder, Class<T> clazz) {
 		return elasticsearchTemplate.search(queryBuilder.build(), clazz).stream()
 				.map(SearchHit::getContent).collect(Collectors.toList());
 	}

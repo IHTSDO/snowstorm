@@ -11,7 +11,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.data.elasticsearch.core.SearchHit;
 import org.springframework.data.elasticsearch.core.SearchHits;
-import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
+import org.springframework.data.elasticsearch.client.elc.NativeQueryBuilder;
 import org.springframework.stereotype.Service;
 
 import java.util.HashMap;
@@ -19,7 +19,8 @@ import java.util.Map;
 import java.util.Set;
 
 import static java.lang.Long.parseLong;
-import static org.elasticsearch.index.query.QueryBuilders.*;
+import static co.elastic.clients.elasticsearch._types.query_dsl.QueryBuilders.*;
+import static io.kaicode.elasticvc.helper.QueryHelper.*;
 
 @Service
 public class SemanticIndexService {
@@ -34,14 +35,14 @@ public class SemanticIndexService {
 	public MapPage<Long, Set<Long>> findConceptReferences(String branch, Long conceptId, boolean stated, PageRequest pageRequest) {
 		Map<Long, Set<Long>> referenceTypeToConceptMap = new HashMap<>();
 		BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(branch);
-		NativeSearchQueryBuilder queryBuilder = new NativeSearchQueryBuilder()
-				.withQuery(boolQuery()
+		NativeQueryBuilder queryBuilder = new NativeQueryBuilder()
+				.withQuery(bool(b -> b
 						.must(branchCriteria.getEntityBranchCriteria(QueryConcept.class))
 						.must(termQuery(QueryConcept.Fields.STATED, stated))
-						.must(boolQuery()// New bool query where at least one should must match
+						.must(bool(bq -> bq// New bool query where at least one should must match
 								.should(termQuery(QueryConcept.Fields.PARENTS, conceptId))
-								.should(termQuery(QueryConcept.Fields.ATTR + "." + QueryConcept.ATTR_TYPE_WILDCARD, conceptId)))
-				)
+								.should(termQuery(QueryConcept.Fields.ATTR + "." + QueryConcept.ATTR_TYPE_WILDCARD, conceptId))))
+				))
 				.withPageable(pageRequest);
 		String conceptIdString = conceptId.toString();
 		SearchHits<QueryConcept> queryConcepts = elasticsearchTemplate.search(queryBuilder.build(), QueryConcept.class);

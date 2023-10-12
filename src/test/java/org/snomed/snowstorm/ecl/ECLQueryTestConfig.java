@@ -12,7 +12,7 @@ import org.snomed.snowstorm.core.data.services.ReferenceSetMemberService;
 import org.snomed.snowstorm.core.data.services.classification.ClassificationService;
 import org.springframework.beans.factory.annotation.Autowired;
 
-public abstract class ECLQueryTestConfig extends TestConfig {
+public abstract class ECLQueryTestConfig  extends TestConfig {
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 

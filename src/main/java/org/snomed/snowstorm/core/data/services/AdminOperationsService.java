@@ -1,5 +1,6 @@
 package org.snomed.snowstorm.core.data.services;
 
+import co.elastic.clients.elasticsearch._types.SortOptions;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import io.kaicode.elasticvc.api.BranchCriteria;
@@ -12,8 +13,6 @@ import io.kaicode.elasticvc.domain.DomainEntity;
 import io.kaicode.elasticvc.repositories.BranchRepository;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
-import org.elasticsearch.index.query.QueryBuilders;
-import org.elasticsearch.search.sort.SortBuilders;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.config.SearchLanguagesConfiguration;
@@ -25,8 +24,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.data.elasticsearch.core.SearchHitsIterator;
 import org.springframework.data.elasticsearch.core.document.Document;
-import org.springframework.data.elasticsearch.core.query.NativeSearchQuery;
-import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
+import org.springframework.data.elasticsearch.client.elc.NativeQuery;
+import org.springframework.data.elasticsearch.client.elc.NativeQueryBuilder;
 import org.springframework.data.elasticsearch.core.query.Query;
 import org.springframework.data.elasticsearch.core.query.UpdateQuery;
 import org.springframework.data.elasticsearch.repository.ElasticsearchRepository;
@@ -47,7 +46,8 @@ import static com.google.common.collect.Iterables.partition;
 import static io.kaicode.elasticvc.api.ComponentService.LARGE_PAGE;
 import static java.lang.Long.parseLong;
 import static java.lang.String.format;
-import static org.elasticsearch.index.query.QueryBuilders.*;
+import static co.elastic.clients.elasticsearch._types.query_dsl.QueryBuilders.*;
+import static io.kaicode.elasticvc.helper.QueryHelper.*;
 
 @Service
 public class AdminOperationsService {
@@ -94,9 +94,9 @@ public class AdminOperationsService {
 		logger.info("Reindexing all description documents in version control with language code '{}' using {} folded characters.", languageCode, foldedCharacters.size());
 		AtomicLong descriptionCount = new AtomicLong();
 		AtomicLong descriptionUpdateCount = new AtomicLong();
-		try (SearchHitsIterator<Description> descriptionsOnAllBranchesStream = elasticsearchTemplate.searchForStream(new NativeSearchQueryBuilder()
+		try (SearchHitsIterator<Description> descriptionsOnAllBranchesStream = elasticsearchTemplate.searchForStream(new NativeQueryBuilder()
 						.withQuery(termQuery(Description.Fields.LANGUAGE_CODE, languageCode))
-						.withSort(SortBuilders.fieldSort("internalId"))
+						.withSort(SortOptions.of(s -> s.field(f -> f.field("internalId"))))
 						.withPageable(LARGE_PAGE)
 						.build(),
 				Description.class)) {
@@ -182,11 +182,11 @@ public class AdminOperationsService {
 			Set<String> toRemove = new HashSet<>();
 			Set<String> versionsReplacedForType = versionsReplaced.getOrDefault(type.getSimpleName(), Collections.emptySet());
 			for (List<String> versionsReplacedSegment : Iterables.partition(versionsReplacedForType, 1_000)) {
-				try (final SearchHitsIterator<? extends DomainEntity> entitiesReplaced = elasticsearchTemplate.searchForStream(new NativeSearchQueryBuilder()
-						.withQuery(boolQuery()
+				try (final SearchHitsIterator<? extends DomainEntity> entitiesReplaced = elasticsearchTemplate.searchForStream(new NativeQueryBuilder()
+						.withQuery(bool(bq -> bq
 								.must(prefixQuery("path", branch + "/"))
 								.must(termsQuery("_id", versionsReplacedSegment))
-						)
+						))
 						.withPageable(ConceptService.LARGE_PAGE)
 						.build(), type)) {
 
@@ -210,11 +210,11 @@ public class AdminOperationsService {
 		logger.info("{} relationships inactive on this branch with effectiveTime {}.", inactiveRelationships.size(), currentEffectiveTime);
 
 		BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(previousReleaseBranch);
-		NativeSearchQuery searchQuery = new NativeSearchQueryBuilder().withQuery(
-				boolQuery()
+		NativeQuery searchQuery = new NativeQueryBuilder().withQuery(
+				bool(b -> b
 						.must(branchCriteria.getEntityBranchCriteria(Relationship.class))
 						.must(termQuery(Relationship.Fields.ACTIVE, false))
-						.must(termQuery(Relationship.Fields.CHARACTERISTIC_TYPE_ID, Concepts.INFERRED_RELATIONSHIP)))
+						.must(termQuery(Relationship.Fields.CHARACTERISTIC_TYPE_ID, Concepts.INFERRED_RELATIONSHIP))))
 				.withFilter(termsQuery(Relationship.Fields.RELATIONSHIP_ID, inactiveRelationships.keySet()))
 				.withPageable(LARGE_PAGE)
 				.build();
@@ -253,13 +253,13 @@ public class AdminOperationsService {
 
 	private Map<Long, Relationship> getAllInactiveRelationships(String previousReleaseBranch, String effectiveTime) {
 		Map<Long, Relationship> relationshipMap = new Long2ObjectOpenHashMap<>();
-		try (SearchHitsIterator<Relationship> stream = elasticsearchTemplate.searchForStream(new NativeSearchQueryBuilder()
+		try (SearchHitsIterator<Relationship> stream = elasticsearchTemplate.searchForStream(new NativeQueryBuilder()
 				.withQuery(
-						boolQuery()
+						bool(b -> b
 								.must(versionControlHelper.getBranchCriteria(previousReleaseBranch).getEntityBranchCriteria(Relationship.class))
 								.must(termQuery(Relationship.Fields.EFFECTIVE_TIME, effectiveTime))
 								.must(termQuery(Relationship.Fields.CHARACTERISTIC_TYPE_ID, Concepts.INFERRED_RELATIONSHIP))
-								.must(termQuery(Relationship.Fields.ACTIVE, false))
+								.must(termQuery(Relationship.Fields.ACTIVE, false)))
 						)
 				.withPageable(LARGE_PAGE)
 				.build(), Relationship.class)) {
@@ -291,7 +291,7 @@ public class AdminOperationsService {
 
 		logger.info("Deleting all documents on branch {}.", path);
 
-		Query deleteQuery = new NativeSearchQueryBuilder().withQuery(QueryBuilders.termQuery("path", path)).build();
+		Query deleteQuery = new NativeQueryBuilder().withQuery(termQuery("path", path)).build();
 		for (Class<? extends DomainEntity> domainEntityType : domainEntityConfiguration.getAllDomainEntityTypes()) {
 			logger.info("Deleting all {} type documents on branch {}.", domainEntityType.getSimpleName(), path);
 			elasticsearchTemplate.delete(deleteQuery, domainEntityType, elasticsearchTemplate.getIndexCoordinatesFor(domainEntityType));
@@ -337,9 +337,9 @@ public class AdminOperationsService {
 		Set<Long> relationshipIdsToDelete = new LongOpenHashSet();
 		Set<Long> relationshipIdsExpected = new LongOpenHashSet();
 		BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(branchPath);
-		NativeSearchQueryBuilder queryBuilder = new NativeSearchQueryBuilder()
-				.withQuery(branchCriteria.getEntityBranchCriteria(Relationship.class)
-						.must(termQuery(Relationship.Fields.EFFECTIVE_TIME, effectiveTime)))
+		NativeQueryBuilder queryBuilder = new NativeQueryBuilder()
+				.withQuery(bool(b -> b.must(branchCriteria.getEntityBranchCriteria(Relationship.class))
+						.must(termQuery(Relationship.Fields.EFFECTIVE_TIME, effectiveTime))))
 				.withFields(Relationship.Fields.RELATIONSHIP_ID)
 				.withPageable(LARGE_PAGE);
 		try (SearchHitsIterator<Relationship> stream = elasticsearchTemplate.searchForStream(queryBuilder.build(), Relationship.class)) {
@@ -451,8 +451,8 @@ public class AdminOperationsService {
 		final BranchCriteria changesOnFixBranch = versionControlHelper.getChangesOnBranchCriteria(releaseFixBranch);
 		for (Class<? extends DomainEntity<?>> type : domainEntityConfiguration.getAllDomainEntityTypes()) {
 			// Grab all the entities of this type on the fix branch
-			NativeSearchQuery query = new NativeSearchQueryBuilder()
-					.withQuery(boolQuery().must(changesOnFixBranch.getEntityBranchCriteria(type)))
+			NativeQuery query = new NativeQueryBuilder()
+					.withQuery(bool(b -> b.must(changesOnFixBranch.getEntityBranchCriteria(type))))
 					.withPageable(LARGE_PAGE).build();
 			Collection<DomainEntity> entitiesToPromote = new ArrayList<>();
 			try (SearchHitsIterator<? extends DomainEntity> stream = elasticsearchTemplate.searchForStream(query, type)) {
@@ -472,7 +472,7 @@ public class AdminOperationsService {
 				for (List<String> entityVersionsReplacedBatch : Lists.partition(new ArrayList<>(entityVersionsReplaced), 1_000)) {
 					List<DomainEntity> existingEntitiesBatch = new ArrayList<>();
 					Map<String, Date> existingEntitiesOriginalStartDate = new HashMap<>();
-					try (SearchHitsIterator<? extends DomainEntity> existingEntityStream = elasticsearchTemplate.searchForStream(new NativeSearchQueryBuilder()
+					try (SearchHitsIterator<? extends DomainEntity> existingEntityStream = elasticsearchTemplate.searchForStream(new NativeQueryBuilder()
 							// Deleted or replaced component on fix branch
 							.withQuery(termsQuery("_id", entityVersionsReplacedBatch))
 							.withPageable(LARGE_PAGE).build(), type)) {
@@ -617,10 +617,10 @@ public class AdminOperationsService {
 			for (Map.Entry<Class<? extends DomainEntity>, ElasticsearchRepository> entry : allTypeRepositoryMap.entrySet()) {
 				ElasticsearchRepository elasticsearchRepository = entry.getValue();
 				List<DomainEntity> content = new ArrayList<>();
-				try (SearchHitsIterator<? extends DomainEntity> searchHitsStream = elasticsearchTemplate.searchForStream(new NativeSearchQueryBuilder()
-						.withQuery(boolQuery()
+				try (SearchHitsIterator<? extends DomainEntity> searchHitsStream = elasticsearchTemplate.searchForStream(new NativeQueryBuilder()
+						.withQuery(bool(b -> b
 								.must(termQuery("path", sourceBranchPath))
-								.must(termQuery("start", sourceBranchCommit.getStart().getTime()))
+								.must(termQuery("start", sourceBranchCommit.getStart().getTime())))
 						)
 						.withPageable(LARGE_PAGE)
 						.build(), entry.getKey())) {
@@ -660,8 +660,9 @@ public class AdminOperationsService {
 				if (!descriptionIds.isEmpty()) {
 					logger.info("Looking up concept id for {} descriptions.", descriptionIds.size());
 					final BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(branchPath);
-					try (final SearchHitsIterator<Description> stream = elasticsearchTemplate.searchForStream(new NativeSearchQueryBuilder()
-							.withQuery(branchCriteria.getEntityBranchCriteria(Description.class).must(termsQuery(Description.Fields.DESCRIPTION_ID, descriptionIds)))
+					try (final SearchHitsIterator<Description> stream = elasticsearchTemplate.searchForStream(new NativeQueryBuilder()
+							.withQuery(bool(b -> b.must(branchCriteria.getEntityBranchCriteria(Description.class))
+									.must(termsQuery(Description.Fields.DESCRIPTION_ID, descriptionIds))))
 							.withFields(Description.Fields.DESCRIPTION_ID, Description.Fields.CONCEPT_ID)
 							.build(), Description.class)) {
 						stream.forEachRemaining(hit -> verifiedConceptIds.add(hit.getContent().getConceptId()));
@@ -814,12 +815,12 @@ public class AdminOperationsService {
 		// Find all un-versioned inactive inferred relationships
 		Set<Long> relationshipIds = new LongOpenHashSet();
 		final BranchCriteria thisBranchCriteria = versionControlHelper.getBranchCriteria(branchPath);
-		try (final SearchHitsIterator<Relationship> relationships = elasticsearchTemplate.searchForStream(new NativeSearchQueryBuilder()
-				.withQuery(boolQuery()
+		try (final SearchHitsIterator<Relationship> relationships = elasticsearchTemplate.searchForStream(new NativeQueryBuilder()
+				.withQuery(bool(b -> b
 						.must(thisBranchCriteria.getEntityBranchCriteria(Relationship.class))
 						.must(termQuery(Relationship.Fields.ACTIVE, false))
 						.must(termQuery(Relationship.Fields.CHARACTERISTIC_TYPE_ID, Concepts.INFERRED_RELATIONSHIP))
-						.mustNot(existsQuery(Relationship.Fields.EFFECTIVE_TIME)))
+						.mustNot(existsQuery(Relationship.Fields.EFFECTIVE_TIME))))
 				.withPageable(LARGE_PAGE).build(), Relationship.class)) {
 			relationships.forEachRemaining(hit -> relationshipIds.add(hit.getContent().getRelationshipIdAsLong()));
 		}
@@ -827,10 +828,10 @@ public class AdminOperationsService {
 		for (List<Long> relationshipBatch : partition(relationshipIds, 1_000)) {
 			// Find previous version in this code system
 			final Map<Long, Relationship> previousVersion = new Long2ObjectOpenHashMap<>();
-			try (final SearchHitsIterator<Relationship> relationships = elasticsearchTemplate.searchForStream(new NativeSearchQueryBuilder()
-					.withQuery(boolQuery()
+			try (final SearchHitsIterator<Relationship> relationships = elasticsearchTemplate.searchForStream(new NativeQueryBuilder()
+					.withQuery(bool(b -> b
 							.must(versionControlHelper.getBranchCriteria(latestReleaseAndDependantRelease.getFirst()).getEntityBranchCriteria(Relationship.class))
-							.must(termQuery(Relationship.Fields.CHARACTERISTIC_TYPE_ID, Concepts.INFERRED_RELATIONSHIP)))
+							.must(termQuery(Relationship.Fields.CHARACTERISTIC_TYPE_ID, Concepts.INFERRED_RELATIONSHIP))))
 					.withFilter(termsQuery(Relationship.Fields.RELATIONSHIP_ID, relationshipBatch))
 					.withPageable(LARGE_PAGE).build(), Relationship.class)) {
 				relationships.forEachRemaining(hit -> {
@@ -840,10 +841,10 @@ public class AdminOperationsService {
 			}
 			String dependantReleaseBranch = latestReleaseAndDependantRelease.getSecond().orElse(null);
 			if (dependantReleaseBranch != null) {
-				try (final SearchHitsIterator<Relationship> relationships = elasticsearchTemplate.searchForStream(new NativeSearchQueryBuilder()
-						.withQuery(boolQuery()
+				try (final SearchHitsIterator<Relationship> relationships = elasticsearchTemplate.searchForStream(new NativeQueryBuilder()
+						.withQuery(bool(b -> b
 								.must(versionControlHelper.getBranchCriteria(dependantReleaseBranch).getEntityBranchCriteria(Relationship.class))
-								.must(termQuery(Relationship.Fields.CHARACTERISTIC_TYPE_ID, Concepts.INFERRED_RELATIONSHIP)))
+								.must(termQuery(Relationship.Fields.CHARACTERISTIC_TYPE_ID, Concepts.INFERRED_RELATIONSHIP))))
 						.withFilter(termsQuery(Relationship.Fields.RELATIONSHIP_ID, relationshipBatch))
 						.withPageable(LARGE_PAGE).build(), Relationship.class)) {
 					relationships.forEachRemaining(hit -> {
