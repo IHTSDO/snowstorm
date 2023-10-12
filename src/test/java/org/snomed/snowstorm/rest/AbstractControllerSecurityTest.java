@@ -115,7 +115,7 @@ public abstract class AbstractControllerSecurityTest extends AbstractTest {
 		combinedHeaders.addAll(requestEntity.getHeaders());
 		combinedHeaders.addAll(imsHeaders);
 		ResponseEntity<String> response = restTemplate.exchange(new RequestEntity<>(requestEntity.getBody(), combinedHeaders, requestEntity.getMethod(), requestEntity.getUrl()), String.class);
-		assertEquals(expectedStatusCode, response.getStatusCodeValue(), response.getBody());
+		assertEquals(expectedStatusCode, response.getStatusCode().value(), response.getBody());
 		return response;
 	}
 

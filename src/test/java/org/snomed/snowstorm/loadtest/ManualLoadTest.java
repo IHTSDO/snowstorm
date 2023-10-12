@@ -71,6 +71,7 @@ class ManualLoadTest {
 	private String loadTestBranch;
 	private ObjectMapper objectMapper;
 	private Map<String, List<Float>> times = new LinkedHashMap<>();
+	private final Logger logger = LoggerFactory.getLogger(getClass());
 
 	public static void main(String[] args) throws InterruptedException {
 		new ManualLoadTest().run(CONCURRENT_USERS, CONCEPTS_TO_CREATE_PER_USER);
@@ -82,10 +83,10 @@ class ManualLoadTest {
 					request.getHeaders().setContentType(MediaType.APPLICATION_JSON);
 					request.getHeaders().add("Cookie", COOKIE);
 					ClientHttpResponse httpResponse = execution.execute(request, body);
-					if (!(httpResponse.getRawStatusCode() + "").startsWith("2")) {
+					if (!httpResponse.getStatusCode().is2xxSuccessful()) {
 						LOGGER.info("Request failed. Request '{}'", new String(body));
 						String responseBody = StreamUtils.copyToString(httpResponse.getBody(), Charset.defaultCharset());
-						LOGGER.info("Request failed. Response {} '{}'", httpResponse.getRawStatusCode(), responseBody);
+						LOGGER.info("Request failed. Response {} '{}'", httpResponse.getStatusCode().value(), responseBody);
 						return new ClientHttpResponseWithCachedBody(httpResponse, responseBody);
 					}
 					return httpResponse;
@@ -118,7 +119,7 @@ class ManualLoadTest {
 			try {
 				future.get();
 			} catch (InterruptedException | ExecutionException e) {
-				e.printStackTrace();
+				logger.error("Test failed.", e);
 			}
 		});
 
@@ -267,7 +268,7 @@ class ManualLoadTest {
 			newConcept = restTemplate.postForObject("/browser/" + taskBranch + "/concepts", requestEntity, Concept.class);
 		} catch (HttpClientErrorException e) {
 			String responseBodyAsString = e.getResponseBodyAsString();
-			if (e.getRawStatusCode() == 400 && responseBodyAsString.contains("insufficient number of component ids available")) {
+			if (e.getStatusCode().value() == 400 && responseBodyAsString.contains("insufficient number of component ids available")) {
 				int seconds = 5;
 				LOGGER.info("SO6 is not reserving ids fast enough. Sleeping for {} seconds before trying once more.", seconds);
 				Thread.sleep(seconds * 1_000);
@@ -308,7 +309,7 @@ class ManualLoadTest {
 		long startMilis = new Date().getTime();
 		ResponseEntity<ItemsPagePojo<ConceptResult>> conceptListResponse = restTemplate.exchange("/" + loadTestBranch + "/concepts?active=true&ecl=" + ecl, HttpMethod.GET, null, PAGE_OF_CONCEPTS_TYPE);
 		if (!conceptListResponse.getStatusCode().is2xxSuccessful()) {
-			LOGGER.error("ECL request not successful {}", conceptListResponse.getStatusCodeValue());
+			LOGGER.error("ECL request not successful {}", conceptListResponse.getStatusCode().value());
 		}
 		ItemsPagePojo<ConceptResult> page = conceptListResponse.getBody();
 		List<ConceptResult> items = page.getItems();
@@ -326,7 +327,7 @@ class ManualLoadTest {
 		String url = "/browser/" + loadTestBranch + "/concepts/" + conceptId;
 		ResponseEntity<Concept> conceptResponse = restTemplate.exchange(url, HttpMethod.GET, null, Concept.class);
 		if (!conceptResponse.getStatusCode().is2xxSuccessful()) {
-			LOGGER.error("Concept fetch request not successful {} {}", url, conceptResponse.getStatusCodeValue());
+			LOGGER.error("Concept fetch request not successful {} {}", url, conceptResponse.getStatusCode().value());
 		}
 		Concept concept = conceptResponse.getBody();
 		LOGGER.info("Concept {} |{}| fetched in {} seconds.", conceptId, concept.getFsn(), recordDuration("load-concept", startMilis));

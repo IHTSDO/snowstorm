@@ -30,7 +30,7 @@ public class ControllerTestHelper {
 			System.out.println("Get " + location.toString());
 
 			ResponseEntity<StatusHolder> responseEntity = restTemplate.exchange(new RequestEntity<>(userHeaders, HttpMethod.GET, location), StatusHolder.class);
-			assertEquals(200, responseEntity.getStatusCodeValue(), "Job status check response code.");
+			assertEquals(200, responseEntity.getStatusCode().value(), "Job status check response code.");
 
 			StatusHolder statusHolder = responseEntity.getBody();
 			if (statusHolder == null) {
