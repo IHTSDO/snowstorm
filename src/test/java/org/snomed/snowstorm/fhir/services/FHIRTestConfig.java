@@ -12,10 +12,10 @@ import org.snomed.snowstorm.core.data.services.pojo.CodeSystemConfiguration;
 import org.snomed.snowstorm.fhir.repositories.FHIRCodeSystemRepository;
 import org.snomed.snowstorm.fhir.repositories.FHIRConceptRepository;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.TestConfiguration;
 
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
+
 import java.util.ArrayList;
 import java.util.List;
 
@@ -26,7 +26,6 @@ import static org.snomed.snowstorm.fhir.services.AbstractFHIRTest.*;
 /**
  * 	Set up read-only data for FHIR tests
  */
-@TestConfiguration
 public class FHIRTestConfig extends TestConfig {
 
 	@Autowired

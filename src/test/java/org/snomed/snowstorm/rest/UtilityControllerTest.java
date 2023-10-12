@@ -21,8 +21,8 @@ class UtilityControllerTest extends AbstractTest {
 
 	@Test
 	public void testEclWithGroup() {
-		assertEquals(200, apiParseEcl("<<900000000000496009:{100000000=200000000}").getStatusCodeValue());
-		assertEquals(200, apiParseEcl("<<900000000000496009:{*=*}").getStatusCodeValue());
+		assertEquals(200, apiParseEcl("<<900000000000496009:{100000000=200000000}").getStatusCode().value());
+		assertEquals(200, apiParseEcl("<<900000000000496009:{*=*}").getStatusCode().value());
 	}
 
 	private ResponseEntity<String> apiParseEcl(String ecl) {
