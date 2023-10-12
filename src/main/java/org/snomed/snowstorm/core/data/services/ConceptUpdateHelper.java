@@ -265,6 +265,11 @@ public class ConceptUpdateHelper extends ComponentService {
 			// Axiom refset members
 			markDeletionsAndUpdates(newVersionConcept, existingConcept, existingConceptFromParent, Concept::getAllOwlAxiomMembers,
 					defaultModuleId, refsetMembersToPersist, rebaseConflictSave);
+			
+			// Annotation refset members
+			markDeletionsAndUpdates(newVersionConcept, existingConcept, existingConceptFromParent, Concept::getAllAnnotationMembers,
+					defaultModuleId, refsetMembersToPersist, rebaseConflictSave);
+
 
 			for (Description description : newVersionConcept.getDescriptions()) {
 				Description existingDescription = getExistingComponent(existingConcept, ConceptView::getDescriptions, description.getDescriptionId());
@@ -549,6 +554,7 @@ public class ConceptUpdateHelper extends ComponentService {
 			inactivationIndicatorMember.markDeleted();
 		}
 		membersToDelete.addAll(concept.getAssociationTargetMembers());
+		membersToDelete.addAll(concept.getAllAnnotationMembers());
 		concept.getRelationships().forEach(Relationship::markDeleted);
 
 		MemberSearchRequest memberSearchRequest = new MemberSearchRequest();

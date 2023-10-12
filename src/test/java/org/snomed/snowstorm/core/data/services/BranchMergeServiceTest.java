@@ -4584,6 +4584,62 @@ class BranchMergeServiceTest extends AbstractTest {
 	}
 
 	@Test
+	void testRebasingAnnotationChanges() throws ServiceException, InterruptedException {
+		// Add an Annotation on MAIN and rebase
+		Annotation annotation = new Annotation();
+		annotation.setReferencedComponentId("50960005");
+		annotation.setModuleId("900000000000207008");
+		annotation.setAnnotationTypeId("123456");
+		annotation.setAnnotationValue("In the third International Consensus Definitions for Sepsis and Septic Shock (Sepsis-3) published in 2016.");
+		annotation.setAnnotationLanguage("en");
+
+		// Create project
+		branchService.create("MAIN/projectA");
+
+		// Create pizza on project (incorrectly as top-level)
+		String pizzaId = conceptService.create(new Concept()
+				.addDescription(new Description("Cheese pizza (food)").setTypeId(FSN))
+				.addDescription(new Description("Cheese pizza").setTypeId(SYNONYM))
+				.addAnnotation(annotation)
+				.addAxiom(new Relationship(ISA, SNOMEDCT_ROOT)), "MAIN/projectA").getConceptId();
+
+		// Create task A
+		branchService.create("MAIN/projectA/taskA");
+
+		branchService.create("MAIN/projectA/taskB");
+
+		// Update annotation to TaskA and promote
+		Concept pizza = conceptService.find(pizzaId, "MAIN/projectA/taskA");
+		pizza.getAnnotations().iterator().next().setAnnotationValue("Update 1");
+		conceptService.update(pizza, "MAIN/projectA/taskA");
+
+
+		// Make sure no annotation found in task A
+		pizza = conceptService.find(pizzaId, "MAIN/projectA/taskB");
+		pizza.getAnnotations().iterator().next().setAnnotationValue("Update 2");
+		conceptService.update(pizza, "MAIN/projectA/taskB");
+
+		// Promote task A to project
+		branchMergeService.mergeBranchSync("MAIN/projectA/taskA", "MAIN/projectA", Collections.emptySet());
+
+		// Rebase task B
+		MergeReview review = getMergeReviewInCurrentState("MAIN/projectA", "MAIN/projectA/taskB");
+		Collection<MergeReviewConceptVersions> conflicts = reviewService.getMergeReviewConflictingConcepts(review.getId(), new ArrayList<>());
+
+		// Expecting the annotation gets conflict
+		assertTrue(conflicts.size() != 0);
+
+		// Accept the project version
+		for (MergeReviewConceptVersions conflict : conflicts) {
+			Concept conceptToAccept = conflict.getAutoMergedConcept();
+			reviewService.persistManuallyMergedConcept(review, Long.parseLong(pizzaId), conceptToAccept);
+		}
+		reviewService.applyMergeReview(review);
+		pizza = conceptService.find(pizzaId, "MAIN/projectA/taskB");
+		assertEquals("Update 2", pizza.getAnnotations().iterator().next().getAnnotationValue());
+	}
+
+	@Test
 	void testRebasingSynonymAdditions() throws ServiceException, InterruptedException {
 		Concept concept;
 		MergeReview mergeReview;

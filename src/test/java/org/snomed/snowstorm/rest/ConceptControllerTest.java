@@ -112,6 +112,19 @@ class ConceptControllerTest extends AbstractTest {
 		conceptService.update(concept, "MAIN");
 		branchMergeService.mergeBranchSync("MAIN", "MAIN/projectA", Collections.emptySet());
 
+		// Add an Annotation on MAIN and rebase
+		concept = conceptService.find(conceptId, "MAIN");
+		Annotation annotation = new Annotation();
+		annotation.setReferencedComponentId("50960005");
+		annotation.setModuleId("900000000000207008");
+		annotation.setAnnotationTypeId("123456");
+		annotation.setAnnotationValue("In the third International Consensus Definitions for Sepsis and Septic Shock (Sepsis-3) published in 2016.");
+		annotation.setAnnotationLanguage("en");
+
+		concept.getAnnotations().add(annotation);
+		conceptService.update(concept, "MAIN");
+		branchMergeService.mergeBranchSync("MAIN", "MAIN/projectA", Collections.emptySet());
+
 		// Add another relationship and description making two relationships and four descriptions
 		concept = conceptService.find(conceptId, "MAIN/projectA");
 		concept.getRelationships().add(new Relationship(Concepts.ISA, Concepts.CLINICAL_FINDING));
@@ -196,7 +209,7 @@ class ConceptControllerTest extends AbstractTest {
 		checkFields(responseBody);
 		LinkedHashMap<String, Object> properties = objectMapper.readValue(responseBody, LinkedHashMap.class);
 		assertEquals("[conceptId, fsn, pt, active, effectiveTime, released, releasedEffectiveTime, moduleId, definitionStatus, " +
-				"descriptions, classAxioms, gciAxioms, relationships, alternateIdentifiers, validationResults]", properties.keySet().toString());
+				"descriptions, annotations, classAxioms, gciAxioms, relationships, alternateIdentifiers, validationResults]", properties.keySet().toString());
 		Object fsn = properties.get("fsn");
 		assertEquals("LinkedHashMap", fsn.getClass().getSimpleName());
 		assertEquals("{term=Wallace \"69\" side-to-end anastomosis - action (qualifier value), lang=en}", fsn.toString());

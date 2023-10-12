@@ -27,6 +27,8 @@ public interface ConceptView {
 
 	Set<Description> getDescriptions();
 
+	Set<Annotation> getAnnotations();
+
 	Set<Relationship> getRelationships();
 
 	Set<Axiom> getClassAxioms();

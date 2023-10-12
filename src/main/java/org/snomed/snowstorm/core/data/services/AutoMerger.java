@@ -7,13 +7,15 @@ import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Component;
 
 import java.util.*;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 import static org.snomed.snowstorm.config.Config.DEFAULT_LANGUAGE_DIALECTS;
 
 @Component
 public class AutoMerger {
     private enum ComponentType {
-        Concept, Description, Relationship,
+        Concept, Description, Relationship, Annotation,
         ClassAxiom, GciAxiom, LanguageReferenceSetMember
     }
 
@@ -87,6 +89,14 @@ public class AutoMerger {
             changesOnTargetConceptNew.put(ComponentType.Description, diffInDescriptions);
         }
 
+        // Have Annotations changed?
+        Map<String, ReferenceSetMember> targetAnnotationMembersOld = mapAnnotationMembersByIdentifier(targetConceptOld.getAllAnnotationMembers());
+        Map<String, ReferenceSetMember> targetAnnotationMembersNew = mapAnnotationMembersByIdentifier(targetConceptNew.getAllAnnotationMembers());
+        Set<String> diffInAnnotationMembers = getComponentIdsChanged(targetAnnotationMembersOld, targetAnnotationMembersNew);
+        if (!diffInAnnotationMembers.isEmpty()) {
+            changesOnTargetConceptNew.put(ComponentType.Annotation, diffInAnnotationMembers);
+        }
+
         // Have Relationships changed?
         Map<String, Relationship> targetRelationshipsOld = mapByIdentifier(targetConceptOld.getRelationships());
         Map<String, Relationship> targetRelationshipsNew = mapByIdentifier(targetConceptNew.getRelationships());
@@ -120,6 +130,13 @@ public class AutoMerger {
         }
 
         return changesOnTargetConceptNew;
+    }
+
+    private Map<String, ReferenceSetMember> mapAnnotationMembersByIdentifier(Set<ReferenceSetMember> annotations) {
+        if (annotations != null) {
+            return annotations.stream().collect(Collectors.toMap(ReferenceSetMember::getId, Function.identity()));
+        }
+        return Collections.emptyMap();
     }
 
     private <T extends SnomedComponent<T>> Map<String, T> mapByIdentifier(Set<T> components) {
@@ -207,6 +224,8 @@ public class AutoMerger {
                 reapplyConceptChanges(sourceConcept, targetConceptNew, targetConceptOld, changedComponentIds, mergedConcept);
             } else if (ComponentType.Description.equals(changedComponentType)) {
                 reapplyDescriptionChanges(mapByIdentifier(sourceConcept.getDescriptions()), mapByIdentifier(targetConceptOld.getDescriptions()), mapByIdentifier(targetConceptNew.getDescriptions()), changedComponentIds, mergedConcept);
+            } else if (ComponentType.Annotation.equals(changedComponentType)) {
+                reapplyAnnotationMemberChanges(mapAnnotationMembersByIdentifier(sourceConcept.getAllAnnotationMembers()), mapAnnotationMembersByIdentifier(targetConceptOld.getAllAnnotationMembers()), mapAnnotationMembersByIdentifier(targetConceptNew.getAllAnnotationMembers()), changedComponentIds, mergedConcept);
             } else if (ComponentType.Relationship.equals(changedComponentType)) {
                 reapplyRelationshipChanges(mapByIdentifier(sourceConcept.getRelationships()), mapByIdentifier(targetConceptOld.getRelationships()), mapByIdentifier(targetConceptNew.getRelationships()), changedComponentIds, mergedConcept);
             } else if (ComponentType.ClassAxiom.equals(changedComponentType)) {
@@ -495,6 +514,63 @@ public class AutoMerger {
             }
 
             description.setLanguageRefsetMembers(languageReferenceSetMembers.values());
+        }
+    }
+
+    private void reapplyAnnotationMemberChanges(Map<String, ReferenceSetMember> sourceMembers, Map<String, ReferenceSetMember> targetMembersOld, Map<String, ReferenceSetMember> targetMembersNew, Set<String> changedComponentIds, Concept mergedConcept) {
+        Set<ReferenceSetMember> mergedReferenceSetMembers = new HashSet<>();
+        for (String changedMemberId : changedComponentIds) {
+            ReferenceSetMember sourceReferenceSetMember = sourceMembers.get(changedMemberId);
+            ReferenceSetMember targetReferenceSetMemberOld = targetMembersOld.get(changedMemberId);
+            ReferenceSetMember targetReferenceSetMemberNew = targetMembersNew.get(changedMemberId);
+            ReferenceSetMember mergedReferenceSetMember = new ReferenceSetMember();
+
+            // Didn't exist before user started authoring; nothing to re-apply.
+            if (sourceReferenceSetMember == null || targetReferenceSetMemberOld == null) {
+                mergedReferenceSetMember = targetReferenceSetMemberNew;
+            } else {
+                mergedReferenceSetMember.setMemberId(sourceReferenceSetMember.getMemberId());
+                mergedReferenceSetMember.setReferencedComponentId(sourceReferenceSetMember.getReferencedComponentId());
+                mergedReferenceSetMember.setConceptId(sourceReferenceSetMember.getConceptId());
+                mergedReferenceSetMember.copyReleaseDetails(sourceReferenceSetMember);
+
+                // Re-apply immutable fields (legal as not yet released)
+                if (sourceReferenceSetMember.getReleasedEffectiveTime() == null) {
+                    mergedReferenceSetMember.setRefsetId(getValueChanged(targetReferenceSetMemberOld.getRefsetId(), targetReferenceSetMemberNew.getRefsetId(), sourceReferenceSetMember.getRefsetId()));
+                    mergedReferenceSetMember.setAdditionalField(
+                            ReferenceSetMember.AnnotationFields.ANNOTATION_TYPE_ID,
+                            getValueChanged(
+                                    targetReferenceSetMemberOld.getAdditionalField(ReferenceSetMember.AnnotationFields.ANNOTATION_TYPE_ID),
+                                    targetReferenceSetMemberNew.getAdditionalField(ReferenceSetMember.AnnotationFields.ANNOTATION_TYPE_ID),
+                                    sourceReferenceSetMember.getAdditionalField(ReferenceSetMember.AnnotationFields.ANNOTATION_TYPE_ID)
+                            )
+                    );
+                    mergedReferenceSetMember.setAdditionalField(
+                            ReferenceSetMember.AnnotationFields.ANNOTATION_VALUE,
+                            getValueChanged(
+                                    targetReferenceSetMemberOld.getAdditionalField(ReferenceSetMember.AnnotationFields.ANNOTATION_VALUE),
+                                    targetReferenceSetMemberNew.getAdditionalField(ReferenceSetMember.AnnotationFields.ANNOTATION_VALUE),
+                                    sourceReferenceSetMember.getAdditionalField(ReferenceSetMember.AnnotationFields.ANNOTATION_VALUE)
+                            )
+                    );
+                } else {
+                    mergedReferenceSetMember.setRefsetId(sourceReferenceSetMember.getRefsetId());
+                    mergedReferenceSetMember.setAdditionalField(ReferenceSetMember.AnnotationFields.ANNOTATION_TYPE_ID, sourceReferenceSetMember.getAdditionalField(ReferenceSetMember.AnnotationFields.ANNOTATION_TYPE_ID));
+                    mergedReferenceSetMember.setAdditionalField(ReferenceSetMember.AnnotationFields.ANNOTATION_VALUE, sourceReferenceSetMember.getAdditionalField(ReferenceSetMember.AnnotationFields.ANNOTATION_VALUE));
+                }
+
+                // Re-apply mutable fields
+                mergedReferenceSetMember.setActive(getValueChanged(targetReferenceSetMemberOld.isActive(), targetReferenceSetMemberNew.isActive(), sourceReferenceSetMember.isActive()));
+                mergedReferenceSetMember.setModuleId(getValueChanged(targetReferenceSetMemberOld.getModuleId(), targetReferenceSetMemberNew.getModuleId(), sourceReferenceSetMember.getModuleId()));
+            }
+
+            mergedReferenceSetMember.updateEffectiveTime();
+            mergedReferenceSetMembers.add(mergedReferenceSetMember);
+        }
+        if (!mergedReferenceSetMembers.isEmpty()) {
+            Set<Annotation> annotations = new HashSet<>();
+            mergedReferenceSetMembers.forEach(member -> annotations.add(new Annotation().fromRefsetMember(member)));
+            mergedConcept.setAnnotations(annotations);
         }
     }
 
