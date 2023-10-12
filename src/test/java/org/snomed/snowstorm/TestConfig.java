@@ -1,40 +1,33 @@
 package org.snomed.snowstorm;
 
+import jakarta.jms.ConnectionFactory;
+import org.apache.activemq.ActiveMQConnectionFactory;
+import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.config.Config;
 import org.snomed.snowstorm.core.data.services.traceability.TraceabilityLogService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
-import org.springframework.boot.autoconfigure.data.elasticsearch.ElasticsearchDataAutoConfiguration;
 import org.springframework.boot.autoconfigure.elasticsearch.ElasticsearchRestClientAutoConfiguration;
 import org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration;
 import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.cloud.aws.autoconfigure.context.ContextCredentialsAutoConfiguration;
-import org.springframework.cloud.aws.autoconfigure.context.ContextInstanceDataAutoConfiguration;
-import org.springframework.cloud.aws.autoconfigure.context.ContextRegionProviderAutoConfiguration;
-import org.springframework.cloud.aws.autoconfigure.context.ContextStackAutoConfiguration;
+import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.PropertySource;
 import org.springframework.data.elasticsearch.client.ClientConfiguration;
-import org.springframework.data.elasticsearch.client.RestClients;
-import org.springframework.data.elasticsearch.client.RestClients.ElasticsearchRestClient;
 import org.testcontainers.DockerClientFactory;
+import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.elasticsearch.ElasticsearchContainer;
 import org.testcontainers.junit.jupiter.Container;
 
 import jakarta.annotation.PostConstruct;
 
-@PropertySource("application.properties")
-@PropertySource("application-test.properties")
 @TestConfiguration
 @SpringBootApplication(
-		exclude = {ContextCredentialsAutoConfiguration.class,
-				ContextInstanceDataAutoConfiguration.class,
-				ContextRegionProviderAutoConfiguration.class,
-				ContextStackAutoConfiguration.class,
+		exclude = {
 				ElasticsearchRestClientAutoConfiguration.class,
-				ElasticsearchDataAutoConfiguration.class,
-				DataSourceAutoConfiguration.class})
+				DataSourceAutoConfiguration.class
+		})
 public class TestConfig extends Config {
 
 	private static final String ELASTIC_SEARCH_SERVER_VERSION = "8.7.1";
@@ -43,6 +36,26 @@ public class TestConfig extends Config {
 	static final boolean useLocalElasticsearch = false;
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(TestConfig.class);
+
+//	private static final String ACTIVEMQ_IMAGE = "rmohr/activemq";
+	private static final String ACTIVEMQ_IMAGE = "symptoma/activemq";
+
+	private static final int ACTIVEMQ_PORT = 61616;
+
+	@SuppressWarnings("rawtypes")
+	@Container
+	private static final GenericContainer activeMqContainer = new GenericContainer(ACTIVEMQ_IMAGE).withExposedPorts(ACTIVEMQ_PORT);
+	static {
+		activeMqContainer.start();
+	}
+
+	@Bean
+	public ConnectionFactory connectionFactory() {
+		String brokerUrlFormat = "tcp://%s:%d";
+		String brokerUrl = String.format(brokerUrlFormat, activeMqContainer.getHost(), activeMqContainer.getFirstMappedPort());
+		LOGGER.info("ActiveMQ test broker URL: {}", brokerUrl);
+		return new ActiveMQConnectionFactory(brokerUrl);
+	}
 
 	@Container
 	private static final ElasticsearchContainer elasticsearchContainer;
@@ -63,8 +76,6 @@ public class TestConfig extends Config {
 		}
 	}
 
-	public static final String DEFAULT_LANGUAGE_CODE = "en";
-
 	@Autowired
 	private TraceabilityLogService traceabilityLogService;
 
@@ -79,6 +90,7 @@ public class TestConfig extends Config {
 			// these are mapped ports used by the test container the actual ports used might be different
 			this.addFixedExposedPort(9235, 9235);
 			this.addFixedExposedPort(9330, 9330);
+			addEnv("xpack.security.enabled", "false");
 			this.addEnv("cluster.name", "integration-test-cluster");
 		}
 	}
@@ -88,12 +100,14 @@ public class TestConfig extends Config {
 	}
 
 	@Override
-	public ElasticsearchRestClient elasticsearchRestClient() {
+	public @NotNull ClientConfiguration clientConfiguration() {
 		if (!useLocalElasticsearch) {
-			return RestClients.create(ClientConfiguration.builder()
-					.connectedTo(elasticsearchContainer.getHttpHostAddress()).build());
+            assert elasticsearchContainer != null;
+			LOGGER.info("Test container Elasticsearch host {} ", elasticsearchContainer.getHttpHostAddress());
+            return ClientConfiguration.builder()
+					.connectedTo(elasticsearchContainer.getHttpHostAddress()).build();
 		}
-		return RestClients.create(ClientConfiguration.builder()
-				.connectedTo("localhost:9200").build());
+		return ClientConfiguration.builder()
+				.connectedTo("localhost:9200").build();
 	}
 }

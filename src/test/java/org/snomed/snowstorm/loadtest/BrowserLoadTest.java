@@ -55,10 +55,10 @@ public class BrowserLoadTest {
 			request.getHeaders().setContentType(MediaType.APPLICATION_JSON);
 			request.getHeaders().add("Cookie", COOKIE);
 			ClientHttpResponse httpResponse = execution.execute(request, body);
-			if (!(httpResponse.getRawStatusCode() + "").startsWith("2")) {
+			if (!httpResponse.getStatusCode().is2xxSuccessful()) {
 				LOGGER.info("Request failed. Request '{}'", new String(body));
 				String responseBody = StreamUtils.copyToString(httpResponse.getBody(), Charset.defaultCharset());
-				LOGGER.info("Request failed. Response {} '{}'", httpResponse.getRawStatusCode(), responseBody);
+				LOGGER.info("Request failed. Response {} '{}'", httpResponse.getStatusCode().value(), responseBody);
 				return new ClientHttpResponseWithCachedBody(httpResponse, responseBody);
 			}
 			return httpResponse;
@@ -173,7 +173,7 @@ public class BrowserLoadTest {
 				String url = "/browser/" + loadTestBranch + "/concepts/" + conceptId + "/history?showFutureVersions=false";
 				ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.GET, null, String.class);
 				if (!response.getStatusCode().is2xxSuccessful()) {
-					LOGGER.error("Search request not successful {} {}", url, response.getStatusCodeValue());
+					LOGGER.error("Search request not successful {} {}", url, response.getStatusCode().value());
 				}
 				String searchDescription = String.format(searchType + " for %s", conceptId);
 				LOGGER.info(searchDescription + " completed in {} seconds ", recordDuration(searchType, startMillis));
@@ -185,7 +185,7 @@ public class BrowserLoadTest {
 			String url = "/browser/" + loadTestBranch + "/concepts/" + 404684003 + "/children?form=" + form + "&includeDescendantCount=" + isDescendantCountOn;
 			ResponseEntity<String> conceptResponse = restTemplate.exchange(url, HttpMethod.GET, null, String.class);
 			if (!conceptResponse.getStatusCode().is2xxSuccessful()) {
-				LOGGER.error("Search request not successful {} {}", url, conceptResponse.getStatusCodeValue());
+				LOGGER.error("Search request not successful {} {}", url, conceptResponse.getStatusCode().value());
 			}
 			String searchType = "Loading taxonomy";
 			String searchDescription = String.format(searchType + " for %s with with descendant count set to %s", form, isDescendantCountOn);
@@ -204,7 +204,7 @@ public class BrowserLoadTest {
 
 			ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.GET, null, String.class);
 			if (!response.getStatusCode().is2xxSuccessful()) {
-				LOGGER.error("Search request not successful {} {}", url, response.getStatusCodeValue());
+				LOGGER.error("Search request not successful {} {}", url, response.getStatusCode().value());
 			}
 
 			String searchDescription = String.format(searchType + " for term %s", term);
@@ -220,7 +220,7 @@ public class BrowserLoadTest {
 		String url = "/" + loadTestBranch + "/descriptions/semantictags";
 		ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.GET, null, String.class);
 		if (!response.getStatusCode().is2xxSuccessful()) {
-			LOGGER.error("Search request not successful {} {}", url, response.getStatusCodeValue());
+			LOGGER.error("Search request not successful {} {}", url, response.getStatusCode().value());
 		}
 		String searchType = "Semantic tag aggregation search";
 		String searchDescription = String.format(searchType + " on branch %s", loadTestBranch);
@@ -237,7 +237,7 @@ public class BrowserLoadTest {
 
 		ResponseEntity<String> response = restTemplate.exchange(uriComponentsBuilder.build().toUri(), HttpMethod.GET, null, String.class);
 		if (!response.getStatusCode().is2xxSuccessful()) {
-			LOGGER.error("Search request not successful {} {}", url, response.getStatusCodeValue());
+			LOGGER.error("Search request not successful {} {}", url, response.getStatusCode().value());
 		}
 		String searchType = "ECL search";
 		String searchDescription = String.format(searchType + " for %s returnIdOnly=%s", ecl, returnIdOnly);
@@ -250,7 +250,7 @@ public class BrowserLoadTest {
 				+ "&groupByConcept=" + groupByConcept + "&searchMode=" + searchMode.name();
 		ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.GET, null, String.class);
 		if (!response.getStatusCode().is2xxSuccessful()) {
-			LOGGER.error("Search request not successful {} {}", url, response.getStatusCodeValue());
+			LOGGER.error("Search request not successful {} {}", url, response.getStatusCode().value());
 		}
 		String searchDescription = String.format("Description search for term=%s language=%s searchMode=%s and groupByConcept=%s",
 				term, language, searchMode.name(), groupByConcept);
@@ -270,7 +270,7 @@ public class BrowserLoadTest {
 
 			ResponseEntity<Concept> conceptResponse = restTemplate.exchange(url, HttpMethod.GET, null, Concept.class);
 			if (!conceptResponse.getStatusCode().is2xxSuccessful()) {
-				LOGGER.error("Search request not successful {} {}", url, conceptResponse.getStatusCodeValue());
+				LOGGER.error("Search request not successful {} {}", url, conceptResponse.getStatusCode().value());
 			}
 			Concept concept = conceptResponse.getBody();
 			if (concept != null) {
