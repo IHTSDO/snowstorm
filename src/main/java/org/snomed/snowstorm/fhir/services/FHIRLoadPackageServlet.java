@@ -2,7 +2,7 @@ package org.snomed.snowstorm.fhir.services;
 
 import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.parser.IParser;
-import org.apache.commons.fileupload.util.Streams;
+import org.apache.commons.io.IOUtils;
 import org.hl7.fhir.r4.model.OperationOutcome;
 import org.springframework.web.context.WebApplicationContext;
 import org.springframework.web.context.support.WebApplicationContextUtils;
@@ -17,6 +17,7 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStreamWriter;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
 import java.util.HashSet;
@@ -62,9 +63,9 @@ public class FHIRLoadPackageServlet extends HttpServlet {
 		boolean testValueSets = false;
 		for (Part part : req.getParts()) {
 			if ("resourceUrls".equals(part.getName())) {
-				resourceUrls.add(Streams.asString(part.getInputStream()));
+				resourceUrls.add(IOUtils.toString(part.getInputStream(), StandardCharsets.UTF_8));
 			}
-			if ("testValueSets".equals(part.getName()) && Boolean.parseBoolean(Streams.asString(part.getInputStream()))) {
+			if ("testValueSets".equals(part.getName()) && Boolean.parseBoolean(IOUtils.toString(part.getInputStream(), StandardCharsets.UTF_8))) {
 				testValueSets = true;
 			}
 		}
