@@ -24,6 +24,7 @@ public class ClientHttpResponseWithCachedBody implements ClientHttpResponse {
 	}
 
 	@Override
+	@Deprecated
 	public int getRawStatusCode() throws IOException {
 		return httpResponse.getStatusCode().value();
 	}
