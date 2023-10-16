@@ -16,7 +16,7 @@
 	<properties>
 		<packageName>${project.artifactId}</packageName>
 		<!--
-		Current Elasticsearch _Server_ version supported by AWS is 7.10.0
+		Current Elasticsearch _Server_ version is 8.7.1
 		N.B. Remember to keep TestConfig.ELASTIC_SEARCH_SERVER_VERSION and getting-started guide updated.
 		-->
 
@@ -32,29 +32,17 @@
 			<!-- Branching and Version Control on top of Elasticsearch -->
 			<groupId>io.kaicode</groupId>
 			<artifactId>elasticvc</artifactId>
-			<exclusions>
-				<exclusion>
-					<groupId>org.elasticsearch</groupId>
-					<artifactId>jna</artifactId>
-				</exclusion>
-			</exclusions>
 		</dependency>
 		<dependency>
 			<groupId>net.java.dev.jna</groupId>
 			<artifactId>jna</artifactId>
 		</dependency>
 		<dependency>
-			<groupId>org.elasticsearch.client</groupId>
-			<artifactId>transport</artifactId>
+			<groupId>org.springframework.data</groupId>
+			<artifactId>spring-data-elasticsearch</artifactId>
 		</dependency>
-		<dependency>
-			<groupId>org.elasticsearch.client</groupId>
-			<artifactId>elasticsearch-rest-client</artifactId>
-		</dependency>
-		<dependency>
-			<groupId>org.elasticsearch.plugin</groupId>
-			<artifactId>transport-netty4-client</artifactId>
-		</dependency>
+
+
 		<dependency>
 			<!-- For RF2 Import -->
 			<groupId>org.snomed.otf</groupId>
