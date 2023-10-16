@@ -10,7 +10,7 @@
 	<parent>
 		<groupId>org.snomed</groupId>
 		<artifactId>snomed-parent-bom</artifactId>
-		<version>2.0.0</version>
+		<version>2.1.0-SNAPSHOT</version>
 	</parent>
 
 	<properties>
@@ -37,6 +37,7 @@
 			<groupId>net.java.dev.jna</groupId>
 			<artifactId>jna</artifactId>
 		</dependency>
+
 		<dependency>
 			<groupId>org.springframework.data</groupId>
 			<artifactId>spring-data-elasticsearch</artifactId>
@@ -107,7 +108,7 @@
 			<artifactId>activemq-broker</artifactId>
 		</dependency>
 		<dependency>
-			<groupId>org.springframework.cloud</groupId>
+			<groupId>io.awspring.cloud</groupId>
 			<artifactId>spring-cloud-aws-autoconfigure</artifactId>
 		</dependency>
 		<dependency>
@@ -155,19 +156,19 @@
 			<artifactId>modelmapper</artifactId>
 		</dependency>
 		<dependency>
-			<groupId>ca.uhn.hapi.fhir</groupId>
+			<groupId>org.snomed.fhir</groupId>
 			<artifactId>hapi-fhir-structures-r4</artifactId>
 		</dependency>
 		<dependency>
-			<groupId>ca.uhn.hapi.fhir</groupId>
+			<groupId>org.snomed.fhir</groupId>
 			<artifactId>hapi-fhir-server</artifactId>
 		</dependency>
 		<dependency>
-			<groupId>ca.uhn.hapi.fhir</groupId>
+			<groupId>org.snomed.fhir</groupId>
 			<artifactId>hapi-fhir-jpaserver-base</artifactId>
 			<exclusions>
 				<exclusion>
-					<groupId>ca.uhn.hapi.fhir</groupId>
+					<groupId>org.snomed.fhir</groupId>
 					<artifactId>hapi-fhir-sql-migrate</artifactId>
 				</exclusion>
 				<exclusion>
@@ -195,10 +196,14 @@
 					<groupId>org.glassfish</groupId>
 					<artifactId>javax.el</artifactId>
 				</exclusion>
+				<exclusion>
+					<groupId>org.springdoc</groupId>
+					<artifactId>springdoc-openapi-ui</artifactId>
+				</exclusion>
 			</exclusions>
 		</dependency>
 		<dependency>
-			<groupId>ca.uhn.hapi.fhir</groupId>
+			<groupId>org.snomed.fhir</groupId>
 			<artifactId>hapi-fhir-jpaserver-model</artifactId>
 			<exclusions>
 				<exclusion>
@@ -212,6 +217,28 @@
 			<artifactId>aws-java-sdk-core</artifactId>
 			<scope>compile</scope>
 		</dependency>
+
+		<dependency>
+			<groupId>commons-io</groupId>
+			<artifactId>commons-io</artifactId>
+			<version>2.14.0</version>
+		</dependency>
+		<dependency>
+			<groupId>org.apache.lucene</groupId>
+			<artifactId>lucene-analyzers-common</artifactId>
+		</dependency>
+
+		<dependency>
+			<groupId>io.awspring.cloud</groupId>
+			<artifactId>spring-cloud-aws-starter-s3</artifactId>
+			<version>3.0.2</version>
+		</dependency>
+		<dependency>
+			<groupId>com.amazonaws</groupId>
+			<artifactId>aws-java-sdk-s3</artifactId>
+			<version>1.12.562</version>
+		</dependency>
+
 
 		<!-- Caching -->
 		<dependency>
