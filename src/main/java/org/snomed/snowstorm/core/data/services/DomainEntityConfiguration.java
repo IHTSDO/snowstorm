@@ -23,6 +23,9 @@ public class DomainEntityConfiguration {
 	private RelationshipRepository relationshipRepository;
 
 	@Autowired
+	private IdentifierRepository identifierRepository;
+
+	@Autowired
 	private ReferenceSetMemberRepository referenceSetMemberRepository;
 
 	@Autowired
@@ -42,6 +45,7 @@ public class DomainEntityConfiguration {
 		componentTypeRepositoryMap = new LinkedHashMap<>();
 		componentTypeRepositoryMap.put(Concept.class, conceptRepository);
 		componentTypeRepositoryMap.put(Description.class, descriptionRepository);
+		componentTypeRepositoryMap.put(Identifier.class, identifierRepository);
 		componentTypeRepositoryMap.put(Relationship.class, relationshipRepository);
 		componentTypeRepositoryMap.put(ReferenceSetMember.class, referenceSetMemberRepository);
 		componentTypeRepositoryMap = Collections.unmodifiableMap(componentTypeRepositoryMap);
