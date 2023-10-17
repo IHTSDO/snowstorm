@@ -53,6 +53,9 @@ public class ConceptUpdateHelper extends ComponentService {
 	private DescriptionRepository descriptionRepository;
 
 	@Autowired
+	private IdentifierRepository identifierRepository;
+
+	@Autowired
 	private RelationshipRepository relationshipRepository;
 
 	@Autowired
@@ -600,6 +603,13 @@ public class ConceptUpdateHelper extends ComponentService {
 	}
 
 	/**
+	 * Persists alternative identifier updates within commit.
+	 */
+	public void doSaveBatchIdentifiers(Collection<Identifier> identifiers, Commit commit) {
+		doSaveBatchComponents(identifiers, commit, Identifier.Fields.INTERNAL_IDENTIFIER_ID, identifierRepository);
+	}
+
+	/**
 	 * Persists relationships updates within commit.
 	 */
 	public void doSaveBatchRelationships(Collection<Relationship> relationships, Commit commit) {
@@ -725,6 +735,8 @@ public class ConceptUpdateHelper extends ComponentService {
 			doSaveBatchConcepts((Collection<Concept>) components, commit);
 		} else if (type.equals(Description.class)) {
 			doSaveBatchDescriptions((Collection<Description>) components, commit);
+		}  else if (type.equals(Identifier.class)) {
+			doSaveBatchIdentifiers((Collection<Identifier>) components, commit);
 		} else if (type.equals(Relationship.class)) {
 			doSaveBatchRelationships((Collection<Relationship>) components, commit);
 		} else if (type.equals(ReferenceSetMember.class)) {
