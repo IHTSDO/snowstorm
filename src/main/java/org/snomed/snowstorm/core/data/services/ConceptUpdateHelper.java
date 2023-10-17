@@ -540,6 +540,7 @@ public class ConceptUpdateHelper extends ComponentService {
 		// Mark concept and components as deleted
 		logger.info("Deleting concept {} on branch {} at timepoint {}", concept.getConceptId(), path, commit.getTimepoint());
 		concept.markDeleted();
+		concept.getIdentifiers().forEach(identifier -> identifier.markDeleted());
 		Set<ReferenceSetMember> membersToDelete = new HashSet<>(concept.getAllOwlAxiomMembers());
 		concept.getDescriptions().forEach(description -> {
 			description.markDeleted();
