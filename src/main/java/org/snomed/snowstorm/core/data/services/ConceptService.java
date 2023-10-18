@@ -711,6 +711,9 @@ public class ConceptService extends ComponentService {
 	private void joinComponentsToConcepts(PersistedComponents persistedComponents, Map<String, ConceptMini> conceptMiniMap, List<LanguageDialect> languageDialects) {
 		Iterable<Concept> persistedConcepts = persistedComponents.getPersistedConcepts();
 		Iterable<Description> persistedDescriptions = persistedComponents.getPersistedDescriptions();
+
+		// Todo: un-comment out this line when allowing the alternative identifier modification
+		// Iterable<Identifier> persistedIdentifiers = persistedComponents.getPersistedIdentifiers();
 		Iterable<Relationship> persistedRelationships = persistedComponents.getPersistedRelationships();
 		Iterable<ReferenceSetMember> persistedReferenceSetMembers = persistedComponents.getPersistedReferenceSetMembers();
 
@@ -725,6 +728,8 @@ public class ConceptService extends ComponentService {
 				concept.getClassAxioms().clear();
 				concept.getGciAxioms().clear();
 				concept.getAnnotations().clear();
+				// Todo: un-comment out this line when allowing the alternative identifier modification
+				// concept.getIdentifiers().clear();
 			}
 		}
 		Map<String, Description> descriptionMap = new HashMap<>();
@@ -734,6 +739,14 @@ public class ConceptService extends ComponentService {
 				descriptionMap.put(description.getId(), description);
 			}
 		}
+		// Todo: un-comment out this line when allowing the alternative identifier modification
+		// for (Identifier identifier : persistedIdentifiers) {
+		//	if (!identifier.isDeleted()) {
+		//		conceptMap.get(identifier.getReferencedComponentId()).addIdentifier(identifier);
+		//		identifier.setIdentifierScheme(getConceptMini(conceptMiniMap, identifier.getIdentifierSchemeId(), languageDialects));
+		//	}
+		// }
+
 		for (Relationship relationship : persistedRelationships) {
 			if (!relationship.isDeleted()) {
 				conceptMap.get(relationship.getSourceId()).addRelationship(relationship);
