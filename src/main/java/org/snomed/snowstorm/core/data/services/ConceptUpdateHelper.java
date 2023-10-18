@@ -134,6 +134,8 @@ public class ConceptUpdateHelper extends ComponentService {
 
 		// Create collections of components that will be written to store, including deletions
 		List<Description> descriptionsToPersist = new ArrayList<>();
+		// Todo: un-comment out this line when allowing the alternative identifier modification
+		// List<Identifier> identifiersToPersist = new ArrayList<>();
 		List<Relationship> relationshipsToPersist = new ArrayList<>();
 		List<ReferenceSetMember> refsetMembersToPersist = new ArrayList<>();
 
@@ -261,6 +263,11 @@ public class ConceptUpdateHelper extends ComponentService {
 			markDeletionsAndUpdates(newVersionConcept, existingConcept, existingConceptFromParent, Concept::getDescriptions,
 					defaultModuleId, descriptionsToPersist, rebaseConflictSave);
 
+			// Todo: un-comment out this line when allowing the alternative identifier modification
+			// Alternative Identifiers
+			// markDeletionsAndUpdates(newVersionConcept, existingConcept, existingConceptFromParent, Concept::getIdentifiers,
+			//		defaultModuleId, identifiersToPersist, rebaseConflictSave);
+
 			// Relationships
 			markDeletionsAndUpdates(newVersionConcept, existingConcept, existingConceptFromParent, Concept::getRelationships,
 					defaultModuleId, relationshipsToPersist, rebaseConflictSave);
@@ -285,6 +292,7 @@ public class ConceptUpdateHelper extends ComponentService {
 
 			// Detach concept's components to ensure concept persisted without collections
 			newVersionConcept.getDescriptions().clear();
+			newVersionConcept.getIdentifiers().clear();
 			newVersionConcept.getRelationships().clear();
 			newVersionConcept.getClassAxioms().clear();
 			newVersionConcept.getGciAxioms().clear();
@@ -293,6 +301,9 @@ public class ConceptUpdateHelper extends ComponentService {
 		// TODO: Try saving all core component types at once - Elasticsearch likes multi-threaded writes.
 		doSaveBatchConcepts(newVersionConcepts, commit);
 		doSaveBatchDescriptions(descriptionsToPersist, commit);
+
+		// Todo: un-comment out this line when allowing the alternative identifier modification
+		// doSaveBatchIdentifiers(identifiersToPersist, commit);
 		doSaveBatchRelationships(relationshipsToPersist, commit);
 
 		refsetMembersToPersist.stream().filter(m -> m.getModuleId() == null).forEach(m -> m.setModuleId(defaultModuleId));
@@ -302,7 +313,8 @@ public class ConceptUpdateHelper extends ComponentService {
 		// Store assigned identifiers for registration with CIS
 		identifierService.persistAssignedIdsForRegistration(reservedIds);
 
-		return new PersistedComponents(newVersionConcepts, descriptionsToPersist, relationshipsToPersist, refsetMembersToPersist);
+		// Todo: use identifiersToPersist when allowing the alternative identifier modification
+		return new PersistedComponents(newVersionConcepts, descriptionsToPersist, /* identifiersToPersist */ Collections.emptySet() , relationshipsToPersist, refsetMembersToPersist);
 	}
 
 	private <C extends SnomedComponent<?>, T extends SnomedComponent<?>> Collection<C> getExistingComponents(T existingConcept, Function<T, Collection<C>> getter) {
@@ -576,6 +588,7 @@ public class ConceptUpdateHelper extends ComponentService {
 
 		// Persist deletion
 		doSaveBatchConcepts(Sets.newHashSet(concept), commit);
+		doSaveBatchIdentifiers(concept.getIdentifiers(), commit);
 		doSaveBatchDescriptions(concept.getDescriptions(), commit);
 		membersToDelete.forEach(ReferenceSetMember::markDeleted);
 		memberService.doSaveBatchMembers(membersToDelete, commit);

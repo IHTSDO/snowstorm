@@ -1,10 +1,7 @@
 package org.snomed.snowstorm.core.data.services.pojo;
 
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
-import org.snomed.snowstorm.core.data.domain.Concept;
-import org.snomed.snowstorm.core.data.domain.Description;
-import org.snomed.snowstorm.core.data.domain.ReferenceSetMember;
-import org.snomed.snowstorm.core.data.domain.Relationship;
+import org.snomed.snowstorm.core.data.domain.*;
 
 import java.util.Collections;
 import java.util.Objects;
@@ -13,21 +10,23 @@ public class PersistedComponents {
 
 	private final Iterable<Concept> persistedConcepts;
 	private final Iterable<Description> persistedDescriptions;
+	private final Iterable<Identifier> persistedIdentifiers;
 	private final Iterable<Relationship> persistedRelationships;
 	private final Iterable<ReferenceSetMember> persistedReferenceSetMembers;
 
 	public PersistedComponents() {
 		persistedConcepts = Collections.emptyList();
 		persistedDescriptions = Collections.emptyList();
+		persistedIdentifiers = Collections.emptyList();
 		persistedRelationships = Collections.emptyList();
 		persistedReferenceSetMembers = Collections.emptyList();
 	}
 
-	public PersistedComponents(Iterable<Concept> persistedConcepts, Iterable<Description> persistedDescriptions,
+	public PersistedComponents(Iterable<Concept> persistedConcepts, Iterable<Description> persistedDescriptions, Iterable<Identifier> persistedIdentifiers,
 			Iterable<Relationship> persistedRelationships, Iterable<ReferenceSetMember> persistedReferenceSetMembers) {
-
 		this.persistedConcepts = persistedConcepts;
 		this.persistedDescriptions = persistedDescriptions;
+		this.persistedIdentifiers = persistedIdentifiers;
 		this.persistedRelationships = persistedRelationships;
 		this.persistedReferenceSetMembers = persistedReferenceSetMembers;
 	}
@@ -38,6 +37,10 @@ public class PersistedComponents {
 
 	public Iterable<Description> getPersistedDescriptions() {
 		return persistedDescriptions;
+	}
+
+	public Iterable <Identifier> getPersistedIdentifiers() {
+		return persistedIdentifiers;
 	}
 
 	public Iterable<Relationship> getPersistedRelationships() {
@@ -72,6 +75,7 @@ public class PersistedComponents {
 
 		private Iterable<Concept> persistedConcepts;
 		private Iterable<Description> persistedDescriptions;
+		private Iterable<Identifier> persistedIdentifiers;
 		private Iterable<Relationship> persistedRelationships;
 		private Iterable<ReferenceSetMember> persistedReferenceSetMembers;
 
@@ -88,6 +92,11 @@ public class PersistedComponents {
 		}
 
 		@CanIgnoreReturnValue
+		public final Builder withPersistedIdentifiers(final Iterable<Identifier> persistedIdentifiers) {
+			this.persistedIdentifiers = persistedIdentifiers;
+			return this;
+		}
+		@CanIgnoreReturnValue
 		public final Builder withPersistedRelationships(final Iterable<Relationship> persistedDescriptions) {
 			this.persistedRelationships = persistedDescriptions;
 			return this;
@@ -102,9 +111,10 @@ public class PersistedComponents {
 		public final PersistedComponents build() {
 			persistedConcepts = persistedConcepts == null ? Collections.emptyList() : persistedConcepts;
 			persistedDescriptions = persistedDescriptions == null ? Collections.emptyList() : persistedDescriptions;
+			persistedIdentifiers = persistedIdentifiers == null ? Collections.emptyList() : persistedIdentifiers;
 			persistedRelationships = persistedRelationships == null ? Collections.emptyList() : persistedRelationships;
 			persistedReferenceSetMembers = persistedReferenceSetMembers == null ? Collections.emptyList() : persistedReferenceSetMembers;
-			return new PersistedComponents(persistedConcepts, persistedDescriptions, persistedRelationships, persistedReferenceSetMembers);
+			return new PersistedComponents(persistedConcepts, persistedDescriptions, persistedIdentifiers, persistedRelationships, persistedReferenceSetMembers);
 		}
 	}
 }
