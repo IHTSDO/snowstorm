@@ -13,6 +13,7 @@ import org.springframework.boot.autoconfigure.elasticsearch.ElasticsearchRestCli
 import org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Profile;
 import org.springframework.context.annotation.PropertySource;
 import org.springframework.data.elasticsearch.client.ClientConfiguration;
 import org.testcontainers.DockerClientFactory;
@@ -22,6 +23,7 @@ import org.testcontainers.junit.jupiter.Container;
 
 import jakarta.annotation.PostConstruct;
 
+@PropertySource(value = "classpath:application.properties", encoding = "UTF-8")
 @TestConfiguration
 @SpringBootApplication(
 		exclude = {
