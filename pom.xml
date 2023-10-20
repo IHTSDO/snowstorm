@@ -209,12 +209,6 @@
 			</exclusions>
 		</dependency>
 		<dependency>
-			<groupId>com.amazonaws</groupId>
-			<artifactId>aws-java-sdk-core</artifactId>
-			<scope>compile</scope>
-		</dependency>
-
-		<dependency>
 			<groupId>commons-io</groupId>
 			<artifactId>commons-io</artifactId>
 			<version>2.14.0</version>
@@ -226,8 +220,14 @@
 
 		<dependency>
 			<groupId>io.awspring.cloud</groupId>
-			<artifactId>spring-cloud-aws-starter-s3</artifactId>
-			<version>3.0.2</version>
+			<artifactId>spring-cloud-aws-autoconfigure</artifactId>
+		</dependency>
+
+
+		<!-- AWS auth -->
+		<dependency>
+			<groupId>io.github.acm19</groupId>
+			<artifactId>aws-request-signing-apache-interceptor</artifactId>
 		</dependency>
 
 		<!-- Caching -->
@@ -304,6 +304,11 @@
 		<dependency>
 			<groupId>org.springframework.cloud</groupId>
 			<artifactId>spring-cloud-starter-vault-config</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>software.amazon.awssdk</groupId>
+			<artifactId>auth</artifactId>
+			<version>2.21.1</version>
 		</dependency>
 	</dependencies>
 	<dependencyManagement>
