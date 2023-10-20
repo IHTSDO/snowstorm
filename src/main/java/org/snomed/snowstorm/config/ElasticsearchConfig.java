@@ -1,9 +1,7 @@
 package org.snomed.snowstorm.config;
 
-import com.amazonaws.auth.AWS4Signer;
-import com.amazonaws.auth.DefaultAWSCredentialsProviderChain;
-import com.amazonaws.regions.DefaultAwsRegionProviderChain;
 import com.google.common.base.Strings;
+import io.github.acm19.aws.interceptor.http.AwsRequestSigningApacheInterceptor;
 import org.apache.http.HttpHost;
 import org.apache.http.auth.AuthScope;
 import org.apache.http.auth.UsernamePasswordCredentials;
@@ -12,7 +10,6 @@ import org.apache.http.impl.client.BasicCredentialsProvider;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.snomed.snowstorm.config.aws.AWSRequestSigningApacheInterceptor;
 import org.snomed.snowstorm.config.elasticsearch.DateToLongConverter;
 import org.snomed.snowstorm.config.elasticsearch.LongToDateConverter;
 import org.springframework.beans.factory.annotation.Value;
@@ -22,6 +19,9 @@ import org.springframework.data.elasticsearch.client.elc.ElasticsearchClients;
 import org.springframework.data.elasticsearch.client.elc.ElasticsearchConfiguration;
 import org.springframework.data.elasticsearch.core.convert.ElasticsearchCustomConversions;
 import org.springframework.data.elasticsearch.support.HttpHeaders;
+import software.amazon.awssdk.auth.credentials.DefaultCredentialsProvider;
+import software.amazon.awssdk.auth.signer.Aws4Signer;
+import software.amazon.awssdk.regions.providers.DefaultAwsRegionProviderChain;
 
 import java.time.Duration;
 import java.util.ArrayList;
@@ -93,14 +93,8 @@ public class ElasticsearchConfig extends ElasticsearchConfiguration {
 	}
 
 
-	private AWSRequestSigningApacheInterceptor awsInterceptor(String serviceName) {
-		AWS4Signer signer = new AWS4Signer();
-		DefaultAwsRegionProviderChain regionProviderChain = new DefaultAwsRegionProviderChain();
-		DefaultAWSCredentialsProviderChain credentialsProvider = new DefaultAWSCredentialsProviderChain();
-		signer.setServiceName(serviceName);
-		signer.setRegionName(regionProviderChain.getRegion());
-
-		return new AWSRequestSigningApacheInterceptor(serviceName, signer, credentialsProvider);
+	private AwsRequestSigningApacheInterceptor awsInterceptor(String serviceName) {
+		return new AwsRequestSigningApacheInterceptor(serviceName, Aws4Signer.create(), DefaultCredentialsProvider.create(), DefaultAwsRegionProviderChain.builder().build().getRegion());
 	}
 
 	private static String[] getHosts(String[] hosts) {
