@@ -39,7 +39,6 @@ public class TestConfig extends Config {
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(TestConfig.class);
 
-//	private static final String ACTIVEMQ_IMAGE = "rmohr/activemq";
 	private static final String ACTIVEMQ_IMAGE = "symptoma/activemq";
 
 	private static final int ACTIVEMQ_PORT = 61616;
