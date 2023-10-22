@@ -8,6 +8,7 @@ import org.springframework.data.annotation.Id;
 import org.springframework.data.elasticsearch.annotations.Document;
 import org.springframework.data.elasticsearch.annotations.Field;
 import org.springframework.data.elasticsearch.annotations.FieldType;
+import org.springframework.data.elasticsearch.annotations.Setting;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -15,7 +16,8 @@ import java.util.List;
 import static java.lang.String.format;
 import static org.snomed.snowstorm.core.util.CollectionUtils.orEmpty;
 
-@Document(indexName = "fhir-concept-map")
+@Document(indexName = "#{@indexNameProvider.indexName('fhir-concept-map')}")
+@Setting(settingPath = "elasticsearch-settings.json")
 public class FHIRConceptMap {
 
 	public interface Fields {

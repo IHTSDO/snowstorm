@@ -8,10 +8,12 @@ import org.springframework.data.annotation.Id;
 import org.springframework.data.elasticsearch.annotations.Document;
 import org.springframework.data.elasticsearch.annotations.Field;
 import org.springframework.data.elasticsearch.annotations.FieldType;
+import org.springframework.data.elasticsearch.annotations.Setting;
 
 import java.util.Set;
 
-@Document(indexName = "admin-permission")
+@Document(indexName = "#{@indexNameProvider.indexName('admin-permission')}")
+@Setting(settingPath = "elasticsearch-settings.json")
 @JsonPropertyOrder({"role", "path", "global", "userGroups"})
 public class PermissionRecord {
 

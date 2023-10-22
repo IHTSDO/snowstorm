@@ -18,12 +18,15 @@ import org.springframework.data.elasticsearch.annotations.FieldType;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
+import org.springframework.data.elasticsearch.annotations.Setting;
+
 import java.util.*;
 import java.util.stream.Collectors;
 
 import static org.snomed.snowstorm.config.Config.DEFAULT_LANGUAGE_DIALECTS;
 
-@Document(indexName = "concept")
+@Document(indexName = "#{@indexNameProvider.indexName('concept')}")
+@Setting(settingPath = "elasticsearch-settings.json")
 @JsonPropertyOrder({"conceptId", "descendantCount", "fsn", "pt", "active", "effectiveTime", "released", "releasedEffectiveTime",  "inactivationIndicator", "associationTargets",
 		"moduleId", "definitionStatus", "definitionStatusId", "descriptions", "annotations", "classAxioms", "gciAxioms", "relationships", "alternateIdentifiers", "validationResults"})
 public class Concept extends SnomedComponent<Concept> implements ConceptView, SnomedComponentWithInactivationIndicator, SnomedComponentWithAssociations {
