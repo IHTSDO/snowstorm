@@ -7,8 +7,10 @@ import org.hl7.fhir.r4.model.*;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.annotation.PersistenceCreator;
 import org.springframework.data.elasticsearch.annotations.Document;
+import org.springframework.data.elasticsearch.annotations.Setting;
 
-@Document(indexName = "fhir-structure-definition")
+@Document(indexName = "#{@indexNameProvider.indexName('fhir-structure-definition')}")
+@Setting(settingPath = "elasticsearch-settings.json")
 public class StructureDefinitionWrapper {
 	
 	private static IParser fhirJsonParser;

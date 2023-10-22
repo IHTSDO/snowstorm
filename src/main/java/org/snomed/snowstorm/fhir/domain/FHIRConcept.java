@@ -15,13 +15,15 @@ import org.springframework.data.annotation.Transient;
 import org.springframework.data.elasticsearch.annotations.Document;
 import org.springframework.data.elasticsearch.annotations.Field;
 import org.springframework.data.elasticsearch.annotations.FieldType;
+import org.springframework.data.elasticsearch.annotations.Setting;
 
 import java.util.*;
 import java.util.stream.Collectors;
 
 import static org.snomed.snowstorm.fhir.config.FHIRConstants.SNOMED_URI;
 
-@Document(indexName = "fhir-concept")
+@Document(indexName = "#{@indexNameProvider.indexName('fhir-concept')}")
+@Setting(settingPath = "elasticsearch-settings.json")
 public class FHIRConcept implements FHIRGraphNode {
 
 	public interface Fields {
