@@ -1,7 +1,9 @@
 package org.snomed.snowstorm.config;
 
+import co.elastic.clients.elasticsearch.ElasticsearchClient;
 import com.google.common.base.Strings;
 import io.github.acm19.aws.interceptor.http.AwsRequestSigningApacheInterceptor;
+import io.kaicode.elasticvc.repositories.config.IndexNameProvider;
 import org.apache.http.HttpHost;
 import org.apache.http.auth.AuthScope;
 import org.apache.http.auth.UsernamePasswordCredentials;
@@ -23,10 +25,7 @@ import software.amazon.awssdk.auth.credentials.DefaultCredentialsProvider;
 import software.amazon.awssdk.auth.signer.Aws4Signer;
 import software.amazon.awssdk.regions.providers.DefaultAwsRegionProviderChain;
 
-import java.time.Duration;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
+import java.util.*;
 
 public class ElasticsearchConfig extends ElasticsearchConfiguration {
 
@@ -62,34 +61,58 @@ public class ElasticsearchConfig extends ElasticsearchConfiguration {
 		for (String url : urls) {
 			logger.info("Elasticsearch host: {}", url);
 		}
-		logger.info("Elasticsearch index prefix: {}", indexNamePrefix);
-		return ClientConfiguration.builder()
-				.connectedTo(getHosts(urls))
-				.withConnectTimeout(Duration.ofSeconds(5))
-				.withSocketTimeout(Duration.ofSeconds(3))
-				.withHeaders(() -> {
-					HttpHeaders headers = new HttpHeaders();
-					if (!Strings.isNullOrEmpty(apiKey)) {
-						headers.add(HttpHeaders.AUTHORIZATION, "ApiKey " + apiKey);
-					}
-					return headers;
-				}).withClientConfigurer(
-						ElasticsearchClients.ElasticsearchRestClientConfigurationCallback.from(clientBuilder -> {
-							clientBuilder.setRequestConfigCallback(builder -> {
-								builder.setConnectionRequestTimeout(0); //Disable lease handling for the connection pool! See https://github.com/elastic/elasticsearch/issues/24069
-								return builder;
-							});
-							if (!Strings.isNullOrEmpty(elasticsearchUsername)&& !Strings.isNullOrEmpty(elasticsearchPassword)) {
-								final CredentialsProvider credentialsProvider = new BasicCredentialsProvider();
-								credentialsProvider.setCredentials(AuthScope.ANY, new UsernamePasswordCredentials(elasticsearchUsername, elasticsearchPassword));
-								clientBuilder.setHttpClientConfigCallback(httpClientBuilder -> httpClientBuilder.setDefaultCredentialsProvider(credentialsProvider));
-							}
-							if (awsRequestSigning != null && awsRequestSigning) {
-								clientBuilder.setHttpClientConfigCallback(httpClientBuilder -> httpClientBuilder.addInterceptorLast(awsInterceptor("es")));
-							}
-							return clientBuilder;
-						})
-				).build();
+		HttpHeaders apiKeyHeaders = new HttpHeaders();
+		if (!Strings.isNullOrEmpty(apiKey)) {
+			logger.info("Using API key authentication.");
+			apiKeyHeaders.add("Authorization", "ApiKey " + apiKey);
+		}
+
+		if (useHttps(urls)) {
+			return ClientConfiguration.builder()
+					.connectedTo(getHosts(urls))
+					.usingSsl()
+					.withDefaultHeaders(apiKeyHeaders)
+					.withClientConfigurer(
+							configureHttpClient())
+					.build();
+		} else {
+			return ClientConfiguration.builder()
+					.connectedTo(getHosts(urls))
+					.withDefaultHeaders(apiKeyHeaders)
+					.withClientConfigurer(
+							configureHttpClient())
+					.build();
+		}
+	}
+
+	private boolean useHttps(String[] urls) {
+		for (String url : urls) {
+			if (url.startsWith("https://")) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	private ElasticsearchClients.ElasticsearchRestClientConfigurationCallback configureHttpClient() {
+		return ElasticsearchClients.ElasticsearchRestClientConfigurationCallback.from(clientBuilder -> {
+			clientBuilder.setRequestConfigCallback(builder -> {
+				builder.setConnectionRequestTimeout(0);//Disable lease handling for the connection pool! See https://github.com/elastic/elasticsearch/issues/24069
+				return builder;
+			});
+			final CredentialsProvider credentialsProvider = new BasicCredentialsProvider();
+			if (!Strings.isNullOrEmpty(elasticsearchUsername) && !Strings.isNullOrEmpty(elasticsearchPassword)) {
+				credentialsProvider.setCredentials(AuthScope.ANY, new UsernamePasswordCredentials(elasticsearchUsername, elasticsearchPassword));
+			}
+			clientBuilder.setHttpClientConfigCallback(httpClientBuilder -> {
+				httpClientBuilder.setDefaultCredentialsProvider(credentialsProvider);
+				if (awsRequestSigning != null && awsRequestSigning) {
+					httpClientBuilder.addInterceptorFirst(awsInterceptor("es"));
+				}
+				return httpClientBuilder;
+			});
+			return clientBuilder;
+		});
 	}
 
 
@@ -112,9 +135,13 @@ public class ElasticsearchConfig extends ElasticsearchConfiguration {
 				Arrays.asList(new DateToLongConverter(), new LongToDateConverter()));
 	}
 
-
 	@Bean
 	public ElasticsearchProperties elasticsearchProperties() {
 		return new ElasticsearchProperties();
+	}
+
+	@Bean
+	public IndexNameProvider indexNameProvider() {
+		return new IndexNameProvider(indexNamePrefix);
 	}
 }
