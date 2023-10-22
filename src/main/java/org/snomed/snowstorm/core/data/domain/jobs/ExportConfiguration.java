@@ -8,10 +8,13 @@ import org.springframework.data.elasticsearch.annotations.FieldType;
 
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
+import org.springframework.data.elasticsearch.annotations.Setting;
+
 import java.util.Date;
 import java.util.Set;
 
-@Document(indexName = "export-config")
+@Document(indexName = "#{@indexNameProvider.indexName('export-config')}")
+@Setting(settingPath = "elasticsearch-settings.json")
 public class ExportConfiguration {
 
 	private String id;

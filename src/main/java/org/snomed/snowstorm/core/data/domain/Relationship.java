@@ -13,11 +13,14 @@ import org.springframework.data.elasticsearch.annotations.FieldType;
 
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
+import org.springframework.data.elasticsearch.annotations.Setting;
+
 import java.util.Objects;
 
 import static org.snomed.snowstorm.core.data.domain.Concepts.*;
 
-@Document(indexName = "relationship")
+@Document(indexName = "#{@indexNameProvider.indexName('relationship')}")
+@Setting(settingPath = "elasticsearch-settings.json")
 public class Relationship extends SnomedComponent<Relationship> {
 
 	public enum CharacteristicType {
