@@ -3,11 +3,13 @@ package org.snomed.snowstorm.core.data.domain;
 import org.snomed.snowstorm.core.data.services.ApiError;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.elasticsearch.annotations.Document;
+import org.springframework.data.elasticsearch.annotations.Setting;
 
 import java.util.Date;
 import java.util.UUID;
 
-@Document(indexName = "branch-marge")
+@Document(indexName = "#{@indexNameProvider.indexName('branch-marge')}")
+@Setting(settingPath = "elasticsearch-settings.json")
 public class BranchMergeJob {
 
 	@Id

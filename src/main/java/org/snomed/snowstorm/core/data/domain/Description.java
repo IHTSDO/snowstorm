@@ -14,13 +14,15 @@ import org.springframework.data.elasticsearch.annotations.FieldType;
 
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
+import org.springframework.data.elasticsearch.annotations.Setting;
 
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
-@Document(indexName = "description")
+@Document(indexName = "#{@indexNameProvider.indexName('description')}")
+@Setting(settingPath = "elasticsearch-settings.json")
 public class Description extends SnomedComponent<Description> implements SnomedComponentWithInactivationIndicator, SnomedComponentWithAssociations {
 
 	private static final Pattern TAG_PATTERN = Pattern.compile(".+ \\((.+)\\)");
