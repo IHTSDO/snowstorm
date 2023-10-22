@@ -8,13 +8,16 @@ import org.springframework.data.elasticsearch.annotations.Field;
 import org.springframework.data.elasticsearch.annotations.FieldType;
 
 import jakarta.persistence.Transient;
+import org.springframework.data.elasticsearch.annotations.Setting;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
 import static org.snomed.snowstorm.core.util.CollectionUtils.orEmpty;
 
-@Document(indexName = "fhir-map-element")
+@Document(indexName = "#{@indexNameProvider.indexName('fhir-map-element')}")
+@Setting(settingPath = "elasticsearch-settings.json")
 public class FHIRMapElement {
 
 	public interface Fields {

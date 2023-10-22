@@ -2,14 +2,12 @@ package org.snomed.snowstorm.core.data.domain;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import org.springframework.data.annotation.Transient;
-import org.springframework.data.elasticsearch.annotations.DateFormat;
-import org.springframework.data.elasticsearch.annotations.Document;
-import org.springframework.data.elasticsearch.annotations.Field;
-import org.springframework.data.elasticsearch.annotations.FieldType;
+import org.springframework.data.elasticsearch.annotations.*;
 
 import java.util.Date;
 
-@Document(indexName = "codesystem-version")
+@Document(indexName = "#{@indexNameProvider.indexName('codesystem-version')}")
+@Setting(settingPath = "elasticsearch-settings.json")
 public class CodeSystemVersion {
 
 	public interface Fields {

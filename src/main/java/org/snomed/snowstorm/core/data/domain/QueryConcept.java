@@ -8,13 +8,15 @@ import org.springframework.data.annotation.Transient;
 import org.springframework.data.elasticsearch.annotations.Document;
 import org.springframework.data.elasticsearch.annotations.Field;
 import org.springframework.data.elasticsearch.annotations.FieldType;
+import org.springframework.data.elasticsearch.annotations.Setting;
 
 import java.util.*;
 
 /**
  * Represents an active concept with fields to assist logical searching.
  */
-@Document(indexName = "semantic")
+@Document(indexName = "#{@indexNameProvider.indexName('semantic')}")
+@Setting(settingPath = "elasticsearch-settings.json")
 public class QueryConcept extends DomainEntity<QueryConcept> implements FHIRGraphNode {
 
 	public static final String ATTR_TYPE_WILDCARD = "all";

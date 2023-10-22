@@ -3,6 +3,7 @@ package org.snomed.snowstorm.core.data.domain.jobs;
 import org.springframework.data.elasticsearch.annotations.Document;
 import org.springframework.data.elasticsearch.annotations.Field;
 import org.springframework.data.elasticsearch.annotations.FieldType;
+import org.springframework.data.elasticsearch.annotations.Setting;
 
 import java.util.Collection;
 import java.util.UUID;
@@ -13,7 +14,8 @@ import java.util.UUID;
  * they are registered with the Component Identifier Service.
  * Once the identifiers are registered these documents are deleted.
  */
-@Document(indexName = "identifiers-for-registration")
+@Document(indexName = "#{@indexNameProvider.indexName('identifiers-for-registration')}")
+@Setting(settingPath = "elasticsearch-settings.json")
 public class IdentifiersForRegistration {
 
 	private String id;

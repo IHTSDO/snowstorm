@@ -8,10 +8,12 @@ import org.springframework.data.annotation.Transient;
 import org.springframework.data.elasticsearch.annotations.Document;
 import org.springframework.data.elasticsearch.annotations.Field;
 import org.springframework.data.elasticsearch.annotations.FieldType;
+import org.springframework.data.elasticsearch.annotations.Setting;
 
 import java.io.Serializable;
 
-@Document(indexName = "classification-relationship-change")
+@Document(indexName = "#{@indexNameProvider.indexName('classification-relationship-change')}")
+@Setting(settingPath = "elasticsearch-settings.json")
 public class RelationshipChange {
 
 	public interface Fields {

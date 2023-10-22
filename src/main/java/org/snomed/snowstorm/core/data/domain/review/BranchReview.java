@@ -1,17 +1,15 @@
 package org.snomed.snowstorm.core.data.domain.review;
 
 import org.springframework.data.annotation.Id;
-import org.springframework.data.elasticsearch.annotations.DateFormat;
-import org.springframework.data.elasticsearch.annotations.Document;
-import org.springframework.data.elasticsearch.annotations.Field;
-import org.springframework.data.elasticsearch.annotations.FieldType;
+import org.springframework.data.elasticsearch.annotations.*;
 
 import jakarta.validation.constraints.NotNull;
 import java.util.Date;
 import java.util.HashSet;
 import java.util.Set;
 
-@Document(indexName = "branch-review")
+@Document(indexName = "#{@indexNameProvider.indexName('branch-review')}")
+@Setting(settingPath = "elasticsearch-settings.json")
 public class BranchReview {
 
 	@Id
