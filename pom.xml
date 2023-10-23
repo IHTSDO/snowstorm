@@ -363,6 +363,7 @@
 						</environment>
 						<jvmFlags>
 							<jvmFlag>-Djava.security.egd=file:/dev/./urandom</jvmFlag>
+							<jvmFlag>--add-opens=java.base/java.lang=ALL-UNNAMED</jvmFlag>
 						</jvmFlags>
 						<ports>
 							<port>8080</port>
@@ -394,7 +395,7 @@
 						</platforms>
 					</from>
 					<to>
-						<image>${docker.registry}${docker.image.prefix}/${project.artifactId}</image>
+						<image>${docker.registry}/${docker.image.prefix}/${project.artifactId}</image>
 						<tags>
 							<tag>${docker.image.tag}</tag>
 							<tag>${project.version}</tag>
