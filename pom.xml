@@ -24,7 +24,7 @@
 		<docker.allowInsecureRegistries>false</docker.allowInsecureRegistries>
 		<docker.image.prefix>snomedinternational</docker.image.prefix>
 		<docker.image.tag>latest</docker.image.tag>
-		<docker.base-image>amazoncorretto:11</docker.base-image>
+		<docker.base-image>amazoncorretto:17</docker.base-image>
 	</properties>
 
 	<dependencies>
