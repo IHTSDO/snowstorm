@@ -13,8 +13,6 @@ import java.util.regex.Pattern;
 
 public class Annotation extends ReferenceSetMember implements AnnotationView {
 
-	private static final Pattern ANNOTATION_LANGUAGE_TYPE_PATTERN = Pattern.compile("^@+\\S.*\\\".*\\\"$");
-
 	@JsonView(value = View.Component.class)
 	private String annotationId;
 	@JsonView(value = View.Component.class)
@@ -98,14 +96,8 @@ public class Annotation extends ReferenceSetMember implements AnnotationView {
 		setReferencedComponentId(fromMember.getReferencedComponentId());
 		setReleased(fromMember.isReleased());
 		setAnnotationTypeId(fromMember.getAdditionalField(AnnotationFields.ANNOTATION_TYPE_ID));
-
-		String annotationValue = fromMember.getAdditionalField(AnnotationFields.ANNOTATION_VALUE);
-		if (StringUtils.isNotEmpty(annotationValue) && ANNOTATION_LANGUAGE_TYPE_PATTERN.matcher(annotationValue).matches()) {
-			setAnnotationLanguage(annotationValue.substring(1, annotationValue.indexOf("\"")).trim());
-			setAnnotationValue(annotationValue.substring(annotationValue.indexOf("\"") + 1, annotationValue.lastIndexOf("\"")));
-		} else {
-			setAnnotationValue(annotationValue);
-		}
+		setAnnotationValue(fromMember.getAdditionalField(AnnotationFields.ANNOTATION_VALUE));
+		setAnnotationLanguage(fromMember.getAdditionalField(AnnotationFields.ANNOTATION_LANGUAGE));
 		return this;
 	}
 
@@ -115,7 +107,8 @@ public class Annotation extends ReferenceSetMember implements AnnotationView {
 		String moduleId = getModuleId() != null ? getModuleId() : Concepts.CORE_MODULE;
 		ReferenceSetMember member = new ReferenceSetMember(annotationId, getEffectiveTimeI(), isActive(), moduleId, refsetId, getReferencedComponentId());
 		member.setAdditionalField(AnnotationFields.ANNOTATION_TYPE_ID, getAnnotationTypeId());
-		member.setAdditionalField(AnnotationFields.ANNOTATION_VALUE, getAnnotationLanguage() != null ? "@" + getAnnotationLanguage() + "\""  + getAnnotationValue() + "\"" : getAnnotationValue());
+		member.setAdditionalField(AnnotationFields.ANNOTATION_VALUE, getAnnotationValue());
+		member.setAdditionalField(AnnotationFields.ANNOTATION_LANGUAGE, getAnnotationLanguage());
 		return member;
 	}
 

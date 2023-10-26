@@ -553,10 +553,19 @@ public class AutoMerger {
                                     sourceReferenceSetMember.getAdditionalField(ReferenceSetMember.AnnotationFields.ANNOTATION_VALUE)
                             )
                     );
+                    mergedReferenceSetMember.setAdditionalField(
+                            ReferenceSetMember.AnnotationFields.ANNOTATION_LANGUAGE,
+                            getValueChanged(
+                                    targetReferenceSetMemberOld.getAdditionalField(ReferenceSetMember.AnnotationFields.ANNOTATION_LANGUAGE),
+                                    targetReferenceSetMemberNew.getAdditionalField(ReferenceSetMember.AnnotationFields.ANNOTATION_LANGUAGE),
+                                    sourceReferenceSetMember.getAdditionalField(ReferenceSetMember.AnnotationFields.ANNOTATION_LANGUAGE)
+                            )
+                    );
                 } else {
                     mergedReferenceSetMember.setRefsetId(sourceReferenceSetMember.getRefsetId());
                     mergedReferenceSetMember.setAdditionalField(ReferenceSetMember.AnnotationFields.ANNOTATION_TYPE_ID, sourceReferenceSetMember.getAdditionalField(ReferenceSetMember.AnnotationFields.ANNOTATION_TYPE_ID));
                     mergedReferenceSetMember.setAdditionalField(ReferenceSetMember.AnnotationFields.ANNOTATION_VALUE, sourceReferenceSetMember.getAdditionalField(ReferenceSetMember.AnnotationFields.ANNOTATION_VALUE));
+                    mergedReferenceSetMember.setAdditionalField(ReferenceSetMember.AnnotationFields.ANNOTATION_LANGUAGE, sourceReferenceSetMember.getAdditionalField(ReferenceSetMember.AnnotationFields.ANNOTATION_LANGUAGE));
                 }
 
                 // Re-apply mutable fields
