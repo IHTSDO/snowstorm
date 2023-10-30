@@ -20,7 +20,7 @@ public class BranchReview {
 	@Field(type = FieldType.Boolean)
 	private boolean sourceIsParent;
 
-	@Field(type = FieldType.Date, format = DateFormat.date_optional_time)
+	@Field(type = FieldType.Long)
 	private Date lastUpdated;
 
 	@Field(type = FieldType.Keyword)

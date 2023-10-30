@@ -22,7 +22,7 @@ public class CodeSystemVersion {
 	@Field(type = FieldType.Keyword)
 	private String shortName;
 
-	@Field(type = FieldType.Date, format = DateFormat.date_optional_time)
+	@Field(type = FieldType.Long)
 	private Date importDate;
 
 	@Field(type = FieldType.Keyword)
