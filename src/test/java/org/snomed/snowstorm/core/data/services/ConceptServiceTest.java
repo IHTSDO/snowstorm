@@ -242,9 +242,9 @@ class ConceptServiceTest extends AbstractTest {
 
 		Annotation annotation = new Annotation();
 		annotation.setModuleId("900000000000207008");
-		annotation.setAnnotationTypeId("123456");
-		annotation.setAnnotationValue("Annotation with language");
-		annotation.setAnnotationLanguage("en");
+		annotation.setTypeId("123456");
+		annotation.setValue("Annotation with language");
+		annotation.setLanguageCode("en");
 
 		conceptService.create(new Concept(conceptId).addAxiom(new Relationship(ISA, SNOMEDCT_ROOT)).addAnnotation(annotation), path);
 
@@ -521,14 +521,14 @@ class ConceptServiceTest extends AbstractTest {
 				"Bleeding (morphologic abnormality)", "900000000000020002").addLanguageRefsetMember(US_EN_LANG_REFSET, PREFERRED));
 		Annotation annotation1 = new Annotation();
 		annotation1.setModuleId("900000000000207008");
-		annotation1.setAnnotationTypeId("123456");
-		annotation1.setAnnotationValue("Annotation with language");
-		annotation1.setAnnotationLanguage("en");
+		annotation1.setTypeId("123456");
+		annotation1.setValue("Annotation with language");
+		annotation1.setLanguageCode("en");
 
 		Annotation annotation2 = new Annotation();
 		annotation2.setModuleId("900000000000207008");
-		annotation2.setAnnotationTypeId("123456789");
-		annotation2.setAnnotationValue("Annotation without language");
+		annotation2.setTypeId("123456789");
+		annotation2.setValue("Annotation without language");
 
 		concept.addAnnotation(annotation1);
 		concept.addAnnotation(annotation2);
@@ -538,13 +538,13 @@ class ConceptServiceTest extends AbstractTest {
 		assertEquals(2, savedConcept.getAnnotations().size());
 		for (Annotation annotation : savedConcept.getAnnotations()) {
 			assertEquals(Concepts.ANNOTATION_REFERENCE_SET, annotation.getRefsetId());
-			if (annotation.getAnnotationLanguage() != null) {
-				assertEquals("123456", annotation.getAnnotationTypeId());
-				assertEquals("en", annotation.getAnnotationLanguage());
-				assertEquals("Annotation with language", annotation.getAnnotationValue());
+			if (annotation.getLanguageCode() != null) {
+				assertEquals("123456", annotation.getTypeId());
+				assertEquals("en", annotation.getLanguageCode());
+				assertEquals("Annotation with language", annotation.getValue());
 			} else {
-				assertEquals("123456789", annotation.getAnnotationTypeId());
-				assertEquals("Annotation without language", annotation.getAnnotationValue());
+				assertEquals("123456789", annotation.getTypeId());
+				assertEquals("Annotation without language", annotation.getValue());
 			}
 		}
 	}

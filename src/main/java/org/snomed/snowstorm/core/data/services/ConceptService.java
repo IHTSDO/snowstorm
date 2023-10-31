@@ -497,7 +497,7 @@ public class ConceptService extends ComponentService {
 	private void joinAnnotation(ReferenceSetMember member, Map<String, Concept> conceptMap, Map<String, ConceptMini> conceptMiniMap, List<LanguageDialect> languageDialects) {
 		Annotation annotation = new Annotation();
 		annotation.fromRefsetMember(member);
-		annotation.setAnnotationType(getConceptMini(conceptMiniMap, annotation.getAnnotationTypeId(), languageDialects));
+		annotation.setType(getConceptMini(conceptMiniMap, annotation.getTypeId(), languageDialects));
 
 		// Join annotations to concepts for loading whole concepts use case.
 		final String referencedComponentId = annotation.getReferencedComponentId();
@@ -913,7 +913,7 @@ public class ConceptService extends ComponentService {
 
 			annotationMembers.forEach(member -> {
 				Annotation annotation = new Annotation().fromRefsetMember(member);
-				annotation.setAnnotationType(getConceptMini(conceptMiniMap, annotation.getAnnotationTypeId(), languageDialects));
+				annotation.setType(getConceptMini(conceptMiniMap, annotation.getTypeId(), languageDialects));
 
 				// Join annotations to concepts for loading whole concepts use case.
 				final String referencedComponentId = annotation.getReferencedComponentId();

@@ -8,13 +8,13 @@ public interface AnnotationView {
 
 	String getAnnotationId();
 
-	String getAnnotationTypeId();
+	String getTypeId();
 
-	TermLangPojo getAnnotationTypePt();
+	TermLangPojo getTypePt();
 
-	String getAnnotationValue();
+	String getValue();
 
-	String getAnnotationLanguage();
+	String getLanguageCode();
 
 	String getModuleId();
 

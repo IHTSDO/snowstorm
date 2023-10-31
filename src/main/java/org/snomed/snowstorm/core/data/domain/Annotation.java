@@ -2,26 +2,24 @@ package org.snomed.snowstorm.core.data.domain;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonView;
-import io.micrometer.core.instrument.util.StringUtils;
 import org.snomed.snowstorm.core.pojo.TermLangPojo;
 import org.snomed.snowstorm.rest.View;
 
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
-import java.util.regex.Pattern;
 
 public class Annotation extends ReferenceSetMember implements AnnotationView {
 
 	@JsonView(value = View.Component.class)
 	private String annotationId;
 	@JsonView(value = View.Component.class)
-	private String annotationTypeId;
-	private ConceptMini annotationType;
+	private String typeId;
+	private ConceptMini type;
 	@JsonView(value = View.Component.class)
-	private String annotationValue;
+	private String value;
 	@JsonView(value = View.Component.class)
-	private String annotationLanguage;
+	private String languageCode;
 
 	@Override
 	public String getAnnotationId() {
@@ -33,17 +31,17 @@ public class Annotation extends ReferenceSetMember implements AnnotationView {
 	}
 
 	@Override
-	public String getAnnotationTypeId() {
-		return annotationTypeId;
+	public String getTypeId() {
+		return typeId;
 	}
 
-	public void setAnnotationTypeId(String annotationTypeId) {
-		this.annotationTypeId = annotationTypeId;
+	public void setTypeId(String typeId) {
+		this.typeId = typeId;
 	}
 
 	@JsonIgnore
-	public ConceptMini getAnnotationType() {
-		return annotationType;
+	public ConceptMini getType() {
+		return type;
 	}
 
 	@Override
@@ -60,30 +58,30 @@ public class Annotation extends ReferenceSetMember implements AnnotationView {
 
 	@Override
 	@JsonView(value = View.Component.class)
-	public TermLangPojo getAnnotationTypePt() {
-		return annotationType != null ? annotationType.getPt() : null;
+	public TermLangPojo getTypePt() {
+		return type != null ? type.getPt() : null;
 	}
 
-	public void setAnnotationType(ConceptMini annotationType) {
-		this.annotationType = annotationType;
-	}
-
-	@Override
-	public String getAnnotationValue() {
-		return annotationValue;
-	}
-
-	public void setAnnotationValue(String annotationValue) {
-		this.annotationValue = annotationValue;
+	public void setType(ConceptMini type) {
+		this.type = type;
 	}
 
 	@Override
-	public String getAnnotationLanguage() {
-		return annotationLanguage;
+	public String getValue() {
+		return value;
 	}
 
-	public void setAnnotationLanguage(String annotationLanguage) {
-		this.annotationLanguage = annotationLanguage;
+	public void setValue(String value) {
+		this.value = value;
+	}
+
+	@Override
+	public String getLanguageCode() {
+		return languageCode;
+	}
+
+	public void setLanguageCode(String languageCode) {
+		this.languageCode = languageCode;
 	}
 
 	public Annotation fromRefsetMember(ReferenceSetMember fromMember) {
@@ -95,9 +93,9 @@ public class Annotation extends ReferenceSetMember implements AnnotationView {
 		setEffectiveTimeI(fromMember.getEffectiveTimeI());
 		setReferencedComponentId(fromMember.getReferencedComponentId());
 		setReleased(fromMember.isReleased());
-		setAnnotationTypeId(fromMember.getAdditionalField(AnnotationFields.ANNOTATION_TYPE_ID));
-		setAnnotationValue(fromMember.getAdditionalField(AnnotationFields.ANNOTATION_VALUE));
-		setAnnotationLanguage(fromMember.getAdditionalField(AnnotationFields.ANNOTATION_LANGUAGE));
+		setTypeId(fromMember.getAdditionalField(AnnotationFields.TYPE_ID));
+		setValue(fromMember.getAdditionalField(AnnotationFields.VALUE));
+		setLanguageCode(fromMember.getAdditionalField(AnnotationFields.LANGUAGE_CODE));
 		return this;
 	}
 
@@ -106,9 +104,9 @@ public class Annotation extends ReferenceSetMember implements AnnotationView {
 		String annotationId = getAnnotationId() != null ? getAnnotationId() : UUID.randomUUID().toString();
 		String moduleId = getModuleId() != null ? getModuleId() : Concepts.CORE_MODULE;
 		ReferenceSetMember member = new ReferenceSetMember(annotationId, getEffectiveTimeI(), isActive(), moduleId, refsetId, getReferencedComponentId());
-		member.setAdditionalField(AnnotationFields.ANNOTATION_TYPE_ID, getAnnotationTypeId());
-		member.setAdditionalField(AnnotationFields.ANNOTATION_VALUE, getAnnotationValue());
-		member.setAdditionalField(AnnotationFields.ANNOTATION_LANGUAGE, getAnnotationLanguage());
+		member.setAdditionalField(AnnotationFields.TYPE_ID, getTypeId());
+		member.setAdditionalField(AnnotationFields.VALUE, getValue());
+		member.setAdditionalField(AnnotationFields.LANGUAGE_CODE, getLanguageCode());
 		return member;
 	}
 
@@ -121,9 +119,9 @@ public class Annotation extends ReferenceSetMember implements AnnotationView {
 				Objects.equals(active, that.active) &&
 				Objects.equals(getRefsetId(), that.getRefsetId()) &&
 				Objects.equals(getReferencedComponentId(), that.getReferencedComponentId()) &&
-				Objects.equals(getAnnotationTypeId(), that.getAnnotationTypeId()) &&
-				Objects.equals(getAnnotationLanguage(), that.getAnnotationLanguage()) &&
-				Objects.equals(getAnnotationValue(), that.getAnnotationValue());
+				Objects.equals(getTypeId(), that.getTypeId()) &&
+				Objects.equals(getLanguageCode(), that.getLanguageCode()) &&
+				Objects.equals(getValue(), that.getValue());
 	}
 
 	@Override
@@ -131,17 +129,17 @@ public class Annotation extends ReferenceSetMember implements AnnotationView {
 		if (annotationId != null) {
 			return annotationId.hashCode();
 		}
-		return Objects.hash(annotationId, active, getModuleId(), getRefsetId(), getReferencedComponentId(), getAnnotationTypeId(), getAnnotationLanguage(), getAnnotationValue());
+		return Objects.hash(annotationId, active, getModuleId(), getRefsetId(), getReferencedComponentId(), getTypeId(), getLanguageCode(), getValue());
 	}
 
 	@Override
 	public String toString() {
 		return "Annotation{" +
 				"annotationId='" + annotationId + '\'' +
-				", annotationTypeId='" + annotationTypeId + '\'' +
-				", annotationType=" + annotationType +
-				", annotationValue='" + annotationValue + '\'' +
-				", annotationLanguage='" + annotationLanguage + '\'' +
+				", annotationTypeId='" + typeId + '\'' +
+				", annotationType=" + type +
+				", annotationValue='" + value + '\'' +
+				", annotationLanguage='" + languageCode + '\'' +
 				", effectiveTime='" + getEffectiveTimeI() + '\'' +
 				", released='" + isReleased() + '\'' +
 				", releasedEffectiveTime='" + getReleasedEffectiveTime() + '\'' +

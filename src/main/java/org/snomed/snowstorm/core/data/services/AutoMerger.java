@@ -538,34 +538,34 @@ public class AutoMerger {
                 if (sourceReferenceSetMember.getReleasedEffectiveTime() == null) {
                     mergedReferenceSetMember.setRefsetId(getValueChanged(targetReferenceSetMemberOld.getRefsetId(), targetReferenceSetMemberNew.getRefsetId(), sourceReferenceSetMember.getRefsetId()));
                     mergedReferenceSetMember.setAdditionalField(
-                            ReferenceSetMember.AnnotationFields.ANNOTATION_TYPE_ID,
+                            ReferenceSetMember.AnnotationFields.TYPE_ID,
                             getValueChanged(
-                                    targetReferenceSetMemberOld.getAdditionalField(ReferenceSetMember.AnnotationFields.ANNOTATION_TYPE_ID),
-                                    targetReferenceSetMemberNew.getAdditionalField(ReferenceSetMember.AnnotationFields.ANNOTATION_TYPE_ID),
-                                    sourceReferenceSetMember.getAdditionalField(ReferenceSetMember.AnnotationFields.ANNOTATION_TYPE_ID)
+                                    targetReferenceSetMemberOld.getAdditionalField(ReferenceSetMember.AnnotationFields.TYPE_ID),
+                                    targetReferenceSetMemberNew.getAdditionalField(ReferenceSetMember.AnnotationFields.TYPE_ID),
+                                    sourceReferenceSetMember.getAdditionalField(ReferenceSetMember.AnnotationFields.TYPE_ID)
                             )
                     );
                     mergedReferenceSetMember.setAdditionalField(
-                            ReferenceSetMember.AnnotationFields.ANNOTATION_VALUE,
+                            ReferenceSetMember.AnnotationFields.VALUE,
                             getValueChanged(
-                                    targetReferenceSetMemberOld.getAdditionalField(ReferenceSetMember.AnnotationFields.ANNOTATION_VALUE),
-                                    targetReferenceSetMemberNew.getAdditionalField(ReferenceSetMember.AnnotationFields.ANNOTATION_VALUE),
-                                    sourceReferenceSetMember.getAdditionalField(ReferenceSetMember.AnnotationFields.ANNOTATION_VALUE)
+                                    targetReferenceSetMemberOld.getAdditionalField(ReferenceSetMember.AnnotationFields.VALUE),
+                                    targetReferenceSetMemberNew.getAdditionalField(ReferenceSetMember.AnnotationFields.VALUE),
+                                    sourceReferenceSetMember.getAdditionalField(ReferenceSetMember.AnnotationFields.VALUE)
                             )
                     );
                     mergedReferenceSetMember.setAdditionalField(
-                            ReferenceSetMember.AnnotationFields.ANNOTATION_LANGUAGE,
+                            ReferenceSetMember.AnnotationFields.LANGUAGE_CODE,
                             getValueChanged(
-                                    targetReferenceSetMemberOld.getAdditionalField(ReferenceSetMember.AnnotationFields.ANNOTATION_LANGUAGE),
-                                    targetReferenceSetMemberNew.getAdditionalField(ReferenceSetMember.AnnotationFields.ANNOTATION_LANGUAGE),
-                                    sourceReferenceSetMember.getAdditionalField(ReferenceSetMember.AnnotationFields.ANNOTATION_LANGUAGE)
+                                    targetReferenceSetMemberOld.getAdditionalField(ReferenceSetMember.AnnotationFields.LANGUAGE_CODE),
+                                    targetReferenceSetMemberNew.getAdditionalField(ReferenceSetMember.AnnotationFields.LANGUAGE_CODE),
+                                    sourceReferenceSetMember.getAdditionalField(ReferenceSetMember.AnnotationFields.LANGUAGE_CODE)
                             )
                     );
                 } else {
                     mergedReferenceSetMember.setRefsetId(sourceReferenceSetMember.getRefsetId());
-                    mergedReferenceSetMember.setAdditionalField(ReferenceSetMember.AnnotationFields.ANNOTATION_TYPE_ID, sourceReferenceSetMember.getAdditionalField(ReferenceSetMember.AnnotationFields.ANNOTATION_TYPE_ID));
-                    mergedReferenceSetMember.setAdditionalField(ReferenceSetMember.AnnotationFields.ANNOTATION_VALUE, sourceReferenceSetMember.getAdditionalField(ReferenceSetMember.AnnotationFields.ANNOTATION_VALUE));
-                    mergedReferenceSetMember.setAdditionalField(ReferenceSetMember.AnnotationFields.ANNOTATION_LANGUAGE, sourceReferenceSetMember.getAdditionalField(ReferenceSetMember.AnnotationFields.ANNOTATION_LANGUAGE));
+                    mergedReferenceSetMember.setAdditionalField(ReferenceSetMember.AnnotationFields.TYPE_ID, sourceReferenceSetMember.getAdditionalField(ReferenceSetMember.AnnotationFields.TYPE_ID));
+                    mergedReferenceSetMember.setAdditionalField(ReferenceSetMember.AnnotationFields.VALUE, sourceReferenceSetMember.getAdditionalField(ReferenceSetMember.AnnotationFields.VALUE));
+                    mergedReferenceSetMember.setAdditionalField(ReferenceSetMember.AnnotationFields.LANGUAGE_CODE, sourceReferenceSetMember.getAdditionalField(ReferenceSetMember.AnnotationFields.LANGUAGE_CODE));
                 }
 
                 // Re-apply mutable fields

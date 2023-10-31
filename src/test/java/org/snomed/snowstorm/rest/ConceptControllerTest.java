@@ -117,9 +117,9 @@ class ConceptControllerTest extends AbstractTest {
 		Annotation annotation = new Annotation();
 		annotation.setReferencedComponentId("50960005");
 		annotation.setModuleId("900000000000207008");
-		annotation.setAnnotationTypeId("123456");
-		annotation.setAnnotationValue("In the third International Consensus Definitions for Sepsis and Septic Shock (Sepsis-3) published in 2016.");
-		annotation.setAnnotationLanguage("en");
+		annotation.setTypeId("123456");
+		annotation.setValue("In the third International Consensus Definitions for Sepsis and Septic Shock (Sepsis-3) published in 2016.");
+		annotation.setLanguageCode("en");
 
 		concept.getAnnotations().add(annotation);
 		conceptService.update(concept, "MAIN");

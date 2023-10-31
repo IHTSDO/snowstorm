@@ -61,9 +61,9 @@ public class ReferenceSetMember extends SnomedComponent<ReferenceSetMember> impl
 	}
 
 	public interface AnnotationFields {
-		String ANNOTATION_TYPE_ID = "annotationTypeId";
-		String ANNOTATION_VALUE = "annotationValue";
-		String ANNOTATION_LANGUAGE = "annotationLanguage";
+		String LANGUAGE_CODE = "languageCode";
+		String TYPE_ID = "typeId";
+		String VALUE = "value";
 	}
 
 	@JsonView(value = View.Component.class)

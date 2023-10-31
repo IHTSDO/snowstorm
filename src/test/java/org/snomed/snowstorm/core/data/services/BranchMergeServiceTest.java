@@ -4589,9 +4589,9 @@ class BranchMergeServiceTest extends AbstractTest {
 		Annotation annotation = new Annotation();
 		annotation.setReferencedComponentId("50960005");
 		annotation.setModuleId("900000000000207008");
-		annotation.setAnnotationTypeId("123456");
-		annotation.setAnnotationValue("In the third International Consensus Definitions for Sepsis and Septic Shock (Sepsis-3) published in 2016.");
-		annotation.setAnnotationLanguage("en");
+		annotation.setTypeId("123456");
+		annotation.setValue("In the third International Consensus Definitions for Sepsis and Septic Shock (Sepsis-3) published in 2016.");
+		annotation.setLanguageCode("en");
 
 		// Create project
 		branchService.create("MAIN/projectA");
@@ -4610,13 +4610,13 @@ class BranchMergeServiceTest extends AbstractTest {
 
 		// Update annotation to TaskA and promote
 		Concept pizza = conceptService.find(pizzaId, "MAIN/projectA/taskA");
-		pizza.getAnnotations().iterator().next().setAnnotationValue("Update 1");
+		pizza.getAnnotations().iterator().next().setValue("Update 1");
 		conceptService.update(pizza, "MAIN/projectA/taskA");
 
 
 		// Make sure no annotation found in task A
 		pizza = conceptService.find(pizzaId, "MAIN/projectA/taskB");
-		pizza.getAnnotations().iterator().next().setAnnotationValue("Update 2");
+		pizza.getAnnotations().iterator().next().setValue("Update 2");
 		conceptService.update(pizza, "MAIN/projectA/taskB");
 
 		// Promote task A to project
@@ -4636,7 +4636,7 @@ class BranchMergeServiceTest extends AbstractTest {
 		}
 		reviewService.applyMergeReview(review);
 		pizza = conceptService.find(pizzaId, "MAIN/projectA/taskB");
-		assertEquals("Update 2", pizza.getAnnotations().iterator().next().getAnnotationValue());
+		assertEquals("Update 2", pizza.getAnnotations().iterator().next().getValue());
 	}
 
 	@Test
