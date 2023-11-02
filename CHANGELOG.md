@@ -3,6 +3,16 @@ All notable changes to this project will be documented in this file.
 
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 9.2.0 Release (November 2023)
+Maintenance release with Annotation improvements.
+
+### Improvements
+- MAINT-2370 Move the Annotation language code to a new column in RF2
+
+### Fixes
+- MAINT-2357 Remove any alternate identifiers that reference the concept while deleting a concept
+- MAINT-2366 Delete alternate identifier indices when running the application with the delete-indices flag
+
 ## 9.0.0 Release (September 2023)
 Major release with Java 17 upgrade.
 
