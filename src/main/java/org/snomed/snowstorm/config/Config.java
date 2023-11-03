@@ -86,7 +86,7 @@ import static java.lang.Long.parseLong;
 @EnableConfigurationProperties
 @PropertySource(value = "classpath:application.properties", encoding = "UTF-8")
 @EnableAsync
-public abstract class Config extends ElasticsearchConfig{
+public abstract class Config extends ElasticsearchConfig {
 
 	public static final String DEFAULT_LANGUAGE_CODE = "en";
 	public static final List<String> DEFAULT_LANGUAGE_CODES = Collections.singletonList(DEFAULT_LANGUAGE_CODE);
