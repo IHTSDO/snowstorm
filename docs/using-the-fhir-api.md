@@ -13,9 +13,8 @@ _Please Note: The native Snowstorm API must be used to create code systems and i
 The LOINC code system is supported. 
 A LOINC package can be imported using the [HAPI-FHIR CLI tool](https://hapifhir.io/hapi-fhir/docs/tools/hapi_fhir_cli.html) with the following command:
 ```
-hapi-fhir-cli upload-terminology -d Loinc_2.72.zip -v r4 -t http://localhost:8080/fhir -u http://loinc.org
+hapi-fhir-cli upload-terminology -d Loinc_2.76.zip -v r4 -t http://localhost:8080/fhir -u http://loinc.org
 ```
-*N.B. The new file naming since Loinc 2.73 is not working yet.*
 
 ### ICD-10 (International Version)
 The international version of ICD-10 is supported. This distribution uses the CLAML format. 
