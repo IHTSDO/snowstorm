@@ -72,15 +72,13 @@ public class ElasticsearchConfig extends ElasticsearchConfiguration {
 					.connectedTo(getHosts(urls))
 					.usingSsl()
 					.withDefaultHeaders(apiKeyHeaders)
-					.withClientConfigurer(
-							configureHttpClient())
+					.withClientConfigurer(configureHttpClient())
 					.build();
 		} else {
 			return ClientConfiguration.builder()
 					.connectedTo(getHosts(urls))
 					.withDefaultHeaders(apiKeyHeaders)
-					.withClientConfigurer(
-							configureHttpClient())
+					.withClientConfigurer(configureHttpClient())
 					.build();
 		}
 	}
