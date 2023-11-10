@@ -1,5 +1,6 @@
 package org.snomed.snowstorm;
 
+import org.apache.tomcat.util.buf.EncodedSolidusHandling;
 import org.ihtsdo.otf.snomedboot.ReleaseImportException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -17,9 +18,11 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.boot.SpringApplication;
+import org.springframework.boot.web.embedded.tomcat.TomcatConnectorCustomizer;
 import org.springframework.cache.annotation.EnableCaching;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.ConfigurableApplicationContext;
+import org.springframework.context.annotation.Bean;
 import org.springframework.jms.annotation.EnableJms;
 import org.springframework.scheduling.annotation.EnableScheduling;
 
@@ -56,7 +59,6 @@ public class SnowstormApplication extends Config implements ApplicationRunner {
 	private static final Logger logger = LoggerFactory.getLogger(SnowstormApplication.class);
 
 	public static void main(String[] args) {
-		System.setProperty("org.apache.tomcat.util.buf.UDecoder.ALLOW_ENCODED_SLASH", "true"); // Swagger encodes the slash in branch paths
 		try {
 			SpringApplication.run(SnowstormApplication.class, args);
 		} catch (BeanCreationException e) {
@@ -67,6 +69,12 @@ public class SnowstormApplication extends Config implements ApplicationRunner {
 				logger.error("Snowstorm failed to start. Cause: {}", startupException.getMessage());
 			}
 		}
+	}
+
+	@Bean
+	public TomcatConnectorCustomizer connectorCustomizer() {
+		// Swagger encodes the slash in branch paths
+		return connector -> connector.setEncodedSolidusHandling(EncodedSolidusHandling.DECODE.getValue());
 	}
 
 	@Override
