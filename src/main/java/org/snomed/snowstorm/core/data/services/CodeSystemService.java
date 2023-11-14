@@ -144,13 +144,15 @@ public class CodeSystemService {
 		}
 		String parentPath = PathUtil.getParentPath(newCodeSystem.getBranchPath());
 		CodeSystem parentCodeSystem = null;
+		CodeSystemVersion parentVersion = null;
 		if (parentPath != null) {
 			Integer dependantVersionEffectiveTime = newCodeSystem.getDependantVersionEffectiveTime();
 			parentCodeSystem = findByBranchPath(parentPath).orElse(null);
 			if (dependantVersionEffectiveTime != null) {
 				// Check dependant version exists on parent path
 				if (parentCodeSystem != null) {
-					if (findVersion(parentCodeSystem.getShortName(), dependantVersionEffectiveTime) == null) {
+					parentVersion = findVersion(parentCodeSystem.getShortName(), dependantVersionEffectiveTime);
+					if (parentVersion == null) {
 						throw new IllegalArgumentException(format("No code system version found matching dependantVersion '%s' on the parent branch path '%s'.",
 								dependantVersionEffectiveTime, parentPath));
 					}
@@ -160,9 +162,9 @@ public class CodeSystemService {
 				}
 			} else if (parentCodeSystem != null) {
 				// Find latest version on parent path
-				CodeSystemVersion latestVersion = findLatestImportedVersion(parentCodeSystem.getShortName());
-				if (latestVersion != null) {
-					newCodeSystem.setDependantVersionEffectiveTime(latestVersion.getEffectiveDate());
+				parentVersion = findLatestImportedVersion(parentCodeSystem.getShortName());
+				if (parentVersion != null) {
+					newCodeSystem.setDependantVersionEffectiveTime(parentVersion.getEffectiveDate());
 				}
 			}
 		}
@@ -179,6 +181,11 @@ public class CodeSystemService {
 				throw new IllegalStateException(format("Dependant version branch '%s' is missing.", releaseBranchPath));
 			}
 			branchService.createAtBaseTimepoint(branchPath, dependantVersionBranch.getBase());
+			if (parentVersion != null && parentVersion.getReleasePackage() != null) {
+				Metadata metadata = branchService.findLatest(branchPath).getMetadata();
+				metadata.putString(DEPENDENCY_PACKAGE, parentVersion.getReleasePackage());
+				branchService.updateMetadata(branchPath, metadata);
+			}
 
 		} else if (!branchExists) {
 			logger.info("Creating Code System branch '{}'.", branchPath);
