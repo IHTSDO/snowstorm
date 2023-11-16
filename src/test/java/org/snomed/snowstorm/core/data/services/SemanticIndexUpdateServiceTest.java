@@ -1146,8 +1146,10 @@ class SemanticIndexUpdateServiceTest extends AbstractTest {
 
 		// add a value with decimal for 396070080 attribute
 		concepts.add(new Concept("34020009").addRelationship(new Relationship(UUID.randomUUID().toString(), ISA, "34020006"))
-				.addRelationship(new Relationship("3332955025", null, true, "900000000000207008",
-						"34020009", "#100.000005", 1, "396070080", "900000000000011006", "900000000000451002")));
+				.addRelationship(new Relationship("34900001020", null, true, "900000000000207008",
+						"34020009", "#100.000005", 1, "396070080", "900000000000011006", "900000000000451002"))
+				.addRelationship(new Relationship("34900002020", null, true, "900000000000207008",
+						"34020009", "#0.0005", 1, "396070080", "900000000000011006", "900000000000451002")));
 		// Use low level component save to prevent effectiveTimes being stripped by concept service
 		simulateRF2Import(path, concepts);
 
@@ -1189,14 +1191,15 @@ class SemanticIndexUpdateServiceTest extends AbstractTest {
 		// range queries
 		assertEquals(2, queryService.search(queryService.createQueryBuilder(false).ecl("*:396070080 >= #50"), path, PAGE_REQUEST).getTotalElements());
 		assertEquals(1, queryService.search(queryService.createQueryBuilder(false).ecl("*:396070080 > #50"), path, PAGE_REQUEST).getTotalElements());
-		assertEquals(0, queryService.search(queryService.createQueryBuilder(false).ecl("*:396070080 < #50"), path, PAGE_REQUEST).getTotalElements());
-		assertEquals(1, queryService.search(queryService.createQueryBuilder(false).ecl("*:396070080 <= #50"), path, PAGE_REQUEST).getTotalElements());
+		assertEquals(1, queryService.search(queryService.createQueryBuilder(false).ecl("*:396070080 < #50"), path, PAGE_REQUEST).getTotalElements());
+		assertEquals(2, queryService.search(queryService.createQueryBuilder(false).ecl("*:396070080 <= #50"), path, PAGE_REQUEST).getTotalElements());
 
 		// make sure range query is not done alphabetically but based on the number value
 		assertEquals(2, queryService.search(queryService.createQueryBuilder(false).ecl("*:396070080 >= #6"), path, PAGE_REQUEST).getTotalElements());
 
 		// Not equal to query
-		assertEquals(0, queryService.search(queryService.createQueryBuilder(false).ecl("<<34020009:396070080 != #100.000005"), path, PAGE_REQUEST).getTotalElements());
+		assertEquals(1, queryService.search(queryService.createQueryBuilder(false).ecl("<<34020009:396070080 = #100.000005"), path, PAGE_REQUEST).getTotalElements());
+		assertEquals(1, queryService.search(queryService.createQueryBuilder(false).ecl("<<34020009: [1..1] * = #0.0005"), path, PAGE_REQUEST).getTotalElements());
 		assertEquals(1, queryService.search(queryService.createQueryBuilder(false).ecl("*:396070080 != #50"), path, PAGE_REQUEST).getTotalElements());
 		assertEquals(2, queryService.search(queryService.createQueryBuilder(false).ecl("*:396070080 != #10"), path, PAGE_REQUEST).getTotalElements());
 		assertEquals(0, queryService.search(queryService.createQueryBuilder(false).ecl("*:396070081 != \"123test\""), path, PAGE_REQUEST).getTotalElements());

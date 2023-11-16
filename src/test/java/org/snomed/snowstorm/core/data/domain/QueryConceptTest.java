@@ -47,12 +47,14 @@ class QueryConceptTest {
 		queryConcept.addAttribute(3, 123L, "456");
 		assertEquals("1:123=456,789:1234=123|3:123=456", queryConcept.getAttrMap());
 
-		queryConcept.addAttribute(3, 234L, 500);
-		assertEquals("1:123=456,789:1234=123|3:123=456:234=#500", queryConcept.getAttrMap());
+		queryConcept.addAttribute(3, 234L, 0.0005f);
+		assertEquals("1:123=456,789:1234=123|3:123=456:234=#0.0005", queryConcept.getAttrMap());
 
+		queryConcept.addAttribute(3, 234L, 500.0f);
+		assertEquals("1:123=456,789:1234=123|3:123=456:234=#0.0005,#500.0", queryConcept.getAttrMap());
 
 		queryConcept.addAttribute(4, 2345L, "\"test\"");
-		assertEquals("1:123=456,789:1234=123|3:123=456:234=#500|4:2345=\"test\"", queryConcept.getAttrMap());
+		assertEquals("1:123=456,789:1234=123|3:123=456:234=#0.0005,#500.0|4:2345=\"test\"", queryConcept.getAttrMap());
 
 		queryConcept.serializeGroupedAttributesMap();
 		Map<Integer, Map<String, List<Object>>> groupedAttributesMap = queryConcept.getGroupedAttributesMap();
@@ -61,16 +63,16 @@ class QueryConceptTest {
 		Map<String, Set<Object>> expectedAttrMap = new HashMap<>();
 		expectedAttrMap.put("all", Sets.newHashSet("123", "456", "789", "\"test\""));
 		expectedAttrMap.put("123", Sets.newHashSet("456", "789"));
-		expectedAttrMap.put("234", Sets.newHashSet(500));
+		expectedAttrMap.put("234", Sets.newHashSet(500.0f, 0.0005f));
 		expectedAttrMap.put("2345", Sets.newHashSet("\"test\""));
 		expectedAttrMap.put("1234", Sets.newHashSet("123"));
-		expectedAttrMap.put("all_numeric", Sets.newHashSet(500.0f));
+		expectedAttrMap.put("all_numeric", Sets.newHashSet(500.0f, 0.0005f));
 		assertEquals(expectedAttrMap, queryConcept.getAttr());
 
 		String json = objectMapper.writeValueAsString(queryConcept);
 
 		QueryConcept queryConcept2 = objectMapper.readValue(json, QueryConcept.class);
-		assertEquals("1:123=456,789:1234=123|3:123=456:234=#500|4:2345=\"test\"", queryConcept2.getAttrMap());
+		assertEquals("1:123=456,789:1234=123|3:123=456:234=#0.0005,#500.0|4:2345=\"test\"", queryConcept2.getAttrMap());
 		assertEquals(groupedAttributesMap, queryConcept2.getGroupedAttributesMap());
 	}
 
