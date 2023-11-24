@@ -51,6 +51,7 @@ import java.util.stream.StreamSupport;
 
 import static org.elasticsearch.index.query.QueryBuilders.*;
 import static org.snomed.snowstorm.config.Config.DEFAULT_LANGUAGE_DIALECTS;
+import static org.snomed.snowstorm.core.util.CollectionUtils.orEmpty;
 import static org.springframework.util.CollectionUtils.isEmpty;
 
 @Service
@@ -605,6 +606,7 @@ public class ConceptService extends ComponentService {
 			return;
 		}
 		try {
+			clearReleasedFlagFromInput(concepts);
 			PersistedComponents persistedComponents = createUpdate(concepts, path);
 			batchConceptChange.setConceptIds(StreamSupport.stream(persistedComponents.getPersistedConcepts().spliterator(), false).map(Concept::getConceptIdAsLong).collect(Collectors.toList()));
 			batchConceptChange.setStatus(AsyncConceptChangeBatch.Status.COMPLETED);
@@ -614,6 +616,24 @@ public class ConceptService extends ComponentService {
 			logger.error("Batch concept change failed, id:{}, branch:{}", batchConceptChange.getId(), path, e);
 		} finally {
 			SecurityContextHolder.clearContext();
+		}
+	}
+
+	private void clearReleasedFlagFromInput(Collection<Concept> concepts) {
+		for (Concept concept : concepts) {
+			concept.setReleased(false);
+			for (Description description : orEmpty(concept.getDescriptions())) {
+				description.setReleased(false);
+			}
+			for (Axiom axiom : orEmpty(concept.getClassAxioms())) {
+				axiom.setReleased(false);
+			}
+			for (Axiom axiom : orEmpty(concept.getGciAxioms())) {
+				axiom.setReleased(false);
+			}
+			for (Relationship relationship : orEmpty(concept.getRelationships())) {
+				relationship.setReleased(false);
+			}
 		}
 	}
 

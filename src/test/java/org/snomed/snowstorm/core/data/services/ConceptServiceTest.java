@@ -1,5 +1,6 @@
 package org.snomed.snowstorm.core.data.services;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.DeserializationConfig;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -10,7 +11,6 @@ import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.api.ComponentService;
 import io.kaicode.elasticvc.domain.Branch;
 import io.kaicode.elasticvc.domain.Commit;
-import org.assertj.core.util.Maps;
 import org.elasticsearch.common.collect.MapBuilder;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -1927,6 +1927,18 @@ class ConceptServiceTest extends AbstractTest {
 		AsyncConceptChangeBatch batchConceptChange = conceptService.getBatchConceptChange(batchId);
 		assertEquals(AsyncConceptChangeBatch.Status.FAILED, batchConceptChange.getStatus());
 		assertEquals("Failed to convert axiom to an OWL expression.", batchConceptChange.getMessage());
+	}
+
+	@Test
+	public void testBulkJobReleaseHashExceptionBug() throws IOException {
+		String batchId = conceptService.newCreateUpdateAsyncJob();
+		TypeReference<List<Concept>> typeRef = new TypeReference<>() {};
+		List<Concept> concepts = objectMapper.readValue(getClass().getResourceAsStream("/dummy-request-data/async-concept-bulk-request.json"), typeRef);
+		conceptService.createUpdateAsync(batchId, "MAIN", concepts, SecurityContextHolder.getContext());
+
+		assertTrue(waitUntil(() -> conceptService.getBatchConceptChange(batchId).getStatus() == AsyncConceptChangeBatch.Status.COMPLETED, 10));
+		AsyncConceptChangeBatch batchConceptChange = conceptService.getBatchConceptChange(batchId);
+		assertEquals(AsyncConceptChangeBatch.Status.COMPLETED, batchConceptChange.getStatus());
 	}
 
 	// Effective time and module ID tests

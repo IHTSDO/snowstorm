@@ -1,0 +1,105 @@
+[
+  {
+    "active": true,
+    "released": false,
+    "moduleId": "936655841000003103",
+    "definitionStatus": "PRIMITIVE",
+    "descriptions": [
+      {
+        "active": true,
+        "released": false,
+        "term": "CT of left middle ear translation",
+        "type": "SYNONYM",
+        "lang": "en",
+        "caseSignificance": "ENTIRE_TERM_CASE_SENSITIVE",
+        "acceptabilityMap": {
+          "214916581000003106": "PREFERRED"
+        }
+      }
+    ],
+    "classAxioms": [
+      {
+        "active": true,
+        "released": false,
+        "moduleId": "936655841000003103",
+        "definitionStatus": "PRIMITIVE",
+        "relationships": [
+          {
+            "active": true,
+            "released": false,
+            "typeId": "116680003",
+            "destinationId": "429926006",
+            "groupId": 0,
+            "characteristicType": "STATED_RELATIONSHIP"
+          }
+        ]
+      }
+    ],
+    "gciAxioms": [],
+    "relationships": [
+      {
+        "active": true,
+        "released": false,
+        "typeId": "116680003",
+        "destinationId": "429926006",
+        "modifier": "EXISTENTIAL",
+        "groupId": 0,
+        "characteristicType": "INFERRED_RELATIONSHIP"
+      },
+      {
+        "active": true,
+        "released": true,
+        "moduleId": "900000000000207008",
+        "effectiveTime": "20090131",
+        "relationshipId": "3524764029",
+        "sourceId": "429926006",
+        "typeId": "260686004",
+        "destinationId": "312251004",
+        "modifier": "EXISTENTIAL",
+        "groupId": 1,
+        "characteristicType": "INFERRED_RELATIONSHIP",
+        "target": {
+          "conceptId": "312251004",
+          "active": true,
+          "fsn": {
+            "term": "Computed tomography imaging - action (qualifier value)",
+            "lang": "en"
+          },
+          "pt": {
+            "term": "Computed tomography imaging - action",
+            "lang": "en"
+          },
+          "moduleId": "900000000000207008",
+          "idAndFsnTerm": "312251004 |Computed tomography imaging - action (qualifier value)|"
+        }
+      },
+      {
+        "active": true,
+        "released": true,
+        "moduleId": "900000000000207008",
+        "effectiveTime": "20090131",
+        "relationshipId": "3549035022",
+        "sourceId": "429926006",
+        "typeId": "405813007",
+        "destinationId": "25342003",
+        "modifier": "EXISTENTIAL",
+        "groupId": 1,
+        "characteristicType": "INFERRED_RELATIONSHIP",
+        "target": {
+          "conceptId": "25342003",
+          "active": true,
+          "fsn": {
+            "term": "Middle ear structure (body structure)",
+            "lang": "en"
+          },
+          "pt": {
+            "term": "Middle ear structure",
+            "lang": "en"
+          },
+          "moduleId": "900000000000207008",
+          "idAndFsnTerm": "25342003 |Middle ear structure (body structure)|"
+        }
+      }
+    ]
+  }
+]
