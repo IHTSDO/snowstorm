@@ -27,7 +27,7 @@ public class Relationship extends SnomedComponent<Relationship> {
 		stated(Concepts.STATED_RELATIONSHIP),
 		additional(Concepts.ADDITIONAL_RELATIONSHIP);
 
-		String conceptId;
+		final String conceptId;
 
 		CharacteristicType(String conceptId) {
 			this.conceptId = conceptId;
