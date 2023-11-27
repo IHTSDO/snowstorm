@@ -31,7 +31,7 @@ import static io.kaicode.elasticvc.domain.Commit.CommitType.CONTENT;
 import static co.elastic.clients.elasticsearch._types.query_dsl.QueryBuilders.*;
 import static io.kaicode.elasticvc.helper.QueryHelper.*;
 import static org.snomed.snowstorm.config.Config.BATCH_SAVE_SIZE;
-import static org.springframework.data.elasticsearch.core.ScriptType.INLINE;
+import static org.springframework.data.elasticsearch.core.query.ScriptType.INLINE;
 
 @Service
 public class ConceptDefinitionStatusUpdateService extends ComponentService implements CommitListener {

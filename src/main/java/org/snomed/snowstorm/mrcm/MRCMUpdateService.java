@@ -33,7 +33,7 @@ import static io.kaicode.elasticvc.domain.Commit.CommitType.CONTENT;
 import static io.kaicode.elasticvc.domain.Commit.CommitType.REBASE;
 import static io.kaicode.elasticvc.helper.QueryHelper.termQuery;
 import static java.lang.Long.parseLong;
-import static org.springframework.data.elasticsearch.core.ScriptType.INLINE;
+import static org.springframework.data.elasticsearch.core.query.ScriptType.INLINE;
 
 @Service
 public class MRCMUpdateService extends ComponentService implements CommitListener {
