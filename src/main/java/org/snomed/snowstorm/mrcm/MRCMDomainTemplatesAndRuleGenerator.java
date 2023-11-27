@@ -157,7 +157,7 @@ public class MRCMDomainTemplatesAndRuleGenerator {
 
 	private void eclValidation(String attributeRule, AttributeRange range) {
 		try {
-			logger.debug("Validating attribute rule: {}", attributeRule);
+			logger.info("Validating attribute rule: {}", attributeRule);
 			eclQueryBuilder.createQuery(attributeRule);
 		} catch(ECLException e) {
 			logger.info("Attribute range member id {} ", range.getId());
