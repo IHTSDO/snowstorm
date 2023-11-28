@@ -94,6 +94,11 @@ public class MRCMDomainTemplatesAndRuleGenerator {
 										&& (ContentType.ALL == d.getContentType() || range.getContentType() == d.getContentType()))
 						.collect(Collectors.toList());
 
+				//If we did not match any domain, then exception out that we're missing a domain rule of either 'ALL' or this range's content type.
+				if (attributeDomains.isEmpty()) {
+					String alternateContentType = range.getContentType() == ContentType.ALL ? "" : " or " + range.getContentType().getName();
+					throw new IllegalStateException("No attribute domain rule found that would apply to attribute " + range.getReferencedComponentId() + " with content type " + range.getContentType().getName() + alternateContentType);
+				}
 				// group attribute domain by attribute cardinality and attribute in group cardinality
 				List<AttributeDomain> grouped = attributeDomains.stream().filter(AttributeDomain::isGrouped).collect(Collectors.toList());
 				Map<String, List<AttributeDomain>> groupedByCardinality = new HashMap<>();
@@ -143,8 +148,8 @@ public class MRCMDomainTemplatesAndRuleGenerator {
 					ruleBuilder.append(")");
 				}
 				if (!ruleBuilder.toString().equals(range.getAttributeRule()) || isRangeConstraintChanged) {
-					logger.debug("before = {} ", range.getAttributeRule());
-					logger.debug("after =  {} ", ruleBuilder);
+					logger.debug("AttributeRule for {} before regeneration = {} ", range.getReferencedComponentId(), range.getAttributeRule());
+					logger.debug("AttributeRule for {} after regeneration =  {} ", range.getReferencedComponentId(), ruleBuilder);
 					AttributeRange updated = new AttributeRange(range);
 					eclValidation(ruleBuilder.toString(), range);
 					updated.setAttributeRule(ruleBuilder.toString());
