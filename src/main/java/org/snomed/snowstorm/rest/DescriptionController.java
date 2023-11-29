@@ -67,16 +67,16 @@ public class DescriptionController {
 			@Deprecated
 			@RequestParam(required = false) String semanticTag,
 
-			@Parameter(name = "Set of semantic tags.")
+			@Parameter(description = "Set of semantic tags.")
 			@RequestParam(required = false) Set<String> semanticTags,
 
-			@Parameter(name = "Set of description language reference sets. The description must be preferred in at least one of these to match.")
+			@Parameter(description = "Set of description language reference sets. The description must be preferred in at least one of these to match.")
 			@RequestParam(required = false) Set<Long> preferredIn,
 
-			@Parameter(name = "Set of description language reference sets. The description must be acceptable in at least one of these to match.")
+			@Parameter(description = "Set of description language reference sets. The description must be acceptable in at least one of these to match.")
 			@RequestParam(required = false) Set<Long> acceptableIn,
 
-			@Parameter(name = "Set of description language reference sets. The description must be preferred OR acceptable in at least one of these to match.")
+			@Parameter(description = "Set of description language reference sets. The description must be preferred OR acceptable in at least one of these to match.")
 			@RequestParam(required = false) Set<Long> preferredOrAcceptableIn,
 
 			@RequestParam(required = false) Boolean conceptActive,
