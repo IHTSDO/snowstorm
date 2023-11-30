@@ -3,6 +3,19 @@ All notable changes to this project will be documented in this file.
 
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 10.0.0 Release (December 2023)
+Major release with Spring Boot 3 & Elasticsearch 8 upgrade.
+
+### Breaking
+- Elasticsearch 8 must be used with this release.
+
+### Improvements
+- PIP-307 Upgrade to Elasticsearch 8
+- PIP-374 Upgrade to Spring Boot 3
+
+### Fixes
+- MAINT-2384 Fix bug where an ECL query would fail if the modelling of a Concept had a concrete value with four or more decimal places.
+
 ## 9.2.0 Release (November 2023)
 Maintenance release with Annotation improvements.
 
