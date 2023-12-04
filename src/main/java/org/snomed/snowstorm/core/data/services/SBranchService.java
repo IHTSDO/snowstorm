@@ -23,6 +23,7 @@ import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 
 import org.springframework.data.elasticsearch.core.SearchHit;
 import org.springframework.data.elasticsearch.core.SearchHits;
+import org.springframework.data.elasticsearch.core.query.FetchSourceFilter;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
@@ -102,7 +103,7 @@ public class SBranchService {
 				.withQuery(bool(bq -> bq
 						.must(termQuery("path", path))
 						.must(range(rq -> rq.field("start").gte(JsonData.of(timestamp.getTime()))))))
-				.withFields("path", "start", "end", "head", "base", "locked")
+				.withSourceFilter(new FetchSourceFilter(new String[]{"path", "start", "end", "head", "base", "locked"}, null))
 				.withSort(s -> s.field(fb -> fb.field("start")))
 				.withPageable(pageable);
 

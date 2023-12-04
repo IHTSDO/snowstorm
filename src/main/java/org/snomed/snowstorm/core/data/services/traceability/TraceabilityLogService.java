@@ -244,7 +244,7 @@ public class TraceabilityLogService implements CommitListener {
 				try (final SearchHitsIterator<Description> stream = elasticsearchTemplate.searchForStream(new NativeQueryBuilder()
 						.withQuery(bool(b -> b.must(descriptionQuery)
 								.must(termsQuery(Description.Fields.DESCRIPTION_ID, descriptionIdsSegment))))
-						.withFields(Description.Fields.DESCRIPTION_ID, Description.Fields.CONCEPT_ID)
+						.withSourceFilter(new FetchSourceFilter(new String[]{Description.Fields.DESCRIPTION_ID, Description.Fields.CONCEPT_ID}, null))
 						.withPageable(LARGE_PAGE)
 						.build(), Description.class)) {
 					stream.forEachRemaining(hit -> {

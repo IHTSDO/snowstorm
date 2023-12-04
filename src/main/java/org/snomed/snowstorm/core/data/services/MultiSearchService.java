@@ -26,6 +26,7 @@ import org.springframework.data.elasticsearch.core.SearchHits;
 import org.springframework.data.elasticsearch.core.SearchHitsIterator;
 import org.springframework.data.elasticsearch.client.elc.NativeQuery;
 import org.springframework.data.elasticsearch.client.elc.NativeQueryBuilder;
+import org.springframework.data.elasticsearch.core.query.FetchSourceFilter;
 import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;
 
@@ -176,7 +177,7 @@ public class MultiSearchService implements CommitListener {
 		Set<Long> conceptIdsMatched = new LongOpenHashSet();
 		try (final SearchHitsIterator<Description> descriptions = elasticsearchTemplate.searchForStream(new NativeQueryBuilder()
 				.withQuery(descriptionQuery)
-				.withFields(Description.Fields.CONCEPT_ID)
+				.withSourceFilter(new FetchSourceFilter(new String[]{Description.Fields.CONCEPT_ID}, null))
 				.withPageable(LARGE_PAGE).build(), Description.class)) {
 			while (descriptions.hasNext()) {
 				conceptIdsMatched.add(Long.valueOf(descriptions.next().getContent().getConceptId()));
@@ -191,7 +192,7 @@ public class MultiSearchService implements CommitListener {
 							.must(termsQuery(Concept.Fields.CONCEPT_ID, conceptIdsMatched)))
 					)
 					.withFilter(bool(b ->b.must(termQuery(Concept.Fields.ACTIVE, conceptActiveFlag))))
-					.withFields(Concept.Fields.CONCEPT_ID)
+					.withSourceFilter(new FetchSourceFilter(new String[]{Concept.Fields.CONCEPT_ID}, null))
 					.withPageable(LARGE_PAGE).build(), Concept.class)) {
 				while (concepts.hasNext()) {
 					result.add(Long.valueOf(concepts.next().getContent().getConceptId()));

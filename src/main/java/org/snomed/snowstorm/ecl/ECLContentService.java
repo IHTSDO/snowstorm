@@ -33,6 +33,7 @@ import org.springframework.data.elasticsearch.core.SearchHits;
 import org.springframework.data.elasticsearch.core.SearchHitsIterator;
 import org.springframework.data.elasticsearch.client.elc.NativeQuery;
 import org.springframework.data.elasticsearch.client.elc.NativeQueryBuilder;
+import org.springframework.data.elasticsearch.core.query.FetchSourceFilter;
 import org.springframework.stereotype.Service;
 
 import jakarta.annotation.PostConstruct;
@@ -250,7 +251,7 @@ public class ECLContentService {
 		NativeQueryBuilder queryBuilder = new NativeQueryBuilder()
 				.withQuery(superQueryBuilder.build()._toQuery())
 				.withFilter(termsQuery(Concept.Fields.CONCEPT_ID, conceptIdsToFilter))
-				.withFields(Concept.Fields.CONCEPT_ID)
+				.withSourceFilter(new FetchSourceFilter(new String[]{Concept.Fields.CONCEPT_ID}, null))
 				.withPageable(LARGE_PAGE);
 		Set<Long> conceptIds = new LongOpenHashSet();
 		try (SearchHitsIterator<Concept> stream = elasticsearchTemplate.searchForStream(queryBuilder.build(), Concept.class)) {
@@ -374,7 +375,7 @@ public class ECLContentService {
 						.must(termQuery(ReferenceSetMember.Fields.ACTIVE, true))
 						.must(termsQuery(ReferenceSetMember.Fields.REFSET_ID, associationTypes))))
 				.withFilter(termsQuery(ReferenceSetMember.Fields.ADDITIONAL_FIELDS_PREFIX + ReferenceSetMember.AssociationFields.TARGET_COMP_ID, initialConcepts))
-				.withFields(ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID)
+				.withSourceFilter(new FetchSourceFilter(new String[]{ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID}, null))
 				.withPageable(LARGE_PAGE);
 
 		Set<Long> conceptIds = new LongOpenHashSet();

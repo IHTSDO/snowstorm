@@ -35,6 +35,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.data.elasticsearch.core.*;
 import org.springframework.data.elasticsearch.client.elc.NativeQuery;
 import org.springframework.data.elasticsearch.client.elc.NativeQueryBuilder;
+import org.springframework.data.elasticsearch.core.query.FetchSourceFilter;
 import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;
 
@@ -211,7 +212,7 @@ public class QueryService implements ApplicationContextAware {
 				pageRequest = updatePageRequestSort(pageRequest, Sort.sort(Concept.class).by(Concept::getConceptId).descending());
 				NativeQuery query = new NativeQueryBuilder()
 						.withQuery(conceptBoolQuery)
-						.withFields(Concept.Fields.CONCEPT_ID)
+						.withSourceFilter(new FetchSourceFilter(new String[]{Concept.Fields.CONCEPT_ID}, null))
 						.withPageable(pageRequest)
 						.build();
 				query.setTrackTotalHits(true);
@@ -249,7 +250,7 @@ public class QueryService implements ApplicationContextAware {
 				try (SearchHitsIterator<Concept> stream = elasticsearchTemplate.searchForStream(new NativeQueryBuilder()
 						.withQuery(conceptBoolQuery)
 						.withFilter(termsQuery(Concept.Fields.CONCEPT_ID, allConceptIdsSortedByTermOrder))
-						.withFields(Concept.Fields.CONCEPT_ID)
+						.withSourceFilter(new FetchSourceFilter(new String[]{Concept.Fields.CONCEPT_ID}, null))
 						.withPageable(LARGE_PAGE)
 						.build(), Concept.class)) {
 					stream.forEachRemaining(hit -> allFilteredLogicalMatches.add(hit.getContent().getConceptIdAsLong()));
@@ -318,7 +319,7 @@ public class QueryService implements ApplicationContextAware {
 							.must(branchCriteria.getEntityBranchCriteria(Concept.class))
 							.must(conceptClauses.build()._toQuery())))
 					.withFilter(termsQuery(Concept.Fields.CONCEPT_ID, batch))
-					.withFields(Concept.Fields.CONCEPT_ID)
+					.withSourceFilter(new FetchSourceFilter(new String[]{Concept.Fields.CONCEPT_ID}, null))
 					.withSort(getDefaultSortForConcept())
 					.withPageable(LARGE_PAGE);
 
@@ -435,7 +436,7 @@ public class QueryService implements ApplicationContextAware {
 						.must(termsQuery(QueryConcept.Fields.ANCESTORS, conceptIds))
 						.must(termQuery(QueryConcept.Fields.STATED, stated)))
 				)
-				.withFields(QueryConcept.Fields.CONCEPT_ID)
+				.withSourceFilter(new FetchSourceFilter(new String[]{QueryConcept.Fields.CONCEPT_ID}, null))
 				.withPageable(LARGE_PAGE)
 				.withSort(SortOptions.of(sb -> sb.field(fs -> fs.field(QueryConcept.Fields.CONCEPT_ID))))// This could be anything
 				.build();
@@ -450,7 +451,7 @@ public class QueryService implements ApplicationContextAware {
 						.must(termsQuery(QueryConcept.Fields.PARENTS, conceptIds))
 						.must(termQuery(QueryConcept.Fields.STATED, stated)))
 				)
-				.withFields(QueryConcept.Fields.CONCEPT_ID)
+				.withSourceFilter(new FetchSourceFilter(new String[]{QueryConcept.Fields.CONCEPT_ID}, null))
 				.withPageable(LARGE_PAGE)
 				.withSort(SortOptions.of(sb -> sb.field(fs -> fs.field(QueryConcept.Fields.CONCEPT_ID))))// This could be anything
 				.build();

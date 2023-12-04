@@ -21,6 +21,7 @@ import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.data.elasticsearch.core.SearchHitsIterator;
 import org.springframework.data.elasticsearch.client.elc.NativeQuery;
 import org.springframework.data.elasticsearch.client.elc.NativeQueryBuilder;
+import org.springframework.data.elasticsearch.core.query.FetchSourceFilter;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
@@ -63,7 +64,7 @@ public class UpgradeInactivationService {
 				.withQuery(bool(b -> b
 						.must(branchCriteria.getEntityBranchCriteria(Concept.class))
 						.must(termQuery(SnomedComponent.Fields.ACTIVE, false))))
-				.withFields(Concept.Fields.CONCEPT_ID)
+				.withSourceFilter(new FetchSourceFilter(new String[]{Concept.Fields.CONCEPT_ID}, null))
 				.withPageable(ComponentService.LARGE_PAGE)
 				.build();
 		List<Long> inactiveConceptIds = new LongArrayList();
@@ -89,7 +90,7 @@ public class UpgradeInactivationService {
 
 			NativeQuery descriptionsWithInactivationIndicators = new NativeQueryBuilder()
 					.withQuery(queryDescriptionsWithInactivationIndicators.build()._toQuery())
-					.withFields(REFERENCED_COMPONENT_ID)
+					.withSourceFilter(new FetchSourceFilter(new String[]{REFERENCED_COMPONENT_ID}, null))
 					.withPageable(ComponentService.LARGE_PAGE)
 					.build();
 
@@ -205,7 +206,7 @@ public class UpgradeInactivationService {
 						.must(termQuery(SnomedComponent.Fields.ACTIVE, true))
 						.must(termsQuery(Concept.Fields.CONCEPT_ID, conceptToAxiomsMap.keySet())))
 				)
-				.withFields(Concept.Fields.CONCEPT_ID)
+				.withSourceFilter(new FetchSourceFilter(new String[]{Concept.Fields.CONCEPT_ID}, null))
 				.withPageable(ComponentService.LARGE_PAGE);
 		try (SearchHitsIterator<Concept> activeConcepts = elasticsearchTemplate.searchForStream(activeConceptsQueryBuilder.build(), Concept.class)) {
 			activeConcepts.forEachRemaining(hit -> activeConceptIds.add(hit.getContent().getConceptIdAsLong()));
@@ -264,7 +265,7 @@ public class UpgradeInactivationService {
 				.withQuery(bool(b -> b
 						.must(branchCriteria.getEntityBranchCriteria(Description.class))))
 				.withFilter(termQuery(ACTIVE, false))
-				.withFields(Description.Fields.DESCRIPTION_ID)
+				.withSourceFilter(new FetchSourceFilter(new String[]{Description.Fields.DESCRIPTION_ID}, null))
 				.withPageable(ComponentService.LARGE_PAGE);
 
 		try (final SearchHitsIterator<Description> inactiveDescriptions = elasticsearchTemplate.searchForStream(searchQueryBuilder.build(), Description.class)) {

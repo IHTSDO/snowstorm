@@ -26,6 +26,7 @@ import org.springframework.data.elasticsearch.core.SearchHitsIterator;
 import org.springframework.data.elasticsearch.core.document.Document;
 import org.springframework.data.elasticsearch.client.elc.NativeQuery;
 import org.springframework.data.elasticsearch.client.elc.NativeQueryBuilder;
+import org.springframework.data.elasticsearch.core.query.FetchSourceFilter;
 import org.springframework.data.elasticsearch.core.query.Query;
 import org.springframework.data.elasticsearch.core.query.UpdateQuery;
 import org.springframework.data.elasticsearch.repository.ElasticsearchRepository;
@@ -340,7 +341,7 @@ public class AdminOperationsService {
 		NativeQueryBuilder queryBuilder = new NativeQueryBuilder()
 				.withQuery(bool(b -> b.must(branchCriteria.getEntityBranchCriteria(Relationship.class))
 						.must(termQuery(Relationship.Fields.EFFECTIVE_TIME, effectiveTime))))
-				.withFields(Relationship.Fields.RELATIONSHIP_ID)
+				.withSourceFilter(new FetchSourceFilter(new String[]{Relationship.Fields.RELATIONSHIP_ID}, null))
 				.withPageable(LARGE_PAGE);
 		try (SearchHitsIterator<Relationship> stream = elasticsearchTemplate.searchForStream(queryBuilder.build(), Relationship.class)) {
 			stream.forEachRemaining(hit -> {
@@ -663,7 +664,7 @@ public class AdminOperationsService {
 					try (final SearchHitsIterator<Description> stream = elasticsearchTemplate.searchForStream(new NativeQueryBuilder()
 							.withQuery(bool(b -> b.must(branchCriteria.getEntityBranchCriteria(Description.class))
 									.must(termsQuery(Description.Fields.DESCRIPTION_ID, descriptionIds))))
-							.withFields(Description.Fields.DESCRIPTION_ID, Description.Fields.CONCEPT_ID)
+							.withSourceFilter(new FetchSourceFilter(new String[]{Description.Fields.DESCRIPTION_ID, Description.Fields.CONCEPT_ID}, null))
 							.build(), Description.class)) {
 						stream.forEachRemaining(hit -> verifiedConceptIds.add(hit.getContent().getConceptId()));
 					}

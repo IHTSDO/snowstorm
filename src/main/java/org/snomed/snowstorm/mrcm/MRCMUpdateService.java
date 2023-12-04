@@ -22,6 +22,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.data.elasticsearch.core.SearchHitsIterator;
 import org.springframework.data.elasticsearch.client.elc.NativeQueryBuilder;
+import org.springframework.data.elasticsearch.core.query.FetchSourceFilter;
 import org.springframework.data.elasticsearch.core.query.UpdateQuery;
 import org.springframework.stereotype.Service;
 
@@ -252,7 +253,7 @@ public class MRCMUpdateService extends ComponentService implements CommitListene
 						)
 				)
 				.withPageable(LARGE_PAGE)
-				.withFields(ReferenceSetMember.Fields.MEMBER_ID)
+				.withSourceFilter(new FetchSourceFilter(new String[]{ReferenceSetMember.Fields.MEMBER_ID}, null))
 				.build(), ReferenceSetMember.class)) {
 			mrcmMembers.forEachRemaining(hit -> result.add(hit.getContent().getMemberId()));
 		}
