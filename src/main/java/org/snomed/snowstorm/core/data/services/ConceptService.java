@@ -37,6 +37,7 @@ import org.springframework.data.elasticsearch.core.SearchHit;
 import org.springframework.data.elasticsearch.core.SearchHits;
 import org.springframework.data.elasticsearch.core.SearchHitsIterator;
 import org.springframework.data.elasticsearch.client.elc.NativeQueryBuilder;
+import org.springframework.data.elasticsearch.core.query.FetchSourceFilter;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -848,7 +849,7 @@ public class ConceptService extends ComponentService {
 						.must(branchCriteria.getEntityBranchCriteria(Concept.class))
 						.must(termQuery(SnomedComponent.Fields.ACTIVE, true))))
 				.withPageable(LARGE_PAGE)
-				.withFields(Concept.Fields.CONCEPT_ID);
+				.withSourceFilter(new FetchSourceFilter(new String[]{Concept.Fields.CONCEPT_ID}, null));
 		List<Long> ids = new LongArrayList();
 		try (SearchHitsIterator<Concept> conceptStream = elasticsearchOperations.searchForStream(queryBuilder.build(), Concept.class)) {
 			conceptStream.forEachRemaining(c -> ids.add(c.getContent().getConceptIdAsLong()));

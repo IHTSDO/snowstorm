@@ -22,6 +22,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.data.elasticsearch.core.SearchHitsIterator;
 import org.springframework.data.elasticsearch.client.elc.NativeQueryBuilder;
+import org.springframework.data.elasticsearch.core.query.FetchSourceFilter;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 
@@ -120,7 +121,7 @@ public class ExtensionAdditionalLanguageRefsetUpgradeService {
 						.must(branchCriteria.getEntityBranchCriteria(ReferenceSetMember.class))
 						.must(termQuery(REFSET_ID, config.getLanguageRefsetIdToCopyFrom()))))
 				.withFilter(termQuery(ACTIVE, true))
-				.withFields(REFERENCED_COMPONENT_ID, ACTIVE, ACCEPTABILITY_ID_FIELD_PATH)
+				.withSourceFilter(new FetchSourceFilter(new String[]{REFERENCED_COMPONENT_ID, ACTIVE, ACCEPTABILITY_ID_FIELD_PATH}, null))
 				.withPageable(LARGE_PAGE);
 
 		try (final SearchHitsIterator<ReferenceSetMember> referencedComponents = elasticsearchTemplate.searchForStream(searchQueryBuilder.build(), ReferenceSetMember.class)) {
@@ -137,7 +138,7 @@ public class ExtensionAdditionalLanguageRefsetUpgradeService {
 				.withQuery(bool(b -> b
 						.must(branchCriteria.getEntityBranchCriteria(ReferenceSetMember.class))
 						.must(termQuery(REFSET_ID, languageRefsetId))))
-				.withFields(REFERENCED_COMPONENT_ID, ACTIVE, ACCEPTABILITY_ID_FIELD_PATH, CONCEPT_ID)
+				.withSourceFilter(new FetchSourceFilter(new String[]{REFERENCED_COMPONENT_ID, ACTIVE, ACCEPTABILITY_ID_FIELD_PATH, CONCEPT_ID}, null))
 				.withPageable(LARGE_PAGE);
 		if (lastDependantEffectiveTime != null) {
 			// for roll up upgrade every 6 months for example
@@ -174,7 +175,7 @@ public class ExtensionAdditionalLanguageRefsetUpgradeService {
 							.must(termQuery(REFSET_ID, config.getDefaultEnglishLanguageRefsetId()))
 							.must(termsQuery(ACCEPTABILITY_ID_FIELD_PATH, List.of(Concepts.PREFERRED, Concepts.ACCEPTABLE)))
 							.must(termsQuery(ReferenceSetMember.Fields.CONCEPT_ID, batch)))
-					).withFields(MEMBER_ID, EFFECTIVE_TIME, ACTIVE, MODULE_ID, REFSET_ID, REFERENCED_COMPONENT_ID, ACCEPTABILITY_ID_FIELD_PATH, CONCEPT_ID)
+					).withSourceFilter(new FetchSourceFilter(new String[]{MEMBER_ID, EFFECTIVE_TIME, ACTIVE, MODULE_ID, REFSET_ID, REFERENCED_COMPONENT_ID, ACCEPTABILITY_ID_FIELD_PATH, CONCEPT_ID}, null))
 					.withPageable(LARGE_PAGE);
 
 			try (final SearchHitsIterator<ReferenceSetMember> searchHitsIterator = elasticsearchTemplate.searchForStream(queryBuilder.build(), ReferenceSetMember.class)) {

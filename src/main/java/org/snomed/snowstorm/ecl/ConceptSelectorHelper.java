@@ -21,6 +21,7 @@ import org.snomed.snowstorm.rest.pojo.SearchAfterPageRequest;
 import org.springframework.data.domain.*;
 import org.springframework.data.elasticsearch.core.SearchHitsIterator;
 import org.springframework.data.elasticsearch.client.elc.NativeQueryBuilder;
+import org.springframework.data.elasticsearch.core.query.FetchSourceFilter;
 
 import java.util.*;
 import java.util.function.Function;
@@ -77,7 +78,7 @@ public class ConceptSelectorHelper {
 
 		NativeQueryBuilder searchQueryBuilder = new NativeQueryBuilder()
 				.withQuery(query)
-				.withFields(QueryConcept.Fields.CONCEPT_ID);
+				.withSourceFilter(new FetchSourceFilter(new String[]{QueryConcept.Fields.CONCEPT_ID}, null));
 
 		if (filterByConceptIds != null) {
 			searchQueryBuilder.withFilter(termsQuery(QueryConcept.Fields.CONCEPT_ID, filterByConceptIds));
@@ -122,7 +123,7 @@ public class ConceptSelectorHelper {
 
 		NativeQueryBuilder searchQueryBuilder = new NativeQueryBuilder()
 				.withQuery(query)
-				.withFields(getRequiredFields(inclusionFilter));
+				.withSourceFilter(new FetchSourceFilter(getRequiredFields(inclusionFilter), null));
 
 		if (filterByConceptIds != null) {
 			searchQueryBuilder.withFilter(termsQuery(QueryConcept.Fields.CONCEPT_ID, filterByConceptIds));

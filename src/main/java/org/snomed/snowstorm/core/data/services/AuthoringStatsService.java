@@ -23,6 +23,7 @@ import org.springframework.data.elasticsearch.core.SearchHits;
 import org.springframework.data.elasticsearch.core.SearchHitsIterator;
 import org.springframework.data.elasticsearch.client.elc.NativeQuery;
 import org.springframework.data.elasticsearch.client.elc.NativeQueryBuilder;
+import org.springframework.data.elasticsearch.core.query.FetchSourceFilter;
 import org.springframework.data.elasticsearch.core.query.Query;
 import org.springframework.stereotype.Service;
 
@@ -93,7 +94,7 @@ public class AuthoringStatsService {
 
 		// Inactivated synonyms
 		SearchHits<Description> inactivatedSynonyms = elasticsearchOperations.search(withTotalHitsTracking(getInactivatedSynonymCriteria(branchCriteria)
-				.withFields(Description.Fields.CONCEPT_ID)
+				.withSourceFilter(new FetchSourceFilter(new String[]{Description.Fields.CONCEPT_ID}, null))
 				.withPageable(pageOfOne)
 				.build()), Description.class);
 		timer.checkpoint("inactivated descriptions");
@@ -101,7 +102,7 @@ public class AuthoringStatsService {
 
 		// New synonyms for existing concepts
 		SearchHits<Description> newSynonymsForExistingConcepts = elasticsearchOperations.search(withTotalHitsTracking(getNewSynonymsOnExistingConceptsCriteria(branchCriteria, timer)
-				.withFields(Description.Fields.DESCRIPTION_ID, Description.Fields.CONCEPT_ID)
+				.withSourceFilter(new FetchSourceFilter(new String[]{Description.Fields.DESCRIPTION_ID, Description.Fields.CONCEPT_ID}, null))
 				.withPageable(pageOfOne)
 				.build()), Description.class);
 		timer.checkpoint("new synonyms for existing concepts");
@@ -109,7 +110,7 @@ public class AuthoringStatsService {
 
 		// Reactivated synonyms
 		SearchHits<Description> reactivatedSynonyms = elasticsearchOperations.search(withTotalHitsTracking(getReactivatedSynonymsCriteria(branchCriteria)
-				.withFields(Description.Fields.CONCEPT_ID)
+				.withSourceFilter(new FetchSourceFilter(new String[]{Description.Fields.CONCEPT_ID}, null))
 				.withPageable(pageOfOne)
 				.build()), Description.class);
 		timer.checkpoint("reactivated descriptions");
@@ -126,7 +127,7 @@ public class AuthoringStatsService {
 						.must(termQuery(Description.Fields.TYPE_ID, Concepts.SYNONYM))
 						.must(termQuery(Concept.Fields.ACTIVE, true))
 						.must(termQuery(Concept.Fields.RELEASED, "false"))))
-				.withFields(Description.Fields.CONCEPT_ID)
+				.withSourceFilter(new FetchSourceFilter(new String[]{Description.Fields.CONCEPT_ID}, null))
 				.withPageable(LARGE_PAGE)
 				.build(), Description.class)) {
 			stream.forEachRemaining(hit -> newSynonymConceptIds.add(parseLong(hit.getContent().getConceptId())));
@@ -140,7 +141,7 @@ public class AuthoringStatsService {
 						.must(termQuery(Concept.Fields.RELEASED, "true"))
 						.filter(termsQuery(Concept.Fields.CONCEPT_ID, newSynonymConceptIds)))
 				)
-				.withFields(Concept.Fields.CONCEPT_ID)
+				.withSourceFilter(new FetchSourceFilter(new String[]{Concept.Fields.CONCEPT_ID}, null))
 				.withPageable(LARGE_PAGE)
 				.build(), Concept.class)) {
 			stream.forEachRemaining(hit -> existingConceptsWithNewSynonyms.add(hit.getContent().getConceptIdAsLong()));
@@ -241,7 +242,7 @@ public class AuthoringStatsService {
 						.must(termQuery(Concept.Fields.ACTIVE, "true"))
 						.mustNot(existsQuery(Concept.Fields.EFFECTIVE_TIME))
 						.must(termQuery(Concept.Fields.RELEASED, "false"))))
-				.withFields(Concept.Fields.CONCEPT_ID);
+				.withSourceFilter(new FetchSourceFilter(new String[]{Concept.Fields.CONCEPT_ID}, null));
 	}
 	
 	private NativeQueryBuilder getNewDescriptionCriteria(BranchCriteria branchCriteria) {
@@ -251,7 +252,7 @@ public class AuthoringStatsService {
 						.must(termQuery(Concept.Fields.ACTIVE, "true"))
 						.mustNot(existsQuery(Concept.Fields.EFFECTIVE_TIME))
 						.must(termQuery(Concept.Fields.RELEASED, "false"))))
-				.withFields(Description.Fields.DESCRIPTION_ID, Description.Fields.CONCEPT_ID, Description.Fields.TERM);
+				.withSourceFilter(new FetchSourceFilter(new String[]{Description.Fields.DESCRIPTION_ID, Description.Fields.CONCEPT_ID, Description.Fields.TERM}, null));
 	}
 
 	private NativeQueryBuilder getInactivatedConceptsCriteria(BranchCriteria branchCriteria) {
@@ -262,7 +263,7 @@ public class AuthoringStatsService {
 						.must(termQuery(Concept.Fields.RELEASED, "true"))
 						.mustNot(existsQuery(Concept.Fields.EFFECTIVE_TIME))
 				))
-				.withFields(Concept.Fields.CONCEPT_ID);
+				.withSourceFilter(new FetchSourceFilter(new String[]{Concept.Fields.CONCEPT_ID}, null));
 	}
 
 	private NativeQueryBuilder getReactivatedConceptsCriteria(BranchCriteria branchCriteria) {
@@ -275,7 +276,7 @@ public class AuthoringStatsService {
 						// Previously released as active=false
 						.must(prefixQuery(Concept.Fields.RELEASE_HASH, "false"))
 				))
-				.withFields(Concept.Fields.CONCEPT_ID);
+				.withSourceFilter(new FetchSourceFilter(new String[]{Concept.Fields.CONCEPT_ID}, null));
 	}
 
 	private NativeQueryBuilder getChangedFSNsCriteria(BranchCriteria branchCriteria) {
@@ -288,7 +289,7 @@ public class AuthoringStatsService {
 						.must(termQuery(Description.Fields.TYPE_ID, Concepts.FSN))
 						.mustNot(existsQuery(Concept.Fields.EFFECTIVE_TIME))
 						.must(termQuery(Concept.Fields.RELEASED, "true"))))
-				.withFields(Description.Fields.CONCEPT_ID);
+				.withSourceFilter(new FetchSourceFilter(new String[]{Description.Fields.CONCEPT_ID}, null));
 	}
 
 	private NativeQueryBuilder getInactivatedSynonymCriteria(BranchCriteria branchCriteria) {

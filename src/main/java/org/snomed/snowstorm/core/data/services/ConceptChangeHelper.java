@@ -27,6 +27,7 @@ import org.springframework.data.elasticsearch.core.SearchHit;
 import org.springframework.data.elasticsearch.core.SearchHitsIterator;
 import org.springframework.data.elasticsearch.client.elc.NativeQuery;
 import org.springframework.data.elasticsearch.client.elc.NativeQueryBuilder;
+import org.springframework.data.elasticsearch.core.query.FetchSourceFilter;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
@@ -147,7 +148,7 @@ public class ConceptChangeHelper {
                 .withQuery(updatesQuery)
                 .withPageable(LARGE_PAGE)
                 .withSort(SortOptions.of(s -> s.field(f -> f.field("start"))))
-                .withFields(Concept.Fields.CONCEPT_ID)
+                .withSourceFilter(new FetchSourceFilter(new String[]{Concept.Fields.CONCEPT_ID}, null))
                 .build();
         try (final SearchHitsIterator<Concept> stream = elasticsearchTemplate.searchForStream(conceptsWithNewVersionsQuery, Concept.class)) {
             stream.forEachRemaining(hit -> changedConcepts.add(parseLong(hit.getContent().getConceptId())));
@@ -157,7 +158,7 @@ public class ConceptChangeHelper {
         AtomicLong descriptions = new AtomicLong();
         NativeQuery descQuery = newSearchQuery(updatesQuery)
                 .withFilter(termQuery(Description.Fields.TYPE_ID, Concepts.FSN))
-                .withFields(Description.Fields.CONCEPT_ID)
+                .withSourceFilter(new FetchSourceFilter(new String[]{Description.Fields.CONCEPT_ID}, null))
                 .build();
         try (final SearchHitsIterator<Description> stream = elasticsearchTemplate.searchForStream(descQuery, Description.class)) {
             stream.forEachRemaining(hit -> {
@@ -170,7 +171,7 @@ public class ConceptChangeHelper {
         logger.debug("Collecting relationship changes for change report: branch {} time range {} to {}", path, start, end);
         AtomicLong relationships = new AtomicLong();
         NativeQuery relQuery = newSearchQuery(updatesQuery)
-                .withFields(Relationship.Fields.SOURCE_ID)
+                .withSourceFilter(new FetchSourceFilter(new String[]{Relationship.Fields.SOURCE_ID}, null))
                 .build();
         try (final SearchHitsIterator<Relationship> stream = elasticsearchTemplate.searchForStream(relQuery, Relationship.class)) {
             stream.forEachRemaining(hit -> {
@@ -183,7 +184,7 @@ public class ConceptChangeHelper {
         logger.debug("Collecting refset member changes for change report: branch {} time range {} to {}", path, start, end);
         NativeQuery memberQuery = newSearchQuery(updatesQuery)
                 .withFilter(bool(b -> b.must(existsQuery(ReferenceSetMember.Fields.CONCEPT_ID))))
-                .withFields(ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID, ReferenceSetMember.Fields.CONCEPT_ID)
+                .withSourceFilter(new FetchSourceFilter(new String[]{ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID, ReferenceSetMember.Fields.CONCEPT_ID}, null))
                 .build();
         try (final SearchHitsIterator<ReferenceSetMember> stream = elasticsearchTemplate.searchForStream(memberQuery, ReferenceSetMember.class)) {
             stream.forEachRemaining(hit -> referenceComponentIdToConceptMap.put(parseLong(hit.getContent().getReferencedComponentId()), parseLong(hit.getContent().getConceptId())));
@@ -208,7 +209,7 @@ public class ConceptChangeHelper {
                         .must(existsQuery(ReferenceSetMember.Fields.CONCEPT_ID))
                         .must(termsQuery(ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID, synonymAndTextDefIds))
                         .must(termQuery(ReferenceSetMember.LanguageFields.ACCEPTABILITY_ID_FIELD_PATH, Concepts.PREFERRED))))
-                .withFields(ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID)
+                .withSourceFilter(new FetchSourceFilter(new String[]{ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID}, null))
                 .build();
         try (final SearchHitsIterator<ReferenceSetMember> stream = elasticsearchTemplate.searchForStream(languageMemberQuery, ReferenceSetMember.class)) {
             stream.forEachRemaining(hit -> preferredDescriptionIds.add(parseLong(hit.getContent().getReferencedComponentId())));
@@ -236,7 +237,7 @@ public class ConceptChangeHelper {
                         .mustNot(getNonStatedRelationshipClause())))
                 .withPageable(LARGE_PAGE);
         if (limitFieldsFetched.length > 0) {
-            builder.withFields(limitFieldsFetched);
+            builder.withSourceFilter(new FetchSourceFilter(limitFieldsFetched, null));
         }
         return builder;
     }
@@ -295,7 +296,7 @@ public class ConceptChangeHelper {
                                         .must(termQuery(Concept.Fields.PATH, branchPath))
                                         .mustNot(termsQuery(Concept.Fields.CONCEPT_ID, conceptsReplacedOnBranch)))
                         )
-                        .withFields(Concept.Fields.CONCEPT_ID, Concept.Fields.END)
+                        .withSourceFilter(new FetchSourceFilter(new String[]{Concept.Fields.CONCEPT_ID, Concept.Fields.END}, null))
                         .withSort(SortOptions.of(s -> s.field(f -> f.field(Concept.Fields.START).order(SortOrder.Desc))))
                         // Group by conceptId. Query will return most recent document for each Concept.
                         .withFieldCollapse(FieldCollapse.of(f -> f.field(Concept.Fields.CONCEPT_ID)))
@@ -316,7 +317,7 @@ public class ConceptChangeHelper {
                                     .must(termsQuery(Concept.Fields.PATH, branchPathAncestors))
                                     .mustNot(existsQuery("end")))
                     )
-                    .withFields(Concept.Fields.CONCEPT_ID)
+                    .withSourceFilter(new FetchSourceFilter(new String[]{Concept.Fields.CONCEPT_ID}, null))
                     .build(), Concept.class)) {
                 // Concept exists on an ancestor, therefore promoted rather than deleted.
                 stream.forEachRemaining(hit -> conceptsEndedOnBranch.removeIf(id -> id.equals(hit.getContent().getConceptId())));
@@ -334,7 +335,7 @@ public class ConceptChangeHelper {
                                     .must(termQuery(Concept.Fields.PATH, branchPath))
                                     .mustNot(existsQuery(Concept.Fields.END))
                     ))
-                    .withFields(Concept.Fields.CONCEPT_ID)
+                    .withSourceFilter(new FetchSourceFilter(new String[]{Concept.Fields.CONCEPT_ID}, null))
                     .build(), Concept.class)) {
                 // Concept not replaced on current branch, therefore deleted.
                 stream.forEachRemaining(hit -> conceptsReplacedOnBranch.removeIf(id -> id.equals(hit.getContent().getConceptId())));
@@ -358,7 +359,7 @@ public class ConceptChangeHelper {
                         bool(b -> b
                                 .must(termsQuery("_id", internalIds)) // ES identifier, not an SCT identifier.
                 ))
-                .withFields(Concept.Fields.CONCEPT_ID)
+                .withSourceFilter(new FetchSourceFilter(new String[]{Concept.Fields.CONCEPT_ID}, null))
                 .build(), Concept.class)) {
             stream.forEachRemaining(hit -> conceptIds.add(hit.getContent().getConceptId()));
         }
@@ -379,7 +380,7 @@ public class ConceptChangeHelper {
         Set<String> conceptsWithModifiedDescriptions = new HashSet<>();
         try (final SearchHitsIterator<Description> stream = elasticsearchTemplate.searchForStream(new NativeQueryBuilder()
                 .withQuery(queryModifiedDescriptions.build()._toQuery())
-                .withFields(Description.Fields.CONCEPT_ID)
+                .withSourceFilter(new FetchSourceFilter(new String[]{Description.Fields.CONCEPT_ID}, null))
                 .withSort(SortOptions.of(s -> s.field(f -> f.field(Description.Fields.START).order(SortOrder.Desc))))
                 .build(), Description.class)) {
             stream.forEachRemaining(hit -> conceptsWithModifiedDescriptions.add(hit.getContent().getConceptId()));

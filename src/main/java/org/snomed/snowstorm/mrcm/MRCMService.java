@@ -22,6 +22,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.data.elasticsearch.core.SearchHitsIterator;
 import org.springframework.data.elasticsearch.client.elc.NativeQueryBuilder;
+import org.springframework.data.elasticsearch.core.query.FetchSourceFilter;
 import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;
 
@@ -230,7 +231,7 @@ public class MRCMService {
 						.must(termQuery(QueryConcept.Fields.STATED, false))
 						.filter(termsQuery(QueryConcept.Fields.CONCEPT_ID, remainingAttributes)))
 				)
-				.withFields(QueryConcept.Fields.CONCEPT_ID, QueryConcept.Fields.PARENTS)
+				.withSourceFilter(new FetchSourceFilter(new String[]{QueryConcept.Fields.CONCEPT_ID, QueryConcept.Fields.PARENTS}, null))
 				.withPageable(LARGE_PAGE);
 		try (SearchHitsIterator<QueryConcept> queryConcepts = elasticsearchTemplate.searchForStream(queryConceptQuery.build(), QueryConcept.class)) {
 			queryConcepts.forEachRemaining(hit -> {

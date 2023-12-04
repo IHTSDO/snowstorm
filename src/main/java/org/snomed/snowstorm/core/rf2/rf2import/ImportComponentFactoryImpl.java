@@ -19,6 +19,7 @@ import org.snomed.snowstorm.core.rf2.RF2Constants;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.data.elasticsearch.core.SearchHitsIterator;
 import org.springframework.data.elasticsearch.client.elc.NativeQueryBuilder;
+import org.springframework.data.elasticsearch.core.query.FetchSourceFilter;
 
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -170,7 +171,7 @@ public class ImportComponentFactoryImpl extends ImpotentComponentFactory {
 								.must(replacementOfThisEffectiveTimeAllowed ?
 										range().field(SnomedComponent.Fields.EFFECTIVE_TIME).gt(JsonData.of(effectiveTime)).build()._toQuery()
 										: range().field(SnomedComponent.Fields.EFFECTIVE_TIME).gte(JsonData.of(effectiveTime)).build()._toQuery())))
-						.withFields(idField)// Only fetch the id
+						.withSourceFilter(new FetchSourceFilter(new String[]{idField}, null))// Only fetch the id
 						.withPageable(LARGE_PAGE)
 						.build(), componentClass)) {
 					componentsWithSameOrLaterEffectiveTime.forEachRemaining(hit -> {

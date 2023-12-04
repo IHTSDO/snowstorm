@@ -21,6 +21,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.data.elasticsearch.core.SearchHitsIterator;
 import org.springframework.data.elasticsearch.client.elc.NativeQueryBuilder;
+import org.springframework.data.elasticsearch.core.query.FetchSourceFilter;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
@@ -250,7 +251,7 @@ public class IntegrityService extends ComponentService implements CommitListener
 						.must(termQuery(ACTIVE, true))
 						.must(termsQuery(Concept.Fields.CONCEPT_ID, conceptsRequiredActive)))
 				)
-				.withFields(Concept.Fields.CONCEPT_ID)
+				.withSourceFilter(new FetchSourceFilter(new String[]{Concept.Fields.CONCEPT_ID}, null))
 				.build(), Concept.class)) {
 			activeConceptStream.forEachRemaining(hit -> activeConcepts.add(hit.getContent().getConceptIdAsLong()));
 		}
@@ -393,7 +394,7 @@ public class IntegrityService extends ComponentService implements CommitListener
 						.must(termQuery(ACTIVE, true))
 						.must(termsQuery(Concept.Fields.CONCEPT_ID, conceptIdsToCheck)))
 				)
-				.withFields(Concept.Fields.CONCEPT_ID)
+				.withSourceFilter(new FetchSourceFilter(new String[]{Concept.Fields.CONCEPT_ID}, null))
 				.build(), Concept.class)) {
 			activeConceptStream.forEachRemaining(hit -> activeConcepts.add(hit.getContent().getConceptIdAsLong()));
 		}
@@ -624,7 +625,7 @@ public class IntegrityService extends ComponentService implements CommitListener
 		try (SearchHitsIterator<Concept> changedOrDeletedConceptStream = elasticsearchTemplate.searchForStream(
 				new NativeQueryBuilder()
 						.withQuery(bool(b -> b.must(versionControlHelper.getBranchCriteriaUnpromotedChangesAndDeletions(branch).getEntityBranchCriteria(Concept.class))))
-						.withFields(Concept.Fields.CONCEPT_ID)
+						.withSourceFilter(new FetchSourceFilter(new String[]{Concept.Fields.CONCEPT_ID}, null))
 						.withPageable(LARGE_PAGE).build(), Concept.class)) {
 			changedOrDeletedConceptStream.forEachRemaining(hit -> changedOrDeletedConcepts.add(hit.getContent().getConceptIdAsLong()));
 		}
@@ -639,7 +640,7 @@ public class IntegrityService extends ComponentService implements CommitListener
 								.must(termsQuery(Concept.Fields.CONCEPT_ID, changedOrDeletedConcepts))
 								.must(termQuery(ACTIVE, true)))
 						)
-						.withFields(Concept.Fields.CONCEPT_ID)
+						.withSourceFilter(new FetchSourceFilter(new String[]{Concept.Fields.CONCEPT_ID}, null))
 						.withPageable(LARGE_PAGE).build(),
 				Concept.class)) {
 			changedOrDeletedConceptStream.forEachRemaining(hit -> changedAndActiveConcepts.add(hit.getContent().getConceptIdAsLong()));
