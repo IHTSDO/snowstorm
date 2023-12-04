@@ -19,6 +19,7 @@ import org.snomed.otf.owltoolkit.conversion.ConversionException;
 import org.snomed.snowstorm.config.Config;
 import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.repositories.QueryConceptRepository;
+import org.snomed.snowstorm.core.data.services.identifier.IdentifierService;
 import org.snomed.snowstorm.core.data.services.pojo.SAxiomRepresentation;
 import org.snomed.snowstorm.core.data.services.transitiveclosure.GraphBuilder;
 import org.snomed.snowstorm.core.data.services.transitiveclosure.GraphBuilderException;
@@ -51,6 +52,8 @@ import static java.lang.String.format;
 import static co.elastic.clients.elasticsearch._types.query_dsl.QueryBuilders.*;
 import static io.kaicode.elasticvc.helper.QueryHelper.*;
 import static org.snomed.snowstorm.core.data.domain.Concepts.CONCEPT_MODEL_OBJECT_ATTRIBUTE;
+import static org.snomed.snowstorm.core.data.domain.ReferenceSetMember.Fields.*;
+import static org.snomed.snowstorm.core.data.domain.ReferenceSetMember.Fields.CONCEPT_ID;
 import static org.springframework.data.elasticsearch.client.elc.Queries.idsQueryAsQuery;
 
 @Service
@@ -326,8 +329,15 @@ public class SemanticIndexUpdateService extends ComponentService implements Comm
 						.must(termQuery("path", branchPath))
 						.must(termQuery("end", commit.getTimepoint().getTime())))
 				);
+
+		Map<Long, Set<Long>> conceptToRefsetsMap = new HashMap<>();
 		if (!completeRebuild) {
 			filter.must(termsQuery(QueryConcept.Fields.CONCEPT_ID, conceptIdsToUpdate));
+		} else {
+			// Fetch all takes a while so we should this only for complete rebuild
+			logger.info("Start fetching and mapping concepts to refsets on branch {}.", branchPath);
+			conceptToRefsetsMap = getConceptToRefsetsMap(newStateCriteria, conceptIdsToUpdate);
+			logger.info("End fetching and mapping concepts to refsets map on branch {} and found total {}.", branchPath, conceptToRefsetsMap.keySet().size());
 		}
 		try (final SearchHitsIterator<QueryConcept> existingQueryConcepts = elasticsearchTemplate.searchForStream(new NativeQueryBuilder()
 				.withQuery(bool(b -> b
@@ -344,6 +354,7 @@ public class SemanticIndexUpdateService extends ComponentService implements Comm
 				if (completeRebuild) {
 					if (node != null) {
 						QueryConcept newQueryConcept = createQueryConcept(form, branchPath, conceptAttributeChanges, throwExceptionIfTransitiveClosureLoopFound, node.getId(), node);
+						newQueryConcept.setRefsets(conceptToRefsetsMap.get(conceptId));
 						if (!queryConcept.fieldsMatch(newQueryConcept)) {
 							queryConcept = newQueryConcept;
 							save = true;
@@ -354,6 +365,7 @@ public class SemanticIndexUpdateService extends ComponentService implements Comm
 					}
 				} else {
 					QueryConcept newQueryConcept = new QueryConcept(queryConcept);
+					newQueryConcept.setRefsets(getRefsetMembershipForConcept(newStateCriteria, conceptId));
 					if (node != null) {
 						// TC changes
 						newQueryConcept.setParents(node.getParents().stream().map(Node::getId).collect(Collectors.toSet()));
@@ -380,6 +392,7 @@ public class SemanticIndexUpdateService extends ComponentService implements Comm
 		for (Long nodeId : nodesNotFound) {
 			Node node = nodesToSave.get(nodeId);
 			QueryConcept queryConcept = createQueryConcept(form, branchPath, conceptAttributeChanges, throwExceptionIfTransitiveClosureLoopFound, nodeId, node);
+			queryConcept.setRefsets(getRefsetMembershipForConcept(newStateCriteria, nodeId));
 			if (node.getParents().isEmpty() && !queryConcept.isRoot()) {
 				// Concept is probably inactive, don't add to semantic index.
 				continue;
@@ -571,6 +584,25 @@ public class SemanticIndexUpdateService extends ComponentService implements Comm
 			otherChangedRelationships.forEachRemaining(hit -> updateSource.add(parseLong(hit.getContent().getSourceId())));
 		}
 
+		// Collect changed referenceset membership
+		try (SearchHitsIterator<ReferenceSetMember> changedRefsetMembership = elasticsearchTemplate.searchForStream(new NativeQueryBuilder()
+				.withQuery(bool(b -> b.filter(
+								bool(bq -> bq
+								// Either on this branch
+								.should(changesCriteria.getEntityBranchCriteria(ReferenceSetMember.class))
+								// Or on parent branch and deleted/replaced on this branch
+								.should(termsQuery("internalId", internalIdsOfDeletedComponents)))
+						)))
+				.build(), ReferenceSetMember.class)) {
+			changedRefsetMembership.forEachRemaining(hit -> {
+				final String componentId = hit.getContent().getReferencedComponentId();
+				if (IdentifierService.isConceptId(componentId)) {
+					updateSource.add(parseLong(componentId));
+				}
+			});
+			timer.checkpoint("Collect changed reference set membership.");
+		}
+
 		if (updateSource.isEmpty()) {
 			// Stop here - nothing to update
 			return updateSource;
@@ -758,6 +790,75 @@ public class SemanticIndexUpdateService extends ComponentService implements Comm
 
 		return missingConceptIds;
 	}
+
+	private SearchHitsIterator<ReferenceSetMember> getRefsetMembershipChanges(Commit commit) {
+		final BranchCriteria branchCriteria = versionControlHelper.getBranchCriteriaChangesAndDeletionsWithinOpenCommitOnly(commit);
+		return elasticsearchTemplate.searchForStream(new NativeQueryBuilder().withQuery(branchCriteria.getEntityBranchCriteria(ReferenceSetMember.class)).build(), ReferenceSetMember.class);
+	}
+
+	private Set<Long> getRefsetMembershipForConcept(BranchCriteria criteria, final Long conceptId) {
+		final Set<Long> referenceSets = new HashSet<>();
+		try (final SearchHitsIterator<ReferenceSetMember> refsetMemberships = elasticsearchTemplate.searchForStream(new NativeQueryBuilder()
+				.withQuery(bool(b -> b
+						.must(criteria.getEntityBranchCriteria(ReferenceSetMember.class))
+						.must(termQuery(ReferenceSetMember.Fields.ACTIVE, true))
+						.must(termQuery(REFERENCED_COMPONENT_ID, conceptId))))
+				.withSourceFilter(new FetchSourceFilter(new String[]{REFSET_ID}, null))
+				.withPageable(LARGE_PAGE).build(), ReferenceSetMember.class)) {
+			while (refsetMemberships.hasNext()) {
+				referenceSets.add(parseLong(refsetMemberships.next().getContent().getRefsetId()));
+			}
+		}
+		return referenceSets;
+	}
+
+	private Map<Long, Set<Long>> getConceptToRefsetsMap(BranchCriteria criteria) {
+		// TODO need to update this because there are history records without concept id e.g 259963002 for 900000000000497000 CTV3
+		final Map<Long, Set<Long>> results = new HashMap<>();
+		NativeQueryBuilder queryBuilder = new NativeQueryBuilder()
+				.withQuery(bool(b -> b
+						.must(criteria.getEntityBranchCriteria(ReferenceSetMember.class))
+						.must(termQuery(ReferenceSetMember.Fields.ACTIVE, true))
+						.must(existsQuery(CONCEPT_ID)))
+				).withSourceFilter(new FetchSourceFilter( new String[] {REFSET_ID, REFERENCED_COMPONENT_ID, CONCEPT_ID}, null)).withPageable(LARGE_PAGE);
+
+		try (final SearchHitsIterator<ReferenceSetMember> refsetMemberships = elasticsearchTemplate.searchForStream(queryBuilder.build(), ReferenceSetMember.class)) {
+			while (refsetMemberships.hasNext()) {
+				ReferenceSetMember member = refsetMemberships.next().getContent();
+				final Long conceptId = parseLong(member.getConceptId());
+				final Long referencedComponentId = parseLong(member.getReferencedComponentId());
+				if (conceptId.equals(referencedComponentId)) {
+					results.computeIfAbsent(conceptId, c -> new HashSet<>()).add(parseLong(member.getRefsetId()));
+				}
+			}
+		}
+		return results;
+	}
+
+	private Map<Long, Set<Long>> getConceptToRefsetsMap(BranchCriteria criteria, Set<Long> conceptIdsToFetch) {
+		if (conceptIdsToFetch.isEmpty()) {
+			return getConceptToRefsetsMap(criteria);
+		}
+		final Map<Long, Set<Long>> results = new HashMap<>();
+		for (List<Long> batch : Iterables.partition(conceptIdsToFetch, CLAUSE_LIMIT)) {
+			NativeQueryBuilder queryBuilder = new NativeQueryBuilder()
+					.withQuery(bool(b -> b
+							.must(criteria.getEntityBranchCriteria(ReferenceSetMember.class))
+							.must(termQuery(ReferenceSetMember.Fields.ACTIVE, true))
+							.must(termsQuery(REFERENCED_COMPONENT_ID, batch)))
+					).withSourceFilter(new FetchSourceFilter(new String[] {REFSET_ID, REFERENCED_COMPONENT_ID}, null)).withPageable(LARGE_PAGE);
+
+			try (final SearchHitsIterator<ReferenceSetMember> refsetMemberships = elasticsearchTemplate.searchForStream(queryBuilder.build(), ReferenceSetMember.class)) {
+				while (refsetMemberships.hasNext()) {
+					ReferenceSetMember member = refsetMemberships.next().getContent();
+					final Long referencedComponentId = parseLong(member.getReferencedComponentId());
+					results.computeIfAbsent(referencedComponentId, c -> new HashSet<>()).add(parseLong(member.getRefsetId()));
+				}
+			}
+		}
+		return results;
+	}
+
 
 	private static final class AttributeChanges {
 
