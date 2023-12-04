@@ -35,6 +35,7 @@ import org.springframework.data.elasticsearch.core.SearchHits;
 import org.springframework.data.elasticsearch.core.SearchHitsIterator;
 import org.springframework.data.elasticsearch.client.elc.NativeQuery;
 import org.springframework.data.elasticsearch.client.elc.NativeQueryBuilder;
+import org.springframework.data.elasticsearch.core.query.FetchSourceFilter;
 import org.springframework.data.elasticsearch.core.query.Query;
 import org.springframework.stereotype.Service;
 
@@ -501,7 +502,7 @@ public class SemanticIndexUpdateService extends ComponentService implements Comm
 										)
 						)))
 				)
-				.withFields(Relationship.Fields.SOURCE_ID, Relationship.Fields.DESTINATION_ID)
+				.withSourceFilter(new FetchSourceFilter(new String[]{Relationship.Fields.SOURCE_ID, Relationship.Fields.DESTINATION_ID}, null))
 				.withPageable(LARGE_PAGE).build(), Relationship.class)) {
 			changedIsARelationships.forEachRemaining(hit -> {
 				updateSource.add(parseLong(hit.getContent().getSourceId()));
@@ -524,7 +525,7 @@ public class SemanticIndexUpdateService extends ComponentService implements Comm
 											))
 							))
 					)
-					.withFields(ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID, ReferenceSetMember.OwlExpressionFields.OWL_EXPRESSION_FIELD_PATH)
+					.withSourceFilter(new FetchSourceFilter(new String[]{ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID, ReferenceSetMember.OwlExpressionFields.OWL_EXPRESSION_FIELD_PATH}, null))
 					.withPageable(LARGE_PAGE).build(), ReferenceSetMember.class)) {
 				axiomStreamToRelationshipStream(
 						changedAxioms,
@@ -561,7 +562,7 @@ public class SemanticIndexUpdateService extends ComponentService implements Comm
 										.mustNot(termsQuery(Relationship.Fields.SOURCE_ID, updateSource))
 						)))
 				)
-				.withFields(Relationship.Fields.SOURCE_ID)
+				.withSourceFilter(new FetchSourceFilter(new String[]{Relationship.Fields.SOURCE_ID}, null))
 				.withPageable(LARGE_PAGE)
 				.build(), Relationship.class)) {
 			otherChangedRelationships.forEachRemaining(hit -> updateSource.add(parseLong(hit.getContent().getSourceId())));
@@ -584,7 +585,7 @@ public class SemanticIndexUpdateService extends ComponentService implements Comm
 						.must(termQuery("stated", form.isStated()))
 						.filter(termsQuery(QueryConcept.Fields.CONCEPT_ID, Sets.union(updateSource, updateDestination))))
 				)
-				.withFields(QueryConcept.Fields.ANCESTORS)
+				.withSourceFilter(new FetchSourceFilter(new String[]{QueryConcept.Fields.ANCESTORS}, null))
 				.withPageable(LARGE_PAGE).build();
 		try (final SearchHitsIterator<QueryConcept> existingQueryConcepts = elasticsearchTemplate.searchForStream(query, QueryConcept.class)) {
 			existingQueryConcepts.forEachRemaining(hit -> existingAncestors.addAll(hit.getContent().getAncestors()));
@@ -599,7 +600,7 @@ public class SemanticIndexUpdateService extends ComponentService implements Comm
 						.must(termQuery("stated", form.isStated()))
 						.filter(termsQuery("ancestors", updateSource)))
 				)
-				.withFields(QueryConcept.Fields.CONCEPT_ID)
+				.withSourceFilter(new FetchSourceFilter(new String[]{QueryConcept.Fields.CONCEPT_ID}, null))
 				.withPageable(LARGE_PAGE).build(), QueryConcept.class)) {
 			existingQueryConcepts.forEachRemaining(hit -> existingDescendants.add(hit.getContent().getConceptIdL()));
 		}
@@ -641,7 +642,7 @@ public class SemanticIndexUpdateService extends ComponentService implements Comm
 						.must(termQuery(QueryConcept.Fields.STATED, stated))
 						.filter(termsQuery(QueryConcept.Fields.CONCEPT_ID, nodesToLoad)))
 				)
-				.withFields(QueryConcept.Fields.CONCEPT_ID, QueryConcept.Fields.PARENTS, QueryConcept.Fields.ANCESTORS)
+				.withSourceFilter(new FetchSourceFilter(new String[]{QueryConcept.Fields.CONCEPT_ID, QueryConcept.Fields.PARENTS, QueryConcept.Fields.ANCESTORS}, null))
 				.withPageable(LARGE_PAGE);
 
 		try (SearchHitsIterator<QueryConcept> queryConcepts = elasticsearchTemplate.searchForStream(queryConceptQuery.build(), QueryConcept.class)) {
@@ -733,7 +734,7 @@ public class SemanticIndexUpdateService extends ComponentService implements Comm
 						.must(termQuery(SnomedComponent.Fields.ACTIVE, true))
 						.filter(termsQuery(Concept.Fields.CONCEPT_ID, requiredActiveConcepts)))
 				)
-				.withFields(Concept.Fields.CONCEPT_ID)
+				.withSourceFilter(new FetchSourceFilter(new String[]{Concept.Fields.CONCEPT_ID}, null))
 				.withPageable(PageRequest.of(0, 1));
 
 		Query activeQuery = queryBuilder.build();

@@ -20,6 +20,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.data.elasticsearch.core.SearchHitsIterator;
 import org.springframework.data.elasticsearch.client.elc.NativeQueryBuilder;
+import org.springframework.data.elasticsearch.core.query.FetchSourceFilter;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
@@ -61,7 +62,7 @@ public class ContentReportService {
 		List<Long> conceptIds = new LongArrayList();
 		try (SearchHitsIterator<Concept> conceptStream = elasticsearchOperations.searchForStream(new NativeQueryBuilder()
 				.withQuery(boolQueryBuilder.build()._toQuery())
-				.withFields(Concept.Fields.CONCEPT_ID)
+				.withSourceFilter(new FetchSourceFilter(new String[]{Concept.Fields.CONCEPT_ID}, null))
 				.withPageable(LARGE_PAGE)
 				.build(), Concept.class)) {
 			conceptStream.forEachRemaining(hit -> conceptIds.add(hit.getContent().getConceptIdAsLong()));
@@ -81,7 +82,7 @@ public class ContentReportService {
 							.must(termsQuery(ReferenceSetMember.Fields.REFSET_ID, allHistoricalAssociations))
 							.filter(termsQuery(ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID, batch)))
 					)
-					.withFields(ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID)
+					.withSourceFilter(new FetchSourceFilter(new String[]{ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID}, null))
 					.withPageable(LARGE_PAGE)
 					.build(), ReferenceSetMember.class)) {
 				memberStream.forEachRemaining(hit -> conceptsWithAssociations.add(parseLong(hit.getContent().getReferencedComponentId())));

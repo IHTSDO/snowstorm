@@ -49,6 +49,7 @@ import org.springframework.data.elasticsearch.core.SearchHits;
 import org.springframework.data.elasticsearch.core.SearchHitsIterator;
 import org.springframework.data.elasticsearch.client.elc.NativeQuery;
 import org.springframework.data.elasticsearch.client.elc.NativeQueryBuilder;
+import org.springframework.data.elasticsearch.core.query.FetchSourceFilter;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -464,7 +465,7 @@ public class ReferenceSetMemberService extends ComponentService {
 						.withQuery(bool(b -> b
 								.must(termsQuery(Description.Fields.DESCRIPTION_ID, descriptionIdsSegment))
 								.must(versionControlHelper.getBranchCriteriaIncludingOpenCommit(commit).getEntityBranchCriteria(Description.class))))
-						.withFields(Description.Fields.CONCEPT_ID, Description.Fields.DESCRIPTION_ID)
+						.withSourceFilter(new FetchSourceFilter(new String[]{Description.Fields.CONCEPT_ID, Description.Fields.DESCRIPTION_ID}, null))
 						.withPageable(LARGE_PAGE);
 				try (final SearchHitsIterator<Description> descriptions = elasticsearchTemplate.searchForStream(queryBuilder.build(), Description.class)) {
 					descriptions.forEachRemaining(description ->
@@ -504,7 +505,9 @@ public class ReferenceSetMemberService extends ComponentService {
 				}
 				elasticFieldNames.add(eclFieldName);
 			}
-			queryBuilder.withFields(elasticFieldNames.toArray(new String[]{}));
+			String[] fieldsToInclude = new String[elasticFieldNames.size()];
+			elasticFieldNames.toArray(fieldsToInclude);
+			queryBuilder.withSourceFilter(new FetchSourceFilter(fieldsToInclude, null));
 		}
 
 		NativeQuery query = queryBuilder.build();
@@ -532,7 +535,7 @@ public class ReferenceSetMemberService extends ComponentService {
 		// Build search query
 		NativeQuery query = new NativeQueryBuilder()
 				.withQuery(memberQueryBuilder.build()._toQuery())
-				.withFields(ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID)
+				.withSourceFilter(new FetchSourceFilter(new String[]{ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID}, null))
 				.withSort(SortOptions.of(s -> s.field(f -> f.field("_doc"))))// Fastest unordered sort
 				.withPageable(LARGE_PAGE)
 				.build();

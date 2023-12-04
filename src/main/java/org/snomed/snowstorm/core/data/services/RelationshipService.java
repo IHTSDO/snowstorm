@@ -28,6 +28,7 @@ import org.springframework.data.elasticsearch.core.SearchHits;
 import org.springframework.data.elasticsearch.core.SearchHitsIterator;
 import org.springframework.data.elasticsearch.client.elc.NativeQuery;
 import org.springframework.data.elasticsearch.client.elc.NativeQueryBuilder;
+import org.springframework.data.elasticsearch.core.query.FetchSourceFilter;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
@@ -224,7 +225,7 @@ public class RelationshipService extends ComponentService {
 
 		return new NativeQueryBuilder()
 				.withQuery(boolQueryBuilder.build()._toQuery())
-				.withFields(Relationship.Fields.DESTINATION_ID)
+				.withSourceFilter(new FetchSourceFilter(new String[]{Relationship.Fields.DESTINATION_ID}, null))
 				.withPageable(LARGE_PAGE)
 				.build();
 	}
