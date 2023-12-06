@@ -15,6 +15,7 @@ import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.data.elasticsearch.core.SearchHit;
 import org.springframework.data.elasticsearch.client.elc.NativeQuery;
 import org.springframework.data.elasticsearch.client.elc.NativeQueryBuilder;
+import org.springframework.util.CollectionUtils;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -145,6 +146,22 @@ public class DescriptionDroolsValidationService implements org.ihtsdo.drools.ser
 	@Override
 	public boolean isRecognisedSemanticTag(String semanticTag, String language) {
 		return semanticTag != null && !semanticTag.isEmpty() && testResourceProvider.getSemanticTagsByLanguage(Collections.singleton(language)).contains(semanticTag);
+	}
+
+	@Override
+	public boolean isSemanticTagCompatibleWithinHierarchy(String term, Set <String> topLevelSemanticTags) {
+		String tag = DescriptionHelper.getTag(term);
+		Map <String, Set <String>> semanticTagMap = testResourceProvider.getSemanticHierarchyMap();
+		if (tag != null) {
+			for (String topLevelSemanticTag : topLevelSemanticTags) {
+				Set<String> compatibleSemanticTags = semanticTagMap.get(topLevelSemanticTag);
+				if (!CollectionUtils.isEmpty(compatibleSemanticTags) && compatibleSemanticTags.contains(tag)) {
+					return true;
+				}
+			}
+		}
+
+		return false;
 	}
 
 	private String findStatedHierarchyRootId(org.ihtsdo.drools.domain.Concept concept) {
