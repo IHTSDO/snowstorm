@@ -3,11 +3,11 @@ All notable changes to this project will be documented in this file.
 
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## 10.0.0 Release (December 2023)
+## 10.0.1 Release (December 2023)
 Major release with Spring Boot 3 & Elasticsearch 8 upgrade.
 
 ### Breaking
-- Elasticsearch 8 must be used with this release.
+- Elasticsearch 8 must be used with this release. Existing cluster must be upgraded to Elasticsearch 8.7.1 onwards before upgrading Snowstorm to 10.0.1.
 
 ### Improvements
 - PIP-307 Upgrade to Elasticsearch 8
