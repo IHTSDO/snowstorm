@@ -8,6 +8,8 @@
 - [Importing a new International Edition](#importing-a-new-international-edition)
 - [Upgrading an Extension/Edition to the new International Edition](#upgrading-an-extensionedition-to-the-new-international-edition)
 - [Upgrading to a new local Edition or Extension](#upgrading-to-a-new-local-edition-or-extension)
+- [Rolling back changes](#rolling-back-changes)
+
 
 ## Editions vs Extensions
 
@@ -137,3 +139,27 @@ curl -X POST --header 'Content-Type: multipart/form-data' --header 'Accept: appl
 You can tail the system log to see how this is progressing, or simply to the import endpoint - http://localhost:8080/imports/<import id>
 
 And that's it... rinse and repeat for the next time...
+
+
+## Rolling back changes
+Sometimes content changes are imported into a Snowstorm instance for preview, before they are part of a proper release. If changes of this type have been imported onto the codesystem branch they should be removed before importing the next release archive. 
+
+Follow these steps to rollback a codesystem branch to the point of the latest release:
+- Get the codesystem to discover the latest **release branch**
+  - Use `GET /codesystems/{shortName}`. For example `GET /codesystems/SNOMEDCT-SE`
+  - In the response the latest **release branch** can be found under `latestVersion > branchPath`. For example `MAIN/SNOMEDCT-SE/2023-11-30`.
+- Get the latest **release branch** to check the branch state
+  - Use `GET /branches/{branch}`. For example `GET /branches/MAIN/SNOMEDCT-SE/2023-11-30`.
+  - In the response the branch `state` is shown.
+- The state of the **release branch** is dependant on the content of the **codesystem branch**.
+- If the **release branch** state is `UP_TO_DATE` that means the **codesystem branch** does not contain any changes since the latest release import and there is no need to rollback.
+- If the **release branch** state is `BEHIND` that means the **codesystem branch** contains changes since the latest release import that should be rolled back before importing a new release.
+
+- Rollback one commit on the **codesystem branch**:
+  - Get the **codesystem branch** using `GET /branches/{branch}`. For example `GET /branches/MAIN/SNOMEDCT-SE`.
+    - Make a note of the `headTimestamp`. For example `1701321893134`.
+  - Use the admin rollback function to revert the head commit of the **codesystem branch**
+    - Use `POST /admin/{branch}/actions/rollback-commit`, supplying the **codesystem branch** and the head timestamp.
+  - Get the **release branch**. If the status is `BEHIND` that means the **codesystem branch** needs rolling back further. Follow these steps again to rollback another commit. Repeat as many times as needed.
+ 
+Once the **release branch** state is `UP_TO_DATE` the codesystem is ready for upgrade. You probably need to import a new International Edition release and upgrade the extension before importing a new extension release. Steps for these are listed above.
