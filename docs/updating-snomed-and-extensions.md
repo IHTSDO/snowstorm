@@ -62,7 +62,7 @@ This field is used when creating the extension branch so that the new branch can
 
 There are many optional fields available for that request that can be used to provide additional information about the code system. These are used by the [SNOMED Browser project](https://github.com/IHTSDO/sct-browser-frontend).
 
-To run the command click 'Try it now'.
+To run the command click 'Execute'.
 
 The Spanish Extension can now be imported. Start the import process by creating a new import job. Look for the Import endpoint ( http://localhost:8080/swagger-ui.html#!/Import/createImportJobUsingPOST ) and then create a new import using:
 
@@ -74,7 +74,7 @@ The Spanish Extension can now be imported. Start the import process by creating 
 }
 ```
 
-Click on 'Try it now' and note the ID of the import as you will need it for the next step (look for a UUID like `d0b30d96-3714-443e-99a5-2f282b1f1b0` in the Location response header). 
+Click on 'Execute' and note the ID of the import as you will need it for the next step (look for a UUID like `d0b30d96-3714-443e-99a5-2f282b1f1b0` in the Location response header). 
 As before, the RF2 file needs to be uploaded next. This can be done through Swagger using the /imports/{importId}/archive endpoint, or via curl. In both cases, specify the ID recovered in the previous step:
 
 ```bash
@@ -97,7 +97,7 @@ Since Janurary 2022 a new SNOMED-CT International Edition release is published e
 }
 ```
 
-and then click on 'Try it now' and then note the id of the import as before. We now need to upload the July 2021 International release file as before:
+and then click on 'Execute' and then note the id of the import as before. We now need to upload the July 2021 International release file as before:
 
 ```bash
 curl -X POST --header 'Content-Type: multipart/form-data' --header 'Accept: application/json' -F file=@SnomedCT_InternationalRF2_PRODUCTION_20210731T120000Z.zip  'http://localhost:8080/imports/<import id>/archive'
@@ -130,7 +130,7 @@ The edition or extension upgrade is an import again. The SNAPSHOT import type ca
 }
 ```
 
-and then click on 'Try it now' and then note the id of the import as before. You now need to upload the October 2021 Spanish release file as before -
+and then click on 'Execute' and then note the id of the import as before. You now need to upload the October 2021 Spanish release file as before -
 
 ```bash
 curl -X POST --header 'Content-Type: multipart/form-data' --header 'Accept: application/json' -F file=@SnomedCT_SpanishRelease-es_Production_20211031T120000Z.zip  'http://localhost:8080/imports/<import id>/archive'

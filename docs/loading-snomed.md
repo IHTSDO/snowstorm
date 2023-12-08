@@ -27,7 +27,7 @@ Once Snowstorm is running, you will need to start the import process by creating
 }
 ```
 
-and then click on 'Try it now' and then note the id of the import as you will need it for the next step (it will look something like - _d0b30d96-3714-443e-99a5-2f282b1f1b0_).
+and then click on 'Execute' and then note the id of the import as you will need it for the next step (it will look something like - _d0b30d96-3714-443e-99a5-2f282b1f1b0_).
 
 You now need to upload the file. You can do this through the swagger interface at the *imports/archive* end point, but the following will allow you to run it using curl to do this from the command line (*this example uses the January 2018 release file*):
 
