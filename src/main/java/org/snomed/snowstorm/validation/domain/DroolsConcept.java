@@ -6,6 +6,7 @@ import org.snomed.snowstorm.core.data.domain.Concepts;
 
 import java.util.Collection;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Set;
 
 public class DroolsConcept implements org.ihtsdo.drools.domain.Concept {
@@ -77,6 +78,11 @@ public class DroolsConcept implements org.ihtsdo.drools.domain.Concept {
 	@Override
 	public Collection<? extends OntologyAxiom> getOntologyAxioms() {
 		return ontologyAxioms;
+	}
+
+	@Override
+	public Map <String, Set <String>> getAssociationTargets() {
+		return null;
 	}
 
 	@Override
