@@ -138,7 +138,7 @@ public class ExtensionAdditionalLanguageRefsetUpgradeService {
 				.withQuery(bool(b -> b
 						.must(branchCriteria.getEntityBranchCriteria(ReferenceSetMember.class))
 						.must(termQuery(REFSET_ID, languageRefsetId))))
-				.withSourceFilter(new FetchSourceFilter(new String[]{REFERENCED_COMPONENT_ID, ACTIVE, ACCEPTABILITY_ID_FIELD_PATH, CONCEPT_ID}, null))
+				.withSourceFilter(new FetchSourceFilter(new String[]{ MEMBER_ID, REFERENCED_COMPONENT_ID, ACTIVE, ACCEPTABILITY_ID_FIELD_PATH, CONCEPT_ID}, null))
 				.withPageable(LARGE_PAGE);
 		if (lastDependantEffectiveTime != null) {
 			// for roll up upgrade every 6 months for example
@@ -156,7 +156,6 @@ public class ExtensionAdditionalLanguageRefsetUpgradeService {
 
 	private List<ReferenceSetMember> addOrUpdateLanguageRefsetComponents(String branchPath, AdditionalRefsetExecutionConfig config, Map<Long, List<ReferenceSetMember>> languageRefsetMembersToCopy) {
 		BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(branchPath);
-		List<ReferenceSetMember> result = new ArrayList<>();
 
 		// Step 1: Get relevant en-gb language refset components to copy and map results by concept id (done in previous step - getReferencedComponents)
 		// Collect all relevant description IDs
@@ -175,8 +174,7 @@ public class ExtensionAdditionalLanguageRefsetUpgradeService {
 							.must(termQuery(REFSET_ID, config.getDefaultEnglishLanguageRefsetId()))
 							.must(termsQuery(ACCEPTABILITY_ID_FIELD_PATH, List.of(Concepts.PREFERRED, Concepts.ACCEPTABLE)))
 							.must(termsQuery(ReferenceSetMember.Fields.CONCEPT_ID, batch)))
-					).withSourceFilter(new FetchSourceFilter(new String[]{MEMBER_ID, EFFECTIVE_TIME, ACTIVE, MODULE_ID, REFSET_ID, REFERENCED_COMPONENT_ID, ACCEPTABILITY_ID_FIELD_PATH, CONCEPT_ID}, null))
-					.withPageable(LARGE_PAGE);
+					).withPageable(LARGE_PAGE);
 
 			try (final SearchHitsIterator<ReferenceSetMember> searchHitsIterator = elasticsearchTemplate.searchForStream(queryBuilder.build(), ReferenceSetMember.class)) {
 				searchHitsIterator.forEachRemaining(hit -> {
@@ -204,6 +202,8 @@ public class ExtensionAdditionalLanguageRefsetUpgradeService {
 
 		/* Step 4 */
 		// Update the existing language reference set members if needed
+		List<ReferenceSetMember> result = new ArrayList<>();
+		Set<String> memberIdsToSkipCopy = new HashSet<>();
 		for (Long conceptId : existingLanguageRefsetMembersToUpdate.keySet()) {
 			List<ReferenceSetMember> existingRefsetMembers = existingLanguageRefsetMembersToUpdate.get(conceptId);
 			if (languageRefsetMembersToCopy.containsKey(conceptId)) {
@@ -212,14 +212,17 @@ public class ExtensionAdditionalLanguageRefsetUpgradeService {
 				for (ReferenceSetMember existingRefsetMember : existingRefsetMembers) {
 					if (languageRefsetMembersToCopyMap.containsKey(existingRefsetMember.getReferencedComponentId())
 						&& isAbleToAddOrUpdate(existingRefsetMember.getReferencedComponentId(), config.getDefaultModuleId(), languageRefsetMembersToCopyMap, existingLanguageRefsetMembersMap, conceptToDescriptionsMap)) {
-						update(existingRefsetMember, languageRefsetMembersToCopyMap, result);
+						update(existingRefsetMember, languageRefsetMembersToCopyMap, result, memberIdsToSkipCopy);
 					}
 				}
 			}
 		}
 
 		Set<String> updated = result.stream().map(ReferenceSetMember::getReferencedComponentId).collect(Collectors.toSet());
-		logger.info("{} components to be updated", updated.size());
+		logger.info("{} existing components to be updated", updated.size());
+		if (!memberIdsToSkipCopy.isEmpty()) {
+			logger.info("{} components to skip copy as change exists in extension already.", memberIdsToSkipCopy.size());
+		}
 		// add new ones
 		for (Long conceptId : languageRefsetMembersToCopy.keySet()) {
 			List<ReferenceSetMember> toCopyLanguageRefsetMembers = languageRefsetMembersToCopy.get(conceptId);
@@ -229,7 +232,7 @@ public class ExtensionAdditionalLanguageRefsetUpgradeService {
 			Map<String, ReferenceSetMember> existingLanguageRefsetMembersMap = convertMembersListToMap(existingRefsetMembers);
 
 			for (ReferenceSetMember toCopyMember : toCopyLanguageRefsetMembers) {
-				if (!updated.contains(toCopyMember.getReferencedComponentId())
+				if (!memberIdsToSkipCopy.contains(toCopyMember.getMemberId()) && !updated.contains(toCopyMember.getReferencedComponentId())
 					&& isAbleToAddOrUpdate(toCopyMember.getReferencedComponentId(), config.getDefaultModuleId(), languageRefsetMembersToCopyMap, existingLanguageRefsetMembersMap, conceptToDescriptionsMap)) {
 					ReferenceSetMember toAdd = new ReferenceSetMember(UUID.randomUUID().toString(), null, toCopyMember.isActive(),
 							config.getDefaultModuleId(), config.getDefaultEnglishLanguageRefsetId(), toCopyMember.getReferencedComponentId());
@@ -284,14 +287,19 @@ public class ExtensionAdditionalLanguageRefsetUpgradeService {
 		return extensionMember;
 	}
 
-	private void update(ReferenceSetMember member, Map<String, ReferenceSetMember> existingComponents, List<ReferenceSetMember> result) {
+	private void update(ReferenceSetMember member, Map<String, ReferenceSetMember> existingComponents, List<ReferenceSetMember> result, Set<String> memberIdsToSkipCopy	) {
 		if (existingComponents.containsKey(member.getReferencedComponentId())) {
-			// update
+			// only updates when active or acceptability is changed
 			ReferenceSetMember existing = existingComponents.get(member.getReferencedComponentId());
-			member.setActive(existing.isActive());
-			member.setEffectiveTimeI(null);
-			member.setAdditionalField(ACCEPTABILITY_ID, existing.getAdditionalField(ACCEPTABILITY_ID));
-			result.add(member);
+			if (existing.isActive() != member.isActive() || !existing.getAdditionalField(ACCEPTABILITY_ID).equals(member.getAdditionalField(ACCEPTABILITY_ID))) {
+				member.setActive(existing.isActive());
+				member.setEffectiveTimeI(null);
+				member.setAdditionalField(ACCEPTABILITY_ID, existing.getAdditionalField(ACCEPTABILITY_ID));
+				result.add(member);
+			} else {
+				memberIdsToSkipCopy.add(existing.getMemberId());
+				logger.debug("No need to copy change of language refset member {} to extension because it has the latest change already {}", existing.getMemberId(), member.getMemberId());
+			}
 		}
 	}
 
