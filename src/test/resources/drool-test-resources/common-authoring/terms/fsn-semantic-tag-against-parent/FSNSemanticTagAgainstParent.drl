@@ -42,7 +42,7 @@ rule "Semantic Tag of FSN compatible with concept parents"
 		d : Description(conceptId == c.id
 						&& active
 						&& typeId == Constants.FSN
-						&& !DescriptionHelper.isSemanticTagCompatibleWithinHierarchy(term, DescriptionHelper.getTags(topLevelFSNs)))
+						&& !descriptionService.isSemanticTagCompatibleWithinHierarchy(term, DescriptionHelper.getTags(topLevelFSNs)))
 	then
 		InvalidContent invalid = new InvalidContent("4be1323d-9ef7-4c1d-a731-2fd5c89b27b1",
 				d, "A concept's semantic tags should be compatible with those of the active parents.", Severity.WARNING)
