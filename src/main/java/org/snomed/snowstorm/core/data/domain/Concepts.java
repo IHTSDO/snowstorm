@@ -40,7 +40,7 @@ public class Concepts {
 	public static final String CONCEPT_MODEL_ATTRIBUTE = "410662002";
 	public static final String CONCEPT_MODEL_OBJECT_ATTRIBUTE = "762705008";
 	public static final String CONCEPT_MODEL_DATA_ATTRIBUTE = "762706009";
-
+	public static final String CONCEPT_ANNOTATION_ATTRIBUTE = "1295447006";
 	public static final String ENTIRE_TERM_CASE_SENSITIVE = "900000000000017005";
 	public static final String CASE_INSENSITIVE = "900000000000448009";
 	public static final String INITIAL_CHARACTER_CASE_INSENSITIVE = "900000000000020002";
