@@ -10,9 +10,12 @@ import org.ihtsdo.otf.snomedboot.factory.LoadingProfile;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.core.data.domain.CodeSystem;
+import org.snomed.snowstorm.core.data.domain.Concept;
 import org.snomed.snowstorm.core.data.services.*;
 import org.snomed.snowstorm.core.rf2.RF2Type;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -61,6 +64,9 @@ public class ImportService {
 	@Autowired
 	private CodeSystemService codeSystemService;
 
+	@Autowired
+	private ConceptService conceptService;
+
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
 	public ImportService() {
@@ -84,7 +90,7 @@ public class ImportService {
 
 		if (importConfiguration.getType() == FULL) {
 			Branch latest = branchService.findLatest(branchPath);
-			if (!branchPath.equals("MAIN") || latest.isContainsContent()) {
+			if (!branchPath.equals("MAIN") || hasExistingContent(latest)) {
 				throw new IllegalArgumentException("FULL import is only implemented for the MAIN branch and when there is no existing content.");
 			}
 		}
@@ -99,6 +105,12 @@ public class ImportService {
 
 		importJobMap.put(id, new ImportJob(importConfiguration));
 		return id;
+	}
+
+	private boolean hasExistingContent(Branch branch) {
+		// check whether there are existing concepts on the branch by fetching the first page
+		Page<Concept> results = conceptService.findAll(branch.getPath(), PageRequest.of(0,1));
+		return results.getTotalElements() > 0;
 	}
 
 	public void importArchive(String importId, InputStream releaseFileStream) throws ReleaseImportException {
