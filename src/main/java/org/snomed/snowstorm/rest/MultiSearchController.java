@@ -57,7 +57,7 @@ public class MultiSearchController {
 					"Accept-Language header still controls result FSN and PT language selection.")
 			@RequestParam(required = false) Set<String> language,
 
-			@Parameter(name = "Set of description types to include. Pick descendants of '900000000000446008 | Description type (core metadata concept) |'.")
+			@Parameter(description = "Set of description types to include. Pick descendants of '900000000000446008 | Description type (core metadata concept) |'.")
 			@RequestParam(required = false) Set<Long> type,
 
 			@RequestParam(required = false) Boolean conceptActive,
@@ -96,7 +96,7 @@ public class MultiSearchController {
 					"Accept-Language header still controls result FSN and PT language selection.")
 			@RequestParam(required = false) Set<String> language,
 
-			@Parameter(name = "Set of description types to include. Pick descendants of '900000000000446008 | Description type (core metadata concept) |'.")
+			@Parameter(description = "Set of description types to include. Pick descendants of '900000000000446008 | Description type (core metadata concept) |'.")
 			@RequestParam(required = false) Set<Long> type,
 
 			@RequestParam(required = false) Boolean conceptActive,
