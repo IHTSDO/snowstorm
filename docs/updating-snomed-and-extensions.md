@@ -142,7 +142,10 @@ And that's it... rinse and repeat for the next time...
 
 
 ## Rolling back changes
-Sometimes content changes are imported into a Snowstorm instance for preview, before they are part of a proper release. If changes of this type have been imported onto the codesystem branch they should be removed before importing the next release archive. 
+Sometimes content changes are imported into a Snowstorm instance for preview, before they are part of a proper release. 
+If changes of this type have been imported onto the codesystem branch they should be removed before importing the next release archive.
+
+If the daily-build function has been enabled this must be disabled before starting the rollback. Daily-build can be enabled again after importing the latest release.    
 
 Follow these steps to rollback a codesystem branch to the point of the latest release:
 - Get the codesystem to discover the latest **release branch**
