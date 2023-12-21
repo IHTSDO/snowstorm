@@ -11,7 +11,6 @@ import io.kaicode.elasticvc.api.VersionControlHelper;
 import io.kaicode.elasticvc.domain.Branch;
 import io.kaicode.elasticvc.domain.Metadata;
 import org.apache.activemq.command.ActiveMQTopic;
-
 import org.modelmapper.ModelMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -34,11 +33,11 @@ import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.elasticsearch.client.elc.Aggregation;
+import org.springframework.data.elasticsearch.client.elc.NativeQuery;
+import org.springframework.data.elasticsearch.client.elc.NativeQueryBuilder;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.data.elasticsearch.core.SearchHit;
 import org.springframework.data.elasticsearch.core.SearchHits;
-import org.springframework.data.elasticsearch.client.elc.NativeQuery;
-import org.springframework.data.elasticsearch.client.elc.NativeQueryBuilder;
 import org.springframework.data.util.Pair;
 import org.springframework.jms.core.JmsTemplate;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -50,11 +49,12 @@ import java.util.function.Function;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
+import static co.elastic.clients.elasticsearch._types.query_dsl.QueryBuilders.bool;
+import static co.elastic.clients.elasticsearch._types.query_dsl.QueryBuilders.range;
 import static io.kaicode.elasticvc.api.ComponentService.LARGE_PAGE;
+import static io.kaicode.elasticvc.helper.QueryHelper.*;
 import static java.lang.String.format;
 import static java.util.stream.Collectors.toList;
-import static co.elastic.clients.elasticsearch._types.query_dsl.QueryBuilders.*;
-import static io.kaicode.elasticvc.helper.QueryHelper.*;
 import static org.snomed.snowstorm.config.Config.DEFAULT_LANGUAGE_CODES;
 import static org.snomed.snowstorm.core.data.services.BranchMetadataKeys.*;
 
@@ -113,6 +113,9 @@ public class CodeSystemService {
 
 	@Value("${codesystem.all.latest-version.allow-internal-release}")
 	private boolean latestVersionCanBeInternalRelease;
+
+	@Value("${snowstorm.codesystem-version.message.enabled}")
+	private boolean jmsMessageEnabled;
 
 	// Cache to prevent expensive aggregations. Entry per branch. Expires if there is a new commit.
 	private final ConcurrentHashMap<String, Pair<Date, CodeSystem>> contentInformationCache = new ConcurrentHashMap<>();
@@ -254,14 +257,16 @@ public class CodeSystemService {
 
 		logger.info("Versioning complete.");
 
-		Map<String, String> payload = new HashMap<>();
-		payload.put("codeSystemShortName", codeSystem.getShortName());
-		payload.put("codeSystemBranchPath", codeSystem.getBranchPath());
-		payload.put("effectiveDate", String.valueOf(effectiveDate));
-		payload.put("versioningDate", String.valueOf(new Date().getTime()));
-		String topicDestination = jmsQueuePrefix + ".versioning.complete";
-		logger.info("Sending JMS Topic - destination {}, payload {}...", topicDestination, payload);
-		jmsTemplate.convertAndSend(new ActiveMQTopic(topicDestination), payload);
+		if (jmsMessageEnabled) {
+			Map<String, String> payload = new HashMap<>();
+			payload.put("codeSystemShortName", codeSystem.getShortName());
+			payload.put("codeSystemBranchPath", codeSystem.getBranchPath());
+			payload.put("effectiveDate", String.valueOf(effectiveDate));
+			payload.put("versioningDate", String.valueOf(new Date().getTime()));
+			String topicDestination = jmsQueuePrefix + ".versioning.complete";
+			logger.info("Sending JMS Topic - destination {}, payload {}...", topicDestination, payload);
+			jmsTemplate.convertAndSend(new ActiveMQTopic(topicDestination), payload);
+		}
 
 		return version;
 	}
