@@ -41,10 +41,10 @@ public class ElasticsearchConfig extends ElasticsearchConfiguration {
 	private String indexNamePrefix;
 
 	@Value("${elasticsearch.index.shards}")
-	private short indexShards;
+	short indexShards;
 
 	@Value("${elasticsearch.index.replicas}")
-	private short indexReplicas;
+	short indexReplicas;
 
 	@Value("${snowstorm.aws.request-signing.enabled}")
 	private Boolean awsRequestSigning;

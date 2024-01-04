@@ -19,7 +19,6 @@ import java.util.Date;
 import static org.snomed.snowstorm.fhir.config.FHIRConstants.*;
 
 @Document(indexName = "#{@indexNameProvider.indexName('fhir-codesystem-version')}")
-@Setting(settingPath = "elasticsearch-settings.json")
 public class FHIRCodeSystemVersion {
 
 	@Id

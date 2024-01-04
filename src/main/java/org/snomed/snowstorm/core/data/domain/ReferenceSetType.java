@@ -5,14 +5,12 @@ import io.kaicode.elasticvc.domain.DomainEntity;
 import org.springframework.data.elasticsearch.annotations.Document;
 import org.springframework.data.elasticsearch.annotations.Field;
 import org.springframework.data.elasticsearch.annotations.FieldType;
-import org.springframework.data.elasticsearch.annotations.Setting;
 
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 
 @Document(indexName = "#{@indexNameProvider.indexName('refset')}")
-@Setting(settingPath = "elasticsearch-settings.json")
 public class ReferenceSetType extends DomainEntity<ReferenceSetType> {
 
 	public interface Fields extends SnomedComponent.Fields {

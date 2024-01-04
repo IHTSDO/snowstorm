@@ -11,12 +11,10 @@ import org.springframework.data.elasticsearch.annotations.FieldType;
 
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
-import org.springframework.data.elasticsearch.annotations.Setting;
 
 import java.util.Objects;
 
 @Document(indexName = "#{@indexNameProvider.indexName('identifier')}")
-@Setting(settingPath = "elasticsearch-settings.json")
 @JsonPropertyOrder({"alternateIdentifier", "effectiveTime", "active", "moduleId", "identifierSchemeId", "identifierScheme", "referencedComponentId",  "released", "releasedEffectiveTime"})
 public class Identifier extends SnomedComponent<Identifier> implements IdentifierView {
 

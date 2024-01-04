@@ -17,7 +17,7 @@ import static java.lang.String.format;
 import static org.snomed.snowstorm.core.util.CollectionUtils.orEmpty;
 
 @Document(indexName = "#{@indexNameProvider.indexName('fhir-concept-map')}")
-@Setting(settingPath = "elasticsearch-settings.json")
+
 public class FHIRConceptMap {
 
 	public interface Fields {
