@@ -48,7 +48,6 @@ import org.springframework.context.annotation.PropertySource;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.data.elasticsearch.core.IndexOperations;
-import org.springframework.data.elasticsearch.core.document.Document;
 import org.springframework.data.elasticsearch.core.mapping.IndexCoordinates;
 import org.springframework.data.elasticsearch.repository.config.EnableElasticsearchRepositories;
 import org.springframework.jms.support.converter.MappingJackson2MessageConverter;
@@ -58,10 +57,7 @@ import org.springframework.scheduling.annotation.EnableAsync;
 
 import jakarta.annotation.PostConstruct;
 import java.io.IOException;
-import java.util.Collections;
-import java.util.Date;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -299,7 +295,7 @@ public abstract class Config extends ElasticsearchConfig {
 		}
 	}
 
-	protected void updateIndexMaxTermsSetting(Class domainEntityClass) {
+	protected void updateIndexMaxTermsSetting(Class<?> domainEntityClass) {
 		IndexOperations indexOperations = elasticsearchOperations.indexOps(elasticsearchOperations.getIndexCoordinatesFor(domainEntityClass));
 		Integer existing = (Integer) indexOperations.getSettings().get(INDEX_MAX_TERMS_COUNT);
 		if (existing == null || indexMaxTermsCount != existing) {
@@ -320,29 +316,33 @@ public abstract class Config extends ElasticsearchConfig {
 	protected void initialiseIndices(boolean deleteExisting) {
 		// Initialise Elasticsearch indices
 		Class<?>[] allDomainEntityTypes = domainEntityConfiguration.getAllDomainEntityTypes().toArray(new Class<?>[]{});
-		ComponentService.initialiseIndexAndMappingForPersistentClasses(
-				deleteExisting, elasticsearchOperations,
-				allDomainEntityTypes
+		Map<String, Object> settings = new HashMap<>();
+		settings.put("index.number_of_shards", indexShards);
+		settings.put("index.number_of_replicas", indexReplicas);
+		ComponentService.initialiseIndexAndMappingForPersistentClasses(deleteExisting, elasticsearchOperations, settings, allDomainEntityTypes);
+
+		// Initialise Snowstorm indices which are not part of the domain entity
+		Set<Class<?>> objectsNotVersionControlled = Sets.newHashSet(
+				CodeSystem.class,
+				CodeSystemVersion.class,
+				Classification.class,
+				RelationshipChange.class,
+				EquivalentConcepts.class,
+				IdentifiersForRegistration.class,
+				ExportConfiguration.class
 		);
-		if (deleteExisting) {
-			Set<Class> objectsNotVersionControlled = Sets.newHashSet(
-					CodeSystem.class,
-					CodeSystemVersion.class,
-					Classification.class,
-					RelationshipChange.class,
-					EquivalentConcepts.class,
-					IdentifiersForRegistration.class,
-					ExportConfiguration.class
-			);
-			for (Class aClass : objectsNotVersionControlled) {
-				IndexCoordinates indexCoordinates = elasticsearchOperations.getIndexCoordinatesFor(aClass);
+		for (Class<?> aClass : objectsNotVersionControlled) {
+			IndexCoordinates indexCoordinates = elasticsearchOperations.getIndexCoordinatesFor(aClass);
+			IndexOperations indexOperations = elasticsearchOperations.indexOps(indexCoordinates);
+			if (deleteExisting) {
 				logger.info("Deleting index {}", indexCoordinates.getIndexName());
-				elasticsearchOperations.indexOps(indexCoordinates).delete();
+				indexOperations.delete();
+			}
+			// Create if an index doesn't exist
+			if (!indexOperations.exists()) {
 				logger.info("Creating index {}", indexCoordinates.getIndexName());
-				elasticsearchOperations.indexOps(indexCoordinates).create();
-				IndexOperations indexOperations = elasticsearchOperations.indexOps(indexCoordinates);
-				Document document = indexOperations.createMapping(aClass);
-				indexOperations.putMapping(document);
+				indexOperations.create(settings);
+				indexOperations.putMapping(indexOperations.createMapping(aClass));
 			}
 		}
 	}

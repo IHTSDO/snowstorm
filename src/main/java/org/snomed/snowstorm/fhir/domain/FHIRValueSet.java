@@ -18,7 +18,6 @@ import java.util.List;
 import static org.snomed.snowstorm.core.util.CollectionUtils.orEmpty;
 
 @Document(indexName = "#{@indexNameProvider.indexName('fhir-value-set')}")
-@Setting(settingPath = "elasticsearch-settings.json")
 public class FHIRValueSet {
 
 	@Id

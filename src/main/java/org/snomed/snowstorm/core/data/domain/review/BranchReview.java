@@ -9,7 +9,7 @@ import java.util.HashSet;
 import java.util.Set;
 
 @Document(indexName = "#{@indexNameProvider.indexName('branch-review')}")
-@Setting(settingPath = "elasticsearch-settings.json")
+
 public class BranchReview {
 
 	@Id

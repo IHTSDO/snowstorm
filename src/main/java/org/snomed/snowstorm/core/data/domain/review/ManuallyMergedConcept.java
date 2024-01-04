@@ -7,7 +7,7 @@ import org.springframework.data.elasticsearch.annotations.Setting;
 import java.util.Date;
 
 @Document(indexName = "#{@indexNameProvider.indexName('manual-merge-concept')}")
-@Setting(settingPath = "elasticsearch-settings.json")
+
 public class ManuallyMergedConcept {
 
 	@Id

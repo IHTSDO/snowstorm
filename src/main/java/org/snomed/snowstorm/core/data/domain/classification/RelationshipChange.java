@@ -13,7 +13,6 @@ import org.springframework.data.elasticsearch.annotations.Setting;
 import java.io.Serializable;
 
 @Document(indexName = "#{@indexNameProvider.indexName('classification-relationship-change')}")
-@Setting(settingPath = "elasticsearch-settings.json")
 public class RelationshipChange {
 
 	public interface Fields {

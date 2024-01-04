@@ -7,7 +7,6 @@ import org.springframework.data.elasticsearch.annotations.*;
 import java.util.Date;
 
 @Document(indexName = "#{@indexNameProvider.indexName('codesystem-version')}")
-@Setting(settingPath = "elasticsearch-settings.json")
 public class CodeSystemVersion {
 
 	public interface Fields {

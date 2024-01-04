@@ -13,7 +13,7 @@ import org.springframework.data.elasticsearch.annotations.Setting;
 import java.util.Set;
 
 @Document(indexName = "#{@indexNameProvider.indexName('admin-permission')}")
-@Setting(settingPath = "elasticsearch-settings.json")
+
 @JsonPropertyOrder({"role", "path", "global", "userGroups"})
 public class PermissionRecord {
 

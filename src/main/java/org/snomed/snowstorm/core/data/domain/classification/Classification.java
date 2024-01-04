@@ -4,7 +4,6 @@ import org.springframework.data.annotation.Id;
 import org.springframework.data.elasticsearch.annotations.Document;
 import org.springframework.data.elasticsearch.annotations.Field;
 import org.springframework.data.elasticsearch.annotations.FieldType;
-import org.springframework.data.elasticsearch.annotations.Setting;
 
 import java.util.Date;
 
@@ -12,7 +11,6 @@ import java.util.Date;
  * Represents an active concept with fields to assist logical searching.
  */
 @Document(indexName = "#{@indexNameProvider.indexName('classification')}")
-@Setting(settingPath = "elasticsearch-settings.json")
 public class Classification {
 
 	public interface Fields {

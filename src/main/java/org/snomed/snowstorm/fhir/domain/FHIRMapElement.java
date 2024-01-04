@@ -17,7 +17,7 @@ import java.util.Objects;
 import static org.snomed.snowstorm.core.util.CollectionUtils.orEmpty;
 
 @Document(indexName = "#{@indexNameProvider.indexName('fhir-map-element')}")
-@Setting(settingPath = "elasticsearch-settings.json")
+
 public class FHIRMapElement {
 
 	public interface Fields {

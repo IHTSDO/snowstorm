@@ -11,12 +11,10 @@ import org.springframework.data.elasticsearch.annotations.FieldType;
 
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
-import org.springframework.data.elasticsearch.annotations.Setting;
 
 import java.util.*;
 
 @Document(indexName = "#{@indexNameProvider.indexName('member')}")
-@Setting(settingPath = "elasticsearch-settings.json")
 public class ReferenceSetMember extends SnomedComponent<ReferenceSetMember> implements ReferenceSetMemberView {
 
 	public interface Fields extends SnomedComponent.Fields {

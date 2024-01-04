@@ -11,7 +11,6 @@ import org.springframework.data.elasticsearch.annotations.FieldType;
 
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
-import org.springframework.data.elasticsearch.annotations.Setting;
 
 import java.util.Collection;
 import java.util.Map;
@@ -21,8 +20,7 @@ import java.util.Set;
 /**
  * Represents an edition or extension of SNOMED-CT
  */
-@Document(indexName = "#{@indexNameProvider.indexName('codesystem')}")
-@Setting(settingPath = "elasticsearch-settings.json")
+@Document(indexName = "#{@indexNameProvider.indexName('codesystem')}", createIndex = false)
 @JsonPropertyOrder({"name", "owner", "shortName", "branchPath", "dependantVersionEffectiveTime", "dailyBuildAvailable", "latestDailyBuild",
 		"countryCode", "defaultLanguageCode", "defaultLanguageReferenceSets", "maintainerType", "latestVersion", "languages", "modules"})
 public class CodeSystem implements CodeSystemCreate {
