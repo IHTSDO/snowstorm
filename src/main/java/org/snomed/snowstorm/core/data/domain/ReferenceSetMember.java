@@ -14,7 +14,7 @@ import jakarta.validation.constraints.Size;
 
 import java.util.*;
 
-@Document(indexName = "#{@indexNameProvider.indexName('member')}")
+@Document(indexName = "#{@indexNameProvider.indexName('member')}", createIndex = false)
 public class ReferenceSetMember extends SnomedComponent<ReferenceSetMember> implements ReferenceSetMemberView {
 
 	public interface Fields extends SnomedComponent.Fields {

@@ -6,8 +6,7 @@ import org.springframework.data.elasticsearch.annotations.Setting;
 
 import java.util.Date;
 
-@Document(indexName = "#{@indexNameProvider.indexName('manual-merge-concept')}")
-
+@Document(indexName = "#{@indexNameProvider.indexName('manual-merge-concept')}", createIndex = false)
 public class ManuallyMergedConcept {
 
 	@Id

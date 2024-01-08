@@ -10,7 +10,7 @@ import java.util.Date;
 /**
  * Represents an active concept with fields to assist logical searching.
  */
-@Document(indexName = "#{@indexNameProvider.indexName('classification')}")
+@Document(indexName = "#{@indexNameProvider.indexName('classification')}", createIndex = false)
 public class Classification {
 
 	public interface Fields {

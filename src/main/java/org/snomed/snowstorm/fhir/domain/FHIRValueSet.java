@@ -17,7 +17,7 @@ import java.util.List;
 
 import static org.snomed.snowstorm.core.util.CollectionUtils.orEmpty;
 
-@Document(indexName = "#{@indexNameProvider.indexName('fhir-value-set')}")
+@Document(indexName = "#{@indexNameProvider.indexName('fhir-value-set')}", createIndex = false)
 public class FHIRValueSet {
 
 	@Id

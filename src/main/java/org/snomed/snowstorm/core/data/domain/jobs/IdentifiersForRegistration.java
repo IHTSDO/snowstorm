@@ -13,7 +13,7 @@ import java.util.UUID;
  * they are registered with the Component Identifier Service.
  * Once the identifiers are registered these documents are deleted.
  */
-@Document(indexName = "#{@indexNameProvider.indexName('identifiers-for-registration')}")
+@Document(indexName = "#{@indexNameProvider.indexName('identifiers-for-registration')}", createIndex = false)
 public class IdentifiersForRegistration {
 
 	private String id;

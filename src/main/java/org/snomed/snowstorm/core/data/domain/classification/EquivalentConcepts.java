@@ -8,7 +8,7 @@ import org.springframework.data.elasticsearch.annotations.FieldType;
 import java.util.HashSet;
 import java.util.Set;
 
-@Document(indexName = "#{@indexNameProvider.indexName('classification-equivalent-concepts')}")
+@Document(indexName = "#{@indexNameProvider.indexName('classification-equivalent-concepts')}", createIndex = false)
 public class EquivalentConcepts {
 
 	@Id

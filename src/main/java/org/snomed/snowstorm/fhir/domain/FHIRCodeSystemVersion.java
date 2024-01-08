@@ -18,7 +18,7 @@ import java.util.Date;
 
 import static org.snomed.snowstorm.fhir.config.FHIRConstants.*;
 
-@Document(indexName = "#{@indexNameProvider.indexName('fhir-codesystem-version')}")
+@Document(indexName = "#{@indexNameProvider.indexName('fhir-codesystem-version')}", createIndex = false)
 public class FHIRCodeSystemVersion {
 
 	@Id

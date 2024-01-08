@@ -7,7 +7,7 @@ import org.springframework.data.elasticsearch.annotations.Document;
 import java.util.Date;
 import java.util.UUID;
 
-@Document(indexName = "#{@indexNameProvider.indexName('branch-marge')}")
+@Document(indexName = "#{@indexNameProvider.indexName('branch-marge')}", createIndex = false)
 public class BranchMergeJob {
 
 	@Id

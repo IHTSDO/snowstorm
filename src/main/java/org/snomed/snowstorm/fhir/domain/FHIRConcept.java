@@ -22,7 +22,7 @@ import java.util.stream.Collectors;
 
 import static org.snomed.snowstorm.fhir.config.FHIRConstants.SNOMED_URI;
 
-@Document(indexName = "#{@indexNameProvider.indexName('fhir-concept')}")
+@Document(indexName = "#{@indexNameProvider.indexName('fhir-concept')}", createIndex = false)
 public class FHIRConcept implements FHIRGraphNode {
 
 	public interface Fields {

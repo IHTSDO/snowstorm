@@ -8,8 +8,7 @@ import java.util.Date;
 import java.util.HashSet;
 import java.util.Set;
 
-@Document(indexName = "#{@indexNameProvider.indexName('branch-review')}")
-
+@Document(indexName = "#{@indexNameProvider.indexName('branch-review')}", createIndex = false)
 public class BranchReview {
 
 	@Id

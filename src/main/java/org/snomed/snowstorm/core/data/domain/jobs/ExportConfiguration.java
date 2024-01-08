@@ -12,7 +12,7 @@ import jakarta.validation.constraints.Pattern;
 import java.util.Date;
 import java.util.Set;
 
-@Document(indexName = "#{@indexNameProvider.indexName('export-config')}")
+@Document(indexName = "#{@indexNameProvider.indexName('export-config')}", createIndex = false)
 public class ExportConfiguration {
 
 	private String id;

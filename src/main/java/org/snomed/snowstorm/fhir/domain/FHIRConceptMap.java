@@ -16,7 +16,7 @@ import java.util.List;
 import static java.lang.String.format;
 import static org.snomed.snowstorm.core.util.CollectionUtils.orEmpty;
 
-@Document(indexName = "#{@indexNameProvider.indexName('fhir-concept-map')}")
+@Document(indexName = "#{@indexNameProvider.indexName('fhir-concept-map')}", createIndex = false)
 
 public class FHIRConceptMap {
 
