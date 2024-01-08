@@ -2,24 +2,15 @@ package org.snomed.snowstorm.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.Lists;
-import com.google.common.collect.Sets;
 import io.kaicode.elasticvc.api.BranchService;
-import io.kaicode.elasticvc.api.ComponentService;
 import io.kaicode.elasticvc.api.VersionControlHelper;
 import org.elasticsearch.client.Request;
 import org.modelmapper.ModelMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.langauges.ecl.ECLQueryBuilder;
-import org.snomed.snowstorm.core.data.domain.CodeSystem;
-import org.snomed.snowstorm.core.data.domain.CodeSystemVersion;
 import org.snomed.snowstorm.core.data.domain.Concepts;
 import org.snomed.snowstorm.core.data.domain.SnomedComponent;
-import org.snomed.snowstorm.core.data.domain.classification.Classification;
-import org.snomed.snowstorm.core.data.domain.classification.EquivalentConcepts;
-import org.snomed.snowstorm.core.data.domain.classification.RelationshipChange;
-import org.snomed.snowstorm.core.data.domain.jobs.ExportConfiguration;
-import org.snomed.snowstorm.core.data.domain.jobs.IdentifiersForRegistration;
 import org.snomed.snowstorm.core.data.services.*;
 import org.snomed.snowstorm.core.data.services.classification.BranchClassificationStatusService;
 import org.snomed.snowstorm.core.data.services.identifier.*;
@@ -48,7 +39,6 @@ import org.springframework.context.annotation.PropertySource;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.data.elasticsearch.core.IndexOperations;
-import org.springframework.data.elasticsearch.core.mapping.IndexCoordinates;
 import org.springframework.data.elasticsearch.repository.config.EnableElasticsearchRepositories;
 import org.springframework.jms.support.converter.MappingJackson2MessageConverter;
 import org.springframework.jms.support.converter.MessageConverter;
@@ -288,7 +278,6 @@ public abstract class Config extends ElasticsearchConfig {
 		return new ModelMapper();
 	}
 
-
 	protected void updateIndexMaxTermsSettingForAllSnomedComponents() {
 		for (Class<? extends SnomedComponent> componentClass : domainEntityConfiguration.getComponentTypeRepositoryMap().keySet()) {
 			updateIndexMaxTermsSetting(componentClass);
@@ -313,37 +302,5 @@ public abstract class Config extends ElasticsearchConfig {
 		}
 	}
 
-	protected void initialiseIndices(boolean deleteExisting) {
-		// Initialise Elasticsearch indices
-		Class<?>[] allDomainEntityTypes = domainEntityConfiguration.getAllDomainEntityTypes().toArray(new Class<?>[]{});
-		Map<String, Object> settings = new HashMap<>();
-		settings.put("index.number_of_shards", indexShards);
-		settings.put("index.number_of_replicas", indexReplicas);
-		ComponentService.initialiseIndexAndMappingForPersistentClasses(deleteExisting, elasticsearchOperations, settings, allDomainEntityTypes);
 
-		// Initialise Snowstorm indices which are not part of the domain entity
-		Set<Class<?>> objectsNotVersionControlled = Sets.newHashSet(
-				CodeSystem.class,
-				CodeSystemVersion.class,
-				Classification.class,
-				RelationshipChange.class,
-				EquivalentConcepts.class,
-				IdentifiersForRegistration.class,
-				ExportConfiguration.class
-		);
-		for (Class<?> aClass : objectsNotVersionControlled) {
-			IndexCoordinates indexCoordinates = elasticsearchOperations.getIndexCoordinatesFor(aClass);
-			IndexOperations indexOperations = elasticsearchOperations.indexOps(indexCoordinates);
-			if (deleteExisting) {
-				logger.info("Deleting index {}", indexCoordinates.getIndexName());
-				indexOperations.delete();
-			}
-			// Create if an index doesn't exist
-			if (!indexOperations.exists()) {
-				logger.info("Creating index {}", indexCoordinates.getIndexName());
-				indexOperations.create(settings);
-				indexOperations.putMapping(indexOperations.createMapping(aClass));
-			}
-		}
-	}
 }

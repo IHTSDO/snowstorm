@@ -1,9 +1,10 @@
 package org.snomed.snowstorm.config;
 
-import co.elastic.clients.elasticsearch.ElasticsearchClient;
 import com.google.common.base.Strings;
 import io.github.acm19.aws.interceptor.http.AwsRequestSigningApacheInterceptor;
+import io.kaicode.elasticvc.api.ComponentService;
 import io.kaicode.elasticvc.repositories.config.IndexNameProvider;
+import jakarta.annotation.PostConstruct;
 import org.apache.http.HttpHost;
 import org.apache.http.auth.AuthScope;
 import org.apache.http.auth.UsernamePasswordCredentials;
@@ -14,17 +15,21 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.config.elasticsearch.DateToLongConverter;
 import org.snomed.snowstorm.config.elasticsearch.LongToDateConverter;
+import org.snomed.snowstorm.core.data.domain.Annotation;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.data.elasticsearch.client.ClientConfiguration;
 import org.springframework.data.elasticsearch.client.elc.ElasticsearchClients;
 import org.springframework.data.elasticsearch.client.elc.ElasticsearchConfiguration;
+import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.data.elasticsearch.core.convert.ElasticsearchCustomConversions;
 import org.springframework.data.elasticsearch.support.HttpHeaders;
 import software.amazon.awssdk.auth.credentials.DefaultCredentialsProvider;
 import software.amazon.awssdk.auth.signer.Aws4Signer;
 import software.amazon.awssdk.regions.providers.DefaultAwsRegionProviderChain;
 
+import java.io.IOException;
 import java.util.*;
 
 public class ElasticsearchConfig extends ElasticsearchConfiguration {
@@ -52,8 +57,15 @@ public class ElasticsearchConfig extends ElasticsearchConfiguration {
 	@Value("${elasticsearch.api-key}")
 	private String apiKey;
 
+	@Autowired
+	private ElasticsearchOperations elasticsearchOperations;
+
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
+	@PostConstruct
+	public void init() throws IOException {
+		initialiseIndices(false);
+	}
 
 	@Override
 	public @NotNull ClientConfiguration clientConfiguration() {
@@ -141,5 +153,18 @@ public class ElasticsearchConfig extends ElasticsearchConfiguration {
 	@Bean
 	public IndexNameProvider indexNameProvider() {
 		return new IndexNameProvider(indexNamePrefix);
+	}
+
+	protected void initialiseIndices(boolean deleteExisting) {
+		Set<Class<?>> entities = scanForEntities("org.snomed.snowstorm.core.data.domain");
+		entities.addAll(scanForEntities("org.snomed.snowstorm.fhir.domain"));
+		// Remove Annotation class as it is not a persistent class but extends ReferenceSetMember
+		entities.remove(Annotation.class);
+		logger.debug("Found {} entities to initialise", entities.size());
+		// Initialise Elasticsearch indices
+		Map<String, Object> settings = new HashMap<>();
+		settings.put("index.number_of_shards", indexShards);
+		settings.put("index.number_of_replicas", indexReplicas);
+		ComponentService.initialiseIndexAndMappingForPersistentClasses(deleteExisting, elasticsearchOperations, settings, entities.toArray(new Class<?>[]{}));
 	}
 }

@@ -81,8 +81,10 @@ public class SnowstormApplication extends Config implements ApplicationRunner {
 	public void run(ApplicationArguments applicationArguments) throws InterruptedException {
 		try {
 			boolean deleteIndices = applicationArguments.containsOption(DELETE_INDICES_FLAG);
-			if (deleteIndices) logger.warn("Deleting existing Elasticsearch Indices");
-			initialiseIndices(deleteIndices);
+			if (deleteIndices) {
+				logger.warn("Deleting existing Elasticsearch Indices");
+				initialiseIndices(true);
+			}
 
 			updateIndexMaxTermsSetting(QueryConcept.class);
 			updateIndexMaxTermsSettingForAllSnomedComponents();
