@@ -18,7 +18,7 @@ import java.util.Objects;
 
 import static org.snomed.snowstorm.core.data.domain.Concepts.*;
 
-@Document(indexName = "#{@indexNameProvider.indexName('relationship')}")
+@Document(indexName = "#{@indexNameProvider.indexName('relationship')}", createIndex = false)
 public class Relationship extends SnomedComponent<Relationship> {
 
 	public enum CharacteristicType {

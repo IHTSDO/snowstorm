@@ -16,8 +16,7 @@ import java.util.Objects;
 
 import static org.snomed.snowstorm.core.util.CollectionUtils.orEmpty;
 
-@Document(indexName = "#{@indexNameProvider.indexName('fhir-map-element')}")
-
+@Document(indexName = "#{@indexNameProvider.indexName('fhir-map-element')}", createIndex = false)
 public class FHIRMapElement {
 
 	public interface Fields {

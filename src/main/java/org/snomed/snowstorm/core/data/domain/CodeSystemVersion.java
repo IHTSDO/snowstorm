@@ -6,7 +6,7 @@ import org.springframework.data.elasticsearch.annotations.*;
 
 import java.util.Date;
 
-@Document(indexName = "#{@indexNameProvider.indexName('codesystem-version')}")
+@Document(indexName = "#{@indexNameProvider.indexName('codesystem-version')}", createIndex = false)
 public class CodeSystemVersion {
 
 	public interface Fields {

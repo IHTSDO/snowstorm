@@ -14,7 +14,7 @@ import jakarta.validation.constraints.Size;
 
 import java.util.Objects;
 
-@Document(indexName = "#{@indexNameProvider.indexName('identifier')}")
+@Document(indexName = "#{@indexNameProvider.indexName('identifier')}", createIndex = false)
 @JsonPropertyOrder({"alternateIdentifier", "effectiveTime", "active", "moduleId", "identifierSchemeId", "identifierScheme", "referencedComponentId",  "released", "releasedEffectiveTime"})
 public class Identifier extends SnomedComponent<Identifier> implements IdentifierView {
 

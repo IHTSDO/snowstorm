@@ -15,7 +15,7 @@ import java.util.*;
 /**
  * Represents an active concept with fields to assist logical searching.
  */
-@Document(indexName = "#{@indexNameProvider.indexName('semantic')}")
+@Document(indexName = "#{@indexNameProvider.indexName('semantic')}", createIndex = false)
 public class QueryConcept extends DomainEntity<QueryConcept> implements FHIRGraphNode {
 
 	public static final String ATTR_TYPE_WILDCARD = "all";

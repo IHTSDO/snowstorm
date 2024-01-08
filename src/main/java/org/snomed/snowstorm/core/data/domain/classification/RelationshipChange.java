@@ -12,7 +12,7 @@ import org.springframework.data.elasticsearch.annotations.Setting;
 
 import java.io.Serializable;
 
-@Document(indexName = "#{@indexNameProvider.indexName('classification-relationship-change')}")
+@Document(indexName = "#{@indexNameProvider.indexName('classification-relationship-change')}", createIndex = false)
 public class RelationshipChange {
 
 	public interface Fields {
