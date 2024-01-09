@@ -1,7 +1,5 @@
 package org.snomed.snowstorm;
 
-import jakarta.jms.ConnectionFactory;
-import org.apache.activemq.ActiveMQConnectionFactory;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -12,11 +10,9 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.autoconfigure.elasticsearch.ElasticsearchRestClientAutoConfiguration;
 import org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration;
 import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.PropertySource;
 import org.springframework.data.elasticsearch.client.ClientConfiguration;
 import org.testcontainers.DockerClientFactory;
-import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.elasticsearch.ElasticsearchContainer;
 import org.testcontainers.junit.jupiter.Container;
 
@@ -38,25 +34,6 @@ public class TestConfig extends Config {
 	static final boolean useLocalElasticsearch = false;
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(TestConfig.class);
-
-	private static final String ACTIVEMQ_IMAGE = "symptoma/activemq";
-
-	private static final int ACTIVEMQ_PORT = 61616;
-
-	@SuppressWarnings("rawtypes")
-	@Container
-	private static final GenericContainer activeMqContainer = new GenericContainer(ACTIVEMQ_IMAGE).withExposedPorts(ACTIVEMQ_PORT);
-	static {
-		activeMqContainer.start();
-	}
-
-	@Bean
-	public ConnectionFactory connectionFactory() {
-		String brokerUrlFormat = "tcp://%s:%d";
-		String brokerUrl = String.format(brokerUrlFormat, activeMqContainer.getHost(), activeMqContainer.getFirstMappedPort());
-		LOGGER.info("ActiveMQ test broker URL: {}", brokerUrl);
-		return new ActiveMQConnectionFactory(brokerUrl);
-	}
 
 	@Container
 	private static final ElasticsearchContainer elasticsearchContainer;
