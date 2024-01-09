@@ -14,10 +14,7 @@ import org.apache.activemq.command.ActiveMQTopic;
 import org.modelmapper.ModelMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.snomed.snowstorm.core.data.domain.CodeSystem;
-import org.snomed.snowstorm.core.data.domain.CodeSystemVersion;
-import org.snomed.snowstorm.core.data.domain.Description;
-import org.snomed.snowstorm.core.data.domain.ReferenceSetMember;
+import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.repositories.CodeSystemRepository;
 import org.snomed.snowstorm.core.data.repositories.CodeSystemVersionRepository;
 import org.snomed.snowstorm.core.data.services.pojo.CodeSystemConfiguration;
@@ -456,7 +453,7 @@ public class CodeSystemService {
 						.must(branchCriteria.getEntityBranchCriteria(ReferenceSetMember.class))
 						.must(termQuery(ReferenceSetMember.Fields.ACTIVE, true))))
 				.withPageable(PageRequest.of(0, 1))
-				.withAggregation("module", AggregationBuilders.terms(a -> a.field(ReferenceSetMember.Fields.MODULE_ID)))
+				.withAggregation("module", AggregationBuilders.terms(a -> a.field(ReferenceSetMember.Fields.MODULE_ID).size(50)))
 				.build(), ReferenceSetMember.class);
 		if (memberPage.hasAggregations()) {
 			Map<String, Long> modulesOfActiveMembers = PageWithBucketAggregationsFactory.createPage(memberPage, PageRequest.of(0, 1))

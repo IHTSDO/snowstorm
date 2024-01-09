@@ -5,11 +5,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.snomed.snowstorm.AbstractTest;
 import org.snomed.snowstorm.TestConfig;
-import org.snomed.snowstorm.core.data.domain.CodeSystem;
-import org.snomed.snowstorm.core.data.domain.CodeSystemVersion;
-import org.snomed.snowstorm.core.data.services.CodeSystemService;
-import org.snomed.snowstorm.core.data.services.CodeSystemUpgradeService;
-import org.snomed.snowstorm.core.data.services.ServiceException;
+import org.snomed.snowstorm.core.data.domain.*;
+import org.snomed.snowstorm.core.data.services.*;
 import org.snomed.snowstorm.rest.pojo.ItemsPage;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -21,6 +18,8 @@ import org.springframework.test.context.ActiveProfiles;
 import java.util.*;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.snomed.snowstorm.core.data.domain.Concepts.*;
+import static org.snomed.snowstorm.core.data.domain.Concepts.MODULE;
 
 
 @ActiveProfiles("test")
@@ -37,6 +36,9 @@ class CodeSystemControllerTest extends AbstractTest {
 
     @Autowired
     private CodeSystemUpgradeService codeSystemUpgradeService;
+
+    @Autowired
+    private ConceptService conceptService;
 
     @BeforeEach
     public void setUp() throws ServiceException {
@@ -130,6 +132,22 @@ class CodeSystemControllerTest extends AbstractTest {
 
         //then
         assertEquals(20200731, dependantVersionEffectiveTime); //SNOMEDCT-DM has not versioned/published 2021 yet.
+    }
+
+    @Test
+    public void findCodeSystem_ShouldReturnExpectedNumberOfModules() throws ServiceException {
+        //given
+        givenCodeSystemExists("SNOMEDCT-XX", "MAIN/SNOMEDCT-XX");
+        for (int x = 0; x < 13; x++) {
+            givenModuleExists("MAIN/SNOMEDCT-XX", "module" + x);
+        }
+
+        //when
+        CodeSystem codeSystem = testRestTemplate.getForObject(findCodeSystem("SNOMEDCT-XX"), CodeSystem.class);
+        Collection<ConceptMini> modules = codeSystem.getModules();
+
+        //then
+        assertEquals(13, modules.size());
     }
 
     @Test
@@ -311,5 +329,32 @@ class CodeSystemControllerTest extends AbstractTest {
 
     private String getBranch(String branchPath) {
         return "http://localhost:" + port + "/branches/" + branchPath;
+    }
+
+    private String givenModuleExists(String branchPath, String moduleName) throws ServiceException {
+        Concept concept = conceptService.create(
+                new Concept()
+                        .addDescription(new Description(moduleName).setTypeId(FSN).setCaseSignificance("CASE_INSENSITIVE").setAcceptabilityMap(Map.of(US_EN_LANG_REFSET, descriptionAcceptabilityNames.get(PREFERRED), GB_EN_LANG_REFSET, descriptionAcceptabilityNames.get(PREFERRED))))
+                        .addAxiom(new Relationship(ISA, MODULE))
+                        .addRelationship(new Relationship(ISA, MODULE)),
+                branchPath
+        );
+
+        String conceptId = concept.getId();
+        concept.setModuleId(conceptId);
+
+        for (Axiom classAxiom : concept.getClassAxioms()) {
+            classAxiom.setModuleId(conceptId);
+            ReferenceSetMember referenceSetMember = classAxiom.getReferenceSetMember();
+            referenceSetMember.setModuleId(conceptId);
+            Set<Relationship> relationships = classAxiom.getRelationships();
+            for (Relationship relationship : relationships) {
+                relationship.setModuleId(conceptId);
+            }
+        }
+
+        conceptService.update(concept, branchPath);
+
+        return conceptId;
     }
 }
