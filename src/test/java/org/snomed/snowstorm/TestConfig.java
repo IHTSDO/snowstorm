@@ -83,6 +83,7 @@ public class TestConfig extends Config {
 	@PostConstruct
 	public void init() {
 		traceabilityLogService.setEnabled(false);
+		initialiseIndices(false);
 	}
 
 	public static class SnowstormElasticsearchContainer extends ElasticsearchContainer {
