@@ -814,7 +814,7 @@ class SemanticIndexUpdateServiceTest extends AbstractTest {
 				.stream().map(SearchHit::getContent).collect(Collectors.toList());
 		assertEquals(5, queryConcepts.size());
 
-		deleteAllAndRefresh();
+		deleteAllQueryConceptsAndRefresh();
 
 		queryConcepts = elasticsearchTemplate.search(new NativeQueryBuilder().build(), QueryConcept.class)
 				.stream().map(SearchHit::getContent).collect(Collectors.toList());
