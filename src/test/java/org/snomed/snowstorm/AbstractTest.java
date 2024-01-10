@@ -24,6 +24,7 @@ import org.snomed.snowstorm.rest.View;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.data.elasticsearch.client.elc.NativeQuery;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.data.elasticsearch.client.elc.NativeQueryBuilder;
@@ -96,11 +97,17 @@ public abstract class AbstractTest {
 
 	@AfterEach
 	void deleteAll() throws InterruptedException {
-		branchService.deleteAll();
-		conceptService.deleteAll();
-		codeSystemService.deleteAll();
-		classificationService.deleteAll();
-		permissionService.deleteAll();
+		try {
+			branchService.deleteAll();
+			conceptService.deleteAll();
+			codeSystemService.deleteAll();
+			classificationService.deleteAll();
+			permissionService.deleteAll();
+		} catch (OptimisticLockingFailureException e) {
+			// Try again
+			Thread.sleep(100);
+			deleteAll();
+		}
 	}
 
 	@BeforeAll
@@ -161,7 +168,7 @@ public abstract class AbstractTest {
 		}
 	}
 
-	protected void deleteAllAndRefresh() {
+	protected void deleteAllQueryConceptsAndRefresh() {
 		NativeQuery deleteQuery = new NativeQueryBuilder().withQuery(new MatchAllQuery.Builder().build()._toQuery()).build();
 		elasticsearchOperations.delete(deleteQuery, QueryConcept.class, elasticsearchOperations.getIndexCoordinatesFor(QueryConcept.class));
 		elasticsearchOperations.indexOps(QueryConcept.class).refresh();
