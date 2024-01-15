@@ -411,7 +411,7 @@ public class CodeSystemService {
 						.must(branchCriteria.getEntityBranchCriteria(Description.class))
 						.must(termQuery(Description.Fields.ACTIVE, true))))
 				.withPageable(PageRequest.of(0, 1))
-				.withAggregation("language", AggregationBuilders.terms().field(Description.Fields.LANGUAGE_CODE).build()._toAggregation())
+				.withAggregation("language", AggregationBuilders.terms().field(Description.Fields.LANGUAGE_CODE).size(20).build()._toAggregation())
 				.build(), Description.class);
 		if (descriptionSearch.hasAggregations()) {
 			Aggregation aggregation = AggregationUtils.getAggregations(descriptionSearch.getAggregations()).get("language");

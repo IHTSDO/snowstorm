@@ -269,7 +269,7 @@ public class DescriptionService extends ComponentService {
 						.filter(termsQuery(ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID, conceptIds)).build()._toQuery()
 				)
 				.withPageable(PAGE_OF_ONE)
-				.withAggregation("membership", AggregationBuilders.terms().field(REFSET_ID).build()._toAggregation())
+				.withAggregation("membership", AggregationBuilders.terms().field(REFSET_ID).size(AGGREGATION_SEARCH_SIZE).build()._toAggregation())
 				.build(), ReferenceSetMember.class);
 		if (membershipResults.hasAggregations()) {
 			allAggregations.addAll(getAggregations(membershipResults.getAggregations(), "membership"));
@@ -281,8 +281,8 @@ public class DescriptionService extends ComponentService {
 		descriptionFilter.must(termsQuery(Description.Fields.CONCEPT_ID, conceptIds));
 		final NativeQueryBuilder queryBuilder = new NativeQueryBuilder()
 				.withQuery(bool(b -> b.must(descriptionQuery).filter(descriptionFilter.build()._toQuery())))
-				.withAggregation("module", AggregationBuilders.terms(ta -> ta.field(Description.Fields.MODULE_ID)))
-				.withAggregation("language", AggregationBuilders.terms(ta -> ta.field(Description.Fields.LANGUAGE_CODE)))
+				.withAggregation("module", AggregationBuilders.terms(ta -> ta.field(Description.Fields.MODULE_ID).size(50)))
+				.withAggregation("language", AggregationBuilders.terms(ta -> ta.field(Description.Fields.LANGUAGE_CODE).size(20)))
 				.withPageable(pageRequest);
 		NativeQuery aggregateQuery = addTermSort(queryBuilder.build());
 		aggregateQuery.setTrackTotalHits(true);
