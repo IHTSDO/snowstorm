@@ -11,6 +11,7 @@ import org.ihtsdo.drools.RuleExecutorFactory;
 import org.ihtsdo.drools.response.InvalidContent;
 import org.ihtsdo.drools.service.TestResourceProvider;
 import org.ihtsdo.otf.resourcemanager.ResourceManager;
+import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.config.Config;
@@ -101,6 +102,7 @@ public class DroolsValidationService {
 		// Get drools assertion groups to run
 		Branch branchWithInheritedMetadata = branchService.findBranchOrThrow(branchPath, true);
 		String assertionGroupNamesMetaString = branchWithInheritedMetadata.getMetadata().getString(BranchMetadataKeys.ASSERTION_GROUP_NAMES);
+		Set<String> assertionExclusionList = getAssertionExclusionList(branchWithInheritedMetadata);
 		if (assertionGroupNamesMetaString == null) {
 			throw new ServiceException("'" + BranchMetadataKeys.ASSERTION_GROUP_NAMES + "' not set on branch metadata for Snomed-Drools validation configuration.");
 		}
@@ -125,7 +127,7 @@ public class DroolsValidationService {
 		DescriptionDroolsValidationService droolsDescriptionService = new DescriptionDroolsValidationService(branchPath, branchCriteria, elasticsearchOperations,
 				this.descriptionService, disposableQueryService, testResourceProvider, inferredTopLevelHierarchies);
 		RelationshipDroolsValidationService relationshipService = new RelationshipDroolsValidationService(disposableQueryService);
-		final List<InvalidContent> invalidContents = ruleExecutor.execute(ruleSetNames, droolsConcepts, droolsConceptService, droolsDescriptionService, relationshipService, false, false);
+		final List<InvalidContent> invalidContents = ruleExecutor.execute(ruleSetNames, assertionExclusionList, droolsConcepts, droolsConceptService, droolsDescriptionService, relationshipService, false, false);
 
 		return invalidContents;
 	}
@@ -165,6 +167,15 @@ public class DroolsValidationService {
 				throw e;
 			}
 		});
+	}
+
+	@Nullable
+	private Set<String> getAssertionExclusionList(Branch branch) {
+		Set<String> assertionExclusionList = null;
+		if (branch.getMetadata() != null && branch.getMetadata().containsKey(BranchMetadataKeys.ASSERTION_EXCLUSION_LIST)) {
+			assertionExclusionList = new HashSet<>(branch.getMetadata().getList(BranchMetadataKeys.ASSERTION_EXCLUSION_LIST));
+		}
+		return assertionExclusionList;
 	}
 
 	private void setReleaseHashAndEffectiveTime(Set<Concept> concepts, BranchCriteria branchCriteria) {
