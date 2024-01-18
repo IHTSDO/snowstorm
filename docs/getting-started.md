@@ -14,10 +14,16 @@ Elasticsearch will work best with another 4G of memory left free on the server f
 
 ## Setup
 ### Install Elasticsearch
-Download and install [Elasticsearch version 7](https://www.elastic.co/downloads/past-releases/elasticsearch-7-10-2) (tested against 7.10.2). 
+Download and install [Elasticsearch version 8](https://www.elastic.co/downloads/past-releases/elasticsearch-8-11-1) (tested against 8.11.1).
 
-Update the configuration file _config/jvm.options_ with the memory options `-Xms4g` and `-Xmx4g`.  
-See [Set JVM Options](https://www.elastic.co/guide/en/elasticsearch/reference/7.17/advanced-configuration.html#set-jvm-options).
+When running snowstorm locally, you can disable security in Elasticsearch by setting xpack.security.enabled to false in the _config/elasticsearch.yml_ file:
+```
+xpack.security.enabled: false
+```
+See [Elastic upgrade guide](https://www.elastic.co/guide/en/elasticsearch/reference/8.11/setup-upgrade.html), if you need to migrate an existing Elasticsearch 7.x cluster to version 8.x.
+
+Update the configuration file _config/jvm.options_ with the memory options `-Xms4g` and `-Xmx4g`.
+See [Set JVM Options](https://www.elastic.co/guide/en/elasticsearch/reference/8.11/advanced-configuration.html#set-jvm-options).
 
 ### Get Snowstorm Application Jar
 Download the latest release jar from the [releases page](https://github.com/IHTSDO/snowstorm/releases).
