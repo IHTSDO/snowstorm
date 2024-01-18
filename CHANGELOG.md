@@ -3,6 +3,33 @@ All notable changes to this project will be documented in this file.
 
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 10.1.0 Release (January 2024)
+
+### Breaking
+- No breaking changes
+
+### Features
+- No new features
+
+### Fixes
+- MAINT-2418	Full import is not longer working due to reference set types update during start up
+- ISTO-112	Fix swagger doc parameter names
+- MAINT-2454	Snowstorm: FHIR config missing for Germany edition
+- MAINT-2424	Update en-gb language refset copy api to avoid duplication and deletion
+- VAL-273	Drools [update]: Duplicate FSNs
+
+### Improvements
+- MAINT-2456	Increase number of modules returned from CodeSystems endpoint
+- MAINT-2361	Snowstorm: Move semantic tag list into configuration
+- MAINT-2414	Snowstorm: Allow parsing of SubAnnotationPropertyOf
+- MAINT-2441	Add config to switch off sending JMS topic message when creating versions during RF2 import
+- MAINT-2457	Snowstorm jenkins builds with intermittent test failures caused by index conflict during deleteAll
+- PIP-369	Document Elasticsearch 7 to Elasticsearch 8 migration options
+- PIP-458	Configure shards externally after ES8 upgrade
+- PIP-468	Upgrade spring boot to 3.2 and ElasticSearch to 8.11.1
+- PIP-479	Update activemq-broker to 6.0.1
+- VAL-361	Drools: Exclusions list
+
 ## 10.0.1 Release (December 2023)
 Major release with Spring Boot 3 & Elasticsearch 8 upgrade.
 
