@@ -25,6 +25,7 @@ import org.springframework.data.elasticsearch.client.elc.NativeQueryBuilder;
 import org.springframework.data.elasticsearch.core.query.FetchSourceFilter;
 import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;
+import org.springframework.util.StringUtils;
 
 import java.util.*;
 import java.util.function.Function;
@@ -164,8 +165,11 @@ public class MRCMService {
 	}
 
 	public Collection<ConceptMini> retrieveAttributeValues(ContentType contentType, String attributeId, String termPrefix, String branchPath, List<LanguageDialect> languageDialects) throws ServiceException {
-		BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(branchPath);
-		MRCM branchMRCM = mrcmLoader.loadActiveMRCM(branchPath, branchCriteria);
+		MRCM branchMRCM = null;
+		if (!Concepts.ISA.equals(attributeId)) {
+			BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(branchPath);
+			branchMRCM = mrcmLoader.loadActiveMRCM(branchPath, branchCriteria);
+		}
 		return retrieveAttributeValues(contentType, attributeId, termPrefix, branchPath, languageDialects, branchMRCM);
 	}
 
@@ -184,21 +188,26 @@ public class MRCMService {
 	}
 
 	private QueryService.ConceptQueryBuilder createAttributeValuesQuery(ContentType contentType, String attributeId, String termPrefix, List<LanguageDialect> languageDialects, MRCM branchMRCM) {
-		Set<AttributeRange> attributeRanges = branchMRCM.getMandatoryAttributeRanges(attributeId, contentType);
+		AttributeRange attributeRange = null;
+		if (!Concepts.ISA.equals(attributeId)) {
+			Set<AttributeRange> attributeRanges = branchMRCM.getMandatoryAttributeRanges(attributeId, contentType);
 
-		if (attributeRanges.isEmpty()) {
-			throw new IllegalArgumentException("No MRCM Attribute Range found with Mandatory rule strength for given content type and attributeId.");
-		} else if (attributeRanges.size() > 1) {
-			logger.warn("Multiple Attribute Ranges found with Mandatory rule strength for content type {} and attribute {} : {}.",
-					contentType, attributeId, attributeRanges.stream().map(AttributeRange::getId).collect(Collectors.toSet()));
+			if (attributeRanges.isEmpty()) {
+				throw new IllegalArgumentException("No MRCM Attribute Range found with Mandatory rule strength for given content type and attributeId.");
+			} else if (attributeRanges.size() > 1) {
+				logger.warn("Multiple Attribute Ranges found with Mandatory rule strength for content type {} and attribute {} : {}.",
+						contentType, attributeId, attributeRanges.stream().map(AttributeRange::getId).collect(Collectors.toSet()));
+			}
+
+			attributeRange = attributeRanges.iterator().next();
 		}
 
-		AttributeRange attributeRange = attributeRanges.iterator().next();
-
 		QueryService.ConceptQueryBuilder conceptQuery = queryService.createQueryBuilder(Relationship.CharacteristicType.inferred)
-				.ecl(attributeRange.getRangeConstraint())
 				.resultLanguageDialects(languageDialects);
 
+		if (attributeRange != null) {
+			conceptQuery.ecl(attributeRange.getRangeConstraint());
+		}
 		if (IdentifierService.isConceptId(termPrefix)) {
 			conceptQuery.conceptIds(Collections.singleton(termPrefix));
 		} else {
