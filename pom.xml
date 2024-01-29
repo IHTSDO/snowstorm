@@ -20,6 +20,9 @@
 		N.B. Remember to keep TestConfig.ELASTIC_SEARCH_SERVER_VERSION and getting-started guide updated.
 		-->
 
+		<!-- BOM version overrides -->
+		<spring.version>6.1.3</spring.version>
+
 		<docker.registry>docker.io</docker.registry>
 		<docker.allowInsecureRegistries>false</docker.allowInsecureRegistries>
 		<docker.image.prefix>snomedinternational</docker.image.prefix>
