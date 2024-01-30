@@ -28,7 +28,7 @@ import jakarta.annotation.PostConstruct;
 		})
 public class TestConfig extends Config {
 
-	private static final String ELASTIC_SEARCH_SERVER_VERSION = "8.11.1";
+	private static final String ELASTIC_SEARCH_SERVER_VERSION = "8.11.4";
 
 	// set it to true to use local instance instead of test container
 	static final boolean useLocalElasticsearch = false;
