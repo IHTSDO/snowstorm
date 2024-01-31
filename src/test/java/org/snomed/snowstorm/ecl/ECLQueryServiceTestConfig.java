@@ -134,7 +134,7 @@ public class ECLQueryServiceTestConfig extends ECLQueryTestConfig {
 								.withSort(SortBuilders.fieldSort(QueryConcept.Fields.CONCEPT_ID))
 								.withPageable(LARGE_PAGE).build(), QueryConcept.class)
 				.stream().map(SearchHit::getContent).toList();
-		assertEquals(34, queryConcepts.size());
+		assertEquals(37, queryConcepts.size());
 	}
 
 }

@@ -2,6 +2,7 @@ package org.snomed.snowstorm.ecl;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.snomed.snowstorm.TestConfig;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
@@ -9,7 +10,7 @@ import org.springframework.test.context.junit.jupiter.SpringExtension;
 import java.util.stream.Collectors;
 
 @ExtendWith(SpringExtension.class)
-@ContextConfiguration(classes = ECLQueryServiceTestConfig.class)
+@ContextConfiguration(classes = {TestConfig.class, ECLQueryServiceTestConfig.class} )
 public class ECLQueryServiceTest extends AbstractECLQueryServiceTest {
 
 	@BeforeEach
