@@ -211,7 +211,7 @@ public class DailyBuildService {
 
 	private void rollbackCommits(String path, List<Branch> rollbackList) {
 		logger.info("{} branch commits found to roll back on {}.", rollbackList.size(), path);
-		List<Class<? extends DomainEntity>> domainTypes = new ArrayList<>(domainEntityConfiguration.getAllDomainEntityTypes());
+		List<Class<? extends DomainEntity<?>>> domainTypes = new ArrayList<>(domainEntityConfiguration.getAllDomainEntityTypes());
 		for (Branch branchVersion : rollbackList) {
 			branchService.rollbackCompletedCommit(branchVersion, domainTypes);
 		}
