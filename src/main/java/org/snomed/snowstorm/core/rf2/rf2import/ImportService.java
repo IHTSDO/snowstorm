@@ -30,12 +30,11 @@ import java.util.*;
 import java.util.concurrent.ExecutorService;
 
 import static org.snomed.snowstorm.core.data.services.BranchMetadataHelper.*;
+import static org.snomed.snowstorm.core.data.services.BranchMetadataKeys.IMPORT_TYPE;
 import static org.snomed.snowstorm.core.rf2.RF2Type.FULL;
 
 @Service
 public class ImportService {
-
-	public static final String IMPORT_TYPE_KEY = "importType";
 
 	public static final String BATCH_CHANGE_KEY = "batch-change";
 
@@ -187,7 +186,7 @@ public class ImportService {
 		Branch branch = branchService.findLatest(branchPath);
 		Metadata metadata = branch.getMetadata();
 		final Map<String, String> internalMetadataMap = metadata.getMapOrCreate(INTERNAL_METADATA_KEY);
-		internalMetadataMap.put(IMPORT_TYPE_KEY, importType.getName());
+		internalMetadataMap.put(IMPORT_TYPE, importType.getName());
 		if (importType == FULL || createCodeSystemVersion) {
 			internalMetadataMap.put(IMPORTING_CODE_SYSTEM_VERSION, "true");
 		}
@@ -205,7 +204,7 @@ public class ImportService {
 	private void clearImportMetadata(String branchPath) {
 		Metadata metadata = branchService.findLatest(branchPath).getMetadata();
 		final Map<String, String> internalMetadataMap = metadata.getMapOrCreate(INTERNAL_METADATA_KEY);
-		internalMetadataMap.remove(IMPORT_TYPE_KEY);
+		internalMetadataMap.remove(IMPORT_TYPE);
 		internalMetadataMap.remove(IMPORTING_CODE_SYSTEM_VERSION);
 		branchService.updateMetadata(branchPath, metadata);
 	}
