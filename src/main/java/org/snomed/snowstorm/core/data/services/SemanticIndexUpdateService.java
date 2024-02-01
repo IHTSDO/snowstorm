@@ -117,7 +117,7 @@ public class SemanticIndexUpdateService extends ComponentService implements Comm
 	}
 
 	private void updateStatedAndInferredSemanticIndex(Commit commit) throws IllegalStateException, ConversionException, GraphBuilderException, ServiceException {
-		if (commit.isRebase()) {
+		if (commit.isRebase() || (useSeparateSemanticIndex(commit.getBranch()) && isImport(commit))) {
 			rebuildSemanticIndex(commit, false);
 		} else if (commit.getCommitType() != Commit.CommitType.PROMOTION) {
 			// Update query index using changes in the current commit
@@ -133,11 +133,18 @@ public class SemanticIndexUpdateService extends ComponentService implements Comm
 		// If promotion the semantic changes will be promoted with the rest of the content.
 	}
 
+	private boolean isImport(Commit commit) {
+		return commit.getBranch().getMetadata() != null && commit.getBranch().getMetadata().getMap(BranchMetadataHelper.INTERNAL_METADATA_KEY).containsKey(BranchMetadataKeys.IMPORT_TYPE);
+	}
+
+	private boolean useSeparateSemanticIndex(Branch branch) {
+		return versionControlHelper.getEntityClassNamesWithSeparateIndex(branch).contains(QueryConcept.class.getSimpleName());
+	}
+
 	private Map<String, Integer> rebuildSemanticIndex(Commit commit, boolean dryRun) throws ConversionException, GraphBuilderException, ServiceException {
 		Branch branch = commit.getBranch();
-
 		Set<String> relationshipAndAxiomDeletionsToProcess = Sets.union(branch.getVersionsReplaced(ReferenceSetMember.class), branch.getVersionsReplaced(Relationship.class));
-		boolean completeRebuild = branch.getPath().equals("MAIN");
+		boolean completeRebuild = branch.getPath().equals("MAIN") || useSeparateSemanticIndex(branch);
 		if (!completeRebuild) {
 			// Recreate query index using new parent base point + content on this branch
 			if (dryRun) {
@@ -201,7 +208,7 @@ public class SemanticIndexUpdateService extends ComponentService implements Comm
 		if (completeRebuild) {
 			updatedConceptIds = Collections.emptySet();
 			newGraph = true;
-			logger.info("Performing rebuild of {} semantic index", form.getName());
+			logger.info("Performing complete rebuild of {} semantic index", form.getName());
 		} else {
 			updatedConceptIds = buildRelevantPartsOfExistingGraph(graphBuilder, form, changesCriteria, previousStateCriteria, internalIdsOfDeletedComponents, timer);
 			if (updatedConceptIds.isEmpty()) {

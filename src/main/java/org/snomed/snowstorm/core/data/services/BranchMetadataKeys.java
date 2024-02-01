@@ -12,4 +12,5 @@ public interface BranchMetadataKeys {
 	String DEPENDENCY_RELEASE = "dependencyRelease";
 	String PREVIOUS_RELEASE = "previousRelease";
 	String ASSERTION_EXCLUSION_LIST = "assertionExclusionList";
+	String IMPORT_TYPE = "importType";
 }
