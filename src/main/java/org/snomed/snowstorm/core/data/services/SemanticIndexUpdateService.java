@@ -338,7 +338,7 @@ public class SemanticIndexUpdateService extends ComponentService implements Comm
 		} else {
 			conceptToRefsetsMap = getConceptToRefsetsMap(newStateCriteria);
 		}
-		logger.info("End fetching and mapping concepts to refset ids map on branch {} and mapped total {} concepts.", branchPath, conceptToRefsetsMap.keySet().size());
+		logger.info("End fetching and mapping concepts to refset ids on branch {} and mapped total {} concepts.", branchPath, conceptToRefsetsMap.keySet().size());
 		timer.checkpoint("Fetch and map concepts to refset ids.");
 		try (final SearchHitsIterator<QueryConcept> existingQueryConcepts = elasticsearchTemplate.searchForStream(new NativeQueryBuilder()
 				.withQuery(bool(b -> b
