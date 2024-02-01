@@ -109,7 +109,7 @@ public class QueryConcept extends DomainEntity<QueryConcept> implements FHIRGrap
 
 			List<Object> typeValues = groupAttributes.get(type.toString());
 			if (typeValues != null) {
-				typeValues.remove(value.toString());
+				typeValues.remove(value);
 				if (typeValues.isEmpty()) {
 					groupAttributes.remove(type.toString());
 				}
@@ -337,12 +337,16 @@ public class QueryConcept extends DomainEntity<QueryConcept> implements FHIRGrap
 			}
 			String[] groups = attrMap.split("\\|");
 			for (String group : groups) {
-				String[] attributes = group.split(":");
+				// To exclude : in concrete string value
+				String[] attributes = group.split(":(?=(?:[^\"]*\"[^\"]*\")*[^\"]*$)");
 				int groupNo = Integer.parseInt(attributes[0]);
 				Map<String, List<Object>> attributeMap = new HashMap<>();
 				for (int i = 1; i < attributes.length; i++) {
 					String attribute = attributes[i];
 					String[] attrParts = attribute.split("=");
+					if (attrParts.length != 2) {
+						throw new IllegalArgumentException(String.format("Invalid attribute format %s found in attrMap %s", attribute, attrMap));
+					}
 					String type = attrParts[0];
 					String[] values = attrParts[1].split(",");
 					List<Object> transformed = checkAndTransformConcreteValues(Arrays.asList(values));

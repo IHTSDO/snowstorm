@@ -13,7 +13,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 class QueryConceptTest {
 
@@ -74,6 +74,19 @@ class QueryConceptTest {
 		QueryConcept queryConcept2 = objectMapper.readValue(json, QueryConcept.class);
 		assertEquals("1:123=456,789:1234=123|3:123=456:234=#0.0005,#500.0|4:2345=\"test\"", queryConcept2.getAttrMap());
 		assertEquals(groupedAttributesMap, queryConcept2.getGroupedAttributesMap());
+	}
+
+	@Test
+	void testDeserialize() {
+		String attrMapString = "0:411116001=139011000036106:1142140007=#2:999000001000168109=\"CBD 27:1 THC\":774158006=1483921000168102|" +
+				"1:999000031000168102=258798001:999000021000168100=#53.5:732943007=96223000:127489000=96223000" +
+				"|2:999000031000168102=258798001:999000021000168100=#0.3:732943007=96225007:127489000=96225007";
+
+		QueryConcept queryConcept = new QueryConcept();
+		queryConcept.setAttrMap(attrMapString);
+		Map<Integer, Map<String, List<Object>>> result = queryConcept.getGroupedAttributesMap();
+		assertEquals(3, result.keySet().size());
+		assertEquals(4, result.get(0).size());
 	}
 
 }
