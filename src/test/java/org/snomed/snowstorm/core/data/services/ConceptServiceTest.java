@@ -243,7 +243,7 @@ class ConceptServiceTest extends AbstractTest {
 		annotation.setModuleId("900000000000207008");
 		annotation.setTypeId("123456");
 		annotation.setValue("Annotation with language");
-		annotation.setLanguageCode("en");
+		annotation.setLanguageDialectCode("en");
 
 		conceptService.create(new Concept(conceptId).addAxiom(new Relationship(ISA, SNOMEDCT_ROOT)).addAnnotation(annotation), path);
 
@@ -524,7 +524,7 @@ class ConceptServiceTest extends AbstractTest {
 		annotation1.setModuleId("900000000000207008");
 		annotation1.setTypeId("123456");
 		annotation1.setValue("Annotation with language");
-		annotation1.setLanguageCode("en");
+		annotation1.setLanguageDialectCode("en");
 
 		Annotation annotation2 = new Annotation();
 		annotation2.setModuleId("900000000000207008");
@@ -539,9 +539,9 @@ class ConceptServiceTest extends AbstractTest {
 		assertEquals(2, savedConcept.getAnnotations().size());
 		for (Annotation annotation : savedConcept.getAnnotations()) {
 			assertEquals(Concepts.ANNOTATION_REFERENCE_SET, annotation.getRefsetId());
-			if (annotation.getLanguageCode() != null) {
+			if (annotation.getLanguageDialectCode() != null) {
 				assertEquals("123456", annotation.getTypeId());
-				assertEquals("en", annotation.getLanguageCode());
+				assertEquals("en", annotation.getLanguageDialectCode());
 				assertEquals("Annotation with language", annotation.getValue());
 			} else {
 				assertEquals("123456789", annotation.getTypeId());

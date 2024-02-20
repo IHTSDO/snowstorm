@@ -4591,7 +4591,7 @@ class BranchMergeServiceTest extends AbstractTest {
 		annotation.setModuleId("900000000000207008");
 		annotation.setTypeId("123456");
 		annotation.setValue("In the third International Consensus Definitions for Sepsis and Septic Shock (Sepsis-3) published in 2016.");
-		annotation.setLanguageCode("en");
+		annotation.setLanguageDialectCode("en");
 
 		// Create project
 		branchService.create("MAIN/projectA");
