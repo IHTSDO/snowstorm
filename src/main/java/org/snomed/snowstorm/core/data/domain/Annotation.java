@@ -19,7 +19,7 @@ public class Annotation extends ReferenceSetMember implements AnnotationView {
 	@JsonView(value = View.Component.class)
 	private String value;
 	@JsonView(value = View.Component.class)
-	private String languageCode;
+	private String languageDialectCode;
 
 	@Override
 	public String getAnnotationId() {
@@ -76,12 +76,12 @@ public class Annotation extends ReferenceSetMember implements AnnotationView {
 	}
 
 	@Override
-	public String getLanguageCode() {
-		return languageCode;
+	public String getLanguageDialectCode() {
+		return languageDialectCode;
 	}
 
-	public void setLanguageCode(String languageCode) {
-		this.languageCode = languageCode;
+	public void setLanguageDialectCode(String languageDialectCode) {
+		this.languageDialectCode = languageDialectCode;
 	}
 
 	public Annotation fromRefsetMember(ReferenceSetMember fromMember) {
@@ -95,7 +95,7 @@ public class Annotation extends ReferenceSetMember implements AnnotationView {
 		setReleased(fromMember.isReleased());
 		setTypeId(fromMember.getAdditionalField(AnnotationFields.TYPE_ID));
 		setValue(fromMember.getAdditionalField(AnnotationFields.VALUE));
-		setLanguageCode(fromMember.getAdditionalField(AnnotationFields.LANGUAGE_CODE));
+		setLanguageDialectCode(fromMember.getAdditionalField(AnnotationFields.LANGUAGE_DIALECT_CODE));
 		return this;
 	}
 
@@ -106,7 +106,7 @@ public class Annotation extends ReferenceSetMember implements AnnotationView {
 		ReferenceSetMember member = new ReferenceSetMember(annotationId, getEffectiveTimeI(), isActive(), moduleId, refsetId, getReferencedComponentId());
 		member.setAdditionalField(AnnotationFields.TYPE_ID, getTypeId());
 		member.setAdditionalField(AnnotationFields.VALUE, getValue());
-		member.setAdditionalField(AnnotationFields.LANGUAGE_CODE, getLanguageCode());
+		member.setAdditionalField(AnnotationFields.LANGUAGE_DIALECT_CODE, getLanguageDialectCode());
 		return member;
 	}
 
@@ -120,7 +120,7 @@ public class Annotation extends ReferenceSetMember implements AnnotationView {
 				Objects.equals(getRefsetId(), that.getRefsetId()) &&
 				Objects.equals(getReferencedComponentId(), that.getReferencedComponentId()) &&
 				Objects.equals(getTypeId(), that.getTypeId()) &&
-				Objects.equals(getLanguageCode(), that.getLanguageCode()) &&
+				Objects.equals(getLanguageDialectCode(), that.getLanguageDialectCode()) &&
 				Objects.equals(getValue(), that.getValue());
 	}
 
@@ -129,7 +129,7 @@ public class Annotation extends ReferenceSetMember implements AnnotationView {
 		if (annotationId != null) {
 			return annotationId.hashCode();
 		}
-		return Objects.hash(annotationId, active, getModuleId(), getRefsetId(), getReferencedComponentId(), getTypeId(), getLanguageCode(), getValue());
+		return Objects.hash(annotationId, active, getModuleId(), getRefsetId(), getReferencedComponentId(), getTypeId(), getLanguageDialectCode(), getValue());
 	}
 
 	@Override
@@ -139,7 +139,7 @@ public class Annotation extends ReferenceSetMember implements AnnotationView {
 				", annotationTypeId='" + typeId + '\'' +
 				", annotationType=" + type +
 				", annotationValue='" + value + '\'' +
-				", annotationLanguage='" + languageCode + '\'' +
+				", annotationLanguageDialectCode='" + languageDialectCode + '\'' +
 				", effectiveTime='" + getEffectiveTimeI() + '\'' +
 				", released='" + isReleased() + '\'' +
 				", releasedEffectiveTime='" + getReleasedEffectiveTime() + '\'' +

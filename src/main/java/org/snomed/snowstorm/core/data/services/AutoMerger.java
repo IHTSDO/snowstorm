@@ -554,18 +554,18 @@ public class AutoMerger {
                             )
                     );
                     mergedReferenceSetMember.setAdditionalField(
-                            ReferenceSetMember.AnnotationFields.LANGUAGE_CODE,
+                            ReferenceSetMember.AnnotationFields.LANGUAGE_DIALECT_CODE,
                             getValueChanged(
-                                    targetReferenceSetMemberOld.getAdditionalField(ReferenceSetMember.AnnotationFields.LANGUAGE_CODE),
-                                    targetReferenceSetMemberNew.getAdditionalField(ReferenceSetMember.AnnotationFields.LANGUAGE_CODE),
-                                    sourceReferenceSetMember.getAdditionalField(ReferenceSetMember.AnnotationFields.LANGUAGE_CODE)
+                                    targetReferenceSetMemberOld.getAdditionalField(ReferenceSetMember.AnnotationFields.LANGUAGE_DIALECT_CODE),
+                                    targetReferenceSetMemberNew.getAdditionalField(ReferenceSetMember.AnnotationFields.LANGUAGE_DIALECT_CODE),
+                                    sourceReferenceSetMember.getAdditionalField(ReferenceSetMember.AnnotationFields.LANGUAGE_DIALECT_CODE)
                             )
                     );
                 } else {
                     mergedReferenceSetMember.setRefsetId(sourceReferenceSetMember.getRefsetId());
                     mergedReferenceSetMember.setAdditionalField(ReferenceSetMember.AnnotationFields.TYPE_ID, sourceReferenceSetMember.getAdditionalField(ReferenceSetMember.AnnotationFields.TYPE_ID));
                     mergedReferenceSetMember.setAdditionalField(ReferenceSetMember.AnnotationFields.VALUE, sourceReferenceSetMember.getAdditionalField(ReferenceSetMember.AnnotationFields.VALUE));
-                    mergedReferenceSetMember.setAdditionalField(ReferenceSetMember.AnnotationFields.LANGUAGE_CODE, sourceReferenceSetMember.getAdditionalField(ReferenceSetMember.AnnotationFields.LANGUAGE_CODE));
+                    mergedReferenceSetMember.setAdditionalField(ReferenceSetMember.AnnotationFields.LANGUAGE_DIALECT_CODE, sourceReferenceSetMember.getAdditionalField(ReferenceSetMember.AnnotationFields.LANGUAGE_DIALECT_CODE));
                 }
 
                 // Re-apply mutable fields

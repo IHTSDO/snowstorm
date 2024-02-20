@@ -14,7 +14,7 @@ public interface AnnotationView {
 
 	String getValue();
 
-	String getLanguageCode();
+	String getLanguageDialectCode();
 
 	String getModuleId();
 

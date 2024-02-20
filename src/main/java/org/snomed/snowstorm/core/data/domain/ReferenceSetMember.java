@@ -62,7 +62,7 @@ public class ReferenceSetMember extends SnomedComponent<ReferenceSetMember> impl
 	}
 
 	public interface AnnotationFields {
-		String LANGUAGE_CODE = "languageCode";
+		String LANGUAGE_DIALECT_CODE = "languageDialectCode";
 		String TYPE_ID = "typeId";
 		String VALUE = "value";
 	}
