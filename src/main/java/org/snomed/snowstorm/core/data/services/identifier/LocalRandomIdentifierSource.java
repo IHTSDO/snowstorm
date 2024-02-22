@@ -28,9 +28,6 @@ public class LocalRandomIdentifierSource implements IdentifierSource {
 	private ItemIdProvider itemIdProvider;
 
 	public LocalRandomIdentifierSource(ElasticsearchOperations elasticsearchOperations) {
-		if (elasticsearchOperations == null) {
-			System.out.println("ElasticsearchOperations must not be null.");
-		}
 		this.elasticsearchOperations = elasticsearchOperations;
 		itemIdProvider = new RandomItemIdProvider();
 	}
