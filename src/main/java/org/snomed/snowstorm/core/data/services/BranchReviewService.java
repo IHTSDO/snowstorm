@@ -15,6 +15,7 @@ import org.snomed.snowstorm.core.data.repositories.BranchReviewRepository;
 import org.snomed.snowstorm.core.data.repositories.ManuallyMergedConceptRepository;
 import org.snomed.snowstorm.core.data.repositories.MergeReviewRepository;
 import org.snomed.snowstorm.core.pojo.LanguageDialect;
+import org.snomed.snowstorm.core.util.TimerUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.context.SecurityContext;
@@ -78,6 +79,7 @@ public class BranchReviewService {
 	}
 
 	public MergeReview createMergeReview(String source, String target) {
+		TimerUtil timer = new TimerUtil("Create Merge Review");
 		final Branch sourceBranch = branchService.findBranchOrThrow(source);
 		final Branch targetBranch = branchService.findBranchOrThrow(target);
 		if (!sourceBranch.isParent(targetBranch)) {
@@ -105,6 +107,7 @@ public class BranchReviewService {
 			}
 		});
 		mergeReviewRepository.save(mergeReview);
+		timer.checkpoint("Merge review created");
 		return mergeReview;
 	}
 

@@ -31,6 +31,7 @@ import org.springframework.data.elasticsearch.core.query.FetchSourceFilter;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 
@@ -186,9 +187,14 @@ public class ConceptChangeHelper {
                 .withFilter(bool(b -> b.must(existsQuery(ReferenceSetMember.Fields.CONCEPT_ID))))
                 .withSourceFilter(new FetchSourceFilter(new String[]{ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID, ReferenceSetMember.Fields.CONCEPT_ID}, null))
                 .build();
+        AtomicInteger count = new AtomicInteger();
         try (final SearchHitsIterator<ReferenceSetMember> stream = elasticsearchTemplate.searchForStream(memberQuery, ReferenceSetMember.class)) {
-            stream.forEachRemaining(hit -> referenceComponentIdToConceptMap.put(parseLong(hit.getContent().getReferencedComponentId()), parseLong(hit.getContent().getConceptId())));
+            stream.forEachRemaining(hit -> {
+                referenceComponentIdToConceptMap.put(parseLong(hit.getContent().getReferencedComponentId()), parseLong(hit.getContent().getConceptId()));
+                count.incrementAndGet();
+            });
         }
+        timerUtil.checkpoint("RefsetMembers " + count.get());
 
         // Filter out changes for active Synonyms
         // Inactive synonym changes should be included to avoid inactivation indicator / association clashes
@@ -198,10 +204,18 @@ public class ConceptChangeHelper {
                 .withFilter(bool(b -> b
                         .mustNot(termQuery(Description.Fields.TYPE_ID, Concepts.FSN))
                         .must(termsQuery(Description.Fields.DESCRIPTION_ID, referenceComponentIdToConceptMap.keySet()))
-                        .must(termQuery(Description.Fields.ACTIVE, true))));
+                        .must(termQuery(Description.Fields.ACTIVE, true))))
+                .withSourceFilter(new FetchSourceFilter(new String[]{Description.Fields.DESCRIPTION_ID}, null))
+                .withPageable(LARGE_PAGE);
+        timerUtil.checkpoint("Created synonym query with " + referenceComponentIdToConceptMap.size() + " description ids in filter");
+        count.set(0);
         try (final SearchHitsIterator<Description> stream = elasticsearchTemplate.searchForStream(synonymQuery.build(), Description.class)) {
-            stream.forEachRemaining(hit -> synonymAndTextDefIds.add(parseLong(hit.getContent().getDescriptionId())));
+            stream.forEachRemaining(hit -> {
+                count.incrementAndGet();
+                synonymAndTextDefIds.add(parseLong(hit.getContent().getDescriptionId()));
+            });
         }
+        timerUtil.checkpoint("Filter out active synonyms " + count.get());
 
         // Keep preferred terms if any
         NativeQuery languageMemberQuery = newSearchQuery(updatesQuery)
@@ -211,9 +225,14 @@ public class ConceptChangeHelper {
                         .must(termQuery(ReferenceSetMember.LanguageFields.ACCEPTABILITY_ID_FIELD_PATH, Concepts.PREFERRED))))
                 .withSourceFilter(new FetchSourceFilter(new String[]{ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID}, null))
                 .build();
+        count.set(0);
         try (final SearchHitsIterator<ReferenceSetMember> stream = elasticsearchTemplate.searchForStream(languageMemberQuery, ReferenceSetMember.class)) {
-            stream.forEachRemaining(hit -> preferredDescriptionIds.add(parseLong(hit.getContent().getReferencedComponentId())));
+            stream.forEachRemaining(hit -> {
+                count.incrementAndGet();
+                preferredDescriptionIds.add(parseLong(hit.getContent().getReferencedComponentId()));
+            });
         }
+        timerUtil.checkpoint("PT check " + count.get());
 
         Set<Long> changedComponents = referenceComponentIdToConceptMap.keySet()
                 .stream()

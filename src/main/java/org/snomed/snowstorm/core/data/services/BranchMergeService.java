@@ -16,6 +16,7 @@ import org.snomed.snowstorm.core.data.domain.review.MergeReview;
 import org.snomed.snowstorm.core.data.domain.review.ReviewStatus;
 import org.snomed.snowstorm.core.data.repositories.*;
 import org.snomed.snowstorm.core.data.services.pojo.IntegrityIssueReport;
+import org.snomed.snowstorm.core.util.TimerUtil;
 import org.snomed.snowstorm.rest.pojo.MergeRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.PageRequest;
@@ -169,6 +170,8 @@ public class BranchMergeService {
 
 	public void mergeBranchSync(String source, String target, Collection<Concept> manuallyMergedConcepts) throws ServiceException {
 		logger.info("Request merge {} -> {}", source, target);
+		String timerName = "Branch merge " + source + " -> " + target;
+		TimerUtil timer = new TimerUtil(timerName);
 		final Branch sourceBranch = branchService.findBranchOrThrow(source);
 		final Branch targetBranch = branchService.findBranchOrThrow(target);
 
@@ -215,6 +218,7 @@ public class BranchMergeService {
 					// This has the effect of ending both visible versions of these components which prevents us seeing duplicates on the branch
 					conceptService.updateWithinCommit(manuallyMergedConcepts.stream()
 							.filter(not(Concept::isDeleted)).collect(Collectors.toSet()), commit);
+					timer.checkpoint("Manually merged concepts saved/deleted");
 				}
 
 				// Find and resolve duplicate component versions.
@@ -225,6 +229,7 @@ public class BranchMergeService {
 				// (Semantic index entries on this branch will be cleared and rebuilt so no need to include those).
 				BranchCriteria changesOnBranchIncludingOpenCommit = versionControlHelper.getChangesOnBranchIncludingOpenCommit(commit);
 				BranchCriteria branchCriteriaIncludingOpenCommit = versionControlHelper.getBranchCriteriaIncludingOpenCommit(commit);
+				timer.checkpoint("Obtained changes on branch");
 				// Merge inferred relationships
 				removeRebaseDuplicateVersions(Relationship.class, bool(b -> b.must(termQuery(Relationship.Fields.CHARACTERISTIC_TYPE_ID, Concepts.INFERRED_RELATIONSHIP))),
 						changesOnBranchIncludingOpenCommit, branchCriteriaIncludingOpenCommit, commit);
@@ -236,10 +241,14 @@ public class BranchMergeService {
 				removeRebaseDuplicateVersions(ReferenceSetMember.class, bool(b -> b.must(existsQuery(ReferenceSetMember.LanguageFields.ACCEPTABILITY_ID_FIELD_PATH))), changesOnBranchIncludingOpenCommit, branchCriteriaIncludingOpenCommit, commit);
 				// Prefer latest edited versioned content
 				removeRebaseDivergedVersions(ReferenceSetMember.class, ReferenceSetMember.Fields.MEMBER_ID, changesOnBranchIncludingOpenCommit, branchCriteriaIncludingOpenCommit, commit);
+				timer.checkpoint("Duplicate components resolved");
 
 				// add integrity metadata in target branch if integrity issue found in source.
 				updateIntegrityMetadata(sourceBranch, commit.getBranch());
+				timer.checkpoint("Updated integrity metadata");
+
 				commit.markSuccessful();
+
 			}
 		} else {
 			// Promotion
