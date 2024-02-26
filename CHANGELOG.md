@@ -3,6 +3,11 @@ All notable changes to this project will be documented in this file.
 
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 10.1.1 Hotfix Release (February 2024)
+
+### Fixes
+- MAINT-2502 Performance improvement for rebasing
+
 ## 10.1.0 Release (January 2024)
 Maintenance release with bug fixes and improvements.
 
