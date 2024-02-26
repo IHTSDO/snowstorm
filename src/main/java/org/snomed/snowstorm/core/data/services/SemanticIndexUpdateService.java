@@ -117,7 +117,7 @@ public class SemanticIndexUpdateService extends ComponentService implements Comm
 	}
 
 	private void updateStatedAndInferredSemanticIndex(Commit commit) throws IllegalStateException, ConversionException, GraphBuilderException, ServiceException {
-		if (commit.isRebase() || (useSeparateSemanticIndex(commit.getBranch()) && isImport(commit))) {
+		if (commit.isRebase() || (useSeparateSemanticIndex(commit.getBranch()) && BranchMetadataHelper.isImportingCodeSystemVersion(commit))) {
 			rebuildSemanticIndex(commit, false);
 		} else if (commit.getCommitType() != Commit.CommitType.PROMOTION) {
 			// Update query index using changes in the current commit
@@ -131,10 +131,6 @@ public class SemanticIndexUpdateService extends ComponentService implements Comm
 			updateSemanticIndex(Form.INFERRED, relationshipAndAxiomDeletionsToProcess, commit, false, false, false);
 		}
 		// If promotion the semantic changes will be promoted with the rest of the content.
-	}
-
-	private boolean isImport(Commit commit) {
-		return commit.getBranch().getMetadata() != null && commit.getBranch().getMetadata().getMap(BranchMetadataHelper.INTERNAL_METADATA_KEY).containsKey(BranchMetadataKeys.IMPORT_TYPE);
 	}
 
 	private boolean useSeparateSemanticIndex(Branch branch) {
