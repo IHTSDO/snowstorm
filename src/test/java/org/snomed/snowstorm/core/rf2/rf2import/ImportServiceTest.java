@@ -2,6 +2,7 @@ package org.snomed.snowstorm.core.rf2.rf2import;
 
 import com.google.common.collect.Lists;
 import io.kaicode.elasticvc.api.BranchService;
+import io.kaicode.elasticvc.api.VersionControlHelper;
 import io.kaicode.elasticvc.domain.Branch;
 import org.ihtsdo.otf.snomedboot.ReleaseImportException;
 import org.junit.jupiter.api.Assertions;
@@ -12,6 +13,7 @@ import org.snomed.otf.snomedboot.testutil.ZipUtil;
 import org.snomed.snowstorm.AbstractTest;
 import org.snomed.snowstorm.TestConfig;
 import org.snomed.snowstorm.core.data.domain.*;
+import org.snomed.snowstorm.core.data.repositories.QueryConceptRepository;
 import org.snomed.snowstorm.core.data.services.*;
 import org.snomed.snowstorm.core.data.services.pojo.IdentifierSearchRequest;
 import org.snomed.snowstorm.core.data.services.pojo.IntegrityIssueReport;
@@ -61,6 +63,9 @@ class ImportServiceTest extends AbstractTest {
 
 	@Autowired
 	private CodeSystemService codeSystemService;
+
+	@Autowired
+	private QueryConceptRepository queryConceptRepository;
 
 	private File rf2Archive;
 	private File completeOwlRf2Archive;
@@ -781,5 +786,43 @@ class ImportServiceTest extends AbstractTest {
 		String actual = results.getContent().get(0).toString();
 		assertEquals(expected, actual);
 
+	}
+
+	@Test
+	void testSemanticIndexCompleteRebuildDuringCodeSystemVersionImport() throws IOException, ReleaseImportException {
+		// Import to MAIN
+		String importJobId = importService.createJob(RF2Type.SNAPSHOT, MAIN, false, false);
+		final File zipFile = ZipUtil.zipDirectoryRemovingCommentsAndBlankLines("src/test/resources/dummy-snomed-content/SnomedCT_MiniRF2");
+		FileInputStream releaseFileStream = new FileInputStream(zipFile);
+		importService.importArchive(importJobId, releaseFileStream);
+
+		// Check that the semantic index is populated
+		Page<QueryConcept> results = queryConceptRepository.findAll(PageRequest.of(0, 10));
+		assertEquals(11, results.getTotalElements());
+
+
+		// Create a test code system
+		final String branchPath = "MAIN/TEST";
+		CodeSystem codeSystem = new CodeSystem("SNOMEDCT-TEST", branchPath);
+		codeSystemService.createCodeSystem(codeSystem);
+
+		// Update metadata to exclude parent branches
+		Map<String, Object> metadata = new HashMap<>();
+		metadata.put(VersionControlHelper.PARENT_BRANCHES_EXCLUDED_ENTITY_CLASS_NAMES, List.of(QueryConcept.class.getSimpleName()));
+		branchService.updateMetadata(branchPath, metadata);
+
+		// Import to the test branch with code system version enabled to trigger a complete rebuild
+		importJobId = importService.createJob(RF2Type.SNAPSHOT, branchPath, true, false);
+		releaseFileStream = new FileInputStream(zipFile);
+
+		// Import the same content to the test branch
+		importService.importArchive(importJobId, releaseFileStream);
+
+		// Check that the semantic index is populated with additional content
+		results = queryConceptRepository.findAll(PageRequest.of(0, 10));
+		assertEquals(22, results.getTotalElements());
+
+		// Assert no version replaced for QueryConcept in branch metadata
+		assertFalse(branchService.findBranchOrThrow(branchPath).getVersionsReplaced().containsKey(QueryConcept.class.getSimpleName()));
 	}
 }
