@@ -134,7 +134,7 @@ public class SemanticIndexUpdateService extends ComponentService implements Comm
 	}
 
 	private boolean useSeparateSemanticIndex(Branch branch) {
-		return versionControlHelper.getEntityClassNamesWithSeparateIndex(branch).contains(QueryConcept.class.getSimpleName());
+		return versionControlHelper.getParentBranchesExcludedEntityClassNames(branch).contains(QueryConcept.class.getSimpleName());
 	}
 
 	private Map<String, Integer> rebuildSemanticIndex(Commit commit, boolean dryRun) throws ConversionException, GraphBuilderException, ServiceException {

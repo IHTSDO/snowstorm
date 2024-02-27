@@ -4,6 +4,7 @@ import co.elastic.clients.json.JsonData;
 import com.google.common.collect.Lists;
 import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.api.CommitListener;
+import io.kaicode.elasticvc.api.VersionControlHelper;
 import io.kaicode.elasticvc.domain.Commit;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -376,7 +377,7 @@ class SemanticIndexUpdateServiceTest extends AbstractTest {
 
 		Set<Relationship> relationships = n14.getRelationships();
 		assertEquals(2, relationships.size());
-		List<Relationship> list = relationships.stream().filter(r -> r.getDestinationId().equals("1000013")).collect(Collectors.toList());
+		List<Relationship> list = relationships.stream().filter(r -> r.getDestinationId().equals("1000013")).toList();
 		relationships.removeAll(list);
 		assertEquals(1, relationships.size());
 		n14 = conceptService.update(n14, branch);
@@ -600,7 +601,7 @@ class SemanticIndexUpdateServiceTest extends AbstractTest {
 		conceptService.update(cC, "MAIN/A");
 
 		Page<ConceptMini> concepts = queryService.eclSearch(">! " + cB.getId(), false, "MAIN/A", PageRequest.of(0, 10));
-		assertEquals("[" + cC.getId() + ", 1001000]", concepts.getContent().stream().map(ConceptMini::getConceptId).collect(Collectors.toList()).toString());
+		assertEquals("[" + cC.getId() + ", 1001000]", concepts.getContent().stream().map(ConceptMini::getConceptId).toList().toString());
 	}
 
 	@Test
@@ -777,7 +778,7 @@ class SemanticIndexUpdateServiceTest extends AbstractTest {
 	}
 
 	@Test
-	void testRebuildSemanticIndexWithSameTripleActiveAndInactiveOnSameDate() throws ServiceException, InterruptedException {
+	void testRebuildSemanticIndexWithSameTripleActiveAndInactiveOnSameDate() throws ServiceException {
 		String path = "MAIN";
 		List<Concept> concepts = new ArrayList<>();
 
@@ -1333,6 +1334,59 @@ class SemanticIndexUpdateServiceTest extends AbstractTest {
 				.withQuery(range().field("start").gte(JsonData.of(now.getTime())).build()._toQuery())
 				.build(), QueryConcept.class);
 		assertEquals(0, semanticChanges.getTotalHits());
+	}
+
+
+	@Test
+	void testCompleteRebuildWithSeparateSemanticIndex() throws ServiceException {
+		// Add concepts to MAIN
+		String path = "MAIN";
+		List<Concept> concepts = new ArrayList<>();
+
+		concepts.add(new Concept(SNOMEDCT_ROOT));
+		concepts.add(new Concept("116680003")
+				.addRelationship(new Relationship(ISA, SNOMEDCT_ROOT))
+		);
+		concepts.add(new Concept("39607008")
+				.addRelationship(new Relationship(ISA, SNOMEDCT_ROOT))
+		);
+		concepts.add(new Concept("363698007")
+				.addRelationship(new Relationship(ISA, SNOMEDCT_ROOT))
+		);
+
+		conceptService.batchCreate(concepts, path);
+		concepts.clear();
+
+		concepts.add(new Concept("34020007")
+				.addRelationship(new Relationship(UUID.randomUUID().toString(), ISA, SNOMEDCT_ROOT))
+				.addRelationship(new Relationship("3332956025", 20150731, false, "900000000000207008", "34020007", "39607008", 1, "363698007", "900000000000011006", "900000000000451002"))
+				.addRelationship(new Relationship("5963641025", 20150731, true, "900000000000207008", "34020007", "39607008", 1, "363698007", "900000000000011006", "900000000000451002"))
+		);
+
+		// Use low level component save to prevent effectiveTimes being stripped by concept service
+		simulateRF2Import(path, concepts);
+		assertEquals(4, queryService.search(queryService.createQueryBuilder(false).ecl("<" + SNOMEDCT_ROOT), path, PAGE_REQUEST).getTotalElements());
+		Page<QueryConcept> queryConcepts = queryConceptRepository.findAll(PageRequest.of(0,10));
+		assertEquals(5, queryConcepts.getTotalElements());
+
+		// Create a new branch and configure it to exclude the semantic index from MAIN
+		String project = "MAIN/TEST";
+		branchService.create(project);
+		Map<String, Object> metadata = new HashMap<>();
+		metadata.put(VersionControlHelper.PARENT_BRANCHES_EXCLUDED_ENTITY_CLASS_NAMES, List.of(QueryConcept.class.getSimpleName()));
+		branchService.updateMetadata(project, metadata);
+
+		// Complete rebuild of the semantic index on the new branch
+		updateService.rebuildStatedAndInferredSemanticIndex(project, false);
+
+		// Assert that the semantic index created on the new branch
+		assertEquals(4, queryService.search(queryService.createQueryBuilder(false).ecl("<" + SNOMEDCT_ROOT), project, PAGE_REQUEST).getTotalElements());
+		queryConcepts = queryConceptRepository.findAll(PageRequest.of(0,10));
+		// Check additional query concepts are created
+		assertEquals(10, queryConcepts.getTotalElements());
+
+		// Assert no version replaced for QueryConcept in branch metadata
+		assertFalse(branchService.findBranchOrThrow(project).getVersionsReplaced().containsKey(QueryConcept.class.getSimpleName()));
 	}
 
 	private void simulateRF2Import(String path, List<Concept> concepts) {
