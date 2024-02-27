@@ -252,6 +252,7 @@ public class IntegrityService extends ComponentService implements CommitListener
 						.must(termsQuery(Concept.Fields.CONCEPT_ID, conceptsRequiredActive)))
 				)
 				.withSourceFilter(new FetchSourceFilter(new String[]{Concept.Fields.CONCEPT_ID}, null))
+				.withPageable(LARGE_PAGE)
 				.build(), Concept.class)) {
 			activeConceptStream.forEachRemaining(hit -> activeConcepts.add(hit.getContent().getConceptIdAsLong()));
 		}
@@ -395,6 +396,7 @@ public class IntegrityService extends ComponentService implements CommitListener
 						.must(termsQuery(Concept.Fields.CONCEPT_ID, conceptIdsToCheck)))
 				)
 				.withSourceFilter(new FetchSourceFilter(new String[]{Concept.Fields.CONCEPT_ID}, null))
+				.withPageable(LARGE_PAGE)
 				.build(), Concept.class)) {
 			activeConceptStream.forEachRemaining(hit -> activeConcepts.add(hit.getContent().getConceptIdAsLong()));
 		}
