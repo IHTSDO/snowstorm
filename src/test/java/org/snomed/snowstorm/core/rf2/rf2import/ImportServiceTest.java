@@ -4,7 +4,6 @@ import com.google.common.collect.Lists;
 import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.domain.Branch;
 import org.ihtsdo.otf.snomedboot.ReleaseImportException;
-import org.junit.Assert;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -29,7 +28,7 @@ import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 import static org.snomed.snowstorm.core.data.services.BranchMetadataHelper.IMPORTING_CODE_SYSTEM_VERSION;
 
 @ExtendWith(SpringExtension.class)
@@ -77,7 +76,7 @@ class ImportServiceTest extends AbstractTest {
 	@Test
 	void testImportFull() throws ReleaseImportException, FileNotFoundException, ServiceException {
 		final String branchPath = "MAIN";
-		Assert.assertEquals(1, branchService.findAll().size());
+		assertEquals(1, branchService.findAll().size());
 
 		String importId = importService.createJob(RF2Type.FULL, branchPath, true, false);
 		importService.importArchive(importId, new FileInputStream(rf2Archive));
@@ -113,65 +112,65 @@ class ImportServiceTest extends AbstractTest {
 				"MAIN/2014-01-31",
 				"MAIN/2018-07-31"), branchPaths);
 
-		Assert.assertEquals(27, branches.size());
+		assertEquals(27, branches.size());
 		int a = 0;
-		Assert.assertEquals("MAIN", branches.get(a++).getPath());
-		Assert.assertEquals("MAIN/2002-01-31", branches.get(a++).getPath());
-		Assert.assertEquals("MAIN/2002-07-31", branches.get(a++).getPath());
-		Assert.assertEquals("MAIN/2003-01-31", branches.get(a++).getPath());
-		Assert.assertEquals("MAIN/2003-07-31", branches.get(a++).getPath());
-		Assert.assertEquals("MAIN/2004-01-31", branches.get(a++).getPath());
-		Assert.assertEquals("MAIN/2004-07-31", branches.get(a++).getPath());
-		Assert.assertEquals("MAIN/2005-01-31", branches.get(a++).getPath());
-		Assert.assertEquals("MAIN/2005-07-31", branches.get(a++).getPath());
-		Assert.assertEquals("MAIN/2006-01-31", branches.get(a).getPath());
+		assertEquals("MAIN", branches.get(a++).getPath());
+		assertEquals("MAIN/2002-01-31", branches.get(a++).getPath());
+		assertEquals("MAIN/2002-07-31", branches.get(a++).getPath());
+		assertEquals("MAIN/2003-01-31", branches.get(a++).getPath());
+		assertEquals("MAIN/2003-07-31", branches.get(a++).getPath());
+		assertEquals("MAIN/2004-01-31", branches.get(a++).getPath());
+		assertEquals("MAIN/2004-07-31", branches.get(a++).getPath());
+		assertEquals("MAIN/2005-01-31", branches.get(a++).getPath());
+		assertEquals("MAIN/2005-07-31", branches.get(a++).getPath());
+		assertEquals("MAIN/2006-01-31", branches.get(a).getPath());
 
 		a = 21;
-		Assert.assertEquals("MAIN/2012-01-31", branches.get(a++).getPath());
-		Assert.assertEquals("MAIN/2012-07-31", branches.get(a++).getPath());
-		Assert.assertEquals("MAIN/2013-01-31", branches.get(a++).getPath());
-		Assert.assertEquals("MAIN/2013-07-31", branches.get(a++).getPath());
-		Assert.assertEquals("MAIN/2014-01-31", branches.get(a).getPath());
+		assertEquals("MAIN/2012-01-31", branches.get(a++).getPath());
+		assertEquals("MAIN/2012-07-31", branches.get(a++).getPath());
+		assertEquals("MAIN/2013-01-31", branches.get(a++).getPath());
+		assertEquals("MAIN/2013-07-31", branches.get(a++).getPath());
+		assertEquals("MAIN/2014-01-31", branches.get(a).getPath());
 
 		String path = "MAIN/2002-01-31";
-		Assert.assertEquals(88, conceptService.findAll(path, PageRequest.of(0, 10)).getTotalElements());
+		assertEquals(88, conceptService.findAll(path, PageRequest.of(0, 10)).getTotalElements());
 		assertNull(conceptService.find("370136006", path));
 
 		path = "MAIN/2002-07-31";
-		Assert.assertEquals(89, conceptService.findAll(path, PageRequest.of(0, 10)).getTotalElements());
-		Assert.assertNotNull(conceptService.find("370136006", path));
+		assertEquals(89, conceptService.findAll(path, PageRequest.of(0, 10)).getTotalElements());
+		assertNotNull(conceptService.find("370136006", path));
 
 		// Test concept's description present and active
 		final Concept concept138875005in2002 = conceptService.find("138875005", path);
-		Assert.assertNotNull(concept138875005in2002);
-		Assert.assertEquals(6, concept138875005in2002.getDescriptions().size());
+		assertNotNull(concept138875005in2002);
+		assertEquals(6, concept138875005in2002.getDescriptions().size());
 		final Description description1237157018in2002 = concept138875005in2002.getDescription("1237157018");
-		Assert.assertNotNull(description1237157018in2002);
-		Assert.assertEquals("SNOMED CT July 2002 Release: 20020731 [R]", description1237157018in2002.getTerm());
-		Assert.assertTrue(description1237157018in2002.isActive());
-		Assert.assertEquals(1, description1237157018in2002.getAcceptabilityMap().size());
-		Assert.assertEquals(Concepts.descriptionAcceptabilityNames.get("900000000000549004"), description1237157018in2002.getAcceptabilityMap().get("900000000000508004"));
+		assertNotNull(description1237157018in2002);
+		assertEquals("SNOMED CT July 2002 Release: 20020731 [R]", description1237157018in2002.getTerm());
+		assertTrue(description1237157018in2002.isActive());
+		assertEquals(1, description1237157018in2002.getAcceptabilityMap().size());
+		assertEquals(Concepts.descriptionAcceptabilityNames.get("900000000000549004"), description1237157018in2002.getAcceptabilityMap().get("900000000000508004"));
 
 		path = "MAIN/2003-01-31";
-		Assert.assertEquals(89, conceptService.findAll(path, PageRequest.of(0, 10)).getTotalElements());
+		assertEquals(89, conceptService.findAll(path, PageRequest.of(0, 10)).getTotalElements());
 
 		// Test concept's description present and inactive
 		final Concept concept138875005in2003 = conceptService.find("138875005", path);
-		Assert.assertNotNull(concept138875005in2003);
-		Assert.assertEquals(7, concept138875005in2003.getDescriptions().size());
+		assertNotNull(concept138875005in2003);
+		assertEquals(7, concept138875005in2003.getDescriptions().size());
 		final Description description1237157018in2003 = concept138875005in2003.getDescription("1237157018");
-		Assert.assertNotNull(description1237157018in2003);
-		Assert.assertEquals("SNOMED CT July 2002 Release: 20020731 [R]", description1237157018in2003.getTerm());
-		Assert.assertFalse(description1237157018in2003.isActive());
-		Assert.assertEquals(0, description1237157018in2003.getAcceptabilityMap().size());
+		assertNotNull(description1237157018in2003);
+		assertEquals("SNOMED CT July 2002 Release: 20020731 [R]", description1237157018in2003.getTerm());
+		assertFalse(description1237157018in2003.isActive());
+		assertEquals(0, description1237157018in2003.getAcceptabilityMap().size());
 
 		path = "MAIN/2014-01-31";
-		Assert.assertEquals(102, conceptService.findAll(path, PageRequest.of(0, 10)).getTotalElements());
-		Assert.assertEquals(102, conceptService.findAll("MAIN", PageRequest.of(0, 10)).getTotalElements());
+		assertEquals(102, conceptService.findAll(path, PageRequest.of(0, 10)).getTotalElements());
+		assertEquals(102, conceptService.findAll("MAIN", PageRequest.of(0, 10)).getTotalElements());
 
-		Assert.assertEquals(asSet("250171008, 138875005, 118222006, 246188002"), queryService.findAncestorIds("131148009", "MAIN/2002-01-31", false));
-		Assert.assertEquals(asSet("250171008, 138875005, 300577008, 118222006, 404684003"), queryService.findAncestorIds("131148009", "MAIN/2005-01-31", false));
-		Assert.assertEquals(asSet("250171008, 138875005, 118222006, 404684003"), queryService.findAncestorIds("131148009", "MAIN/2006-01-31", false));
+		assertEquals(asSet("250171008, 138875005, 118222006, 246188002"), queryService.findAncestorIds("131148009", "MAIN/2002-01-31", false));
+		assertEquals(asSet("250171008, 138875005, 300577008, 118222006, 404684003"), queryService.findAncestorIds("131148009", "MAIN/2005-01-31", false));
+		assertEquals(asSet("250171008, 138875005, 118222006, 404684003"), queryService.findAncestorIds("131148009", "MAIN/2006-01-31", false));
 
 		IntegrityIssueReport expectedIssueReport = new IntegrityIssueReport();
 		Map<Long, Long> relationshipWithInactiveSource = new HashMap<>();
@@ -244,14 +243,14 @@ class ImportServiceTest extends AbstractTest {
 	private void assertConceptsMissingOrInactive(String path, String... ids) {
 		for (String id : ids) {
 			Concept notActiveConcept = conceptService.find(id, path);
-			assertTrue("Concept " + id + " should be missing or inactive.", notActiveConcept == null || !notActiveConcept.isActive());
+			assertTrue(notActiveConcept == null || !notActiveConcept.isActive(), "Concept " + id + " should be missing or inactive.");
 		}
 	}
 
 	private void assertConceptsActive(String path, String... ids) {
 		for (String id : ids) {
 			Concept activeConcept = conceptService.find(id, path);
-			assertTrue("Concept " + id + " should be active.", activeConcept.isActive());
+			assertTrue(activeConcept.isActive(), "Concept " + id + " should be active.");
 		}
 	}
 
@@ -267,34 +266,34 @@ class ImportServiceTest extends AbstractTest {
 
 
 		final Concept conceptBleeding = conceptService.find("131148009", branchPath);
-		Assert.assertTrue(conceptBleeding.isReleased());
-		Assert.assertEquals(20050131, conceptBleeding.getEffectiveTimeI().intValue());
-		Assert.assertEquals("true|900000000000207008|900000000000073002", conceptBleeding.getReleaseHash());
+		assertTrue(conceptBleeding.isReleased());
+		assertEquals(20050131, conceptBleeding.getEffectiveTimeI().intValue());
+		assertEquals("true|900000000000207008|900000000000073002", conceptBleeding.getReleaseHash());
 
 		final Set<Description> descriptions = conceptBleeding.getDescriptions();
-		Assert.assertEquals(2, descriptions.size());
+		assertEquals(2, descriptions.size());
 		Description description = null;
 		for (Description d : descriptions) {
 			if (d.getDescriptionId().equals("210860014")) {
 				description = d;
 			}
 		}
-		Assert.assertNotNull(description);
-		Assert.assertEquals("Bleeding", description.getTerm());
+		assertNotNull(description);
+		assertEquals("Bleeding", description.getTerm());
 		final Map<String, ReferenceSetMember> members = description.getLangRefsetMembersFirstValuesMap();
-		Assert.assertEquals(1, members.size());
-		Assert.assertEquals("900000000000548007", members.get("900000000000508004").getAdditionalField("acceptabilityId"));
+		assertEquals(1, members.size());
+		assertEquals("900000000000548007", members.get("900000000000508004").getAdditionalField("acceptabilityId"));
 
 		ReferenceSetMember member = referenceSetMemberService.findMember(branchPath, "8164a2fc-cac3-4b54-9d9e-f9c597a115ea");
 		assertNotNull(member);
 		assertEquals("TransitiveObjectProperty(:123005000)", member.getAdditionalField("owlExpression"));
 
-		Assert.assertEquals(7, conceptBleeding.getRelationships().size());
-		Assert.assertEquals(4, conceptBleeding.getRelationships().stream().filter(r -> r.getCharacteristicTypeId().equals(Concepts.INFERRED_RELATIONSHIP)).count());
-		Assert.assertEquals(3, conceptBleeding.getRelationships().stream().filter(r -> r.getCharacteristicTypeId().equals(Concepts.STATED_RELATIONSHIP)).count());
+		assertEquals(7, conceptBleeding.getRelationships().size());
+		assertEquals(4, conceptBleeding.getRelationships().stream().filter(r -> r.getCharacteristicTypeId().equals(Concepts.INFERRED_RELATIONSHIP)).count());
+		assertEquals(3, conceptBleeding.getRelationships().stream().filter(r -> r.getCharacteristicTypeId().equals(Concepts.STATED_RELATIONSHIP)).count());
 
 		final Page<Concept> conceptPage = conceptService.findAll(branchPath, PageRequest.of(0, 200));
-		Assert.assertEquals(103, conceptPage.getNumberOfElements());
+		assertEquals(103, conceptPage.getNumberOfElements());
 		final List<Concept> concepts = conceptPage.getContent();
 		Concept conceptMechanicalAbnormality = null;
 		for (Concept concept : concepts) {
@@ -303,30 +302,30 @@ class ImportServiceTest extends AbstractTest {
 			}
 		}
 
-		Assert.assertNotNull(conceptMechanicalAbnormality);
+		assertNotNull(conceptMechanicalAbnormality);
 
-		Assert.assertEquals(2, conceptMechanicalAbnormality.getDescriptions().size());
-		Assert.assertEquals(7, conceptMechanicalAbnormality.getRelationships().size());
+		assertEquals(2, conceptMechanicalAbnormality.getDescriptions().size());
+		assertEquals(7, conceptMechanicalAbnormality.getRelationships().size());
 
 		// Test inactivation refset loading
 		final Concept inactiveConcept = conceptService.find("118225008", branchPath);
-		Assert.assertFalse(inactiveConcept.isActive());
+		assertFalse(inactiveConcept.isActive());
 		final ReferenceSetMember inactivationIndicator = inactiveConcept.getInactivationIndicatorMember();
-		Assert.assertNotNull("Inactivation indicator should not be null", inactivationIndicator);
-		Assert.assertEquals("900000000000484002", inactivationIndicator.getAdditionalField("valueId"));
-		Assert.assertEquals("AMBIGUOUS", inactiveConcept.getInactivationIndicator());
+		assertNotNull(inactivationIndicator, "Inactivation indicator should not be null");
+		assertEquals("900000000000484002", inactivationIndicator.getAdditionalField("valueId"));
+		assertEquals("AMBIGUOUS", inactiveConcept.getInactivationIndicator());
 
 		final Map<String, Set<String>> associationTargets = inactiveConcept.getAssociationTargets();
-		Assert.assertNotNull(associationTargets);
-		Assert.assertEquals(1, associationTargets.size());
+		assertNotNull(associationTargets);
+		assertEquals(1, associationTargets.size());
 		final Set<String> possibly_equivalent_to = associationTargets.get("POSSIBLY_EQUIVALENT_TO");
-		Assert.assertEquals(3, possibly_equivalent_to.size());
-		Assert.assertTrue(possibly_equivalent_to.contains("118222006"));
-		Assert.assertTrue(possibly_equivalent_to.contains("413350009"));
-		Assert.assertTrue(possibly_equivalent_to.contains("250171008"));
+		assertEquals(3, possibly_equivalent_to.size());
+		assertTrue(possibly_equivalent_to.contains("118222006"));
+		assertTrue(possibly_equivalent_to.contains("413350009"));
+		assertTrue(possibly_equivalent_to.contains("250171008"));
 
 		final Description inactiveDescription = inactiveConcept.getDescription("697843019");
-		Assert.assertEquals("CONCEPT_NON_CURRENT", inactiveDescription.getInactivationIndicator());
+		assertEquals("CONCEPT_NON_CURRENT", inactiveDescription.getInactivationIndicator());
 
 		List<CodeSystemVersion> allVersions = codeSystemService.findAllVersions(CodeSystemService.SNOMEDCT, true, false);
 		assertEquals(1, allVersions.size());
@@ -363,7 +362,7 @@ class ImportServiceTest extends AbstractTest {
 		importService.importArchive(importId, new FileInputStream(rf2Archive));
 
 		final Concept conceptBleeding = conceptService.find("131148009", branchPath);
-		Assert.assertEquals("true|900000000000207008|900000000000073002", conceptBleeding.getReleaseHash());
+		assertEquals("true|900000000000207008|900000000000073002", conceptBleeding.getReleaseHash());
 		assertEquals(120, getActiveStatedRelationshipCount(branchPath));
 		assertEquals(3, statedEclQuery(branchPath, ">>131148009").size());
 
@@ -372,11 +371,10 @@ class ImportServiceTest extends AbstractTest {
 		String importDeltaId = importService.createJob(RF2Type.DELTA, branchPath, false, false);
 		importService.importArchive(importDeltaId, new FileInputStream(completeOwlRf2Archive));
 
-		assertEquals("All stated relationships now inactive.", 0, getActiveStatedRelationshipCount(branchPath));
-		assertEquals("Concepts have ancestors, after semantic update from axioms.", 3, statedEclQuery(branchPath, ">>131148009").size());
-		assertEquals("Concepts have ancestors, after semantic update from axioms.", "404684003,138875005,131148009", getIds(statedEclQuery(branchPath, ">>131148009")));
-		assertEquals("Attributes have ancestors, after semantic update from axioms.",
-				"900000000000441003,762705008,410662002,408729009,246061005,138875005,106237007", getIds(statedEclQuery(branchPath, ">>408729009")));
+		assertEquals(0, getActiveStatedRelationshipCount(branchPath), "All stated relationships now inactive.");
+		assertEquals(3, statedEclQuery(branchPath, ">>131148009").size(), "Concepts have ancestors, after semantic update from axioms.");
+		assertEquals("404684003,138875005,131148009", getIds(statedEclQuery(branchPath, ">>131148009")), "Concepts have ancestors, after semantic update from axioms.");
+		assertEquals("900000000000441003,762705008,410662002,408729009,246061005,138875005,106237007", getIds(statedEclQuery(branchPath, ">>408729009")), "Attributes have ancestors, after semantic update from axioms.");
 
 		ReferenceSetMember member = referenceSetMemberService.findMember(branchPath, "e44340d1-7da9-4156-8fb0-5dc5694eeef7");
 		assertEquals("SubClassOf(:900000000000006009 :900000000000449001)", member.getAdditionalField(ReferenceSetMember.OwlExpressionFields.OWL_EXPRESSION));
@@ -408,13 +406,13 @@ class ImportServiceTest extends AbstractTest {
 		importService.importArchive(importId, new FileInputStream(rf2Archive));
 
 		final Page<Concept> conceptPage = conceptService.findAll(branchPath, PageRequest.of(0, 200));
-		Assert.assertEquals(78, conceptPage.getNumberOfElements());
+		assertEquals(78, conceptPage.getNumberOfElements());
 
 		IntegrityIssueReport emptyReport = new IntegrityIssueReport();
-		assertEquals("Branch " + branchPath + " should contain no invalid stated relationships.",
-				emptyReport, integrityService.findAllComponentsWithBadIntegrity(branchService.findLatest(branchPath), true));
-		assertEquals("Branch " + branchPath + " should contain no invalid inferred relationships.",
-				emptyReport, integrityService.findAllComponentsWithBadIntegrity(branchService.findLatest(branchPath), false));
+		assertEquals(emptyReport, integrityService.findAllComponentsWithBadIntegrity(branchService.findLatest(branchPath), true),
+				"Branch " + branchPath + " should contain no invalid stated relationships.");
+		assertEquals(emptyReport, integrityService.findAllComponentsWithBadIntegrity(branchService.findLatest(branchPath), false),
+				"Branch " + branchPath + " should contain no invalid inferred relationships.");
 	}
 
 	@Test
@@ -608,7 +606,7 @@ class ImportServiceTest extends AbstractTest {
 		} catch (ReleaseImportException e) {
 			exceptionThrown = e;
 		}
-		Assertions.assertNotNull(exceptionThrown);
+		assertNotNull(exceptionThrown);
 
 		final ImportJob importJob = importService.getImportJobOrThrow(importId);
 		Assertions.assertEquals(ImportJob.ImportStatus.FAILED, importJob.getStatus());
