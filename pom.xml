@@ -16,10 +16,9 @@
 	<properties>
 		<packageName>${project.artifactId}</packageName>
 		<!--
-		Current Elasticsearch _Server_ version is 8.7.1
+		Current Elasticsearch _Server_ version is 8.11.1
 		N.B. Remember to keep TestConfig.ELASTIC_SEARCH_SERVER_VERSION and getting-started guide updated.
 		-->
-
 		<docker.registry>docker.io</docker.registry>
 		<docker.allowInsecureRegistries>false</docker.allowInsecureRegistries>
 		<docker.image.prefix>snomedinternational</docker.image.prefix>
@@ -32,7 +31,6 @@
 			<!-- Branching and Version Control on top of Elasticsearch -->
 			<groupId>io.kaicode</groupId>
 			<artifactId>elasticvc</artifactId>
-			<version>6.0.0-SNAPSHOT</version>
 		</dependency>
 		<dependency>
 			<groupId>net.java.dev.jna</groupId>
