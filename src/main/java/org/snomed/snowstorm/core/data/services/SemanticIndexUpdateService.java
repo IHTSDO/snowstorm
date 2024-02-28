@@ -117,7 +117,7 @@ public class SemanticIndexUpdateService extends ComponentService implements Comm
 	}
 
 	private void updateStatedAndInferredSemanticIndex(Commit commit) throws IllegalStateException, ConversionException, GraphBuilderException, ServiceException {
-		if (commit.isRebase() || (useSeparateSemanticIndex(commit.getBranch()) && BranchMetadataHelper.isImportingCodeSystemVersion(commit))) {
+		if (commit.isRebase() || (useSeparateSemanticIndex(commit.getBranch()) && BranchMetadataHelper.isImportingCodeSystemVersion(commit) && !commit.getBranch().isContainsContent())) {
 			rebuildSemanticIndex(commit, false);
 		} else if (commit.getCommitType() != Commit.CommitType.PROMOTION) {
 			// Update query index using changes in the current commit

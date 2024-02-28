@@ -792,13 +792,13 @@ class ImportServiceTest extends AbstractTest {
 	void testSemanticIndexCompleteRebuildDuringCodeSystemVersionImport() throws IOException, ReleaseImportException {
 		// Import to MAIN
 		String importJobId = importService.createJob(RF2Type.SNAPSHOT, MAIN, false, false);
-		final File zipFile = ZipUtil.zipDirectoryRemovingCommentsAndBlankLines("src/test/resources/dummy-snomed-content/SnomedCT_MiniRF2");
+		File zipFile = ZipUtil.zipDirectoryRemovingCommentsAndBlankLines("src/test/resources/dummy-snomed-content/SnomedCT_MiniRF2_Base_snapshot");
 		FileInputStream releaseFileStream = new FileInputStream(zipFile);
 		importService.importArchive(importJobId, releaseFileStream);
 
 		// Check that the semantic index is populated
 		Page<QueryConcept> results = queryConceptRepository.findAll(PageRequest.of(0, 10));
-		assertEquals(11, results.getTotalElements());
+		assertEquals(29, results.getTotalElements());
 
 
 		// Create a test code system
@@ -811,7 +811,7 @@ class ImportServiceTest extends AbstractTest {
 		metadata.put(VersionControlHelper.PARENT_BRANCHES_EXCLUDED_ENTITY_CLASS_NAMES, List.of(QueryConcept.class.getSimpleName()));
 		branchService.updateMetadata(branchPath, metadata);
 
-		// Import to the test branch with code system version enabled to trigger a complete rebuild
+		// Import to the test branch with codeSystemVersion enabled for the first time will trigger a complete rebuild
 		importJobId = importService.createJob(RF2Type.SNAPSHOT, branchPath, true, false);
 		releaseFileStream = new FileInputStream(zipFile);
 
@@ -820,9 +820,21 @@ class ImportServiceTest extends AbstractTest {
 
 		// Check that the semantic index is populated with additional content
 		results = queryConceptRepository.findAll(PageRequest.of(0, 10));
-		assertEquals(22, results.getTotalElements());
+		assertEquals(58, results.getTotalElements());
 
 		// Assert no version replaced for QueryConcept in branch metadata
 		assertFalse(branchService.findBranchOrThrow(branchPath).getVersionsReplaced().containsKey(QueryConcept.class.getSimpleName()));
+
+		// Check future import doesn't trigger a complete rebuild
+		zipFile = ZipUtil.zipDirectoryRemovingCommentsAndBlankLines("src/test/resources/dummy-snomed-content/SnomedCT_MiniRF2");
+		importJobId = importService.createJob(RF2Type.SNAPSHOT, branchPath, true, false);
+		releaseFileStream = new FileInputStream(zipFile);
+
+		// Import a new release to the test branch
+		importService.importArchive(importJobId, releaseFileStream);
+
+		// Check that semantic index is not completely rebuilt and in this case should only be increased by 2
+		results = queryConceptRepository.findAll(PageRequest.of(0, 10));
+		assertEquals(60, results.getTotalElements());
 	}
 }
