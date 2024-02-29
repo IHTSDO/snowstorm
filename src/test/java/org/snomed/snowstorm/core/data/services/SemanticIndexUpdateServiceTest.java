@@ -1385,8 +1385,8 @@ class SemanticIndexUpdateServiceTest extends AbstractTest {
 		// Check additional query concepts are created
 		assertEquals(10, queryConcepts.getTotalElements());
 
-		// Assert no version replaced for QueryConcept in branch metadata
-		assertFalse(branchService.findBranchOrThrow(project).getVersionsReplaced().containsKey(QueryConcept.class.getSimpleName()));
+		// Assert 0 version replaced for QueryConcept in branch metadata
+		assertEquals(0, branchService.findBranchOrThrow(project).getVersionsReplaced().get(QueryConcept.class.getSimpleName()).size());
 	}
 
 	private void simulateRF2Import(String path, List<Concept> concepts) {
