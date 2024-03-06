@@ -19,6 +19,7 @@ import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.bind.annotation.ResponseStatus;
+import org.springframework.web.context.request.WebRequest;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 import java.util.HashMap;
@@ -43,14 +44,22 @@ public class RestControllerAdvice {
 	})
 	@ResponseStatus(HttpStatus.BAD_REQUEST)
 	@ResponseBody
-	public Map<String, Object> handleIllegalArgumentException(Exception exception) {
+	public Map<String, Object> handleIllegalArgumentException(WebRequest request, Exception exception) {
 		HashMap<String, Object> result = new HashMap<>();
 		result.put("error", HttpStatus.BAD_REQUEST);
 		result.put("message", exception.getMessage());
 		if (exception.getCause() != null) {
 			result.put("causeMessage", exception.getCause().getMessage());
 		}
-		logger.info("bad request {}", exception.getMessage());
+		if (exception instanceof ECLException) {
+			String ecl = request.getParameter("ecl");
+			if (ecl == null) {
+				ecl = request.getParameter("statedEcl");
+			}
+			logger.info("bad request {}, ECL:{}", exception.getMessage(), ecl);
+		} else {
+			logger.info("bad request {}", exception.getMessage());
+		}
 		logger.debug("bad request {}", exception.getMessage(), exception);
 		return result;
 	}
