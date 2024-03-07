@@ -5791,6 +5791,90 @@ class BranchMergeServiceTest extends AbstractTest {
 		assertNotNull(member);
 	}
 
+	@Test
+	public void testExtensionComponentDoesNotRevertBackToDefaultModuleId() throws ServiceException, InterruptedException {
+		String intMain = "MAIN";
+		String extMain = "MAIN/SNOMEDCT-XX";
+		Map<String, String> intPreferred = Map.of(US_EN_LANG_REFSET, descriptionAcceptabilityNames.get(PREFERRED), GB_EN_LANG_REFSET, descriptionAcceptabilityNames.get(PREFERRED));
+		Map<String, String> intAcceptable = Map.of(US_EN_LANG_REFSET, descriptionAcceptabilityNames.get(PREFERRED), GB_EN_LANG_REFSET, descriptionAcceptabilityNames.get(ACCEPTABLE));
+		String ci = "CASE_INSENSITIVE";
+		Concept concept;
+		Description description;
+		CodeSystem codeSystem;
+
+		// 1. Create International Concept
+		concept = new Concept()
+				.addDescription(new Description("Medicine (medicine)").setTypeId(FSN).setCaseSignificance(ci).setAcceptabilityMap(intPreferred))
+				.addDescription(new Description("Medicine").setTypeId(SYNONYM).setCaseSignificance(ci).setAcceptabilityMap(intPreferred))
+				.addAxiom(new Relationship(ISA, SNOMEDCT_ROOT));
+		concept = conceptService.create(concept, intMain);
+		String medicineId = concept.getConceptId();
+
+		// 2. Version International
+		codeSystem = codeSystemService.find("SNOMEDCT");
+		codeSystemService.createVersion(codeSystem, 20240101, "20240101");
+
+		// 3. Create Extension (support for multiple modules)
+		codeSystem = codeSystemService.createCodeSystem(new CodeSystem("SNOMEDCT-XX", extMain));
+		concept = conceptService.create(
+				new Concept()
+						.addDescription(new Description("Extension module (module)").setTypeId(FSN).setCaseSignificance(ci).setAcceptabilityMap(intPreferred))
+						.addDescription(new Description("Extension module").setTypeId(SYNONYM).setCaseSignificance(ci).setAcceptabilityMap(intPreferred))
+						.addAxiom(new Relationship(ISA, MODULE)),
+				extMain
+		);
+		String extModuleA = concept.getConceptId();
+		concept = conceptService.create(
+				new Concept()
+						.addDescription(new Description("Extension medicine module (module)").setTypeId(FSN).setCaseSignificance(ci).setAcceptabilityMap(intPreferred))
+						.addDescription(new Description("Extension medicine module").setTypeId(SYNONYM).setCaseSignificance(ci).setAcceptabilityMap(intPreferred))
+						.addAxiom(new Relationship(ISA, MODULE)),
+				extMain
+		);
+		String extModuleB = concept.getConceptId();
+
+		branchService.updateMetadata(extMain, Map.of(Config.DEFAULT_MODULE_ID_KEY, extModuleA, Config.EXPECTED_EXTENSION_MODULES, List.of(extModuleA, extModuleB)));
+
+		// 4. Create Extension projects
+		String projectA = "MAIN/SNOMEDCT-XX/projectA";
+		String projectB = "MAIN/SNOMEDCT-XX/projectB";
+		branchService.create(projectA);
+		branchService.create(projectB);
+
+		// 5. Project B authors in different module
+		branchService.updateMetadata(projectB, Map.of(Config.DEFAULT_MODULE_ID_KEY, extModuleB));
+
+		// 6. Project B adds translation to International
+		concept = conceptService.find(medicineId, projectB);
+		concept.addDescription(new Description("medicin"));
+		conceptService.update(concept, projectB);
+		concept = conceptService.find(medicineId, projectB);
+		description = getDescription(concept, "medicin");
+		assertEquals(description.getModuleId(), extModuleB);
+
+		// 7. Promote Project B to CodeSystem
+		branchMergeService.mergeBranchSync(projectB, extMain, Collections.emptySet());
+
+		// 8. Rebase CodeSystem onto Project A
+		MergeReview review = getMergeReviewInCurrentState(extMain, projectA);
+		Collection<MergeReviewConceptVersions> conflicts = reviewService.getMergeReviewConflictingConcepts(review.getId(), new ArrayList<>());
+		assertEquals(0, conflicts.size());
+		reviewService.applyMergeReview(review);
+
+		// 9. Project A re-terms
+		concept = conceptService.find(medicineId, projectA);
+		description = getDescription(concept, "medicin");
+		String moduleBefore = description.getModuleId();
+		description.setTerm("Medicin");
+		conceptService.update(concept, projectA);
+		concept = conceptService.find(medicineId, projectA);
+		description = getDescription(concept, "Medicin");
+		String moduleAfter = description.getModuleId();
+
+		// Assert
+		assertEquals(moduleBefore, moduleAfter);
+	}
+
 	private void assertNotVersioned(Description description) {
 		assertNull(description.getEffectiveTime());
 		assertFalse(description.isReleased());

@@ -673,6 +673,9 @@ public class ConceptUpdateHelper extends ComponentService {
 		final Map<String, C> existingComponentMap = existingComponents.stream().collect(Collectors.toMap(DomainEntity::getId, Function.identity()));
 		final Map<String, C> rebaseParentExistingComponentMap = existingComponentsFromParent.stream().collect(Collectors.toMap(DomainEntity::getId, Function.identity()));
 
+		final boolean hasDefaultModuleId = defaultModuleId != null;
+		final boolean hasOtherModules = expectedExtensionModules != null && !expectedExtensionModules.isEmpty();
+
 		// Mark updates
 		for (C newComponent : newComponents) {
 			final C existingComponent = existingComponentMap.get(newComponent.getId());
@@ -687,8 +690,14 @@ public class ConceptUpdateHelper extends ComponentService {
 			}
 
 			// Any change to a component in an extension needs to be done in the default module
-			if (newComponent.isComponentChanged(existingComponent) && (((CollectionUtils.isEmpty(expectedExtensionModules)) || !expectedExtensionModules.contains(newComponent.getModuleId())) && defaultModuleId != null && !defaultModuleId.equals(Concepts.CORE_MODULE))) {
-				newComponent.setModuleId(defaultModuleId);
+			boolean newComponentHasNoModule = newComponent.getModuleId() == null;
+			boolean newComponentNotInExpectedModule = hasOtherModules && !expectedExtensionModules.contains(newComponent.getModuleId());
+			if (newComponent.isComponentChanged(existingComponent)) {
+				if (newComponentHasNoModule || (hasOtherModules && newComponentNotInExpectedModule) || !hasOtherModules) {
+					if (hasDefaultModuleId) {
+						newComponent.setModuleId(defaultModuleId);
+					}
+				}
 			}
 
 			// Update effective time
@@ -696,14 +705,15 @@ public class ConceptUpdateHelper extends ComponentService {
 
 			// Trying concept module in attempt to restore effective time
 			// for the case where content has changed and then been reverted.
-			if (defaultModuleId != null && newComponent.getEffectiveTime() == null) {
+			if (newComponent.isReleased() && defaultModuleId != null && newComponent.getEffectiveTime() == null) {
 				logger.trace("Setting module of {} to be same as concept: {}.", newComponent.getId(), newConcept.getModuleId());
+				String moduleIdCopy = newComponent.getModuleId();
 				newComponent.setModuleId(newConcept.getModuleId());
 				newComponent.updateEffectiveTime();
 				if (newComponent.getEffectiveTime() == null) {
 					// If effective time is still null then revert the change of module back to the branch default
 					logger.trace("Setting module of {} to be same as branch default: {}.", newComponent.getId(), defaultModuleId);
-					newComponent.setModuleId(defaultModuleId);
+					newComponent.setModuleId(moduleIdCopy);
 					newComponent.updateEffectiveTime();
 				}
 			}
@@ -722,8 +732,12 @@ public class ConceptUpdateHelper extends ComponentService {
 						existingComponent.setChanged(true);
 						
 						//Any change to a component in an extension needs to be done in the default module
-						if (defaultModuleId != null && !defaultModuleId.equals(Concepts.CORE_MODULE)) {
-							existingComponent.setModuleId(defaultModuleId);
+						boolean newComponentHasNoModule = existingComponent.getModuleId() == null;
+						boolean newComponentNotInExpectedModule = hasOtherModules && !expectedExtensionModules.contains(existingComponent.getModuleId());
+						if (newComponentHasNoModule || (hasOtherModules && newComponentNotInExpectedModule) || !hasOtherModules) {
+							if (hasDefaultModuleId) {
+								existingComponent.setModuleId(defaultModuleId);
+							}
 						}
 						
 						existingComponent.copyReleaseDetails(existingComponent, existingParentComponent);
