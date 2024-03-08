@@ -3,6 +3,18 @@ All notable changes to this project will be documented in this file.
 
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 10.2.0 Release (March 2024)
+
+### Fixes
+- MAINT-2476 Fix de-serialization bug when extra colon found in String concrete value
+- MAINT-2490 Stop applying default module id to components if module has expected value
+
+### Improvements
+- ISTO-107 Support loading LOINC 2.73 and above
+- MAINT-2493 Change annotation column from languageCode to languageDialectCode
+- MAINT-2403 Add option to store Extensions in separate Semantic index
+- MAINT-2496 Improve performance of itnegrity report by increasing page size
+
 ## 10.1.1 Hotfix Release (February 2024)
 
 ### Fixes
