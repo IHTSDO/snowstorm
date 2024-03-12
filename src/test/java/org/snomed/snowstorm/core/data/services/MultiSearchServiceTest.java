@@ -2,6 +2,7 @@ package org.snomed.snowstorm.core.data.services;
 
 import co.elastic.clients.elasticsearch._types.ElasticsearchException;
 import co.elastic.clients.elasticsearch._types.ErrorResponse;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -20,6 +21,7 @@ import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 @ExtendWith(SpringExtension.class)
 @ContextConfiguration(classes = TestConfig.class)
@@ -30,9 +32,6 @@ class MultiSearchServiceTest extends AbstractTest {
 
 	@Autowired
 	private CodeSystemService codeSystemService;
-
-	@Autowired
-	private CodeSystemUpgradeService codeSystemUpgradeService;
 
 	@Autowired
 	private ConceptService conceptService;
@@ -70,7 +69,7 @@ class MultiSearchServiceTest extends AbstractTest {
 		codeSystemService.createVersion(codeSystemInternational, 20200131, "");
 
 		clinicalFinding = conceptService.find(Concepts.CLINICAL_FINDING, "MAIN");
-		assertFalse(clinicalFinding.isActive());
+		Assertions.assertFalse(clinicalFinding.isActive());
 
 		// search both
 		descriptions = runSearch(term);
