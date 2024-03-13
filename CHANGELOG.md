@@ -3,7 +3,7 @@ All notable changes to this project will be documented in this file.
 
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## 10.2.0 Release (March 2024)
+## 10.2.1 Release (March 2024)
 
 ### Fixes
 - MAINT-2476 Fix de-serialization bug when extra colon found in String concrete value
