@@ -3300,29 +3300,35 @@ class ConceptServiceTest extends AbstractTest {
 	void testSearchConceptsOnCodeSystemBranchWithMultipleDependencies() throws ServiceException {
 		// Create a concept on MAIN
 		conceptService.create(new Concept("100001").addDescription(new Description("Heart rate")).addFSN("Heart rate (observable entity)"), "MAIN");
-
-		Page<Description> descriptions = descriptionService.findDescriptions("MAIN", "Heart rate", null, null, PageRequest.of(0, 10));
-		assertEquals(1, descriptions.getTotalElements());
+		
+		// Versioning MAIN
+		codeSystemService.createVersion(codeSystem, 20240101, "20240101 Release");
 
 		// Create a code system SNOMEDCT-LOINC with a dependency on MAIN
 		CodeSystem loinc = codeSystemService.createCodeSystem(new CodeSystem("LOINC", "MAIN/SNOMEDCT-LOINC"));
 
 		// Create a concept on MAIN/SNOMEDCT-LOINC
-		conceptService.create(new Concept("100002").addDescription(new Description("Heart")).addFSN("Heart (observable entity)"), "MAIN/SNOMEDCT-LOINC");
-
+		conceptService.create(new Concept("100002").addDescription(new Description("Heart part")).addFSN("Heart part (body structure)"), "MAIN/SNOMEDCT-LOINC");
+		
+		// Version loinc
+		codeSystemService.createVersion(loinc, 20240201, "20240201 Release");
+		
 		// Create an extension code system SNOMEDCT-TEST with dependencies on MAIN and MAIN/SNOMEDCT-LOINC
 		CodeSystem extension = codeSystemService.createCodeSystem(new CodeSystem("SNOMEDCT-TEST", "MAIN/SNOMEDCT-TEST"));
-		branchService.updateMetadata("MAIN/SNOMEDCT-TEST", ImmutableMap.of(VersionControlHelper.ADDITIONAL_DEPENDENT_BRANCHES, "MAIN/SNOMEDCT-LOINC"));
+		branchService.updateMetadata("MAIN/SNOMEDCT-TEST", ImmutableMap.of(VersionControlHelper.ADDITIONAL_DEPENDENT_BRANCHES, "MAIN/SNOMEDCT-LOINC/2024-02-01"));
 
-		// Create a new on MAIN and should not visible on SNOMEDCT-TEST
-		conceptService.create(new Concept("100003").addDescription(new Description("Heart beat")), "MAIN");
+		// Create a new concept on MAIN and should not visible to SNOMEDCT-TEST
+		conceptService.create(new Concept("100003").addDescription(new Description("Heart beat")).addFSN("Heart beat (observable entity)"), "MAIN");
+
+		// Create a new concept on MAIN/SNOMEDCT-LOINC and should not visible to SNOMEDCT-TEST
+		conceptService.create(new Concept("100004").addDescription(new Description("Heart beat")).addFSN("Heart beat (observable entity)"), "MAIN/SNOMEDCT-LOINC");
 
 		// Create a new on MAIN/SNOMEDCT-TEST and should be visible on SNOMEDCT-TEST
 		branchService.create("MAIN/SNOMEDCT-TEST/TEST");
-		conceptService.create(new Concept("100004").addDescription(new Description("Heart burns")).addFSN("Heart burns (Oberve)"), "MAIN/SNOMEDCT-TEST/TEST");
+		conceptService.create(new Concept("100005").addDescription(new Description("Heartburn")).addFSN("Heartburn (finding)"), "MAIN/SNOMEDCT-TEST/TEST");
 
 		// Search for concepts on MAIN/SNOMEDCT-TEST
-		Page<Concept> concepts = conceptService.findAll("MAIN/SNOMEDCT-TEST/TEST", PageRequest.of(0, 10));
+		Page<Concept> concepts = conceptService.findAll("MAIN/SNOMEDCT-TEST/TEST", PageRequest.of(0, 100));
 		assertEquals(3, concepts.getTotalElements());
 		for (Concept concept : concepts) {
 			assertNotNull(concept.getDescriptions());
@@ -3330,9 +3336,9 @@ class ConceptServiceTest extends AbstractTest {
 		}
 
 		// Search descriptions on MAIN/SNOMEDCT-TEST
-		descriptions = descriptionService.findDescriptions("MAIN/SNOMEDCT-TEST/TEST", null, null, Set.of("100001", "100002", "100004"), PageRequest.of(0, 10));
+		Page<Description> descriptions = descriptionService.findDescriptions("MAIN/SNOMEDCT-TEST/TEST", null, null, Set.of("100001", "100002", "100005"), PageRequest.of(0, 100));
 		assertEquals(6, descriptions.getTotalElements());
-		descriptions = descriptionService.findDescriptions("MAIN/SNOMEDCT-TEST/TEST", "Heart", null, null, PageRequest.of(0, 10));
+		descriptions = descriptionService.findDescriptions("MAIN/SNOMEDCT-TEST/TEST", "Heartburn", null, null, PageRequest.of(0, 100));
 		assertEquals(1, descriptions.getTotalElements());
 	}
 
