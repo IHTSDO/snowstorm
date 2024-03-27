@@ -1,6 +1,8 @@
 package org.snomed.snowstorm.core.data.services.traceability;
 
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Lists;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -41,13 +43,14 @@ public class TraceabilityConsumer {
 	 */
 	void sendInBatches(Activity activity) {
 		int changeListSize = activity.getChanges().size();
-		logger.info("Number of changes (concept activities) is {} and is larger than max ({}).", changeListSize, maxConceptActiviesPerMessage );
+		List<List<Activity.ConceptActivity>> chunkedList = Lists.partition(activity.getChanges(), maxConceptActiviesPerMessage);
+		logger.info("Chunking {} concept activities into {} batches (of max size {})", changeListSize, chunkedList.size(), maxConceptActiviesPerMessage);
 
-        for (List<Activity.ConceptActivity> conceptActivities : Iterables.partition(activity.getChanges(), maxConceptActiviesPerMessage)) {
-            Activity activityChunk = new Activity(activity.getUserId(), activity.getBranchPath(),
-                    activity.getCommitTimestamp(), activity.getSourceBranch(), activity.getActivityType());
-            activityChunk.setChanges(conceptActivities);
-            jmsTemplate.convertAndSend(jmsQueuePrefix + ".traceability", activityChunk);
-        }
+		for (List<Activity.ConceptActivity> conceptActivities : chunkedList) {
+			Activity activityChunk = new Activity(activity.getUserId(), activity.getBranchPath(),
+					activity.getCommitTimestamp(), activity.getSourceBranch(), activity.getActivityType());
+			activityChunk.setChanges(conceptActivities);
+			jmsTemplate.convertAndSend(jmsQueuePrefix + ".traceability", activityChunk);
+		}
 	}
 }
