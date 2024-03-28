@@ -609,12 +609,16 @@ public class ReferenceSetMemberService extends ComponentService {
 		if (!branchService.exists(MAIN)) {
 			sBranchService.create(MAIN);
 		}
+		if (branchService.findLatest(path).isLocked()) {
+			logger.warn("{} branch is locked. Unable to verify reference set type configuration.", path);
+			return;
+		}
 		logger.info("Reference set types are configured against branch: '{}'.", path);
 		List<ReferenceSetType> existingTypes = findConfiguredReferenceSetTypes(path);
 		Set<ReferenceSetType> typesToRemove = new HashSet<>(existingTypes);
 		typesToRemove.removeAll(referenceSetTypes);
 		if (!typesToRemove.isEmpty()) {
-			String message = String.format("Removing reference set types: %s", typesToRemove.toString());
+			String message = String.format("Removing reference set types: %s", typesToRemove);
 			logger.info(message);
 			try (Commit commit = branchService.openCommit(path, branchMetadataHelper.getBranchLockMetadata(message))) {
 				typesToRemove.forEach(ReferenceSetType::markDeleted);
