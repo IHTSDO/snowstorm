@@ -219,13 +219,9 @@ public class CodeSystemUpgradeService {
 
 	private void updateBranchMetaData(String branchPath, CodeSystemVersion newParentVersion, Branch extensionBranch, boolean isReportEmpty) {
 		final Metadata metadata = extensionBranch.getMetadata();
-		
-		//Store the current dependency package, to move to the previous one once updated.
-		final String previousDependencyPackage = metadata.getString(DEPENDENCY_PACKAGE);
 
 		if (newParentVersion.getReleasePackage() != null) {
 			metadata.putString(DEPENDENCY_PACKAGE, newParentVersion.getReleasePackage());
-			metadata.putString(PREVIOUS_DEPENDENCY_PACKAGE, previousDependencyPackage);
 		} else {
 			logger.error("No release package is set for version {}", newParentVersion);
 		}

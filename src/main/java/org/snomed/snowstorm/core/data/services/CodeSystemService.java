@@ -655,24 +655,25 @@ public class CodeSystemService {
 			throw new IllegalStateException(String.format("No release package found for %s", codeSystemVersion.getBranchPath()));
 		}
 		Metadata branchMetadata = branch.getMetadata();
+
+		// Previous release = the latest version's effective time
+		// Previous package = the latest version's release package
 		branchMetadata.putString(PREVIOUS_RELEASE, String.valueOf(codeSystemVersion.getEffectiveDate()));
 		branchMetadata.putString(PREVIOUS_PACKAGE, codeSystemVersion.getReleasePackage());
-		// Dependency package and previous dependency package should be updated during code system upgrade
-		if (branchMetadata.getString(DEPENDENCY_PACKAGE) == null && codeSystem.getDependantVersionEffectiveTime() != null) {
+
+		// Update previous dependency package if dependency is maintained
+		if (codeSystemVersion.getDependantVersionEffectiveTime() != null) {
 			final Optional<CodeSystem> parentCodeSystem = findByBranchPath(PathUtil.getParentPath(branchPath));
 			if (parentCodeSystem.isEmpty()) {
 				throw new IllegalStateException("Dependant version set but parent code system not found.");
 			}
-			final CodeSystemVersion parentCodeSystemVersion = findVersion(parentCodeSystem.get().getShortName(), codeSystem.getDependantVersionEffectiveTime());
+			final CodeSystemVersion parentCodeSystemVersion = findVersion(parentCodeSystem.get().getShortName(), codeSystemVersion.getDependantVersionEffectiveTime());
 			if (parentCodeSystemVersion == null) {
 				throw new IllegalStateException("Dependant version " + codeSystem.getDependantVersionEffectiveTime() + " not found.");
 			}
 			if (Strings.isNullOrEmpty(parentCodeSystemVersion.getReleasePackage())) {
 				throw new IllegalStateException("No release package found for " + parentCodeSystemVersion);
 			}
-			branchMetadata.putString(DEPENDENCY_PACKAGE, parentCodeSystemVersion.getReleasePackage());
-			// Set previous dependency package the same as current dependent package
-			// This config will be updated during code system upgrade
 			branchMetadata.putString(PREVIOUS_DEPENDENCY_PACKAGE, parentCodeSystemVersion.getReleasePackage());
 		}
 		branchService.updateMetadata(branchPath, branchMetadata);
