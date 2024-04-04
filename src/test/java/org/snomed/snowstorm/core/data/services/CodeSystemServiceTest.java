@@ -118,50 +118,77 @@ class CodeSystemServiceTest extends AbstractTest {
 
 	@Test
 	void testUpdateCodeSystemBranchMetadata() throws ServiceException {
+		// Create a parent code system
 		CodeSystem codeSystem = new CodeSystem("SNOMEDCT", "MAIN");
 		codeSystemService.createCodeSystem(codeSystem);
+
+		// Create a new parent code system version
 		codeSystemService.createVersion(codeSystem, 20230131, "");
 		CodeSystemVersion codeSystemVersion = codeSystemService.findVersion("MAIN/2023-01-31");
 		codeSystemService.updateCodeSystemVersionPackage(codeSystemVersion, "SnomedCT_InternationalRF2_PRODUCTION_20230131T120000Z.zip");
 
+		// Create an extension code system
 		CodeSystem extensionCodeSystem = new CodeSystem("SNOMEDCT-TEST", "MAIN/SNOMEDCT-TEST");
 		codeSystemService.createCodeSystem(extensionCodeSystem);
+
+		// Create a new extension code system version
 		codeSystemService.createVersion(extensionCodeSystem, 20230331, "");
 		CodeSystemVersion extensionCodeSystemVersion = codeSystemService.findVersion("MAIN/SNOMEDCT-TEST/2023-03-31");
 		codeSystemService.updateCodeSystemVersionPackage(extensionCodeSystemVersion, "SnomedCT_TEST_RF2_20230331T120000Z.zip");
 
-		// Update code system branch for the first time
+		// Start a new authoring cycle for the parent code system branch
+		codeSystemService.updateCodeSystemBranchMetadata(codeSystem);
+		Metadata metadata = branchService.findLatest(codeSystem.getBranchPath()).getMetadata();
+		// Assert that previous release data changed
+		assertEquals("20230131", metadata.getString(BranchMetadataKeys.PREVIOUS_RELEASE));
+		assertEquals("SnomedCT_InternationalRF2_PRODUCTION_20230131T120000Z.zip", metadata.getString(BranchMetadataKeys.PREVIOUS_PACKAGE));
+
+		// Start a new authoring cycle for the extension code system branch
 		codeSystemService.updateCodeSystemBranchMetadata(extensionCodeSystem);
-		Metadata metadata = branchService.findLatest(extensionCodeSystem.getBranchPath()).getMetadata();
+		metadata = branchService.findLatest(extensionCodeSystem.getBranchPath()).getMetadata();
+		// Assert that previous release data changed
 		assertEquals("20230331", metadata.getString(BranchMetadataKeys.PREVIOUS_RELEASE));
 		assertEquals("SnomedCT_TEST_RF2_20230331T120000Z.zip", metadata.getString(BranchMetadataKeys.PREVIOUS_PACKAGE));
-		assertEquals("SnomedCT_InternationalRF2_PRODUCTION_20230131T120000Z.zip", metadata.getString(BranchMetadataKeys.DEPENDENCY_PACKAGE));
 		assertEquals("SnomedCT_InternationalRF2_PRODUCTION_20230131T120000Z.zip", metadata.getString(BranchMetadataKeys.PREVIOUS_DEPENDENCY_PACKAGE));
 
+		// Create another parent code system version
 		codeSystemService.createVersion(codeSystem, 20230331, "");
 		codeSystemVersion = codeSystemService.findVersion("MAIN/2023-03-31");
 		codeSystemService.updateCodeSystemVersionPackage(codeSystemVersion, "SnomedCT_InternationalRF2_PRODUCTION_20230331T120000Z.zip");
 
-		// Upgrade extension code system branch
+		// Upgrade extension code system branch to use that parent version
 		codeSystemUpgradeService.upgrade(null, extensionCodeSystem, 20230331, true);
 		metadata = branchService.findLatest(extensionCodeSystem.getBranchPath()).getMetadata();
+		// Assert that dependency data changed
+		assertEquals("20230331", metadata.getString(BranchMetadataKeys.DEPENDENCY_RELEASE));
+		assertEquals("SnomedCT_InternationalRF2_PRODUCTION_20230331T120000Z.zip", metadata.getString(BranchMetadataKeys.DEPENDENCY_PACKAGE));
+		// Assert that previous release data not changed
 		assertEquals("20230331", metadata.getString(BranchMetadataKeys.PREVIOUS_RELEASE));
 		assertEquals("SnomedCT_TEST_RF2_20230331T120000Z.zip", metadata.getString(BranchMetadataKeys.PREVIOUS_PACKAGE));
-		assertEquals("SnomedCT_InternationalRF2_PRODUCTION_20230331T120000Z.zip", metadata.getString(BranchMetadataKeys.DEPENDENCY_PACKAGE));
 		assertEquals("SnomedCT_InternationalRF2_PRODUCTION_20230131T120000Z.zip", metadata.getString(BranchMetadataKeys.PREVIOUS_DEPENDENCY_PACKAGE));
 
-		// Another extension release
+		// Create another extension code system version
 		codeSystemService.createVersion(extensionCodeSystem, 20230430, "");
 		extensionCodeSystemVersion = codeSystemService.findVersion("MAIN/SNOMEDCT-TEST/2023-04-30");
 		codeSystemService.updateCodeSystemVersionPackage(extensionCodeSystemVersion, "SnomedCT_TEST_RF2_20230430T120000Z.zip");
 
-		// Update metadata after another extension release
+		// Start a new authoring cycle for the parent code system branch
+		codeSystemService.updateCodeSystemBranchMetadata(codeSystem);
+		metadata = branchService.findLatest(codeSystem.getBranchPath()).getMetadata();
+		// Assert that previous release data changed
+		assertEquals("20230331", metadata.getString(BranchMetadataKeys.PREVIOUS_RELEASE));
+		assertEquals("SnomedCT_InternationalRF2_PRODUCTION_20230331T120000Z.zip", metadata.getString(BranchMetadataKeys.PREVIOUS_PACKAGE));
+
+		// Start a new authoring cycle for the extension code system branch
 		codeSystemService.updateCodeSystemBranchMetadata(extensionCodeSystem);
 		metadata = branchService.findLatest(extensionCodeSystem.getBranchPath()).getMetadata();
+		// Assert that previous release data changed
 		assertEquals("20230430", metadata.getString(BranchMetadataKeys.PREVIOUS_RELEASE));
 		assertEquals("SnomedCT_TEST_RF2_20230430T120000Z.zip", metadata.getString(BranchMetadataKeys.PREVIOUS_PACKAGE));
-		assertEquals("SnomedCT_InternationalRF2_PRODUCTION_20230331T120000Z.zip", metadata.getString(BranchMetadataKeys.DEPENDENCY_PACKAGE));
 		assertEquals("SnomedCT_InternationalRF2_PRODUCTION_20230131T120000Z.zip", metadata.getString(BranchMetadataKeys.PREVIOUS_DEPENDENCY_PACKAGE));
+		// Assert that dependency data not changed
+		assertEquals("20230331", metadata.getString(BranchMetadataKeys.DEPENDENCY_RELEASE));
+		assertEquals("SnomedCT_InternationalRF2_PRODUCTION_20230331T120000Z.zip", metadata.getString(BranchMetadataKeys.DEPENDENCY_PACKAGE));
 	}
 
 }

@@ -662,12 +662,12 @@ public class CodeSystemService {
 		branchMetadata.putString(PREVIOUS_PACKAGE, codeSystemVersion.getReleasePackage());
 
 		// Update previous dependency package if dependency is maintained
-		if (codeSystemVersion.getDependantVersionEffectiveTime() != null) {
+		if (codeSystem.getDependantVersionEffectiveTime() != null) {
 			final Optional<CodeSystem> parentCodeSystem = findByBranchPath(PathUtil.getParentPath(branchPath));
 			if (parentCodeSystem.isEmpty()) {
 				throw new IllegalStateException("Dependant version set but parent code system not found.");
 			}
-			final CodeSystemVersion parentCodeSystemVersion = findVersion(parentCodeSystem.get().getShortName(), codeSystemVersion.getDependantVersionEffectiveTime());
+			final CodeSystemVersion parentCodeSystemVersion = findVersion(parentCodeSystem.get().getShortName(), codeSystem.getDependantVersionEffectiveTime());
 			if (parentCodeSystemVersion == null) {
 				throw new IllegalStateException("Dependant version " + codeSystem.getDependantVersionEffectiveTime() + " not found.");
 			}
