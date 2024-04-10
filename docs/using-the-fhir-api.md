@@ -113,4 +113,4 @@ The API will return either JSON or XML depending on what's specified in the 'Acc
 
 #### Notes on unversioned content
 Unversioned SNOMED CT content that exists on the Snowstorm code system branch can be accessed using system `http://snomed.info/xsct`. For example:
-http://localhost:8080/fhir/ValueSet/$expand?url=http://snomed.info/sctx/45991000052106?fhir_vs=isa/27624003&designation=sv
+http://localhost:8080/fhir/ValueSet/$expand?url=http://snomed.info/sctx/45991000052106?fhir_vs=isa/27624003&displayLanguage=sv
