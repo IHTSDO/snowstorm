@@ -61,11 +61,25 @@ public class AxiomConversionService {
 		AxiomRelationshipConversionService conversionService = setupConversionService(branchPath);
 		for (Concept concept : concepts) {
 			for (Axiom axiom : concept.getClassAxioms()) {
-				String owlExpression = conversionService.convertRelationshipsToAxiom(mapFromInternalRelationshipType(concept.getConceptId(), axiom.getDefinitionStatusId(), axiom.getRelationships(), true));
+				String owlExpression;
+				ReferenceSetMember referenceSetMember = axiom.getReferenceSetMember();
+				if (!axiom.isActive() && referenceSetMember != null) {
+					owlExpression = referenceSetMember.getAdditionalField(ReferenceSetMember.OwlExpressionFields.OWL_EXPRESSION);
+				} else {
+					owlExpression = conversionService.convertRelationshipsToAxiom(mapFromInternalRelationshipType(concept.getConceptId(), axiom.getDefinitionStatusId(), axiom.getRelationships(), true));
+				}
+
 				axiom.setReferenceSetMember(createMember(concept, axiom, owlExpression));
 			}
 			for (Axiom gciAxiom : concept.getGciAxioms()) {
-				String owlExpression = conversionService.convertRelationshipsToAxiom(mapFromInternalRelationshipType(concept.getConceptId(), gciAxiom.getDefinitionStatusId(), gciAxiom.getRelationships(), false));
+				String owlExpression;
+				ReferenceSetMember referenceSetMember = gciAxiom.getReferenceSetMember();
+				if (!gciAxiom.isActive() && referenceSetMember != null) {
+					owlExpression = referenceSetMember.getAdditionalField(ReferenceSetMember.OwlExpressionFields.OWL_EXPRESSION);
+				} else {
+					owlExpression = conversionService.convertRelationshipsToAxiom(mapFromInternalRelationshipType(concept.getConceptId(), gciAxiom.getDefinitionStatusId(), gciAxiom.getRelationships(), false));
+				}
+
 				gciAxiom.setReferenceSetMember(createMember(concept, gciAxiom, owlExpression));
 			}
 		}
