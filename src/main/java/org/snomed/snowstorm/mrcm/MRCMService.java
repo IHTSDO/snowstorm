@@ -202,7 +202,8 @@ public class MRCMService {
 		if (IdentifierService.isConceptId(termPrefix)) {
 			conceptQuery.conceptIds(Collections.singleton(termPrefix));
 		} else {
-			conceptQuery.descriptionCriteria(d -> d.term(termPrefix).active(true));
+			Set<String> languageCodes = languageDialects.stream().map(LanguageDialect::getLanguageCode).collect(Collectors.toSet());
+			conceptQuery.descriptionCriteria(d -> d.term(termPrefix).active(true).searchLanguageCodes(languageCodes));
 		}
 		return conceptQuery;
 	}
