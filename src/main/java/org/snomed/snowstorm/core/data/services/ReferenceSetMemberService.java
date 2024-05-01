@@ -65,7 +65,6 @@ import java.util.stream.StreamSupport;
 import static java.lang.Long.parseLong;
 import static co.elastic.clients.elasticsearch._types.query_dsl.QueryBuilders.*;
 import static io.kaicode.elasticvc.helper.QueryHelper.*;
-import static org.snomed.snowstorm.config.Config.AGGREGATION_SEARCH_SIZE;
 import static org.snomed.snowstorm.core.data.domain.Concepts.inactivationAndAssociationRefsets;
 import static org.snomed.snowstorm.core.data.services.CodeSystemService.MAIN;
 import static org.snomed.snowstorm.core.util.CollectionUtils.orEmpty;
@@ -116,6 +115,9 @@ public class ReferenceSetMemberService extends ComponentService {
 
 	@Value("${refset-types.initial-branch}")
 	private String refsetsBranchPath;
+
+	@Value("${search.refset.aggregation.size}")
+	private int refsetAggregationSearchSize;
 
 	@Autowired
 	@Lazy
@@ -675,7 +677,7 @@ public class ReferenceSetMemberService extends ComponentService {
 				.withQuery(query)
 				.withPageable(pageRequest)
 				.withAggregation(AGGREGATION_MEMBER_COUNTS_BY_REFERENCE_SET, AggregationBuilders.terms()
-						.field(ReferenceSetMember.Fields.REFSET_ID).size(AGGREGATION_SEARCH_SIZE).build()._toAggregation())
+						.field(ReferenceSetMember.Fields.REFSET_ID).size(refsetAggregationSearchSize).build()._toAggregation())
 				.build();
 
 		SearchHits<ReferenceSetMember> pageResults = elasticsearchTemplate.search(searchQuery, ReferenceSetMember.class);
