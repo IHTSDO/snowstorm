@@ -88,7 +88,6 @@ public abstract class Config extends ElasticsearchConfig {
 
 	public static final PageRequest PAGE_OF_ONE = PageRequest.of(0, 1);
 	public static final int BATCH_SAVE_SIZE = 10000;
-	public static final int AGGREGATION_SEARCH_SIZE = 200;
 
 	// Branch metadata values
 	public static final String DEFAULT_MODULE_ID_KEY = "defaultModuleId";
