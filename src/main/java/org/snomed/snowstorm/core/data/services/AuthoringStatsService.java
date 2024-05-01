@@ -34,7 +34,6 @@ import static io.kaicode.elasticvc.api.VersionControlHelper.LARGE_PAGE;
 import static java.lang.Long.parseLong;
 import static co.elastic.clients.elasticsearch._types.query_dsl.QueryBuilders.*;
 import static io.kaicode.elasticvc.helper.QueryHelper.*;
-import static org.snomed.snowstorm.config.Config.AGGREGATION_SEARCH_SIZE;
 
 @Service
 public class AuthoringStatsService {
@@ -44,7 +43,7 @@ public class AuthoringStatsService {
 	public static final TermsAggregation MODULE_AGGREGATION = AggregationBuilders
 			.terms()
 			.field(SnomedComponent.Fields.MODULE_ID)
-			.size(AGGREGATION_SEARCH_SIZE).build();
+			.size(100).build();
 
 	@Autowired
 	private VersionControlHelper versionControlHelper;
