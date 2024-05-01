@@ -17,6 +17,7 @@ import org.snomed.snowstorm.core.data.services.pojo.PageWithBucketAggregations;
 import org.snomed.snowstorm.core.data.services.pojo.PageWithBucketAggregationsFactory;
 import org.snomed.snowstorm.ecl.ECLQueryService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
@@ -37,7 +38,6 @@ import java.util.stream.Collectors;
 import static io.kaicode.elasticvc.api.ComponentService.LARGE_PAGE;
 import static co.elastic.clients.elasticsearch._types.query_dsl.QueryBuilders.*;
 import static io.kaicode.elasticvc.helper.QueryHelper.*;
-import static org.snomed.snowstorm.config.Config.AGGREGATION_SEARCH_SIZE;
 
 @Service
 /*
@@ -62,6 +62,9 @@ public class MultiSearchService implements CommitListener {
 
 	@Autowired
 	private ElasticsearchOperations elasticsearchTemplate;
+
+	@Value("${search.refset.aggregation.size}")
+	private int refsetAggregationSearchSize;
 	
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 	
@@ -124,7 +127,7 @@ public class MultiSearchService implements CommitListener {
 								.filter(termsQuery(ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID, conceptIds)))
 						)
 						.withPageable(PageRequest.of(0, 1))
-						.withAggregation("membership", AggregationBuilders.terms().field(ReferenceSetMember.Fields.REFSET_ID).size(AGGREGATION_SEARCH_SIZE).build()._toAggregation())
+						.withAggregation("membership", AggregationBuilders.terms().field(ReferenceSetMember.Fields.REFSET_ID).size(refsetAggregationSearchSize).build()._toAggregation())
 						.build(), ReferenceSetMember.class);
 		return PageWithBucketAggregationsFactory.createPage(searchHits, membershipResults.getAggregations(), pageRequest);
 	}

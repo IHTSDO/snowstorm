@@ -93,6 +93,13 @@ public class DescriptionService extends ComponentService {
 	@Autowired
 	private DialectConfigurationService dialectConfigurationService;
 
+	@Value("${search.refset.aggregation.size}")
+	private int refsetAggregationSearchSize;
+
+
+	@Value("${search.description.semantic.tag.aggregation.size}")
+	private int semanticTagAggregationSearchSize;
+
 	private final Map<String, SemanticTagCacheEntry> semanticTagAggregationCache = new ConcurrentHashMap<>();
 
 	@Value("${search.description.aggregation.maxProcessableResultsSize}")
@@ -230,7 +237,7 @@ public class DescriptionService extends ComponentService {
 						.must(termQuery(Description.Fields.TYPE_ID, Concepts.FSN))
 						.must(termsQuery(Description.Fields.CONCEPT_ID, conceptIds)).build()._toQuery()
 				)
-				.withAggregation("semanticTags", AggregationBuilders.terms().field(Description.Fields.TAG).size(AGGREGATION_SEARCH_SIZE).build()._toAggregation());
+				.withAggregation("semanticTags", AggregationBuilders.terms().field(Description.Fields.TAG).size(semanticTagAggregationSearchSize).build()._toAggregation());
 		if (!semanticTagFiltering) {
 			fsnQueryBuilder.withPageable(PAGE_OF_ONE);
 			SearchHits<Description> semanticTagResults = elasticsearchOperations.search(fsnQueryBuilder.build(), Description.class);
@@ -269,7 +276,7 @@ public class DescriptionService extends ComponentService {
 						.filter(termsQuery(ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID, conceptIds)).build()._toQuery()
 				)
 				.withPageable(PAGE_OF_ONE)
-				.withAggregation("membership", AggregationBuilders.terms().field(REFSET_ID).size(AGGREGATION_SEARCH_SIZE).build()._toAggregation())
+				.withAggregation("membership", AggregationBuilders.terms().field(REFSET_ID).size(refsetAggregationSearchSize).build()._toAggregation())
 				.build(), ReferenceSetMember.class);
 		if (membershipResults.hasAggregations()) {
 			allAggregations.addAll(getAggregations(membershipResults.getAggregations(), "membership"));
@@ -390,7 +397,7 @@ public class DescriptionService extends ComponentService {
 						.must(termQuery(Description.Fields.TYPE_ID, Concepts.FSN))
 						.filter(termsQuery(Description.Fields.CONCEPT_ID, activeConcepts)))
 				)
-				.withAggregation("semanticTags", AggregationBuilders.terms(a -> a.field(Description.Fields.TAG).size(AGGREGATION_SEARCH_SIZE)))
+				.withAggregation("semanticTags", AggregationBuilders.terms(a -> a.field(Description.Fields.TAG).size(semanticTagAggregationSearchSize)))
 				.build(), Description.class);
 
 		Map<String, Long> tagCounts = new TreeMap<>();
