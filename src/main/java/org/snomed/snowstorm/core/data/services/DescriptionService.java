@@ -230,6 +230,7 @@ public class DescriptionService extends ComponentService {
 			}
 			fsnClauses.must(termsQuery(Description.Fields.TAG, allSemanticTags));
 		}
+		int searchSize = semanticTags.isEmpty() ? semanticTagAggregationSearchSize : semanticTags.size();
 		NativeQueryBuilder fsnQueryBuilder = new NativeQueryBuilder()
 				.withQuery(fsnClauses
 						.must(branchCriteria.getEntityBranchCriteria(Description.class))
@@ -237,7 +238,7 @@ public class DescriptionService extends ComponentService {
 						.must(termQuery(Description.Fields.TYPE_ID, Concepts.FSN))
 						.must(termsQuery(Description.Fields.CONCEPT_ID, conceptIds)).build()._toQuery()
 				)
-				.withAggregation("semanticTags", AggregationBuilders.terms().field(Description.Fields.TAG).size(semanticTagAggregationSearchSize).build()._toAggregation());
+				.withAggregation("semanticTags", AggregationBuilders.terms().field(Description.Fields.TAG).size(searchSize).build()._toAggregation());
 		if (!semanticTagFiltering) {
 			fsnQueryBuilder.withPageable(PAGE_OF_ONE);
 			SearchHits<Description> semanticTagResults = elasticsearchOperations.search(fsnQueryBuilder.build(), Description.class);
