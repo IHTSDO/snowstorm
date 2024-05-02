@@ -230,7 +230,7 @@ public class DescriptionService extends ComponentService {
 			}
 			fsnClauses.must(termsQuery(Description.Fields.TAG, allSemanticTags));
 		}
-		int searchSize = semanticTags.isEmpty() ? semanticTagAggregationSearchSize : semanticTags.size();
+		int searchSize = allSemanticTags.isEmpty() ? semanticTagAggregationSearchSize : allSemanticTags.size();
 		NativeQueryBuilder fsnQueryBuilder = new NativeQueryBuilder()
 				.withQuery(fsnClauses
 						.must(branchCriteria.getEntityBranchCriteria(Description.class))
