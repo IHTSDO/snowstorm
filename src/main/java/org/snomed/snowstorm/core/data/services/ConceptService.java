@@ -913,7 +913,6 @@ public class ConceptService extends ComponentService {
 		// Fetch Identifier
 		for (List<String> conceptIds : Iterables.partition(allConceptIds, CLAUSE_LIMIT)) {
 			List<ReferenceSetMember> annotationMembers = referenceSetMemberService.findMembers(
-					branchCriteria.getBranchPath(),
 					branchCriteria,
 					new MemberSearchRequest()
 							.referenceSet(Concepts.ANNOTATION_REFERENCE_SET)

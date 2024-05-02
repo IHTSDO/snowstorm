@@ -134,7 +134,7 @@ public class MRCMUpdateService extends ComponentService implements CommitListene
 		}
 
 		BranchCriteria branchCriteria = versionControlHelper.getBranchCriteriaIncludingOpenCommit(commit);
-		MRCM mrcm = mrcmLoader.loadActiveMRCM(branchPath, branchCriteria);
+		MRCM mrcm = mrcmLoader.loadActiveMRCM(branchCriteria);
 		Map<String, List<AttributeDomain>> attributeToDomainsMap = new HashMap<>();
 		Map<String, List<AttributeDomain>> domainToAttributesMap = new HashMap<>();
 		Set<Long> domainIds = new HashSet<>();

@@ -68,7 +68,7 @@ public class MRCMService {
 			String branchPath, List<LanguageDialect> languageDialects) throws ServiceException {
 
 		BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(branchPath);
-		final MRCM branchMRCM = mrcmLoader.loadActiveMRCM(branchPath, branchCriteria);
+		final MRCM branchMRCM = mrcmLoader.loadActiveMRCM(branchCriteria);
 
 		final List<AttributeDomain> attributeDomains = doRetrieveDomainAttributes(contentType, proximalPrimitiveModeling, parentIds, branchCriteria, branchMRCM);
 		Set<String> attributeIds = attributeDomains.stream().map(AttributeDomain::getReferencedComponentId).collect(Collectors.toSet());
@@ -91,7 +91,7 @@ public class MRCMService {
 			String branchPath, BranchCriteria branchCriteria) throws ServiceException {
 
 		// Load MRCM using active records applicable to this branch
-		final MRCM branchMRCM = mrcmLoader.loadActiveMRCM(branchPath, branchCriteria);
+		final MRCM branchMRCM = mrcmLoader.loadActiveMRCM(branchCriteria);
 		final List<AttributeDomain> attributeDomains = doRetrieveDomainAttributes(contentType, proximalPrimitiveModeling, parentIds, branchCriteria, branchMRCM);
 
 		Set<String> attributeIds = attributeDomains.stream().map(AttributeDomain::getReferencedComponentId).collect(Collectors.toSet());
@@ -165,7 +165,7 @@ public class MRCMService {
 
 	public Collection<ConceptMini> retrieveAttributeValues(ContentType contentType, String attributeId, String termPrefix, String branchPath, List<LanguageDialect> languageDialects) throws ServiceException {
 		BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(branchPath);
-		MRCM branchMRCM = mrcmLoader.loadActiveMRCM(branchPath, branchCriteria);
+		MRCM branchMRCM = mrcmLoader.loadActiveMRCM(branchCriteria);
 		return retrieveAttributeValues(contentType, attributeId, termPrefix, branchPath, languageDialects, branchMRCM);
 	}
 

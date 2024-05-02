@@ -117,7 +117,7 @@ public class RefsetDescriptorUpdaterService implements CommitListener {
 		// Find entry in RefSet for parent
 		Long parentId = queryService.findParentIds(branchCriteria, true, List.of(conceptIdL)).iterator().next();
 		memberSearchRequest.referencedComponentId(String.valueOf(parentId));
-		membersExisting = referenceSetMemberService.findMembers(branchPath, branchCriteria, memberSearchRequest, PAGE_REQUEST);
+		membersExisting = referenceSetMemberService.findMembers(branchCriteria, memberSearchRequest, PAGE_REQUEST);
 
 		// Find entry in RefSet for grandparent
 		if (membersExisting == null || membersExisting.isEmpty()) {
@@ -130,7 +130,7 @@ public class RefsetDescriptorUpdaterService implements CommitListener {
 					return Collections.emptySet();
 				}
 				memberSearchRequest.referencedComponentId(grandParentIdS);
-				membersExisting = referenceSetMemberService.findMembers(branchPath, branchCriteria, memberSearchRequest, PAGE_REQUEST);
+				membersExisting = referenceSetMemberService.findMembers(branchCriteria, memberSearchRequest, PAGE_REQUEST);
 			}
 		}
 
