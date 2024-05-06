@@ -3,6 +3,7 @@ package org.snomed.snowstorm.validation;
 import com.google.common.collect.Sets;
 import io.kaicode.elasticvc.api.BranchCriteria;
 import io.kaicode.elasticvc.api.ComponentService;
+import org.ihtsdo.drools.domain.Constants;
 import org.ihtsdo.drools.domain.Relationship;
 import org.snomed.snowstorm.config.Config;
 import org.snomed.snowstorm.core.data.domain.Concept;
@@ -147,6 +148,12 @@ public class ConceptDroolsValidationService implements org.ihtsdo.drools.service
 		Set<String> ancestors = new HashSet<>(getConceptIdsByEcl(true, eclBuilder.toString()));
 		ancestors.remove(Concepts.SNOMEDCT_ROOT);
 		return ancestors;
+	}
+
+	@Override
+	public Set<String> findLanguageReferenceSetByModule(String moduleId) {
+		String ecl = "<" + Constants.LANGUAGE_TYPE_CONCEPT;
+		return queryService.searchForIdStrings(queryService.createQueryBuilder(true).ecl(ecl).module(Long.valueOf(moduleId)));
 	}
 
 	private Set<String> getStatedParents(org.ihtsdo.drools.domain.Concept concept) {
