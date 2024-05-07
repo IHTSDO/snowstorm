@@ -151,19 +151,19 @@
 			<artifactId>modelmapper</artifactId>
 		</dependency>
 		<dependency>
-			<groupId>org.snomed.fhir</groupId>
+			<groupId>ca.uhn.hapi.fhir</groupId>
 			<artifactId>hapi-fhir-structures-r4</artifactId>
 		</dependency>
 		<dependency>
-			<groupId>org.snomed.fhir</groupId>
+			<groupId>ca.uhn.hapi.fhir</groupId>
 			<artifactId>hapi-fhir-server</artifactId>
 		</dependency>
 		<dependency>
-			<groupId>org.snomed.fhir</groupId>
+			<groupId>ca.uhn.hapi.fhir</groupId>
 			<artifactId>hapi-fhir-jpaserver-base</artifactId>
 			<exclusions>
 				<exclusion>
-					<groupId>org.snomed.fhir</groupId>
+					<groupId>ca.uhn.hapi.fhir</groupId>
 					<artifactId>hapi-fhir-sql-migrate</artifactId>
 				</exclusion>
 				<exclusion>
@@ -198,7 +198,7 @@
 			</exclusions>
 		</dependency>
 		<dependency>
-			<groupId>org.snomed.fhir</groupId>
+			<groupId>ca.uhn.hapi.fhir</groupId>
 			<artifactId>hapi-fhir-jpaserver-model</artifactId>
 			<exclusions>
 				<exclusion>
