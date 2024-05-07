@@ -79,19 +79,25 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 	}
 
 	@Delete
-	public void deleteValueSet(
+	public MethodOutcome deleteValueSet(
 			@IdParam IdType id,
 			@OptionalParam(name="url") UriType url,
 			@OptionalParam(name="version") String version) {
 
 		FHIRHelper.readOnlyCheck(readOnlyMode);
+		MethodOutcome outcome = new MethodOutcome();
 		if (id != null) {
 			valuesetRepository.deleteById(id.getIdPart());
+			outcome.setId(new IdType("ValueSet", id.getIdPart()));
 		} else {
 			FHIRHelper.required("url", url);
 			FHIRHelper.required("version", version);
-			valueSetService.find(url.getValueAsString(), version).ifPresent(vs -> valuesetRepository.deleteById(vs.getId()));
+			valueSetService.find(url.getValueAsString(), version).ifPresent(vs -> {
+				valuesetRepository.deleteById(vs.getId());
+				outcome.setId(new IdType("ValueSet", vs.getId(), version));
+			});
 		}
+		return outcome;
 	}
 
 	//See https://www.hl7.org/fhir/valueset.html#search
