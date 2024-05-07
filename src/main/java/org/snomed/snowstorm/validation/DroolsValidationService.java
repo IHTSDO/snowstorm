@@ -127,7 +127,7 @@ public class DroolsValidationService {
 		DescriptionDroolsValidationService droolsDescriptionService = new DescriptionDroolsValidationService(branchPath, branchCriteria, elasticsearchOperations,
 				this.descriptionService, disposableQueryService, testResourceProvider, inferredTopLevelHierarchies);
 		RelationshipDroolsValidationService relationshipService = new RelationshipDroolsValidationService(disposableQueryService);
-		final List<InvalidContent> invalidContents = ruleExecutor.execute(ruleSetNames, assertionExclusionList, droolsConcepts, droolsConceptService, droolsDescriptionService, relationshipService, false, false);
+		final List<InvalidContent> invalidContents = ruleExecutor.execute(ruleSetNames, assertionExclusionList, droolsConcepts, droolsConceptService, droolsDescriptionService, relationshipService, false, true);
 
 		return invalidContents;
 	}
