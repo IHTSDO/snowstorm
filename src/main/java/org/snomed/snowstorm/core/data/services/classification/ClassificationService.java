@@ -211,6 +211,8 @@ public class ClassificationService {
 								} else if (timeout) {
 									newStatus = ClassificationStatus.FAILED;
 									classification.setErrorMessage("Remote service taking too long.");
+									statusResponse.setStatus(newStatus);
+									statusResponse.setErrorMessage(classification.getErrorMessage());
 								}
 
 								// Stop polling if no longer needed after timeout or processed
