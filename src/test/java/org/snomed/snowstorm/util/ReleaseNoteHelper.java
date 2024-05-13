@@ -28,11 +28,9 @@ public class ReleaseNoteHelper {
 		String jiraJSessionId = "-";
 		String jiraApi = "https://jira.ihtsdotools.org/rest/api/latest";
 		String outputFilename = "commit-change-log.tsv";
-
-
 		try {
-			Process process = Runtime.getRuntime().exec(new String[] {"git log", String.format("%s..%s", startCommit, endCommit)}, new String[]{}, codeDirectory);
-			ExecutorService executorService = Executors.newCachedThreadPool();
+//			Process process = Runtime.getRuntime().exec(new String[] {"git log", String.format("%s..%s", startCommit, endCommit)}, new String[]{}, codeDirectory);
+			Process process = Runtime.getRuntime().exec("git log " + startCommit + ".." + endCommit, new String[]{}, codeDirectory);ExecutorService executorService = Executors.newCachedThreadPool();
 			executorService.submit(new StreamGobbler(process.getErrorStream(), System.err::println));
 			int i = process.waitFor();
 			System.out.println(i);
@@ -81,6 +79,8 @@ public class ReleaseNoteHelper {
 								Issue issue1 = new Issue(commit.hash, issueKey, (String) statusMap.get("name"));
 								issue1.setSummary((String) fieldsMap.get("summary"));
 								issue1.setDescription((String) fieldsMap.get("description"));
+								Map<String, Object> assignee = (Map<String, Object>) fieldsMap.get("assignee");
+								issue1.setAssignee(assignee == null ? "Unassigned" : (String) assignee.get("name"));
 								return issue1;
 							} catch (HttpClientErrorException e) {
 								return new Issue(commit.hash, issueKey, "Lookup failed");
@@ -96,18 +96,19 @@ public class ReleaseNoteHelper {
 				}
 			}
 			try (BufferedWriter writer = new BufferedWriter(new FileWriter(outputFilename))) {
-				writer.write("Commit hash\tTicket\tTicket Status\tTicket Summary\tCommit comment");
+				writer.write("Commit hash\tTicket\tTicket Status\tAssigned\tTicket Summary\tCommit comment");
 				writer.newLine();
 				for (String key : Lists.reverse(new ArrayList<>(issues.keySet()))) {
 					Issue issue = issues.get(key);
 					StringBuilder comments = new StringBuilder();
 					for (Commit commit : issue.getCommits()) {
-						comments.append(commit.comment).append("|");
+						comments.append(commit.comment);
 					}
 					writer.write(String.join("\t",
 							issue.getHash(),
 							issue.getKey(),
 							issue.getStatus(),
+							issue.getAssignee(),
 							issue.getSummary(),
 							comments.toString()
 					));
@@ -136,6 +137,7 @@ public class ReleaseNoteHelper {
 		private final List<Commit> commits = new ArrayList<>();
 		private String description;
 		private String summary;
+		private String assignee;
 
 		public Issue(String hash, String key, String status) {
 			this.hash = hash;
@@ -189,6 +191,14 @@ public class ReleaseNoteHelper {
 
 		public String getSummary() {
 			return summary;
+		}
+
+		public String getAssignee() {
+			return assignee;
+		}
+
+		public void setAssignee(String assignee) {
+			this.assignee = assignee;
 		}
 	}
 
