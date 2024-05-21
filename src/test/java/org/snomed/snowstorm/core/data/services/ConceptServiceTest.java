@@ -31,6 +31,7 @@ import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.data.elasticsearch.client.elc.NativeQuery;
 import org.springframework.data.elasticsearch.client.elc.NativeQueryBuilder;
 import org.springframework.security.core.context.SecurityContextHolder;
+import static org.snomed.snowstorm.core.data.services.CodeSystemService.SNOMEDCT;
 
 import java.io.IOException;
 import java.util.*;
@@ -2833,6 +2834,181 @@ class ConceptServiceTest extends AbstractTest {
 		assertEquals(2, inactive.size());
 		assertEquals(0, nullET.size());
 		assertEquals(PREFERRED, active.iterator().next().getAdditionalField(ReferenceSetMember.LanguageFields.ACCEPTABILITY_ID));
+	}
+
+	@Test
+	void testInvalidInactiveAxiomNotReactivated() throws ServiceException {
+		String intMain = "MAIN";
+		Map<String, String> intPreferred = Map.of(US_EN_LANG_REFSET, descriptionAcceptabilityNames.get(PREFERRED), GB_EN_LANG_REFSET, descriptionAcceptabilityNames.get(PREFERRED));
+		Map<String, String> intAcceptable = Map.of(US_EN_LANG_REFSET, descriptionAcceptabilityNames.get(PREFERRED), GB_EN_LANG_REFSET, descriptionAcceptabilityNames.get(ACCEPTABLE));
+		String ci = "CASE_INSENSITIVE";
+		Concept concept;
+		CodeSystem codeSystem;
+
+		// Create Concept
+		concept = new Concept()
+				.addDescription(new Description("Vehicle (vehicle)").setTypeId(FSN).setCaseSignificance(ci).setAcceptabilityMap(intPreferred))
+				.addDescription(new Description("Vehicle").setTypeId(SYNONYM).setCaseSignificance(ci).setAcceptabilityMap(intPreferred))
+				.addAxiom(new Relationship(ISA, SNOMEDCT_ROOT));
+		concept = conceptService.create(concept, intMain);
+		String vehicleId = concept.getConceptId();
+
+		// Version
+		codeSystem = codeSystemService.find("SNOMEDCT");
+		codeSystemService.createVersion(codeSystem, 20240101, "20240101");
+
+		// Create type of Vehicle (purposely without Axiom)
+		concept = new Concept()
+				.addDescription(new Description("Car (vehicle)").setTypeId(FSN).setCaseSignificance(ci).setAcceptabilityMap(intPreferred))
+				.addDescription(new Description("Car").setTypeId(SYNONYM).setCaseSignificance(ci).setAcceptabilityMap(intPreferred))
+				.addRelationship(new Relationship(ISA, vehicleId));
+		concept = conceptService.create(concept, intMain);
+		String carId = concept.getConceptId();
+
+		// Manually create Axiom incorrectly (formatted back to front)
+		ReferenceSetMember axiom = new ReferenceSetMember(CORE_MODULE, OWL_AXIOM_REFERENCE_SET, concept.getConceptId());
+		String backToFront = String.format("SubClassOf(:%s :%s)", vehicleId, carId); // Note: vehicleId -> carId
+		axiom.setAdditionalField("owlExpression", backToFront);
+		axiom = referenceSetMemberService.createMember(intMain, axiom);
+		String invalidAxiomId = axiom.getId();
+
+		// Assert formatted incorrectly
+		axiom = referenceSetMemberService.findMember(intMain, axiom.getMemberId());
+		String owlExpression = axiom.getAdditionalField("owlExpression");
+		assertEquals(backToFront, owlExpression);
+
+		// Version error
+		codeSystem = codeSystemService.find("SNOMEDCT");
+		codeSystemService.createVersion(codeSystem, 20240201, "20240201");
+
+		// Fix mistake (replace invalid with valid)
+		axiom = referenceSetMemberService.findMember(intMain, invalidAxiomId);
+		axiom.setActive(false);
+		axiom.updateEffectiveTime();
+		referenceSetMemberService.updateMember(intMain, axiom);
+
+		axiom = new ReferenceSetMember(CORE_MODULE, OWL_AXIOM_REFERENCE_SET, concept.getConceptId());
+		String frontToBack = String.format("SubClassOf(:%s :%s)", carId, vehicleId);  // Note: carId -> vehicleId
+		axiom.setAdditionalField("owlExpression", frontToBack);
+		axiom = referenceSetMemberService.createMember(intMain, axiom);
+		String validAxiomId = axiom.getId();
+
+		// Version correction
+		codeSystem = codeSystemService.find("SNOMEDCT");
+		codeSystemService.createVersion(codeSystem, 20240301, "20240301");
+
+		// Add synonym
+		concept = conceptService.find(carId, intMain);
+		concept.addDescription(new Description("Motorised vehicle").setTypeId(SYNONYM).setCaseSignificance(ci).setAcceptabilityMap(intPreferred));
+		conceptService.update(concept, intMain);
+
+		// Assert inactive axiom hasn't changed
+		Axiom invalidAxiom = concept.getClassAxioms().stream().filter(cA -> cA.getAxiomId().equals(invalidAxiomId)).collect(Collectors.toList()).get(0);
+		assertEquals(20240301, invalidAxiom.getEffectiveTimeI());
+		assertEquals(backToFront, invalidAxiom.getReferenceSetMember().getAdditionalField("owlExpression"));
+	}
+
+	@Test
+	void testActivatingInvalidAxiomThrowsException() throws ServiceException {
+		String intMain = "MAIN";
+		Map<String, String> intPreferred = Map.of(US_EN_LANG_REFSET, descriptionAcceptabilityNames.get(PREFERRED), GB_EN_LANG_REFSET, descriptionAcceptabilityNames.get(PREFERRED));
+		Map<String, String> intAcceptable = Map.of(US_EN_LANG_REFSET, descriptionAcceptabilityNames.get(PREFERRED), GB_EN_LANG_REFSET, descriptionAcceptabilityNames.get(ACCEPTABLE));
+		String ci = "CASE_INSENSITIVE";
+		Concept concept;
+		CodeSystem codeSystem;
+
+		// Create Concept
+		concept = new Concept()
+				.addDescription(new Description("Vehicle (vehicle)").setTypeId(FSN).setCaseSignificance(ci).setAcceptabilityMap(intPreferred))
+				.addDescription(new Description("Vehicle").setTypeId(SYNONYM).setCaseSignificance(ci).setAcceptabilityMap(intPreferred))
+				.addAxiom(new Relationship(ISA, SNOMEDCT_ROOT));
+		concept = conceptService.create(concept, intMain);
+		String vehicleId = concept.getConceptId();
+
+		// Version
+		codeSystem = codeSystemService.find("SNOMEDCT");
+		codeSystemService.createVersion(codeSystem, 20240101, "20240101");
+
+		// Create type of Vehicle (purposely without Axiom)
+		concept = new Concept()
+				.addDescription(new Description("Car (vehicle)").setTypeId(FSN).setCaseSignificance(ci).setAcceptabilityMap(intPreferred))
+				.addDescription(new Description("Car").setTypeId(SYNONYM).setCaseSignificance(ci).setAcceptabilityMap(intPreferred))
+				.addRelationship(new Relationship(ISA, vehicleId));
+		concept = conceptService.create(concept, intMain);
+		String carId = concept.getConceptId();
+
+		// Manually create Axiom incorrectly (formatted back to front)
+		ReferenceSetMember axiom = new ReferenceSetMember(CORE_MODULE, OWL_AXIOM_REFERENCE_SET, concept.getConceptId());
+		String backToFront = String.format("SubClassOf(:%s :%s)", vehicleId, carId); // Note: vehicleId -> carId
+		axiom.setAdditionalField("owlExpression", backToFront);
+		axiom = referenceSetMemberService.createMember(intMain, axiom);
+		String invalidAxiomId = axiom.getId();
+
+		// Assert formatted incorrectly
+		axiom = referenceSetMemberService.findMember(intMain, axiom.getMemberId());
+		String owlExpression = axiom.getAdditionalField("owlExpression");
+		assertEquals(backToFront, owlExpression);
+
+		// Version error
+		codeSystem = codeSystemService.find("SNOMEDCT");
+		codeSystemService.createVersion(codeSystem, 20240201, "20240201");
+
+		// Fix mistake (replace invalid with valid)
+		axiom = referenceSetMemberService.findMember(intMain, invalidAxiomId);
+		axiom.setActive(false);
+		axiom.updateEffectiveTime();
+		referenceSetMemberService.updateMember(intMain, axiom);
+
+		axiom = new ReferenceSetMember(CORE_MODULE, OWL_AXIOM_REFERENCE_SET, concept.getConceptId());
+		String frontToBack = String.format("SubClassOf(:%s :%s)", carId, vehicleId);  // Note: carId -> vehicleId
+		axiom.setAdditionalField("owlExpression", frontToBack);
+		axiom = referenceSetMemberService.createMember(intMain, axiom);
+		String validAxiomId = axiom.getId();
+
+		// Version correction
+		codeSystem = codeSystemService.find("SNOMEDCT");
+		codeSystemService.createVersion(codeSystem, 20240301, "20240301");
+
+		// Inactivate concept
+		concept = conceptService.find(carId, intMain);
+		concept.setActive(false);
+		concept.updateEffectiveTime();
+		conceptService.update(concept, intMain);
+
+		// Version inactivation
+		codeSystem = codeSystemService.find("SNOMEDCT");
+		codeSystemService.createVersion(codeSystem, 20240401, "20240401");
+
+		// Assert inactive
+		concept = conceptService.find(carId, intMain);
+		assertFalse(concept.isActive());
+		assertNotNull(concept.getEffectiveTime());
+
+		// Reactivate concept
+		concept = conceptService.find(carId, intMain);
+		concept.setActive(true);
+		concept.updateEffectiveTime();
+		concept = conceptService.update(concept, intMain);
+
+		// Reactivate valid axiom (allowed)
+		for (Axiom classAxiom : concept.getClassAxioms()) {
+			if (validAxiomId.equals(classAxiom.getAxiomId())) {
+				classAxiom.setActive(true);
+			}
+		}
+		concept = conceptService.update(concept, intMain);
+
+		// Reactivate invalid axiom (not allowed)
+		for (Axiom classAxiom : concept.getClassAxioms()) {
+			if (invalidAxiomId.equals(classAxiom.getAxiomId())) {
+				classAxiom.setActive(true);
+			}
+		}
+
+		Concept finalConcept = concept;
+		assertThrows(IllegalStateException.class, () -> {
+			conceptService.update(finalConcept, intMain);
+		});
 	}
 
 	private Description getDescriptionByTerm(Concept concept, String term) {
