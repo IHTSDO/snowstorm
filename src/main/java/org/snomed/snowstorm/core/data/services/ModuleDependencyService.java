@@ -183,9 +183,13 @@ public class ModuleDependencyService extends ComponentService {
 		Map<String, Set<String>> mutualDependencies = detectMutualDependencies(rmPage.getContent());
 		modulesRequired.addAll(mutualDependencies.keySet());
 		
-		//If we're not an Edition, remove all international modules
+		//If we're not an Edition, remove all international modules, but keep the Derivative modules
 		if (!isEdition) {
-			modulesRequired.removeAll(cachedInternationalModules);
+			for (String module : cachedInternationalModules) {
+				if (modulesIncluded == null || !modulesIncluded.contains(module)) {
+					modulesRequired.remove(module);
+				}
+			}
 		}
 		
 		//Recover all these module concepts to find out what module they themselves were defined in.
