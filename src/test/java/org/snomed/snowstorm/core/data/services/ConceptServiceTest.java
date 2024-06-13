@@ -2383,6 +2383,122 @@ class ConceptServiceTest extends AbstractTest {
 		assertEquals("11000172109", concept.getModuleId());
 	}
 
+	@Test
+	void testNestedECLStatementReturnsSameResponseAsNonNested() throws ServiceException {
+		Concept concept;
+		String intMain = "MAIN";
+		CodeSystem codeSystem;
+		String ecl;
+		Page<ConceptMini> page;
+		List<String> conceptIds;
+		ReferenceSetMember referenceSetMember;
+
+		// Create reference sets
+		concept = new Concept()
+				.addDescription(new Description("Reference set (reference set)").setTypeId(FSN))
+				.addDescription(new Description("Reference set").setTypeId(SYNONYM))
+				.addAxiom(new Relationship(ISA, SNOMEDCT_ROOT))
+				.addRelationship(new Relationship(ISA, SNOMEDCT_ROOT));
+		concept = conceptService.create(concept, intMain);
+		String referenceSetId = concept.getConceptId();
+
+		concept = new Concept()
+				.addDescription(new Description("Vehicles (reference set)").setTypeId(FSN))
+				.addDescription(new Description("Vehicles reference set").setTypeId(SYNONYM))
+				.addAxiom(new Relationship(ISA, SNOMEDCT_ROOT))
+				.addRelationship(new Relationship(ISA, referenceSetId));
+		concept = conceptService.create(concept, intMain);
+		String vehiclesReferenceSetId = concept.getConceptId();
+
+		// Create concepts
+		concept = new Concept()
+				.addDescription(new Description("Vehicle (vehicle)").setTypeId(FSN))
+				.addDescription(new Description("Vehicle").setTypeId(SYNONYM))
+				.addAxiom(new Relationship(ISA, SNOMEDCT_ROOT))
+				.addRelationship(new Relationship(ISA, SNOMEDCT_ROOT));
+		concept = conceptService.create(concept, intMain);
+		String vehicleId = concept.getConceptId();
+
+		concept = new Concept()
+				.addDescription(new Description("Car (vehicle)").setTypeId(FSN))
+				.addDescription(new Description("Car").setTypeId(SYNONYM))
+				.addAxiom(new Relationship(ISA, SNOMEDCT_ROOT))
+				.addRelationship(new Relationship(ISA, vehicleId));
+		concept = conceptService.create(concept, intMain);
+		String carId = concept.getConceptId();
+
+		// Born inactive
+		concept = new Concept()
+				.addDescription(new Description("Motorised vehicle (vehicle)").setTypeId(FSN))
+				.addDescription(new Description("Motorised vehicle").setTypeId(SYNONYM))
+				.addAxiom(new Relationship(ISA, SNOMEDCT_ROOT).setActive(false))
+				.addRelationship(new Relationship(ISA, vehicleId).setActive(false))
+				.setActive(false);
+		concept = conceptService.create(concept, intMain);
+		String motorisedVehicleId = concept.getConceptId();
+
+		// Add concepts to reference set
+		referenceSetMember = new ReferenceSetMember().setRefsetId(vehiclesReferenceSetId).setModuleId(CORE_MODULE).setReferencedComponentId(vehicleId);
+		referenceSetMemberService.createMember(intMain, referenceSetMember);
+
+		referenceSetMember = new ReferenceSetMember().setRefsetId(vehiclesReferenceSetId).setModuleId(CORE_MODULE).setReferencedComponentId(carId);
+		referenceSetMemberService.createMember(intMain, referenceSetMember);
+
+		referenceSetMember = new ReferenceSetMember().setRefsetId(vehiclesReferenceSetId).setModuleId(CORE_MODULE).setReferencedComponentId(motorisedVehicleId);
+		referenceSetMemberService.createMember(intMain, referenceSetMember); // User error; should be removed
+
+		// Version
+		codeSystem = codeSystemService.find("SNOMEDCT");
+		codeSystemService.createVersion(codeSystem, 20240101, "20240101");
+
+		// Assert versioned
+		concept = conceptService.find(vehicleId, intMain);
+		assertReleased(concept, 20240101);
+		assertTrue(concept.isActive());
+
+		concept = conceptService.find(carId, intMain);
+		assertReleased(concept, 20240101);
+		assertTrue(concept.isActive());
+
+		concept = conceptService.find(motorisedVehicleId, intMain);
+		assertReleased(concept, 20240101);
+		assertFalse(concept.isActive());
+
+		// Assert query/semantic index is as expected
+		ecl = String.format("< %s", SNOMEDCT_ROOT);
+		page = queryService.search(queryService.createQueryBuilder(false).ecl(ecl), intMain, PageRequest.of(0, 50));
+		assertEquals(4, page.getTotalElements());
+		conceptIds = page.getContent().stream().map(ConceptMini::getConceptId).collect(Collectors.toList());
+		assertTrue(conceptIds.contains(referenceSetId));
+		assertTrue(conceptIds.contains(vehiclesReferenceSetId));
+		assertTrue(conceptIds.contains(vehicleId));
+		assertTrue(conceptIds.contains(carId));
+		assertFalse(conceptIds.contains(motorisedVehicleId)); // Excluded as inactive
+
+		// Assert ecl statements return same response
+		ecl = String.format("^ %s", vehiclesReferenceSetId);
+		page = queryService.search(queryService.createQueryBuilder(false).ecl(ecl), intMain, PageRequest.of(0, 50));
+		assertEquals(3, page.getTotalElements());
+		conceptIds = page.getContent().stream().map(ConceptMini::getConceptId).collect(Collectors.toList());
+		assertTrue(conceptIds.contains(vehicleId));
+		assertTrue(conceptIds.contains(carId));
+		assertTrue(conceptIds.contains(motorisedVehicleId)); // Concept is inactive, but its member is not
+
+		ecl = String.format("(^ %s)", vehiclesReferenceSetId); // Parenthesis make statement a sub-query
+		page = queryService.search(queryService.createQueryBuilder(false).ecl(ecl), intMain, PageRequest.of(0, 50));
+		assertEquals(3, page.getTotalElements());
+		conceptIds = page.getContent().stream().map(ConceptMini::getConceptId).collect(Collectors.toList());
+		assertTrue(conceptIds.contains(vehicleId));
+		assertTrue(conceptIds.contains(carId));
+		assertTrue(conceptIds.contains(motorisedVehicleId));  // Concept is inactive, but its member is not
+	}
+
+	private void assertReleased(Concept concept, int effectiveTime) {
+		assertTrue(concept.isReleased());
+		assertEquals(effectiveTime, concept.getReleasedEffectiveTime());
+		assertEquals(effectiveTime, concept.getEffectiveTimeI());
+	}
+
 	private boolean waitUntil(Supplier<Boolean> supplier, int maxSecondsToWait) {
 		try {
 			int sleptSeconds = 0;
