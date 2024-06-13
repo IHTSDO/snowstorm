@@ -215,7 +215,10 @@ public class SSubExpressionConstraint extends SubExpressionConstraint implements
 			query.must(termsQuery(QueryConcept.Fields.CONCEPT_ID, conceptIdSortedSet));
 			filteredOrSupplementedContentCallback.accept(new LongArrayList(conceptIdSortedSet));
 		} else {
-			doAddCriteria(refinementBuilder, query);
+			Collection<Long> conceptIds = doAddCriteria(refinementBuilder, query);
+			if (conceptIds != null && !conceptIds.isEmpty()) {
+				filteredOrSupplementedContentCallback.accept(new LongArrayList(conceptIds));
+			}
 		}
 	}
 
