@@ -106,7 +106,7 @@ public class ExportController {
 		//Extensions only mention their own modules, despite being able to "see" those on MAIN
 		Branch branch = branchService.findBranchOrThrow(branchPath);
 		final boolean isExtension = (branch.getMetadata() != null && !StringUtils.isEmpty(branch.getMetadata().getString(BranchMetadataKeys.DEPENDENCY_PACKAGE)));
-		ExportFilter<ReferenceSetMember> exportFilter = rm -> moduleDependencyService.isExportable(rm, isExtension);
+		ExportFilter<ReferenceSetMember> exportFilter = rm -> moduleDependencyService.isExportable(rm, isExtension, modulesIncluded);
 		
 		return moduleDependencyService.generateModuleDependencies(branchPath, effectiveDate, modulesIncluded, isDelta, null)
 				.stream()
