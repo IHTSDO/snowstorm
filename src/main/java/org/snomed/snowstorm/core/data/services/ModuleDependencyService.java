@@ -42,7 +42,7 @@ public class ModuleDependencyService extends ComponentService {
 	
 	public static final Set<String> CORE_MODULES = Set.of(Concepts.CORE_MODULE, Concepts.MODEL_MODULE);
 	
-	public Set<String> SI_MODULES = new HashSet<>(Set.of(Concepts.CORE_MODULE, Concepts.MODEL_MODULE, Concepts.ICD10_MODULE));
+	public Set<String> SI_MODULES = new HashSet<>(Set.of(Concepts.CORE_MODULE, Concepts.MODEL_MODULE, Concepts.ICD10_MODULE, Concepts.ICD11_MODULE));
 	
 	@Autowired
 	private BranchService branchService;
@@ -94,9 +94,12 @@ public class ModuleDependencyService extends ComponentService {
 			cacheValidAt = currentTime;
 			logger.info("MDR cache of International Modules refreshed for HEAD time: {}", currentTime);
 			
-			//During unit tests, or in non-standard installations we might not see the ICD-10 Module
+			//During unit tests, or in non-standard installations we might not see the ICD-10 and ICD-11 Modules
 			if (!cachedInternationalModules.contains(Concepts.ICD10_MODULE)) {
 				SI_MODULES.remove(Concepts.ICD10_MODULE);
+			}
+			if (!cachedInternationalModules.contains(Concepts.ICD11_MODULE)) {
+				SI_MODULES.remove(Concepts.ICD11_MODULE);
 			}
 			
 			derivativeModules = cachedInternationalModules.stream()
