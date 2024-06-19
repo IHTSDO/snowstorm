@@ -318,7 +318,7 @@ public class ExportService {
 						ExportFilter<ReferenceSetMember> exportFilter = null;
 						if (isMDRS) {
 							logger.info("MDRS being exported for " + (isExtension?"extension":"edition") + " package style.");
-							exportFilter = rm -> mdrService.isExportable(rm, isExtension);
+							exportFilter = rm -> mdrService.isExportable(rm, isExtension, moduleIds);
 						}
 						if (generateMDR && isMDRS) {
 							logger.info("MDR being generated rather than persisted.");

@@ -16,6 +16,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
+import org.springframework.util.CollectionUtils;
 import org.springframework.util.StopWatch;
 
 import io.kaicode.elasticvc.api.BranchService;
@@ -350,7 +351,7 @@ public class ModuleDependencyService extends ComponentService {
 		
 		List<String> ancestors = findAncestorModules(module, selfMappedModules, moduleMap.get(module));
 		//If we only see a single ancestor, that's our closest parent
-		if (ancestors.size() == 0) {
+		if (ancestors.isEmpty()) {
 			return module;
 		} else if (ancestors.size() == 1) {
 			return ancestors.get(0);
@@ -522,8 +523,12 @@ public class ModuleDependencyService extends ComponentService {
 		}
 		return moduleParentMap;
 	}
-	
-	public boolean isExportable(ReferenceSetMember rm, boolean isExtension) {
+
+	public boolean isExportable(ReferenceSetMember rm, boolean isExtension, Set<String> modulesIncluded) {
+		if (!CollectionUtils.isEmpty(modulesIncluded) && modulesIncluded.contains(rm.getModuleId())) {
+			return true;
+		}
+
 		//Extensions don't list dependencies of core modules
 		if (isExtension && SI_MODULES.contains(rm.getModuleId())) {
 			return false;
@@ -531,12 +536,8 @@ public class ModuleDependencyService extends ComponentService {
 		if (excludeDerivativeModules && derivativeModules.contains(rm.getModuleId())) {
 			return false;
 		}
-		
-		if (blockListedModules != null && blockListedModules.contains(rm.getModuleId())) {
-			return false;
-		}
-		
-		return true;
-	}
+
+        return blockListedModules == null || !blockListedModules.contains(rm.getModuleId());
+    }
 
 }
