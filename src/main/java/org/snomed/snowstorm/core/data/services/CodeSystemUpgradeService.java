@@ -176,32 +176,35 @@ public class CodeSystemUpgradeService {
 			logger.info("Rolling back any daily build content before upgrade.");
 			dailyBuildService.rollbackDailyBuildContent(codeSystem);
 		}
+		boolean upgradedSuccessfully = false;
 		try {
 			Branch newParentVersionBranch = branchService.findLatest(newParentVersion.getBranchPath());
 			Date newParentBaseTimepoint = newParentVersionBranch.getBase();
 			logger.info("Running upgrade of {} to {} version {}.", codeSystem, parentCodeSystem, newDependantVersion);
 			branchMergeService.rebaseToSpecificTimepointAndRemoveDuplicateContent(parentPath, newParentBaseTimepoint, branchPath, String.format("Upgrading extension to %s@%s.", parentPath, newParentVersion.getVersion()));
-			logger.info("Completed upgrade of {} to {} version {}.", codeSystem, parentCodeSystem, newDependantVersion);
+			logger.info("Completed rebase of {} to {} version {}.", codeSystem, parentCodeSystem, newDependantVersion);
 
 			if (contentAutomations) {
-				logger.info("Running upgrade content automations.");
+				logger.info("Running upgrade content automations on {}.", branchPath);
 				upgradeInactivationService.findAndUpdateDescriptionsInactivation(codeSystem);
 				upgradeInactivationService.findAndUpdateLanguageRefsets(codeSystem);
 				upgradeInactivationService.findAndUpdateAdditionalAxioms(codeSystem);
-				logger.info("Completed upgrade content automations.");
+				logger.info("Completed upgrade content automations on {}.", branchPath);
 			}
 
-			logger.info("Running integrity check on {}", branchPath);
+			logger.info("Running post upgrade integrity check on {}", branchPath);
 			Branch extensionBranch = branchService.findLatest(branchPath);
 			IntegrityIssueReport integrityReport = integrityService.findChangedComponentsWithBadIntegrityNotFixed(extensionBranch);
-			logger.info("Completed integrity check on {}", branchPath);
+			logger.info("Completed post upgrade integrity check on {}", branchPath);
 
+			logger.info("Running post upgrade metadata update on {}", branchPath);
 			updateBranchMetaData(branchPath, newParentVersion, extensionBranch, integrityReport.isEmpty());
-			logger.info("Upgrade completed on {}", branchPath);
 			if (job != null) {
 				job.setStatus(CodeSystemUpgradeJob.UpgradeStatus.COMPLETED);
 			}
-		} catch (ServiceException e) {
+			upgradedSuccessfully = true;
+		} catch (Exception e) {
+			logger.error("Upgrade on {} failed", branchPath, e);
 			if (job != null) {
 				job.setStatus(CodeSystemUpgradeJob.UpgradeStatus.FAILED);
 				job.setErrorMessage(e.getMessage());
@@ -214,6 +217,8 @@ public class CodeSystemUpgradeService {
 				codeSystem.setDailyBuildAvailable(true);
 				codeSystemRepository.save(codeSystem);
 			}
+
+			logger.info("Upgrade {} on {}", upgradedSuccessfully?"completed":"unsuccessful", branchPath);
 		}
 	}
 
