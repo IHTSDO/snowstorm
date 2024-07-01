@@ -131,6 +131,7 @@ public class UpgradeInactivationService {
 
 		logger.info("{} descriptions found with inactive concepts but without concept non-current indicators", membersToSave.size());
 		if (!membersToSave.isEmpty()) {
+			//TODO What exception does this throw if we are unable to lock the branch?
 			try (Commit commit = branchService.openCommit(branchPath, branchMetadataHelper.getBranchLockMetadata("Concept non-current description inactivation"))) {
 				conceptUpdateHelper.doSaveBatchComponents(membersToSave, ReferenceSetMember.class, commit);
 				logger.info("Added {} concept non-current indicators for descriptions having inactive concepts. Member uuids: {}",
