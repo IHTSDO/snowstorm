@@ -2384,7 +2384,7 @@ class ConceptServiceTest extends AbstractTest {
 	}
 
 	@Test
-	void testNestedECLStatementReturnsSameResponseAsNonNested() throws ServiceException {
+	void testECLWithMemberOfQueries() throws ServiceException {
 		Concept concept;
 		String intMain = "MAIN";
 		CodeSystem codeSystem;
@@ -2484,13 +2484,29 @@ class ConceptServiceTest extends AbstractTest {
 		assertTrue(conceptIds.contains(carId));
 		assertTrue(conceptIds.contains(motorisedVehicleId)); // Concept is inactive, but its member is not
 
-		ecl = String.format("(^ %s)", vehiclesReferenceSetId); // Parenthesis make statement a sub-query
+		ecl = String.format("(^ %s)", vehiclesReferenceSetId);
 		page = queryService.search(queryService.createQueryBuilder(false).ecl(ecl), intMain, PageRequest.of(0, 50));
 		assertEquals(3, page.getTotalElements());
 		conceptIds = page.getContent().stream().map(ConceptMini::getConceptId).collect(Collectors.toList());
 		assertTrue(conceptIds.contains(vehicleId));
 		assertTrue(conceptIds.contains(carId));
 		assertTrue(conceptIds.contains(motorisedVehicleId));  // Concept is inactive, but its member is not
+
+		// Compound queries the second part should return no results for testing purpose only
+		// Disjunction
+		ecl = String.format("(^ %s) OR (<< 423857001 |Structure of half of body lateral to midsagittal plane (body structure)|)", vehiclesReferenceSetId);
+		page = queryService.search(queryService.createQueryBuilder(false).ecl(ecl), intMain, PageRequest.of(0, 50));
+		assertEquals(3, page.getTotalElements());
+
+		// Conjunction
+		ecl = String.format("(^ %s) AND (<< 423857001 |Structure of half of body lateral to midsagittal plane (body structure)|)", vehiclesReferenceSetId);
+		page = queryService.search(queryService.createQueryBuilder(false).ecl(ecl), intMain, PageRequest.of(0, 50));
+		assertEquals(3, page.getTotalElements());
+
+		// Exclusion
+		ecl = String.format("(^ %s) MINUS (<< 423857001 |Structure of half of body lateral to midsagittal plane (body structure)|)", vehiclesReferenceSetId);
+		page = queryService.search(queryService.createQueryBuilder(false).ecl(ecl), intMain, PageRequest.of(0, 50));
+		assertEquals(3, page.getTotalElements());
 	}
 
 	private void assertReleased(Concept concept, int effectiveTime) {

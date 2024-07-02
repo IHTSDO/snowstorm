@@ -68,7 +68,7 @@ public class SCompoundExpressionConstraint extends CompoundExpressionConstraint 
 		triedCache = false;// None of the compound constraints have been through caching
 
 		if (conjunctionExpressionConstraints != null) {
-			if (anyWithFiltersOrSupplements(conjunctionExpressionConstraints)) {
+			if (anyWithFiltersOrSupplements(conjunctionExpressionConstraints) || anyMemberOfQuery(conjunctionExpressionConstraints)) {
 				// Prefetch all
 				Set<Long> result = null;
 				for (SubExpressionConstraint conjunctionExpressionConstraint : conjunctionExpressionConstraints) {
@@ -88,7 +88,7 @@ public class SCompoundExpressionConstraint extends CompoundExpressionConstraint 
 				}
 			}
 		} else if (disjunctionExpressionConstraints != null) {
-			if (anyWithFiltersOrSupplements(disjunctionExpressionConstraints)) {
+			if (anyWithFiltersOrSupplements(disjunctionExpressionConstraints) || anyMemberOfQuery(disjunctionExpressionConstraints)) {
 				// Prefetch all
 				Set<Long> result = null;
 				for (SubExpressionConstraint disjunctionExpressionConstraint : disjunctionExpressionConstraints) {
@@ -115,7 +115,7 @@ public class SCompoundExpressionConstraint extends CompoundExpressionConstraint 
 			SSubExpressionConstraint first = (SSubExpressionConstraint) exclusionExpressionConstraints.getFirst();
 			SSubExpressionConstraint second = (SSubExpressionConstraint) exclusionExpressionConstraints.getSecond();
 
-			if (first.isAnyFiltersOrSupplements() || second.isAnyFiltersOrSupplements()) {
+			if (first.isAnyFiltersOrSupplements() || second.isAnyFiltersOrSupplements() || anyMemberOfQuery(List.of(first,second))) {
 				List<Long> ids = new LongArrayList(ConceptSelectorHelper.select(first, refinementBuilder).getContent());
 				ids.removeAll(ConceptSelectorHelper.select(second, refinementBuilder).getContent());
 				filteredOrSupplementedContentCallback.accept(ids);
@@ -137,6 +137,11 @@ public class SCompoundExpressionConstraint extends CompoundExpressionConstraint 
 
 	private boolean anyWithFiltersOrSupplements(List<SubExpressionConstraint> subExpressionConstraints) {
 		return subExpressionConstraints.stream().anyMatch(constraint -> ((SSubExpressionConstraint) constraint).isAnyFiltersOrSupplements());
+	}
+
+	private boolean anyMemberOfQuery(List<SubExpressionConstraint> subExpressionConstraints) {
+		return subExpressionConstraints.stream().anyMatch(constraint -> ((SSubExpressionConstraint) constraint).isMemberOfQuery()
+				|| ((SSubExpressionConstraint) constraint).isNestedExpressionConstraintMemberOfQuery());
 	}
 
 	@Override
