@@ -67,6 +67,19 @@ public class SSubExpressionConstraint extends SubExpressionConstraint implements
 	}
 
 	@JsonIgnore
+	public boolean isMemberOfQuery() {
+		return operator == Operator.memberOf;
+	}
+
+	@JsonIgnore
+	public boolean isNestedExpressionConstraintMemberOfQuery() {
+		if (nestedExpressionConstraint != null && nestedExpressionConstraint instanceof SSubExpressionConstraint subExpressionConstraint) {
+			return subExpressionConstraint.isMemberOfQuery();
+		}
+		return false;
+	}
+
+	@JsonIgnore
 	public boolean isAnyFiltersOrSupplementsExcludingMemberFilters() {
 		return conceptFilterConstraints != null || descriptionFilterConstraints != null || getHistorySupplement() != null;
 	}
@@ -164,7 +177,7 @@ public class SSubExpressionConstraint extends SubExpressionConstraint implements
 	public void addCriteria(RefinementBuilder refinementBuilder, Consumer<List<Long>> filteredOrSupplementedContentCallback, boolean triedCache) {
 		BoolQuery.Builder query = refinementBuilder.getQueryBuilder();
 
-		if (operator == Operator.memberOf || isAnyFiltersOrSupplements()) {
+		if (operator == Operator.memberOf || isAnyFiltersOrSupplements() || isNestedExpressionConstraintMemberOfQuery()) {
 			// Fetching required
 
 			ECLContentService eclContentService = refinementBuilder.getEclContentService();
@@ -175,7 +188,7 @@ public class SSubExpressionConstraint extends SubExpressionConstraint implements
 
 			// Cache results before applying filters, apart from member queries with field filters.
 			Collection<Long> prefetchedConceptIds = null;
-			if (operator == Operator.memberOf && (memberFilterConstraints != null || triedCache)) {
+			if ((isNestedExpressionConstraintMemberOfQuery() || operator == Operator.memberOf) && (memberFilterConstraints != null || triedCache)) {
 				// If there is a member filter constraint we can assume the results set will be fairly small / not reusable.
 				// If there are no filters this
 				// Fetch without cache.
@@ -215,10 +228,7 @@ public class SSubExpressionConstraint extends SubExpressionConstraint implements
 			query.must(termsQuery(QueryConcept.Fields.CONCEPT_ID, conceptIdSortedSet));
 			filteredOrSupplementedContentCallback.accept(new LongArrayList(conceptIdSortedSet));
 		} else {
-			Collection<Long> conceptIds = doAddCriteria(refinementBuilder, query);
-			if (conceptIds != null && !conceptIds.isEmpty()) {
-				filteredOrSupplementedContentCallback.accept(new LongArrayList(conceptIds));
-			}
+			doAddCriteria(refinementBuilder, query);
 		}
 	}
 
