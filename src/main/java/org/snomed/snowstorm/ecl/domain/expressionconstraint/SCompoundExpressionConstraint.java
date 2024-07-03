@@ -23,8 +23,7 @@ import java.util.Set;
 import java.util.function.Consumer;
 
 import static co.elastic.clients.elasticsearch._types.query_dsl.QueryBuilders.bool;
-import static com.google.common.collect.Sets.newHashSet;
-import static com.google.common.collect.Sets.union;
+import static com.google.common.collect.Sets.*;
 import static java.util.stream.Collectors.toSet;
 
 public class SCompoundExpressionConstraint extends CompoundExpressionConstraint implements SExpressionConstraint {
@@ -77,7 +76,7 @@ public class SCompoundExpressionConstraint extends CompoundExpressionConstraint 
 					if (result == null) {
 						result = resultSet;
 					} else {
-						result = union(result, resultSet);
+						result = intersection(result, resultSet);
 					}
 				}
 				filteredOrSupplementedContentCallback.accept(result != null ? sortedList(result) : null);
