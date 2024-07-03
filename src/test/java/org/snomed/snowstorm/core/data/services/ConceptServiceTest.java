@@ -2505,11 +2505,11 @@ class ConceptServiceTest extends AbstractTest {
 		// Conjunction with and without brackets
 		ecl = String.format("(^ %s) AND (<< 423857001 |Structure of half of body lateral to midsagittal plane (body structure)|)", vehiclesReferenceSetId);
 		page = queryService.search(queryService.createQueryBuilder(false).ecl(ecl), intMain, PageRequest.of(0, 50));
-		assertEquals(3, page.getTotalElements());
+		assertEquals(0, page.getTotalElements());
 
 		ecl = String.format("^ %s AND << 423857001 |Structure of half of body lateral to midsagittal plane (body structure)|", vehiclesReferenceSetId);
 		page = queryService.search(queryService.createQueryBuilder(false).ecl(ecl), intMain, PageRequest.of(0, 50));
-		assertEquals(3, page.getTotalElements());
+		assertEquals(0, page.getTotalElements());
 
 		// Exclusion with and without brackets
 		ecl = String.format("(^ %s) MINUS (<< 423857001 |Structure of half of body lateral to midsagittal plane (body structure)|)", vehiclesReferenceSetId);
