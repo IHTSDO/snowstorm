@@ -2493,18 +2493,30 @@ class ConceptServiceTest extends AbstractTest {
 		assertTrue(conceptIds.contains(motorisedVehicleId));  // Concept is inactive, but its member is not
 
 		// Compound queries the second part should return no results for testing purpose only
-		// Disjunction
+		// Disjunction with and without brackets
 		ecl = String.format("(^ %s) OR (<< 423857001 |Structure of half of body lateral to midsagittal plane (body structure)|)", vehiclesReferenceSetId);
 		page = queryService.search(queryService.createQueryBuilder(false).ecl(ecl), intMain, PageRequest.of(0, 50));
 		assertEquals(3, page.getTotalElements());
 
-		// Conjunction
+		ecl = String.format("^ %s OR << 423857001 |Structure of half of body lateral to midsagittal plane (body structure)|", vehiclesReferenceSetId);
+		page = queryService.search(queryService.createQueryBuilder(false).ecl(ecl), intMain, PageRequest.of(0, 50));
+		assertEquals(3, page.getTotalElements());
+
+		// Conjunction with and without brackets
 		ecl = String.format("(^ %s) AND (<< 423857001 |Structure of half of body lateral to midsagittal plane (body structure)|)", vehiclesReferenceSetId);
 		page = queryService.search(queryService.createQueryBuilder(false).ecl(ecl), intMain, PageRequest.of(0, 50));
 		assertEquals(3, page.getTotalElements());
 
-		// Exclusion
+		ecl = String.format("^ %s AND << 423857001 |Structure of half of body lateral to midsagittal plane (body structure)|", vehiclesReferenceSetId);
+		page = queryService.search(queryService.createQueryBuilder(false).ecl(ecl), intMain, PageRequest.of(0, 50));
+		assertEquals(3, page.getTotalElements());
+
+		// Exclusion with and without brackets
 		ecl = String.format("(^ %s) MINUS (<< 423857001 |Structure of half of body lateral to midsagittal plane (body structure)|)", vehiclesReferenceSetId);
+		page = queryService.search(queryService.createQueryBuilder(false).ecl(ecl), intMain, PageRequest.of(0, 50));
+		assertEquals(3, page.getTotalElements());
+
+		ecl = String.format("^ %s MINUS << 423857001 |Structure of half of body lateral to midsagittal plane (body structure)|", vehiclesReferenceSetId);
 		page = queryService.search(queryService.createQueryBuilder(false).ecl(ecl), intMain, PageRequest.of(0, 50));
 		assertEquals(3, page.getTotalElements());
 	}
