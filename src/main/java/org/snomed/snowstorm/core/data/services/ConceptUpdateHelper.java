@@ -31,7 +31,6 @@ import org.springframework.data.elasticsearch.core.SearchHitsIterator;
 import org.springframework.data.elasticsearch.client.elc.NativeQuery;
 import org.springframework.data.elasticsearch.client.elc.NativeQueryBuilder;
 import org.springframework.stereotype.Service;
-import org.springframework.util.CollectionUtils;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
@@ -46,6 +45,28 @@ import static org.snomed.snowstorm.core.data.domain.Concepts.inactivationIndicat
 
 @Service
 public class ConceptUpdateHelper extends ComponentService {
+	private static final Comparator<ReferenceSetMember> CORE_MODULE_ACTIVE_COMPARATOR = (o1, o2) -> {
+		boolean o1Core = o1.getModuleId().equals(Concepts.CORE_MODULE);
+		boolean o2Core = o2.getModuleId().equals(Concepts.CORE_MODULE);
+		boolean o1Active = o1.isActive();
+		boolean o2Active = o2.isActive();
+
+		if (o1Core && o1Active && !(o2Core && o2Active)) {
+			return -1;
+		} else if (!(o1Core && o1Active) && o2Core && o2Active) {
+			return 1;
+		} else if (o1Core && !o2Core) {
+			return -1;
+		} else if (!o1Core && o2Core) {
+			return 1;
+		} else if (o1Active && !o2Active) {
+			return -1;
+		} else if (!o1Active && o2Active) {
+			return 1;
+		} else {
+			return 0;
+		}
+	};
 
 	@Autowired
 	private ConceptRepository conceptRepository;
@@ -220,7 +241,12 @@ public class ConceptUpdateHelper extends ComponentService {
 						throw new IllegalArgumentException("Acceptability value not recognised '" + acceptability.getValue() + "'.");
 					}
 
-					final Set<ReferenceSetMember> existingMembers = existingMembersToMatch.get(languageRefsetId);
+					Set<ReferenceSetMember> existingMembers = new TreeSet<>(CORE_MODULE_ACTIVE_COMPARATOR);
+					Set<ReferenceSetMember> existingMembersToMatchByLanguageRefset = existingMembersToMatch.get(languageRefsetId);
+					if (existingMembersToMatchByLanguageRefset != null && !existingMembersToMatchByLanguageRefset.isEmpty()) {
+						existingMembers.addAll(existingMembersToMatchByLanguageRefset);
+					}
+
 					ReferenceSetMember existingMember = existingMembers != null && !existingMembers.isEmpty() ? existingMembers.iterator().next() : null;
 					ReferenceSetMember member;
 					if (existingMember != null) {
