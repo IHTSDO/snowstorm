@@ -2521,6 +2521,322 @@ class ConceptServiceTest extends AbstractTest {
 		assertEquals(3, page.getTotalElements());
 	}
 
+	@Test
+	void testUpdatingInactivatesDuplicateLangMember() throws ServiceException {
+		Concept concept;
+		String intMain = "MAIN";
+		Map<String, String> preferred = Map.of(US_EN_LANG_REFSET, descriptionAcceptabilityNames.get(PREFERRED), GB_EN_LANG_REFSET, descriptionAcceptabilityNames.get(PREFERRED));
+		Map<String, String> acceptable = Map.of(US_EN_LANG_REFSET, descriptionAcceptabilityNames.get(ACCEPTABLE), GB_EN_LANG_REFSET, descriptionAcceptabilityNames.get(ACCEPTABLE));
+		CodeSystem codeSystem;
+
+		// Create concept
+		concept = new Concept()
+				.addDescription(new Description("Vehicle (vehicle)").setTypeId(FSN).setAcceptabilityMap(preferred))
+				.addDescription(new Description("Vehicle").setTypeId(SYNONYM).setAcceptabilityMap(preferred))
+				.addAxiom(new Relationship(ISA, SNOMEDCT_ROOT))
+				.addRelationship(new Relationship(ISA, SNOMEDCT_ROOT));
+		concept = conceptService.create(concept, intMain);
+		String conceptId = concept.getConceptId();
+
+		// Accidentally create duplicate
+		ReferenceSetMember duplicate = new ReferenceSetMember();
+		duplicate.setRefsetId(US_EN_LANG_REFSET);
+		duplicate.setModuleId(CORE_MODULE);
+		duplicate.setReferencedComponentId(getDescriptionByTerm(concept, "Vehicle").getId());
+		duplicate.setAdditionalField(ReferenceSetMember.LanguageFields.ACCEPTABILITY_ID, ACCEPTABLE);
+		referenceSetMemberService.createMember(intMain, duplicate);
+
+		// Version
+		codeSystem = codeSystemService.find("SNOMEDCT");
+		codeSystemService.createVersion(codeSystem, 20240101, "20240101");
+
+		// Add synonym
+		concept = conceptService.find(conceptId, intMain);
+		concept.addDescription(new Description("Motorised vehicle").setTypeId(SYNONYM).setAcceptabilityMap(acceptable));
+		conceptService.update(concept, intMain);
+
+		// Assert
+		concept = conceptService.find(conceptId, intMain);
+		Set<ReferenceSetMember> usLangMembers = getDescriptionByTerm(concept, "Vehicle").getLangRefsetMembersMap().get(US_EN_LANG_REFSET);
+		assertEquals(2, usLangMembers.size());
+		List<ReferenceSetMember> active = usLangMembers.stream().filter(ReferenceSetMember::isActive).collect(Collectors.toList());
+		List<ReferenceSetMember> inactive = usLangMembers.stream().filter(r -> {return !r.isActive();}).collect(Collectors.toList());
+		List<ReferenceSetMember> nullET = usLangMembers.stream().filter(r -> {return r.getEffectiveTime() == null;}).collect(Collectors.toList());
+		assertEquals(1, active.size());
+		assertEquals(1, inactive.size());
+		assertEquals(1, nullET.size());
+		assertNotEquals(active.iterator().next().getId(), nullET.iterator().next().getId());
+	}
+
+	@Test
+	void testAddingTranslationInactivatesDuplicateLangMember() throws ServiceException {
+		Concept concept;
+		String intMain = "MAIN";
+		String extMain = "MAIN/SNOMEDCT-XX";
+		Map<String, String> preferred = Map.of(US_EN_LANG_REFSET, descriptionAcceptabilityNames.get(PREFERRED), GB_EN_LANG_REFSET, descriptionAcceptabilityNames.get(PREFERRED));
+		Map<String, String> acceptable = Map.of(US_EN_LANG_REFSET, descriptionAcceptabilityNames.get(ACCEPTABLE), GB_EN_LANG_REFSET, descriptionAcceptabilityNames.get(ACCEPTABLE));
+		CodeSystem codeSystem;
+
+		// Create International concept
+		concept = new Concept()
+				.addDescription(new Description("Vehicle (vehicle)").setTypeId(FSN).setAcceptabilityMap(preferred))
+				.addDescription(new Description("Vehicle").setTypeId(SYNONYM).setAcceptabilityMap(preferred))
+				.addAxiom(new Relationship(ISA, SNOMEDCT_ROOT))
+				.addRelationship(new Relationship(ISA, SNOMEDCT_ROOT));
+		concept = conceptService.create(concept, intMain);
+		String conceptId = concept.getConceptId();
+
+		// Version International
+		codeSystem = codeSystemService.find("SNOMEDCT");
+		codeSystemService.createVersion(codeSystem, 20240101, "20240101");
+
+		// Create Extension
+		codeSystem = codeSystemService.createCodeSystem(new CodeSystem("SNOMEDCT-XX", extMain));
+		concept = conceptService.create(
+				new Concept()
+						.addDescription(new Description("Extension module (module)").setTypeId(FSN).setAcceptabilityMap(preferred))
+						.addDescription(new Description("Extension module").setTypeId(SYNONYM).setAcceptabilityMap(preferred))
+						.addAxiom(new Relationship(ISA, MODULE)),
+				extMain
+		);
+		String extModuleA = concept.getConceptId();
+		concept = conceptService.create(
+				new Concept()
+						.addDescription(new Description("Extension medicine module (module)").setTypeId(FSN).setAcceptabilityMap(preferred))
+						.addDescription(new Description("Extension medicine module").setAcceptabilityMap(preferred))
+						.addAxiom(new Relationship(ISA, MODULE)),
+				extMain
+		);
+		String extModuleB = concept.getConceptId();
+		branchService.updateMetadata(extMain, Map.of(Config.DEFAULT_MODULE_ID_KEY, extModuleA, Config.EXPECTED_EXTENSION_MODULES, List.of(extModuleA, extModuleB)));
+
+		// Extension accidentally creates duplicate lang member
+		concept = conceptService.find(conceptId, extMain);
+		ReferenceSetMember duplicate = new ReferenceSetMember();
+		duplicate.setRefsetId(US_EN_LANG_REFSET);
+		duplicate.setModuleId(extModuleA);
+		duplicate.setReferencedComponentId(getDescriptionByTerm(concept, "Vehicle").getId());
+		duplicate.setAdditionalField(ReferenceSetMember.LanguageFields.ACCEPTABILITY_ID, ACCEPTABLE);
+		referenceSetMemberService.createMember(extMain, duplicate);
+
+		duplicate = new ReferenceSetMember();
+		duplicate.setRefsetId(US_EN_LANG_REFSET);
+		duplicate.setModuleId(extModuleA);
+		duplicate.setReferencedComponentId(getDescriptionByTerm(concept, "Vehicle").getId());
+		duplicate.setAdditionalField(ReferenceSetMember.LanguageFields.ACCEPTABILITY_ID, ACCEPTABLE);
+		referenceSetMemberService.createMember(extMain, duplicate);
+
+		// Version Extension
+		codeSystem = codeSystemService.find("SNOMEDCT-XX");
+		codeSystemService.createVersion(codeSystem, 20240102, "20240102");
+
+		// Extension adds translation
+		concept = conceptService.find(conceptId, intMain);
+		concept.addDescription(new Description("Fordon").setTypeId(SYNONYM).setAcceptabilityMap(acceptable));
+		conceptService.update(concept, extMain);
+
+		// Assert
+		concept = conceptService.find(conceptId, extMain);
+		Set<ReferenceSetMember> usLangMembers = getDescriptionByTerm(concept, "Vehicle").getLangRefsetMembersMap().get(US_EN_LANG_REFSET);
+		assertEquals(3, usLangMembers.size());
+		List<ReferenceSetMember> active = usLangMembers.stream().filter(ReferenceSetMember::isActive).collect(Collectors.toList());
+		List<ReferenceSetMember> inactive = usLangMembers.stream().filter(r -> {return !r.isActive();}).collect(Collectors.toList());
+		List<ReferenceSetMember> nullET = usLangMembers.stream().filter(r -> {return r.getEffectiveTime() == null;}).collect(Collectors.toList());
+		assertEquals(1, active.size());
+		assertEquals(2, inactive.size());
+		assertEquals(2, nullET.size());
+		assertNotEquals(active.iterator().next().getId(), nullET.iterator().next().getId());
+		assertEquals(PREFERRED, active.iterator().next().getAdditionalField(ReferenceSetMember.LanguageFields.ACCEPTABILITY_ID));
+		assertEquals(ACCEPTABLE, nullET.iterator().next().getAdditionalField(ReferenceSetMember.LanguageFields.ACCEPTABILITY_ID));
+	}
+
+	@Test
+	void testAddingTranslationDeletesDuplicateLangMember() throws ServiceException {
+		Concept concept;
+		String intMain = "MAIN";
+		String extMain = "MAIN/SNOMEDCT-XX";
+		Map<String, String> preferred = Map.of(US_EN_LANG_REFSET, descriptionAcceptabilityNames.get(PREFERRED), GB_EN_LANG_REFSET, descriptionAcceptabilityNames.get(PREFERRED));
+		Map<String, String> acceptable = Map.of(US_EN_LANG_REFSET, descriptionAcceptabilityNames.get(ACCEPTABLE), GB_EN_LANG_REFSET, descriptionAcceptabilityNames.get(ACCEPTABLE));
+		CodeSystem codeSystem;
+
+		// Create International concept
+		concept = new Concept()
+				.addDescription(new Description("Vehicle (vehicle)").setTypeId(FSN).setAcceptabilityMap(preferred))
+				.addDescription(new Description("Vehicle").setTypeId(SYNONYM).setAcceptabilityMap(preferred))
+				.addAxiom(new Relationship(ISA, SNOMEDCT_ROOT))
+				.addRelationship(new Relationship(ISA, SNOMEDCT_ROOT));
+		concept = conceptService.create(concept, intMain);
+		String conceptId = concept.getConceptId();
+
+		// Version International
+		codeSystem = codeSystemService.find("SNOMEDCT");
+		codeSystemService.createVersion(codeSystem, 20240101, "20240101");
+
+		// Create Extension
+		codeSystem = codeSystemService.createCodeSystem(new CodeSystem("SNOMEDCT-XX", extMain));
+		concept = conceptService.create(
+				new Concept()
+						.addDescription(new Description("Extension module (module)").setTypeId(FSN).setAcceptabilityMap(preferred))
+						.addDescription(new Description("Extension module").setTypeId(SYNONYM).setAcceptabilityMap(preferred))
+						.addAxiom(new Relationship(ISA, MODULE)),
+				extMain
+		);
+		String extModuleA = concept.getConceptId();
+		concept = conceptService.create(
+				new Concept()
+						.addDescription(new Description("Extension medicine module (module)").setTypeId(FSN).setAcceptabilityMap(preferred))
+						.addDescription(new Description("Extension medicine module").setAcceptabilityMap(preferred))
+						.addAxiom(new Relationship(ISA, MODULE)),
+				extMain
+		);
+		String extModuleB = concept.getConceptId();
+		branchService.updateMetadata(extMain, Map.of(Config.DEFAULT_MODULE_ID_KEY, extModuleA, Config.EXPECTED_EXTENSION_MODULES, List.of(extModuleA, extModuleB)));
+
+		// Extension accidentally creates duplicate lang member
+		concept = conceptService.find(conceptId, extMain);
+		ReferenceSetMember duplicate = new ReferenceSetMember();
+		duplicate.setRefsetId(US_EN_LANG_REFSET);
+		duplicate.setModuleId(extModuleA);
+		duplicate.setReferencedComponentId(getDescriptionByTerm(concept, "Vehicle").getId());
+		duplicate.setAdditionalField(ReferenceSetMember.LanguageFields.ACCEPTABILITY_ID, ACCEPTABLE);
+		referenceSetMemberService.createMember(extMain, duplicate);
+
+		duplicate = new ReferenceSetMember();
+		duplicate.setRefsetId(US_EN_LANG_REFSET);
+		duplicate.setModuleId(extModuleA);
+		duplicate.setReferencedComponentId(getDescriptionByTerm(concept, "Vehicle").getId());
+		duplicate.setAdditionalField(ReferenceSetMember.LanguageFields.ACCEPTABILITY_ID, ACCEPTABLE);
+		referenceSetMemberService.createMember(extMain, duplicate);
+
+		// Extension adds translation
+		concept = conceptService.find(conceptId, intMain);
+		concept.addDescription(new Description("Fordon").setTypeId(SYNONYM).setAcceptabilityMap(acceptable));
+		conceptService.update(concept, extMain);
+
+		// Assert
+		concept = conceptService.find(conceptId, extMain);
+		Set<ReferenceSetMember> usLangMembers = getDescriptionByTerm(concept, "Vehicle").getLangRefsetMembersMap().get(US_EN_LANG_REFSET);
+		assertEquals(1, usLangMembers.size());
+		List<ReferenceSetMember> active = usLangMembers.stream().filter(ReferenceSetMember::isActive).collect(Collectors.toList());
+		List<ReferenceSetMember> inactive = usLangMembers.stream().filter(r -> {return !r.isActive();}).collect(Collectors.toList());
+		List<ReferenceSetMember> nullET = usLangMembers.stream().filter(r -> {return r.getEffectiveTime() == null;}).collect(Collectors.toList());
+		assertEquals(1, active.size());
+		assertEquals(0, inactive.size());
+		assertEquals(0, nullET.size());
+		assertEquals(PREFERRED, active.iterator().next().getAdditionalField(ReferenceSetMember.LanguageFields.ACCEPTABILITY_ID));
+	}
+
+	@Test
+	void testAddingTranslationDoesNotReactivateDuplicateLangMember() throws ServiceException {
+		Concept concept;
+		String intMain = "MAIN";
+		String extMain = "MAIN/SNOMEDCT-XX";
+		Map<String, String> preferred = Map.of(US_EN_LANG_REFSET, descriptionAcceptabilityNames.get(PREFERRED), GB_EN_LANG_REFSET, descriptionAcceptabilityNames.get(PREFERRED));
+		Map<String, String> acceptable = Map.of(US_EN_LANG_REFSET, descriptionAcceptabilityNames.get(ACCEPTABLE), GB_EN_LANG_REFSET, descriptionAcceptabilityNames.get(ACCEPTABLE));
+		CodeSystem codeSystem;
+
+		// Create International concept
+		concept = new Concept()
+				.addDescription(new Description("Vehicle (vehicle)").setTypeId(FSN).setAcceptabilityMap(preferred))
+				.addDescription(new Description("Vehicle").setTypeId(SYNONYM).setAcceptabilityMap(preferred))
+				.addAxiom(new Relationship(ISA, SNOMEDCT_ROOT))
+				.addRelationship(new Relationship(ISA, SNOMEDCT_ROOT));
+		concept = conceptService.create(concept, intMain);
+		String conceptId = concept.getConceptId();
+
+		// Version International
+		codeSystem = codeSystemService.find("SNOMEDCT");
+		codeSystemService.createVersion(codeSystem, 20240101, "20240101");
+
+		// Create Extension
+		codeSystem = codeSystemService.createCodeSystem(new CodeSystem("SNOMEDCT-XX", extMain));
+		concept = conceptService.create(
+				new Concept()
+						.addDescription(new Description("Extension module (module)").setTypeId(FSN).setAcceptabilityMap(preferred))
+						.addDescription(new Description("Extension module").setTypeId(SYNONYM).setAcceptabilityMap(preferred))
+						.addAxiom(new Relationship(ISA, MODULE)),
+				extMain
+		);
+		String extModuleA = concept.getConceptId();
+		concept = conceptService.create(
+				new Concept()
+						.addDescription(new Description("Extension medicine module (module)").setTypeId(FSN).setAcceptabilityMap(preferred))
+						.addDescription(new Description("Extension medicine module").setAcceptabilityMap(preferred))
+						.addAxiom(new Relationship(ISA, MODULE)),
+				extMain
+		);
+		String extModuleB = concept.getConceptId();
+		branchService.updateMetadata(extMain, Map.of(Config.DEFAULT_MODULE_ID_KEY, extModuleA, Config.EXPECTED_EXTENSION_MODULES, List.of(extModuleA, extModuleB)));
+
+		// Extension accidentally creates duplicate lang member
+		concept = conceptService.find(conceptId, extMain);
+		ReferenceSetMember duplicate = new ReferenceSetMember();
+		duplicate.setRefsetId(US_EN_LANG_REFSET);
+		duplicate.setModuleId(extModuleA);
+		duplicate.setReferencedComponentId(getDescriptionByTerm(concept, "Vehicle").getId());
+		duplicate.setAdditionalField(ReferenceSetMember.LanguageFields.ACCEPTABILITY_ID, ACCEPTABLE);
+		duplicate = referenceSetMemberService.createMember(extMain, duplicate);
+		String duplicateA = duplicate.getMemberId();
+
+		duplicate = new ReferenceSetMember();
+		duplicate.setRefsetId(US_EN_LANG_REFSET);
+		duplicate.setModuleId(extModuleA);
+		duplicate.setReferencedComponentId(getDescriptionByTerm(concept, "Vehicle").getId());
+		duplicate.setAdditionalField(ReferenceSetMember.LanguageFields.ACCEPTABILITY_ID, ACCEPTABLE);
+		duplicate = referenceSetMemberService.createMember(extMain, duplicate);
+		String duplicateB = duplicate.getMemberId();
+
+		// Version Extension
+		codeSystem = codeSystemService.find("SNOMEDCT-XX");
+		codeSystemService.createVersion(codeSystem, 20240102, "20240102");
+
+		// Inactivate duplicates
+		duplicate = referenceSetMemberService.findMember(extMain, duplicateA);
+		duplicate.setActive(false);
+		referenceSetMemberService.updateMember(extMain, duplicate);
+
+		duplicate = referenceSetMemberService.findMember(extMain, duplicateB);
+		duplicate.setActive(false);
+		referenceSetMemberService.updateMember(extMain, duplicate);
+
+		// Version Extension
+		codeSystem = codeSystemService.find("SNOMEDCT-XX");
+		codeSystemService.createVersion(codeSystem, 20240103, "20240103");
+
+		// Extension adds translation
+		concept = conceptService.find(conceptId, intMain);
+		concept.addDescription(new Description("Fordon").setTypeId(SYNONYM).setAcceptabilityMap(acceptable));
+		conceptService.update(concept, extMain);
+
+		// Assert
+		concept = conceptService.find(conceptId, extMain);
+		Set<ReferenceSetMember> usLangMembers = getDescriptionByTerm(concept, "Vehicle").getLangRefsetMembersMap().get(US_EN_LANG_REFSET);
+		assertEquals(3, usLangMembers.size());
+
+		List<ReferenceSetMember> active = usLangMembers.stream().filter(ReferenceSetMember::isActive).collect(Collectors.toList());
+		List<ReferenceSetMember> inactive = usLangMembers.stream().filter(r -> {return !r.isActive();}).collect(Collectors.toList());
+		List<ReferenceSetMember> nullET = usLangMembers.stream().filter(r -> {return r.getEffectiveTime() == null;
+		}).collect(Collectors.toList());
+		assertEquals(1, active.size());
+		assertEquals(2, inactive.size());
+		assertEquals(0, nullET.size());
+		assertEquals(PREFERRED, active.iterator().next().getAdditionalField(ReferenceSetMember.LanguageFields.ACCEPTABILITY_ID));
+	}
+
+	private Description getDescriptionByTerm(Concept concept, String term) {
+		if (concept == null) {
+			return null;
+		}
+
+		for (Description description : concept.getDescriptions()) {
+			if (term.equals(description.getTerm())) {
+				return description;
+			}
+		}
+
+		return null;
+	}
+
 	private void assertReleased(Concept concept, int effectiveTime) {
 		assertTrue(concept.isReleased());
 		assertEquals(effectiveTime, concept.getReleasedEffectiveTime());

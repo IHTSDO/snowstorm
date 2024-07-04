@@ -242,7 +242,7 @@ public class Description extends SnomedComponent<Description> implements SnomedC
 			if (member.isActive()) {
 				String acceptabilityId = member.getAdditionalField(ReferenceSetMember.LanguageFields.ACCEPTABILITY_ID);
 				String acceptabilityStr = Concepts.descriptionAcceptabilityNames.get(acceptabilityId);
-				map.put(member.getRefsetId(), acceptabilityStr);
+				map.putIfAbsent(member.getRefsetId(), acceptabilityStr);
 			}
 		}
 		return map;
