@@ -2519,6 +2519,16 @@ class ConceptServiceTest extends AbstractTest {
 		ecl = String.format("^ %s MINUS << 423857001 |Structure of half of body lateral to midsagittal plane (body structure)|", vehiclesReferenceSetId);
 		page = queryService.search(queryService.createQueryBuilder(false).ecl(ecl), intMain, PageRequest.of(0, 50));
 		assertEquals(3, page.getTotalElements());
+
+
+		// Extra testings for nested expression constraints
+		ecl = String.format("<< (^ %s)", vehiclesReferenceSetId);
+		page = queryService.search(queryService.createQueryBuilder(false).ecl(ecl), intMain, PageRequest.of(0, 50));
+		assertEquals(2, page.getTotalElements());
+
+		ecl = String.format("^(<<%s)", vehiclesReferenceSetId);
+		page = queryService.search(queryService.createQueryBuilder(false).ecl(ecl), intMain, PageRequest.of(0, 50));
+		assertEquals(3, page.getTotalElements());
 	}
 
 	@Test

@@ -188,16 +188,23 @@ public class SSubExpressionConstraint extends SubExpressionConstraint implements
 
 			// Cache results before applying filters, apart from member queries with field filters.
 			Collection<Long> prefetchedConceptIds = null;
-			if ((isNestedExpressionConstraintMemberOfQuery() || operator == Operator.memberOf) && (memberFilterConstraints != null || triedCache)) {
+			if (isNestedExpressionConstraintMemberOfQuery() || operator == Operator.memberOf && (memberFilterConstraints != null || triedCache)) {
 				// If there is a member filter constraint we can assume the results set will be fairly small / not reusable.
 				// If there are no filters this
 				// Fetch without cache.
 				prefetchedConceptIds = doAddCriteria(refinementBuilder, query);
 			}
+
 			if (prefetchedConceptIds == null) {
-				// Grab all concept ids using query without filters, should be cached
-				SSubExpressionConstraint sSubExpressionConstraint = cloneWithoutFiltersOrSupplements();
-				prefetchedConceptIds = eclContentService.fetchAllIdsWithCaching(sSubExpressionConstraint, branchCriteria, stated);
+				if (operator != null && isNestedExpressionConstraintMemberOfQuery()) {
+					// No need to fetch nested expression constraint again as nested results applied to query filter already
+					// See doAddCriteria method and applyConceptCriteriaWithOperator return null on purpose for this scenario
+					return;
+				} else {
+					// Grab all concept ids using query without filters, should be cached
+					SSubExpressionConstraint sSubExpressionConstraint = cloneWithoutFiltersOrSupplements();
+					prefetchedConceptIds = eclContentService.fetchAllIdsWithCaching(sSubExpressionConstraint, branchCriteria, stated);
+				}
 			}
 			conceptIdSortedSet = new LongLinkedOpenHashSet(prefetchedConceptIds);
 
