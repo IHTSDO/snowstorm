@@ -42,8 +42,7 @@ public abstract class ECLQueryTestConfig  extends TestConfig {
 			classificationService.deleteAll();
 			permissionService.deleteAll();
 		} catch (Exception e) {
-			logger.error(e.getMessage(),e);
-			e.printStackTrace();
+			logger.error(e.getMessage(), e);
 			throw e;
 		}
 	}

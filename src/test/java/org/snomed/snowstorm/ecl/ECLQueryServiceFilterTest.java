@@ -6,6 +6,7 @@ import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.snomed.snowstorm.TestConfig;
 import org.snomed.snowstorm.core.data.domain.ConceptMini;
 import org.snomed.snowstorm.core.data.domain.ReferenceSetMember;
 import org.snomed.snowstorm.core.data.services.QueryService;
@@ -27,7 +28,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.snomed.snowstorm.core.data.domain.Concepts.REFSET_SAME_AS_ASSOCIATION;
 
 @ExtendWith(SpringExtension.class)
-@ContextConfiguration(classes = ECLQueryServiceFilterTestConfig.class)
+@ContextConfiguration(classes = {TestConfig.class, ECLQueryServiceFilterTestConfig.class})
 class ECLQueryServiceFilterTest {
 
 	@Autowired
