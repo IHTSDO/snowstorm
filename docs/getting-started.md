@@ -2,10 +2,15 @@
 
 ## Prerequisites
 
-- Java 17
-- Maven 3
-- [SNOMED CT International Edition RF2 release files](https://www.snomed.org/snomed-ct/get-snomed)
-- About 8G of memory
+- Hardware Requirements
+  - At least 8G of memory
+  - SSD Hard Drive
+- Software Requirements
+  - Java 17
+  - HTTP Proxy software recommended to provide SSL (e.g. Nginx or Apache 2)
+  - Maven 3 (optional - to rebuild the software)
+- Other Resource Requirements
+  - [SNOMED CT International Edition RF2 release files](https://www.snomed.org/snomed-ct/get-snomed)
 
 ## More on Memory Requirements
 
