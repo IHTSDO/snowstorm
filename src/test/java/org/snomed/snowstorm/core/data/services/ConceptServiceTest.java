@@ -2387,7 +2387,6 @@ class ConceptServiceTest extends AbstractTest {
 	void testECLWithMemberOfQueries() throws ServiceException {
 		Concept concept;
 		String intMain = "MAIN";
-		CodeSystem codeSystem;
 		String ecl;
 		Page<ConceptMini> page;
 		List<String> conceptIds;
@@ -2468,7 +2467,7 @@ class ConceptServiceTest extends AbstractTest {
 		ecl = String.format("< %s", SNOMEDCT_ROOT);
 		page = queryService.search(queryService.createQueryBuilder(false).ecl(ecl), intMain, PageRequest.of(0, 50));
 		assertEquals(4, page.getTotalElements());
-		conceptIds = page.getContent().stream().map(ConceptMini::getConceptId).collect(Collectors.toList());
+		conceptIds = page.getContent().stream().map(ConceptMini::getConceptId).toList();
 		assertTrue(conceptIds.contains(referenceSetId));
 		assertTrue(conceptIds.contains(vehiclesReferenceSetId));
 		assertTrue(conceptIds.contains(vehicleId));
@@ -2479,7 +2478,7 @@ class ConceptServiceTest extends AbstractTest {
 		ecl = String.format("^ %s", vehiclesReferenceSetId);
 		page = queryService.search(queryService.createQueryBuilder(false).ecl(ecl), intMain, PageRequest.of(0, 50));
 		assertEquals(3, page.getTotalElements());
-		conceptIds = page.getContent().stream().map(ConceptMini::getConceptId).collect(Collectors.toList());
+		conceptIds = page.getContent().stream().map(ConceptMini::getConceptId).toList();
 		assertTrue(conceptIds.contains(vehicleId));
 		assertTrue(conceptIds.contains(carId));
 		assertTrue(conceptIds.contains(motorisedVehicleId)); // Concept is inactive, but its member is not
@@ -2487,7 +2486,7 @@ class ConceptServiceTest extends AbstractTest {
 		ecl = String.format("(^ %s)", vehiclesReferenceSetId);
 		page = queryService.search(queryService.createQueryBuilder(false).ecl(ecl), intMain, PageRequest.of(0, 50));
 		assertEquals(3, page.getTotalElements());
-		conceptIds = page.getContent().stream().map(ConceptMini::getConceptId).collect(Collectors.toList());
+		conceptIds = page.getContent().stream().map(ConceptMini::getConceptId).toList();
 		assertTrue(conceptIds.contains(vehicleId));
 		assertTrue(conceptIds.contains(carId));
 		assertTrue(conceptIds.contains(motorisedVehicleId));  // Concept is inactive, but its member is not
@@ -2526,6 +2525,10 @@ class ConceptServiceTest extends AbstractTest {
 		page = queryService.search(queryService.createQueryBuilder(false).ecl(ecl), intMain, PageRequest.of(0, 50));
 		assertEquals(2, page.getTotalElements());
 
+		ecl = String.format("<<^ %s", vehiclesReferenceSetId);
+		page = queryService.search(queryService.createQueryBuilder(false).ecl(ecl), intMain, PageRequest.of(0, 50));
+		assertEquals(2, page.getTotalElements());
+
 		ecl = String.format("^(<<%s)", vehiclesReferenceSetId);
 		page = queryService.search(queryService.createQueryBuilder(false).ecl(ecl), intMain, PageRequest.of(0, 50));
 		assertEquals(3, page.getTotalElements());
@@ -2537,7 +2540,6 @@ class ConceptServiceTest extends AbstractTest {
 		String intMain = "MAIN";
 		Map<String, String> preferred = Map.of(US_EN_LANG_REFSET, descriptionAcceptabilityNames.get(PREFERRED), GB_EN_LANG_REFSET, descriptionAcceptabilityNames.get(PREFERRED));
 		Map<String, String> acceptable = Map.of(US_EN_LANG_REFSET, descriptionAcceptabilityNames.get(ACCEPTABLE), GB_EN_LANG_REFSET, descriptionAcceptabilityNames.get(ACCEPTABLE));
-		CodeSystem codeSystem;
 
 		// Create concept
 		concept = new Concept()
