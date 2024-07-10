@@ -42,7 +42,7 @@ public class ExpressionUtil {
 	private static String constructExpression(CompoundExpressionConstraint compound) {
 		StringBuilder expressionBuilder = new StringBuilder();
 		if (compound.getConjunctionExpressionConstraints() != null) {
-			List<SubExpressionConstraint> conJunctions = compound.getConjunctionExpressionConstraints();
+			List<SubExpressionConstraint> conJunctions = new ArrayList<>(compound.getConjunctionExpressionConstraints());
 			conJunctions.sort(EXPRESSION_CONSTRAINT_COMPARATOR_BY_CONCEPT_ID);
 			for (SubExpressionConstraint subExpressionConstraint : conJunctions) {
 				if (subExpressionConstraint.getConceptId() == null && subExpressionConstraint.getNestedExpressionConstraint() != null) {
@@ -60,7 +60,7 @@ public class ExpressionUtil {
 			}
 		}
 		if (compound.getDisjunctionExpressionConstraints() != null) {
-			List<SubExpressionConstraint> disJunctions = compound.getDisjunctionExpressionConstraints();
+			List<SubExpressionConstraint> disJunctions = new ArrayList<>(compound.getDisjunctionExpressionConstraints());
 			List<RefinedExpressionConstraint> refinedExpressionConstraints = getNestedExpressionConstraint(disJunctions);
 			if (!refinedExpressionConstraints.isEmpty()) {
 				expressionBuilder.append(constructExpression(refinedExpressionConstraints, false));

@@ -635,7 +635,7 @@ public class MRCMDomainTemplatesAndRuleGenerator {
 		if (constraint instanceof CompoundExpressionConstraint compound) {
 			StringBuilder expressionBuilder = new StringBuilder();
 			if (compound.getConjunctionExpressionConstraints() != null) {
-				List<SubExpressionConstraint> conJunctions = compound.getConjunctionExpressionConstraints();
+				List<SubExpressionConstraint> conJunctions = new ArrayList<>(compound.getConjunctionExpressionConstraints());
 				conJunctions.sort(EXPRESSION_CONSTRAINT_COMPARATOR_BY_CONCEPT_ID);
 				for (int i = 0; i < conJunctions.size(); i++) {
 					if (i > 0) {
@@ -645,7 +645,7 @@ public class MRCMDomainTemplatesAndRuleGenerator {
 				}
 			}
 			if (compound.getDisjunctionExpressionConstraints() != null) {
-				List<SubExpressionConstraint> disJunctions = compound.getDisjunctionExpressionConstraints();
+				List<SubExpressionConstraint> disJunctions = new ArrayList<>(compound.getDisjunctionExpressionConstraints());
 				disJunctions.sort(EXPRESSION_CONSTRAINT_COMPARATOR_BY_CONCEPT_ID);
 				for (int i = 0; i < disJunctions.size(); i++) {
 					if (i > 0) {
