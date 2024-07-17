@@ -34,7 +34,7 @@ See [Using Jib to build containers](using-jib-to-build-containers.md)
 From the project directory run:
 
 ```bash
-docker-compose up -d
+docker compose up -d
 ```
 
 This uses the [`docker-compose.yml`](../docker-compose.yml) file and will start Snowstorm,  Elasticsearch and the [SNOMED CT Browser](https://github.com/IHTSDO/sct-browser-frontend) in separate containers without the need to build anything. However, **you will need to load a SNOMED CT release into Snowstorm**.
