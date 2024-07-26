@@ -3,6 +3,21 @@ All notable changes to this project will be documented in this file.
 
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 10.4.0 Release (July 2024)
+Maintenance release with bug fixes and improvements.
+### Fixes
+- ISTO-119 Snowstorm MRCM search does not match translated terms
+- VAL-384 Exclude the relationships from the concept before running Drools validation
+- RAP-85 ModuleDependency automation not working as expected for Derivative releases
+- MAINT-2586 ECL member of query results return only active concepts when enclosed in round brackets
+- MAINT-2606 Fix ECL conjunction query search results with filters, supplements or member of queries
+- MAINT-2609 Update ECL parser to parse query containing memberOf and other unary operators such as descendantOf correctly
+- MAINT-2452 Snowstorm [fix]: prevent updates to published, inactive, malformed OWL axioms
+
+### Improvements
+- MAINT-2557 Adjust annotations filename and location to match expectations set in 20240601 International release
+- MAINT-2472 Write unit test to prove Snowstorm handles duplicate language reference set entries correctly
+
 ## 10.3.1 Release (May 2024)
 Maintenance release with bug fixes and improvements.
 ### Fixes
