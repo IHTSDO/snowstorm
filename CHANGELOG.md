@@ -3,7 +3,7 @@ All notable changes to this project will be documented in this file.
 
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## 10.4.0 Release (July 2024)
+## 10.4.1 Release (July 2024)
 Maintenance release with bug fixes and improvements.
 ### Fixes
 - ISTO-119 Snowstorm MRCM search does not match translated terms
