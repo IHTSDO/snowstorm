@@ -3,7 +3,7 @@ All notable changes to this project will be documented in this file.
 
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## 10.4.1 Release (July 2024)
+## 10.4.2 Release (July 2024)
 Maintenance release with bug fixes and improvements.
 ### Fixes
 - ISTO-119 Snowstorm MRCM search does not match translated terms
@@ -17,6 +17,7 @@ Maintenance release with bug fixes and improvements.
 ### Improvements
 - MAINT-2557 Adjust annotations filename and location to match expectations set in 20240601 International release
 - MAINT-2472 Write unit test to prove Snowstorm handles duplicate language reference set entries correctly
+- MAINT-2649 Allow RELEASE_LEAD to run "additional-en-language-refset-delta" operation
 
 ## 10.3.1 Release (May 2024)
 Maintenance release with bug fixes and improvements.
