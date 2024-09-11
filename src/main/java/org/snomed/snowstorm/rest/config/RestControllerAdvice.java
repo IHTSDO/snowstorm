@@ -1,5 +1,7 @@
 package org.snomed.snowstorm.rest.config;
 
+import co.elastic.clients.elasticsearch._types.ElasticsearchException;
+import co.elastic.clients.elasticsearch._types.ErrorResponse;
 import io.kaicode.elasticvc.api.BranchNotFoundException;
 import org.apache.catalina.connector.ClientAbortException;
 import org.slf4j.Logger;
@@ -8,6 +10,7 @@ import org.snomed.langauges.ecl.ECLException;
 import org.snomed.snowstorm.core.data.services.NotFoundException;
 import org.snomed.snowstorm.core.data.services.TooCostlyException;
 import org.snomed.snowstorm.core.data.services.postcoordination.TransformationException;
+import org.springframework.data.elasticsearch.UncategorizedElasticsearchException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.access.AccessDeniedException;
@@ -107,4 +110,31 @@ public class RestControllerAdvice {
 		return result;
 	}
 
+	@ExceptionHandler({UncategorizedElasticsearchException.class, ElasticsearchException.class})
+	@ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
+	@ResponseBody
+	public Map<String,Object> handleElasticsearchException(Exception exception) {
+		logger.error(exception.getMessage(), exception);
+		HashMap<String, Object> result = new HashMap<>();
+		result.put("error", HttpStatus.INTERNAL_SERVER_ERROR);
+		result.put("message", exception.getMessage());
+		if (exception instanceof UncategorizedElasticsearchException uncategorizedElasticsearchException) {
+			// Get root cause from UncategorizedElasticsearchException
+			 Throwable rootCause = uncategorizedElasticsearchException.getRootCause();
+			 if (rootCause instanceof ElasticsearchException elasticsearchException) {
+				 ErrorResponse errorResponse = elasticsearchException.response();
+				 result.put("message", errorResponse.toString());
+				 logger.error("Root cause message: {}", errorResponse);
+			 } else if (rootCause != null) {
+				 result.put("message", rootCause.getMessage());
+				 logger.error("Root cause message: {}", rootCause.getMessage(), rootCause);
+			 }
+		} else if (exception instanceof ElasticsearchException elasticsearchException) {
+			// Get ErrorResponse from ElasticsearchException
+			ErrorResponse errorResponse = elasticsearchException.response();
+			result.put("message", errorResponse.toString());
+			logger.error("Error response message: {}", errorResponse);
+		}
+		return result;
+	}
 }
