@@ -11,7 +11,13 @@ public class ConceptConstraint {
 	private Collection<String> code;
 	private Set<String> parent;// ECL used instead for SNOMED
 	private Set<String> ancestor;
+	private Boolean activeOnly;
 	private String ecl;
+
+	public ConceptConstraint setActiveOnly(Boolean activeOnly) {
+		this.activeOnly = activeOnly;
+		return this;
+	}
 
 	public ConceptConstraint() {
 	}
