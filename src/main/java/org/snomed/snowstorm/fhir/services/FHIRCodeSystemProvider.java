@@ -279,7 +279,7 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants 
 
 		notSupported("codeSystem", codeSystem);
 		notSupported("date", date);
-		notSupported("displayLanguage", displayLanguage);
+		//notSupported("displayLanguage", displayLanguage);
 		mutuallyExclusive("code", code, "coding", coding);
 		mutuallyRequired("display", display, "code", code, "coding", coding);
 		FHIRCodeSystemVersionParams codeSystemParams = getCodeSystemVersionParams(null, url, version, coding);

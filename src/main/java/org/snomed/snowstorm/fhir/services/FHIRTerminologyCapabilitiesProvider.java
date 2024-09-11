@@ -11,6 +11,8 @@ import ca.uhn.fhir.rest.server.util.ISearchParamRegistry;
 import org.hl7.fhir.instance.model.api.IBaseConformance;
 import ca.uhn.fhir.rest.annotation.Metadata;
 import ca.uhn.fhir.rest.api.server.RequestDetails;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * See https://www.hl7.org/fhir/terminologycapabilities.html
@@ -19,7 +21,7 @@ import ca.uhn.fhir.rest.api.server.RequestDetails;
  * See https://github.com/jamesagnew/hapi-fhir/issues/1681
  */
 public class FHIRTerminologyCapabilitiesProvider extends ServerCapabilityStatementProvider {
-
+	private final Logger logger = LoggerFactory.getLogger(getClass());
 	public FHIRTerminologyCapabilitiesProvider(RestfulServer theServer) {
 		super(theServer);
 	}
@@ -34,6 +36,7 @@ public class FHIRTerminologyCapabilitiesProvider extends ServerCapabilityStateme
 
 	@Metadata
 	public IBaseConformance getMetadataResource(HttpServletRequest request, RequestDetails requestDetails) {
+		logger.info(requestDetails.getCompleteUrl());
 		if (request.getParameter("mode") != null && request.getParameter("mode").equals("terminology")) {
 			return new FHIRTerminologyCapabilities().withDefaults();
 		} else {

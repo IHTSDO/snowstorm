@@ -26,7 +26,7 @@ public class FHIRRestConfig {
 		hapiServlet.setDefaultResponseEncoding(EncodingEnum.JSON);
 
 		ResponseHighlighterInterceptor interceptor = new ResponseHighlighterInterceptor();
-		hapiServlet.registerInterceptor(interceptor);
+		//hapiServlet.registerInterceptor(interceptor);
 
 		return servletRegistrationBean;
 	}

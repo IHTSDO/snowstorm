@@ -160,7 +160,7 @@ public class FHIRValueSetService {
 		notSupported("contextDirection", params.getContextDirection());
 		notSupported("date", params.getDate());
 		notSupported("designation", params.getDesignations());
-		notSupported("excludeNested", params.getExcludeNested());
+		//notSupported("excludeNested", params.getExcludeNested());
 		notSupported("excludeNotForUI", params.getExcludeNotForUI());
 		notSupported("excludePostCoordinated", params.getExcludePostCoordinated());
 		notSupported("version", params.getVersion());// Not part of the FHIR API spec but requested under MAINT-1363
