@@ -289,7 +289,7 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants 
 
 			List<String> childIds = graphService.findChildren(code, codeSystemVersion, LARGE_PAGE);
 			Set<FhirSctProperty> properties = FhirSctProperty.parse(propertiesType);
-			return pMapper.mapToFHIR(codeSystemVersion, concept, childIds, properties, designations);
+			return pMapper.mapToFHIR(conceptAndSystemResult, childIds, properties, designations);
 		} else {
 			FHIRCodeSystemVersion fhirCodeSystemVersion = fhirCodeSystemService.findCodeSystemVersionOrThrow(codeSystemParams);
 			FHIRConcept concept = fhirConceptService.findConcept(fhirCodeSystemVersion, code);
@@ -315,7 +315,7 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants 
 
 		notSupported("codeSystem", codeSystem);
 		notSupported("date", date);
-		notSupported("displayLanguage", displayLanguage);
+		//notSupported("displayLanguage", displayLanguage);
 		mutuallyExclusive("code", code, "coding", coding);
 		mutuallyRequired("display", display, "code", code, "coding", coding);
 		FHIRCodeSystemVersionParams codeSystemParams = getCodeSystemVersionParams(null, url, version, coding);
