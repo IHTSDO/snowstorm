@@ -1,6 +1,7 @@
 package org.snomed.snowstorm;
 
 import co.elastic.clients.elasticsearch._types.query_dsl.MatchAllQuery;
+import co.elastic.clients.elasticsearch._types.query_dsl.QueryBuilders;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.ObjectWriter;
@@ -173,4 +174,11 @@ public abstract class AbstractTest {
 		elasticsearchOperations.delete(deleteQuery, QueryConcept.class, elasticsearchOperations.getIndexCoordinatesFor(QueryConcept.class));
 		elasticsearchOperations.indexOps(QueryConcept.class).refresh();
 	}
+
+	protected void simulateElasticsearchException() {
+		// Create match query on effectiveTimeI to simulate exception
+		NativeQuery query = new NativeQueryBuilder().withQuery(QueryBuilders.match(q -> q.field("effectiveTimeI").query("2024-09-01"))).build();
+		elasticsearchOperations.search(query, Concept.class);
+	}
+
 }
