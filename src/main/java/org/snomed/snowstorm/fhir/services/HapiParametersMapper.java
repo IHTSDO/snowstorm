@@ -10,13 +10,11 @@ import org.snomed.snowstorm.fhir.domain.FHIRCodeSystemVersion;
 import org.snomed.snowstorm.fhir.domain.FHIRConcept;
 import org.snomed.snowstorm.fhir.domain.FHIRDesignation;
 import org.snomed.snowstorm.fhir.domain.FHIRProperty;
+import org.snomed.snowstorm.fhir.pojo.ConceptAndSystemResult;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
-import java.util.Collection;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 
 @Service
 public class HapiParametersMapper implements FHIRConstants {
@@ -80,14 +78,21 @@ public class HapiParametersMapper implements FHIRConstants {
 		return parameters;
 	}
 
-	public Parameters mapToFHIR(FHIRCodeSystemVersion codeSystem, Concept concept, Collection<String> childIds,
-			Set<FhirSctProperty> properties, List<LanguageDialect> designations) {
+	public Parameters mapToFHIR(ConceptAndSystemResult conceptAndSystemResult, Collection<String> childIds,
+	                            Set<FhirSctProperty> properties, List<LanguageDialect> designations) {
+
+		FHIRCodeSystemVersion codeSystemVersion = conceptAndSystemResult.codeSystemVersion();
+		Concept concept = conceptAndSystemResult.concept();
 
 		Parameters parameters = new Parameters();
 		parameters.addParameter("code", concept.getConceptId());
 		parameters.addParameter("display", fhirHelper.getPreferredTerm(concept, designations));
-		parameters.addParameter("name", codeSystem.getTitle());
-		addSystemAndVersion(parameters, codeSystem);
+		Optional.ofNullable(conceptAndSystemResult.codeSystemVersion().getName()).ifPresent(x->parameters.addParameter("name", x));
+		//Optional.ofNullable(codeSystem.getTitle()).ifPresent(x->parameters.addParameter("title", x));
+		addSystemAndVersion(parameters, conceptAndSystemResult.codeSystemVersion());
+		parameters.addParameter("name", codeSystemVersion.getTitle());
+		addSystemAndVersion(parameters, codeSystemVersion);
+		parameters.addParameter("active", concept.isActive());
 		parameters.addParameter("inactive", !concept.isActive());
 		addProperties(parameters, concept, properties);
 		addDesignations(parameters, concept);
