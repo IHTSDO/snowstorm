@@ -2,10 +2,16 @@ package org.snomed.snowstorm.fhir.services;
 
 import org.hl7.fhir.r4.model.*;
 import org.jetbrains.annotations.Nullable;
+import org.snomed.snowstorm.fhir.domain.FHIRPackageIndexFile;
 import org.snomed.snowstorm.fhir.pojo.CanonicalUri;
 import org.snomed.snowstorm.fhir.pojo.ValueSetExpansionParameters;
 
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.util.List;
+import java.util.zip.GZIPOutputStream;
 
 import static org.snomed.snowstorm.fhir.services.FHIRHelper.*;
 
