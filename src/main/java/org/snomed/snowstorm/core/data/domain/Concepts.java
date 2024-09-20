@@ -201,4 +201,5 @@ public class Concepts {
 	public static final String REFERENCED_COMPONENT = "449608002";
 	public static final String CONCEPT_TYPE_COMPONENT = "900000000000461009";
 
+	public static final String MODULE_DEPENDENCY_REFERENCE_SET = "900000000000534007";
 }
