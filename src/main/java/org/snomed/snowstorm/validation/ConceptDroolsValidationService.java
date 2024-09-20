@@ -28,15 +28,15 @@ import static io.kaicode.elasticvc.helper.QueryHelper.termsQuery;
 public class ConceptDroolsValidationService implements org.ihtsdo.drools.service.ConceptService {
 
 	private final BranchCriteria branchCriteria;
-	private final ElasticsearchOperations elasticsearchTemplate;
+	private final ElasticsearchOperations elasticsearchOperations;
 	private final DisposableQueryService queryService;
 	private final Set<String> inferredTopLevelHierarchies;
 	private final Map<String, Boolean> conceptActiveStates = Collections.synchronizedMap(new HashMap<>());
 	private final Map<String, DroolsConcept> concepts = Collections.synchronizedMap(new HashMap<>());
 
-	ConceptDroolsValidationService(BranchCriteria branchCriteria, ElasticsearchOperations elasticsearchTemplate, DisposableQueryService queryService, Set<String> inferredTopLevelHierarchies) {
+	ConceptDroolsValidationService(BranchCriteria branchCriteria, ElasticsearchOperations elasticsearchOperations, DisposableQueryService queryService, Set<String> inferredTopLevelHierarchies) {
 		this.branchCriteria = branchCriteria;
-		this.elasticsearchTemplate = elasticsearchTemplate;
+		this.elasticsearchOperations = elasticsearchOperations;
 		this.queryService = queryService;
 		this.inferredTopLevelHierarchies = inferredTopLevelHierarchies;
 	}
@@ -51,7 +51,7 @@ public class ConceptDroolsValidationService implements org.ihtsdo.drools.service
 							.must(termQuery(Concept.Fields.ACTIVE, true))))
 					.withPageable(Config.PAGE_OF_ONE)
 					.build();
-			List<Concept> matches = elasticsearchTemplate.search(query, Concept.class).stream().map(SearchHit::getContent).collect(Collectors.toList());
+			List<Concept> matches = elasticsearchOperations.search(query, Concept.class).stream().map(SearchHit::getContent).collect(Collectors.toList());
 			conceptActiveStates.put(conceptId, !matches.isEmpty());
 		}
 		return conceptActiveStates.get(conceptId);
@@ -68,7 +68,7 @@ public class ConceptDroolsValidationService implements org.ihtsdo.drools.service
 				.withPageable(ComponentService.LARGE_PAGE);
 		// Join Members
 		List<ReferenceSetMember> associationTargetMembers = new ArrayList<>();
-		try (final SearchHitsIterator <ReferenceSetMember> members = elasticsearchTemplate.searchForStream(queryBuilder.build(), ReferenceSetMember.class)) {
+		try (final SearchHitsIterator <ReferenceSetMember> members = elasticsearchOperations.searchForStream(queryBuilder.build(), ReferenceSetMember.class)) {
 			members.forEachRemaining(hit -> {
 				ReferenceSetMember member = hit.getContent();
 				associationTargetMembers.add(member);
@@ -91,7 +91,7 @@ public class ConceptDroolsValidationService implements org.ihtsdo.drools.service
 							.must(termQuery(Concept.Fields.CONCEPT_ID, conceptId))))
 					.withPageable(Config.PAGE_OF_ONE)
 					.build();
-			List<Concept> matches = elasticsearchTemplate.search(query, Concept.class).stream().map(SearchHit::getContent).collect(Collectors.toList());
+			List<Concept> matches = elasticsearchOperations.search(query, Concept.class).stream().map(SearchHit::getContent).collect(Collectors.toList());
 			concepts.put(conceptId, !matches.isEmpty() ? new DroolsConcept(matches.get(0)) : null);
 		}
 		return concepts.get(conceptId);

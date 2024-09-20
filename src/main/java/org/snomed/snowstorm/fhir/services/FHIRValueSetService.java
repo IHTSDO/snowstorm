@@ -80,7 +80,7 @@ public class FHIRValueSetService {
 	private ConceptService snomedConceptService;
 
 	@Autowired
-	private ElasticsearchOperations elasticsearchTemplate;
+	private ElasticsearchOperations elasticsearchOperations;
 
 	private final Map<String, Set<String>> codeSystemVersionToRefsetsWithMembersCache = new HashMap<>();
 
@@ -91,7 +91,7 @@ public class FHIRValueSetService {
 				.withPageable(pageable)
 				.build();
 		searchQuery.setTrackTotalHits(true);
-		SearchHits<FHIRValueSet> search = elasticsearchTemplate.search(searchQuery, FHIRValueSet.class);
+		SearchHits<FHIRValueSet> search = elasticsearchOperations.search(searchQuery, FHIRValueSet.class);
 		return toPage(search, pageable);
 	}
 

@@ -46,7 +46,7 @@ public class ConceptChangeHelper {
     private static final Logger logger = LoggerFactory.getLogger(ConceptChangeHelper.class);
 
     @Autowired
-    private ElasticsearchOperations elasticsearchTemplate;
+    private ElasticsearchOperations elasticsearchOperations;
 
     @Autowired
     private BranchService branchService;
@@ -103,7 +103,7 @@ public class ConceptChangeHelper {
                     startVersionsReplaced.getOrDefault(type, Collections.emptySet())));
         }
         if (!changedVersionsReplaced.getOrDefault(Concept.class.getSimpleName(), Collections.emptySet()).isEmpty()) {
-            try (final SearchHitsIterator<Concept> stream = elasticsearchTemplate.searchForStream(
+            try (final SearchHitsIterator<Concept> stream = elasticsearchOperations.searchForStream(
                     componentsReplacedCriteria(changedVersionsReplaced.get(Concept.class.getSimpleName()), Concept.Fields.CONCEPT_ID).build(), Concept.class)) {
                 stream.forEachRemaining(hit -> changedConcepts.add(parseLong(hit.getContent().getConceptId())));
             }
@@ -111,12 +111,12 @@ public class ConceptChangeHelper {
         if (!changedVersionsReplaced.getOrDefault(Description.class.getSimpleName(), Collections.emptySet()).isEmpty()) {
             NativeQueryBuilder fsnQuery = componentsReplacedCriteria(changedVersionsReplaced.get(Description.class.getSimpleName()), Description.Fields.CONCEPT_ID)
                     .withFilter(termQuery(Description.Fields.TYPE_ID, Concepts.FSN));
-            try (final SearchHitsIterator<Description> stream = elasticsearchTemplate.searchForStream(fsnQuery.build(), Description.class)) {
+            try (final SearchHitsIterator<Description> stream = elasticsearchOperations.searchForStream(fsnQuery.build(), Description.class)) {
                 stream.forEachRemaining(hit -> changedConcepts.add(parseLong(hit.getContent().getConceptId())));
             }
         }
         if (!changedVersionsReplaced.getOrDefault(Relationship.class.getSimpleName(), Collections.emptySet()).isEmpty()) {
-            try (final SearchHitsIterator<Relationship> stream = elasticsearchTemplate.searchForStream(
+            try (final SearchHitsIterator<Relationship> stream = elasticsearchOperations.searchForStream(
                     componentsReplacedCriteria(changedVersionsReplaced.get(Relationship.class.getSimpleName()), Relationship.Fields.SOURCE_ID).build(), Relationship.class)) {
                 stream.forEachRemaining(hit -> changedConcepts.add(parseLong(hit.getContent().getSourceId())));
             }
@@ -126,7 +126,7 @@ public class ConceptChangeHelper {
             NativeQueryBuilder refsetQuery = componentsReplacedCriteria(changedVersionsReplaced.get(ReferenceSetMember.class.getSimpleName()),
                     ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID, ReferenceSetMember.Fields.CONCEPT_ID)
                     .withFilter(bool(b -> b.must(existsQuery(ReferenceSetMember.Fields.CONCEPT_ID))));
-            try (final SearchHitsIterator<ReferenceSetMember> stream = elasticsearchTemplate.searchForStream(refsetQuery.build(), ReferenceSetMember.class)) {
+            try (final SearchHitsIterator<ReferenceSetMember> stream = elasticsearchOperations.searchForStream(refsetQuery.build(), ReferenceSetMember.class)) {
                 stream.forEachRemaining(hit -> referenceComponentIdToConceptMap.put(parseLong(hit.getContent().getReferencedComponentId()), parseLong(hit.getContent().getConceptId())));
             }
         }
@@ -151,7 +151,7 @@ public class ConceptChangeHelper {
                 .withSort(SortOptions.of(s -> s.field(f -> f.field("start"))))
                 .withSourceFilter(new FetchSourceFilter(new String[]{Concept.Fields.CONCEPT_ID}, null))
                 .build();
-        try (final SearchHitsIterator<Concept> stream = elasticsearchTemplate.searchForStream(conceptsWithNewVersionsQuery, Concept.class)) {
+        try (final SearchHitsIterator<Concept> stream = elasticsearchOperations.searchForStream(conceptsWithNewVersionsQuery, Concept.class)) {
             stream.forEachRemaining(hit -> changedConcepts.add(parseLong(hit.getContent().getConceptId())));
         }
 
@@ -161,7 +161,7 @@ public class ConceptChangeHelper {
                 .withFilter(termQuery(Description.Fields.TYPE_ID, Concepts.FSN))
                 .withSourceFilter(new FetchSourceFilter(new String[]{Description.Fields.CONCEPT_ID}, null))
                 .build();
-        try (final SearchHitsIterator<Description> stream = elasticsearchTemplate.searchForStream(descQuery, Description.class)) {
+        try (final SearchHitsIterator<Description> stream = elasticsearchOperations.searchForStream(descQuery, Description.class)) {
             stream.forEachRemaining(hit -> {
                 changedConcepts.add(parseLong(hit.getContent().getConceptId()));
                 descriptions.incrementAndGet();
@@ -174,7 +174,7 @@ public class ConceptChangeHelper {
         NativeQuery relQuery = newSearchQuery(updatesQuery)
                 .withSourceFilter(new FetchSourceFilter(new String[]{Relationship.Fields.SOURCE_ID}, null))
                 .build();
-        try (final SearchHitsIterator<Relationship> stream = elasticsearchTemplate.searchForStream(relQuery, Relationship.class)) {
+        try (final SearchHitsIterator<Relationship> stream = elasticsearchOperations.searchForStream(relQuery, Relationship.class)) {
             stream.forEachRemaining(hit -> {
                 changedConcepts.add(parseLong(hit.getContent().getSourceId()));
                 relationships.incrementAndGet();
@@ -188,7 +188,7 @@ public class ConceptChangeHelper {
                 .withSourceFilter(new FetchSourceFilter(new String[]{ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID, ReferenceSetMember.Fields.CONCEPT_ID}, null))
                 .build();
         AtomicInteger count = new AtomicInteger();
-        try (final SearchHitsIterator<ReferenceSetMember> stream = elasticsearchTemplate.searchForStream(memberQuery, ReferenceSetMember.class)) {
+        try (final SearchHitsIterator<ReferenceSetMember> stream = elasticsearchOperations.searchForStream(memberQuery, ReferenceSetMember.class)) {
             stream.forEachRemaining(hit -> {
                 referenceComponentIdToConceptMap.put(parseLong(hit.getContent().getReferencedComponentId()), parseLong(hit.getContent().getConceptId()));
                 count.incrementAndGet();
@@ -209,7 +209,7 @@ public class ConceptChangeHelper {
                 .withPageable(LARGE_PAGE);
         timerUtil.checkpoint("Created synonym query with " + referenceComponentIdToConceptMap.size() + " description ids in filter");
         count.set(0);
-        try (final SearchHitsIterator<Description> stream = elasticsearchTemplate.searchForStream(synonymQuery.build(), Description.class)) {
+        try (final SearchHitsIterator<Description> stream = elasticsearchOperations.searchForStream(synonymQuery.build(), Description.class)) {
             stream.forEachRemaining(hit -> {
                 count.incrementAndGet();
                 synonymAndTextDefIds.add(parseLong(hit.getContent().getDescriptionId()));
@@ -226,7 +226,7 @@ public class ConceptChangeHelper {
                 .withSourceFilter(new FetchSourceFilter(new String[]{ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID}, null))
                 .build();
         count.set(0);
-        try (final SearchHitsIterator<ReferenceSetMember> stream = elasticsearchTemplate.searchForStream(languageMemberQuery, ReferenceSetMember.class)) {
+        try (final SearchHitsIterator<ReferenceSetMember> stream = elasticsearchOperations.searchForStream(languageMemberQuery, ReferenceSetMember.class)) {
             stream.forEachRemaining(hit -> {
                 count.incrementAndGet();
                 preferredDescriptionIds.add(parseLong(hit.getContent().getReferencedComponentId()));
@@ -308,7 +308,7 @@ public class ConceptChangeHelper {
         Set<String> conceptsReplacedOnBranch = getConceptsByInternalIds(branchService.findLatest(branchPath).getVersionsReplaced(Concept.class));
 
         // Find deleted Concepts that only existed on this Branch, i.e. there are no versionsReplaced entries.
-        Set<String> conceptsEndedOnBranch = elasticsearchTemplate
+        Set<String> conceptsEndedOnBranch = elasticsearchOperations
                 .search(new NativeQueryBuilder()
                         .withQuery(
                                 bool(b -> b
@@ -329,7 +329,7 @@ public class ConceptChangeHelper {
 
         List<String> branchPathAncestors = SPathUtil.getAncestors(branchPath);
         if (!branchPathAncestors.isEmpty() && !conceptsEndedOnBranch.isEmpty()) {
-            try (final SearchHitsIterator<Concept> stream = elasticsearchTemplate.searchForStream(new NativeQueryBuilder()
+            try (final SearchHitsIterator<Concept> stream = elasticsearchOperations.searchForStream(new NativeQueryBuilder()
                     .withQuery(
                             bool(b -> b
                                     .must(termsQuery(Concept.Fields.CONCEPT_ID, conceptsEndedOnBranch))
@@ -347,7 +347,7 @@ public class ConceptChangeHelper {
 
         // Find deleted Concepts that existed on other branches, i.e. there are versionsReplaced entries.
         if (!conceptsReplacedOnBranch.isEmpty()) {
-            try (final SearchHitsIterator<Concept> stream = elasticsearchTemplate.searchForStream(new NativeQueryBuilder()
+            try (final SearchHitsIterator<Concept> stream = elasticsearchOperations.searchForStream(new NativeQueryBuilder()
                     .withQuery(
                             bool(b -> b
                                     .must(termsQuery(Concept.Fields.CONCEPT_ID, conceptsReplacedOnBranch))
@@ -372,7 +372,7 @@ public class ConceptChangeHelper {
         }
 
         Set<String> conceptIds = new HashSet<>();
-        try (final SearchHitsIterator<Concept> stream = elasticsearchTemplate.searchForStream(new NativeQueryBuilder()
+        try (final SearchHitsIterator<Concept> stream = elasticsearchOperations.searchForStream(new NativeQueryBuilder()
                 .withPageable(PageRequest.of(0, internalIds.size()))
                 .withQuery(
                         bool(b -> b
@@ -397,7 +397,7 @@ public class ConceptChangeHelper {
         }
 
         Set<String> conceptsWithModifiedDescriptions = new HashSet<>();
-        try (final SearchHitsIterator<Description> stream = elasticsearchTemplate.searchForStream(new NativeQueryBuilder()
+        try (final SearchHitsIterator<Description> stream = elasticsearchOperations.searchForStream(new NativeQueryBuilder()
                 .withQuery(queryModifiedDescriptions.build()._toQuery())
                 .withSourceFilter(new FetchSourceFilter(new String[]{Description.Fields.CONCEPT_ID}, null))
                 .withSort(SortOptions.of(s -> s.field(f -> f.field(Description.Fields.START).order(SortOrder.Desc))))

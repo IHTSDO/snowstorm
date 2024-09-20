@@ -63,7 +63,7 @@ public class ExtensionAdditionalLanguageRefsetUpgradeService {
 	private VersionControlHelper versionControlHelper;
 
 	@Autowired
-	private ElasticsearchOperations elasticsearchTemplate;
+	private ElasticsearchOperations elasticsearchOperations;
 
 	@Autowired
 	private CodeSystemVersionService codeSystemVersionService;
@@ -127,7 +127,7 @@ public class ExtensionAdditionalLanguageRefsetUpgradeService {
 				.withSourceFilter(new FetchSourceFilter(new String[]{REFERENCED_COMPONENT_ID, ACTIVE, ACCEPTABILITY_ID_FIELD_PATH}, null))
 				.withPageable(LARGE_PAGE);
 
-		try (final SearchHitsIterator<ReferenceSetMember> referencedComponents = elasticsearchTemplate.searchForStream(searchQueryBuilder.build(), ReferenceSetMember.class)) {
+		try (final SearchHitsIterator<ReferenceSetMember> referencedComponents = elasticsearchOperations.searchForStream(searchQueryBuilder.build(), ReferenceSetMember.class)) {
 			referencedComponents.forEachRemaining(hit -> result.add(copy(hit.getContent(), config)));
 		}
 		return result;
@@ -150,7 +150,7 @@ public class ExtensionAdditionalLanguageRefsetUpgradeService {
 			// for incremental monthly upgrade
 			searchQueryBuilder.withFilter(termQuery(EFFECTIVE_TIME, currentDependantEffectiveTime));
 		}
-		try (final SearchHitsIterator<ReferenceSetMember> referencedComponents = elasticsearchTemplate.searchForStream(searchQueryBuilder.build(), ReferenceSetMember.class)) {
+		try (final SearchHitsIterator<ReferenceSetMember> referencedComponents = elasticsearchOperations.searchForStream(searchQueryBuilder.build(), ReferenceSetMember.class)) {
 			referencedComponents.forEachRemaining(hit ->
 					result.computeIfAbsent(Long.valueOf(hit.getContent().getConceptId()), k -> new ArrayList <>()).add(hit.getContent()));
 		}
@@ -239,7 +239,7 @@ public class ExtensionAdditionalLanguageRefsetUpgradeService {
 					.withFilter(termsQuery(DESCRIPTION_ID, batch))
 					.withPageable(LARGE_PAGE);
 
-			try (final SearchHitsIterator<Description> searchHitsIterator = elasticsearchTemplate.searchForStream(queryBuilder.build(), Description.class)) {
+			try (final SearchHitsIterator<Description> searchHitsIterator = elasticsearchOperations.searchForStream(queryBuilder.build(), Description.class)) {
 				searchHitsIterator.forEachRemaining(hit -> conceptToDescriptionsMap.computeIfAbsent(Long.valueOf(hit.getContent().getConceptId()), k -> new HashSet<>()).add(hit.getContent()));
 			}
 		}
@@ -258,7 +258,7 @@ public class ExtensionAdditionalLanguageRefsetUpgradeService {
 							.must(termsQuery(ReferenceSetMember.Fields.CONCEPT_ID, batch)))
 					).withPageable(LARGE_PAGE);
 
-			try (final SearchHitsIterator<ReferenceSetMember> searchHitsIterator = elasticsearchTemplate.searchForStream(queryBuilder.build(), ReferenceSetMember.class)) {
+			try (final SearchHitsIterator<ReferenceSetMember> searchHitsIterator = elasticsearchOperations.searchForStream(queryBuilder.build(), ReferenceSetMember.class)) {
 				searchHitsIterator.forEachRemaining(hit -> {
 					existingLanguageRefsetMembersToUpdate.computeIfAbsent(Long.valueOf(hit.getContent().getConceptId()), k -> new ArrayList <>()).add(hit.getContent());
 					descriptionIds.add(Long.valueOf(hit.getContent().getReferencedComponentId()));

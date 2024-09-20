@@ -56,7 +56,7 @@ public class MRCMService {
 	private VersionControlHelper versionControlHelper;
 
 	@Autowired
-	private ElasticsearchOperations elasticsearchTemplate;
+	private ElasticsearchOperations elasticsearchOperations;
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
@@ -234,7 +234,7 @@ public class MRCMService {
 				)
 				.withSourceFilter(new FetchSourceFilter(new String[]{QueryConcept.Fields.CONCEPT_ID, QueryConcept.Fields.PARENTS}, null))
 				.withPageable(LARGE_PAGE);
-		try (SearchHitsIterator<QueryConcept> queryConcepts = elasticsearchTemplate.searchForStream(queryConceptQuery.build(), QueryConcept.class)) {
+		try (SearchHitsIterator<QueryConcept> queryConcepts = elasticsearchOperations.searchForStream(queryConceptQuery.build(), QueryConcept.class)) {
 			queryConcepts.forEachRemaining(hit -> {
 				for (Long parent : hit.getContent().getParents()) {
 					ConceptMini parentMini = attributeMap.get(parent);

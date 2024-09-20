@@ -88,7 +88,7 @@ class BranchMergeServiceTest extends AbstractTest {
 	private TraceabilityLogService traceabilityLogService;
 
 	@Autowired
-	private ElasticsearchOperations elasticsearchTemplate;
+	private ElasticsearchOperations elasticsearchOperations;
 
 	@Autowired
 	private VersionControlHelper versionControlHelper;
@@ -828,7 +828,7 @@ class BranchMergeServiceTest extends AbstractTest {
 		final BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(branchPath);
 		Query query = bool(b -> b.must(branchCriteria.getEntityBranchCriteria(Description.class))
 				.must(termQuery("conceptId", conceptId)));
-		return elasticsearchTemplate.search(
+		return elasticsearchOperations.search(
 				new NativeQueryBuilder().withQuery(query).build(), Description.class)
 				.stream().map(SearchHit::getContent).collect(Collectors.toList());
 	}
@@ -877,7 +877,7 @@ class BranchMergeServiceTest extends AbstractTest {
 		branchMergeService.mergeBranchSync("MAIN/A", "MAIN/A/A1", Collections.emptySet());
 		assertEquals(1, countRelationships("MAIN/A/A1", conceptId, Relationship.CharacteristicType.inferred));
 
-		List<Relationship> rels = elasticsearchTemplate.search(new NativeQueryBuilder()
+		List<Relationship> rels = elasticsearchOperations.search(new NativeQueryBuilder()
 				.withQuery(bool(b -> b
 						.must(termQuery(Relationship.Fields.SOURCE_ID, conceptId))
 						.must(termQuery(Relationship.Fields.CHARACTERISTIC_TYPE_ID, Concepts.INFERRED_RELATIONSHIP))))
@@ -888,7 +888,7 @@ class BranchMergeServiceTest extends AbstractTest {
 			System.out.println(rel);
 		}
 
-		List<QueryConcept> queryConceptsAcrossBranches = elasticsearchTemplate.search(new NativeQueryBuilder()
+		List<QueryConcept> queryConceptsAcrossBranches = elasticsearchOperations.search(new NativeQueryBuilder()
 				.withQuery(bool(b -> b
 						.must(termQuery(QueryConcept.Fields.CONCEPT_ID, conceptId))
 						.must(termQuery(QueryConcept.Fields.STATED, false))))
@@ -899,7 +899,7 @@ class BranchMergeServiceTest extends AbstractTest {
 			System.out.println(queryConceptsAcrossBranch);
 		}
 
-		List<Branch> branches = elasticsearchTemplate.search(new NativeQueryBuilder()
+		List<Branch> branches = elasticsearchOperations.search(new NativeQueryBuilder()
 				.withSort(SortBuilders.fieldSort("start"))
 				.withPageable(LARGE_PAGE)
 				.build(), Branch.class)
@@ -4697,7 +4697,7 @@ class BranchMergeServiceTest extends AbstractTest {
 	}
 
 	private Concept getConceptDocument(String path, String conceptId) {
-		try (final SearchHitsIterator<Concept> stream = elasticsearchTemplate.searchForStream(new NativeQueryBuilder()
+		try (final SearchHitsIterator<Concept> stream = elasticsearchOperations.searchForStream(new NativeQueryBuilder()
 				.withQuery(
 						bool(b -> b
 								.must(termQuery(Concept.Fields.PATH, path))

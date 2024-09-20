@@ -58,7 +58,7 @@ public class MRCMUpdateService extends ComponentService implements CommitListene
 	private BranchMetadataHelper branchMetadataHelper;
 
 	@Autowired
-	private ElasticsearchOperations elasticsearchTemplate;
+	private ElasticsearchOperations elasticsearchOperations;
 
 	@Autowired
 	private MRCMDomainTemplatesAndRuleGenerator generator;
@@ -242,7 +242,7 @@ public class MRCMUpdateService extends ComponentService implements CommitListene
 	private Set<String> getMRCMRefsetComponentsChanged(Commit commit) {
 		BranchCriteria branchCriteria = versionControlHelper.getBranchCriteriaChangesAndDeletionsWithinOpenCommitOnly(commit);
 		Set<String> result = new HashSet<>();
-		try (final SearchHitsIterator<ReferenceSetMember> mrcmMembers = elasticsearchTemplate.searchForStream(new NativeQueryBuilder()
+		try (final SearchHitsIterator<ReferenceSetMember> mrcmMembers = elasticsearchOperations.searchForStream(new NativeQueryBuilder()
 				.withQuery(bool(b -> b
 						.must(branchCriteria.getEntityBranchCriteria(ReferenceSetMember.class))
 						// Must be at least one of the following should clauses:
@@ -286,8 +286,8 @@ public class MRCMUpdateService extends ComponentService implements CommitListene
 			}
 		}
 		if (!updateQueries.isEmpty()) {
-			elasticsearchTemplate.bulkUpdate(updateQueries, elasticsearchTemplate.getIndexCoordinatesFor(ReferenceSetMember.class));
-			elasticsearchTemplate.indexOps(ReferenceSetMember.class).refresh();
+			elasticsearchOperations.bulkUpdate(updateQueries, elasticsearchOperations.getIndexCoordinatesFor(ReferenceSetMember.class));
+			elasticsearchOperations.indexOps(ReferenceSetMember.class).refresh();
 		}
 	}
 

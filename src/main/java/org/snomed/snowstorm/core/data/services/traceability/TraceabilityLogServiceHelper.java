@@ -24,7 +24,7 @@ import static io.kaicode.elasticvc.helper.QueryHelper.*;
 public class TraceabilityLogServiceHelper {
 
 	@Autowired
-	private ElasticsearchOperations elasticsearchTemplate;
+	private ElasticsearchOperations elasticsearchOperations;
 	public <T extends SnomedComponent<T>> Iterable<T> loadChangesAndDeletionsWithinOpenCommitOnly(Class<T> clazz, BranchCriteria changesAndDeletionsWithinOpenCommitCriteria,
 			String branchPath, Commit commit) {
 
@@ -54,7 +54,7 @@ public class TraceabilityLogServiceHelper {
 		final Set<String> componentsWithNewVersion = new HashSet<>();
 		final Set<String> componentsWithEndedVersion = new HashSet<>();
 		final Map<String, T> componentResult = new HashMap<>();
-		try (final SearchHitsIterator<T> componentStream = elasticsearchTemplate.searchForStream(searchQuery, clazz)) {
+		try (final SearchHitsIterator<T> componentStream = elasticsearchOperations.searchForStream(searchQuery, clazz)) {
 			componentStream.forEachRemaining(componentHit -> {
 				final T component = componentHit.getContent();
 				final String componentId = component.getId();

@@ -61,7 +61,7 @@ public class MultiSearchService implements CommitListener {
 	private VersionControlHelper versionControlHelper;
 
 	@Autowired
-	private ElasticsearchOperations elasticsearchTemplate;
+	private ElasticsearchOperations elasticsearchOperations;
 
 	@Value("${search.refset.aggregation.size}")
 	private int refsetAggregationSearchSize;
@@ -121,7 +121,7 @@ public class MultiSearchService implements CommitListener {
 			conceptIds.add(Long.parseLong(desc.getContent().getConceptId()));
 		}
 		// Fetch concept refset membership aggregation
-		SearchHits<ReferenceSetMember> membershipResults = elasticsearchTemplate.search(new NativeQueryBuilder()
+		SearchHits<ReferenceSetMember> membershipResults = elasticsearchOperations.search(new NativeQueryBuilder()
 						.withQuery(bool(b -> b
 								.must(termQuery(ReferenceSetMember.Fields.ACTIVE, true))
 								.filter(termsQuery(ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID, conceptIds)))
@@ -171,14 +171,14 @@ public class MultiSearchService implements CommitListener {
 		query.setTrackTotalHits(true);
 		DescriptionService.addTermSort(query);
 
-		return elasticsearchTemplate.search(query, Description.class);
+		return elasticsearchOperations.search(query, Description.class);
 	}
 
 
 	private Set<Long> getMatchedConcepts(Boolean conceptActiveFlag, Query branchesQuery, Query descriptionQuery) {
 		// return description and concept ids
 		Set<Long> conceptIdsMatched = new LongOpenHashSet();
-		try (final SearchHitsIterator<Description> descriptions = elasticsearchTemplate.searchForStream(new NativeQueryBuilder()
+		try (final SearchHitsIterator<Description> descriptions = elasticsearchOperations.searchForStream(new NativeQueryBuilder()
 				.withQuery(descriptionQuery)
 				.withSourceFilter(new FetchSourceFilter(new String[]{Description.Fields.CONCEPT_ID}, null))
 				.withPageable(LARGE_PAGE).build(), Description.class)) {
@@ -189,7 +189,7 @@ public class MultiSearchService implements CommitListener {
 		// filter description ids based on concept query results using active flag
 		Set<Long> result = new LongOpenHashSet();
 		if (!conceptIdsMatched.isEmpty()) {
-			try (final SearchHitsIterator<Concept> concepts = elasticsearchTemplate.searchForStream(new NativeQueryBuilder()
+			try (final SearchHitsIterator<Concept> concepts = elasticsearchOperations.searchForStream(new NativeQueryBuilder()
 					.withQuery(bool(b -> b
 							.must(branchesQuery)
 							.must(termsQuery(Concept.Fields.CONCEPT_ID, conceptIdsMatched)))
@@ -289,7 +289,7 @@ public class MultiSearchService implements CommitListener {
 				.withQuery(conceptQuery.build()._toQuery())
 				.withPageable(pageRequest)
 				.build();
-		SearchHits<Concept> searchHits = elasticsearchTemplate.search(query, Concept.class);
+		SearchHits<Concept> searchHits = elasticsearchOperations.search(query, Concept.class);
 		//Populate the published version path back in
 		List<Concept> concepts = searchHits.get()
 				.map(SearchHit::getContent)

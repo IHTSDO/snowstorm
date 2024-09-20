@@ -47,7 +47,7 @@ public class FHIRConceptMapService {
 	private FHIRConceptMapRepository conceptMapRepository;
 
 	@Autowired
-	private ElasticsearchOperations elasticsearchTemplate;
+	private ElasticsearchOperations elasticsearchOperations;
 
 	@Autowired
 	private FHIRCodeSystemService fhirCodeSystemService;
@@ -303,7 +303,7 @@ public class FHIRConceptMapService {
 
 	@NotNull
 	private <T> List<T> searchForList(NativeQueryBuilder queryBuilder, Class<T> clazz) {
-		return elasticsearchTemplate.search(queryBuilder.build(), clazz).stream()
+		return elasticsearchOperations.search(queryBuilder.build(), clazz).stream()
 				.map(SearchHit::getContent).collect(Collectors.toList());
 	}
 }

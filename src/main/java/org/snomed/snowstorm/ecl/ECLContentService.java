@@ -54,7 +54,7 @@ import static org.snomed.snowstorm.core.util.CollectionUtils.orEmpty;
 public class ECLContentService {
 
 	@Autowired
-	private ElasticsearchOperations elasticsearchTemplate;
+	private ElasticsearchOperations elasticsearchOperations;
 
 	@Autowired
 	private RelationshipService relationshipService;
@@ -94,12 +94,12 @@ public class ECLContentService {
 	public Page<QueryConcept> queryForPage(NativeQuery searchQuery) {
 		searchQuery.setTrackTotalHits(true);
 		Pageable pageable = searchQuery.getPageable();
-		SearchHits<QueryConcept> searchHits = elasticsearchTemplate.search(searchQuery, QueryConcept.class);
+		SearchHits<QueryConcept> searchHits = elasticsearchOperations.search(searchQuery, QueryConcept.class);
 		return PageHelper.toSearchAfterPage(searchHits, pageable);
 	}
 
 	public SearchHitsIterator<QueryConcept> streamQueryResults(NativeQuery searchQuery) {
-		return elasticsearchTemplate.searchForStream(searchQuery, QueryConcept.class);
+		return elasticsearchOperations.searchForStream(searchQuery, QueryConcept.class);
 	}
 
 	public SearchAfterPage<ReferenceSetMember> findReferenceSetMembers(Collection<Long> refsets, List<MemberFilterConstraint> memberFilterConstraints,
@@ -189,7 +189,7 @@ public class ECLContentService {
 				.build();
 
 		Set<Long> destinationIds = new LongArraySet();
-		try (SearchHitsIterator<QueryConcept> stream = elasticsearchTemplate.searchForStream(query, QueryConcept.class)) {
+		try (SearchHitsIterator<QueryConcept> stream = elasticsearchOperations.searchForStream(query, QueryConcept.class)) {
 			stream.forEachRemaining(hit -> {
 				QueryConcept queryConcept = hit.getContent();
 				if (attributeTypeIds != null) {
@@ -254,7 +254,7 @@ public class ECLContentService {
 				.withSourceFilter(new FetchSourceFilter(new String[]{Concept.Fields.CONCEPT_ID}, null))
 				.withPageable(LARGE_PAGE);
 		Set<Long> conceptIds = new LongOpenHashSet();
-		try (SearchHitsIterator<Concept> stream = elasticsearchTemplate.searchForStream(queryBuilder.build(), Concept.class)) {
+		try (SearchHitsIterator<Concept> stream = elasticsearchOperations.searchForStream(queryBuilder.build(), Concept.class)) {
 			stream.forEachRemaining(hit -> conceptIds.add(hit.getContent().getConceptIdAsLong()));
 		}
 
@@ -379,7 +379,7 @@ public class ECLContentService {
 				.withPageable(LARGE_PAGE);
 
 		Set<Long> conceptIds = new LongOpenHashSet();
-		try (SearchHitsIterator<ReferenceSetMember> stream = elasticsearchTemplate.searchForStream(queryBuilder.build(), ReferenceSetMember.class)) {
+		try (SearchHitsIterator<ReferenceSetMember> stream = elasticsearchOperations.searchForStream(queryBuilder.build(), ReferenceSetMember.class)) {
 			stream.forEachRemaining(hit -> conceptIds.add(parseLong(hit.getContent().getReferencedComponentId())));
 		}
 		return conceptIds;

@@ -44,7 +44,7 @@ public class FHIRConceptService {
 	private FHIRConceptRepository conceptRepository;
 
 	@Autowired
-	private ElasticsearchOperations elasticsearchTemplate;
+	private ElasticsearchOperations elasticsearchOperations;
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
@@ -186,7 +186,7 @@ public class FHIRConceptService {
 				.build();
 		searchQuery.setTrackTotalHits(true);
 		updateQueryWithSearchAfter(searchQuery, pageRequest);
-		return toPage(elasticsearchTemplate.search(searchQuery, FHIRConcept.class), pageRequest);
+		return toPage(elasticsearchOperations.search(searchQuery, FHIRConcept.class), pageRequest);
 	}
 
 	public SearchAfterPage<String> findConceptCodes(BoolQuery.Builder fhirConceptQuery, PageRequest pageRequest) {
@@ -196,7 +196,7 @@ public class FHIRConceptService {
 				.build();
 		searchQuery.setTrackTotalHits(true);
 		updateQueryWithSearchAfter(searchQuery, pageRequest);
-		SearchHits<FHIRConcept> searchHits = elasticsearchTemplate.search(searchQuery, FHIRConcept.class);
+		SearchHits<FHIRConcept> searchHits = elasticsearchOperations.search(searchQuery, FHIRConcept.class);
 		return PageHelper.toSearchAfterPage(searchHits, FHIRConcept::getCode, pageRequest);
 	}
 

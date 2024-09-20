@@ -21,12 +21,12 @@ import static io.kaicode.elasticvc.helper.QueryHelper.*;
  */
 public class LocalSequentialIdentifierSource implements IdentifierSource {
 
-	private final ElasticsearchOperations elasticsearchTemplate;
+	private final ElasticsearchOperations elasticsearchOperations;
 	private final Map<String, Integer> namespaceAndPartitionHighestSequenceCache = Collections.synchronizedMap(new HashMap<>());
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
-	public LocalSequentialIdentifierSource(ElasticsearchOperations elasticsearchTemplate) {
-		this.elasticsearchTemplate = elasticsearchTemplate;
+	public LocalSequentialIdentifierSource(ElasticsearchOperations elasticsearchOperations) {
+		this.elasticsearchOperations = elasticsearchOperations;
 	}
 
 	@Override
@@ -103,7 +103,7 @@ public class LocalSequentialIdentifierSource implements IdentifierSource {
 			regex = String.format("[0-9]*%s%s[0-9]", namespaceId, partitionId);
 		}
 
-		SearchHits<? extends SnomedComponent<?>> searchHits = elasticsearchTemplate.search(new NativeQueryBuilder()
+		SearchHits<? extends SnomedComponent<?>> searchHits = elasticsearchOperations.search(new NativeQueryBuilder()
 
 				// Regex query
 				.withQuery(regexpQuery(idField, regex))

@@ -63,7 +63,7 @@ class SemanticIndexUpdateServiceTest extends AbstractTest {
 	private ConceptUpdateHelper conceptUpdateHelper;
 
 	@Autowired
-	private ElasticsearchOperations elasticsearchTemplate;
+	private ElasticsearchOperations elasticsearchOperations;
 
 	@Autowired
 	private ReferenceSetMemberService referenceSetMemberService;
@@ -73,9 +73,6 @@ class SemanticIndexUpdateServiceTest extends AbstractTest {
 
 	@Autowired
 	private CodeSystemService codeSystemService;
-
-	@Autowired
-	private ElasticsearchOperations elasticsearchOperations;
 
 	private static final PageRequest PAGE_REQUEST = PageRequest.of(0, 50);
 
@@ -251,7 +248,7 @@ class SemanticIndexUpdateServiceTest extends AbstractTest {
 
 		// Extreme hack, without version control, to break the semantic index
 		// Remove attributes from existing semantic entry
-		final SearchHit<QueryConcept> hit = elasticsearchTemplate.searchOne(new NativeQueryBuilder()
+		final SearchHit<QueryConcept> hit = elasticsearchOperations.searchOne(new NativeQueryBuilder()
 				.withQuery(bool(b -> b
 						.must(termQuery(QueryConcept.Fields.CONCEPT_ID_FORM, hamPizza.getId() + "_i"))
 						.mustNot(existsQuery("end")))
@@ -811,13 +808,13 @@ class SemanticIndexUpdateServiceTest extends AbstractTest {
 
 		// Delete all documents in semantic index and rebuild
 
-		List<QueryConcept> queryConcepts = elasticsearchTemplate.search(new NativeQueryBuilder().build(), QueryConcept.class)
+		List<QueryConcept> queryConcepts = elasticsearchOperations.search(new NativeQueryBuilder().build(), QueryConcept.class)
 				.stream().map(SearchHit::getContent).collect(Collectors.toList());
 		assertEquals(5, queryConcepts.size());
 
 		deleteAllQueryConceptsAndRefresh();
 
-		queryConcepts = elasticsearchTemplate.search(new NativeQueryBuilder().build(), QueryConcept.class)
+		queryConcepts = elasticsearchOperations.search(new NativeQueryBuilder().build(), QueryConcept.class)
 				.stream().map(SearchHit::getContent).collect(Collectors.toList());
 		assertEquals(0, queryConcepts.size());
 

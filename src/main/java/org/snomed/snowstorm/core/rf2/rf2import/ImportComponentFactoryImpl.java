@@ -70,13 +70,13 @@ public class ImportComponentFactoryImpl extends ImpotentComponentFactory {
 		persistBuffers = new ArrayList<>();
 		maxEffectiveTimeCollector = new MaxEffectiveTimeCollector();
 		coreComponentPersistBuffers = new ArrayList<>();
-		ElasticsearchOperations elasticsearchTemplate = conceptUpdateHelper.getElasticsearchOperations();
+		ElasticsearchOperations elasticsearchOperations = conceptUpdateHelper.getElasticsearchOperations();
 		versionControlHelper = conceptUpdateHelper.getVersionControlHelper();
 
 		conceptPersistBuffer = new PersistBuffer<>() {
 			@Override
 			public void persistCollection(Collection<Concept> entities) {
-				processEntities(entities, patchReleaseVersion, elasticsearchTemplate, Concept.class, copyReleaseFields, clearEffectiveTimes);
+				processEntities(entities, patchReleaseVersion, elasticsearchOperations, Concept.class, copyReleaseFields, clearEffectiveTimes);
 				if (!entities.isEmpty()) {
 					conceptUpdateHelper.doSaveBatchConcepts(entities, commit);
 				}
@@ -87,7 +87,7 @@ public class ImportComponentFactoryImpl extends ImpotentComponentFactory {
 		descriptionPersistBuffer = new PersistBuffer<>() {
 			@Override
 			public void persistCollection(Collection<Description> entities) {
-				processEntities(entities, patchReleaseVersion, elasticsearchTemplate, Description.class, copyReleaseFields, clearEffectiveTimes);
+				processEntities(entities, patchReleaseVersion, elasticsearchOperations, Description.class, copyReleaseFields, clearEffectiveTimes);
 				if (!entities.isEmpty()) {
 					conceptUpdateHelper.doSaveBatchDescriptions(entities, commit);
 				}
@@ -98,7 +98,7 @@ public class ImportComponentFactoryImpl extends ImpotentComponentFactory {
 		relationshipPersistBuffer = new PersistBuffer<>() {
 			@Override
 			public void persistCollection(Collection<Relationship> entities) {
-				processEntities(entities, patchReleaseVersion, elasticsearchTemplate, Relationship.class, copyReleaseFields, clearEffectiveTimes);
+				processEntities(entities, patchReleaseVersion, elasticsearchOperations, Relationship.class, copyReleaseFields, clearEffectiveTimes);
 				if (!entities.isEmpty()) {
 					conceptUpdateHelper.doSaveBatchRelationships(entities, commit);
 				}
@@ -117,7 +117,7 @@ public class ImportComponentFactoryImpl extends ImpotentComponentFactory {
 						}
 					}
 				}
-				processEntities(entities, patchReleaseVersion, elasticsearchTemplate, ReferenceSetMember.class, copyReleaseFields, clearEffectiveTimes);
+				processEntities(entities, patchReleaseVersion, elasticsearchOperations, ReferenceSetMember.class, copyReleaseFields, clearEffectiveTimes);
 				if (!entities.isEmpty()) {
 					memberService.doSaveBatchMembers(entities, commit);
 				}
@@ -127,7 +127,7 @@ public class ImportComponentFactoryImpl extends ImpotentComponentFactory {
 		identifierPersistBuffer = new PersistBuffer<>() {
 			@Override
 			public void persistCollection(Collection<Identifier> entities) {
-				processEntities(entities, patchReleaseVersion, elasticsearchTemplate, Identifier.class, copyReleaseFields, clearEffectiveTimes);
+				processEntities(entities, patchReleaseVersion, elasticsearchOperations, Identifier.class, copyReleaseFields, clearEffectiveTimes);
 				if (!entities.isEmpty()) {
 					identifierComponentService.doSaveBatchIdentifiers(entities, commit);
 				}

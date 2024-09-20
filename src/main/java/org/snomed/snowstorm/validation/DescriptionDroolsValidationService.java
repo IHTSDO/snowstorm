@@ -27,7 +27,7 @@ public class DescriptionDroolsValidationService implements org.ihtsdo.drools.ser
 
 	private final String branchPath;
 	private final BranchCriteria branchCriteria;
-	private final ElasticsearchOperations elasticsearchTemplate;
+	private final ElasticsearchOperations elasticsearchOperations;
 	private final DescriptionService descriptionService;
 	private final DisposableQueryService queryService;
 	private final TestResourceProvider testResourceProvider;
@@ -37,7 +37,7 @@ public class DescriptionDroolsValidationService implements org.ihtsdo.drools.ser
 
 	DescriptionDroolsValidationService(String branchPath,
 			BranchCriteria branchCriteria,
-			ElasticsearchOperations elasticsearchTemplate,
+			ElasticsearchOperations elasticsearchOperations,
 			DescriptionService descriptionService,
 			DisposableQueryService queryService,
 			TestResourceProvider testResourceProvider,
@@ -45,7 +45,7 @@ public class DescriptionDroolsValidationService implements org.ihtsdo.drools.ser
 
 		this.branchPath = branchPath;
 		this.branchCriteria = branchCriteria;
-		this.elasticsearchTemplate = elasticsearchTemplate;
+		this.elasticsearchOperations = elasticsearchOperations;
 		this.descriptionService = descriptionService;
 		this.queryService = queryService;
 		this.testResourceProvider = testResourceProvider;
@@ -78,7 +78,7 @@ public class DescriptionDroolsValidationService implements org.ihtsdo.drools.ser
 						.must(termQuery("term", exactTerm)))
 				)
 				.build();
-		List<Description> matches = elasticsearchTemplate.search(query, Description.class).get().map(SearchHit::getContent).toList();
+		List<Description> matches = elasticsearchOperations.search(query, Description.class).get().map(SearchHit::getContent).toList();
 		return matches.stream()
 				.filter(description -> description.getTerm().equals(exactTerm))
 				.map(DroolsDescription::new).collect(Collectors.toSet());
