@@ -66,6 +66,9 @@ public class ImportService {
 	@Autowired
 	private ConceptService conceptService;
 
+	@Autowired
+	private MostRecentEffectiveTimeFinder mostRecentEffectiveTimeFinder;
+
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
 	public ImportService() {
@@ -226,10 +229,17 @@ public class ImportService {
 			final ReleaseImporter releaseImporter, final LoadingProfile loadingProfile) throws ReleaseImportException {
 
 		// If we are not creating a new version copy the release fields from the existing components
-		final ImportComponentFactoryImpl importComponentFactory =
-				getImportComponentFactory(branchPath, patchReleaseVersion, !job.isCreateCodeSystemVersion(), job.isClearEffectiveTimes());
+		final ImportComponentFactoryImpl importComponentFactory = getImportComponentFactory(branchPath, patchReleaseVersion, !job.isCreateCodeSystemVersion(), job.isClearEffectiveTimes());
+		importComponentFactory.useModuleEffectiveTimeFilter(true);
 		try {
-			releaseImporter.loadSnapshotReleaseFiles(releaseFileStream, loadingProfile, importComponentFactory, true);
+			logger.info("Start fetching latest effectiveTime imported already for each module on path {}", branchPath);
+			Map<String, Integer> effectiveTimeByModuleId = mostRecentEffectiveTimeFinder.getEffectiveTimeByModuleId(branchPath, true);
+			if (!effectiveTimeByModuleId.isEmpty()) {
+				logger.info("Fetched latest effectiveTime by module on path {} {}", branchPath, effectiveTimeByModuleId);
+			}
+			logger.info("Completed fetching latest effectiveTime for each module on path {}", branchPath);
+
+			releaseImporter.loadSnapshotReleaseFiles(releaseFileStream, loadingProfile.withModuleEffectiveTimeFilter(effectiveTimeByModuleId), importComponentFactory, true);
 			return importComponentFactory.getMaxEffectiveTime();
 		} catch (ReleaseImportException e) {
 			rollbackIncompleteCommit(importComponentFactory);
