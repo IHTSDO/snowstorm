@@ -57,7 +57,7 @@ public class AdminOperationsService {
 	private SearchLanguagesConfiguration searchLanguagesConfiguration;
 
 	@Autowired
-	private ElasticsearchOperations elasticsearchTemplate;
+	private ElasticsearchOperations elasticsearchOperations;
 
 	@Autowired
 	private VersionControlHelper versionControlHelper;
@@ -95,7 +95,7 @@ public class AdminOperationsService {
 		logger.info("Reindexing all description documents in version control with language code '{}' using {} folded characters.", languageCode, foldedCharacters.size());
 		AtomicLong descriptionCount = new AtomicLong();
 		AtomicLong descriptionUpdateCount = new AtomicLong();
-		try (SearchHitsIterator<Description> descriptionsOnAllBranchesStream = elasticsearchTemplate.searchForStream(new NativeQueryBuilder()
+		try (SearchHitsIterator<Description> descriptionsOnAllBranchesStream = elasticsearchOperations.searchForStream(new NativeQueryBuilder()
 						.withQuery(termQuery(Description.Fields.LANGUAGE_CODE, languageCode))
 						.withSort(SortOptions.of(s -> s.field(f -> f.field("internalId"))))
 						.withPageable(LARGE_PAGE)
@@ -120,7 +120,7 @@ public class AdminOperationsService {
 					}
 					if (updateQueries.size() == 10_000) {
 						logger.info("Bulk update {}", descriptionUpdateCount.get());
-						elasticsearchTemplate.bulkUpdate(updateQueries, elasticsearchTemplate.getIndexCoordinatesFor(Description.class));
+						elasticsearchOperations.bulkUpdate(updateQueries, elasticsearchOperations.getIndexCoordinatesFor(Description.class));
 						updateQueries.clear();
 					}
 				}
@@ -130,10 +130,10 @@ public class AdminOperationsService {
 			}
 			if (!updateQueries.isEmpty()) {
 				logger.info("Bulk update {}", descriptionUpdateCount.get());
-				elasticsearchTemplate.bulkUpdate(updateQueries, elasticsearchTemplate.getIndexCoordinatesFor(Description.class));
+				elasticsearchOperations.bulkUpdate(updateQueries, elasticsearchOperations.getIndexCoordinatesFor(Description.class));
 			}
 		} finally {
-			elasticsearchTemplate.indexOps(Description.class).refresh();
+			elasticsearchOperations.indexOps(Description.class).refresh();
 		}
 		logger.info("Completed reindexing of description documents with language code '{}'. Of the {} documents found {} were updated due to a character folding change.",
 				languageCode, descriptionCount.get(), descriptionUpdateCount.get());
@@ -183,7 +183,7 @@ public class AdminOperationsService {
 			Set<String> toRemove = new HashSet<>();
 			Set<String> versionsReplacedForType = versionsReplaced.getOrDefault(type.getSimpleName(), Collections.emptySet());
 			for (List<String> versionsReplacedSegment : Iterables.partition(versionsReplacedForType, 1_000)) {
-				try (final SearchHitsIterator<? extends DomainEntity> entitiesReplaced = elasticsearchTemplate.searchForStream(new NativeQueryBuilder()
+				try (final SearchHitsIterator<? extends DomainEntity> entitiesReplaced = elasticsearchOperations.searchForStream(new NativeQueryBuilder()
 						.withQuery(bool(bq -> bq
 								.must(prefixQuery("path", branch + "/"))
 								.must(termsQuery("_id", versionsReplacedSegment))
@@ -221,7 +221,7 @@ public class AdminOperationsService {
 				.build();
 
 		List<Relationship> correctedRelationships = new ArrayList<>();
-		try (SearchHitsIterator<Relationship> stream = elasticsearchTemplate.searchForStream(searchQuery, Relationship.class)) {
+		try (SearchHitsIterator<Relationship> stream = elasticsearchOperations.searchForStream(searchQuery, Relationship.class)) {
 			stream.forEachRemaining(hit -> {
 				Relationship relationshipInPreviousRelease = hit.getContent();
 				Relationship currentRelationship = inactiveRelationships.get(parseLong(relationshipInPreviousRelease.getRelationshipId()));
@@ -254,7 +254,7 @@ public class AdminOperationsService {
 
 	private Map<Long, Relationship> getAllInactiveRelationships(String previousReleaseBranch, String effectiveTime) {
 		Map<Long, Relationship> relationshipMap = new Long2ObjectOpenHashMap<>();
-		try (SearchHitsIterator<Relationship> stream = elasticsearchTemplate.searchForStream(new NativeQueryBuilder()
+		try (SearchHitsIterator<Relationship> stream = elasticsearchOperations.searchForStream(new NativeQueryBuilder()
 				.withQuery(
 						bool(b -> b
 								.must(versionControlHelper.getBranchCriteria(previousReleaseBranch).getEntityBranchCriteria(Relationship.class))
@@ -295,13 +295,13 @@ public class AdminOperationsService {
 		Query deleteQuery = new NativeQueryBuilder().withQuery(termQuery("path", path)).build();
 		for (Class<? extends DomainEntity> domainEntityType : domainEntityConfiguration.getAllDomainEntityTypes()) {
 			logger.info("Deleting all {} type documents on branch {}.", domainEntityType.getSimpleName(), path);
-			elasticsearchTemplate.delete(deleteQuery, domainEntityType, elasticsearchTemplate.getIndexCoordinatesFor(domainEntityType));
-			elasticsearchTemplate.indexOps(domainEntityType).refresh();
+			elasticsearchOperations.delete(deleteQuery, domainEntityType, elasticsearchOperations.getIndexCoordinatesFor(domainEntityType));
+			elasticsearchOperations.indexOps(domainEntityType).refresh();
 		}
 
 		logger.info("Deleting branch documents for path {}.", path);
-		elasticsearchTemplate.delete(deleteQuery, Branch.class, elasticsearchTemplate.getIndexCoordinatesFor(Branch.class));
-		elasticsearchTemplate.indexOps(Branch.class).refresh();
+		elasticsearchOperations.delete(deleteQuery, Branch.class, elasticsearchOperations.getIndexCoordinatesFor(Branch.class));
+		elasticsearchOperations.indexOps(Branch.class).refresh();
 	}
 
 	public void deleteExtraInferredRelationships(String branchPath, InputStream relationshipsToKeepInputStream, int effectiveTime) throws IOException {
@@ -343,7 +343,7 @@ public class AdminOperationsService {
 						.must(termQuery(Relationship.Fields.EFFECTIVE_TIME, effectiveTime))))
 				.withSourceFilter(new FetchSourceFilter(new String[]{Relationship.Fields.RELATIONSHIP_ID}, null))
 				.withPageable(LARGE_PAGE);
-		try (SearchHitsIterator<Relationship> stream = elasticsearchTemplate.searchForStream(queryBuilder.build(), Relationship.class)) {
+		try (SearchHitsIterator<Relationship> stream = elasticsearchOperations.searchForStream(queryBuilder.build(), Relationship.class)) {
 			stream.forEachRemaining(hit -> {
 				Long relationshipId = Long.parseLong(hit.getContent().getRelationshipId());
 				if (!relationshipIdsToKeep.contains(relationshipId)) {
@@ -456,7 +456,7 @@ public class AdminOperationsService {
 					.withQuery(bool(b -> b.must(changesOnFixBranch.getEntityBranchCriteria(type))))
 					.withPageable(LARGE_PAGE).build();
 			Collection<DomainEntity> entitiesToPromote = new ArrayList<>();
-			try (SearchHitsIterator<? extends DomainEntity> stream = elasticsearchTemplate.searchForStream(query, type)) {
+			try (SearchHitsIterator<? extends DomainEntity> stream = elasticsearchOperations.searchForStream(query, type)) {
 				stream.forEachRemaining(hit -> entitiesToPromote.add(hit.getContent()));
 			}
 
@@ -473,7 +473,7 @@ public class AdminOperationsService {
 				for (List<String> entityVersionsReplacedBatch : Lists.partition(new ArrayList<>(entityVersionsReplaced), 1_000)) {
 					List<DomainEntity> existingEntitiesBatch = new ArrayList<>();
 					Map<String, Date> existingEntitiesOriginalStartDate = new HashMap<>();
-					try (SearchHitsIterator<? extends DomainEntity> existingEntityStream = elasticsearchTemplate.searchForStream(new NativeQueryBuilder()
+					try (SearchHitsIterator<? extends DomainEntity> existingEntityStream = elasticsearchOperations.searchForStream(new NativeQueryBuilder()
 							// Deleted or replaced component on fix branch
 							.withQuery(termsQuery("_id", entityVersionsReplacedBatch))
 							.withPageable(LARGE_PAGE).build(), type)) {
@@ -618,7 +618,7 @@ public class AdminOperationsService {
 			for (Map.Entry<Class<? extends DomainEntity>, ElasticsearchRepository> entry : allTypeRepositoryMap.entrySet()) {
 				ElasticsearchRepository elasticsearchRepository = entry.getValue();
 				List<DomainEntity> content = new ArrayList<>();
-				try (SearchHitsIterator<? extends DomainEntity> searchHitsStream = elasticsearchTemplate.searchForStream(new NativeQueryBuilder()
+				try (SearchHitsIterator<? extends DomainEntity> searchHitsStream = elasticsearchOperations.searchForStream(new NativeQueryBuilder()
 						.withQuery(bool(b -> b
 								.must(termQuery("path", sourceBranchPath))
 								.must(termQuery("start", sourceBranchCommit.getStart().getTime())))
@@ -661,7 +661,7 @@ public class AdminOperationsService {
 				if (!descriptionIds.isEmpty()) {
 					logger.info("Looking up concept id for {} descriptions.", descriptionIds.size());
 					final BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(branchPath);
-					try (final SearchHitsIterator<Description> stream = elasticsearchTemplate.searchForStream(new NativeQueryBuilder()
+					try (final SearchHitsIterator<Description> stream = elasticsearchOperations.searchForStream(new NativeQueryBuilder()
 							.withQuery(bool(b -> b.must(branchCriteria.getEntityBranchCriteria(Description.class))
 									.must(termsQuery(Description.Fields.DESCRIPTION_ID, descriptionIds))))
 							.withSourceFilter(new FetchSourceFilter(new String[]{Description.Fields.DESCRIPTION_ID, Description.Fields.CONCEPT_ID}, null))
@@ -816,7 +816,7 @@ public class AdminOperationsService {
 		// Find all un-versioned inactive inferred relationships
 		Set<Long> relationshipIds = new LongOpenHashSet();
 		final BranchCriteria thisBranchCriteria = versionControlHelper.getBranchCriteria(branchPath);
-		try (final SearchHitsIterator<Relationship> relationships = elasticsearchTemplate.searchForStream(new NativeQueryBuilder()
+		try (final SearchHitsIterator<Relationship> relationships = elasticsearchOperations.searchForStream(new NativeQueryBuilder()
 				.withQuery(bool(b -> b
 						.must(thisBranchCriteria.getEntityBranchCriteria(Relationship.class))
 						.must(termQuery(Relationship.Fields.ACTIVE, false))
@@ -829,7 +829,7 @@ public class AdminOperationsService {
 		for (List<Long> relationshipBatch : partition(relationshipIds, 1_000)) {
 			// Find previous version in this code system
 			final Map<Long, Relationship> previousVersion = new Long2ObjectOpenHashMap<>();
-			try (final SearchHitsIterator<Relationship> relationships = elasticsearchTemplate.searchForStream(new NativeQueryBuilder()
+			try (final SearchHitsIterator<Relationship> relationships = elasticsearchOperations.searchForStream(new NativeQueryBuilder()
 					.withQuery(bool(b -> b
 							.must(versionControlHelper.getBranchCriteria(latestReleaseAndDependantRelease.getFirst()).getEntityBranchCriteria(Relationship.class))
 							.must(termQuery(Relationship.Fields.CHARACTERISTIC_TYPE_ID, Concepts.INFERRED_RELATIONSHIP))))
@@ -842,7 +842,7 @@ public class AdminOperationsService {
 			}
 			String dependantReleaseBranch = latestReleaseAndDependantRelease.getSecond().orElse(null);
 			if (dependantReleaseBranch != null) {
-				try (final SearchHitsIterator<Relationship> relationships = elasticsearchTemplate.searchForStream(new NativeQueryBuilder()
+				try (final SearchHitsIterator<Relationship> relationships = elasticsearchOperations.searchForStream(new NativeQueryBuilder()
 						.withQuery(bool(b -> b
 								.must(versionControlHelper.getBranchCriteria(dependantReleaseBranch).getEntityBranchCriteria(Relationship.class))
 								.must(termQuery(Relationship.Fields.CHARACTERISTIC_TYPE_ID, Concepts.INFERRED_RELATIONSHIP))))

@@ -24,7 +24,7 @@ import static org.snomed.snowstorm.core.data.domain.Concepts.*;
 public class ECLQueryServiceTestConfig extends ECLQueryTestConfig {
 
 	@Autowired
-	private ElasticsearchOperations elasticsearchTemplate;
+	private ElasticsearchOperations elasticsearchOperations;
 
 	@PostConstruct
 	public void beforeAll() throws ServiceException , InterruptedException {
@@ -129,7 +129,7 @@ public class ECLQueryServiceTestConfig extends ECLQueryTestConfig {
 		memberService.createMembers(MAIN, Sets.newHashSet(
 				new ReferenceSetMember(Concepts.CORE_MODULE, REFSET_SIMPLE, BODY_STRUCTURE)));
 
-		List<QueryConcept> queryConcepts = elasticsearchTemplate.search(
+		List<QueryConcept> queryConcepts = elasticsearchOperations.search(
 						new NativeQueryBuilder()
 								.withSort(SortBuilders.fieldSort(QueryConcept.Fields.CONCEPT_ID))
 								.withPageable(LARGE_PAGE).build(), QueryConcept.class)

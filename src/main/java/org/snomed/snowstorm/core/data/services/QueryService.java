@@ -62,7 +62,7 @@ public class QueryService implements ApplicationContextAware {
 	static final PageRequest PAGE_OF_ONE = PageRequest.of(0, 1);
 
 	@Autowired
-	private ElasticsearchOperations elasticsearchTemplate;
+	private ElasticsearchOperations elasticsearchOperations;
 
 	@Autowired
 	private VersionControlHelper versionControlHelper;
@@ -177,7 +177,7 @@ public class QueryService implements ApplicationContextAware {
 					.build();
 			query.setTrackTotalHits(true);
 			updateQueryWithSearchAfter(query, pageRequest);
-			SearchHits<Concept> searchHits = elasticsearchTemplate.search(query, Concept.class);
+			SearchHits<Concept> searchHits = elasticsearchOperations.search(query, Concept.class);
 			return PageHelper.toSearchAfterPage(searchHits, Concept::getConceptIdAsLong, pageRequest);
 		});
 	}
@@ -217,7 +217,7 @@ public class QueryService implements ApplicationContextAware {
 						.build();
 				query.setTrackTotalHits(true);
 				updateQueryWithSearchAfter(query, pageRequest);
-				SearchHits<Concept> searchHits = elasticsearchTemplate.search(query, Concept.class);
+				SearchHits<Concept> searchHits = elasticsearchOperations.search(query, Concept.class);
 				conceptIdPage = PageHelper.toSearchAfterPage(searchHits, Concept::getConceptIdAsLong, pageRequest);
 			}
 
@@ -247,7 +247,7 @@ public class QueryService implements ApplicationContextAware {
 			} else {
 				allFilteredLogicalMatches = new LongArrayList();
 				Query conceptBoolQuery = getSearchByConceptIdQuery(conceptQuery, branchCriteria);
-				try (SearchHitsIterator<Concept> stream = elasticsearchTemplate.searchForStream(new NativeQueryBuilder()
+				try (SearchHitsIterator<Concept> stream = elasticsearchOperations.searchForStream(new NativeQueryBuilder()
 						.withQuery(conceptBoolQuery)
 						.withFilter(termsQuery(Concept.Fields.CONCEPT_ID, allConceptIdsSortedByTermOrder))
 						.withSourceFilter(new FetchSourceFilter(new String[]{Concept.Fields.CONCEPT_ID}, null))
@@ -323,7 +323,7 @@ public class QueryService implements ApplicationContextAware {
 					.withSort(getDefaultSortForConcept())
 					.withPageable(LARGE_PAGE);
 
-			try (SearchHitsIterator<Concept> stream = elasticsearchTemplate.searchForStream(conceptDefinitionQuery.build(), Concept.class)) {
+			try (SearchHitsIterator<Concept> stream = elasticsearchOperations.searchForStream(conceptDefinitionQuery.build(), Concept.class)) {
 				stream.forEachRemaining(hit -> filteredConceptIds.add(hit.getContent().getConceptIdAsLong()));
 			}
 		}
@@ -370,7 +370,7 @@ public class QueryService implements ApplicationContextAware {
 				)
 				.withPageable(PAGE_OF_ONE)
 				.build();
-		List<QueryConcept> concepts = elasticsearchTemplate.search(searchQuery, QueryConcept.class)
+		List<QueryConcept> concepts = elasticsearchOperations.search(searchQuery, QueryConcept.class)
 				.stream().map(SearchHit::getContent).toList();
 		return concepts.isEmpty() ? Collections.emptySet() : concepts.stream().flatMap(queryConcept -> queryConcept.getParents().stream()).collect(Collectors.toSet());
 	}
@@ -384,7 +384,7 @@ public class QueryService implements ApplicationContextAware {
 				)
 				.withPageable(LARGE_PAGE)
 				.build();
-		final List<QueryConcept> concepts = elasticsearchTemplate.search(searchQuery, QueryConcept.class)
+		final List<QueryConcept> concepts = elasticsearchOperations.search(searchQuery, QueryConcept.class)
 				.stream().map(SearchHit::getContent).collect(Collectors.toList());
 		if (concepts.size() > 1) {
 			logger.error("More than one index concept found {}", concepts);
@@ -402,7 +402,7 @@ public class QueryService implements ApplicationContextAware {
 				)
 				.withPageable(LARGE_PAGE)
 				.build();
-		final List<QueryConcept> concepts = elasticsearchTemplate.search(searchQuery, QueryConcept.class)
+		final List<QueryConcept> concepts = elasticsearchOperations.search(searchQuery, QueryConcept.class)
 				.stream().map(SearchHit::getContent).toList();
 		Set<Long> allAncestors = new HashSet<>();
 		for (QueryConcept concept : concepts) {
@@ -420,7 +420,7 @@ public class QueryService implements ApplicationContextAware {
 				)
 				.withPageable(LARGE_PAGE)
 				.build();
-		final List<QueryConcept> concepts = elasticsearchTemplate.search(searchQuery, QueryConcept.class)
+		final List<QueryConcept> concepts = elasticsearchOperations.search(searchQuery, QueryConcept.class)
 				.stream().map(SearchHit::getContent).toList();
 		Set<Long> allParents = new HashSet<>();
 		for (QueryConcept concept : concepts) {
@@ -440,7 +440,7 @@ public class QueryService implements ApplicationContextAware {
 				.withPageable(LARGE_PAGE)
 				.withSort(SortOptions.of(sb -> sb.field(fs -> fs.field(QueryConcept.Fields.CONCEPT_ID))))// This could be anything
 				.build();
-		SearchHits<QueryConcept> searchHits = elasticsearchTemplate.search(searchQuery, QueryConcept.class);
+		SearchHits<QueryConcept> searchHits = elasticsearchOperations.search(searchQuery, QueryConcept.class);
 		return searchHits.stream().map(SearchHit::getContent).map(QueryConcept::getConceptIdL).collect(Collectors.toSet());
 	}
 
@@ -455,7 +455,7 @@ public class QueryService implements ApplicationContextAware {
 				.withPageable(LARGE_PAGE)
 				.withSort(SortOptions.of(sb -> sb.field(fs -> fs.field(QueryConcept.Fields.CONCEPT_ID))))// This could be anything
 				.build();
-		SearchHits<QueryConcept> searchHits = elasticsearchTemplate.search(searchQuery, QueryConcept.class);
+		SearchHits<QueryConcept> searchHits = elasticsearchOperations.search(searchQuery, QueryConcept.class);
 		return searchHits.stream().map(SearchHit::getContent).map(QueryConcept::getConceptIdL).collect(Collectors.toSet());
 	}
 
@@ -491,7 +491,7 @@ public class QueryService implements ApplicationContextAware {
 						.must(termQuery(QueryConcept.Fields.STATED, form == Relationship.CharacteristicType.stated))
 						.must(termsQuery(QueryConcept.Fields.PARENTS, conceptIdsToFind))))
 				.withPageable(LARGE_PAGE);
-		try (SearchHitsIterator<QueryConcept> children = elasticsearchTemplate.searchForStream(queryBuilder.build(), QueryConcept.class)) {
+		try (SearchHitsIterator<QueryConcept> children = elasticsearchOperations.searchForStream(queryBuilder.build(), QueryConcept.class)) {
 			children.forEachRemaining(hit -> {
 				if (conceptIdsToFind.isEmpty()) {
 					return;

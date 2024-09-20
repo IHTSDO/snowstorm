@@ -26,7 +26,7 @@ import static io.kaicode.elasticvc.helper.QueryHelper.*;
 public class SemanticIndexService {
 
 	@Autowired
-	private ElasticsearchOperations elasticsearchTemplate;
+	private ElasticsearchOperations elasticsearchOperations;
 
 	@Autowired
 	private VersionControlHelper versionControlHelper;
@@ -45,7 +45,7 @@ public class SemanticIndexService {
 				))
 				.withPageable(pageRequest);
 		String conceptIdString = conceptId.toString();
-		SearchHits<QueryConcept> queryConcepts = elasticsearchTemplate.search(queryBuilder.build(), QueryConcept.class);
+		SearchHits<QueryConcept> queryConcepts = elasticsearchOperations.search(queryBuilder.build(), QueryConcept.class);
 
 		for (SearchHit<QueryConcept> hit : queryConcepts.getSearchHits()) {
 			if (hit.getContent().getAncestors().contains(conceptId)) {
