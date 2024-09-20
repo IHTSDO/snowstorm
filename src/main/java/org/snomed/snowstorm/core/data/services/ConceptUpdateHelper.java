@@ -100,7 +100,7 @@ public class ConceptUpdateHelper extends ComponentService {
 	private VersionControlHelper versionControlHelper;
 
 	@Autowired
-	private ElasticsearchOperations elasticsearchTemplate;
+	private ElasticsearchOperations elasticsearchOperations;
 
 	@Autowired
 	private IdentifierService identifierService;
@@ -674,7 +674,7 @@ public class ConceptUpdateHelper extends ComponentService {
 				).withPageable(LARGE_PAGE).build();
 
 		List<ReferenceSetMember> membersToDelete = new ArrayList<>();
-		try (SearchHitsIterator<ReferenceSetMember> stream = elasticsearchTemplate.searchForStream(query, ReferenceSetMember.class)) {
+		try (SearchHitsIterator<ReferenceSetMember> stream = elasticsearchOperations.searchForStream(query, ReferenceSetMember.class)) {
 			stream.forEachRemaining(hit -> {
 				ReferenceSetMember member = hit.getContent();
 				member.markDeleted();
@@ -805,8 +805,8 @@ public class ConceptUpdateHelper extends ComponentService {
 		}
 	}
 
-	public ElasticsearchOperations getElasticsearchTemplate() {
-		return elasticsearchTemplate;
+	public ElasticsearchOperations getElasticsearchOperations() {
+		return elasticsearchOperations;
 	}
 
 	public VersionControlHelper getVersionControlHelper() {
