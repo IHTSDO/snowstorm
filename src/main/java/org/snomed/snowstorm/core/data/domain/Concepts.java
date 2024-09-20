@@ -25,6 +25,10 @@ public class Concepts {
 	public static final String SYNONYM = "900000000000013009";
 	public static final String TEXT_DEFINITION = "900000000000550004";
 
+	public static final long FSN_L = 900000000000003001L;
+	public static final long SYNONYM_L = 900000000000013009L;
+	public static final long TEXT_DEFINITION_L = 900000000000550004L;
+
 	public static final String ACCEPTABLE = "900000000000549004";
 	public static final String ACCEPTABLE_CONSTANT = "ACCEPTABLE";
 	public static final String PREFERRED = "900000000000548007";
