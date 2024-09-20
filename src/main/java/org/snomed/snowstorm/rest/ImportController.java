@@ -5,6 +5,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.core.data.services.NotFoundException;
+import org.snomed.snowstorm.core.rf2.RF2Type;
 import org.snomed.snowstorm.core.rf2.rf2import.ImportJob;
 import org.snomed.snowstorm.core.rf2.rf2import.ImportService;
 import org.snomed.snowstorm.core.rf2.rf2import.RF2ImportConfiguration;
@@ -105,7 +106,7 @@ public class ImportController {
 	@Operation(summary = "Apply a release patch.",
 			description = "This endpoint is only used to support the International authoring process. " +
 					"Small content changes and additions gathered during the Beta Feedback process can be applied to content after it has been versioned and before the release is published. " +
-					"PLEASE NOTE this function does not support content deletions.")
+					"PLEASE NOTE this function does not support content deletions and only supports delta import")
 	@PostMapping(value = "/release-patch")
 	@PreAuthorize("hasPermission('AUTHOR', #importPatchRequest.branchPath)")
 	public ResponseEntity<Void> createReleasePatchImportJob(@RequestBody ImportPatchCreationRequest importPatchRequest) {
@@ -113,6 +114,9 @@ public class ImportController {
 		ControllerHelper.requiredParam(importPatchRequest.getBranchPath(), "branchPath");
 		ControllerHelper.requiredParam(importPatchRequest.getPatchReleaseVersion(), "patchReleaseVersion");
 
+		if (importPatchRequest.getType() != RF2Type.DELTA) {
+			throw new IllegalArgumentException("Release patch import only supports delta import type.");
+		}
 		RF2ImportConfiguration importConfiguration = new RF2ImportConfiguration(importPatchRequest.getType(), importPatchRequest.getBranchPath());
 		importConfiguration.setPatchReleaseVersion(importPatchRequest.getPatchReleaseVersion());
 		String id = importService.createJob(importConfiguration);
