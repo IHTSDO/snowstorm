@@ -42,10 +42,10 @@ class MostRecentEffectiveTimeFinderTest extends AbstractTest {
 
     @Test
     void findLatestEffectiveTimeByModuleId() throws ServiceException {
+        // default core module
         conceptService.create(new Concept("100000"), "MAIN");
         conceptService.create(new Concept("100001", "10000111"), "MAIN");
         conceptService.create(new Concept("100002", "10000222"), "MAIN");
-        // default core module
         codeSystemService.createVersion(codeSystem, 20240801, "20240801 release");
 
         Map<String, Integer> results = mostRecentEffectiveTimeFinder.getEffectiveTimeByModuleId("MAIN", false);
