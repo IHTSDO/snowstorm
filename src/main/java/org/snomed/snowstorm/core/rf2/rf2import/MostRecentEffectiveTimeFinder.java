@@ -12,7 +12,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.util.AggregationUtils;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.elasticsearch.client.elc.NativeQuery;
 import org.springframework.data.elasticsearch.client.elc.NativeQueryBuilder;
@@ -29,50 +28,54 @@ import static co.elastic.clients.elasticsearch._types.query_dsl.QueryBuilders.bo
 import static io.kaicode.elasticvc.api.ComponentService.LARGE_PAGE;
 import static io.kaicode.elasticvc.helper.QueryHelper.existsQuery;
 import static io.kaicode.elasticvc.helper.QueryHelper.termQuery;
+import static org.snomed.snowstorm.core.data.domain.ReferenceSetMember.Fields.REFSET_ID;
+import static org.snomed.snowstorm.core.data.domain.SnomedComponent.Fields.EFFECTIVE_TIME;
 
 @Service
 public class MostRecentEffectiveTimeFinder {
-    private final static Logger logger = LoggerFactory.getLogger(MostRecentEffectiveTimeFinder.class);
+    private static final Logger logger = LoggerFactory.getLogger(MostRecentEffectiveTimeFinder.class);
 
-    @Autowired
-    private ElasticsearchOperations elasticsearchOperations;
+    private final ElasticsearchOperations elasticsearchOperations;
 
-    @Autowired
-    private VersionControlHelper versionControlHelper;
+    private final VersionControlHelper versionControlHelper;
 
+    public MostRecentEffectiveTimeFinder(ElasticsearchOperations elasticsearchOperations, VersionControlHelper versionControlHelper) {
+        this.elasticsearchOperations = elasticsearchOperations;
+        this.versionControlHelper = versionControlHelper;
+    }
 
     /**
      * Find the most recent effective time for each module on a given branch.
      * @param branchPath branch path
-     * @param searchMDRSOnly Set it to true to search refset members with refset id 900000000000534007 only to find the most recent effective time. Otherwise, it will run aggregations on all components.
+     * @param searchMDRSOnly Set it to true to search refset members with refset id 900000000000534007 only to find the most recent effective time.
+     *                       Otherwise, it will run aggregations on all components.
      * @return Map of module id to effective time
      */
     public Map<String, Integer> getEffectiveTimeByModuleId(String branchPath, boolean searchMDRSOnly) {
         if (searchMDRSOnly) {
             return getEffectiveTimeByModuleIdFromMDRS(branchPath);
-        } else {
-            Map<Class<? extends DomainEntity<?>>, Map<String, Integer>> latestEffectiveTimeByModuleId = findLatestEffectiveTimeByModuleId(branchPath);
-            // Get values from latestEffectiveTimeByModuleId map and return most recent effective time for each module in a single map
-            Map<String, Integer> effectiveTimeByModuleId = new HashMap<>();
-            if (latestEffectiveTimeByModuleId.isEmpty()) {
-                return effectiveTimeByModuleId;
-            }
-            for (Map<String, Integer> latestEffectiveTimeForComponent : latestEffectiveTimeByModuleId.values()) {
-                for (Map.Entry<String, Integer> entry : latestEffectiveTimeForComponent.entrySet()) {
-                    String moduleId = entry.getKey();
-                    Integer effectiveTime = entry.getValue();
-                    if (effectiveTimeByModuleId.containsKey(moduleId)) {
-                        Integer existingEffectiveTime = effectiveTimeByModuleId.get(moduleId);
-                        if (effectiveTime > existingEffectiveTime) {
-                            effectiveTimeByModuleId.put(moduleId, effectiveTime);
-                        }
-                    } else {
-                        effectiveTimeByModuleId.put(moduleId, effectiveTime);
-                    }
-                }
-            }
+        }
+        Map<Class<? extends DomainEntity<?>>, Map<String, Integer>> latestEffectiveTimeByModuleId = findLatestEffectiveTimeByModuleId(branchPath);
+        // Get values from latestEffectiveTimeByModuleId map and return most recent effective time for each module in a single map
+        Map<String, Integer> effectiveTimeByModuleId = new HashMap<>();
+        if (latestEffectiveTimeByModuleId.isEmpty()) {
             return effectiveTimeByModuleId;
         }
+        for (Map<String, Integer> latestEffectiveTimeForComponent : latestEffectiveTimeByModuleId.values()) {
+            for (Map.Entry<String, Integer> entry : latestEffectiveTimeForComponent.entrySet()) {
+                String moduleId = entry.getKey();
+                Integer effectiveTime = entry.getValue();
+                if (effectiveTimeByModuleId.containsKey(moduleId)) {
+                    Integer existingEffectiveTime = effectiveTimeByModuleId.get(moduleId);
+                    if (effectiveTime > existingEffectiveTime) {
+                        effectiveTimeByModuleId.put(moduleId, effectiveTime);
+                    }
+                } else {
+                    effectiveTimeByModuleId.put(moduleId, effectiveTime);
+                }
+            }
+        }
+        return effectiveTimeByModuleId;
     }
 
 
@@ -86,10 +89,10 @@ public class MostRecentEffectiveTimeFinder {
         NativeQuery query = new NativeQueryBuilder()
                 .withQuery(bool(b -> b
                         .must(versionControlHelper.getBranchCriteria(branchPath).getEntityBranchCriteria(ReferenceSetMember.class))
-                        .must(termQuery(ReferenceSetMember.Fields.REFSET_ID, Concepts.MODULE_DEPENDENCY_REFERENCE_SET))
-                        .must(existsQuery(ReferenceSetMember.Fields.EFFECTIVE_TIME))
+                        .must(termQuery(REFSET_ID, Concepts.MODULE_DEPENDENCY_REFERENCE_SET))
+                        .must(existsQuery(EFFECTIVE_TIME))
                 ))
-                .withSort(SortBuilders.fieldSortDesc(ReferenceSetMember.Fields.EFFECTIVE_TIME))
+                .withSort(SortBuilders.fieldSortDesc(EFFECTIVE_TIME))
                 .withPageable(LARGE_PAGE)
                 .build();
         query.setTrackTotalHits(true);
@@ -106,12 +109,10 @@ public class MostRecentEffectiveTimeFinder {
                 }
             });
         }
-        if (!effectiveTimeByModuleId.isEmpty()) {
-           if (effectiveTimeByModuleId.get(Concepts.CORE_MODULE) != null) {
+        if (!effectiveTimeByModuleId.isEmpty() && effectiveTimeByModuleId.get(Concepts.CORE_MODULE) != null) {
                // There is no MRDS refet member entry with module id as model module
                // But we can add model module effective time the same as core module's
                 effectiveTimeByModuleId.put(Concepts.MODEL_MODULE, effectiveTimeByModuleId.get(Concepts.CORE_MODULE));
-           }
         }
         return effectiveTimeByModuleId;
     }
@@ -128,15 +129,15 @@ public class MostRecentEffectiveTimeFinder {
         for (Class<? extends DomainEntity<?>> componentClass : componentClasses) {
             Aggregation termsAggregation = new Aggregation.Builder().terms(AggregationBuilders.terms().field(SnomedComponent.Fields.MODULE_ID).size(500).build()._toAggregation().terms())
                     .aggregations(latestEffectiveTime, AggregationBuilders.topHits().source(SourceConfig.of(sc -> sc
-                                    .filter(f -> f.includes(SnomedComponent.Fields.MODULE_ID, SnomedComponent.Fields.EFFECTIVE_TIME))))
-                            .sort(SortBuilders.fieldSortDesc(SnomedComponent.Fields.EFFECTIVE_TIME)).size(1).build()._toAggregation()).build();
+                                    .filter(f -> f.includes(SnomedComponent.Fields.MODULE_ID, EFFECTIVE_TIME))))
+                            .sort(SortBuilders.fieldSortDesc(EFFECTIVE_TIME)).size(1).build()._toAggregation()).build();
 
             // We could add .must(termQuery(SnomedComponent.Fields.PATH, branchCriteria.getBranchPath())) to limit the search to the branch only
             // but it won't work for edition snapshot
             NativeQuery query = new NativeQueryBuilder()
                     .withQuery(bool(b -> b
                             .must(branchCriteria.getEntityBranchCriteria(componentClass))
-                            .must(existsQuery(SnomedComponent.Fields.EFFECTIVE_TIME))
+                            .must(existsQuery(EFFECTIVE_TIME))
                     ))
                     .withAggregation(byModule, termsAggregation)
 
@@ -146,23 +147,24 @@ public class MostRecentEffectiveTimeFinder {
             query.setMaxResults(0);
             SearchHits<? extends DomainEntity<?>> results = elasticsearchOperations.search(query, componentClass);
             Map<String, Integer> latestEffectiveTimeByModuleIdForComponent = new HashMap<>();
-            if (results.hasAggregations()) {
-                logger.info("Processing latest effectiveTime by moduleId aggregation results for component: {}", componentClass.getSimpleName());
-                AggregationUtils.getAggregations(results.getAggregations()).get(byModule).getAggregate().sterms().buckets().array().forEach(bucket -> {
-                    String moduleId = bucket.key().stringValue();
-                    if (bucket.docCount() > 0 && bucket.aggregations().containsKey(latestEffectiveTime)) {
-                        TopHitsAggregate topHitsAggregate = bucket.aggregations().get(latestEffectiveTime).topHits();
-                        Integer mostRecent = getEffectiveTimeFromTopHits(topHitsAggregate);
-                        if (mostRecent != null) {
-                            logger.info("Latest effectiveTime: {} found for module id: {}",mostRecent, moduleId);
-                            latestEffectiveTimeByModuleIdForComponent.put(moduleId, mostRecent);
-                        }
+            if (!results.hasAggregations()) {
+                continue;
+            }
+            logger.info("Processing latest effectiveTime by moduleId aggregation results for component: {}", componentClass.getSimpleName());
+            AggregationUtils.getAggregations(results.getAggregations()).get(byModule).getAggregate().sterms().buckets().array().forEach(bucket -> {
+                String moduleId = bucket.key().stringValue();
+                if (bucket.docCount() > 0 && bucket.aggregations().containsKey(latestEffectiveTime)) {
+                    TopHitsAggregate topHitsAggregate = bucket.aggregations().get(latestEffectiveTime).topHits();
+                    Integer mostRecent = getEffectiveTimeFromTopHits(topHitsAggregate);
+                    if (mostRecent != null) {
+                        logger.info("Latest effectiveTime: {} found for module id: {}",mostRecent, moduleId);
+                        latestEffectiveTimeByModuleIdForComponent.put(moduleId, mostRecent);
                     }
-                });
-
-                if (!latestEffectiveTimeByModuleIdForComponent.isEmpty()) {
-                    latestEffectiveTimeByModuleId.put(componentClass, latestEffectiveTimeByModuleIdForComponent);
                 }
+            });
+
+            if (!latestEffectiveTimeByModuleIdForComponent.isEmpty()) {
+                latestEffectiveTimeByModuleId.put(componentClass, latestEffectiveTimeByModuleIdForComponent);
             }
         }
         return latestEffectiveTimeByModuleId;
@@ -183,7 +185,7 @@ public class MostRecentEffectiveTimeFinder {
         }
         JsonData source = firstHit.source();
         try {
-            return source.toJson().asJsonObject().getInt(SnomedComponent.Fields.EFFECTIVE_TIME);
+            return source.toJson().asJsonObject().getInt(EFFECTIVE_TIME);
         } catch (Exception e) {
             logger.error("Error parsing effective time from hit: {}", source, e);
             return null;

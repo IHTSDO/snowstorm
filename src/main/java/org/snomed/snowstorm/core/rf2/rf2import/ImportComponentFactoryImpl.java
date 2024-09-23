@@ -160,30 +160,7 @@ public class ImportComponentFactoryImpl extends ImpotentComponentFactory {
 		});
 		// patchReleaseVersion=-1 is a special case which allows replacing any effectiveTime
 		if (!useModuleEffectiveTimeFilter && (patchReleaseVersion == null || !patchReleaseVersion.equals(-1))) {
-			for (Integer effectiveTime : new TreeSet<>(effectiveDateMap.keySet())) {
-				// Find component states with an equal or greater effective time
-				boolean replacementOfThisEffectiveTimeAllowed = patchReleaseVersion != null && patchReleaseVersion.equals(effectiveTime);
-				List<T> componentsAtDate = effectiveDateMap.get(effectiveTime);
-				String idField = componentsAtDate.get(0).getIdField();
-				AtomicInteger alreadyExistingComponentCount = new AtomicInteger();
-				try (SearchHitsIterator<T> componentsWithSameOrLaterEffectiveTime = elasticsearchOperations.searchForStream(new NativeQueryBuilder()
-						.withQuery(bool(b -> b
-								.must(branchCriteriaBeforeOpenCommit.getEntityBranchCriteria(componentClass))
-								.must(termsQuery(idField, componentsAtDate.stream().map(T::getId).collect(Collectors.toList())))
-								.must(replacementOfThisEffectiveTimeAllowed ?
-										range().field(SnomedComponent.Fields.EFFECTIVE_TIME).gt(JsonData.of(effectiveTime)).build()._toQuery()
-										: range().field(SnomedComponent.Fields.EFFECTIVE_TIME).gte(JsonData.of(effectiveTime)).build()._toQuery())))
-						.withSourceFilter(new FetchSourceFilter(new String[]{idField}, null))// Only fetch the id
-						.withPageable(LARGE_PAGE)
-						.build(), componentClass)) {
-					componentsWithSameOrLaterEffectiveTime.forEachRemaining(hit -> {
-						// Skip component import
-						components.remove(hit.getContent());// Compared by id only
-						alreadyExistingComponentCount.incrementAndGet();
-					});
-				}
-				componentTypeSkippedMap.computeIfAbsent(componentClass.getSimpleName(), key -> new AtomicLong()).addAndGet(alreadyExistingComponentCount.get());
-			}
+			performPatch(components, patchReleaseVersion, elasticsearchOperations, componentClass, effectiveDateMap);
 		}
 		if (copyReleaseFields) {
 			Map<String, T> idToUnreleasedComponentMap = components.stream().filter(component -> component.getEffectiveTime() == null).collect(Collectors.toMap(T::getId, Function.identity()));
@@ -204,6 +181,33 @@ public class ImportComponentFactoryImpl extends ImpotentComponentFactory {
 					});
 				}
 			}
+		}
+	}
+
+	private <T extends SnomedComponent<T>> void performPatch(Collection<T> components, Integer patchReleaseVersion, ElasticsearchOperations elasticsearchOperations, Class<T> componentClass, Map<Integer, List<T>> effectiveDateMap) {
+		for (Integer effectiveTime : new TreeSet<>(effectiveDateMap.keySet())) {
+			// Find component states with an equal or greater effective time
+			boolean replacementOfThisEffectiveTimeAllowed = patchReleaseVersion != null && patchReleaseVersion.equals(effectiveTime);
+			List<T> componentsAtDate = effectiveDateMap.get(effectiveTime);
+			String idField = componentsAtDate.get(0).getIdField();
+			AtomicInteger alreadyExistingComponentCount = new AtomicInteger();
+			try (SearchHitsIterator<T> componentsWithSameOrLaterEffectiveTime = elasticsearchOperations.searchForStream(new NativeQueryBuilder()
+					.withQuery(bool(b -> b
+							.must(branchCriteriaBeforeOpenCommit.getEntityBranchCriteria(componentClass))
+							.must(termsQuery(idField, componentsAtDate.stream().map(T::getId).toList()))
+							.must(replacementOfThisEffectiveTimeAllowed ?
+									range().field(SnomedComponent.Fields.EFFECTIVE_TIME).gt(JsonData.of(effectiveTime)).build()._toQuery()
+									: range().field(SnomedComponent.Fields.EFFECTIVE_TIME).gte(JsonData.of(effectiveTime)).build()._toQuery())))
+					.withSourceFilter(new FetchSourceFilter(new String[]{idField}, null))// Only fetch the id
+					.withPageable(LARGE_PAGE)
+					.build(), componentClass)) {
+				componentsWithSameOrLaterEffectiveTime.forEachRemaining(hit -> {
+					// Skip component import
+					components.remove(hit.getContent());// Compared by id only
+					alreadyExistingComponentCount.incrementAndGet();
+				});
+			}
+			componentTypeSkippedMap.computeIfAbsent(componentClass.getSimpleName(), key -> new AtomicLong()).addAndGet(alreadyExistingComponentCount.get());
 		}
 	}
 
