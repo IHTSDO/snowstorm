@@ -130,6 +130,10 @@ public class IdentifierComponentService extends ComponentService {
 		}
 	}
 
+	public void deleteAll() {
+		identifierRepository.deleteAll();
+	}
+
 	private Query buildIdentifierQuery(IdentifierSearchRequest searchRequest, BranchCriteria branchCriteria) {
 		BoolQuery.Builder queryBuilder = bool().must(branchCriteria.getEntityBranchCriteria(Identifier.class));
 

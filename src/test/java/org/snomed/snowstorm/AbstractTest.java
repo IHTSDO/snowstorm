@@ -14,10 +14,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.snomed.snowstorm.core.data.domain.Concept;
 import org.snomed.snowstorm.core.data.domain.QueryConcept;
 import org.snomed.snowstorm.core.data.domain.ReferenceSetMember;
-import org.snomed.snowstorm.core.data.services.CodeSystemService;
-import org.snomed.snowstorm.core.data.services.ConceptService;
-import org.snomed.snowstorm.core.data.services.PermissionService;
-import org.snomed.snowstorm.core.data.services.ReferenceSetMemberService;
+import org.snomed.snowstorm.core.data.services.*;
 import org.snomed.snowstorm.core.data.services.classification.ClassificationService;
 import org.snomed.snowstorm.core.data.services.servicehook.CommitServiceHookClient;
 import org.snomed.snowstorm.core.data.services.traceability.Activity;
@@ -68,6 +65,9 @@ public abstract class AbstractTest {
 	@Autowired
 	private ReferenceSetMemberService referenceSetMemberService;
 
+	@Autowired
+	private IdentifierComponentService identifierComponentService;
+
 	@MockBean
 	protected CommitServiceHookClient commitServiceHookClient; // Mocked as calls on external service.
 
@@ -104,6 +104,7 @@ public abstract class AbstractTest {
 			codeSystemService.deleteAll();
 			classificationService.deleteAll();
 			permissionService.deleteAll();
+			identifierComponentService.deleteAll();
 		} catch (OptimisticLockingFailureException e) {
 			// Try again
 			Thread.sleep(100);
