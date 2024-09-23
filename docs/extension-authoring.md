@@ -1,6 +1,8 @@
 # SNOMED CT Extension / Edition Authoring
 Snowstorm can be used to author an extension of SNOMED CT.  The SNOMED International managed service offering uses Snowstorm as the authoring Terminology Server.
 
+See also: [Daily Build Imports](daily-build-imports.md).
+
 ## Initial Setup
 ### Code System and Data Import
 - Start by setting up the code system and importing the RF2 using the [loading extensions guide](updating-snomed-and-extensions.md). 
