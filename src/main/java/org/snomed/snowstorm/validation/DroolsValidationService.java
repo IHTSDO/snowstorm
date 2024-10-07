@@ -106,8 +106,7 @@ public class DroolsValidationService {
 		if (assertionGroupNamesMetaString == null) {
 			throw new ServiceException("'" + BranchMetadataKeys.ASSERTION_GROUP_NAMES + "' not set on branch metadata for Snomed-Drools validation configuration.");
 		}
-		String[] names = assertionGroupNamesMetaString.split(",");
-		Set<String> ruleSetNames = new HashSet<>(Arrays.asList(names));
+		Set<String> ruleSetNames = Arrays.stream(assertionGroupNamesMetaString.split(",")).map(String::trim).filter(StringUtils::hasLength).collect(Collectors.toSet());
 		if (ruleSetNames.isEmpty()) {
 			logger.info("Branch metadata item '{}' set as empty for {}, skipping Snomed-Drools validation.", BranchMetadataKeys.ASSERTION_GROUP_NAMES, branchPath);
 			return Collections.emptyList();
