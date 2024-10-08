@@ -95,6 +95,7 @@ public class QueryConcept extends DomainEntity<QueryConcept> implements FHIRGrap
 			groupedAttributesMap.clear();
 		}
 		attrMap = null;
+		attr = null;
 	}
 
 	public void addAttribute(int group, Long type, Object value) {
