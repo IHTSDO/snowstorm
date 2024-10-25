@@ -478,8 +478,14 @@ public class ReferenceSetMemberService extends ComponentService {
 				member.setConceptId(description.getConceptId());
 			});
 		}
-
-		return doSaveBatchComponents(members, commit, ReferenceSetMember.Fields.MEMBER_ID, memberRepository);
+		// Having to filter out null members when loading the IPS Terminology.
+		// In the content there are many lang refset members referring to non-existent descriptions.
+		// The filter is needed, but I don't quite understand why.
+		List<ReferenceSetMember> notNullMembers = members.stream().filter(Objects::nonNull).toList();
+		if (notNullMembers.isEmpty()) {
+			return Collections.emptyList();
+		}
+		return doSaveBatchComponents(notNullMembers, commit, ReferenceSetMember.Fields.MEMBER_ID, memberRepository);
 	}
 
 	public SearchAfterPage<ReferenceSetMember> findMembersForECLResponse(BoolQuery.Builder memberQueryBuilder, List<MemberFilterConstraint> memberFilterConstraints,

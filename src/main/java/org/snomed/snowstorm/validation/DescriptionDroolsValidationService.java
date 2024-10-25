@@ -137,7 +137,7 @@ public class DescriptionDroolsValidationService implements org.ihtsdo.drools.ser
 			}
 		}
 
-		return descriptionService.findDescriptionsByConceptId(branchPath, statedParents, languageRefsetIds.length > 0 ? true : false).stream()
+		return descriptionService.findDescriptionsByConceptId(branchPath, statedParents, languageRefsetIds.length > 0).stream()
 				.filter(d -> d.isActive() && d.getTypeId().equals(Concepts.FSN) && !d.getTag().equals(termSemanticTag) && (languageRefsetIds.length == 0 || d.getLangRefsetMembersMap().keySet().stream().anyMatch(k -> Arrays.asList(languageRefsetIds).contains(k))))
 				.map(Description::getConceptId)
 				.collect(Collectors.toSet());

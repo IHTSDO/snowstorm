@@ -16,9 +16,9 @@ import org.snomed.snowstorm.core.data.services.ConceptUpdateHelper;
 import org.snomed.snowstorm.core.data.services.IdentifierComponentService;
 import org.snomed.snowstorm.core.data.services.ReferenceSetMemberService;
 import org.snomed.snowstorm.core.rf2.RF2Constants;
+import org.springframework.data.elasticsearch.client.elc.NativeQueryBuilder;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.data.elasticsearch.core.SearchHitsIterator;
-import org.springframework.data.elasticsearch.client.elc.NativeQueryBuilder;
 import org.springframework.data.elasticsearch.core.query.FetchSourceFilter;
 
 import java.util.*;
@@ -27,10 +27,12 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+import static co.elastic.clients.elasticsearch._types.query_dsl.QueryBuilders.bool;
+import static co.elastic.clients.elasticsearch._types.query_dsl.QueryBuilders.range;
 import static io.kaicode.elasticvc.api.ComponentService.LARGE_PAGE;
+import static io.kaicode.elasticvc.helper.QueryHelper.termQuery;
+import static io.kaicode.elasticvc.helper.QueryHelper.termsQuery;
 import static java.lang.Long.parseLong;
-import static co.elastic.clients.elasticsearch._types.query_dsl.QueryBuilders.*;
-import static io.kaicode.elasticvc.helper.QueryHelper.*;
 
 public class ImportComponentFactoryImpl extends ImpotentComponentFactory {
 
@@ -52,7 +54,8 @@ public class ImportComponentFactoryImpl extends ImpotentComponentFactory {
 	private final List<PersistBuffer<?>> persistBuffers;
 	private final List<PersistBuffer<?>> coreComponentPersistBuffers;
 	private final MaxEffectiveTimeCollector maxEffectiveTimeCollector;
-	final Map<String, AtomicLong> componentTypeSkippedMap = new HashMap<>();
+	private final Map<String, AtomicLong> componentTypeSkippedMap = Collections.synchronizedMap(new HashMap<>());
+
 	private static final Logger logger = LoggerFactory.getLogger(ImportComponentFactoryImpl.class);
 
 	// A small number of stated relationships also appear in the inferred file. These should not be persisted when importing a snapshot.

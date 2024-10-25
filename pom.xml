@@ -15,6 +15,10 @@
 
 	<properties>
 		<packageName>${project.artifactId}</packageName>
+
+		<!-- BOM Overrides: Delete and reevaluate during each upgrade -->
+		<snomed-boot.version>5.1.0</snomed-boot.version>
+
 		<!--
 		Current Elasticsearch _Server_ version is 8.11.1
 		N.B. Remember to keep TestConfig.ELASTIC_SEARCH_SERVER_VERSION and getting-started guide updated.
