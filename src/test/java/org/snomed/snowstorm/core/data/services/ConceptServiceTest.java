@@ -17,6 +17,8 @@ import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.AbstractTest;
 import org.snomed.snowstorm.config.Config;
 import org.snomed.snowstorm.core.data.domain.*;
+import org.snomed.snowstorm.core.data.domain.review.MergeReview;
+import org.snomed.snowstorm.core.data.domain.review.MergeReviewConceptVersions;
 import org.snomed.snowstorm.core.data.services.pojo.AsyncConceptChangeBatch;
 import org.snomed.snowstorm.core.data.services.pojo.DescriptionCriteria;
 import org.snomed.snowstorm.core.data.services.pojo.MemberSearchRequest;
@@ -3009,6 +3011,66 @@ class ConceptServiceTest extends AbstractTest {
 		assertThrows(IllegalStateException.class, () -> {
 			conceptService.update(finalConcept, intMain);
 		});
+	}
+
+	@Test
+	void copyConcepts_ShouldThrowException_WhenTargetIsVersionedBranch() throws ServiceException {
+		String intMain = "MAIN";
+		String extMain = "MAIN/SNOMEDCT-XX";
+		Map<String, String> intPreferred = Map.of(US_EN_LANG_REFSET, descriptionAcceptabilityNames.get(PREFERRED), GB_EN_LANG_REFSET, descriptionAcceptabilityNames.get(PREFERRED));
+		Map<String, String> intAcceptable = Map.of(US_EN_LANG_REFSET, descriptionAcceptabilityNames.get(PREFERRED), GB_EN_LANG_REFSET, descriptionAcceptabilityNames.get(ACCEPTABLE));
+		String ci = "CASE_INSENSITIVE";
+		Concept concept;
+		Description description;
+		CodeSystem codeSystem;
+
+		// Create International Concept
+		concept = new Concept()
+				.addDescription(new Description("Medicine (medicine)").setTypeId(FSN).setCaseSignificance(ci).setAcceptabilityMap(intPreferred))
+				.addDescription(new Description("Medicine").setTypeId(SYNONYM).setCaseSignificance(ci).setAcceptabilityMap(intPreferred))
+				.addAxiom(new Relationship(ISA, SNOMEDCT_ROOT))
+				.addRelationship(new Relationship(ISA, SNOMEDCT_ROOT));
+		concept = conceptService.create(concept, intMain);
+		String medicineId = concept.getConceptId();
+
+		// Version International
+		codeSystem = codeSystemService.find("SNOMEDCT");
+		codeSystemService.createVersion(codeSystem, 20240101, "20240101");
+
+		// Create Extension
+		codeSystem = codeSystemService.createCodeSystem(new CodeSystem("SNOMEDCT-XX", extMain));
+		concept = conceptService.create(
+				new Concept()
+						.addDescription(new Description("Extension module (module)").setTypeId(FSN).setCaseSignificance(ci).setAcceptabilityMap(intPreferred))
+						.addDescription(new Description("Extension module").setTypeId(SYNONYM).setCaseSignificance(ci).setAcceptabilityMap(intPreferred))
+						.addAxiom(new Relationship(ISA, MODULE)),
+				extMain
+		);
+		String extModuleA = concept.getConceptId();
+		branchService.updateMetadata(extMain, Map.of(Config.DEFAULT_MODULE_ID_KEY, extModuleA, Config.EXPECTED_EXTENSION_MODULES, List.of(extModuleA)));
+
+		// Create Extension concept
+		concept = new Concept()
+				.setModuleId(extModuleA)
+				.addDescription(new Description("Paracetamol (medicine)").setTypeId(FSN).setCaseSignificance(ci).setAcceptabilityMap(intPreferred))
+				.addDescription(new Description("Paracetamol").setTypeId(SYNONYM).setCaseSignificance(ci).setAcceptabilityMap(intPreferred))
+				.addAxiom(new Relationship(ISA, medicineId))
+				.addRelationship(new Relationship(ISA, medicineId));
+		concept = conceptService.create(concept, extMain);
+		String paracetamolId = concept.getConceptId();
+
+		// Version Extension
+		codeSystem = codeSystemService.find("SNOMEDCT-XX");
+		codeSystemService.createVersion(codeSystem, 20240102, "20240102");
+
+		// Copy Extension to International
+		assertThrows(ServiceException.class, () -> {
+			conceptService.copyConcepts("<< " + paracetamolId, extMain, "MAIN/2024-01-01", true);
+		});
+
+		// Assert copying failed
+		concept = conceptService.find(paracetamolId, "MAIN/2024-01-01");
+		assertNull(concept);
 	}
 
 	private Description getDescriptionByTerm(Concept concept, String term) {
