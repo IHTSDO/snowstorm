@@ -6,7 +6,7 @@
 	<description>SNOMED CT Terminology Server Using Elasticsearch</description>
 
 	<artifactId>snowstorm-x</artifactId>
-	<version>10.5.1</version>
+	<version>10.3.1</version>
 	<parent>
 		<groupId>org.snomed</groupId>
 		<artifactId>snomed-parent-bom</artifactId>
@@ -432,7 +432,6 @@
 			<plugin>
 				<groupId>org.springframework.boot</groupId>
 				<artifactId>spring-boot-maven-plugin</artifactId>
-				<version>${spring-boot.version}</version>
 				<configuration>
 					<mainClass>org.snomed.snowstorm.SnowstormApplication</mainClass>
 				</configuration>
