@@ -8,9 +8,13 @@ import ca.uhn.fhir.rest.param.QuantityParam;
 import ca.uhn.fhir.rest.param.StringParam;
 import ca.uhn.fhir.rest.param.TokenParam;
 import ca.uhn.fhir.rest.server.IResourceProvider;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import org.hl7.fhir.instance.model.api.IBaseResource;
 import org.hl7.fhir.r4.model.*;
 import org.hl7.fhir.r4.model.OperationOutcome.IssueType;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.fhir.config.FHIRConstants;
 import org.snomed.snowstorm.fhir.domain.FHIRValueSet;
 import org.snomed.snowstorm.fhir.domain.SearchFilter;
@@ -23,8 +27,8 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Component;
 import org.springframework.web.bind.annotation.RequestMethod;
 
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
+import java.io.IOException;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -36,8 +40,13 @@ import static org.snomed.snowstorm.fhir.services.FHIRHelper.exception;
 @Component
 public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 
+	private final Logger logger = LoggerFactory.getLogger(getClass());
+
 	@Value("${snowstorm.rest-api.readonly}")
 	private boolean readOnlyMode;
+
+	@Autowired
+	private FHIRLoadPackageService loadPackageService;
 
 	@Autowired
 	private FHIRValueSetRepository valuesetRepository;
@@ -246,11 +255,21 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 			@OperationParam(name="force-system-version") StringType forceSystemVersion,
 			@OperationParam(name="version") StringType version)// Invalid parameter
 			{
-
+				logger.info(FHIRValueSetProviderHelper.getFullURL(request));
 		ValueSetExpansionParameters params;
 		if (request.getMethod().equals(RequestMethod.POST.name())) {
 			// HAPI doesn't populate the OperationParam values for POST, we parse the body instead.
-			params = FHIRValueSetProviderHelper.getValueSetExpansionParameters(null, fhirContext.newJsonParser().parseResource(Parameters.class, rawBody).getParameter());
+			List<Parameters.ParametersParameterComponent> parsed = fhirContext.newJsonParser().parseResource(Parameters.class, rawBody).getParameter();
+			List<Parameters.ParametersParameterComponent> txResources = FHIRValueSetProviderHelper.findParametersByName(parsed, "tx-resource");
+			//List<Parameters.ParametersParameterComponent> valueSets = FHIRValueSetProviderHelper.findParametersByName(parsed, "valueSet");
+			List<Resource> resources = txResources.stream().map(x -> x.getResource()).toList();
+			byte[] npmPackage = FHIRValueSetProviderHelper.createNpmPackageFromResources(resources);
+			try {
+				loadPackageService.uploadPackageResources(npmPackage, Collections.singleton("*"),"tx-resources",true);
+			} catch (IOException e) {
+				throw new RuntimeException(e);
+			}
+			params = FHIRValueSetProviderHelper.getValueSetExpansionParameters(null, parsed );
 		} else {
 			params = FHIRValueSetProviderHelper.getValueSetExpansionParameters(null, url, valueSetVersion, context, contextDirection, filter, date, offset, count,
 					includeDesignationsType, designations, includeDefinition, activeType, excludeNested, excludeNotForUI, excludePostCoordinated, displayLanguage,

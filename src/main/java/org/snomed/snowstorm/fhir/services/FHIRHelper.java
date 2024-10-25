@@ -80,7 +80,13 @@ public class FHIRHelper implements FHIRConstants {
 		return parametersParameterComponents.stream()
 				.filter(parametersParameterComponent -> parametersParameterComponent.getName().equals(name))
 				.findFirst()
-				.map(param -> param.getValue().toString()).orElse(null);
+				.map(param -> {
+					if (param.getValue() instanceof UrlType){
+						return ((UrlType) param.getValue()).asStringValue();
+					} else {
+						return param.getValue().toString();
+					}
+				}).orElse(null);
 	}
 
 	public static CanonicalUri findParameterCanonicalOrNull(final List<Parameters.ParametersParameterComponent> parametersParameterComponents, final String name) {
