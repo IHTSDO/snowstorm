@@ -114,7 +114,7 @@ class CodeSystemServiceTest extends AbstractTest {
 	}
 
 	@Test
-	void testFindVersionsByCodeSystemAndBaseTimepointRange() {
+	void testFindVersionsByCodeSystemAndBaseTimepointRange() throws ServiceException {
 		CodeSystem codeSystem = codeSystemService.createCodeSystem(new CodeSystem("SNOMEDCT", "MAIN"));
 		codeSystemService.createVersion(codeSystem, 20230101, "20230101 release");
 		// Within time range

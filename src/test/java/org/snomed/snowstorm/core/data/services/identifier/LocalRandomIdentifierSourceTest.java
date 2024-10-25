@@ -10,10 +10,8 @@ import org.snomed.snowstorm.core.data.domain.Concept;
 import org.snomed.snowstorm.core.data.services.ConceptService;
 import org.snomed.snowstorm.core.data.services.ServiceException;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.Lazy;
-import org.springframework.data.elasticsearch.core.ElasticsearchRestTemplate;
+import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
 
@@ -34,11 +32,11 @@ class LocalRandomIdentifierSourceTest extends AbstractTest {
 	private ConceptService conceptService;
 
 	@Autowired
-	private ElasticsearchRestTemplate elasticsearchRestTemplate;
+	private ElasticsearchOperations elasticsearchOperations;
 
 	@BeforeEach
 	void beforeTest() {
-		identifierSource = new LocalRandomIdentifierSource(elasticsearchRestTemplate);
+		identifierSource = new LocalRandomIdentifierSource(elasticsearchOperations);
 	}
 
 	@Test

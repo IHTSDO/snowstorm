@@ -19,7 +19,7 @@ class FHIRCodeSystemProviderValidateTest extends AbstractFHIRTest {
 		Parameters response = getParameters("/CodeSystem/$validate-code?url=" + SNOMED_URI + "&" + version + "&code=" + sampleSCTID);
 		String result = getPropertyString(response, "result");
 		assertEquals("true", result);
-		Boolean inactive = toBoolean(getProperty(p, "inactive"));
+		Boolean inactive = toBoolean(getProperty(response, "inactive"));
 		assertFalse(inactive);
 
 		//Alternative URLs using coding saying the same thing

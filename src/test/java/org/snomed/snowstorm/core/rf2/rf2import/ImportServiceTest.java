@@ -228,7 +228,7 @@ class ImportServiceTest extends AbstractTest {
 	}
 
 	@Test
-	void testImportFullOnChildCodeSystem() {
+	void testImportFullOnChildCodeSystem() throws ServiceException {
 		String branchPath = "MAIN/SNOMEDCT-TEST";
 		codeSystemService.createCodeSystem(new CodeSystem("SNOMEDCT-TEST", branchPath));
 
@@ -789,7 +789,7 @@ class ImportServiceTest extends AbstractTest {
 	}
 
 	@Test
-	void testSemanticIndexCompleteRebuildDuringCodeSystemVersionImport() throws IOException, ReleaseImportException {
+	void testSemanticIndexCompleteRebuildDuringCodeSystemVersionImport() throws IOException, ReleaseImportException, ServiceException {
 		// Import to MAIN
 		String importJobId = importService.createJob(RF2Type.SNAPSHOT, MAIN, false, false);
 		File zipFile = ZipUtil.zipDirectoryRemovingCommentsAndBlankLines("src/test/resources/dummy-snomed-content/SnomedCT_MiniRF2_Base_snapshot");

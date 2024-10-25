@@ -28,7 +28,7 @@ public class PostCoordinatedExpression {
 	public PostCoordinatedExpression(String id, String closeToUserForm, String classifiableForm, ComparableExpression necessaryNormalForm) {
 		this.id = id;
 		this.closeToUserForm = closeToUserForm;
-		this.classifiableForm = classifiableForm;
+		this.classifiableForm = classifiableForm != null ? classifiableForm.replace(" ", "") : null;
 		this.necessaryNormalForm = necessaryNormalForm;
 	}
 

@@ -66,21 +66,21 @@ class ExpressionRepositoryServiceTest extends AbstractExpressionTest {
 		assertEquals("16", expressionId.substring(expressionId.length() - 3, expressionId.length() - 1));
 
 		// Single concept
-		assertEquals("=== 83152002",
+		assertEquals("===83152002",
 				createExpressionOrThrow("83152002 |Oophorectomy|").getClassifiableForm());
 
 		// Single concept with explicit definition status
-		assertEquals("=== 421720008",
+		assertEquals("===421720008",
 				createExpressionOrThrow("===421720008 |Spray dose form|").getClassifiableForm());
 
 		// Single concept with explicit subtype definition status
-		assertEquals("<<< 83152002",
+		assertEquals("<<<83152002",
 				createExpressionOrThrow("<<<  83152002 |Oophorectomy|").getClassifiableForm());
 
 		// Multiple focus concepts, ids get sorted
 		PostCoordinatedExpression twoFocusConcepts = createExpressionOrThrow("7946007 |Drug suspension| + 421720008 |Spray dose form|");
 		assertEquals("421720008+7946007", twoFocusConcepts.getCloseToUserForm());
-		assertEquals("=== 421720008 + 7946007", twoFocusConcepts.getClassifiableForm());
+		assertEquals("===421720008+7946007", twoFocusConcepts.getClassifiableForm());
 
 
 		// With multiple refinements, attributes are sorted
@@ -90,7 +90,7 @@ class ExpressionRepositoryServiceTest extends AbstractExpressionTest {
 				"       260686004 |Method|  =  129304002 |Excision - action| ," +
 				"       405813007 |Procedure site - direct|  =  15497006 |Ovarian structure|" +
 				"}");
-		assertEquals("=== 71388002 : { 260686004 = 129304002, 405813007 = 15497006, 405815000 = 122456005 }", expressionMultipleRefinements.getClassifiableForm());
+		assertEquals("===71388002:{260686004=129304002,405813007=15497006,405815000=122456005}", expressionMultipleRefinements.getClassifiableForm());
 
 		Page<PostCoordinatedExpression> page = expressionRepository.findAll(branch, PageRequest.of(0, 10));
 		assertEquals(5, page.getTotalElements());
@@ -132,7 +132,7 @@ class ExpressionRepositoryServiceTest extends AbstractExpressionTest {
 
 	private PostCoordinatedExpression createExpressionOrThrow(String expression) throws ServiceException {
 		// For unit testing we are mocking out the classification step
-		// The expressions returned are not actually classified but it's enough to support expression handling and ECL testing.
+		// The expressions returned are not actually classified, but it's enough to support expression handling and ECL testing.
 
 		Mockito.doAnswer(invocation -> {
 			Object[] args = invocation.getArguments();

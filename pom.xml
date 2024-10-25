@@ -2,8 +2,8 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
 	<modelVersion>4.0.0</modelVersion>
 
-	<name>Snowstorm X</name>
-	<description>Terminology Server using Elasticsearch with advanced SNOMED CT features</description>
+	<name>SnowstormX</name>
+	<description>SNOMED CT Terminology Server Using Elasticsearch</description>
 
 	<artifactId>snowstorm-x</artifactId>
 	<version>10.5.1</version>
@@ -19,6 +19,11 @@
 		Current Elasticsearch _Server_ version is 8.11.1
 		N.B. Remember to keep TestConfig.ELASTIC_SEARCH_SERVER_VERSION and getting-started guide updated.
 		-->
+		<docker.registry>docker.io</docker.registry>
+		<docker.allowInsecureRegistries>false</docker.allowInsecureRegistries>
+		<docker.image.prefix>snomedinternational</docker.image.prefix>
+		<docker.image.tag>latest</docker.image.tag>
+		<docker.base-image>amazoncorretto:17</docker.base-image>
 	</properties>
 
 	<dependencies>
@@ -26,33 +31,18 @@
 			<!-- Branching and Version Control on top of Elasticsearch -->
 			<groupId>io.kaicode</groupId>
 			<artifactId>elasticvc</artifactId>
-			<exclusions>
-				<exclusion>
-					<groupId>org.elasticsearch</groupId>
-					<artifactId>jna</artifactId>
-				</exclusion>
-			</exclusions>
 		</dependency>
 		<dependency>
 			<groupId>net.java.dev.jna</groupId>
 			<artifactId>jna</artifactId>
 		</dependency>
+
 		<dependency>
 			<groupId>org.springframework.data</groupId>
 			<artifactId>spring-data-elasticsearch</artifactId>
 		</dependency>
-		<dependency>
-			<groupId>org.elasticsearch.client</groupId>
-			<artifactId>transport</artifactId>
-		</dependency>
-		<dependency>
-			<groupId>org.elasticsearch.client</groupId>
-			<artifactId>elasticsearch-rest-client</artifactId>
-		</dependency>
-		<dependency>
-			<groupId>org.elasticsearch.plugin</groupId>
-			<artifactId>transport-netty4-client</artifactId>
-		</dependency>
+
+
 		<dependency>
 			<!-- For RF2 Import -->
 			<groupId>org.snomed.otf</groupId>
@@ -65,10 +55,9 @@
 			</exclusions>
 		</dependency>
 		<dependency>
-			<!-- Different version of the SNOMED OWL Toolkit with incremental classification support -->
-			<groupId>org.snomed.otf</groupId>
+			<groupId>org.snomed</groupId>
 			<artifactId>snomed-owl-toolkit-incremental</artifactId>
-			<version>3.1.0</version>
+			<version>5.4.1</version>
 		</dependency>
 		<dependency>
 			<groupId>org.snomed.languages</groupId>
@@ -119,10 +108,6 @@
 			<artifactId>activemq-broker</artifactId>
 		</dependency>
 		<dependency>
-			<groupId>org.springframework.cloud</groupId>
-			<artifactId>spring-cloud-aws-autoconfigure</artifactId>
-		</dependency>
-		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-security</artifactId>
 		</dependency>
@@ -156,7 +141,7 @@
 		</dependency>
 		<dependency>
 			<groupId>org.springdoc</groupId>
-			<artifactId>springdoc-openapi-ui</artifactId>
+			<artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
 		</dependency>
 		<dependency>
 			<groupId>org.antlr</groupId>
@@ -241,9 +226,8 @@
 
 		<!-- AWS auth -->
 		<dependency>
-			<groupId>com.amazonaws</groupId>
-			<artifactId>aws-java-sdk-core</artifactId>
-			<scope>compile</scope>
+			<groupId>io.github.acm19</groupId>
+			<artifactId>aws-request-signing-apache-interceptor</artifactId>
 		</dependency>
 
 		<!-- Caching -->
@@ -322,6 +306,17 @@
 			<artifactId>spring-cloud-starter-vault-config</artifactId>
 		</dependency>
 	</dependencies>
+	<dependencyManagement>
+		<dependencies>
+			<dependency>
+				<groupId>org.springframework.cloud</groupId>
+				<artifactId>spring-cloud-dependencies</artifactId>
+				<version>${spring-cloud.version}</version>
+				<type>pom</type>
+				<scope>import</scope>
+			</dependency>
+		</dependencies>
+	</dependencyManagement>
 	<build>
 		<plugins>
 			<!--
@@ -336,8 +331,7 @@
 						<id>default-jar</id>
 						<phase>package</phase>
 						<goals>
-							<goal>build-info</goal>
-							<goal>repackage</goal>
+							<goal>jar</goal>
 						</goals>
 						<configuration>
 							<archive>
@@ -418,6 +412,7 @@
 			<plugin>
 				<groupId>org.jacoco</groupId>
 				<artifactId>jacoco-maven-plugin</artifactId>
+				<version>${jacoco-maven-plugin.version}</version>
 				<executions>
 					<execution>
 						<goals>
@@ -437,6 +432,7 @@
 			<plugin>
 				<groupId>org.springframework.boot</groupId>
 				<artifactId>spring-boot-maven-plugin</artifactId>
+				<version>${spring-boot.version}</version>
 				<configuration>
 					<mainClass>org.snomed.snowstorm.SnowstormApplication</mainClass>
 				</configuration>
@@ -460,6 +456,7 @@
 					<plugin>
 						<groupId>org.vafer</groupId>
 						<artifactId>jdeb</artifactId>
+						<version>1.1.1</version>
 						<executions>
 							<execution>
 								<phase>package</phase>
@@ -581,6 +578,9 @@
 			<releases>
 				<enabled>false</enabled>
 			</releases>
+			<snapshots>
+				<enabled>true</enabled>
+			</snapshots>
 			<url>https://nexus3.ihtsdotools.org/repository/maven-snapshots/</url>
 		</repository>
 	</repositories>

@@ -408,7 +408,7 @@ public class FHIRCodeSystemService {
 
 		PostCoordinatedExpression expression = postCoordinatedExpressions.get(0);
 		if (expression.hasException()) {
-			return new ConceptAndSystemResult(null, codeSystemVersion, expression.getException().getMessage()).setPostcoordinated(true);
+			return new ConceptAndSystemResult(null, codeSystemVersion, expression.getException().getMessage(), true);
 		} else {
 			Concept concept = new Concept(expression.getCloseToUserForm()).setModuleId(null);
 			if (expression.getHumanReadableCloseToUserForm() != null) {
@@ -416,7 +416,7 @@ public class FHIRCodeSystemService {
 						Concepts.PREFERRED));
 			}
 			return new ConceptAndSystemResult(concept, codeSystemVersion,
-					"This is a valid SNOMED CT postcoordinated expression.").setPostcoordinated(true);
+					"This is a valid SNOMED CT postcoordinated expression.", true);
 		}
 	}
 
