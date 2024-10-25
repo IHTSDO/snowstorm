@@ -7,6 +7,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.core.data.domain.CodeSystemVersion;
 import org.snomed.snowstorm.core.data.domain.Concept;
+import org.snomed.snowstorm.core.data.repositories.CodeSystemVersionRepository;
 import org.snomed.snowstorm.core.data.services.CodeSystemService;
 import org.snomed.snowstorm.core.data.services.ConceptService;
 import org.snomed.snowstorm.core.data.services.MultiSearchService;
@@ -54,6 +55,8 @@ public class FHIRCodeSystemService {
 	private IdentifierSource identifierSource;
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
+	@Autowired
+	private CodeSystemVersionRepository codeSystemVersionRepository;
 
 	public FHIRCodeSystemVersion createUpdate(CodeSystem codeSystem) {
 		FHIRCodeSystemVersion fhirCodeSystemVersion = new FHIRCodeSystemVersion(codeSystem);
@@ -109,13 +112,13 @@ public class FHIRCodeSystemService {
 				}
 				if (suggestedModuleConceptId != null) {
 					throw exception(format("The URL of this SNOMED CT CodeSystem supplement must have a version that follows the SNOMED CT URI standard and includes a module id." +
-									" If a namespace was given in the version URL then the module id '%s' could be used." +
-									" This id has been generated using the namespace given and is the next id sequence, considering all content currently loaded into Snowstorm.",
+											" If a namespace was given in the version URL then the module id '%s' could be used." +
+											" This id has been generated using the namespace given and is the next id sequence, considering all content currently loaded into Snowstorm.",
 									suggestedModuleConceptId),
-							OperationOutcome.IssueType.INVARIANT,	400);
+							OperationOutcome.IssueType.INVARIANT, 400);
 				} else {
 					throw exception("The URL of this SNOMED CT CodeSystem supplement must have a version that follows the SNOMED CT URI standard and includes a module id.",
-							OperationOutcome.IssueType.INVARIANT,	400);
+							OperationOutcome.IssueType.INVARIANT, 400);
 				}
 			}
 			org.snomed.snowstorm.core.data.domain.CodeSystem existingCodeSystem = snomedCodeSystemService.findByUriModule(snomedModule);
@@ -130,7 +133,7 @@ public class FHIRCodeSystemService {
 			newCodeSystem.setUriModuleId(snomedModule);
 			org.snomed.snowstorm.core.data.domain.CodeSystem savedCodeSystem = snomedCodeSystemService.createCodeSystem(newCodeSystem);
 			return new FHIRCodeSystemVersion(savedCodeSystem, false);
-		} else {
+		} else {// Not Supplement
 			// Check not SNOMED id
 			if (fhirCodeSystemVersion.getId().startsWith(SCT_ID_PREFIX)) {
 				throw exception(format("Code System id prefix '%s' is reserved for SNOMED CT code systems. " +
@@ -143,7 +146,7 @@ public class FHIRCodeSystemService {
 								fhirCodeSystemVersion.getUrl()), OperationOutcome.IssueType.NOTSUPPORTED, 400);
 			}
 
-			if (fhirCodeSystemVersion.getVersion() == null && !FHIRHelper.isSnomedUri(fhirCodeSystemVersion.getUrl())) {
+			if (fhirCodeSystemVersion.getVersion() == null) {
 				fhirCodeSystemVersion.setVersion("0");
 			}
 
@@ -267,6 +270,19 @@ public class FHIRCodeSystemService {
 
 	public Iterable<FHIRCodeSystemVersion> findAll() {
 		return codeSystemRepository.findAll();
+	}
+
+	public List<CodeSystemVersion> findAllSnomedVersions() {
+		List<org.snomed.snowstorm.core.data.domain.CodeSystem> editions = snomedCodeSystemService.findAll();
+		List<CodeSystemVersion> allVersions = new ArrayList<>();
+		for (org.snomed.snowstorm.core.data.domain.CodeSystem edition : editions) {
+			List<CodeSystemVersion> editionVersions = snomedCodeSystemService.findAllVersions(edition.getShortName(), true, true);
+			for (CodeSystemVersion editionVersion : editionVersions) {
+				editionVersion.setCodeSystem(edition);
+			}
+			allVersions.addAll(editionVersions);
+		}
+		return allVersions;
 	}
 
 	public Optional<FHIRCodeSystemVersion> findById(String id) {
