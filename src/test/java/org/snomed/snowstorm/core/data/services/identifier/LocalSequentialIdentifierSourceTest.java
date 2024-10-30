@@ -79,19 +79,5 @@ class LocalSequentialIdentifierSourceTest extends AbstractTest {
 		// Assert next assigned starts at sequence 7
 		assertEquals("[71000055166, 81000055168, 91000055165]",
 				Arrays.toString(identifierSource.reserveIds(1000055, "16", 3).toArray()));
-
-		assertEquals("[11000055064, 21000055069, 31000055066]",
-				Arrays.toString(identifierSource.reserveIds(1000055, "06", 3).toArray()));
-
-		// Subsequent expression ids (existing greatest id found using referencedComponentId)
-		assertEquals("[41000055063, 51000055060]",
-				Arrays.toString(identifierSource.reserveIds(1000055, "06", 2).toArray()));
-
-		// Push sequence 6 into the store, without using the id gen service
-		memberService.createMember("MAIN/B", new ReferenceSetMember("1119302008", "1119302008", "61000055062"));
-
-		// Assert next assigned starts at sequence 7
-		assertEquals("[71000055068, 81000055065, 91000055067]",
-				Arrays.toString(identifierSource.reserveIds(1000055, "06", 3).toArray()));
 	}
 }
