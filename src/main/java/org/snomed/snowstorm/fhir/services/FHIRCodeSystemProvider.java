@@ -471,6 +471,9 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants 
 			}
 			Parameters parameters = new Parameters();
 			parameters.addParameter("result", result);
+			if (concept != null) {
+				parameters.addParameter("inactive", !concept.isActive());
+			}
 			if (message != null) {
 				parameters.addParameter("message", message);
 			}
