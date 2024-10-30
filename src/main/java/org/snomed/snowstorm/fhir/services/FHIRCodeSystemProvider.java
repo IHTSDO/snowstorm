@@ -19,6 +19,7 @@ import org.hl7.fhir.r4.model.*;
 import org.hl7.fhir.r4.model.OperationOutcome.IssueType;
 import org.jetbrains.annotations.NotNull;
 import org.snomed.snowstorm.core.data.domain.Concept;
+import org.snomed.snowstorm.core.data.domain.Description;
 import org.snomed.snowstorm.core.data.services.CodeSystemService;
 import org.snomed.snowstorm.core.data.services.MultiSearchService;
 import org.snomed.snowstorm.core.pojo.LanguageDialect;
@@ -350,11 +351,50 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants 
 			Concept concept = conceptAndSystemResult.concept();
 			FHIRCodeSystemVersion codeSystemVersion = conceptAndSystemResult.codeSystemVersion();
 
+			boolean result = false;
+			String message = conceptAndSystemResult.message();
+			String displayOut = null;
 			if (concept != null) {
-				return pMapper.mapToFHIRValidateDisplayTerm(concept, display, codeSystemVersion);
+				if (display == null) {
+					result = true;
+				} else {
+					String displayLower = display.toLowerCase();
+					if (concept.getPt().getTerm().toLowerCase().equals(displayLower)) {
+						result = true;
+					} else {
+						for (Description d : concept.getActiveDescriptions()) {
+							if (d.getTerm().toLowerCase().equals(displayLower)) {
+								message = "Display term is acceptable, but not the preferred synonym in the language/dialect specified.";
+								result = true;
+								break;
+							}
+						}
+						if (!result) {
+							message = "Code exists, but the display term is not recognised.";
+						}
+					}
+				}
+				displayOut = concept.getPt().getTerm();
 			} else {
-				return pMapper.conceptNotFound(code, codeSystemVersion, "The code was not found in the specified code system.");
+				message = "The code was not found in the specified code system.";
+				if (conceptAndSystemResult.message() != null) {
+					message = conceptAndSystemResult.message();
+				}
 			}
+			Parameters parameters = new Parameters();
+			parameters.addParameter("result", result);
+			if (concept != null) {
+				parameters.addParameter("inactive", !concept.isActive());
+			}
+			if (message != null) {
+				parameters.addParameter("message", message);
+			}
+			if (displayOut != null) {
+				parameters.addParameter("display", displayOut);
+			}
+			parameters.addParameter("system", codeSystemVersion.getUrl());
+			parameters.addParameter("version", codeSystemVersion.getVersion());
+			return parameters;
 		} else {
 			FHIRCodeSystemVersion codeSystemVersion = fhirCodeSystemService.findCodeSystemVersionOrThrow(codeSystemParams);
 			FHIRConcept concept = fhirConceptService.findConcept(codeSystemVersion, code);
