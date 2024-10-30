@@ -4,7 +4,6 @@ import com.google.common.collect.Sets;
 import io.kaicode.elasticvc.api.BranchCriteria;
 import io.kaicode.elasticvc.api.VersionControlHelper;
 import org.junit.jupiter.api.Test;
-import org.snomed.snowstorm.core.data.domain.Concepts;
 import org.snomed.snowstorm.core.data.services.ConceptService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.PageRequest;
@@ -15,10 +14,10 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.snomed.otf.owltoolkit.constants.Concepts.LATERALITY;
 import static org.snomed.snowstorm.TestConcepts.NON_EXISTENT_CONCEPT;
 import static org.snomed.snowstorm.TestConcepts.*;
 import static org.snomed.snowstorm.core.data.domain.Concepts.*;
-import static org.snomed.snowstorm.core.data.domain.Concepts.LATERALITY;
 
 abstract class AbstractECLQueryServiceTest {
 
