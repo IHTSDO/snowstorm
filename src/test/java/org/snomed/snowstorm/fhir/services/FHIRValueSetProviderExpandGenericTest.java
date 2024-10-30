@@ -81,7 +81,7 @@ public class FHIRValueSetProviderExpandGenericTest extends AbstractFHIRTest {
 		assertEquals(HttpStatus.NO_CONTENT, response.getStatusCode(), response.getBody());
 
 		// Delete the code system
-		codeSystemService.deleteCodeSystemVersion(codeSystemVersion.getId());
+		codeSystemService.deleteCodeSystemVersion(codeSystemVersion);
 	}
 
 	@Test
