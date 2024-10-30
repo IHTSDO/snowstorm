@@ -17,7 +17,9 @@
 		<packageName>${project.artifactId}</packageName>
 
 		<!-- BOM Overrides: Delete and reevaluate during each upgrade -->
-		<snomed-boot.version>5.1.0</snomed-boot.version>
+		<spring-boot.version>3.2.11</spring-boot.version>
+		<spring.version>6.1.14</spring.version>
+		<spring.security.version>6.2.7</spring.security.version>
 
 		<!--
 		Current Elasticsearch _Server_ version is 8.11.1
