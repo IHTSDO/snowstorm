@@ -132,7 +132,7 @@ public class FHIRCodeSystemService {
 			newCodeSystem.setBranchPath(String.join("/", dependentCodeSystem.getBranchPath(), newCodeSystem.getShortName()));
 			newCodeSystem.setUriModuleId(snomedModule);
 			org.snomed.snowstorm.core.data.domain.CodeSystem savedCodeSystem = snomedCodeSystemService.createCodeSystem(newCodeSystem);
-			return new FHIRCodeSystemVersion(savedCodeSystem, false);
+			return new FHIRCodeSystemVersion(savedCodeSystem, true);
 		} else {// Not Supplement
 			// Check not SNOMED id
 			if (fhirCodeSystemVersion.getId().startsWith(SCT_ID_PREFIX)) {
