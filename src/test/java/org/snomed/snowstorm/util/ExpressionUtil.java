@@ -10,7 +10,6 @@ import org.snomed.langauges.ecl.domain.refinement.*;
 import org.snomed.snowstorm.ecl.SECLObjectFactory;
 
 import java.util.*;
-import java.util.stream.Collectors;
 
 public class ExpressionUtil {
 
@@ -92,8 +91,7 @@ public class ExpressionUtil {
 				conceptIdToConstraintMap.put(conceptId, refined);
 			}
 		}
-		List<String> conceptIds = conceptIdToConstraintMap.keySet().stream().collect(Collectors.toList());
-		Collections.sort(conceptIds);
+		List<String> conceptIds = conceptIdToConstraintMap.keySet().stream().sorted().toList();
 		List<String> expressions = new ArrayList<>();
 		for (String conceptId : conceptIds) {
 			expressions.add(constructExpression(conceptIdToConstraintMap.get(conceptId)));
