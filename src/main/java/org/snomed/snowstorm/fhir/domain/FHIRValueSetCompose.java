@@ -12,12 +12,18 @@ public class FHIRValueSetCompose {
 	private List<FHIRValueSetCriteria> include;
 
 	private List<FHIRValueSetCriteria> exclude;
+	private Boolean inactive;
 
 	public FHIRValueSetCompose() {
 	}
 
 	public FHIRValueSetCompose(ValueSet.ValueSetComposeComponent hapiCompose) {
 		this();
+		if (!hapiCompose.hasInactive()){
+			this.setInactive(null);
+		} else {
+			this.setInactive(hapiCompose.getInactive());
+		}
 		for (ValueSet.ConceptSetComponent hapiInclude : hapiCompose.getInclude()) {
 			addInclude(new FHIRValueSetCriteria(hapiInclude));
 		}
@@ -28,6 +34,9 @@ public class FHIRValueSetCompose {
 
 	public ValueSet.ValueSetComposeComponent getHapi() {
 		ValueSet.ValueSetComposeComponent hapiCompose = new ValueSet.ValueSetComposeComponent();
+		if (this.isInactive()!=null) {
+			hapiCompose.setInactive(this.isInactive());
+		}
 		for (FHIRValueSetCriteria include : orEmpty(getInclude())) {
 			hapiCompose.addInclude(include.getHapi());
 		}
@@ -65,5 +74,13 @@ public class FHIRValueSetCompose {
 
 	public void setExclude(List<FHIRValueSetCriteria> exclude) {
 		this.exclude = exclude;
+	}
+
+	public void setInactive(Boolean inactive) {
+		this.inactive = inactive;
+	}
+
+	public Boolean isInactive() {
+		return inactive;
 	}
 }
