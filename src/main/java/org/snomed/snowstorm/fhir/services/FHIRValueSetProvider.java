@@ -265,7 +265,7 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 			List<Resource> resources = txResources.stream().map(x -> x.getResource()).toList();
 			byte[] npmPackage = FHIRValueSetProviderHelper.createNpmPackageFromResources(resources);
 			try {
-				loadPackageService.uploadPackageResources(npmPackage, Collections.singleton("*"),"tx-resources",true);
+				loadPackageService.uploadPackageResources(npmPackage, Collections.singleton("*"),"tx-resources",false);
 			} catch (IOException e) {
 				throw new UncheckedIOException("Failed to read package from resources", e);
 			}
