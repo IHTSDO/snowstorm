@@ -45,8 +45,7 @@ import java.util.stream.Collectors;
 
 import static co.elastic.clients.elasticsearch._types.query_dsl.QueryBuilders.bool;
 import static io.kaicode.elasticvc.api.ComponentService.LARGE_PAGE;
-import static io.kaicode.elasticvc.helper.QueryHelper.termQuery;
-import static io.kaicode.elasticvc.helper.QueryHelper.termsQuery;
+import static io.kaicode.elasticvc.helper.QueryHelper.*;
 import static java.lang.Boolean.TRUE;
 import static java.lang.String.format;
 import static org.snomed.snowstorm.core.data.services.ReferenceSetMemberService.AGGREGATION_MEMBER_COUNTS_BY_REFERENCE_SET;
@@ -339,23 +338,30 @@ public class FHIRValueSetService {
 		Map<String, String> idAndVersionToUrl = allInclusionVersions.stream()
 				.collect(Collectors.toMap(FHIRCodeSystemVersion::getId, FHIRCodeSystemVersion::getUrl));
 		ValueSet.ValueSetExpansionComponent expansion = new ValueSet.ValueSetExpansionComponent();
-		expansion.setId(UUID.randomUUID().toString());
+		String id = UUID.randomUUID().toString();
+		expansion.setId(id);
+		expansion.setIdentifier("urn:uuid:"+id);
 		expansion.setTimestamp(new Date());
+		Optional.ofNullable(params.getExcludeNested()).ifPresent(x->expansion.addParameter(new ValueSet.ValueSetExpansionParameterComponent(new StringType("excludeNested")).setValue(new BooleanType(x))));
 		allInclusionVersions.forEach(codeSystemVersion -> {
 				if (codeSystemVersion.getVersion() != null) {
 					expansion.addParameter(new ValueSet.ValueSetExpansionParameterComponent(new StringType("version"))
 							.setValue(new CanonicalType(codeSystemVersion.getCanonical())));
+					expansion.addParameter(new ValueSet.ValueSetExpansionParameterComponent(new StringType("used-codesystem"))
+							.setValue(new CanonicalType(codeSystemVersion.getCanonical())));
 				}
 			}
 		);
-
-		expansion.addParameter(new ValueSet.ValueSetExpansionParameterComponent(new StringType("displayLanguage")).setValue(new StringType(displayLanguage)));
+        //this line was removed because of the GG tests.
+		//expansion.addParameter(new ValueSet.ValueSetExpansionParameterComponent(new StringType("displayLanguage")).setValue(new StringType(displayLanguage)));
 		expansion.setContains(conceptsPage.stream().map(concept -> {
 					ValueSet.ValueSetExpansionContainsComponent component = new ValueSet.ValueSetExpansionContainsComponent()
 							.setSystem(idAndVersionToUrl.get(concept.getCodeSystemVersion()))
 							.setCode(concept.getCode())
 							.setInactiveElement(concept.isActive() ? null : new BooleanType(true))
 							.setDisplay(concept.getDisplay());
+					concept.getProperties().getOrDefault("status",Collections.emptyList()).stream().filter(x -> x.getValue().equals("retired")).findFirst().ifPresent(x-> component.setAbstract(true));
+					concept.getProperties().getOrDefault("status",Collections.emptyList()).stream().filter(x -> x.getValue().equals("retired")).findFirst().ifPresent(x-> component.setInactive(true));
 					if (includeDesignations) {
 						for (FHIRDesignation designation : concept.getDesignations()) {
 							ValueSet.ConceptReferenceDesignationComponent designationComponent = new ValueSet.ConceptReferenceDesignationComponent();
@@ -442,6 +448,7 @@ public class FHIRValueSetService {
 		for (Map.Entry<FHIRCodeSystemVersion, Set<ConceptConstraint>> entry : constraints.entrySet()) {
 			for (ConceptConstraint conceptConstraint : entry.getValue()) {
 				if (conceptConstraint.isSimpleCodeSet()) {
+					//.setType(conceptConstraint.getType())
 					simpleConstraints.computeIfAbsent(entry.getKey(), k -> new ConceptConstraint(new HashSet<>())).getCode().addAll(conceptConstraint.getCode());
 				} else {
 					combinedConstraints.computeIfAbsent(entry.getKey(), k -> new HashSet<>()).add(conceptConstraint);
@@ -816,12 +823,46 @@ public class FHIRValueSetService {
 
 	private void addQueryCriteria(ConceptConstraint inclusion, BoolQuery.Builder versionQuery, String valueSetUserRef) {
 		if (inclusion.getCode() != null) {
-			versionQuery.must(termsQuery(FHIRConcept.Fields.CODE, inclusion.getCode()));
+			switch(inclusion.getType()){
+				case REGEX:
+					versionQuery.must(regexpQuery(FHIRConcept.Fields.CODE, inclusion.getCode().stream().findFirst().orElseGet(()->null)));
+					break;
+				default:
+					versionQuery.must(termsQuery(FHIRConcept.Fields.CODE, inclusion.getCode()));
+			}
+
 		} else if (inclusion.getParent() != null) {
-			versionQuery.must(termsQuery(FHIRConcept.Fields.PARENTS, inclusion.getParent()));
+			switch(inclusion.getType()){
+				case REGEX:
+					versionQuery.must(regexpQuery(FHIRConcept.Fields.PARENTS, inclusion.getParent().stream().findFirst().orElseGet(()->null)));
+					break;
+				default:
+					versionQuery.must(termsQuery(FHIRConcept.Fields.PARENTS, inclusion.getParent()));
+			}
 		} else if (inclusion.getAncestor() != null) {
-			versionQuery.must(termsQuery(FHIRConcept.Fields.ANCESTORS, inclusion.getAncestor()));
-		} else {
+			switch(inclusion.getType()){
+				case REGEX:
+					versionQuery.must(regexpQuery(FHIRConcept.Fields.ANCESTORS, inclusion.getAncestor().stream().findFirst().orElseGet(()->null)));
+					break;
+				default:
+					versionQuery.must(termsQuery(FHIRConcept.Fields.ANCESTORS, inclusion.getAncestor()));
+			}
+		} else if (inclusion.getProperties() != null ){
+			switch(inclusion.getType()){
+				case REGEX:
+					inclusion.getProperties().keySet().forEach(x ->
+							versionQuery.must(regexpQuery(FHIRConcept.Fields.PROPERTIES + "." + x + ".value", Optional.ofNullable(inclusion.getProperties().get(x)).orElseGet(()->Collections.emptySet()).stream().findFirst().orElseGet(()->null)))
+					);
+					break;
+				default:
+					inclusion.getProperties().keySet().forEach(x ->
+							versionQuery.must(termsQuery(FHIRConcept.Fields.PROPERTIES + "." + x + ".value", inclusion.getProperties().get(x)))
+					);
+			}
+
+
+		}
+		else {
 			String message = "Unrecognised constraints for ValueSet: " + valueSetUserRef;
 			logger.error(message);
 			throw exception(message, OperationOutcome.IssueType.EXCEPTION, 500);
@@ -943,9 +984,25 @@ public class FHIRValueSetService {
 					} else if ("concept".equals(property) && op == ValueSet.FilterOperator.DESCENDENTOF) {
 						Set<String> singleton = Collections.singleton(value);
 						inclusionConstraints.add(new ConceptConstraint().setAncestor(singleton));
-					} else {
+					}
+					else if (op == ValueSet.FilterOperator.EQUAL){
+						Set<String> singleton = Collections.singleton(value);
+						Map<String, Collection<String>> properties = new HashMap<>();
+						properties.put(property,singleton);
+						inclusionConstraints.add(new ConceptConstraint().setProperties(properties));
+					} else if (op == ValueSet.FilterOperator.REGEX){
+						Set<String> singleton = Collections.singleton(value.replace(" ","\\s").replace("\\t","\\s").replace("\\n","\\s").replace("\\r","\\s").replace("\\f","\\s"));
+						if ("code".equals(property)){
+							inclusionConstraints.add(new ConceptConstraint(singleton).setType(ConceptConstraint.Type.REGEX));
+						} else {
+							Map<String, Collection<String>> properties = new HashMap<>();
+							properties.put(property, singleton);
+							inclusionConstraints.add(new ConceptConstraint().setProperties(properties).setType(ConceptConstraint.Type.REGEX));
+						}
+					}
+					else{
 						throw exception("This server does not support this ValueSet property filter on generic code systems. " +
-								"Supported filters for generic code systems are: (concept, is-a) and (concept, descendant-of).", OperationOutcome.IssueType.NOTSUPPORTED, 400);
+								"Supported filters for generic code systems are: (concept, is-a), (concept, descendant-of), (<any>, =).", OperationOutcome.IssueType.NOTSUPPORTED, 400);
 					}
 				}
 			}
