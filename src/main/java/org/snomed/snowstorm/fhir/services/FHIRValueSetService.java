@@ -525,6 +525,7 @@ public class FHIRValueSetService {
 		CodeSelectionCriteria codeSelectionCriteria = new CodeSelectionCriteria(getUserRef(valueSet));
 
 		ValueSet.ValueSetComposeComponent compose = valueSet.getCompose();
+        activeOnly = (!compose.getInactive());
 		for (ValueSet.ConceptSetComponent include : compose.getInclude()) {
 			if (include.hasSystem()) {
 				FHIRCodeSystemVersion codeSystemVersion = codeSystemVersionProvider.get(include.getSystem(), include.getVersion());
@@ -855,6 +856,16 @@ public class FHIRValueSetService {
 	}
 
 	private void collectConstraints(ValueSet.ConceptSetComponent include, FHIRCodeSystemVersion codeSystemVersion, Set<ConceptConstraint> inclusionConstraints, boolean activeOnly) {
+		if (activeOnly){
+			if (codeSystemVersion.isSnomed() || codeSystemVersion.getUrl().equals("http://loinc.org") || codeSystemVersion.getUrl().startsWith("http://hl7.org/fhir/sid/icd-10")) {
+				//do nothing
+			} else {
+				Set<String> singleton = Collections.singleton("false");
+				Map<String, Collection<String>> properties = new HashMap<>();
+				properties.put("inactive", singleton);
+				inclusionConstraints.add(new ConceptConstraint().setProperties(properties));
+			}
+		}
 		if (!include.getConcept().isEmpty()) {
 			List<String> codes = include.getConcept().stream().map(ValueSet.ConceptReferenceComponent::getCode).collect(Collectors.toList());
 			inclusionConstraints.add(new ConceptConstraint(codes));
