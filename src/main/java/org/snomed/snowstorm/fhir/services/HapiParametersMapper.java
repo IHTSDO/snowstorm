@@ -13,10 +13,7 @@ import org.snomed.snowstorm.fhir.domain.FHIRProperty;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
-import java.util.Collection;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 
 @Service
 public class HapiParametersMapper implements FHIRConstants {
@@ -86,7 +83,8 @@ public class HapiParametersMapper implements FHIRConstants {
 		Parameters parameters = new Parameters();
 		parameters.addParameter("code", concept.getConceptId());
 		parameters.addParameter("display", fhirHelper.getPreferredTerm(concept, designations));
-		parameters.addParameter("name", codeSystem.getTitle());
+		Optional.ofNullable(codeSystem.getName()).ifPresent(x->parameters.addParameter("name", x));
+		//Optional.ofNullable(codeSystem.getTitle()).ifPresent(x->parameters.addParameter("title", x));
 		addSystemAndVersion(parameters, codeSystem);
 		parameters.addParameter("inactive", !concept.isActive());
 		addProperties(parameters, concept, properties);
@@ -103,10 +101,12 @@ public class HapiParametersMapper implements FHIRConstants {
 
 	public Parameters mapToFHIR(FHIRCodeSystemVersion codeSystemVersion, FHIRConcept concept) {
 		Parameters parameters = new Parameters();
-		parameters.addParameter("name", codeSystemVersion.getTitle());
-		parameters.addParameter("system", codeSystemVersion.getUrl());
+		Optional.of(codeSystemVersion.getName()).ifPresent(x->parameters.addParameter("name", x));
+		//Optional.of(codeSystemVersion.getTitle()).ifPresent(x->parameters.addParameter("title", x));
+		parameters.addParameter("system", new UriType(codeSystemVersion.getUrl()));
 		parameters.addParameter("version", codeSystemVersion.getVersion());
 		parameters.addParameter("display", concept.getDisplay());
+		parameters.addParameter("code", new CodeType(concept.getCode()));
 
 		for (Map.Entry<String, List<FHIRProperty>> property : concept.getProperties().entrySet()) {
 			for (FHIRProperty propertyValue : property.getValue()) {
@@ -115,6 +115,11 @@ public class HapiParametersMapper implements FHIRConstants {
 				param.addPart().setName(VALUE).setValue(propertyValue.toHapiValue(codeSystemVersion.getUrl()));
 			}
 		}
+
+		//Parameters.ParametersParameterComponent param = parameters.addParameter().setName(PROPERTY);
+		//param.addPart().setName(CODE).setValue(new CodeType("inactive"));
+		//param.addPart().setName(VALUE).setValue(new BooleanType(!concept.isActive()));
+
 
 		for (FHIRDesignation designation : concept.getDesignations()) {
 			Parameters.ParametersParameterComponent desParam = parameters.addParameter().setName(DESIGNATION);
