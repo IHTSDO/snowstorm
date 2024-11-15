@@ -9,6 +9,7 @@ public class FHIRProperty {
 	public static final String STRING = "STRING";
 	public static final String CODING = "CODING";
 	public static final String CODE = "CODE";
+	public static final String BOOLEAN = "BOOLEAN";
 
 	private String code;
 	private String display;
@@ -46,6 +47,9 @@ public class FHIRProperty {
 		} else if (propertyComponent.hasValueStringType()) {
 			value = propertyComponent.getValueStringType().getValue();
 			type = STRING;
+		} else if (propertyComponent.hasValueBooleanType()){
+			value = propertyComponent.getValueBooleanType().getValueAsString();
+			type = BOOLEAN;
 		}
 	}
 
@@ -56,6 +60,8 @@ public class FHIRProperty {
 			return new CodeType(value);
 		} else if (CODING.equals(type)) {
 			return new Coding(systemVersionUrl, value, display);
+		} else if (BOOLEAN.equals(type)) {
+			return new BooleanType(value);
 		}
 		return null;
 	}

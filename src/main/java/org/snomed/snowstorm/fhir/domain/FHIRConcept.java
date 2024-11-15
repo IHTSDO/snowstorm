@@ -4,6 +4,7 @@ import ca.uhn.fhir.jpa.entity.TermConcept;
 import ca.uhn.fhir.jpa.entity.TermConceptDesignation;
 import ca.uhn.fhir.jpa.entity.TermConceptParentChildLink;
 import ca.uhn.fhir.jpa.entity.TermConceptProperty;
+import org.apache.thrift.Option;
 import org.hl7.fhir.r4.model.CodeSystem;
 import org.snomed.snowstorm.core.data.domain.ConceptMini;
 import org.snomed.snowstorm.core.data.domain.Description;
@@ -32,6 +33,7 @@ public class FHIRConcept implements FHIRGraphNode {
 		String DISPLAY_LENGTH = "displayLen";
 		String PARENTS = "parents";
 		String ANCESTORS = "ancestors";
+		String PROPERTIES = "properties";
 	}
 	@Id
 	// Internal ID
@@ -49,7 +51,7 @@ public class FHIRConcept implements FHIRGraphNode {
 	private Integer displayLen;
 
 	@Transient
-	private final boolean active;
+	private  boolean active;
 
 	@Field(type = FieldType.Keyword)
 	private Set<String> parents;
@@ -70,7 +72,8 @@ public class FHIRConcept implements FHIRGraphNode {
 
 		code = termConcept.getCode();
 		setDisplay(termConcept.getDisplay());
-		active = true;
+		//active = true;
+		termConcept.getProperties().stream().filter(x -> x.getKey().equals("status") && x.getValue().equals("retired")).findFirst().ifPresentOrElse(x -> active = false, ()-> active = true);
 
 		designations = new ArrayList<>();
 		for (TermConceptDesignation designation : termConcept.getDesignations()) {
@@ -97,13 +100,16 @@ public class FHIRConcept implements FHIRGraphNode {
 		code = definitionConcept.getCode();
 		setDisplay(definitionConcept.getDisplay());
 
-		active = true;
+		//active = true;
 
 		designations = definitionConcept.getDesignation().stream()
 				.map(FHIRDesignation::new)
 				.collect(Collectors.toList());
 
 		properties = new HashMap<>();
+		Optional.ofNullable(definitionConcept.getDefinition()).ifPresent(x -> properties.put("definition",Collections.singletonList(new FHIRProperty("definition",null,x,FHIRProperty.STRING))));
+		definitionConcept.getProperty().stream().filter(x-> x.getCode().equals("status") && x.getValueCodeType().getCode().equals("retired") ).findFirst().ifPresentOrElse(x -> active= false, ()->active =true);
+		properties.put("inactive",Collections.singletonList(new FHIRProperty("inactive",null,Boolean.toString(!isActive()),FHIRProperty.BOOLEAN)));
 		parents = new HashSet<>();
 		for (CodeSystem.ConceptPropertyComponent propertyComponent : definitionConcept.getProperty()) {
 			properties.computeIfAbsent(propertyComponent.getCode(), k -> new ArrayList<>()).add(new FHIRProperty(propertyComponent));

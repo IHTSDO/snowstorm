@@ -96,7 +96,7 @@ public class FHIRConceptService {
 		}
 
 		FHIRGraphBuilder graphBuilder = new FHIRGraphBuilder();
-		if ("is-a".equals(codeSystemVersion.getHierarchyMeaning())) {
+		if (Objects.isNull(codeSystemVersion.getHierarchyMeaning()) || "is-a".equals(codeSystemVersion.getHierarchyMeaning())) {
 			// Record transitive closure of concepts for subsumption testing
 			for (FHIRConcept concept : concepts) {
 				for (String parentCode : concept.getParents()) {
@@ -187,6 +187,7 @@ public class FHIRConceptService {
 				.build();
 		searchQuery.setTrackTotalHits(true);
 		updateQueryWithSearchAfter(searchQuery, pageRequest);
+		logger.info("QUERY: {}", searchQuery.getQuery());
 		return toPage(elasticsearchOperations.search(searchQuery, FHIRConcept.class), pageRequest);
 	}
 
