@@ -108,10 +108,12 @@ public class HapiParametersMapper implements FHIRConstants {
 
 	public Parameters mapToFHIR(FHIRCodeSystemVersion codeSystemVersion, FHIRConcept concept) {
 		Parameters parameters = new Parameters();
-		parameters.addParameter("name", codeSystemVersion.getTitle());
-		parameters.addParameter("system", codeSystemVersion.getUrl());
+		Optional.of(codeSystemVersion.getName()).ifPresent(x->parameters.addParameter("name", x));
+		//Optional.of(codeSystemVersion.getTitle()).ifPresent(x->parameters.addParameter("title", x));
+		parameters.addParameter("system", new UriType(codeSystemVersion.getUrl()));
 		parameters.addParameter("version", codeSystemVersion.getVersion());
 		parameters.addParameter("display", concept.getDisplay());
+		parameters.addParameter("code", new CodeType(concept.getCode()));
 
 		for (Map.Entry<String, List<FHIRProperty>> property : concept.getProperties().entrySet()) {
 			for (FHIRProperty propertyValue : property.getValue()) {
@@ -120,6 +122,11 @@ public class HapiParametersMapper implements FHIRConstants {
 				param.addPart().setName(VALUE).setValue(propertyValue.toHapiValue(codeSystemVersion.getUrl()));
 			}
 		}
+
+		//Parameters.ParametersParameterComponent param = parameters.addParameter().setName(PROPERTY);
+		//param.addPart().setName(CODE).setValue(new CodeType("inactive"));
+		//param.addPart().setName(VALUE).setValue(new BooleanType(!concept.isActive()));
+
 
 		for (FHIRDesignation designation : concept.getDesignations()) {
 			Parameters.ParametersParameterComponent desParam = parameters.addParameter().setName(DESIGNATION);

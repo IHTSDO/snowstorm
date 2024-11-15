@@ -2,17 +2,23 @@ package org.snomed.snowstorm.fhir.domain;
 
 import org.springframework.util.CollectionUtils;
 
-import java.util.Collection;
-import java.util.Objects;
-import java.util.Set;
+import java.util.*;
+
+import static org.snomed.snowstorm.fhir.domain.ConceptConstraint.Type.TERMS;
 
 public class ConceptConstraint {
 
+	public static enum Type{
+		TERMS,
+		REGEX
+	}
 	private Collection<String> code;
 	private Set<String> parent;// ECL used instead for SNOMED
 	private Set<String> ancestor;
 	private Boolean activeOnly;
 	private String ecl;
+	private Map<String,Collection<String>> properties;
+	private Type type = TERMS;
 
 	public ConceptConstraint setActiveOnly(Boolean activeOnly) {
 		this.activeOnly = activeOnly;
@@ -27,7 +33,7 @@ public class ConceptConstraint {
 	}
 
 	public boolean isSimpleCodeSet() {
-		return CollectionUtils.isEmpty(parent) && CollectionUtils.isEmpty(ancestor) && ecl == null && !CollectionUtils.isEmpty(code);
+		return CollectionUtils.isEmpty(parent) && CollectionUtils.isEmpty(ancestor) && ecl == null && !CollectionUtils.isEmpty(code) && getType()==TERMS;
 	}
 
 	public ConceptConstraint setParent(Set<String> parent) {
@@ -77,4 +83,25 @@ public class ConceptConstraint {
 	public int hashCode() {
 		return Objects.hash(code, parent, ancestor, ecl);
 	}
+
+	public Map<String, Collection<String>> getProperties() {
+		return properties;
+	}
+
+	public ConceptConstraint setProperties(Map<String, Collection<String>> properties) {
+		this.properties = properties;
+		return this;
+	}
+
+
+	public Type getType() {
+		return type;
+	}
+
+	public ConceptConstraint setType(Type type) {
+		this.type = type;
+		return this;
+	}
+
+
 }
