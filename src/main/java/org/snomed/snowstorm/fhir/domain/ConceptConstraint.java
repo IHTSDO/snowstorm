@@ -19,6 +19,16 @@ public class ConceptConstraint {
 	private Map<String,Collection<String>> properties;
 	private Type type = TERMS;
 
+	public Boolean isActiveOnly() {
+		return activeOnly;
+	}
+
+	public ConceptConstraint setActiveOnly(Boolean activeOnly) {
+		this.activeOnly = activeOnly;
+		return this;
+	}
+
+	private Boolean activeOnly;
 	public ConceptConstraint() {
 	}
 
@@ -65,18 +75,6 @@ public class ConceptConstraint {
 		return ecl;
 	}
 
-	@Override
-	public boolean equals(Object o) {
-		if (this == o) return true;
-		if (o == null || getClass() != o.getClass()) return false;
-		ConceptConstraint that = (ConceptConstraint) o;
-		return Objects.equals(code, that.code) && Objects.equals(parent, that.parent) && Objects.equals(ancestor, that.ancestor) && Objects.equals(ecl, that.ecl);
-	}
-
-	@Override
-	public int hashCode() {
-		return Objects.hash(code, parent, ancestor, ecl);
-	}
 
 	public Map<String, Collection<String>> getProperties() {
 		return properties;
@@ -87,6 +85,18 @@ public class ConceptConstraint {
 		return this;
 	}
 
+	@Override
+	public boolean equals(Object o) {
+		if (this == o) return true;
+		if (o == null || getClass() != o.getClass()) return false;
+		ConceptConstraint that = (ConceptConstraint) o;
+		return Objects.equals(code, that.code) && Objects.equals(parent, that.parent) && Objects.equals(ancestor, that.ancestor) && Objects.equals(ecl, that.ecl) && Objects.equals(properties, that.properties) && type == that.type && Objects.equals(activeOnly, that.activeOnly);
+	}
+
+	@Override
+	public int hashCode() {
+		return Objects.hash(code, parent, ancestor, ecl, properties, type, activeOnly);
+	}
 
 	public Type getType() {
 		return type;
