@@ -1,10 +1,10 @@
 package org.snomed.snowstorm.fhir.services;
 
 import co.elastic.clients.elasticsearch._types.query_dsl.BoolQuery;
-import co.elastic.clients.elasticsearch._types.query_dsl.PrefixQuery;
+import co.elastic.clients.elasticsearch._types.query_dsl.Operator;
 import com.google.common.base.Strings;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
-
+import org.apache.lucene.analysis.standard.StandardAnalyzer;
 import org.hl7.fhir.r4.model.*;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -15,6 +15,7 @@ import org.snomed.snowstorm.core.data.domain.Concepts;
 import org.snomed.snowstorm.core.data.domain.QueryConcept;
 import org.snomed.snowstorm.core.data.domain.ReferenceSetMember;
 import org.snomed.snowstorm.core.data.services.ConceptService;
+import org.snomed.snowstorm.core.data.services.DescriptionService;
 import org.snomed.snowstorm.core.data.services.QueryService;
 import org.snomed.snowstorm.core.data.services.ReferenceSetMemberService;
 import org.snomed.snowstorm.core.data.services.pojo.MemberSearchRequest;
@@ -30,10 +31,11 @@ import org.snomed.snowstorm.rest.ControllerHelper;
 import org.snomed.snowstorm.rest.pojo.SearchAfterPageRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.*;
-import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
-import org.springframework.data.elasticsearch.core.SearchHits;
 import org.springframework.data.elasticsearch.client.elc.NativeQuery;
 import org.springframework.data.elasticsearch.client.elc.NativeQueryBuilder;
+import org.springframework.data.elasticsearch.client.elc.Queries;
+import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
+import org.springframework.data.elasticsearch.core.SearchHits;
 import org.springframework.stereotype.Service;
 
 import java.net.URLDecoder;
@@ -41,11 +43,12 @@ import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.stream.Collectors;
 
+import static co.elastic.clients.elasticsearch._types.query_dsl.QueryBuilders.bool;
 import static io.kaicode.elasticvc.api.ComponentService.LARGE_PAGE;
+import static io.kaicode.elasticvc.helper.QueryHelper.termQuery;
+import static io.kaicode.elasticvc.helper.QueryHelper.termsQuery;
 import static java.lang.Boolean.TRUE;
 import static java.lang.String.format;
-import static co.elastic.clients.elasticsearch._types.query_dsl.QueryBuilders.*;
-import static io.kaicode.elasticvc.helper.QueryHelper.*;
 import static org.snomed.snowstorm.core.data.services.ReferenceSetMemberService.AGGREGATION_MEMBER_COUNTS_BY_REFERENCE_SET;
 import static org.snomed.snowstorm.core.util.CollectionUtils.orEmpty;
 import static org.snomed.snowstorm.fhir.services.FHIRHelper.*;
@@ -392,7 +395,10 @@ public class FHIRValueSetService {
 		BoolQuery.Builder masterQuery = bool();
 		masterQuery.must(contentQuery.build()._toQuery());
 		if (termFilter != null) {
-			masterQuery.must(PrefixQuery.of(pq -> pq.field(FHIRConcept.Fields.DISPLAY).value(termFilter.toLowerCase()))._toQuery());
+			List<String> elasticAnalyzedWords = DescriptionService.analyze(termFilter, new StandardAnalyzer());
+			String searchTerm = DescriptionService.constructSearchTerm(elasticAnalyzedWords);
+			String query = DescriptionService.constructSimpleQueryString(searchTerm);
+			masterQuery.filter(Queries.queryStringQuery(FHIRConcept.Fields.DISPLAY, query, Operator.And, 2.0f)._toQuery());
 		}
 		return masterQuery;
 	}

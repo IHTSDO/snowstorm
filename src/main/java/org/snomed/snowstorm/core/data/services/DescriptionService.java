@@ -943,7 +943,7 @@ public class DescriptionService extends ComponentService {
 		}
 	}
 
-	private List<String> analyze(String text, StandardAnalyzer analyzer) {
+	public static List<String> analyze(String text, StandardAnalyzer analyzer) {
 		List<String> result = new ArrayList<>();
 		try {
 			TokenStream tokenStream = analyzer.tokenStream("contents", text);
@@ -953,12 +953,13 @@ public class DescriptionService extends ComponentService {
 				result.add(attr.toString());
 			}
 		} catch (IOException e) {
-			logger.error("Failed to analyze text {}", text, e);
+			LoggerFactory.getLogger(DescriptionService.class)
+					.error("Failed to analyze text {}", text, e);
 		}
 		return result;
 	}
 
-	private String constructSimpleQueryString(String searchTerm) {
+	public static String constructSimpleQueryString(String searchTerm) {
 		return (searchTerm.trim().replace(" ", "* ") + "*").replace("**", "*");
 	}
 
@@ -1000,7 +1001,7 @@ public class DescriptionService extends ComponentService {
 		return regexBuilder.toString();
 	}
 
-	private String constructSearchTerm(List<String> tokens) {
+	public static String constructSearchTerm(List<String> tokens) {
 		StringBuilder builder = new StringBuilder();
 		for (String token : tokens) {
 			builder.append(token);
