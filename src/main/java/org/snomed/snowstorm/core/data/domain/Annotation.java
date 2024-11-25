@@ -110,6 +110,21 @@ public class Annotation extends ReferenceSetMember implements AnnotationView {
 		return member;
 	}
 
+	public void clone(Annotation annotation) {
+		setAnnotationId(annotation.getAnnotationId());
+		setMemberId(annotation.getMemberId());
+		setRefsetId(annotation.getRefsetId());
+		setModuleId(annotation.getModuleId());
+		setActive(annotation.isActive());
+		setEffectiveTimeI(annotation.getEffectiveTimeI());
+		setReferencedComponentId(annotation.getReferencedComponentId());
+		setReleased(annotation.isReleased());
+		setTypeId(annotation.getTypeId());
+		setType(annotation.getType());
+		setValue(annotation.getValue());
+		setLanguageDialectCode(annotation.getLanguageDialectCode());
+	}
+
 	@Override
 	public boolean equals(Object o) {
 		if (this == o) return true;
