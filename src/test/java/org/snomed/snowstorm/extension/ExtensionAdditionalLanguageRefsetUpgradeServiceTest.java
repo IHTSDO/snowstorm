@@ -23,7 +23,7 @@ import org.springframework.test.context.junit.jupiter.SpringExtension;
 import java.util.*;
 import java.util.stream.Collectors;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 
 @ExtendWith(SpringExtension.class)
 @ContextConfiguration(classes = TestConfig.class)
@@ -314,6 +314,172 @@ class ExtensionAdditionalLanguageRefsetUpgradeServiceTest extends AbstractTest {
 		assertEquals(0, updatedResult.get().filter(referenceSetMember -> referenceSetMember.getReferencedComponentId().equals("288524019")).collect(Collectors.toList()).size());
 	}
 
+
+	@Test
+	void testUpgradeHavingBothActiveAndInactivePublishedComponentsForTheSameDescriptionId() throws ServiceException {
+		// Create a new description with language refset member with 900000000000549004 for nz-en
+		ReferenceSetMember extensionLanguageMember = new ReferenceSetMember(UUID.randomUUID().toString(),null, true,
+				"21000210109", "271000210107", "675173019");
+		extensionLanguageMember.setAdditionalField(ReferenceSetMember.LanguageFields.ACCEPTABILITY_ID, "900000000000549004");
+		referenceSetMemberService.createMember(snomedctNZ.getBranchPath(), extensionLanguageMember);
+
+		// Version NZ extension
+		codeSystemService.createVersion(snomedctNZ, 20190630, "NZ release");
+
+		// Inactive previous member and create a new member
+		referenceSetMemberService.findMembers(snomedctNZ.getBranchPath(), "675173019", PageRequest.of(0, 10)).forEach(member -> {
+			member.setActive(false);
+			referenceSetMemberService.updateMember(snomedctNZ.getBranchPath(), member);
+		});
+
+		// Version NZ extension
+		codeSystemService.createVersion(snomedctNZ, 20190731, "NZ release");
+
+		// Create a new nz-en language refset member with a different UUID
+		extensionLanguageMember = new ReferenceSetMember(UUID.randomUUID().toString(),null, true,
+				"21000210109", "271000210107", "675173019");
+		extensionLanguageMember.setAdditionalField(ReferenceSetMember.LanguageFields.ACCEPTABILITY_ID, "900000000000549004");
+		referenceSetMemberService.createMember(snomedctNZ.getBranchPath(), extensionLanguageMember);
+
+		conceptService.find("100001", snomedctNZ.getBranchPath()).getDescriptions().forEach(desc -> {
+			if (desc.getDescriptionId().equals("675173019")) {
+				assertEquals(3, desc.getLangRefsetMembersMap().values().size());
+			}
+		});
+
+		// Add new en-gb in international for 2 monthly releases before upgrade NZ extension
+		Concept conceptA = constructTestConcept("100002", "71183010");
+		conceptService.create(conceptA, MAIN);
+		codeSystemService.createVersion(snomedct, 20200228, "international release 20200228");
+
+		Concept conceptB = constructTestConcept("100003", "75183010");
+		conceptService.create(conceptB, MAIN);
+
+		// Update acceptability for core refset component from preferred to acceptable
+		MemberSearchRequest searchRequest = new MemberSearchRequest();
+		searchRequest.referenceSet("900000000000508004");
+		searchRequest.referencedComponentId("675173019");
+		referenceSetMemberService.findMembers(snomedct.getBranchPath(), searchRequest, PageRequest.of(0, 10)).forEach(member -> {
+			member.setAdditionalField(ReferenceSetMember.LanguageFields.ACCEPTABILITY_ID,"900000000000549004");
+			referenceSetMemberService.updateMember(snomedct.getBranchPath(), member);
+		});
+		codeSystemService.createVersion(snomedct, 20200331, "international release 20200331");
+
+		// roll up upgrade extension
+		String jobId = codeSystemUpgradeService.createJob(snomedctNZ.getShortName(), 20200331);
+		codeSystemUpgradeService.upgrade(jobId, snomedctNZ, 20200331, false);
+
+		snomedctNZ = codeSystemService.find(snomedctNZ.getShortName());
+		extensionAdditionalLanguageRefsetUpgradeService.generateAdditionalLanguageRefsetDelta(snomedctNZ, snomedctNZ.getBranchPath(), "900000000000508004",false);
+
+		// Verify results after upgrade
+		Concept conceptAfterUpgrade = conceptService.find("100001", Config.DEFAULT_LANGUAGE_DIALECTS, snomedctNZ.getBranchPath());
+		final String nzMemberId = extensionLanguageMember.getMemberId();
+		conceptAfterUpgrade.getDescriptions().forEach(desc -> {
+			if (desc.getDescriptionId().equals("675173019")) {
+				assertEquals(4, desc.getLangRefsetMembers().size());
+				desc.getLangRefsetMembers().forEach(member -> {
+					if (member.getRefsetId().equals("271000210107") && member.isActive()) {
+						assertEquals("900000000000549004", member.getAdditionalField(ReferenceSetMember.LanguageFields.ACCEPTABILITY_ID));
+						// Check the member id is the same as the one created before upgrade
+						assertEquals(nzMemberId, member.getMemberId());
+					}
+				});
+				assertEquals(3, desc.getLangRefsetMembersMap().values().size());
+				desc.getAcceptabilityMapFromLangRefsetMembers().forEach((key, value) -> {
+					if (key.equals("900000000000508004")) {
+						assertEquals(Concepts.ACCEPTABLE_CONSTANT, value);
+					} else if (key.equals("271000210107")) {
+						assertEquals(Concepts.ACCEPTABLE_CONSTANT, value);
+					}
+				});
+			}
+		});
+	}
+
+
+	@Test
+	void testUpgradeHavingInactivePublishedAndActiveUnpublishedMembersForTheSameDescriptionId() throws ServiceException {
+		// Create a new description with language refset member with 900000000000549004 for nz-en
+		ReferenceSetMember extensionLanguageMember = new ReferenceSetMember(UUID.randomUUID().toString(),null, true,
+				"21000210109", "271000210107", "675173019");
+		extensionLanguageMember.setAdditionalField(ReferenceSetMember.LanguageFields.ACCEPTABILITY_ID, Concepts.ACCEPTABLE);
+		referenceSetMemberService.createMember(snomedctNZ.getBranchPath(), extensionLanguageMember);
+
+		// Version NZ extension
+		codeSystemService.createVersion(snomedctNZ, 20190630, "NZ release");
+
+		// Inactive previous member and create a new member
+		referenceSetMemberService.findMembers(snomedctNZ.getBranchPath(), "675173019", PageRequest.of(0, 10)).forEach(member -> {
+			member.setActive(false);
+			referenceSetMemberService.updateMember(snomedctNZ.getBranchPath(), member);
+		});
+
+		// Version NZ extension
+		codeSystemService.createVersion(snomedctNZ, 20190731, "NZ release");
+
+		// Create a new nz-en language refset member with a different UUID
+		extensionLanguageMember = new ReferenceSetMember(UUID.randomUUID().toString(),null, true,
+				"21000210109", "271000210107", "675173019");
+		extensionLanguageMember.setAdditionalField(ReferenceSetMember.LanguageFields.ACCEPTABILITY_ID, Concepts.PREFERRED);
+
+		referenceSetMemberService.createMember(snomedctNZ.getBranchPath(), extensionLanguageMember);
+
+		conceptService.find("100001", snomedctNZ.getBranchPath()).getDescriptions().forEach(desc -> {
+			if (desc.getDescriptionId().equals("675173019")) {
+				assertEquals(3, desc.getLangRefsetMembersMap().values().size());
+			}
+		});
+
+		// Add new en-gb in international for 2 monthly releases before upgrade NZ extension
+		Concept conceptA = constructTestConcept("100002", "71183010");
+		conceptService.create(conceptA, MAIN);
+		codeSystemService.createVersion(snomedct, 20200228, "international release 20200228");
+
+		Concept conceptB = constructTestConcept("100003", "75183010");
+		conceptService.create(conceptB, MAIN);
+
+		// Update acceptability for core refset component from preferred to acceptable
+		MemberSearchRequest searchRequest = new MemberSearchRequest();
+		searchRequest.referenceSet("900000000000508004");
+		searchRequest.referencedComponentId("675173019");
+		referenceSetMemberService.findMembers(snomedct.getBranchPath(), searchRequest, PageRequest.of(0, 10)).forEach(member -> {
+			member.setAdditionalField(ReferenceSetMember.LanguageFields.ACCEPTABILITY_ID,"900000000000549004");
+			referenceSetMemberService.updateMember(snomedct.getBranchPath(), member);
+		});
+		codeSystemService.createVersion(snomedct, 20200331, "international release 20200331");
+
+		// roll up upgrade extension
+		String jobId = codeSystemUpgradeService.createJob(snomedctNZ.getShortName(), 20200331);
+		codeSystemUpgradeService.upgrade(jobId, snomedctNZ, 20200331, false);
+
+		snomedctNZ = codeSystemService.find(snomedctNZ.getShortName());
+		extensionAdditionalLanguageRefsetUpgradeService.generateAdditionalLanguageRefsetDelta(snomedctNZ, snomedctNZ.getBranchPath(), "900000000000508004",false);
+
+		// Verify results after upgrade
+		Concept conceptAfterUpgrade = conceptService.find("100001", Config.DEFAULT_LANGUAGE_DIALECTS, snomedctNZ.getBranchPath());
+		final String nzMemberId = extensionLanguageMember.getMemberId();
+		conceptAfterUpgrade.getDescriptions().forEach(desc -> {
+			if (desc.getDescriptionId().equals("675173019")) {
+				assertEquals(4, desc.getLangRefsetMembers().size());
+				desc.getLangRefsetMembers().forEach(member -> {
+					if (member.getRefsetId().equals("271000210107") && member.isActive()) {
+						assertEquals("900000000000549004", member.getAdditionalField(ReferenceSetMember.LanguageFields.ACCEPTABILITY_ID));
+						// Check the member id is the same as the one created before upgrade
+						assertEquals(nzMemberId, member.getMemberId());
+					}
+				});
+				assertEquals(3, desc.getLangRefsetMembersMap().values().size());
+				desc.getAcceptabilityMapFromLangRefsetMembers().forEach((key, value) -> {
+					if (key.equals("900000000000508004")) {
+						assertEquals(Concepts.ACCEPTABLE_CONSTANT, value);
+					} else if (key.equals("271000210107")) {
+						assertEquals(Concepts.ACCEPTABLE_CONSTANT, value);
+					}
+				});
+			}
+		});
+	}
 	@NotNull
 	private static Description constructTestTextDefinitionDescription(String descriptionId) {
 		ReferenceSetMember enGbLanguageMember = new ReferenceSetMember(null,null, true,
