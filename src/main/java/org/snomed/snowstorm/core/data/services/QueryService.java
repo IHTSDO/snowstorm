@@ -505,7 +505,7 @@ public class QueryService implements ApplicationContextAware {
 						.script(sb -> sb.inline(InlineScript.of(is -> is.source("doc['attrMap'].value.length()"))))
 						.order(SortOrder.Asc)))))
 				.build();
-		SearchHits<QueryConcept> searchHits = elasticsearchTemplate.search(searchQuery, QueryConcept.class);
+		SearchHits<QueryConcept> searchHits = elasticsearchOperations.search(searchQuery, QueryConcept.class);
 
 		if (searchHits.hasSearchHits()) {
 			QueryConcept semanticIndexConcept = searchHits.getSearchHit(0).getContent();
