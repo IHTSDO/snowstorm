@@ -36,6 +36,8 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.PropertySource;
+import org.springframework.context.annotation.PropertySources;
+import org.springframework.core.env.Environment;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.data.elasticsearch.core.IndexOperations;
@@ -47,6 +49,8 @@ import org.springframework.scheduling.annotation.EnableAsync;
 
 import jakarta.annotation.PostConstruct;
 import java.io.IOException;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -70,7 +74,10 @@ import static java.lang.Long.parseLong;
 				"org.snomed.snowstorm.fhir.repositories"
 		})
 @EnableConfigurationProperties
-@PropertySource(value = "classpath:application.properties", encoding = "UTF-8")
+@PropertySources({
+		@PropertySource(value = "classpath:application.properties", encoding = "UTF-8"),
+		@PropertySource(value = "classpath:git.properties", encoding = "UTF-8")
+})
 @EnableAsync
 public abstract class Config extends ElasticsearchConfig {
 
@@ -102,6 +109,9 @@ public abstract class Config extends ElasticsearchConfig {
 
 	@Value("${search.term.maximumLength}")
 	private int searchTermMaximumLength;
+
+	@Autowired
+	private Environment env;
 
 	@Autowired
 	private DomainEntityConfiguration domainEntityConfiguration;
@@ -146,6 +156,11 @@ public abstract class Config extends ElasticsearchConfig {
 	private RefsetDescriptorUpdaterService refsetDescriptorUpdaterService;
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
+	@Value("${git.build.version}")
+	private String applicationVersion;
+
+	@Value("${git.build.time}")
+	private String releaseDate;
 
 	@PostConstruct
 	public void configureCommitListeners() {
@@ -172,6 +187,18 @@ public abstract class Config extends ElasticsearchConfig {
 	private String secondsDuration(Date timepoint) {
 		return "" + (float) (new Date().getTime() - timepoint.getTime()) / 1000f;
 	}
+
+	@Bean
+	public String getApplicationVersion(){return applicationVersion;}
+
+	@Bean
+	public Date getReleaseDate(){
+        try {
+            return new SimpleDateFormat("yyyy-MM-dd'T'hh:mm:ss'Z'").parse(releaseDate);
+        } catch (ParseException e) {
+            return new Date();
+        }
+    }
 
 	@Bean
 	public ExecutorService taskExecutor() {
