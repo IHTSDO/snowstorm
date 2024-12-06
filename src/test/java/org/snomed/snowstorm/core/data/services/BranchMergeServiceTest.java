@@ -3648,7 +3648,7 @@ class BranchMergeServiceTest extends AbstractTest {
 	}
 
 	@Test
-	public void testRHSVersionBehindWhenExtensionPublishesOnSameDate() throws ServiceException, InterruptedException {
+	void testRHSVersionBehindWhenExtensionPublishesOnSameDate() throws ServiceException, InterruptedException {
 		String intMain = "MAIN";
 		String extMain = "MAIN/SNOMEDCT-TEST";
 		Map<String, String> intPreferred = Map.of(US_EN_LANG_REFSET, descriptionAcceptabilityNames.get(PREFERRED), GB_EN_LANG_REFSET, descriptionAcceptabilityNames.get(PREFERRED));
@@ -3746,7 +3746,7 @@ class BranchMergeServiceTest extends AbstractTest {
 	}
 
 	@Test
-	public void testInternationalVersioningDoesNotCauseExtensionToBeFlaggedAsBehind() throws ServiceException, InterruptedException {
+	void testInternationalVersioningDoesNotCauseExtensionToBeFlaggedAsBehind() throws ServiceException, InterruptedException {
 		String intMain = "MAIN";
 		String extMain = "MAIN/SNOMEDCT-TEST";
 		Map<String, String> intPreferred = Map.of(US_EN_LANG_REFSET, descriptionAcceptabilityNames.get(PREFERRED), GB_EN_LANG_REFSET, descriptionAcceptabilityNames.get(PREFERRED));
@@ -5793,7 +5793,7 @@ class BranchMergeServiceTest extends AbstractTest {
 	}
 
 	@Test
-	public void testExtensionComponentDoesNotRevertBackToDefaultModuleId() throws ServiceException, InterruptedException {
+	void testExtensionComponentDoesNotRevertBackToDefaultModuleId() throws ServiceException, InterruptedException {
 		String intMain = "MAIN";
 		String extMain = "MAIN/SNOMEDCT-XX";
 		Map<String, String> intPreferred = Map.of(US_EN_LANG_REFSET, descriptionAcceptabilityNames.get(PREFERRED), GB_EN_LANG_REFSET, descriptionAcceptabilityNames.get(PREFERRED));
@@ -5877,7 +5877,7 @@ class BranchMergeServiceTest extends AbstractTest {
 	}
 
 	@Test
-	public void testRebasingVersionedAnnotationOntoUnversioned() throws ServiceException, InterruptedException {
+	void testRebasingVersionedAnnotationOntoUnversioned() throws ServiceException, InterruptedException {
 		String intMain = "MAIN";
 		Map<String, String> intPreferred = Map.of(US_EN_LANG_REFSET, descriptionAcceptabilityNames.get(PREFERRED), GB_EN_LANG_REFSET, descriptionAcceptabilityNames.get(PREFERRED));
 		Map<String, String> intAcceptable = Map.of(US_EN_LANG_REFSET, descriptionAcceptabilityNames.get(PREFERRED), GB_EN_LANG_REFSET, descriptionAcceptabilityNames.get(ACCEPTABLE));
