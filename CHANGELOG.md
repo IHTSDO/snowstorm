@@ -3,11 +3,12 @@ All notable changes to this project will be documented in this file.
 
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## 10.6.0 Release (December 2024)
+## 10.6.1 Release (December 2024)
 Maintenance release with bug fix.
 
 ### Fixes
 - MAINT-2699 Improve `additional-en-language-refset-delta` endpoint to support processing of duplicate ReferenceSetMembers.
+- MAINT-2691 Add 'clone' method to Annotation class to improve handling of annotations during rebase.
 
 ## 10.5.0 Release (November 2024)
 Maintenance release with improvements
