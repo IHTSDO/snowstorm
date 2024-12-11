@@ -22,10 +22,14 @@ public class ComparableExpression extends Expression implements Comparable<Compa
 					.thenComparing(ComparableExpression::getComparableAttributes, nullsFirst(CollectionComparators::compareSets))
 					.thenComparing(ComparableExpression::getComparableAttributeGroups, nullsFirst(CollectionComparators::compareSets));
 
+	private Long expressionId;
 	private Set<String> sortedFocusConcepts;
 	private Set<ComparableAttribute> comparableAttributes;
 	private Set<ComparableAttributeGroup> comparableAttributeGroups;
-	private Set<String> mergedConcepts;
+	private final Set<String> mergedConcepts;
+	private Set<Long> equivalentConcepts;
+	private Set<Long> equivalentExpressions;
+	private Set<Long> classificationAncestors;
 
 	public ComparableExpression() {
 		mergedConcepts = new HashSet<>();
@@ -157,7 +161,7 @@ public class ComparableExpression extends Expression implements Comparable<Compa
 
 	@Override
 	public Set<AttributeGroup> getAttributeGroups() {
-		return comparableAttributeGroups == null ? null : Set.copyOf(comparableAttributeGroups);
+		return comparableAttributeGroups == null ? null : Collections.unmodifiableSet(comparableAttributeGroups);
 	}
 
 	private String getDefinitionStatusString() {
@@ -170,6 +174,22 @@ public class ComparableExpression extends Expression implements Comparable<Compa
 
 	public Set<ComparableAttributeGroup> getComparableAttributeGroups() {
 		return comparableAttributeGroups;
+	}
+
+	public Set<Long> getEquivalentConcepts() {
+		return equivalentConcepts;
+	}
+
+	public void setEquivalentConcepts(Set<Long> equivalentConcepts) {
+		this.equivalentConcepts = equivalentConcepts;
+	}
+
+	public Set<Long> getEquivalentExpressions() {
+		return equivalentExpressions;
+	}
+
+	public void setEquivalentExpressions(Set<Long> equivalentExpressions) {
+		this.equivalentExpressions = equivalentExpressions;
 	}
 
 	@Override
@@ -187,6 +207,15 @@ public class ComparableExpression extends Expression implements Comparable<Compa
 		return ids;
 	}
 
+	public String toStringCanonical() {
+		return toString().replace(" ", "");
+	}
+
+	@Override
+	public String toString() {
+		return super.toString();
+	}
+
 	public void getAllConceptIds(Set<String> ids) {
 		final List<String> focusConcepts = getFocusConcepts();
 		if (focusConcepts != null) {
@@ -202,5 +231,22 @@ public class ComparableExpression extends Expression implements Comparable<Compa
 				group.getAllConceptIds(ids);
 			}
 		}
+	}
+
+	public Long getExpressionId() {
+		return expressionId;
+	}
+
+	public ComparableExpression setExpressionId(Long expressionId) {
+		this.expressionId = expressionId;
+		return this;
+	}
+
+	public Set<Long> getClassificationAncestors() {
+		return classificationAncestors;
+	}
+
+	public void setClassificationAncestors(Set<Long> classificationAncestors) {
+		this.classificationAncestors = classificationAncestors;
 	}
 }

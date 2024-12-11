@@ -13,3 +13,5 @@ snomed-drools-rules
 /tmp
 /local*
 authoring-traceability.log*
+/application.properties
+test.properties

@@ -10,6 +10,7 @@ import org.snomed.snowstorm.fhir.domain.FHIRCodeSystemVersion;
 import org.snomed.snowstorm.fhir.domain.FHIRConcept;
 import org.snomed.snowstorm.fhir.domain.FHIRDesignation;
 import org.snomed.snowstorm.fhir.domain.FHIRProperty;
+import org.snomed.snowstorm.fhir.pojo.ConceptAndSystemResult;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -23,21 +24,7 @@ public class HapiParametersMapper implements FHIRConstants {
 	
 	@Autowired
 	private FHIRHelper fhirHelper;
-	
-	public Parameters mapToFHIRValidateDisplayTerm(Concept concept, String display, FHIRCodeSystemVersion codeSystemVersion) {
-		Parameters parameters = new Parameters();
-		if (display == null) {
-			parameters.addParameter("result", true);
-		} else {
-			boolean valid = validateTerm(concept, display.toLowerCase(), parameters);
-			parameters.addParameter("result", valid);
-		}
-		parameters.addParameter("display", concept.getPt().getTerm());
-		parameters.addParameter("inactive", !concept.isActive());
-		addSystemAndVersion(parameters, codeSystemVersion);
-		return parameters;
-	}
-	
+
 	public Parameters singleOutValue(String key, String value) {
 		Parameters parameters = new Parameters();
 		parameters.addParameter(key, value);
@@ -49,25 +36,8 @@ public class HapiParametersMapper implements FHIRConstants {
 		addSystemAndVersion(parameters, codeSystemVersion);
 		return parameters;
 	}
-	
-	private boolean validateTerm(Concept c, String display, Parameters parameters) {
-		//Did we get it right first time?
-		if (c.getPt().getTerm().toLowerCase().equals(display)) {
-			return true;
-		} else {
-			//TODO Implement case sensitivity checking relative to what is specified for the description
-			for (Description d : c.getActiveDescriptions()) {
-				if (d.getTerm().toLowerCase().equals(display)) {
-					parameters.addParameter("message", "Display term is acceptable, but not the preferred synonym in the language/dialect specified.");
-					return true;
-				}
-			}
-		}
-		parameters.addParameter("message", "Code exists, but the display term is not recognised.");
-		return false;
-	}
 
-	public Parameters conceptNotFound(String code, FHIRCodeSystemVersion codeSystemVersion, String message) {
+	public Parameters resultFalseWithMessage(String code, FHIRCodeSystemVersion codeSystemVersion, String message) {
 		Parameters parameters = new Parameters();
 		parameters.addParameter("result", false);
 		parameters.addParameter("code", code);
@@ -77,8 +47,12 @@ public class HapiParametersMapper implements FHIRConstants {
 		return parameters;
 	}
 
-	public Parameters mapToFHIR(FHIRCodeSystemVersion codeSystem, Concept concept, Collection<String> childIds,
+	public Parameters mapToFHIR(ConceptAndSystemResult conceptAndSystemResult, Collection<String> childIds,
 			Set<FhirSctProperty> properties, List<LanguageDialect> designations) {
+
+		FHIRCodeSystemVersion codeSystemVersion = conceptAndSystemResult.codeSystemVersion();
+		Concept concept = conceptAndSystemResult.concept();
+		boolean postcoordinated = conceptAndSystemResult.postcoordinated();
 
 		Parameters parameters = new Parameters();
 		parameters.addParameter("code", concept.getConceptId());
@@ -86,11 +60,17 @@ public class HapiParametersMapper implements FHIRConstants {
 		Optional.ofNullable(codeSystem.getName()).ifPresent(x->parameters.addParameter("name", x));
 		//Optional.ofNullable(codeSystem.getTitle()).ifPresent(x->parameters.addParameter("title", x));
 		addSystemAndVersion(parameters, codeSystem);
+		boolean postcoordinatedCodeOnStandardCodeSystem = postcoordinated && !codeSystemVersion.getSnomedCodeSystem().isPostcoordinatedNullSafe();
+		parameters.addParameter("name", codeSystemVersion.getTitle() + (postcoordinatedCodeOnStandardCodeSystem ? " (Postcoordinated)" : ""));
+		addSystemAndVersion(parameters, codeSystemVersion);
+		parameters.addParameter("active", concept.isActive());
 		parameters.addParameter("inactive", !concept.isActive());
-		addProperties(parameters, concept, properties);
-		addDesignations(parameters, concept);
-		addParents(parameters, concept);
-		addChildren(parameters, childIds);
+		if (!postcoordinated) {
+			addProperties(parameters, concept, properties);
+			addDesignations(parameters, concept);
+			addParents(parameters, concept);
+			addChildren(parameters, childIds);
+		}
 		return parameters;
 	}
 
@@ -187,8 +167,13 @@ public class HapiParametersMapper implements FHIRConstants {
 
 	private void addProperties(Parameters parameters, Concept c, Set<FhirSctProperty> properties) {
 		Boolean sufficientlyDefined = c.getDefinitionStatusId().equals(Concepts.DEFINED);
-		parameters.addParameter(createProperty(EFFECTIVE_TIME, c.getEffectiveTime(), false))
-			.addParameter(createProperty(MODULE_ID, c.getModuleId(), true));
+
+		if (c.getEffectiveTime() != null) {
+			parameters.addParameter(createProperty(EFFECTIVE_TIME, c.getEffectiveTime(), false));
+		}
+		if (c.getModuleId() != null) {
+			parameters.addParameter(createProperty(MODULE_ID, c.getModuleId(), true));
+		}
 
 		boolean allProperties = properties.contains(FhirSctProperty.ALL_PROPERTIES);
 

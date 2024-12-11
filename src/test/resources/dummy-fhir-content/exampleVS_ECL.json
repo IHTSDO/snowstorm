@@ -1,6 +1,22 @@
 {
   "resourceType": "ValueSet",
-  "id":"chronic-diseases",
-  "url": "http://snomed.info/sct/1234000008?fhir_vs=ecl/<<27624003",
-  "status": "draft"
+  "id": "chronic-diseases",
+  "url": "http://example.com/vs/chronic-diseases",
+  "status": "draft",
+  "name": "Chronic Diseases",
+  "experimental": true,
+  "compose": {
+    "include": [
+      {
+        "system": "http://snomed.info/sct",
+        "filter": [
+          {
+            "property": "constraint",
+            "op": "=",
+            "value": "<< 27624003"
+          }
+        ]
+      }
+    ]
+  }
 }

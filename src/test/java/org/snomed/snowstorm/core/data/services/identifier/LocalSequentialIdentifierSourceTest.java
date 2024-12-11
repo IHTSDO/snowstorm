@@ -35,13 +35,13 @@ class LocalSequentialIdentifierSourceTest extends AbstractTest {
 	private BranchService branchService;
 
 	@Autowired
-	private ElasticsearchOperations elasticsearchTemplate;
+	private ElasticsearchOperations elasticsearchOperations;
 
 	private LocalSequentialIdentifierSource identifierSource;
 
 	@BeforeEach
 	public void setup() throws ServiceException {
-		identifierSource = new LocalSequentialIdentifierSource(elasticsearchTemplate);
+		identifierSource = new LocalSequentialIdentifierSource(elasticsearchOperations);
 		conceptService.create(new Concept("840539006"), "MAIN");
 		branchService.create("MAIN/B");
 		conceptService.create(new Concept("1119302008"), "MAIN/B");

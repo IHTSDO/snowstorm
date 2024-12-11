@@ -16,9 +16,9 @@ import org.snomed.snowstorm.core.data.services.ConceptUpdateHelper;
 import org.snomed.snowstorm.core.data.services.IdentifierComponentService;
 import org.snomed.snowstorm.core.data.services.ReferenceSetMemberService;
 import org.snomed.snowstorm.core.rf2.RF2Constants;
+import org.springframework.data.elasticsearch.client.elc.NativeQueryBuilder;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.data.elasticsearch.core.SearchHitsIterator;
-import org.springframework.data.elasticsearch.client.elc.NativeQueryBuilder;
 import org.springframework.data.elasticsearch.core.query.FetchSourceFilter;
 
 import java.util.*;
@@ -27,10 +27,12 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+import static co.elastic.clients.elasticsearch._types.query_dsl.QueryBuilders.bool;
+import static co.elastic.clients.elasticsearch._types.query_dsl.QueryBuilders.range;
 import static io.kaicode.elasticvc.api.ComponentService.LARGE_PAGE;
+import static io.kaicode.elasticvc.helper.QueryHelper.termQuery;
+import static io.kaicode.elasticvc.helper.QueryHelper.termsQuery;
 import static java.lang.Long.parseLong;
-import static co.elastic.clients.elasticsearch._types.query_dsl.QueryBuilders.*;
-import static io.kaicode.elasticvc.helper.QueryHelper.*;
 
 public class ImportComponentFactoryImpl extends ImpotentComponentFactory {
 
@@ -38,6 +40,7 @@ public class ImportComponentFactoryImpl extends ImpotentComponentFactory {
 
 	private final BranchService branchService;
 	private final BranchMetadataHelper branchMetadataHelper;
+
 	private final VersionControlHelper versionControlHelper;
 	private final String path;
 	private Commit commit;
@@ -51,13 +54,15 @@ public class ImportComponentFactoryImpl extends ImpotentComponentFactory {
 	private final List<PersistBuffer<?>> persistBuffers;
 	private final List<PersistBuffer<?>> coreComponentPersistBuffers;
 	private final MaxEffectiveTimeCollector maxEffectiveTimeCollector;
-	private final Map<String, AtomicLong> componentTypeSkippedMap = new HashMap<>();
+	private final Map<String, AtomicLong> componentTypeSkippedMap = Collections.synchronizedMap(new HashMap<>());
 
 	private static final Logger logger = LoggerFactory.getLogger(ImportComponentFactoryImpl.class);
 
 	// A small number of stated relationships also appear in the inferred file. These should not be persisted when importing a snapshot.
 	Set<Long> statedRelationshipsToSkip = Sets.newHashSet(3187444026L, 3192499027L, 3574321020L);
 	boolean coreComponentsFlushed;
+	private boolean useModuleEffectiveTimeFilter;
+
 
 	ImportComponentFactoryImpl(ConceptUpdateHelper conceptUpdateHelper, ReferenceSetMemberService memberService, IdentifierComponentService identifierComponentService, BranchService branchService,
 							   BranchMetadataHelper branchMetadataHelper, String path, Integer patchReleaseVersion, boolean copyReleaseFields, boolean clearEffectiveTimes) {
@@ -68,13 +73,13 @@ public class ImportComponentFactoryImpl extends ImpotentComponentFactory {
 		persistBuffers = new ArrayList<>();
 		maxEffectiveTimeCollector = new MaxEffectiveTimeCollector();
 		coreComponentPersistBuffers = new ArrayList<>();
-		ElasticsearchOperations elasticsearchTemplate = conceptUpdateHelper.getElasticsearchTemplate();
+		ElasticsearchOperations elasticsearchOperations = conceptUpdateHelper.getElasticsearchOperations();
 		versionControlHelper = conceptUpdateHelper.getVersionControlHelper();
 
 		conceptPersistBuffer = new PersistBuffer<>() {
 			@Override
 			public void persistCollection(Collection<Concept> entities) {
-				processEntities(entities, patchReleaseVersion, elasticsearchTemplate, Concept.class, copyReleaseFields, clearEffectiveTimes);
+				processEntities(entities, patchReleaseVersion, elasticsearchOperations, Concept.class, copyReleaseFields, clearEffectiveTimes);
 				if (!entities.isEmpty()) {
 					conceptUpdateHelper.doSaveBatchConcepts(entities, commit);
 				}
@@ -85,7 +90,7 @@ public class ImportComponentFactoryImpl extends ImpotentComponentFactory {
 		descriptionPersistBuffer = new PersistBuffer<>() {
 			@Override
 			public void persistCollection(Collection<Description> entities) {
-				processEntities(entities, patchReleaseVersion, elasticsearchTemplate, Description.class, copyReleaseFields, clearEffectiveTimes);
+				processEntities(entities, patchReleaseVersion, elasticsearchOperations, Description.class, copyReleaseFields, clearEffectiveTimes);
 				if (!entities.isEmpty()) {
 					conceptUpdateHelper.doSaveBatchDescriptions(entities, commit);
 				}
@@ -96,7 +101,7 @@ public class ImportComponentFactoryImpl extends ImpotentComponentFactory {
 		relationshipPersistBuffer = new PersistBuffer<>() {
 			@Override
 			public void persistCollection(Collection<Relationship> entities) {
-				processEntities(entities, patchReleaseVersion, elasticsearchTemplate, Relationship.class, copyReleaseFields, clearEffectiveTimes);
+				processEntities(entities, patchReleaseVersion, elasticsearchOperations, Relationship.class, copyReleaseFields, clearEffectiveTimes);
 				if (!entities.isEmpty()) {
 					conceptUpdateHelper.doSaveBatchRelationships(entities, commit);
 				}
@@ -115,7 +120,7 @@ public class ImportComponentFactoryImpl extends ImpotentComponentFactory {
 						}
 					}
 				}
-				processEntities(entities, patchReleaseVersion, elasticsearchTemplate, ReferenceSetMember.class, copyReleaseFields, clearEffectiveTimes);
+				processEntities(entities, patchReleaseVersion, elasticsearchOperations, ReferenceSetMember.class, copyReleaseFields, clearEffectiveTimes);
 				if (!entities.isEmpty()) {
 					memberService.doSaveBatchMembers(entities, commit);
 				}
@@ -125,7 +130,7 @@ public class ImportComponentFactoryImpl extends ImpotentComponentFactory {
 		identifierPersistBuffer = new PersistBuffer<>() {
 			@Override
 			public void persistCollection(Collection<Identifier> entities) {
-				processEntities(entities, patchReleaseVersion, elasticsearchTemplate, Identifier.class, copyReleaseFields, clearEffectiveTimes);
+				processEntities(entities, patchReleaseVersion, elasticsearchOperations, Identifier.class, copyReleaseFields, clearEffectiveTimes);
 				if (!entities.isEmpty()) {
 					identifierComponentService.doSaveBatchIdentifiers(entities, commit);
 				}
@@ -138,7 +143,7 @@ public class ImportComponentFactoryImpl extends ImpotentComponentFactory {
 		- Remove if earlier or equal effectiveTime to existing.
 		- Copy release fields from existing.
 	 */
-	private <T extends SnomedComponent<T>> void processEntities(Collection<T> components, Integer patchReleaseVersion, ElasticsearchOperations elasticsearchTemplate,
+	private <T extends SnomedComponent<T>> void processEntities(Collection<T> components, Integer patchReleaseVersion, ElasticsearchOperations elasticsearchOperations,
 			Class<T> componentClass, boolean copyReleaseFields, boolean clearEffectiveTimes) {
 
 		Map<Integer, List<T>> effectiveDateMap = new HashMap<>();
@@ -157,37 +162,14 @@ public class ImportComponentFactoryImpl extends ImpotentComponentFactory {
 			}
 		});
 		// patchReleaseVersion=-1 is a special case which allows replacing any effectiveTime
-		if (patchReleaseVersion == null || !patchReleaseVersion.equals(-1)) {
-			for (Integer effectiveTime : new TreeSet<>(effectiveDateMap.keySet())) {
-				// Find component states with an equal or greater effective time
-				boolean replacementOfThisEffectiveTimeAllowed = patchReleaseVersion != null && patchReleaseVersion.equals(effectiveTime);
-				List<T> componentsAtDate = effectiveDateMap.get(effectiveTime);
-				String idField = componentsAtDate.get(0).getIdField();
-				AtomicInteger alreadyExistingComponentCount = new AtomicInteger();
-				try (SearchHitsIterator<T> componentsWithSameOrLaterEffectiveTime = elasticsearchTemplate.searchForStream(new NativeQueryBuilder()
-						.withQuery(bool(b -> b
-								.must(branchCriteriaBeforeOpenCommit.getEntityBranchCriteria(componentClass))
-								.must(termsQuery(idField, componentsAtDate.stream().map(T::getId).collect(Collectors.toList())))
-								.must(replacementOfThisEffectiveTimeAllowed ?
-										range().field(SnomedComponent.Fields.EFFECTIVE_TIME).gt(JsonData.of(effectiveTime)).build()._toQuery()
-										: range().field(SnomedComponent.Fields.EFFECTIVE_TIME).gte(JsonData.of(effectiveTime)).build()._toQuery())))
-						.withSourceFilter(new FetchSourceFilter(new String[]{idField}, null))// Only fetch the id
-						.withPageable(LARGE_PAGE)
-						.build(), componentClass)) {
-					componentsWithSameOrLaterEffectiveTime.forEachRemaining(hit -> {
-						// Skip component import
-						components.remove(hit.getContent());// Compared by id only
-						alreadyExistingComponentCount.incrementAndGet();
-					});
-				}
-				componentTypeSkippedMap.computeIfAbsent(componentClass.getSimpleName(), key -> new AtomicLong()).addAndGet(alreadyExistingComponentCount.get());
-			}
+		if (!useModuleEffectiveTimeFilter && (patchReleaseVersion == null || !patchReleaseVersion.equals(-1))) {
+			performPatch(components, patchReleaseVersion, elasticsearchOperations, componentClass, effectiveDateMap);
 		}
 		if (copyReleaseFields) {
 			Map<String, T> idToUnreleasedComponentMap = components.stream().filter(component -> component.getEffectiveTime() == null).collect(Collectors.toMap(T::getId, Function.identity()));
 			if (!idToUnreleasedComponentMap.isEmpty()) {
 				String idField = idToUnreleasedComponentMap.values().iterator().next().getIdField();
-				try (SearchHitsIterator<T> stream = elasticsearchTemplate.searchForStream(new NativeQueryBuilder()
+				try (SearchHitsIterator<T> stream = elasticsearchOperations.searchForStream(new NativeQueryBuilder()
 						.withQuery(bool(b -> b
 								.must(branchCriteriaBeforeOpenCommit.getEntityBranchCriteria(componentClass))
 								.must(termQuery(SnomedComponent.Fields.RELEASED, true))
@@ -202,6 +184,33 @@ public class ImportComponentFactoryImpl extends ImpotentComponentFactory {
 					});
 				}
 			}
+		}
+	}
+
+	private <T extends SnomedComponent<T>> void performPatch(Collection<T> components, Integer patchReleaseVersion, ElasticsearchOperations elasticsearchOperations, Class<T> componentClass, Map<Integer, List<T>> effectiveDateMap) {
+		for (Integer effectiveTime : new TreeSet<>(effectiveDateMap.keySet())) {
+			// Find component states with an equal or greater effective time
+			boolean replacementOfThisEffectiveTimeAllowed = patchReleaseVersion != null && patchReleaseVersion.equals(effectiveTime);
+			List<T> componentsAtDate = effectiveDateMap.get(effectiveTime);
+			String idField = componentsAtDate.get(0).getIdField();
+			AtomicInteger alreadyExistingComponentCount = new AtomicInteger();
+			try (SearchHitsIterator<T> componentsWithSameOrLaterEffectiveTime = elasticsearchOperations.searchForStream(new NativeQueryBuilder()
+					.withQuery(bool(b -> b
+							.must(branchCriteriaBeforeOpenCommit.getEntityBranchCriteria(componentClass))
+							.must(termsQuery(idField, componentsAtDate.stream().map(T::getId).toList()))
+							.must(replacementOfThisEffectiveTimeAllowed ?
+									range().field(SnomedComponent.Fields.EFFECTIVE_TIME).gt(JsonData.of(effectiveTime)).build()._toQuery()
+									: range().field(SnomedComponent.Fields.EFFECTIVE_TIME).gte(JsonData.of(effectiveTime)).build()._toQuery())))
+					.withSourceFilter(new FetchSourceFilter(new String[]{idField}, null))// Only fetch the id
+					.withPageable(LARGE_PAGE)
+					.build(), componentClass)) {
+				componentsWithSameOrLaterEffectiveTime.forEachRemaining(hit -> {
+					// Skip component import
+					components.remove(hit.getContent());// Compared by id only
+					alreadyExistingComponentCount.incrementAndGet();
+				});
+			}
+			componentTypeSkippedMap.computeIfAbsent(componentClass.getSimpleName(), key -> new AtomicLong()).addAndGet(alreadyExistingComponentCount.get());
 		}
 	}
 
@@ -245,7 +254,6 @@ public class ImportComponentFactoryImpl extends ImpotentComponentFactory {
 	@Override
 	public void newRelationshipState(String id, String effectiveTime, String active, String moduleId, String sourceId, String destinationId,
 			String relationshipGroup, String typeId, String characteristicTypeId, String modifierId) {
-
 		Integer effectiveTimeI = getEffectiveTimeI(effectiveTime);
 		final Relationship relationship = new Relationship(id, effectiveTimeI, isActive(active), moduleId, sourceId,
 				destinationId, Integer.parseInt(relationshipGroup), typeId, characteristicTypeId, modifierId);
@@ -317,7 +325,7 @@ public class ImportComponentFactoryImpl extends ImpotentComponentFactory {
 		memberPersistBuffer.save(member);
 	}
 
-	private Integer getEffectiveTimeI(String effectiveTime) {
+	Integer getEffectiveTimeI(String effectiveTime) {
 		return effectiveTime != null && !effectiveTime.isEmpty() && RF2Constants.EFFECTIVE_DATE_PATTERN.matcher(effectiveTime).matches() ? Integer.parseInt(effectiveTime) : null;
 	}
 
@@ -335,6 +343,10 @@ public class ImportComponentFactoryImpl extends ImpotentComponentFactory {
 
 	public Commit getCommit() {
 		return commit;
+	}
+
+	public void useModuleEffectiveTimeFilter(boolean useModuleEffectiveTimeFilter) {
+		this.useModuleEffectiveTimeFilter = useModuleEffectiveTimeFilter;
 	}
 
 	private abstract class PersistBuffer<E extends Entity> {

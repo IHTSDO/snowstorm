@@ -31,6 +31,11 @@ public class QueryConcept extends DomainEntity<QueryConcept> implements FHIRGrap
 		String ATTR = "attr";
 		String ATTR_MAP = "attrMap";
 		String START = "start";
+		String REFSETS = "refsets";
+
+		static String getAttributePath(String attributeId) {
+			return ATTR + "." + attributeId;
+		}
 	}
 
 	@Field(type = FieldType.Keyword)
@@ -56,6 +61,9 @@ public class QueryConcept extends DomainEntity<QueryConcept> implements FHIRGrap
 	// Format:
 	// groupNo:attr=value:attr=value,value|groupNo:attr=value:attr=value,value
 	private String attrMap;
+
+	@Field(type = FieldType.Long)
+	private Set<Long> refsets;
 
 	@Transient
 	private Map<Integer, Map<String, List<Object>>> groupedAttributesMap;
@@ -83,12 +91,15 @@ public class QueryConcept extends DomainEntity<QueryConcept> implements FHIRGrap
 		stated = queryConcept.stated;
 		attrMap = queryConcept.attrMap;
 		serializeGroupedAttributesMap();// Populates attr field
+		refsets = queryConcept.refsets;
 	}
 
 	public void clearAttributes() {
 		if (groupedAttributesMap != null) {
 			groupedAttributesMap.clear();
 		}
+		attrMap = null;
+		attr = null;
 	}
 
 	public void addAttribute(int group, Long type, Object value) {
@@ -235,7 +246,8 @@ public class QueryConcept extends DomainEntity<QueryConcept> implements FHIRGrap
 	public boolean fieldsMatch(QueryConcept other) {
 		if (!this.equals(other)
 				|| !this.getParents().equals(other.getParents())
-				|| !this.getAncestors().equals(other.getAncestors())) {
+				|| !this.getAncestors().equals(other.getAncestors())
+				|| !Objects.equals(this.getRefsets(), other.getRefsets())) {
 			return false;
 		}
 		final Map<Integer, Map<String, List<Object>>> groupedAttributesMap = orEmpty(this.getGroupedAttributesMap());
@@ -256,6 +268,14 @@ public class QueryConcept extends DomainEntity<QueryConcept> implements FHIRGrap
 
 	public boolean isCreating() {
 		return creating;
+	}
+
+	public Set<Long> getRefsets() {
+		return refsets;
+	}
+
+	public void setRefsets(Set<Long> refsets) {
+		this.refsets = refsets;
 	}
 
 	@Override

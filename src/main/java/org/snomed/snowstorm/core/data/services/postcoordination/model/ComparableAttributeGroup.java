@@ -64,13 +64,23 @@ public class ComparableAttributeGroup extends AttributeGroup implements Comparab
 		return sortedAttributes == null ? null : List.copyOf(sortedAttributes);
 	}
 
-	private Set<ComparableAttribute> getSortedAttributes() {
+	public Set<ComparableAttribute> getComparableAttributes() {
 		return sortedAttributes;
+	}
+
+	private Set<ComparableAttribute> getSortedAttributesNullSafeReadOnly() {
+		return sortedAttributes != null ? sortedAttributes : Collections.emptySet();
 	}
 
 	@Override
 	public int compareTo(ComparableAttributeGroup other) {
-		return CollectionComparators.compareSets(getSortedAttributes(), other.getSortedAttributes());
+		Set<ComparableAttribute> attributes = getSortedAttributesNullSafeReadOnly();
+		Set<ComparableAttribute> otherAttributes = other.getSortedAttributesNullSafeReadOnly();
+		if (attributes.size() == otherAttributes.size()) {
+			return CollectionComparators.compareSets(attributes, otherAttributes);
+		} else {
+			return attributes.size() > otherAttributes.size() ? 1 : -1;
+		}
 	}
 
 	public void getAllConceptIds(Set<String> ids) {

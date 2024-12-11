@@ -7,10 +7,7 @@ import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.config.Config;
 import org.snomed.snowstorm.core.data.domain.CodeSystem;
 import org.snomed.snowstorm.core.data.domain.QueryConcept;
-import org.snomed.snowstorm.core.data.services.CodeSystemService;
-import org.snomed.snowstorm.core.data.services.CodeSystemVersionService;
-import org.snomed.snowstorm.core.data.services.ReferenceSetMemberService;
-import org.snomed.snowstorm.core.data.services.StartupException;
+import org.snomed.snowstorm.core.data.services.*;
 import org.snomed.snowstorm.core.rf2.RF2Type;
 import org.snomed.snowstorm.core.rf2.rf2import.ImportService;
 import org.springframework.beans.factory.BeanCreationException;
@@ -78,7 +75,7 @@ public class SnowstormApplication extends Config implements ApplicationRunner {
 	}
 
 	@Override
-	public void run(ApplicationArguments applicationArguments) throws InterruptedException {
+	public void run(ApplicationArguments applicationArguments) throws InterruptedException, ServiceException {
 		try {
 			boolean deleteIndices = applicationArguments.containsOption(DELETE_INDICES_FLAG);
 			if (deleteIndices) {

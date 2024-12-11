@@ -171,6 +171,24 @@ public class ConceptService extends ComponentService {
 		return doFind(conceptIds, languageDialects, branchCriteria, PageRequest.of(0, conceptIds.size()), true, true, true, true, path).getContent();
 	}
 
+	public Set<String> getConceptIdsNotActiveOrNotExist(Collection<String> conceptIds, BranchCriteria branchCriteria) {
+		NativeQuery nativeSearchQuery = new NativeQueryBuilder()
+				.withQuery(bool(bq -> bq
+						.must(branchCriteria.getEntityBranchCriteria(Concept.class))
+						.must(termsQuery(Concept.Fields.CONCEPT_ID, conceptIds))
+						.must(termQuery(SnomedComponent.Fields.ACTIVE, true))))
+				.withFields(Concept.Fields.CONCEPT_ID)
+				.withPageable(PageRequest.of(0, conceptIds.size()))
+				.build();
+
+		List<String> conceptsActive = elasticsearchOperations.search(nativeSearchQuery, Concept.class).stream()
+				.map(hit -> hit.getContent().getConceptId()).toList();
+
+		Set<String> conceptsMissing = new HashSet<>(conceptIds);
+		conceptsActive.forEach(conceptsMissing::remove);
+		return conceptsMissing;
+	}
+
 	public Page<Concept> find(List<Long> conceptIds, List<LanguageDialect> languageDialects, String path, PageRequest pageRequest) {
 		return doFind(conceptIds, languageDialects, new BranchTimepoint(path), pageRequest);
 	}

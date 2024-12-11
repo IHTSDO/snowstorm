@@ -1,11 +1,7 @@
 package org.snomed.snowstorm.fhir.services;
 
 import jakarta.servlet.http.HttpServletRequest;
-
-import ca.uhn.fhir.context.FhirContext;
-import ca.uhn.fhir.context.support.IValidationSupport;
 import ca.uhn.fhir.rest.server.RestfulServer;
-import ca.uhn.fhir.rest.server.RestfulServerConfiguration;
 import ca.uhn.fhir.rest.server.provider.ServerCapabilityStatementProvider;
 import ca.uhn.fhir.rest.server.util.ISearchParamRegistry;
 import org.apache.http.client.utils.URLEncodedUtils;
@@ -20,11 +16,11 @@ import org.slf4j.LoggerFactory;
 import org.springframework.core.env.Environment;
 import org.springframework.web.context.WebApplicationContext;
 import org.springframework.web.context.support.WebApplicationContextUtils;
-
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Date;
+import org.springframework.boot.info.BuildProperties;
 
 /**
  * See https://www.hl7.org/fhir/terminologycapabilities.html
@@ -35,24 +31,21 @@ import java.util.Date;
 public class FHIRTerminologyCapabilitiesProvider extends ServerCapabilityStatementProvider {
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
-	public FHIRTerminologyCapabilitiesProvider(RestfulServer theServer) {
+	private final BuildProperties buildProperties;
+	private final FHIRCodeSystemService codeSystemService;
+
+	public FHIRTerminologyCapabilitiesProvider(RestfulServer theServer, BuildProperties buildProperties, FHIRCodeSystemService codeSystemService) {
 		super(theServer);
+		this.buildProperties = buildProperties;
+		this.codeSystemService = codeSystemService;
 	}
 
-	public FHIRTerminologyCapabilitiesProvider(FhirContext theContext, RestfulServerConfiguration theServerConfiguration) {
-		super(theContext, theServerConfiguration);
-	}
-
-	public FHIRTerminologyCapabilitiesProvider(RestfulServer theRestfulServer, ISearchParamRegistry theSearchParamRegistry, IValidationSupport theValidationSupport) {
-		super(theRestfulServer, theSearchParamRegistry, theValidationSupport);
-	}
-
-	@Metadata
+	@Metadata(cacheMillis = 0)
 	public IBaseConformance getMetadataResource(HttpServletRequest request, RequestDetails requestDetails) {
 		logger.info(requestDetails.getCompleteUrl());
 		final WebApplicationContext applicationContext =
 				WebApplicationContextUtils.getWebApplicationContext(request.getServletContext());
-		if (request.getParameter("mode") != null && request.getParameter("mode").equals("terminology")) {
+		if ("terminology".equals(request.getParameter("mode"))) {
 			FHIRTerminologyCapabilities tc = new FHIRTerminologyCapabilities().withDefaults();
 			tc.setVersion("fixed_value");
 			tc.setDate(applicationContext.getBean("getReleaseDate", Date.class));

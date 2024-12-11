@@ -7,11 +7,14 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.TestConfig;
 import org.snomed.snowstorm.core.data.domain.*;
-import org.snomed.snowstorm.core.data.services.*;
-import org.snomed.snowstorm.core.data.services.pojo.CodeSystemConfiguration;
+import org.snomed.snowstorm.core.data.services.CodeSystemService;
+import org.snomed.snowstorm.core.data.services.ConceptService;
+import org.snomed.snowstorm.core.data.services.ReferenceSetMemberService;
+import org.snomed.snowstorm.core.data.services.ServiceException;
 import org.snomed.snowstorm.fhir.repositories.FHIRCodeSystemRepository;
 import org.snomed.snowstorm.fhir.repositories.FHIRConceptRepository;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.TestConfiguration;
 
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
@@ -26,6 +29,7 @@ import static org.snomed.snowstorm.fhir.services.AbstractFHIRTest.*;
 /**
  * 	Set up read-only data for FHIR tests
  */
+@TestConfiguration
 public class FHIRTestConfig extends TestConfig {
 
 	@Autowired
@@ -45,9 +49,6 @@ public class FHIRTestConfig extends TestConfig {
 
 	@Autowired
 	protected ReferenceSetMemberService memberService;
-
-	@Autowired
-	protected CodeSystemConfigurationService codeSystemConfigurationService;
 
 	@Autowired
 	private FHIRTermCodeSystemStorage fhirTermCodeSystemStorage;
@@ -86,7 +87,7 @@ public class FHIRTestConfig extends TestConfig {
 		fhirTermCodeSystemStorage.storeNewCodeSystemVersion(icdCodeSystem, termCodeSystemVersion, null, null, null);
 
 		// Version content to fill effectiveTime fields
-		CodeSystem codeSystem = new CodeSystem("SNOMEDCT", MAIN);
+		CodeSystem codeSystem = new CodeSystem("SNOMEDCT", MAIN).setUriModuleId(Concepts.CORE_MODULE);
 
 		codeSystemService.createCodeSystem(codeSystem);
 		String versionBranch = codeSystemService.createVersion(codeSystem, 20190131, "");
@@ -94,12 +95,8 @@ public class FHIRTestConfig extends TestConfig {
 		//Now create a new branch to hold a new edition
 		String releaseBranch = MAIN + "/" + versionBranch;
 		String branchWK = releaseBranch + "/SNOMEDCT-WK";
-		CodeSystem codeSystemWK = new CodeSystem("SNOMEDCT-WK", branchWK);
+		CodeSystem codeSystemWK = new CodeSystem("SNOMEDCT-WK", branchWK).setUriModuleId(sampleModuleId);
 		codeSystemService.createCodeSystem(codeSystemWK);
-
-		//And tell the configuration about that new module
-		CodeSystemConfiguration config = new CodeSystemConfiguration("SNOMEDCT-WK", "SNOMEDCT-WK", sampleModuleId, null, null);
-		codeSystemConfigurationService.getConfigurations().add(config);
 
 		concepts.clear();
 		//The new module will inherit the 10 concepts from MAIN.  Add two new unqique to MAIN/SNOMEDCT-WK
@@ -112,7 +109,7 @@ public class FHIRTestConfig extends TestConfig {
 		conceptService.batchCreate(concepts, branchWK);
 		codeSystemService.createVersion(codeSystemWK, sampleVersion, "Unit Test Version");
 
-		assertNotNull(codeSystemService.findByDefaultModule(sampleModuleId));
+		assertNotNull(codeSystemService.findByUriModule(sampleModuleId));
 
 		logger.info("FHIR test data setup complete");
 	}

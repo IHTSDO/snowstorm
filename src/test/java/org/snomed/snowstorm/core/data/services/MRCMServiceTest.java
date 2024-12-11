@@ -71,7 +71,7 @@ class MRCMServiceTest extends AbstractTest {
 		conceptService.create(inConcept, MAIN);
 
 		Collection<ConceptMini> attributes = mrcmService.retrieveDomainAttributes(ContentType.NEW_PRECOORDINATED, true,
-				Sets.newHashSet(12345678910L), MAIN, conceptService.getBranchCriteria(new BranchTimepoint(MAIN)));
+				Sets.newHashSet(12345678910L), conceptService.getBranchCriteria(new BranchTimepoint(MAIN)));
 		assertNotNull(attributes);
 		attributes.forEach(attribute -> {
 			final Map<String, Object> extraFields = attribute.getExtraFields();

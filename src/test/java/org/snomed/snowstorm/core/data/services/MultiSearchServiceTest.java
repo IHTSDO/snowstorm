@@ -1,5 +1,7 @@
 package org.snomed.snowstorm.core.data.services;
 
+import co.elastic.clients.elasticsearch._types.ElasticsearchException;
+import co.elastic.clients.elasticsearch._types.ErrorResponse;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -13,11 +15,11 @@ import org.snomed.snowstorm.core.data.services.pojo.MultiSearchDescriptionCriter
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.elasticsearch.UncategorizedElasticsearchException;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
+import static org.junit.jupiter.api.Assertions.*;
 
 @ExtendWith(SpringExtension.class)
 @ContextConfiguration(classes = TestConfig.class)
@@ -48,18 +50,18 @@ class MultiSearchServiceTest extends AbstractTest {
 		codeSystemService.createCodeSystem(codeSystemInternational);
 		testUtil.createConceptWithPathIdAndTerm("MAIN", Concepts.CLINICAL_FINDING, "Clinical finding");
 		String term = "fin";
-		assertEquals("Nothing found because code system is not versioned", 0, runSearch(term).getTotalElements());
+		assertEquals(0, runSearch(term).getTotalElements(), "Nothing found because code system is not versioned");
 		codeSystemService.createVersion(codeSystemInternational, 20190731, " Int 2019-07-31");
 
 		CodeSystem codeSystemBE = new CodeSystem("SNOMEDCT-BE", "MAIN/SNOMEDCT-BE");
 		codeSystemService.createCodeSystem(codeSystemBE);
 		testUtil.createConceptWithPathIdAndTerm("MAIN/SNOMEDCT-BE", "123123404684003", "Some finding");
 
-		assertEquals("Only one found because SNOMEDCT-BE code system is not versioned yet", 1, runSearch(term).getTotalElements());
+		assertEquals( 1, runSearch(term).getTotalElements(), "Only one found because SNOMEDCT-BE code system is not versioned yet");
 		codeSystemService.createVersion(codeSystemBE, 20190931, "");
 
 		Page<Description> descriptions = runSearch(term);
-		assertEquals("1 International and 1 BE result found.", 2, descriptions.getTotalElements());
+		assertEquals(2, descriptions.getTotalElements(), "1 International and 1 BE result found.");
 
 		// inactivation of International concept
 		Concept clinicalFinding = conceptService.find(Concepts.CLINICAL_FINDING, "MAIN");
@@ -72,7 +74,7 @@ class MultiSearchServiceTest extends AbstractTest {
 
 		// search both
 		descriptions = runSearch(term);
-		assertEquals("Only version from BE and 1 from International version", 2, descriptions.getTotalElements());
+		assertEquals(2, descriptions.getTotalElements(), "Only version from BE and 1 from International version");
 		assertEquals("Some finding", descriptions.getContent().get(0).getTerm());
 		assertEquals("MAIN/SNOMEDCT-BE", descriptions.getContent().get(0).getPath());
 		assertEquals("Clinical finding", descriptions.getContent().get(1).getTerm());
@@ -80,16 +82,28 @@ class MultiSearchServiceTest extends AbstractTest {
 
 		// search with active concept only
 		descriptions = runSearch(term, true);
-		assertEquals("Only one version for BE as International version is inactive", 1, descriptions.getTotalElements());
+		assertEquals(1, descriptions.getTotalElements(), "Only one version for BE as International version is inactive");
 		assertEquals("Some finding", descriptions.getContent().get(0).getTerm());
 		assertEquals("MAIN/SNOMEDCT-BE", descriptions.getContent().get(0).getPath());
 
 		// search with inactive concept only
 		descriptions = runSearch(term, false);
-		assertEquals("Only one version as International version is inactivated", 1, descriptions.getTotalElements());
+		assertEquals(1, descriptions.getTotalElements(), "Only one version as International version is inactivated");
 		assertEquals("Clinical finding", descriptions.getContent().get(0).getTerm());
 		assertEquals("MAIN", descriptions.getContent().get(0).getPath());
 
+	}
+
+
+	@Test
+	void testExceptionHandling() {
+		// assert throws exception
+		Throwable rootCause = assertThrows(UncategorizedElasticsearchException.class, this::simulateElasticsearchException).getRootCause();
+		assertTrue(rootCause instanceof ElasticsearchException);
+		ErrorResponse errorResponse = ((ElasticsearchException) rootCause).response();
+		assertNotNull(errorResponse);
+		assertEquals(400, errorResponse.status());
+		assertTrue(errorResponse.toString().contains("\"type\":\"query_shard_exception\",\"reason\":\"failed to create query: For input string: \\\"2024-09-01\\\""), "Error response: " + errorResponse);
 	}
 
 	private Page<Description> runSearch(String term) {

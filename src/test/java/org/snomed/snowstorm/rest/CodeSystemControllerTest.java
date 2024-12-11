@@ -25,6 +25,7 @@ import static org.snomed.snowstorm.core.data.domain.Concepts.MODULE;
 @ActiveProfiles("test")
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, classes = TestConfig.class)
 class CodeSystemControllerTest extends AbstractTest {
+
     @LocalServerPort
     private int port;
 
@@ -261,7 +262,7 @@ class CodeSystemControllerTest extends AbstractTest {
         givenCodeSystemUpgraded("SNOMEDCT-DM", 20210131); //Upgraded but not yet released.
     }
 
-    private void givenCodeSystemExists(String shortName, String branchPath) {
+    private void givenCodeSystemExists(String shortName, String branchPath) throws ServiceException {
         codeSystemService.createCodeSystem(new CodeSystem(shortName, branchPath));
     }
 
@@ -271,7 +272,7 @@ class CodeSystemControllerTest extends AbstractTest {
         codeSystemService.updateCodeSystemVersionPackage(codeSystemVersion, "SnomedCT_InternationalRF2_PRODUCTION_" + effectiveDate + "T120000Z.zip");
     }
 
-    private void givenCodeSystemExists(String shortName, String branchPath, Integer dependantVersion) {
+    private void givenCodeSystemExists(String shortName, String branchPath, Integer dependantVersion) throws ServiceException {
         CodeSystem newCodeSystem = new CodeSystem(shortName, branchPath);
         newCodeSystem.setDependantVersionEffectiveTime(dependantVersion);
         codeSystemService.createCodeSystem(newCodeSystem);

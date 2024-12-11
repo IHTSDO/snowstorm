@@ -3,6 +3,24 @@ All notable changes to this project will be documented in this file.
 
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 10.5.0 Release (November 2024)
+Maintenance release with improvements
+### Improvements
+- MAINT-2602 Improve logging when encountering exception during CodeSystem upgrade
+- MAINT-2640 Improve logging when encountering exception interacting with Elasticsearch
+- MAINT-2667 Add French Edition to default application properties
+- MAINT-2464 Improve Snapshot import times
+
+### Fixes
+- MAINT-2665 Fix FHIR ValueSet expansion to search FSN & Synonyms, not Text Definitions
+- MAINT-2308 Fix blank assertion group names to skip validation
+- MAINT-2677 Fix bug where Semantic index was not updated when non-isa Relationships were inactivated
+
+## 10.4.3 Release (October 2024)
+Maintenance release with improvements
+### Improvements
+- MAINT-2679 Add refsets field to QueryConcept so that authoring platform can work with snowstorm-perf on the same semantic index
+
 ## 10.4.2 Release (July 2024)
 Maintenance release with bug fixes and improvements.
 ### Fixes
@@ -18,6 +36,27 @@ Maintenance release with bug fixes and improvements.
 - MAINT-2557 Adjust annotations filename and location to match expectations set in 20240601 International release
 - MAINT-2472 Write unit test to prove Snowstorm handles duplicate language reference set entries correctly
 - MAINT-2649 Allow RELEASE_LEAD to run "additional-en-language-refset-delta" operation
+
+
+## SnowstormX - rebase in progress
+This beta release introduces SNOMED CT postcoordination support in the FHIR API.
+
+This is the reference implementation to accompany the newly published [SNOMED CT Practical Guide to Postcoordination](http://snomed.org/postcoordination) from SNOMED International.
+
+### Features
+- SNOMED CT postcoordination support
+    - Validate SNOMED CT postcoordinated expressions
+        - Check the syntax and [Machine Readable Concept Model](https://browser.ihtsdotools.org/mrcm) rules
+    - Transform common expressions to an MRCM compliant and classifiable form
+    - Test subsumption with postcoordinated expressions using incremental classification
+    - Build an expression repository using a FHIR code system supplement
+        - ECL support
+        - Expression repository uses expression refsets and other RF2 structures to support backup and restore
+
+_See new SnowstormX Postman collection that includes postcoordination examples:_
+
+[![Run in Postman](https://run.pstmn.io/button.svg)](https://god.gw.postman.com/run-collection/6085828-38d13887-bb38-4b49-a058-c623a0d260e7?action=collection%2Ffork&collection-url=entityId%3D6085828-38d13887-bb38-4b49-a058-c623a0d260e7%26entityType%3Dcollection%26workspaceId%3D283ac96f-72e6-436f-9f4b-c67af5d038a8)
+
 
 ## 10.3.1 Release (May 2024)
 Maintenance release with bug fixes and improvements.

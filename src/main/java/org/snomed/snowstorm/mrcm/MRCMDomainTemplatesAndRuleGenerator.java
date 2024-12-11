@@ -9,8 +9,8 @@ import org.snomed.langauges.ecl.domain.expressionconstraint.ExpressionConstraint
 import org.snomed.langauges.ecl.domain.expressionconstraint.SubExpressionConstraint;
 import org.snomed.snowstorm.core.data.services.ServiceException;
 import org.snomed.snowstorm.mrcm.model.*;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -20,8 +20,12 @@ import static org.snomed.snowstorm.core.util.PredicateUtil.not;
 
 @Service
 public class MRCMDomainTemplatesAndRuleGenerator {
-	@Autowired
-	private ECLQueryBuilder eclQueryBuilder;
+
+	private final ECLQueryBuilder eclQueryBuilder;
+
+	public MRCMDomainTemplatesAndRuleGenerator(ECLQueryBuilder eclQueryBuilder) {
+		this.eclQueryBuilder = eclQueryBuilder;
+	}
 
 	static final Comparator<AttributeDomain> ATTRIBUTE_DOMAIN_COMPARATOR_BY_DOMAIN_ID = Comparator
 			.comparing(AttributeDomain::getDomainId, Comparator.nullsFirst(String::compareTo));
@@ -92,10 +96,10 @@ public class MRCMDomainTemplatesAndRuleGenerator {
 						.stream()
 						.filter(d -> (RuleStrength.MANDATORY == d.getRuleStrength())
 										&& (ContentType.ALL == d.getContentType() || range.getContentType() == d.getContentType()))
-						.collect(Collectors.toList());
+						.toList();
 
 				// group attribute domain by attribute cardinality and attribute in group cardinality
-				List<AttributeDomain> grouped = attributeDomains.stream().filter(AttributeDomain::isGrouped).collect(Collectors.toList());
+				List<AttributeDomain> grouped = attributeDomains.stream().filter(AttributeDomain::isGrouped).toList();
 				Map<String, List<AttributeDomain>> groupedByCardinality = new HashMap<>();
 				for (AttributeDomain attributeDomain : grouped) {
 					groupedByCardinality.computeIfAbsent(attributeDomain.getAttributeCardinality().getValue()
@@ -112,10 +116,10 @@ public class MRCMDomainTemplatesAndRuleGenerator {
 				// grouped
 				Map<String, String> attributeRuleMappedByDomain = new HashMap<>();
 				for (Map.Entry<String, List<AttributeDomain>> groupedEntry : groupedByCardinality.entrySet()) {
-					List<AttributeDomain> sortedAttributeDomains = groupedEntry.getValue();
+					List<AttributeDomain> sortedAttributeDomains = new ArrayList<>(groupedEntry.getValue());
 					sortedAttributeDomains.sort(ATTRIBUTE_DOMAIN_COMPARATOR_BY_DOMAIN_ID);
 					// generate rule and mapped by domain concept id
-					List<String> domains = sortedAttributeDomains.stream().map(AttributeDomain::getDomainId).sorted().collect(Collectors.toList());
+					List<String> domains = sortedAttributeDomains.stream().map(AttributeDomain::getDomainId).sorted().toList();
 					attributeRuleMappedByDomain.put(domains.get(0), constructAttributeRule(sortedAttributeDomains, domainMapByDomainId, range, conceptToFsnMap, isDataAttribute));
 				}
 				if (!unGrouped.isEmpty() && !grouped.isEmpty()) {
@@ -396,7 +400,7 @@ public class MRCMDomainTemplatesAndRuleGenerator {
 			if (domainToAttributesMap.containsKey(domainId)) {
 				attributeDomains.addAll(domainToAttributesMap.get(domainId).stream()
 						.filter(d -> (RuleStrength.MANDATORY == d.getRuleStrength()) && (ContentType.ALL == d.getContentType() || type == d.getContentType()))
-						.collect(Collectors.toList()));
+						.toList());
 			}
 		}
 

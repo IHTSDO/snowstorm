@@ -15,7 +15,7 @@ import org.ihtsdo.drools.domain.Component;
 import org.ihtsdo.drools.response.InvalidContent;
 import org.ihtsdo.sso.integration.RequestHeaderAuthenticationDecorator;
 import org.snomed.snowstorm.core.data.domain.CodeSystemVersion;
-import org.snomed.snowstorm.core.data.domain.ReferenceSetType;
+import org.snomed.snowstorm.core.data.domain.ReferenceSetTypeExportConfiguration;
 import org.snomed.snowstorm.core.data.domain.classification.Classification;
 import org.snomed.snowstorm.rest.ReadOnlyApi;
 import org.snomed.snowstorm.rest.ReadOnlyApiWhenEnabled;
@@ -92,7 +92,7 @@ public class SecurityAndUriConfig {
 				.mixIn(CodeSystemVersion.class, CodeSystemVersionMixIn.class)
 				.mixIn(InvalidContent.class, InvalidContentMixIn.class)
 				.mixIn(Component.class, ComponentMixIn.class)
-				.mixIn(ReferenceSetType.class, ReferenceSetTypeMixin.class);
+				.mixIn(ReferenceSetTypeExportConfiguration.class, ReferenceSetTypeExportConfigurationMixin.class);
 
 		if (jsonIndentOutput) {
 			builder.featuresToEnable(SerializationFeature.INDENT_OUTPUT);
@@ -122,7 +122,6 @@ public class SecurityAndUriConfig {
 				"/(.*)/relationships.*",
 				"/(.*)/descriptions.*",
 				"/(.*)/members.*",
-				"/(.*)/expressions.*",
 				"/(.*)/identifiers",
 				"/(.*)/identifiers/.*",
 				"/(.*)/classifications.*",

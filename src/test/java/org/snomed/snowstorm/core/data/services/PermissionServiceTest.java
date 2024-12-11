@@ -29,7 +29,7 @@ class PermissionServiceTest extends AbstractTest {
 	private CodeSystemService codeSystemService;
 
 	@BeforeEach
-	void setup() {
+	void setup() throws ServiceException {
 		List<PermissionRecord> allPermissionRecords = new ArrayList<>();
 
 		// Global roles

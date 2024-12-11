@@ -158,7 +158,7 @@ public class ECLQueryService {
 			if (cachedPage != null) {
 				final int pageNumber = pageRequest != null ? pageRequest.getPageNumber() : 0;
 				final int pageSize = pageRequest != null ? pageRequest.getPageSize() : -1;
-				logger.info("ECL cache hit {}@{} \"{}\" {}:{}", path, branchCriteria.getTimepoint().getTime(), ecl, pageNumber, pageSize);
+				logger.debug("ECL cache hit {}@{} \"{}\" {}:{}", path, branchCriteria.getTimepoint().getTime(), ecl, pageNumber, pageSize);
 				branchVersionCache.recordHit();
 
 				pageOptional = Optional.of(cachedPage);

@@ -1,5 +1,6 @@
 package org.snomed.snowstorm.core.data.services.postcoordination;
 
+import com.google.common.collect.Lists;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.languages.scg.domain.model.Attribute;
@@ -36,7 +37,7 @@ import static org.snomed.otf.owltoolkit.constants.Concepts.LATERALITY;
 import static org.snomed.snowstorm.config.Config.PAGE_OF_ONE;
 
 @Service
-public class ExpressionTransformationService {
+public class ExpressionTransformationServiceGenericLevelX {
 
 	@Autowired
 	private ConceptService conceptService;
@@ -53,9 +54,12 @@ public class ExpressionTransformationService {
 	@Value("${postcoordination.transform.self-grouped.attributes}")
 	private Set<String> selfGroupedAttributes;
 
-	final Logger logger = LoggerFactory.getLogger(getClass());
+	private final LinkedHashMap<String, ConceptMini> conceptMiniCache = new LinkedHashMap<>();
+	private static final int CONCEPT_CACHE_SIZE = 500;
 
-	public ComparableExpression transform(ComparableExpression closeToUserForm, ExpressionContext context) throws ServiceException {
+	private final Logger logger = LoggerFactory.getLogger(getClass());
+
+	public ComparableExpression validateAndTransform(ComparableExpression closeToUserForm, ExpressionContext context) throws ServiceException {
 		// Dereference input with clone of object to avoid any modification affecting input.
 		closeToUserForm = expressionParser.parseExpression(closeToUserForm.toString());
 		if (closeToUserForm.getDefinitionStatus() == null) {
@@ -290,18 +294,62 @@ public class ExpressionTransformationService {
 	}
 
 	public String addHumanPTsToExpressionString(String expressionString, Set<String> conceptIds, ExpressionContext context) {
-		final ResultMapPage<String, ConceptMini> conceptMinis = conceptService.findConceptMinis(context.getBranchCriteria(), conceptIds, Config.DEFAULT_LANGUAGE_DIALECTS);
-		final Map<String, ConceptMini> conceptMap = conceptMinis.getResultsMap();
+		return addHumanPTsToExpressionStrings(Lists.newArrayList(expressionString), conceptIds, context).get(0);
+	}
+
+	public synchronized List<String> addHumanPTsToExpressionStrings(List<String> expressionStrings, Set<String> conceptIds, ExpressionContext context) {
+		if (expressionStrings.isEmpty()) {
+			return Collections.emptyList();
+		}
+		final Map<String, ConceptMini> conceptMap = findConceptMinisWithCaching(conceptIds, context);
+
 		for (String conceptId : conceptMap.keySet()) {
 			final ConceptMini conceptMini = conceptMap.get(conceptId);
 			if (conceptMini != null) {
 				final TermLangPojo pt = conceptMini.getPt();
 				final String term = pt != null ? pt.getTerm() : "-";
 				if (term != null) {
-					expressionString = expressionString.replace(conceptId, format("%s |%s|", conceptId, term));
+					for (int i = 0; i < expressionStrings.size(); i++) {
+						String expressionString = expressionStrings.get(i);
+						if (expressionString != null) {
+							expressionString = expressionString.replace(conceptId, format("%s |%s|", conceptId, term));
+							expressionStrings.set(i, expressionString);
+						}
+					}
 				}
 			}
 		}
-		return expressionString;
+		return expressionStrings;
+	}
+
+	// NB: Quick and dirty cache. We get away with a simple implementation here while we are only dealing with a single branch.
+	private Map<String, ConceptMini> findConceptMinisWithCaching(Set<String> conceptIds, ExpressionContext context) {
+		final Map<String, ConceptMini> conceptMap = new HashMap<>();
+		Set<String> toLoad = new HashSet<>(conceptIds);
+		for (String id : toLoad) {
+			if (conceptMiniCache.containsKey(id)) {
+				conceptMap.put(id, conceptMiniCache.get(id));
+			}
+		}
+		toLoad.removeAll(conceptMap.keySet());
+		if (!toLoad.isEmpty()) {
+			final ResultMapPage<String, ConceptMini> conceptMinis = conceptService.findConceptMinis(context.getBranchCriteria(), conceptIds, Config.DEFAULT_LANGUAGE_DIALECTS);
+			conceptMap.putAll(conceptMinis.getResultsMap());
+			conceptMiniCache.putAll(conceptMap);
+
+			// Cache eviction
+			if (conceptMiniCache.size() > CONCEPT_CACHE_SIZE) {
+				final int toRemove = conceptMiniCache.size() - CONCEPT_CACHE_SIZE;
+				Set<String> keysToRemove = new HashSet<>();
+				for (String key : conceptMiniCache.keySet()) {
+					if (keysToRemove.size() < toRemove) {
+						keysToRemove.add(key);
+					}
+				}
+				logger.info("Removing {} concepts from mini cache.", keysToRemove);
+				conceptMiniCache.keySet().removeAll(keysToRemove);
+			}
+		}
+		return conceptMap;
 	}
 }

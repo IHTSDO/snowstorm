@@ -32,10 +32,22 @@ class FHIRValueSetProviderExpandEclTest extends AbstractFHIRTest {
 	@Test
 	void testECLRecovery_DescOrSelf_Edition() {
 		String url = baseUrl + "/ValueSet/$expand?" +
-				"url=http://snomed.info/sct/" + sampleModuleId + "?fhir_vs=ecl/<<" + Concepts.SNOMEDCT_ROOT + 
+				"url=http://snomed.info/sct/" + sampleModuleId + "?fhir_vs=ecl/<<" + Concepts.SNOMEDCT_ROOT +
 				"&_format=json";
 		ValueSet v = getValueSet(url);
 		//We'll get the 11 concepts defined on main (Root + 10 potatoes) 
+		//plus the additional two defined for the new Edition
+		//plus the concrete example
+		assertEquals(14,v.getExpansion().getContains().size());
+	}
+
+	@Test
+	void testECLRecovery_DescOrSelf_plusHistory_Edition() {
+		String url = baseUrl + "/ValueSet/$expand?" +
+				"url=http://snomed.info/sct/" + sampleModuleId + "?fhir_vs=ecl/<<" + Concepts.SNOMEDCT_ROOT + " {{ %2BHISTORY }}" +// Here the + sign must be URL encoded as %2B
+				"&_format=json";
+		ValueSet v = getValueSet(url);
+		//We'll get the 11 concepts defined on main (Root + 10 potatoes)
 		//plus the additional two defined for the new Edition
 		//plus the concrete example
 		assertEquals(14,v.getExpansion().getContains().size());

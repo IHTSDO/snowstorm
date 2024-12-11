@@ -56,7 +56,6 @@ public class MRCMLoader implements CommitListener {
     /**
      * Retrieve the latest MRCM for the given branch.
      *
-     * @param branchPath     The branch to read MRCM data from.
      * @param branchCriteria The branch criteria to use for querying the target branch.
      * @return The MRCM for the given branch.
      * @throws ServiceException When there is an issue reading MRCM.
@@ -88,14 +87,7 @@ public class MRCMLoader implements CommitListener {
             return cachedMRCM;
         }
         LOGGER.debug("MRCM not present in cache; loading MRCM.");
-
-        final BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(branchPath);
-        final TimerUtil timer = new TimerUtil("MRCM");
-        final List<Domain> domains = getDomains(branchCriteria, timer);
-        final List<AttributeDomain> attributeDomains = getAttributeDomains(branchCriteria, timer);
-        final List<AttributeRange> attributeRanges = getAttributeRanges(branchCriteria, timer);
-        final MRCM mrcm = new MRCM(domains, attributeDomains, attributeRanges);
-
+        final MRCM mrcm = loadActiveMRCM(versionControlHelper.getBranchCriteria(branchPath));
         cache.putIfAbsent(branchPath, mrcm);
         return mrcm;
     }

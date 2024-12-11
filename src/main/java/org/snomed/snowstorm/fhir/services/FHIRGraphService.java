@@ -33,7 +33,7 @@ public class FHIRGraphService {
 	private VersionControlHelper snomedVersionControlHelper;
 
 	@Autowired
-	private ElasticsearchOperations elasticsearchTemplate;
+	private ElasticsearchOperations elasticsearchOperations;
 
 	/**
 	 * Returns true if codeA is an ancestor of codeB
@@ -44,7 +44,7 @@ public class FHIRGraphService {
 				.must(termQuery(graphCriteria.getCodeField(), codeB))
 				.must(termQuery(ANCESTORS, codeA));
 
-		return elasticsearchTemplate.search(graphCriteria.getQuery(), graphCriteria.nodeClass()).hasSearchHits();
+		return elasticsearchOperations.search(graphCriteria.getQuery(), graphCriteria.nodeClass()).hasSearchHits();
 	}
 
 	public List<String> findChildren(String code, FHIRCodeSystemVersion codeSystemVersion, PageRequest page) {
@@ -52,12 +52,12 @@ public class FHIRGraphService {
 		graphCriteria.criteria()
 				.must(termQuery(PARENTS, code));
 
-		return elasticsearchTemplate.search(graphCriteria.getQuery(), graphCriteria.nodeClass())
+		return elasticsearchOperations.search(graphCriteria.getQuery(), graphCriteria.nodeClass())
 				.get().map(hit -> hit.getContent().getCode()).collect(Collectors.toList());
 	}
 
 	private GraphCriteria getGraphCriteria(FHIRCodeSystemVersion codeSystemVersion, PageRequest page) {
-		if (codeSystemVersion.isSnomed()) {
+		if (codeSystemVersion.isOnSnomedBranch()) {
 			BoolQuery.Builder criteria = bool().must(snomedVersionControlHelper.getBranchCriteria(codeSystemVersion.getSnomedBranch()).getEntityBranchCriteria(QueryConcept.class));
 			criteria.must(termQuery(QueryConcept.Fields.STATED, false));
 			return new GraphCriteria(QueryConcept.class, criteria, page);
