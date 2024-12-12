@@ -332,6 +332,7 @@ public class FHIRValueSetService {
 		expansion.setId(id);
 		expansion.setIdentifier("urn:uuid:"+id);
 		expansion.setTimestamp(new Date());
+		Optional.ofNullable(params.getActiveOnly()).ifPresent(x->expansion.addParameter(new ValueSet.ValueSetExpansionParameterComponent(new StringType("activeOnly")).setValue(new BooleanType(x))));
 		Optional.ofNullable(params.getExcludeNested()).ifPresent(x->expansion.addParameter(new ValueSet.ValueSetExpansionParameterComponent(new StringType("excludeNested")).setValue(new BooleanType(x))));
 		allInclusionVersions.forEach(codeSystemVersion -> {
 				if (codeSystemVersion.getVersion() != null) {
@@ -525,10 +526,10 @@ public class FHIRValueSetService {
 		CodeSelectionCriteria codeSelectionCriteria = new CodeSelectionCriteria(getUserRef(valueSet));
 
 		ValueSet.ValueSetComposeComponent compose = valueSet.getCompose();
-        if (compose.hasInactive()){
-			activeOnly = (!compose.getInactive());
-		} else {
-			activeOnly = false;
+        if (!activeOnly) {
+			if (compose.hasInactive()) {
+				activeOnly = (!compose.getInactive());
+			}
 		}
 
 		for (ValueSet.ConceptSetComponent include : compose.getInclude()) {

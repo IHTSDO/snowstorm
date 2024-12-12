@@ -12,9 +12,7 @@ import org.apache.http.client.utils.URLEncodedUtils;
 import org.hl7.fhir.instance.model.api.IBaseConformance;
 import ca.uhn.fhir.rest.annotation.Metadata;
 import ca.uhn.fhir.rest.api.server.RequestDetails;
-import org.hl7.fhir.r4.model.CapabilityStatement;
-import org.hl7.fhir.r4.model.DateTimeType;
-import org.hl7.fhir.r4.model.TerminologyCapabilities;
+import org.hl7.fhir.r4.model.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.core.env.Environment;
@@ -23,8 +21,10 @@ import org.springframework.web.context.support.WebApplicationContextUtils;
 
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
+import java.util.List;
 
 /**
  * See https://www.hl7.org/fhir/terminologycapabilities.html
@@ -47,7 +47,7 @@ public class FHIRTerminologyCapabilitiesProvider extends ServerCapabilityStateme
 		super(theRestfulServer, theSearchParamRegistry, theValidationSupport);
 	}
 
-	@Metadata
+	@Metadata(cacheMillis = 0)
 	public IBaseConformance getMetadataResource(HttpServletRequest request, RequestDetails requestDetails) {
 		logger.info(requestDetails.getCompleteUrl());
 		final WebApplicationContext applicationContext =
@@ -57,7 +57,6 @@ public class FHIRTerminologyCapabilitiesProvider extends ServerCapabilityStateme
 			tc.setVersion("fixed_value");
 			tc.setDate(applicationContext.getBean("getReleaseDate", Date.class));
 			TerminologyCapabilities.TerminologyCapabilitiesExpansionComponent expansion = new TerminologyCapabilities.TerminologyCapabilitiesExpansionComponent();
-			TerminologyCapabilities.TerminologyCapabilitiesExpansionParameterComponent parameter1 = new TerminologyCapabilities.TerminologyCapabilitiesExpansionParameterComponent();
 			Arrays.asList("activeOnly",
 			"count",
 			"displayLanguage",
@@ -73,9 +72,11 @@ public class FHIRTerminologyCapabilitiesProvider extends ServerCapabilityStateme
 			return tc;
 		} else {
 			IBaseConformance resource = super.getServerConformance(request, requestDetails);
-
-
 			CapabilityStatement cs = (CapabilityStatement) resource;
+			Extension features = new Extension("http://hl7.org/fhir/uv/application-feature/StructureDefinition/feature");
+			features.addExtension("definition", new CanonicalType("http://hl7.org/fhir/uv/tx-tests/FeatureDefinition/test-version"));
+			features.addExtension("value", new CodeType("1.6.6"));
+			cs.addExtension(features);
 			cs.setUrl(requestDetails.getFhirServerBase()+"/metadata");
 			cs.setTitle("fixed value");
 			cs.setVersion("fixed_value");
