@@ -68,7 +68,7 @@ class SBranchServiceTest extends AbstractTest {
 	}
 
 	@Test
-	public void rollbackCommitWithCodeSystemVersion() throws IOException, ReleaseImportException {
+	public void rollbackCommitWithCodeSystemVersion() throws IOException, ReleaseImportException, ServiceException {
 		// Create international code system
 		codeSystemService.createCodeSystem(new CodeSystem("SNOMEDCT", "MAIN", "International Edition", ""));
 

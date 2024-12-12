@@ -105,9 +105,8 @@ public class AxiomConversionService {
 		BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(branchPath);
 		List<Long> objectAttributes = eclQueryService.selectConceptIds("<<" + Concepts.CONCEPT_MODEL_OBJECT_ATTRIBUTE, branchCriteria, true, LARGE_PAGE).getContent();
 		List<Long> dataAttributes = eclQueryService.selectConceptIds("<<" + Concepts.CONCEPT_MODEL_DATA_ATTRIBUTE, branchCriteria, true, LARGE_PAGE).getContent();
-		List<Long> annotationAttributes = eclQueryService.selectConceptIds("<<" + Concepts.CONCEPT_ANNOTATION_ATTRIBUTE, branchCriteria, true, LARGE_PAGE).getContent();
 		timer.checkpoint(String.format("Gathering %s never grouped attributes, %s object attributes and %s data attributes.", neverGroupedAttributes.size(), objectAttributes.size(), dataAttributes.size()));
-		AxiomRelationshipConversionService conversionService = new AxiomRelationshipConversionService(neverGroupedAttributes, objectAttributes, dataAttributes, annotationAttributes);
+		AxiomRelationshipConversionService conversionService = new AxiomRelationshipConversionService(neverGroupedAttributes, objectAttributes, dataAttributes);
 		timer.checkpoint("Creating AxiomRelationshipConversionService");
 		timer.finish();
 		return conversionService;

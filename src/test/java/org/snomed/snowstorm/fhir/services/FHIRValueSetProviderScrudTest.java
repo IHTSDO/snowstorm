@@ -98,7 +98,6 @@ class FHIRValueSetProviderScrudTest extends AbstractFHIRTest {
 			ValueSet savedVS = getValueSet(url);
 			assertEquals(0, savedVS.getExpansion().getTotal());
 
-			restTemplate.delete(baseUrl + "/ValueSet/chronic-diseases");
 			logger.info("ValueSet expansion tested OK!");
 		} finally {
 			deleteVs("chronic-diseases");
@@ -125,7 +124,6 @@ class FHIRValueSetProviderScrudTest extends AbstractFHIRTest {
 			String url = baseUrl + "/ValueSet/address-use";
 			ResponseEntity<String> response2 = restTemplate.getForEntity(url, String.class);
 			ValueSet savedVS = fhirJsonParser.parseResource(ValueSet.class, response2.getBody());
-			restTemplate.delete(url);
 			assertNotNull(savedVS);
 		} finally {
 			deleteVs("address-use");

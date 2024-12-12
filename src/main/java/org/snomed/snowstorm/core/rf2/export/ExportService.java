@@ -1,6 +1,5 @@
 package org.snomed.snowstorm.core.rf2.export;
 
-import co.elastic.clients.elasticsearch._types.SortOptions;
 import co.elastic.clients.elasticsearch._types.query_dsl.BoolQuery;
 import co.elastic.clients.elasticsearch._types.query_dsl.Query;
 import co.elastic.clients.json.JsonData;
@@ -9,31 +8,23 @@ import io.kaicode.elasticvc.api.BranchCriteria;
 import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.api.VersionControlHelper;
 import io.kaicode.elasticvc.domain.Branch;
-
 import org.apache.tomcat.util.http.fileupload.util.Streams;
 import org.drools.util.StringUtils;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.domain.jobs.ExportConfiguration;
 import org.snomed.snowstorm.core.data.domain.jobs.ExportStatus;
 import org.snomed.snowstorm.core.data.repositories.ExportConfigurationRepository;
-import org.snomed.snowstorm.core.data.services.BranchMetadataHelper;
-import org.snomed.snowstorm.core.data.services.BranchMetadataKeys;
-import org.snomed.snowstorm.core.data.services.CodeSystemService;
-import org.snomed.snowstorm.core.data.services.ModuleDependencyService;
-import org.snomed.snowstorm.core.data.services.NotFoundException;
-import org.snomed.snowstorm.core.data.services.QueryService;
+import org.snomed.snowstorm.core.data.services.*;
 import org.snomed.snowstorm.core.rf2.RF2Type;
 import org.snomed.snowstorm.core.util.DateUtil;
 import org.snomed.snowstorm.core.util.TimerUtil;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
-import org.springframework.data.elasticsearch.core.SearchHit;
-import org.springframework.data.elasticsearch.core.SearchHitsIterator;
 import org.springframework.data.elasticsearch.client.elc.NativeQuery;
 import org.springframework.data.elasticsearch.client.elc.NativeQueryBuilder;
+import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
+import org.springframework.data.elasticsearch.core.SearchHitsIterator;
 import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;
 
@@ -45,10 +36,11 @@ import java.util.stream.Collectors;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
+import static co.elastic.clients.elasticsearch._types.query_dsl.QueryBuilders.bool;
+import static co.elastic.clients.elasticsearch._types.query_dsl.QueryBuilders.range;
 import static io.kaicode.elasticvc.api.ComponentService.LARGE_PAGE;
-import static java.lang.String.format;
-import static co.elastic.clients.elasticsearch._types.query_dsl.QueryBuilders.*;
 import static io.kaicode.elasticvc.helper.QueryHelper.*;
+import static java.lang.String.format;
 
 @Service
 public class ExportService {
@@ -80,6 +72,9 @@ public class ExportService {
 	@Autowired
 	private ExecutorService executorService;
 
+	@Autowired
+	private ReferenceSetTypesConfigurationService referenceSetTypesConfigurationService;
+
 	private final Set<String> refsetTypesRequiredForClassification = Sets.newHashSet(Concepts.REFSET_MRCM_ATTRIBUTE_DOMAIN, Concepts.OWL_EXPRESSION_TYPE_REFERENCE_SET);
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
@@ -103,7 +98,7 @@ public class ExportService {
 
 	public ExportConfiguration getExportJobOrThrow(String exportId) {
 		Optional<ExportConfiguration> config = exportConfigurationRepository.findById(exportId);
-		if (!config.isPresent()) {
+		if (config.isEmpty()) {
 			throw new NotFoundException("Export job not found.");
 		}
 		return config.get();
@@ -123,13 +118,13 @@ public class ExportService {
 				exportConfiguration.getType(), exportConfiguration.isConceptsAndRelationshipsOnly(), exportConfiguration.isUnpromotedChangesOnly(),
 				exportConfiguration.getTransientEffectiveTime(), exportConfiguration.getStartEffectiveTime(), exportConfiguration.getModuleIds(),
 				exportConfiguration.isLegacyZipNaming(), exportConfiguration.getRefsetIds(), exportConfiguration.getId());
-		logger.info("Transmitting " + exportConfiguration.getId() + " export file " + exportFile);
+		logger.info("Transmitting {} export file {}", exportConfiguration.getId(), exportFile);
 		try (FileInputStream inputStream = new FileInputStream(exportFile)) {
 			long fileSize = Files.size(exportFile.toPath());
 			long bytesTransferred = Streams.copy(inputStream, outputStream, false);
 			exportConfiguration.setStatus(ExportStatus.COMPLETED);
 			exportConfigurationRepository.save(exportConfiguration);
-			logger.info("Transmitted " + bytesTransferred + "bytes (file size = " + fileSize + "bytes) for export " + exportConfiguration.getId());
+			logger.info("Transmitted {}bytes (file size = {}bytes) for export {}", bytesTransferred, fileSize, exportConfiguration.getId());
 		} catch (IOException e) {
 			exportConfiguration.setStatus(ExportStatus.FAILED);
 			exportConfigurationRepository.save(exportConfiguration);
@@ -302,14 +297,14 @@ public class ExportService {
 				}
 
 				// Write Reference Sets
-				List<ReferenceSetType> referenceSetTypes = getReferenceSetTypes(allContentBranchCriteria.getEntityBranchCriteria(ReferenceSetType.class)).stream()
+				List<ReferenceSetTypeExportConfiguration> referenceSetTypes = referenceSetTypesConfigurationService.getConfiguredTypes().stream()
 						.filter(type -> !forClassification || refsetTypesRequiredForClassification.contains(type.getConceptId()))
 						.collect(Collectors.toList());
 
 				logger.info("{} Reference Set Types found for this export: {}", referenceSetTypes.size(), referenceSetTypes);
 
 				Query memberBranchCriteria = selectionBranchCriteria.getEntityBranchCriteria(ReferenceSetMember.class);
-				for (ReferenceSetType referenceSetType : referenceSetTypes) {
+				for (ReferenceSetTypeExportConfiguration referenceSetType : referenceSetTypes) {
 					List<Long> refsetsOfThisType = new ArrayList<>(queryService.findDescendantIdsAsUnion(allContentBranchCriteria, true, Collections.singleton(Long.parseLong(referenceSetType.getConceptId()))));
 					refsetsOfThisType.add(Long.parseLong(referenceSetType.getConceptId()));
 					for (Long refsetToExport : refsetsOfThisType) {
@@ -456,6 +451,7 @@ public class ExportService {
 		}
 	}
 
+	@SuppressWarnings("unchecked")
 	private <T> ExportWriter<T> getExportWriter(Class<T> componentClass, OutputStream outputStream, List<String> extraFieldNames, boolean concrete) {
 		if (componentClass.equals(Concept.class)) {
 			return (ExportWriter<T>) new ConceptExportWriter(getBufferedWriter(outputStream));
@@ -473,16 +469,6 @@ public class ExportService {
 			return (ExportWriter<T>) new IdentifierExportWriter(getBufferedWriter(outputStream));
 		}
 		throw new UnsupportedOperationException("Not able to export component of type " + componentClass.getCanonicalName());
-	}
-
-	private List<ReferenceSetType> getReferenceSetTypes(Query branchCriteria) {
-		BoolQuery.Builder contentQuery = getContentQuery(RF2Type.SNAPSHOT, null, null, branchCriteria);
-		return elasticsearchOperations.search(new NativeQueryBuilder()
-				.withQuery(contentQuery.build()._toQuery())
-				.withSort(SortOptions.of(s -> s.field(f -> f.field(ReferenceSetType.Fields.NAME))))
-				.withPageable(LARGE_PAGE)
-				.build(), ReferenceSetType.class)
-				.stream().map(SearchHit::getContent).collect(Collectors.toList());
 	}
 
 	private NativeQuery getNativeSearchQuery(Query contentQuery) {

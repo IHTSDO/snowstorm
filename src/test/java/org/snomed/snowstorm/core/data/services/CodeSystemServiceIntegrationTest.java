@@ -54,7 +54,7 @@ class CodeSystemServiceIntegrationTest extends AbstractTest {
 
 
 	@BeforeEach
-	void setup() {
+	void setup() throws ServiceException {
 		codeSystem = new CodeSystem("SNOMEDCT", "MAIN");
 		codeSystemService.createCodeSystem(codeSystem);
 	}
@@ -115,7 +115,7 @@ class CodeSystemServiceIntegrationTest extends AbstractTest {
 
 		// Test delete code system
 		assertEquals(1, codeSystemService.findAllVersions("SNOMEDCT-BE", true, false).size());
-		codeSystemService.deleteCodeSystemAndVersions(extensionCodeSystem);
+		codeSystemService.deleteCodeSystemAndVersions(extensionCodeSystem, false);
 		assertNull(codeSystemService.find("SNOMEDCT-BE"));
 		assertEquals(0, codeSystemService.findAllVersions("SNOMEDCT-BE", true, false).size());
 	}

@@ -110,7 +110,7 @@ public class WebRoutingService {
 	}
 
 	private CodeSystemVersion determineVersion(UriParts uriParts) {
-		CodeSystem codeSystem = codeSystemService.findByDefaultModule(uriParts.moduleId);
+		CodeSystem codeSystem = codeSystemService.findByUriModule(uriParts.moduleId);
 		if (codeSystem == null) {
 			//What's the default code system on MAIN then, get it's latest version?
 			String shortName = codeSystemService.findByBranchPath("MAIN").get().getShortName();

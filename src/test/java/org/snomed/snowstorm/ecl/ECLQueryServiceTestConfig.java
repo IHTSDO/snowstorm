@@ -1,16 +1,15 @@
 package org.snomed.snowstorm.ecl;
 
 import com.google.common.collect.Sets;
-
 import io.kaicode.elasticvc.helper.SortBuilders;
+import jakarta.annotation.PostConstruct;
 import org.snomed.snowstorm.core.data.domain.*;
-import org.snomed.snowstorm.core.data.services.*;
+import org.snomed.snowstorm.core.data.services.ServiceException;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.elasticsearch.client.elc.NativeQueryBuilder;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.data.elasticsearch.core.SearchHit;
-import org.springframework.data.elasticsearch.client.elc.NativeQueryBuilder;
 
-import jakarta.annotation.PostConstruct;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -24,7 +23,7 @@ import static org.snomed.snowstorm.core.data.domain.Concepts.*;
 public class ECLQueryServiceTestConfig extends ECLQueryTestConfig {
 
 	@Autowired
-	private ElasticsearchOperations elasticsearchTemplate;
+	private ElasticsearchOperations elasticsearchOperations;
 
 	@PostConstruct
 	public void beforeAll() throws ServiceException , InterruptedException {
@@ -129,7 +128,7 @@ public class ECLQueryServiceTestConfig extends ECLQueryTestConfig {
 		memberService.createMembers(MAIN, Sets.newHashSet(
 				new ReferenceSetMember(Concepts.CORE_MODULE, REFSET_SIMPLE, BODY_STRUCTURE)));
 
-		List<QueryConcept> queryConcepts = elasticsearchTemplate.search(
+		List<QueryConcept> queryConcepts = elasticsearchOperations.search(
 						new NativeQueryBuilder()
 								.withSort(SortBuilders.fieldSort(QueryConcept.Fields.CONCEPT_ID))
 								.withPageable(LARGE_PAGE).build(), QueryConcept.class)

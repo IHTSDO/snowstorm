@@ -56,7 +56,7 @@ public class MRCMService {
 	private VersionControlHelper versionControlHelper;
 
 	@Autowired
-	private ElasticsearchOperations elasticsearchTemplate;
+	private ElasticsearchOperations elasticsearchOperations;
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
@@ -88,7 +88,7 @@ public class MRCMService {
 	}
 
 	public Collection<ConceptMini> retrieveDomainAttributes(ContentType contentType, boolean proximalPrimitiveModeling, Set<Long> parentIds,
-			String branchPath, BranchCriteria branchCriteria) throws ServiceException {
+			BranchCriteria branchCriteria) throws ServiceException {
 
 		// Load MRCM using active records applicable to this branch
 		final MRCM branchMRCM = mrcmLoader.loadActiveMRCM(branchCriteria);
@@ -101,7 +101,7 @@ public class MRCMService {
 			for (String attributeId : attributeIds) {
 				if (!foundConceptIds.contains(attributeId)) {
 					logger.warn("The concept to represent attribute {} is in the MRCM Attribute Domain reference set but is missing from branch {}.",
-							attributeId, branchPath);
+							attributeId, branchCriteria.getBranchPath());
 				}
 			}
 		}
@@ -111,7 +111,7 @@ public class MRCMService {
 	}
 
 	public List<AttributeDomain> doRetrieveDomainAttributes(ContentType contentType, boolean proximalPrimitiveModeling, Set<Long> parentIds,
-			BranchCriteria branchCriteria, MRCM branchMRCM) throws ServiceException {
+			BranchCriteria branchCriteria, MRCM branchMRCM) {
 
 		List<AttributeDomain> attributeDomains = new ArrayList<>();
 
@@ -234,7 +234,7 @@ public class MRCMService {
 				)
 				.withSourceFilter(new FetchSourceFilter(new String[]{QueryConcept.Fields.CONCEPT_ID, QueryConcept.Fields.PARENTS}, null))
 				.withPageable(LARGE_PAGE);
-		try (SearchHitsIterator<QueryConcept> queryConcepts = elasticsearchTemplate.searchForStream(queryConceptQuery.build(), QueryConcept.class)) {
+		try (SearchHitsIterator<QueryConcept> queryConcepts = elasticsearchOperations.searchForStream(queryConceptQuery.build(), QueryConcept.class)) {
 			queryConcepts.forEachRemaining(hit -> {
 				for (Long parent : hit.getContent().getParents()) {
 					ConceptMini parentMini = attributeMap.get(parent);

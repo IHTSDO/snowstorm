@@ -13,6 +13,7 @@ import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.core.data.domain.CodeSystem;
 import org.snomed.snowstorm.core.data.domain.CodeSystemVersion;
 import org.snomed.snowstorm.core.data.services.classification.BranchClassificationStatusService;
+import org.snomed.snowstorm.core.data.services.postcoordination.ExpressionRepositoryService;
 import org.snomed.snowstorm.core.data.services.servicehook.CommitServiceHookClient;
 import org.snomed.snowstorm.rest.pojo.SetAuthorFlag;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -236,5 +237,11 @@ public class SBranchService {
 		metadata.putMap(AUTHOR_FLAGS_METADATA_KEY, authFlagMap);
 
 		return branchService.updateMetadata(branchPath, metadata);
+	}
+
+	public void setMetadataItem(String branchPath, String key, String value) {
+		Metadata metadata = branchService.findBranchOrThrow(branchPath).getMetadata();
+		metadata.putString(key, value);
+		branchService.updateMetadata(branchPath, metadata);
 	}
 }

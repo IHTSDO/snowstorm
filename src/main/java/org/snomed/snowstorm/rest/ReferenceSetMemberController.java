@@ -91,7 +91,7 @@ public class ReferenceSetMemberController {
 		// Find refset type
 		BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(branch);
 		Map<String, String> refsetTypes = memberService.findRefsetTypes(referenceSetIds, branchCriteria);
-		Map<String, ReferenceSetType> configuredTypesMap = memberService.getConfiguredTypesMap();
+		Map<String, ReferenceSetTypeExportConfiguration> configuredTypesMap = memberService.getConfiguredTypesMap();
 		timer.checkpoint("load types (" + referenceSetIds.size() + ")");
 
 		// Load concept minis

@@ -2,11 +2,12 @@ package org.snomed.snowstorm.rest.pojo;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import org.snomed.snowstorm.core.data.domain.CodeSystem;
-import org.snomed.snowstorm.core.data.services.pojo.CodeSystemConfiguration;
+import org.snomed.snowstorm.core.data.services.pojo.CodeSystemDefaultConfiguration;
 
 public class CodeSystemUpdateRequest {
 
 	public String name;
+	public String uriModuleId;
 	public String owner;
 	public String countryCode;
 	public String maintainerType;
@@ -21,6 +22,7 @@ public class CodeSystemUpdateRequest {
 
 	public CodeSystemUpdateRequest(CodeSystem codeSystem) {
 		name = codeSystem.getName();
+		uriModuleId = codeSystem.getUriModuleId();
 		owner = codeSystem.getOwner();
 		countryCode = codeSystem.getCountryCode();
 		maintainerType = codeSystem.getMaintainerType();
@@ -38,7 +40,7 @@ public class CodeSystemUpdateRequest {
 		this.owner = owner;
 	}
 
-	public CodeSystemUpdateRequest populate(CodeSystemConfiguration configuration) {
+	public CodeSystemUpdateRequest populate(CodeSystemDefaultConfiguration configuration) {
 		if (configuration.name() != null) {
 			name = configuration.name();
 		}
@@ -53,6 +55,10 @@ public class CodeSystemUpdateRequest {
 
 	public String getName() {
 		return name;
+	}
+
+	public String getUriModuleId() {
+		return uriModuleId;
 	}
 
 	public String getOwner() {

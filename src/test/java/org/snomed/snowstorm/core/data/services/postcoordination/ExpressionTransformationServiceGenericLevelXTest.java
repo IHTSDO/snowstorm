@@ -9,10 +9,10 @@ import org.springframework.beans.factory.annotation.Autowired;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-class ExpressionTransformationServiceTest extends AbstractExpressionTest {
+class ExpressionTransformationServiceGenericLevelXTest extends AbstractExpressionTest {
 
 	@Autowired
-	private ExpressionTransformationService transformationService;
+	private ExpressionTransformationServiceGenericLevelX transformationService;
 
 	@Autowired
 	private ExpressionParser expressionParser;
@@ -52,7 +52,7 @@ class ExpressionTransformationServiceTest extends AbstractExpressionTest {
 	private void assertExpressionTransformation(String input, String expected) throws ServiceException {
 		ComparableExpression expectedExpression = expressionParser.parseExpression(expected);
 		ComparableExpression inputExpression = expressionParser.parseExpression(input);
-		ComparableExpression actualExpression = transformationService.transform(inputExpression, expressionContext);
+		ComparableExpression actualExpression = transformationService.validateAndTransform(inputExpression, expressionContext);
 		assertExpressionsEqual(expectedExpression, actualExpression);
 	}
 

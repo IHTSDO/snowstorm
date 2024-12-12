@@ -2,6 +2,8 @@ package org.snomed.snowstorm.core.data.domain;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonPropertyOrder;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
 import org.snomed.snowstorm.core.data.domain.fieldpermissions.CodeSystemCreate;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.annotation.Transient;
@@ -9,20 +11,20 @@ import org.springframework.data.elasticsearch.annotations.Document;
 import org.springframework.data.elasticsearch.annotations.Field;
 import org.springframework.data.elasticsearch.annotations.FieldType;
 
-import jakarta.validation.constraints.NotNull;
-import jakarta.validation.constraints.Pattern;
-
 import java.util.Collection;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 
+import static org.snomed.snowstorm.fhir.config.FHIRConstants.SNOMED_URI;
+
 /**
  * Represents an edition or extension of SNOMED-CT
  */
 @Document(indexName = "#{@indexNameProvider.indexName('codesystem')}", createIndex = false)
-@JsonPropertyOrder({"name", "owner", "shortName", "branchPath", "dependantVersionEffectiveTime", "dailyBuildAvailable", "latestDailyBuild",
-		"countryCode", "defaultLanguageCode", "defaultLanguageReferenceSets", "maintainerType", "latestVersion", "languages", "modules"})
+@JsonPropertyOrder({"name", "owner", "shortName", "branchPath", "uriModuleId", "uri", "dependantVersionEffectiveTime", "dailyBuildAvailable",
+		"latestDailyBuild", "postcoordinated", "maximumPostcoordinationLevel", "countryCode", "defaultLanguageCode", "defaultLanguageReferenceSets",
+		"maintainerType", "latestVersion", "languages", "modules"})
 public class CodeSystem implements CodeSystemCreate {
 
 	public interface Fields {
@@ -34,6 +36,9 @@ public class CodeSystem implements CodeSystemCreate {
 	@Field(type = FieldType.Keyword)
 	@NotNull
 	private String shortName;
+
+	@Field(type = FieldType.Keyword)
+	private String uriModuleId;
 
 	@Field(type = FieldType.Keyword)
 	private String name;
@@ -64,11 +69,15 @@ public class CodeSystem implements CodeSystemCreate {
 	@Field(type = FieldType.Keyword)
 	private String latestDailyBuild;
 
-	@Transient
-	private String defaultModuleId;
+	@Field(type = FieldType.Short)
+	private short maximumPostcoordinationLevel;
 
 	@Transient
 	private Integer dependantVersionEffectiveTime;
+
+	@Transient
+	@JsonIgnore
+	private String parentUriModuleId;
 
 	@Transient
 	private CodeSystemVersion latestVersion;
@@ -111,6 +120,23 @@ public class CodeSystem implements CodeSystemCreate {
 
 	public void setShortName(String shortName) {
 		this.shortName = shortName;
+	}
+
+	public String getUriModuleId() {
+		return uriModuleId;
+	}
+
+	public CodeSystem setUriModuleId(String uriModuleId) {
+		this.uriModuleId = uriModuleId;
+		return this;
+	}
+
+	/**
+	 * SNOMED CT Edition URI, this is generated from the URI Module ID if that is set.
+	 * @return SNOMED CT Edition URI or null if the URI Module ID is not set.
+	 */
+	public String getUri() {
+		return uriModuleId != null ? String.join("/", SNOMED_URI, uriModuleId) : null;
 	}
 
 	public String getName() {
@@ -186,13 +212,34 @@ public class CodeSystem implements CodeSystemCreate {
 		this.latestDailyBuild = latestDailyBuild;
 	}
 
-	@JsonIgnore
-	public String getDefaultModuleId() {
-		return defaultModuleId;
+	/**
+	 * Postcoordination Levels:
+	 * Level 0 = postcoordination disabled.
+	 * Level 1 = postcoordination enabled, transformation level 0
+	 * Level 2 = postcoordination enabled, transformation level 1
+	 * @return the level of postcoordination supported in this code system, 0 means disabled.
+	 */
+	public Short getMaximumPostcoordinationLevel() {
+		return maximumPostcoordinationLevel != 0 ? maximumPostcoordinationLevel : null;
 	}
 
-	public void setDefaultModuleId(String defaultModuleId) {
-		this.defaultModuleId = defaultModuleId;
+	public CodeSystem setMaximumPostcoordinationLevel(short maximumPostcoordinationLevel) {
+		this.maximumPostcoordinationLevel = maximumPostcoordinationLevel;
+		return this;
+	}
+
+	@JsonIgnore
+	public int getMaximumPostcoordinationLevelNullSafe() {
+		return maximumPostcoordinationLevel;
+	}
+
+	public Boolean isPostcoordinated() {
+		return maximumPostcoordinationLevel != 0 ? true : null;
+	}
+
+	@JsonIgnore
+	public boolean isPostcoordinatedNullSafe() {
+		return maximumPostcoordinationLevel != 0;
 	}
 
 	public Integer getDependantVersionEffectiveTime() {
@@ -201,6 +248,14 @@ public class CodeSystem implements CodeSystemCreate {
 
 	public void setDependantVersionEffectiveTime(Integer dependantVersionEffectiveTime) {
 		this.dependantVersionEffectiveTime = dependantVersionEffectiveTime;
+	}
+
+	public String getParentUriModuleId() {
+		return parentUriModuleId;
+	}
+
+	public void setParentUriModuleId(String parentUriModuleId) {
+		this.parentUriModuleId = parentUriModuleId;
 	}
 
 	public Map<String, String> getLanguages() {

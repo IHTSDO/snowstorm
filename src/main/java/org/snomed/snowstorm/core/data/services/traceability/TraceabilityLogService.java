@@ -63,7 +63,7 @@ public class TraceabilityLogService implements CommitListener {
 	private TraceabilityLogServiceHelper traceabilityLogServiceHelper;
 
 	@Autowired
-	private ElasticsearchOperations elasticsearchTemplate;
+	private ElasticsearchOperations elasticsearchOperations;
 
 	@Autowired
 	private VersionControlHelper versionControlHelper;
@@ -241,7 +241,7 @@ public class TraceabilityLogService implements CommitListener {
 			branchCriteria = versionControlHelper.getBranchCriteria(commit.getBranch());
 			Query descriptionQuery = branchCriteria.getEntityBranchCriteria(Description.class);
 			for (List<Long> descriptionIdsSegment : Iterables.partition(descriptionIdsToLookup, CLAUSE_LIMIT)) {
-				try (final SearchHitsIterator<Description> stream = elasticsearchTemplate.searchForStream(new NativeQueryBuilder()
+				try (final SearchHitsIterator<Description> stream = elasticsearchOperations.searchForStream(new NativeQueryBuilder()
 						.withQuery(bool(b -> b.must(descriptionQuery)
 								.must(termsQuery(Description.Fields.DESCRIPTION_ID, descriptionIdsSegment))))
 						.withSourceFilter(new FetchSourceFilter(new String[]{Description.Fields.DESCRIPTION_ID, Description.Fields.CONCEPT_ID}, null))
@@ -260,7 +260,7 @@ public class TraceabilityLogService implements CommitListener {
 			}
 			Query relationshipQuery = branchCriteria.getEntityBranchCriteria(Relationship.class);
 			for (List<Long> relationshipsIdsSegment : Iterables.partition(relationshipIdsToLookup, CLAUSE_LIMIT)) {
-				try (final SearchHitsIterator<Relationship> stream = elasticsearchTemplate.searchForStream(new NativeQueryBuilder()
+				try (final SearchHitsIterator<Relationship> stream = elasticsearchOperations.searchForStream(new NativeQueryBuilder()
 						.withQuery(bool(b -> b
 								.must(relationshipQuery)
 								.must(termsQuery(Relationship.Fields.RELATIONSHIP_ID, relationshipsIdsSegment))))

@@ -71,7 +71,7 @@ class ImportServiceTest extends AbstractTest {
 	private File completeOwlRf2Archive;
 
 	@BeforeEach
-	void setup() throws IOException {
+	void setup() throws IOException, ServiceException {
 		codeSystemService.init();
 		referenceSetMemberService.init();
 		rf2Archive = ZipUtil.zipDirectoryRemovingCommentsAndBlankLines("src/main/resources/dummy-snomed-content/RF2Release");
@@ -228,7 +228,7 @@ class ImportServiceTest extends AbstractTest {
 	}
 
 	@Test
-	void testImportFullOnChildCodeSystem() {
+	void testImportFullOnChildCodeSystem() throws ServiceException {
 		String branchPath = "MAIN/SNOMEDCT-TEST";
 		codeSystemService.createCodeSystem(new CodeSystem("SNOMEDCT-TEST", branchPath));
 
@@ -789,7 +789,7 @@ class ImportServiceTest extends AbstractTest {
 	}
 
 	@Test
-	void testSemanticIndexCompleteRebuildDuringCodeSystemVersionImport() throws IOException, ReleaseImportException {
+	void testSemanticIndexCompleteRebuildDuringCodeSystemVersionImport() throws IOException, ReleaseImportException, ServiceException {
 		// Import to MAIN
 		String importJobId = importService.createJob(RF2Type.SNAPSHOT, MAIN, false, false);
 		File zipFile = ZipUtil.zipDirectoryRemovingCommentsAndBlankLines("src/test/resources/dummy-snomed-content/SnomedCT_MiniRF2_Base_snapshot");
@@ -823,7 +823,9 @@ class ImportServiceTest extends AbstractTest {
 		assertEquals(58, results.getTotalElements());
 
 		// Assert no version replaced for QueryConcept in branch metadata
-		assertFalse(branchService.findBranchOrThrow(branchPath).getVersionsReplaced().containsKey(QueryConcept.class.getSimpleName()));
+		if (branchService.findBranchOrThrow(branchPath).getVersionsReplaced().containsKey(QueryConcept.class.getSimpleName())) {
+			assertEquals(0, branchService.findBranchOrThrow(branchPath).getVersionsReplaced().get(QueryConcept.class.getSimpleName()).size());
+		}
 
 		// Check future import doesn't trigger a complete rebuild
 		zipFile = ZipUtil.zipDirectoryRemovingCommentsAndBlankLines("src/test/resources/dummy-snomed-content/SnomedCT_MiniRF2");
@@ -836,5 +838,27 @@ class ImportServiceTest extends AbstractTest {
 		// Check that semantic index is not completely rebuilt and in this case should only be increased by 2
 		results = queryConceptRepository.findAll(PageRequest.of(0, 10));
 		assertEquals(60, results.getTotalElements());
+	}
+
+	@Test
+	void testSubsequentSnapshotImport() throws ReleaseImportException, IOException {
+		// First time snapshot import to MAIN
+		String importJobId = importService.createJob(RF2Type.SNAPSHOT, MAIN, true, false);
+		File zipFile = ZipUtil.zipDirectoryRemovingCommentsAndBlankLines("src/test/resources/dummy-snomed-content/SnomedCT_MiniRF2_Base_snapshot");
+		FileInputStream releaseFileStream = new FileInputStream(zipFile);
+		importService.importArchive(importJobId, releaseFileStream);
+		Page<Concept> concepts = conceptService.findAll(MAIN, PageRequest.of(0, 10));
+		assertEquals(17, concepts.getTotalElements());
+
+		// Subsequent snapshot import to MAIN
+		importJobId = importService.createJob(RF2Type.SNAPSHOT, MAIN, true, false);
+		zipFile = ZipUtil.zipDirectoryRemovingCommentsAndBlankLines("src/test/resources/dummy-snomed-content/SnomedCT_MiniRF2");
+		releaseFileStream = new FileInputStream(zipFile);
+		importService.importArchive(importJobId, releaseFileStream);
+
+		ImportJob importJob = importService.getImportJobOrThrow(importJobId);
+		assertEquals(ImportJob.ImportStatus.COMPLETED, importJob.getStatus());
+		concepts = conceptService.findAll(MAIN, PageRequest.of(0, 10));
+		assertEquals(18, concepts.getTotalElements());
 	}
 }

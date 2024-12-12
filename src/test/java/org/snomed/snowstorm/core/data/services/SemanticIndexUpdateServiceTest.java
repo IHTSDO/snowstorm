@@ -63,7 +63,7 @@ class SemanticIndexUpdateServiceTest extends AbstractTest {
 	private ConceptUpdateHelper conceptUpdateHelper;
 
 	@Autowired
-	private ElasticsearchOperations elasticsearchTemplate;
+	private ElasticsearchOperations elasticsearchOperations;
 
 	@Autowired
 	private ReferenceSetMemberService referenceSetMemberService;
@@ -73,9 +73,6 @@ class SemanticIndexUpdateServiceTest extends AbstractTest {
 
 	@Autowired
 	private CodeSystemService codeSystemService;
-
-	@Autowired
-	private ElasticsearchOperations elasticsearchOperations;
 
 	private static final PageRequest PAGE_REQUEST = PageRequest.of(0, 50);
 
@@ -251,7 +248,7 @@ class SemanticIndexUpdateServiceTest extends AbstractTest {
 
 		// Extreme hack, without version control, to break the semantic index
 		// Remove attributes from existing semantic entry
-		final SearchHit<QueryConcept> hit = elasticsearchTemplate.searchOne(new NativeQueryBuilder()
+		final SearchHit<QueryConcept> hit = elasticsearchOperations.searchOne(new NativeQueryBuilder()
 				.withQuery(bool(b -> b
 						.must(termQuery(QueryConcept.Fields.CONCEPT_ID_FORM, hamPizza.getId() + "_i"))
 						.mustNot(existsQuery("end")))
@@ -811,13 +808,13 @@ class SemanticIndexUpdateServiceTest extends AbstractTest {
 
 		// Delete all documents in semantic index and rebuild
 
-		List<QueryConcept> queryConcepts = elasticsearchTemplate.search(new NativeQueryBuilder().build(), QueryConcept.class)
+		List<QueryConcept> queryConcepts = elasticsearchOperations.search(new NativeQueryBuilder().build(), QueryConcept.class)
 				.stream().map(SearchHit::getContent).collect(Collectors.toList());
 		assertEquals(5, queryConcepts.size());
 
 		deleteAllQueryConceptsAndRefresh();
 
-		queryConcepts = elasticsearchTemplate.search(new NativeQueryBuilder().build(), QueryConcept.class)
+		queryConcepts = elasticsearchOperations.search(new NativeQueryBuilder().build(), QueryConcept.class)
 				.stream().map(SearchHit::getContent).collect(Collectors.toList());
 		assertEquals(0, queryConcepts.size());
 
@@ -1387,6 +1384,52 @@ class SemanticIndexUpdateServiceTest extends AbstractTest {
 
 		// Assert 0 version replaced for QueryConcept in branch metadata
 		assertEquals(0, branchService.findBranchOrThrow(project).getVersionsReplaced().get(QueryConcept.class.getSimpleName()).size());
+	}
+
+
+	@Test
+	void testSemanticIndexUpdateWhenAllNonIsaAttributesRemoved() throws ServiceException {
+		// Add a concept in MAIN with non-ISA attributes
+		String path = "MAIN";
+		List<Concept> concepts = new ArrayList<>();
+
+		concepts.add(new Concept(SNOMEDCT_ROOT));
+		concepts.add(new Concept("116680003")
+				.addRelationship(new Relationship(ISA, SNOMEDCT_ROOT))
+		);
+		concepts.add(new Concept("39607008")
+				.addRelationship(new Relationship(ISA, SNOMEDCT_ROOT))
+		);
+		concepts.add(new Concept("363698007")
+				.addRelationship(new Relationship(ISA, SNOMEDCT_ROOT))
+		);
+
+		conceptService.batchCreate(concepts, path);
+		concepts.clear();
+
+		concepts.add(new Concept("34020007")
+				.addRelationship(new Relationship(UUID.randomUUID().toString(), ISA, SNOMEDCT_ROOT))
+				.addRelationship(new Relationship("3332956025", 20200731, true, "900000000000207008", "34020007", "39607008", 1, "363698007", "900000000000011006", "900000000000451002"))
+		);
+
+		// Use low level component save to prevent effectiveTimes being stripped by concept service
+		simulateRF2Import(path, concepts);
+		assertEquals(1, queryService.search(queryService.createQueryBuilder(false).ecl("*:363698007=*"), path, PAGE_REQUEST).getTotalElements());
+
+		// Remove non-ISA attributes from the concept
+		Concept concept = conceptService.find("34020007", path);
+		concept.getRelationships().forEach(relationship -> {
+			if (!relationship.getTypeId().equals(ISA)) {
+				relationship.setActive(false);
+			}});
+
+		conceptService.update(concept, path);
+
+		conceptService.find("34020007", path).getRelationships().stream().filter(relationship -> !relationship.getTypeId().equals("116680003")).forEach(relationship ->
+				assertFalse(relationship.isActive())
+		);
+		// Assert that the semantic index is updated and non-isa atrributes are removed
+		assertEquals(0, queryService.search(queryService.createQueryBuilder(false).ecl("*:363698007=*"), path, PAGE_REQUEST).getTotalElements());
 	}
 
 	private void simulateRF2Import(String path, List<Concept> concepts) {

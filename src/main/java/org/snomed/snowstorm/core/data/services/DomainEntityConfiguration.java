@@ -31,9 +31,6 @@ public class DomainEntityConfiguration {
 	@Autowired
 	private QueryConceptRepository queryConceptRepository;
 
-	@Autowired
-	private ReferenceSetTypeRepository referenceSetTypeRepository;
-
 	private Map<Class<? extends SnomedComponent<?>>, ElasticsearchRepository> componentTypeRepositoryMap;
 	private Map<Class<? extends DomainEntity>, ElasticsearchRepository> allTypeRepositoryMap;
 
@@ -52,13 +49,11 @@ public class DomainEntityConfiguration {
 
 		allTypeRepositoryMap = new LinkedHashMap<>(componentTypeRepositoryMap);
 		allTypeRepositoryMap.put(QueryConcept.class, queryConceptRepository);
-		allTypeRepositoryMap.put(ReferenceSetType.class, referenceSetTypeRepository);
 		allTypeRepositoryMap = Collections.unmodifiableMap(allTypeRepositoryMap);
 
 		allTypes = new HashSet<>();
 		allTypes.addAll(componentTypeRepositoryMap.keySet());
 		allTypes.add(QueryConcept.class);
-		allTypes.add(ReferenceSetType.class);
 		allTypes = Collections.unmodifiableSet(allTypes);
 
 		allIdFields = new HashMap<>();
@@ -67,7 +62,6 @@ public class DomainEntityConfiguration {
 		allIdFields.put(Relationship.class, Relationship.Fields.RELATIONSHIP_ID);
 		allIdFields.put(ReferenceSetMember.class, ReferenceSetMember.Fields.MEMBER_ID);
 		allIdFields.put(QueryConcept.class, QueryConcept.Fields.CONCEPT_ID_FORM);
-		allIdFields.put(ReferenceSetType.class, ReferenceSetType.Fields.CONCEPT_ID);
 		allIdFields = Collections.unmodifiableMap(allIdFields);
 	}
 

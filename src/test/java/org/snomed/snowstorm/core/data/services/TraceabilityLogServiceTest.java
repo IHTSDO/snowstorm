@@ -286,7 +286,6 @@ class TraceabilityLogServiceTest extends AbstractTest {
 		// Before rebase on B
 		concept = conceptService.find(concept.getId(), "MAIN/B");
 		relationship = concept.getRelationship(relationship.getRelationshipId());
-		String internalIdOnB = relationship.getInternalId();
 
 		// Rebase B with MAIN
 		branchMergeService.mergeBranchSync("MAIN", "MAIN/B", Collections.emptyList());

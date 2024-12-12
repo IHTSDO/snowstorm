@@ -50,7 +50,7 @@ public class IdentifierComponentService extends ComponentService {
 	private IdentifierRepository identifierRepository;
 
 	@Autowired
-	private ElasticsearchOperations elasticsearchTemplate;
+	private ElasticsearchOperations elasticsearchOperations;
 
 	@Autowired
 	private VersionControlHelper versionControlHelper;
@@ -98,7 +98,7 @@ public class IdentifierComponentService extends ComponentService {
 		NativeQuery query = new NativeQueryBuilder().withQuery(buildIdentifierQuery(searchRequest, branchCriteria)).withPageable(pageRequest).build();
 		query.setTrackTotalHits(true);
 		updateQueryWithSearchAfter(query, pageRequest);
-		SearchHits<Identifier> searchHits = elasticsearchTemplate.search(query, Identifier.class);
+		SearchHits<Identifier> searchHits = elasticsearchOperations.search(query, Identifier.class);
 		PageImpl<Identifier> identifiers = new PageImpl<>(searchHits.get().map(SearchHit::getContent).collect(Collectors.toList()), pageRequest, searchHits.getTotalHits());
 		return PageHelper.toSearchAfterPage(identifiers, IDENTIFIER_ID_SEARCH_AFTER_EXTRACTOR);
 
@@ -128,6 +128,10 @@ public class IdentifierComponentService extends ComponentService {
 			commit.markSuccessful();
 			return savedIdentifiers;
 		}
+	}
+
+	public void deleteAll() {
+		identifierRepository.deleteAll();
 	}
 
 	private Query buildIdentifierQuery(IdentifierSearchRequest searchRequest, BranchCriteria branchCriteria) {
@@ -184,7 +188,7 @@ public class IdentifierComponentService extends ComponentService {
 					.must(termQuery(Identifier.Fields.ACTIVE, true))
 					.must(termsQuery(Identifier.Fields.REFERENCED_COMPONENT_ID, conceptIds))))
 					.withPageable(LARGE_PAGE);
-			try (final SearchHitsIterator<Identifier> identifiers = elasticsearchTemplate.searchForStream(queryBuilder.build(), Identifier.class)) {
+			try (final SearchHitsIterator<Identifier> identifiers = elasticsearchOperations.searchForStream(queryBuilder.build(), Identifier.class)) {
 				identifiers.forEachRemaining(hit -> {
 					Identifier identifier = hit.getContent();
 					identifier.setIdentifierScheme(getConceptMini(conceptMiniMap, identifier.getIdentifierSchemeId(), languageDialects));

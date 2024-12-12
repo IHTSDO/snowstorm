@@ -65,10 +65,11 @@ public class CodeSystemController {
                     dependantVersion uses effectiveTime format and can be used if the new code system depends on an older version of the parent code system, otherwise the latest version will be selected automatically.
                     defaultLanguageCode can be used to force the sort order of the languages listed under the codesystem, otherwise these are sorted by the number of active translated terms.
                     maintainerType has no effect on API behaviour but can be used in frontend applications for extension categorisation.
-                    defaultLanguageReferenceSet has no effect API behaviour but can be used by browsers to reflect extension preferences.\s""")
+                    defaultLanguageReferenceSet has no effect API behaviour but can be used by browsers to reflect extension preferences.
+                    postcoordinationLevel should be set to 0 unless creating a Postcoordinated Expression Repository.\s""")
 	@PostMapping
 	@PreAuthorize("hasPermission('ADMIN', #codeSystem.branchPath)")
-	public ResponseEntity<Void> createCodeSystem(@RequestBody CodeSystemCreate codeSystem) {
+	public ResponseEntity<Void> createCodeSystem(@RequestBody CodeSystemCreate codeSystem) throws ServiceException {
 		codeSystemService.createCodeSystem((CodeSystem) codeSystem);
 		return ControllerHelper.getCreatedResponse(codeSystem.getShortName());
 	}
@@ -108,7 +109,7 @@ public class CodeSystemController {
 	@DeleteMapping(value = "/{shortName}")
 	public void deleteCodeSystem(@PathVariable String shortName) {
 		CodeSystem codeSystem = findCodeSystem(shortName);
-		codeSystemService.deleteCodeSystemAndVersions(codeSystem);
+		codeSystemService.deleteCodeSystemAndVersions(codeSystem, false);
 	}
 
 	@Operation(summary = "Retrieve versions of a code system")
@@ -252,7 +253,8 @@ public class CodeSystemController {
 		codeSystemVersionService.clearCache();
 	}
 
-	@Operation(summary = "Update details from config. For each existing Code System the name, country code and owner are set using the values in configuration.")
+	@Operation(summary = "Update details from application configuration. " +
+			"For each existing Code System the name, country code and owner are set using the values in the application configuration.")
 	@PostMapping(value = "/update-details-from-config")
 	@PreAuthorize("hasPermission('ADMIN', 'global')")
 	public void updateDetailsFromConfig() {

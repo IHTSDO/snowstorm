@@ -17,8 +17,9 @@ import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.repositories.CodeSystemRepository;
 import org.snomed.snowstorm.core.data.repositories.CodeSystemVersionRepository;
-import org.snomed.snowstorm.core.data.services.pojo.CodeSystemConfiguration;
+import org.snomed.snowstorm.core.data.services.pojo.CodeSystemDefaultConfiguration;
 import org.snomed.snowstorm.core.data.services.pojo.PageWithBucketAggregationsFactory;
+import org.snomed.snowstorm.core.data.services.postcoordination.ExpressionRepositoryService;
 import org.snomed.snowstorm.core.pojo.LanguageDialect;
 import org.snomed.snowstorm.core.util.AggregationUtils;
 import org.snomed.snowstorm.core.util.DateUtil;
@@ -27,6 +28,7 @@ import org.snomed.snowstorm.rest.pojo.CodeSystemUpdateRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cache.annotation.Cacheable;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.elasticsearch.client.elc.Aggregation;
@@ -53,6 +55,7 @@ import static io.kaicode.elasticvc.helper.QueryHelper.*;
 import static java.lang.String.format;
 import static java.util.stream.Collectors.toList;
 import static org.snomed.snowstorm.config.Config.DEFAULT_LANGUAGE_CODES;
+import static org.snomed.snowstorm.core.data.domain.Concepts.*;
 import static org.snomed.snowstorm.core.data.services.BranchMetadataKeys.*;
 
 @Service
@@ -73,7 +76,7 @@ public class CodeSystemService {
 	private CodeSystemVersionRepository versionRepository;
 
 	@Autowired
-	private CodeSystemConfigurationService codeSystemConfigurationService;
+	private CodeSystemDefaultConfigurationService codeSystemDefaultConfigurationService;
 
 	@Autowired
 	private BranchService branchService;
@@ -86,6 +89,9 @@ public class CodeSystemService {
 
 	@Autowired
 	private ConceptService conceptService;
+
+	@Autowired
+	private ReferenceSetMemberService memberService;
 
 	@Autowired
 	private ElasticsearchOperations elasticsearchOperations;
@@ -105,6 +111,10 @@ public class CodeSystemService {
 	@Autowired
 	private JmsTemplate jmsTemplate;
 
+	@Autowired
+	@Lazy
+	private AdminOperationsService adminOperationsService;
+
 	@Value("${codesystem.all.latest-version.allow-future}")
 	private boolean latestVersionCanBeFuture;
 
@@ -121,14 +131,22 @@ public class CodeSystemService {
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
-	public synchronized void init() {
+	public synchronized void init() throws ServiceException {
 		// Create default code system if it does not yet exist
 		if (repository.findById(SNOMEDCT).isEmpty()) {
 			createCodeSystem(new CodeSystem(SNOMEDCT, MAIN));
 		}
-		logger.info("{} code system configurations available.", codeSystemConfigurationService.getConfigurations().size());
-		for (CodeSystemConfiguration configuration : codeSystemConfigurationService.getConfigurations()) {
-			System.out.println(configuration);
+		// Set CodeSystem URI modules
+		Iterable<CodeSystem> codeSystems = repository.findAll();
+		for (CodeSystem codeSystem : codeSystems) {
+			if (codeSystem.isPostcoordinatedNullSafe()) {
+				continue;
+			}
+			String defaultModuleId = codeSystemDefaultConfigurationService.getDefaultModuleId(codeSystem.getShortName());
+			if (!Objects.equals(codeSystem.getUriModuleId(), defaultModuleId)) {
+				codeSystem.setUriModuleId(defaultModuleId);
+				repository.save(codeSystem);
+			}
 		}
 	}
 
@@ -140,7 +158,7 @@ public class CodeSystemService {
 		return findOneByBranchPath(branchPath) != null;
 	}
 
-	public synchronized CodeSystem createCodeSystem(CodeSystem newCodeSystem) {
+	public synchronized CodeSystem createCodeSystem(CodeSystem newCodeSystem) throws ServiceException {
 		validatorService.validate(newCodeSystem);
 		if (repository.findById(newCodeSystem.getShortName()).isPresent()) {
 			throw new IllegalArgumentException("A code system already exists with short name " + newCodeSystem.getShortName());
@@ -148,6 +166,13 @@ public class CodeSystemService {
 		String branchPath = newCodeSystem.getBranchPath();
 		if (findByBranchPath(branchPath).isPresent()) {
 			throw new IllegalArgumentException("A code system already exists on branch path " + branchPath);
+		}
+		String uriModuleId = newCodeSystem.getUriModuleId();
+		if (uriModuleId != null) {
+			CodeSystem byModule = findByUriModule(uriModuleId);
+			if (byModule != null) {
+				throw new IllegalArgumentException(format("A code system already exists with URI module %s : %s ", uriModuleId, byModule.getShortName()));
+			}
 		}
 		String parentPath = PathUtil.getParentPath(newCodeSystem.getBranchPath());
 		CodeSystem parentCodeSystem = null;
@@ -172,6 +197,9 @@ public class CodeSystemService {
 					newCodeSystem.setDependantVersionEffectiveTime(latestVersion.getEffectiveDate());
 				}
 			}
+		} else if (newCodeSystem.isPostcoordinated() == Boolean.TRUE) {
+			throw new IllegalArgumentException("Postcoordination is not possible on the root code system. " +
+					"Please create a child code system that depends on the precoordinated content in the parent code system.");
 		}
 		Integer dependantVersionEffectiveTime = newCodeSystem.getDependantVersionEffectiveTime();
 		boolean branchExists = branchService.exists(branchPath);
@@ -191,8 +219,34 @@ public class CodeSystemService {
 			logger.info("Creating Code System branch '{}'.", branchPath);
 			sBranchService.create(branchPath);
 		}
+
+		// Save URI module as default authoring module
+		if (uriModuleId != null) {
+			branchService.updateMetadata(branchPath, new Metadata().putString(DEFAULT_MODULE_ID, uriModuleId));
+		}
+
 		repository.save(newCodeSystem);
 		logger.info("Code System '{}' created.", newCodeSystem.getShortName());
+
+		if (newCodeSystem.isPostcoordinatedNullSafe()) {
+			Concept postcoordinatedExpressionModule = new Concept(uriModuleId, uriModuleId)
+					.addRelationship(new Relationship(Concepts.ISA, MODULE))
+					.addDescription(new Description("Postcoordinated expression module (core metadata concept)")
+							.setTypeId(Concepts.FSN).addAcceptability(US_EN_LANG_REFSET, PREFERRED_CONSTANT))
+					.addDescription(new Description("Postcoordinated expression module")
+							.setTypeId(Concepts.SYNONYM).addAcceptability(US_EN_LANG_REFSET, PREFERRED_CONSTANT));
+			Concept equivalentConceptMapConcept = new Concept()
+					.setModuleId(uriModuleId)
+					.addRelationship(new Relationship(Concepts.ISA, ASSOCIATION_TYPE_REFSET))
+					.addDescription(new Description("Expression equivalent concept association reference set (foundation metadata concept)")
+							.setTypeId(Concepts.FSN).addAcceptability(US_EN_LANG_REFSET, PREFERRED_CONSTANT))
+					.addDescription(new Description("Expression equivalent concept association")
+									.setTypeId(Concepts.SYNONYM).addAcceptability(US_EN_LANG_REFSET, PREFERRED_CONSTANT));
+			conceptService.batchCreate(List.of(postcoordinatedExpressionModule, equivalentConceptMapConcept), branchPath);
+			sBranchService.setMetadataItem(branchPath,
+					ExpressionRepositoryService.EXPRESSION_EQUIVALENT_CONCEPTS_ASSOCIATION_METADATA_KEY, equivalentConceptMapConcept.getId());
+		}
+
 		return newCodeSystem;
 	}
 
@@ -340,6 +394,25 @@ public class CodeSystemService {
 		return codeSystems;
 	}
 
+	public List<CodeSystem> findAllPostcoordinatedBrief() {
+		List<CodeSystem> allCodeSystems = repository.findAll(PageRequest.of(0, 10_000, Sort.by(CodeSystem.Fields.SHORT_NAME))).getContent();
+		return allCodeSystems.stream()
+				.filter(CodeSystem::isPostcoordinatedNullSafe)
+				.peek(codeSystem -> {
+					codeSystem.setParentUriModuleId(getParentUriModule(codeSystem, allCodeSystems));
+					String branchPath = codeSystem.getBranchPath();
+					Branch workingBranch = branchService.findLatest(branchPath);
+					doJoinDependentVersionEffectiveTime(codeSystem, branchPath, workingBranch);
+				})
+				.collect(Collectors.toList());
+	}
+
+	private String getParentUriModule(CodeSystem codeSystem, List<CodeSystem> allCodeSystems) {
+		String parentPath = PathUtil.getParentPath(codeSystem.getBranchPath());
+		Optional<CodeSystem> parent = allCodeSystems.stream().filter(parentCandidate -> parentCandidate.getBranchPath().equals(parentPath)).findFirst();
+		return parent.map(CodeSystem::getUriModuleId).orElse(null);
+	}
+
 	@Cacheable("code-system-branches")
 	public List<String> findAllCodeSystemBranchesUsingCache() {
 		return repository.findAll(PageRequest.of(0, 1000, Sort.by(CodeSystem.Fields.SHORT_NAME))).getContent().stream().map(CodeSystem::getBranchPath).sorted().collect(toList());
@@ -354,9 +427,6 @@ public class CodeSystemService {
 
 			// Lookup latest version with an effective date equal or less than today
 			codeSystem.setLatestVersion(findLatestVisibleVersion(codeSystem.getShortName()));
-
-			// Set default module to help FHIR API
-			codeSystem.setDefaultModuleId(codeSystemConfigurationService.getDefaultModuleId(codeSystem.getShortName()));
 
 			// Pull from cache
 			Pair<Date, CodeSystem> dateCodeSystemPair = contentInformationCache.get(branchPath);
@@ -379,6 +449,7 @@ public class CodeSystemService {
 		codeSystem.setLanguages(cachedCodeSystem.getLanguages());
 		codeSystem.setModules(cachedCodeSystem.getModules());
 		codeSystem.setDependantVersionEffectiveTime(cachedCodeSystem.getDependantVersionEffectiveTime());
+		codeSystem.setUriModuleId(cachedCodeSystem.getUriModuleId());
 	}
 
 	private synchronized void doJoinContentInformation(CodeSystem codeSystem, String branchPath, Branch workingBranch) {
@@ -390,16 +461,7 @@ public class CodeSystemService {
 			return;
 		}
 
-		// Set dependant version effectiveTime (transient field)
-		if (!PathUtil.isRoot(branchPath)) {
-			Integer effectiveTime = getVersionEffectiveTime(PathUtil.getParentPath(branchPath), workingBranch.getBase(), codeSystem.getShortName());
-			if (effectiveTime == null) {
-				logger.warn("Code System {} is not dependant on a specific version of the parent Code System. " +
-								"The working branch {} has a base timepoint of {} which does not match the base of any version branches of {}.",
-						codeSystem, branchPath, workingBranch.getBase(), PathUtil.getParentPath(branchPath));
-			}
-			codeSystem.setDependantVersionEffectiveTime(effectiveTime);
-		}
+		doJoinDependentVersionEffectiveTime(codeSystem, branchPath, workingBranch);
 
 		BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(workingBranch);
 
@@ -462,8 +524,33 @@ public class CodeSystemService {
 			codeSystem.setModules(conceptService.findConceptMinis(branchCriteria, modulesOfActiveMembers.keySet(), languageDialects).getResultsMap().values());
 		}
 
+		if (codeSystem.getUriModuleId() == null) {
+			// Populate moduleId
+			String uriModuleId = Concepts.CORE_MODULE;
+			Optional<CodeSystemDefaultConfiguration> defaultConfiguration = codeSystemDefaultConfigurationService.getConfigurations().stream()
+					.filter(config -> config.shortName().equals(codeSystem.getShortName()))
+					.findFirst();
+			if (defaultConfiguration.isPresent()) {
+				uriModuleId = defaultConfiguration.get().module();
+			}
+			codeSystem.setUriModuleId(uriModuleId);
+		}
+
 		// Add to cache
 		contentInformationCache.put(branchPath, Pair.of(workingBranch.getHead(), codeSystem));
+	}
+
+	// Set dependant version effectiveTime (transient field)
+	private void doJoinDependentVersionEffectiveTime(CodeSystem codeSystem, String branchPath, Branch workingBranch) {
+		if (!PathUtil.isRoot(branchPath)) {
+			Integer effectiveTime = getVersionEffectiveTime(PathUtil.getParentPath(branchPath), workingBranch.getBase(), codeSystem.getShortName());
+			if (effectiveTime == null) {
+				logger.warn("Code System {} is not dependant on a specific version of the parent Code System. " +
+								"The working branch {} has a base timepoint of {} which does not match the base of any version branches of {}.",
+						codeSystem, branchPath, workingBranch.getBase(), PathUtil.getParentPath(branchPath));
+			}
+			codeSystem.setDependantVersionEffectiveTime(effectiveTime);
+		}
 	}
 
 	public synchronized Integer getVersionEffectiveTime(String codeSystemBranch, Date timepoint, String forChildCodeSystem) {
@@ -512,11 +599,16 @@ public class CodeSystemService {
 	}
 
 	public CodeSystem findByDefaultModule(String moduleId) {
-		CodeSystemConfiguration codeSystemConfiguration = codeSystemConfigurationService.findByModule(moduleId);
+		CodeSystemDefaultConfiguration codeSystemConfiguration = codeSystemDefaultConfigurationService.findByModule(moduleId);
 		if (codeSystemConfiguration == null) {
 			return null;
 		}
 		return find(codeSystemConfiguration.shortName());
+	}
+
+	public CodeSystem findByUriModule(String moduleId) {
+		CodeSystem codeSystem = repository.findByUriModuleId(moduleId);
+		return codeSystem != null ? find(codeSystem.getShortName()) : null;
 	}
 
 	public CodeSystemVersion findVersion(String shortName, int effectiveTime) {
@@ -595,9 +687,13 @@ public class CodeSystemService {
 	public CodeSystem update(CodeSystem codeSystem, CodeSystemUpdateRequest updateRequest) {
 		modelMapper.map(updateRequest, codeSystem);
 		validatorService.validate(codeSystem);
+		doUpdate(codeSystem);
+		return codeSystem;
+	}
+
+	private void doUpdate(CodeSystem codeSystem) {
 		repository.save(codeSystem);
 		contentInformationCache.remove(codeSystem.getBranchPath());
-		return codeSystem;
 	}
 
 	@PreAuthorize("hasPermission('ADMIN', #codeSystem.branchPath)")
@@ -610,7 +706,7 @@ public class CodeSystemService {
 	}
 
 	@PreAuthorize("hasPermission('ADMIN', #codeSystem.branchPath)")
-	public void deleteCodeSystemAndVersions(CodeSystem codeSystem) {
+	public void deleteCodeSystemAndVersions(CodeSystem codeSystem, boolean deleteBranches) {
 		if (codeSystem.getBranchPath().equals("MAIN")) {
 			throw new IllegalArgumentException("The root code system can not be deleted. " +
 					"If you need to start again delete all indices and restart Snowstorm.");
@@ -619,6 +715,12 @@ public class CodeSystemService {
 		List<CodeSystemVersion> allVersions = findAllVersions(codeSystem.getShortName(), true, false);
 		versionRepository.deleteAll(allVersions);
 		repository.delete(codeSystem);
+		if (deleteBranches) {
+			for (CodeSystemVersion version : allVersions) {
+				adminOperationsService.hardDeleteBranch(version.getBranchPath());
+			}
+			adminOperationsService.hardDeleteBranch(codeSystem.getBranchPath());
+		}
 		logger.info("Deleted Code System '{}' and versions.", codeSystem.getShortName());
 	}
 
@@ -628,10 +730,10 @@ public class CodeSystemService {
 
 	public void updateDetailsFromConfig() {
 		logger.info("Updating the details of all code systems using values from configuration.");
-		final Map<String, CodeSystemConfiguration> configurationsMap = codeSystemConfigurationService.getConfigurations().stream()
-				.collect(Collectors.toMap(CodeSystemConfiguration::shortName, Function.identity()));
+		final Map<String, CodeSystemDefaultConfiguration> configurationsMap = codeSystemDefaultConfigurationService.getConfigurations().stream()
+				.collect(Collectors.toMap(CodeSystemDefaultConfiguration::shortName, Function.identity()));
 		for (CodeSystem codeSystem : findAll()) {
-			final CodeSystemConfiguration configuration = configurationsMap.get(codeSystem.getShortName());
+			final CodeSystemDefaultConfiguration configuration = configurationsMap.get(codeSystem.getShortName());
 			if (configuration != null) {
 				logger.info("Updating code system {}", codeSystem.getShortName());
 				update(codeSystem, new CodeSystemUpdateRequest(codeSystem).populate(configuration));

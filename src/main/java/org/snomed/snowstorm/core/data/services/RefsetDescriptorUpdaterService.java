@@ -32,7 +32,7 @@ public class RefsetDescriptorUpdaterService implements CommitListener {
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
 	@Autowired
-	private ElasticsearchOperations elasticsearchTemplate;
+	private ElasticsearchOperations elasticsearchOperations;
 
 	@Autowired
 	private ReferenceSetMemberService referenceSetMemberService;
@@ -65,7 +65,7 @@ public class RefsetDescriptorUpdaterService implements CommitListener {
 			return;
 		}
 
-		SearchHits<QueryConcept> searchHits = elasticsearchTemplate.search(
+		SearchHits<QueryConcept> searchHits = elasticsearchOperations.search(
 				new NativeQueryBuilder()
 						.withQuery(
 								bool(b -> b

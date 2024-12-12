@@ -100,7 +100,7 @@ public class ConceptMini implements Serializable {
 		if (Strings.isNullOrEmpty(fsnTerm)) {
 			return getConceptId();
 		} else {
-			return String.format("%s | %s |", getConceptId(), fsnTerm);
+			return String.format("%s |%s|", getConceptId(), fsnTerm);
 		}
 	}
 

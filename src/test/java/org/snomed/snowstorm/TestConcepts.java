@@ -7,9 +7,7 @@ public class TestConcepts {
 
 	// Attributes
 	public static final String ASSOCIATED_MORPHOLOGY = "116676008";
-	public static final String PROCEDURE_SITE = "363704007";
 	public static final String PROCEDURE_SITE_DIRECT = "405813007";
-	public static final String LATERALITY = "272741003";
 	public static final String HAS_FILLING = "827081001";
 
 	// Qualifier Value
@@ -36,7 +34,6 @@ public class TestConcepts {
 	public static final String PENTALOGY_OF_FALLOT_INCORRECT_GROUPING = "999204306007";
 
 	// Procedure
-	public static final String PROCEDURE = "71388002";
 	public static final String OPERATION_ON_HEART = "64915003";
 	public static final String CHEST_IMAGING = "413815006";
 

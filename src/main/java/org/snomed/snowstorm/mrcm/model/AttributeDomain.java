@@ -1,5 +1,7 @@
 package org.snomed.snowstorm.mrcm.model;
 
+import java.util.Objects;
+
 public class AttributeDomain {
 
 	private String id;
@@ -65,5 +67,18 @@ public class AttributeDomain {
 
 	public ContentType getContentType() {
 		return contentType;
+	}
+
+	@Override
+	public boolean equals(Object o) {
+		if (this == o) return true;
+		if (o == null || getClass() != o.getClass()) return false;
+		AttributeDomain that = (AttributeDomain) o;
+		return id.equals(that.id);
+	}
+
+	@Override
+	public int hashCode() {
+		return Objects.hash(id);
 	}
 }

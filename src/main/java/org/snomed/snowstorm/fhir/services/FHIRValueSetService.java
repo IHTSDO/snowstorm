@@ -3,6 +3,9 @@ package org.snomed.snowstorm.fhir.services;
 import co.elastic.clients.elasticsearch._types.query_dsl.BoolQuery;
 import co.elastic.clients.elasticsearch._types.query_dsl.PrefixQuery;
 import com.google.common.base.Strings;
+import ca.uhn.fhir.jpa.entity.TermConcept;
+import io.kaicode.elasticvc.api.BranchCriteria;
+import io.kaicode.elasticvc.api.VersionControlHelper;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 
 import org.hl7.fhir.r4.model.*;
@@ -11,13 +14,16 @@ import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.core.data.domain.ConceptMini;
+import org.snomed.snowstorm.core.data.domain.Concepts;
 import org.snomed.snowstorm.core.data.domain.QueryConcept;
 import org.snomed.snowstorm.core.data.domain.ReferenceSetMember;
 import org.snomed.snowstorm.core.data.services.ConceptService;
 import org.snomed.snowstorm.core.data.services.QueryService;
 import org.snomed.snowstorm.core.data.services.ReferenceSetMemberService;
+import org.snomed.snowstorm.core.data.services.identifier.IdentifierHelper;
 import org.snomed.snowstorm.core.data.services.pojo.MemberSearchRequest;
 import org.snomed.snowstorm.core.data.services.pojo.PageWithBucketAggregations;
+import org.snomed.snowstorm.core.data.services.postcoordination.ExpressionRepositoryService;
 import org.snomed.snowstorm.core.pojo.LanguageDialect;
 import org.snomed.snowstorm.core.util.SearchAfterPage;
 import org.snomed.snowstorm.fhir.domain.*;
@@ -38,6 +44,7 @@ import org.springframework.stereotype.Service;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import static io.kaicode.elasticvc.api.ComponentService.LARGE_PAGE;
@@ -58,6 +65,8 @@ public class FHIRValueSetService {
 
 	private static final PageRequest PAGE_OF_ONE = PageRequest.of(0, 1);
 
+	private static List<Long> defaultSearchDescTypeIds = List.of(Concepts.FSN_L, Concepts.SYNONYM_L);
+
 	@Autowired
 	private FHIRCodeSystemService codeSystemService;
 
@@ -77,7 +86,13 @@ public class FHIRValueSetService {
 	private ConceptService snomedConceptService;
 
 	@Autowired
-	private ElasticsearchOperations elasticsearchTemplate;
+	private ElasticsearchOperations elasticsearchOperations;
+
+	@Autowired
+	private ExpressionRepositoryService expressionRepositoryService;
+
+	@Autowired
+	private VersionControlHelper versionControlHelper;
 
 	private final Map<String, Set<String>> codeSystemVersionToRefsetsWithMembersCache = new HashMap<>();
 
@@ -88,7 +103,7 @@ public class FHIRValueSetService {
 				.withPageable(pageable)
 				.build();
 		searchQuery.setTrackTotalHits(true);
-		SearchHits<FHIRValueSet> search = elasticsearchTemplate.search(searchQuery, FHIRValueSet.class);
+		SearchHits<FHIRValueSet> search = elasticsearchOperations.search(searchQuery, FHIRValueSet.class);
 		return toPage(search, pageable);
 	}
 
@@ -130,6 +145,10 @@ public class FHIRValueSetService {
 	}
 
 	public FHIRValueSet createOrUpdateValueset(ValueSet valueSet) {
+		if (valueSet.getUrl().contains("?fhir_vs")) {
+			throw exception("ValueSet url must not contain 'fhir_vs', this is reserved for implicit value sets.", OperationOutcome.IssueType.INVARIANT, 400);
+		}
+
 		// Expand to validate
 		ValueSet.ValueSetExpansionComponent originalExpansion = valueSet.getExpansion();
 		expand(new ValueSetExpansionParameters(valueSet, true), null);
@@ -138,7 +157,6 @@ public class FHIRValueSetService {
 	}
 
 	public FHIRValueSet createOrUpdateValuesetWithoutExpandValidation(ValueSet valueSet) {
-
 		// Delete existing ValueSets with the same URL and version (could be different ID)
 		valueSetRepository.findAllByUrl(valueSet.getUrl()).stream()
 				.filter(otherVs -> equalVersions(otherVs.getVersion(), valueSet.getVersion()))
@@ -189,7 +207,7 @@ public class FHIRValueSetService {
 
 		// Restrict expansion of ValueSets with multiple code system versions if any are SNOMED CT, to simplify pagination.
 		Set<FHIRCodeSystemVersion> allInclusionVersions = codeSelectionCriteria.gatherAllInclusionVersions();
-		boolean isSnomed = allInclusionVersions.stream().anyMatch(FHIRCodeSystemVersion::isSnomed);
+		boolean isSnomed = allInclusionVersions.stream().anyMatch(FHIRCodeSystemVersion::isOnSnomedBranch);
 		if (isSnomed) {
 			if (allInclusionVersions.size() > 1) {
 				throw exception("This server does not yet support ValueSet$expand on ValueSets with multiple code systems if any are SNOMED CT, " +
@@ -227,6 +245,7 @@ public class FHIRValueSetService {
 			int limitRequested = (int) (pageRequest.getOffset() + pageRequest.getPageSize());
 
 			QueryService.ConceptQueryBuilder conceptQuery = getSnomedConceptQuery(filter, activeOnly, codeSelectionCriteria, languageDialects);
+			BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(codeSystemVersion.getSnomedBranch());
 
 			int totalResults = 0;
 			List<Long> conceptsToLoad;
@@ -243,7 +262,7 @@ public class FHIRValueSetService {
 						int pageSize = Math.min(limitRequested - allConceptIds.size(), LARGE_PAGE.getPageSize());
 						largePageRequest = SearchAfterPageRequest.of(previousPage.getSearchAfter(), pageSize, previousPage.getSort());
 					}
-					SearchAfterPage<Long> page = snomedQueryService.searchForIds(conceptQuery, codeSystemVersion.getSnomedBranch(), largePageRequest);
+					SearchAfterPage<Long> page = snomedQueryService.searchForIds(conceptQuery, branchCriteria, largePageRequest);
 					allConceptIds.addAll(page.getContent());
 					loadedAll = page.getNumberOfElements() < largePageRequest.getPageSize();
 					if (previousPage == null) {
@@ -258,18 +277,49 @@ public class FHIRValueSetService {
 					conceptsToLoad = new ArrayList<>();
 				}
 			} else {
-				SearchAfterPage<Long> resultsPage = snomedQueryService.searchForIds(conceptQuery, codeSystemVersion.getSnomedBranch(), pageRequest);
+				SearchAfterPage<Long> resultsPage = snomedQueryService.searchForIds(conceptQuery, branchCriteria, pageRequest);
 				conceptsToLoad = resultsPage.getContent();
 				totalResults = (int) resultsPage.getTotalElements();
 			}
 
 			List<FHIRConcept> conceptsOnRequestedPage = new ArrayList<>();
 			if (!conceptsToLoad.isEmpty()) {
-				Map<String, ConceptMini> conceptMinis = snomedConceptService.findConceptMinis(codeSystemVersion.getSnomedBranch(), conceptsToLoad, languageDialects).getResultsMap();
+
+				// Load concepts and expressions
+				List<Long> conceptIds = new ArrayList<>();
+				List<Long> expressionIds = new ArrayList<>();
+				for (Long id : conceptsToLoad) {
+					if (IdentifierHelper.isExpressionId(id.toString())) {
+						expressionIds.add(id);
+					} else {
+						conceptIds.add(id);
+					}
+				}
+				Map<String, ConceptMini> conceptMinis =
+						conceptIds.isEmpty() ?
+						Collections.emptyMap() :
+						snomedConceptService.findConceptMinis(branchCriteria, conceptIds, languageDialects).getResultsMap();
+				MemberSearchRequest memberSearchRequest = new MemberSearchRequest()
+						.referenceSet(ExpressionRepositoryService.CANONICAL_CLOSE_TO_USER_FORM_EXPRESSION_REFERENCE_SET)
+						.referencedComponentIds(expressionIds);
+				Map<String, ReferenceSetMember> expressionMap =
+						expressionIds.isEmpty() ?
+						Collections.emptyMap() :
+						snomedRefsetService.findMembers(branchCriteria, memberSearchRequest, PageRequest.of(0, expressionIds.size()))
+						.getContent().stream().collect(Collectors.toMap(ReferenceSetMember::getReferencedComponentId, Function.identity()));
+
+				expressionRepositoryService.addHumanReadableExpressions(expressionMap, branchCriteria);
+
 				for (Long conceptToLoad : conceptsToLoad) {
-					ConceptMini snomedConceptMini = conceptMinis.get(conceptToLoad.toString());
-					if (snomedConceptMini != null) {
-						conceptsOnRequestedPage.add(new FHIRConcept(snomedConceptMini, codeSystemVersion, includeDesignations));
+					if (conceptMinis.containsKey(conceptToLoad.toString())) {
+						conceptsOnRequestedPage.add(new FHIRConcept(conceptMinis.get(conceptToLoad.toString()), codeSystemVersion, includeDesignations));
+					} else if (expressionMap.containsKey(conceptToLoad.toString())) {
+						ReferenceSetMember referenceSetMember = expressionMap.get(conceptToLoad.toString());
+						TermConcept termConcept = new TermConcept();
+						termConcept.setCode(referenceSetMember.getAdditionalField(ReferenceSetMember.PostcoordinatedExpressionFields.EXPRESSION));
+						termConcept.setDisplay(referenceSetMember.getAdditionalField(ReferenceSetMember.PostcoordinatedExpressionFields.TRANSIENT_EXPRESSION_TERM));
+						FHIRConcept fhirConcept = new FHIRConcept(termConcept, codeSystemVersion);
+						conceptsOnRequestedPage.add(fhirConcept);
 					}
 				}
 			}
@@ -511,7 +561,8 @@ public class FHIRValueSetService {
 		}
 		if (filter != null) {
 			conceptQuery.descriptionCriteria(descriptionCriteria -> {
-				descriptionCriteria.term(filter);
+				descriptionCriteria.term(filter)
+									.type(defaultSearchDescTypeIds);
 				if (!orEmpty(languageDialects).isEmpty()) {
 					descriptionCriteria.searchLanguageCodes(languageDialects.stream().map(LanguageDialect::getLanguageCode).collect(Collectors.toSet()));
 				}
@@ -743,11 +794,12 @@ public class FHIRValueSetService {
 		for (FHIRCodeSystemVersion codeSystemVersionForExpansion : codeSystemVersionsForExpansion) {
 
 			// Check system and version match
-			if (coding.getSystem().equals(codeSystemVersionForExpansion.getUrl()) &&
-					(coding.getVersion() == null || coding.getVersion().equals(codeSystemVersionForExpansion.getVersion())) ||
-					(FHIRHelper.isSnomedUri(coding.getSystem()) && codeSystemVersionForExpansion.getVersion().contains(coding.getVersion()))) {
+			String system = coding.getSystem();
+			String url = codeSystemVersionForExpansion.getUrl();
+			if (system.equals(url) &&
+					(coding.getVersion() == null || codeSystemVersionForExpansion.isVersionMatch(coding.getVersion()))) {
 
-				if (codeSystemVersionForExpansion.isSnomed()) {
+				if (codeSystemVersionForExpansion.isOnSnomedBranch()) {
 					snomedVersions.add(codeSystemVersionForExpansion);
 				} else {
 					genericVersions.add(codeSystemVersionForExpansion);
@@ -883,7 +935,7 @@ public class FHIRValueSetService {
 				String property = filter.getProperty();
 				ValueSet.FilterOperator op = filter.getOp();
 				String value = filter.getValue();
-				if (codeSystemVersion.isSnomed()) {
+				if (codeSystemVersion.isOnSnomedBranch()) {
 					// SNOMED CT filters:
 					// concept, is-a, [conceptId]
 					// concept, in, [refset]

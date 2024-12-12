@@ -25,6 +25,10 @@ public class Concepts {
 	public static final String SYNONYM = "900000000000013009";
 	public static final String TEXT_DEFINITION = "900000000000550004";
 
+	public static final long FSN_L = 900000000000003001L;
+	public static final long SYNONYM_L = 900000000000013009L;
+	public static final long TEXT_DEFINITION_L = 900000000000550004L;
+
 	public static final String ACCEPTABLE = "900000000000549004";
 	public static final String ACCEPTABLE_CONSTANT = "ACCEPTABLE";
 	public static final String PREFERRED = "900000000000548007";
@@ -116,6 +120,9 @@ public class Concepts {
 			.add(REFSET_MRCM_MODULE_SCOPE)
 			.build();
 
+	// Maps
+	public static final String ASSOCIATION_TYPE_REFSET = "900000000000521006";
+
 	public static final BiMap<String, String> inactivationIndicatorNames = new ImmutableBiMap.Builder<String, String>()
 			.put(DUPLICATE, "DUPLICATE")
 			.put(OUTDATED, "OUTDATED")
@@ -191,10 +198,28 @@ public class Concepts {
 
 	// Notable concepts
 	public static final String CLINICAL_FINDING = "404684003";
+	public static final String PROCEDURE = "71388002";
+	public static final String ANATOMICAL_OR_ACQUIRED_BODY_STRUCTURE = "442083009";
+	public static final String ANATOMICAL_STRUCTURE = "91723000";
 	public static final String SUBSTANCE = "105590001";
 	public static final String FINDING_SITE = "363698007";
+	public static final String PROCEDURE_SITE = "363704007";
 	public static final String HEART_STRUCTURE = "80891009";
 	public static final String REFERENCED_COMPONENT = "449608002";
 	public static final String CONCEPT_TYPE_COMPONENT = "900000000000461009";
 
+	public static final String MODULE_DEPENDENCY_REFERENCE_SET = "900000000000534007";
+	public static final String FINDING_CONTEXT = "408729009";
+	public static final String LATERALITY = "272741003";
+	public static final String LEFT_QUALIFIER = "7771000";
+	public static final String RIGHT_QUALIFIER = "24028007";
+	public static final String RIGHT_AND_LEFT_QUALIFIER = "51440002";
+	public static final String PROCEDURE_CONTEXT = "408730004";
+	public static final String TEMPORAL_CONTEXT = "408731000";
+	public static final String SUBJECT_RELATIONSHIP_CONTEXT = "408732007";
+	public static final String SITUATION_WITH_EXPLICIT_CONTEXT = "243796009";
+	public static final String PROCEDURE_WITH_EXPLICIT_CONTEXT = "129125009";
+	public static final String FINDING_WITH_EXPLICIT_CONTEXT = "413350009";
+	public static final String ASSOCIATED_FINDING = "246090004";
+	public static final String ASSOCIATED_PROCEDURE = "363589002";
 }
