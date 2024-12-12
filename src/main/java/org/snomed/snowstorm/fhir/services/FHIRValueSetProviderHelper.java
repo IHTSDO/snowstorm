@@ -163,11 +163,10 @@ class FHIRValueSetProviderHelper {
 					Tuple tuple = new Tuple();
 					FHIRPackageIndexFile temp = new FHIRPackageIndexFile();
 					temp.id = x.getIdPart();
-					temp.url = x.getNamedProperty("url").getValues().get(0).primitiveValue();
+					x.getNamedProperty("url").getValues().stream().findFirst().ifPresent(y -> { temp.url = y.primitiveValue();});
 					temp.resourceType = x.getResourceType().toString();
 					temp.filename = "%s-%s.json".formatted(temp.resourceType, temp.id);
-					temp.version = x.getNamedProperty("version").getValues().get(0).primitiveValue();
-
+					x.getNamedProperty("version").getValues().stream().findFirst().ifPresent(y -> { temp.version = y.primitiveValue();});
 					tuple.indexFile = temp;
 
 
@@ -227,14 +226,6 @@ class FHIRValueSetProviderHelper {
 
 
 		byte[] out = baos.toByteArray();
-
-		try (FileOutputStream fop = new FileOutputStream("zipke.zip")) {
-			fop.write(out);
-		} catch (FileNotFoundException e) {
-			throw new RuntimeException(e);
-		} catch (IOException e) {
-			throw new RuntimeException(e);
-		}
 
 		return out;
 
