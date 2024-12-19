@@ -182,7 +182,7 @@ public class FHIRConceptService {
 	public Page<FHIRConcept> findConcepts(BoolQuery.Builder fhirConceptQuery, PageRequest pageRequest) {
 		NativeQuery searchQuery = new NativeQueryBuilder()
 				.withQuery(fhirConceptQuery.build()._toQuery())
-				.withSort(Sort.by(FHIRConcept.Fields.CODE))
+				.withSort(Sort.by(FHIRConcept.Fields.DISPLAY_LENGTH, FHIRConcept.Fields.CODE))
 				.withPageable(pageRequest)
 				.build();
 		searchQuery.setTrackTotalHits(true);
