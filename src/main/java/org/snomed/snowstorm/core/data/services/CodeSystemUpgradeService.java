@@ -4,6 +4,7 @@ import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.api.PathUtil;
 import io.kaicode.elasticvc.domain.Branch;
 import io.kaicode.elasticvc.domain.Metadata;
+import org.apache.activemq.command.ActiveMQTopic;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.core.data.domain.CodeSystem;
@@ -14,6 +15,7 @@ import org.snomed.snowstorm.core.data.services.pojo.IntegrityIssueReport;
 import org.snomed.snowstorm.dailybuild.DailyBuildService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.jms.core.JmsTemplate;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -24,7 +26,8 @@ import java.util.Map.Entry;
 import java.util.concurrent.ExecutorService;
 
 import static org.snomed.snowstorm.core.data.services.BranchMetadataHelper.INTERNAL_METADATA_KEY;
-import static org.snomed.snowstorm.core.data.services.BranchMetadataKeys.*;
+import static org.snomed.snowstorm.core.data.services.BranchMetadataKeys.DEPENDENCY_PACKAGE;
+import static org.snomed.snowstorm.core.data.services.BranchMetadataKeys.DEPENDENCY_RELEASE;
 
 @Service
 public class CodeSystemUpgradeService {
@@ -55,8 +58,17 @@ public class CodeSystemUpgradeService {
 	@Autowired
 	private ExecutorService executorService;
 
+	@Autowired
+	private JmsTemplate jmsTemplate;
+
 	@Value("${snowstorm.rest-api.readonly}")
 	private boolean isReadOnly;
+
+	@Value("${snowstorm.codesystem-version.message.enabled}")
+	private boolean jmsMessageEnabled;
+
+	@Value("${jms.queue.prefix}")
+	private String jmsQueuePrefix;
 
 	private static final Map<String, CodeSystemUpgradeJob> upgradeJobMap = new HashMap<>();
 
@@ -202,6 +214,19 @@ public class CodeSystemUpgradeService {
 			if (job != null) {
 				job.setStatus(CodeSystemUpgradeJob.UpgradeStatus.COMPLETED);
 			}
+
+			if (jmsMessageEnabled) {
+				Map<String, String> payload = new HashMap<>();
+				payload.put("codeSystemShortName", codeSystem.getShortName());
+				payload.put("codeSystemBranchPath", codeSystem.getBranchPath());
+				payload.put(DEPENDENCY_PACKAGE, newParentVersion.getReleasePackage());
+				payload.put(DEPENDENCY_RELEASE, String.valueOf(newParentVersion.getEffectiveDate()));
+
+				String topicDestination = jmsQueuePrefix + ".upgrade.complete";
+				logger.info("Sending JMS Topic - destination {}, payload {}...", topicDestination, payload);
+				jmsTemplate.convertAndSend(new ActiveMQTopic(topicDestination), payload);
+			}
+
 			upgradedSuccessfully = true;
 		} catch (Exception e) {
 			logger.error("Upgrade on {} failed", branchPath, e);

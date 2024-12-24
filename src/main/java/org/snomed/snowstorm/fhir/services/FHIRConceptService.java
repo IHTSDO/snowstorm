@@ -4,7 +4,6 @@ import ca.uhn.fhir.jpa.entity.TermCodeSystemVersion;
 import ca.uhn.fhir.jpa.entity.TermConcept;
 import co.elastic.clients.elasticsearch._types.query_dsl.BoolQuery;
 import com.google.common.collect.Iterables;
-
 import org.hl7.fhir.r4.model.CodeSystem;
 import org.hl7.fhir.r4.model.CodeType;
 import org.slf4j.Logger;
@@ -19,10 +18,11 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
-import org.springframework.data.elasticsearch.core.SearchHits;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.elasticsearch.client.elc.NativeQuery;
 import org.springframework.data.elasticsearch.client.elc.NativeQueryBuilder;
+import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
+import org.springframework.data.elasticsearch.core.SearchHits;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
@@ -182,6 +182,7 @@ public class FHIRConceptService {
 	public Page<FHIRConcept> findConcepts(BoolQuery.Builder fhirConceptQuery, PageRequest pageRequest) {
 		NativeQuery searchQuery = new NativeQueryBuilder()
 				.withQuery(fhirConceptQuery.build()._toQuery())
+				.withSort(Sort.by(FHIRConcept.Fields.DISPLAY_LENGTH, FHIRConcept.Fields.CODE))
 				.withPageable(pageRequest)
 				.build();
 		searchQuery.setTrackTotalHits(true);
@@ -189,9 +190,10 @@ public class FHIRConceptService {
 		return toPage(elasticsearchOperations.search(searchQuery, FHIRConcept.class), pageRequest);
 	}
 
-	public SearchAfterPage<String> findConceptCodes(BoolQuery.Builder fhirConceptQuery, PageRequest pageRequest) {
+	public SearchAfterPage<String> findConceptCodes(BoolQuery fhirConceptQuery, PageRequest pageRequest) {
 		NativeQuery searchQuery = new NativeQueryBuilder()
-				.withQuery(fhirConceptQuery.build()._toQuery())
+				.withQuery(fhirConceptQuery._toQuery())
+				.withSort(Sort.by(FHIRConcept.Fields.CODE))
 				.withPageable(pageRequest)
 				.build();
 		searchQuery.setTrackTotalHits(true);

@@ -3,6 +3,26 @@ All notable changes to this project will be documented in this file.
 
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 10.6.1 Release (December 2024)
+Maintenance release with bug fix.
+
+### Fixes
+- MAINT-2699 Improve `additional-en-language-refset-delta` endpoint to support processing of duplicate ReferenceSetMembers.
+- MAINT-2691 Add 'clone' method to Annotation class to improve handling of annotations during rebase.
+
+## 10.5.0 Release (November 2024)
+Maintenance release with improvements
+### Improvements
+- MAINT-2602 Improve logging when encountering exception during CodeSystem upgrade
+- MAINT-2640 Improve logging when encountering exception interacting with Elasticsearch
+- MAINT-2667 Add French Edition to default application properties
+- MAINT-2464 Improve Snapshot import times
+
+### Fixes
+- MAINT-2665 Fix FHIR ValueSet expansion to search FSN & Synonyms, not Text Definitions
+- MAINT-2308 Fix blank assertion group names to skip validation
+- MAINT-2677 Fix bug where Semantic index was not updated when non-isa Relationships were inactivated
+
 ## 10.4.3 Release (October 2024)
 Maintenance release with improvements
 ### Improvements

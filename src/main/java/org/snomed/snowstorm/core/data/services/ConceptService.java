@@ -870,6 +870,17 @@ public class ConceptService extends ComponentService {
 		final Branch sourceBranch = branchService.findBranchOrThrow(sourceBranchPath, true);
 		final Branch destinationBranch = branchService.findBranchOrThrow(destinationBranchPath, true);
 
+		CodeSystem codeSystem = codeSystemService.findClosestCodeSystemUsingAnyBranch(destinationBranchPath, false);
+		if (codeSystem != null) {
+			List<CodeSystemVersion> codeSystemVersions = codeSystemService.findAllVersions(codeSystem.getShortName(), true, true);
+			String branchPath = destinationBranch.getPath();
+			for (CodeSystemVersion codeSystemVersion : codeSystemVersions) {
+				if (Objects.equals(branchPath, codeSystemVersion.getBranchPath())) {
+					throw new ServiceException("Cannot donate concepts from " + sourceBranchPath + " to versioned " + destinationBranchPath);
+				}
+			}
+		}
+
 		if (getDefaultModuleId(sourceBranch).equals(getDefaultModuleId(destinationBranch))) {
 			throw new ServiceException("Cannot donate concepts from " + sourceBranchPath + " to " + destinationBranchPath + " as they are from the same module: " + getDefaultModuleId(sourceBranch));
 		}

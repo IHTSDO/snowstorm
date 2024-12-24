@@ -37,6 +37,7 @@ import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.data.elasticsearch.core.SearchHit;
 import org.springframework.data.elasticsearch.core.SearchHitsIterator;
 import org.springframework.data.elasticsearch.client.elc.NativeQueryBuilder;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
 
 import java.util.*;
@@ -3647,7 +3648,7 @@ class BranchMergeServiceTest extends AbstractTest {
 	}
 
 	@Test
-	public void testRHSVersionBehindWhenExtensionPublishesOnSameDate() throws ServiceException, InterruptedException {
+	void testRHSVersionBehindWhenExtensionPublishesOnSameDate() throws ServiceException, InterruptedException {
 		String intMain = "MAIN";
 		String extMain = "MAIN/SNOMEDCT-TEST";
 		Map<String, String> intPreferred = Map.of(US_EN_LANG_REFSET, descriptionAcceptabilityNames.get(PREFERRED), GB_EN_LANG_REFSET, descriptionAcceptabilityNames.get(PREFERRED));
@@ -3745,7 +3746,7 @@ class BranchMergeServiceTest extends AbstractTest {
 	}
 
 	@Test
-	public void testInternationalVersioningDoesNotCauseExtensionToBeFlaggedAsBehind() throws ServiceException, InterruptedException {
+	void testInternationalVersioningDoesNotCauseExtensionToBeFlaggedAsBehind() throws ServiceException, InterruptedException {
 		String intMain = "MAIN";
 		String extMain = "MAIN/SNOMEDCT-TEST";
 		Map<String, String> intPreferred = Map.of(US_EN_LANG_REFSET, descriptionAcceptabilityNames.get(PREFERRED), GB_EN_LANG_REFSET, descriptionAcceptabilityNames.get(PREFERRED));
@@ -5792,7 +5793,7 @@ class BranchMergeServiceTest extends AbstractTest {
 	}
 
 	@Test
-	public void testExtensionComponentDoesNotRevertBackToDefaultModuleId() throws ServiceException, InterruptedException {
+	void testExtensionComponentDoesNotRevertBackToDefaultModuleId() throws ServiceException, InterruptedException {
 		String intMain = "MAIN";
 		String extMain = "MAIN/SNOMEDCT-XX";
 		Map<String, String> intPreferred = Map.of(US_EN_LANG_REFSET, descriptionAcceptabilityNames.get(PREFERRED), GB_EN_LANG_REFSET, descriptionAcceptabilityNames.get(PREFERRED));
@@ -5873,6 +5874,53 @@ class BranchMergeServiceTest extends AbstractTest {
 
 		// Assert
 		assertEquals(moduleBefore, moduleAfter);
+	}
+
+	@Test
+	void testRebasingVersionedAnnotationOntoUnversioned() throws ServiceException, InterruptedException {
+		String intMain = "MAIN";
+		Map<String, String> intPreferred = Map.of(US_EN_LANG_REFSET, descriptionAcceptabilityNames.get(PREFERRED), GB_EN_LANG_REFSET, descriptionAcceptabilityNames.get(PREFERRED));
+		Map<String, String> intAcceptable = Map.of(US_EN_LANG_REFSET, descriptionAcceptabilityNames.get(PREFERRED), GB_EN_LANG_REFSET, descriptionAcceptabilityNames.get(ACCEPTABLE));
+		String ci = "CASE_INSENSITIVE";
+		Concept concept;
+		Description description;
+		CodeSystem codeSystem;
+
+		// Create new Concept
+		concept = new Concept()
+				// Note typo in FSN
+				.addDescription(new Description("Medcine (medicine)").setTypeId(FSN).setCaseSignificance(ci).setAcceptabilityMap(intPreferred))
+				.addDescription(new Description("Medicine").setTypeId(SYNONYM).setCaseSignificance(ci).setAcceptabilityMap(intPreferred))
+				.addAxiom(new Relationship(ISA, SNOMEDCT_ROOT));
+		concept = conceptService.create(concept, intMain);
+		String medicineId = concept.getConceptId();
+
+		// Annotate new Concept
+		ReferenceSetMember referenceSetMember = new ReferenceSetMember();
+		referenceSetMember.setModuleId(CORE_MODULE);
+		referenceSetMember.setConceptId(medicineId);
+		referenceSetMember.setRefsetId("1292992004");
+		referenceSetMember.setReferencedComponentId(medicineId);
+		referenceSetMember.setAdditionalField("languageDialectCode", "en");
+		String annotationId = memberService.createMember(intMain, referenceSetMember).getMemberId();
+
+		// Create new project before versioning
+		String projectA = "MAIN/projectA";
+		branchService.create(projectA);
+
+		// Version CodeSystem
+		codeSystem = codeSystemService.find("SNOMEDCT");
+		codeSystemService.createVersion(codeSystem, 20240101, "20240101");
+
+		// On new project, correct FSN
+		concept = conceptService.find(medicineId, projectA);
+		getDescription(concept, "Medcine (medicine)").setTerm("Medicine (medicine)");
+		concept = conceptService.update(concept, projectA);
+
+		// Rebase project after versioning
+		MergeReview mergeReview = getMergeReviewInCurrentState(intMain, projectA);
+		Collection<MergeReviewConceptVersions> conflicts = reviewService.getMergeReviewConflictingConcepts(mergeReview.getId(), new ArrayList<>());
+		assertFalse(conflicts.isEmpty());
 	}
 
 	private void assertNotVersioned(Description description) {
