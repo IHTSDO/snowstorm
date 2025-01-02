@@ -1,26 +1,20 @@
 package org.snomed.snowstorm.fhir.services;
 
-import jakarta.servlet.http.HttpServletRequest;
-import ca.uhn.fhir.rest.server.RestfulServer;
-import ca.uhn.fhir.rest.server.provider.ServerCapabilityStatementProvider;
-import ca.uhn.fhir.rest.server.util.ISearchParamRegistry;
-import org.apache.http.client.utils.URLEncodedUtils;
-import org.hl7.fhir.instance.model.api.IBaseConformance;
 import ca.uhn.fhir.rest.annotation.Metadata;
 import ca.uhn.fhir.rest.api.server.RequestDetails;
+import ca.uhn.fhir.rest.server.RestfulServer;
+import ca.uhn.fhir.rest.server.provider.ServerCapabilityStatementProvider;
+import jakarta.servlet.http.HttpServletRequest;
+import org.hl7.fhir.instance.model.api.IBaseConformance;
 import org.hl7.fhir.r4.model.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.core.env.Environment;
+import org.springframework.boot.info.BuildProperties;
 import org.springframework.web.context.WebApplicationContext;
 import org.springframework.web.context.support.WebApplicationContextUtils;
-import java.net.URLEncoder;
-import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
+
 import java.util.Arrays;
 import java.util.Date;
-import java.util.List;
-import org.springframework.boot.info.BuildProperties;
 
 /**
  * See https://www.hl7.org/fhir/terminologycapabilities.html

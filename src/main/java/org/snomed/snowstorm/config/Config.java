@@ -37,7 +37,6 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.PropertySource;
 import org.springframework.context.annotation.PropertySources;
-import org.springframework.core.env.Environment;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.data.elasticsearch.core.IndexOperations;
@@ -106,9 +105,6 @@ public abstract class Config extends ElasticsearchConfig {
 
 	@Value("${search.term.maximumLength}")
 	private int searchTermMaximumLength;
-
-	@Autowired
-	private Environment env;
 
 	@Autowired
 	private DomainEntityConfiguration domainEntityConfiguration;
