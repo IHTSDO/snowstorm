@@ -47,8 +47,8 @@ public class FHIRTerminologyCapabilitiesProvider extends ServerCapabilityStateme
 				WebApplicationContextUtils.getWebApplicationContext(request.getServletContext());
 		if ("terminology".equals(request.getParameter("mode"))) {
 			FHIRTerminologyCapabilities tc = new FHIRTerminologyCapabilities().withDefaults(this.buildProperties,this.codeSystemService);
-			//tc.setVersion("fixed_value");
-			//tc.setDate(applicationContext.getBean("getReleaseDate", Date.class));
+			tc.setVersion(buildProperties.getVersion());
+			tc.setDate(new Date(buildProperties.getTime().toEpochMilli()));
 			TerminologyCapabilities.TerminologyCapabilitiesExpansionComponent expansion = new TerminologyCapabilities.TerminologyCapabilitiesExpansionComponent();
 			Arrays.asList("activeOnly",
 			"count",
@@ -66,19 +66,22 @@ public class FHIRTerminologyCapabilitiesProvider extends ServerCapabilityStateme
 		} else {
 			IBaseConformance resource = super.getServerConformance(request, requestDetails);
 			CapabilityStatement cs = (CapabilityStatement) resource;
-			Extension features = new Extension("http://hl7.org/fhir/uv/application-feature/StructureDefinition/feature");
-			features.addExtension("definition", new CanonicalType("http://hl7.org/fhir/uv/tx-tests/FeatureDefinition/test-version"));
-			features.addExtension("value", new CodeType("1.6.6"));
-			cs.addExtension(features);
+			Extension testsVersion = new Extension("http://hl7.org/fhir/uv/application-feature/StructureDefinition/feature");
+			testsVersion.addExtension("definition", new CanonicalType("http://hl7.org/fhir/uv/tx-tests/FeatureDefinition/test-version"));
+			testsVersion.addExtension("value", new CodeType("1.7.0"));
+			cs.addExtension(testsVersion);
+			Extension codeSystemAsParameter = new Extension("http://hl7.org/fhir/uv/application-feature/StructureDefinition/feature");
+			codeSystemAsParameter.addExtension("definition", new CanonicalType("http://hl7.org/fhir/uv/tx-ecosystem/FeatureDefinition/CodeSystemAsParameter"));
+			codeSystemAsParameter.addExtension("value", new StringType("empty"));
+			cs.addExtension(codeSystemAsParameter);
 			cs.setUrl(requestDetails.getFhirServerBase()+"/metadata");
-			//cs.setTitle("fixed value");
-			//cs.setVersion("fixed_value");
-			//cs.getSoftware().setVersion(applicationContext.getBean("getApplicationVersion", String.class));
-			//cs.getSoftware().setReleaseDate(applicationContext.getBean("getReleaseDate", Date.class));
 			CapabilityStatement.CapabilityStatementRestResourceOperationComponent operation = new CapabilityStatement.CapabilityStatementRestResourceOperationComponent();
 			operation.setName("versions");
 			operation.setDefinition(requestDetails.getFhirServerBase()+"/versions");
 			cs.getRest().stream().filter(x->x.getMode()== CapabilityStatement.RestfulCapabilityMode.SERVER).findFirst().ifPresent(x -> x.addOperation(operation));
+			cs.getSoftware().setReleaseDate(new Date(buildProperties.getTime().toEpochMilli()));
+			cs.setVersion(buildProperties.getVersion());
+			cs.setTitle(buildProperties.getName());
 			return cs;
 		}
 	}
