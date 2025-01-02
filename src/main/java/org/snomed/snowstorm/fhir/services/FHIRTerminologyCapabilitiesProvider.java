@@ -46,9 +46,9 @@ public class FHIRTerminologyCapabilitiesProvider extends ServerCapabilityStateme
 		final WebApplicationContext applicationContext =
 				WebApplicationContextUtils.getWebApplicationContext(request.getServletContext());
 		if ("terminology".equals(request.getParameter("mode"))) {
-			FHIRTerminologyCapabilities tc = new FHIRTerminologyCapabilities().withDefaults();
-			tc.setVersion("fixed_value");
-			tc.setDate(applicationContext.getBean("getReleaseDate", Date.class));
+			FHIRTerminologyCapabilities tc = new FHIRTerminologyCapabilities().withDefaults(this.buildProperties,this.codeSystemService);
+			//tc.setVersion("fixed_value");
+			//tc.setDate(applicationContext.getBean("getReleaseDate", Date.class));
 			TerminologyCapabilities.TerminologyCapabilitiesExpansionComponent expansion = new TerminologyCapabilities.TerminologyCapabilitiesExpansionComponent();
 			Arrays.asList("activeOnly",
 			"count",
@@ -71,10 +71,10 @@ public class FHIRTerminologyCapabilitiesProvider extends ServerCapabilityStateme
 			features.addExtension("value", new CodeType("1.6.6"));
 			cs.addExtension(features);
 			cs.setUrl(requestDetails.getFhirServerBase()+"/metadata");
-			cs.setTitle("fixed value");
-			cs.setVersion("fixed_value");
-			cs.getSoftware().setVersion(applicationContext.getBean("getApplicationVersion", String.class));
-			cs.getSoftware().setReleaseDate(applicationContext.getBean("getReleaseDate", Date.class));
+			//cs.setTitle("fixed value");
+			//cs.setVersion("fixed_value");
+			//cs.getSoftware().setVersion(applicationContext.getBean("getApplicationVersion", String.class));
+			//cs.getSoftware().setReleaseDate(applicationContext.getBean("getReleaseDate", Date.class));
 			CapabilityStatement.CapabilityStatementRestResourceOperationComponent operation = new CapabilityStatement.CapabilityStatementRestResourceOperationComponent();
 			operation.setName("versions");
 			operation.setDefinition(requestDetails.getFhirServerBase()+"/versions");

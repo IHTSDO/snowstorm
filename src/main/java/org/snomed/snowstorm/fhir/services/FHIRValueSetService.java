@@ -919,7 +919,7 @@ public class FHIRValueSetService {
 	private void collectConstraints(ValueSet.ConceptSetComponent include, FHIRCodeSystemVersion codeSystemVersion, Set<ConceptConstraint> inclusionConstraints, boolean activeOnly) {
 
 		if(activeOnly) {
-			if (codeSystemVersion.isSnomed() || codeSystemVersion.getUrl().equals("http://loinc.org") || codeSystemVersion.getUrl().startsWith("http://hl7.org/fhir/sid/icd-10")) {
+			if (FHIRHelper.isSnomedUri(codeSystemVersion.getUrl()) || codeSystemVersion.getUrl().equals("http://loinc.org") || codeSystemVersion.getUrl().startsWith("http://hl7.org/fhir/sid/icd-10")) {
 				//do nothing
 			} else {
 				inclusionConstraints.add(new ConceptConstraint().setActiveOnly(activeOnly));
