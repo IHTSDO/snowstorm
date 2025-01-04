@@ -829,6 +829,10 @@ public class FHIRValueSetService {
 	}
 
 	private void addQueryCriteria(ConceptConstraint inclusion, BoolQuery.Builder versionQuery, String valueSetUserRef) {
+		if (inclusion.isActiveOnly()!=null && inclusion.isActiveOnly()) {
+			versionQuery.mustNot(termsQuery(FHIRConcept.Fields.PROPERTIES + ".inactive.value", Collections.singleton(Boolean.toString(inclusion.isActiveOnly()))));
+		}
+
 		if (inclusion.getCode() != null) {
 			switch(inclusion.getType()){
 				case REGEX:
@@ -866,12 +870,8 @@ public class FHIRValueSetService {
 							versionQuery.must(termsQuery(FHIRConcept.Fields.PROPERTIES + "." + x + ".value", inclusion.getProperties().get(x)))
 					);
 			}
-
-
 		} else if (inclusion.isActiveOnly()!=null){
-			if (inclusion.isActiveOnly()) {
-				versionQuery.mustNot(termsQuery(FHIRConcept.Fields.PROPERTIES + ".inactive.value", Collections.singleton("true")));
-			}
+			//prevent exception in case of inclusion criterion that only contains activeOnly
 		} else {
 			String message = "Unrecognised constraints for ValueSet: " + valueSetUserRef;
 			logger.error(message);
@@ -891,7 +891,7 @@ public class FHIRValueSetService {
 
 		if (!include.getConcept().isEmpty()) {
 			List<String> codes = include.getConcept().stream().map(ValueSet.ConceptReferenceComponent::getCode).collect(Collectors.toList());
-			inclusionConstraints.add(new ConceptConstraint(codes));
+			inclusionConstraints.add(new ConceptConstraint(codes).setActiveOnly(activeOnly));
 		}
 		if (!include.getFilter().isEmpty()) {
 			for (ValueSet.ConceptSetFilterComponent filter : include.getFilter()) {
@@ -989,25 +989,25 @@ public class FHIRValueSetService {
 					// Generic code system
 					if ("concept".equals(property) && op == ValueSet.FilterOperator.ISA) {
 						Set<String> singleton = Collections.singleton(value);
-						inclusionConstraints.add(new ConceptConstraint(singleton));
+						inclusionConstraints.add(new ConceptConstraint(singleton).setActiveOnly(activeOnly));
 						inclusionConstraints.add(new ConceptConstraint().setAncestor(singleton));
 					} else if ("concept".equals(property) && op == ValueSet.FilterOperator.DESCENDENTOF) {
 						Set<String> singleton = Collections.singleton(value);
-						inclusionConstraints.add(new ConceptConstraint().setAncestor(singleton));
+						inclusionConstraints.add(new ConceptConstraint().setAncestor(singleton).setActiveOnly(activeOnly));
 					}
 					else if (op == ValueSet.FilterOperator.EQUAL){
 						Set<String> singleton = Collections.singleton(value);
 						Map<String, Collection<String>> properties = new HashMap<>();
 						properties.put(property,singleton);
-						inclusionConstraints.add(new ConceptConstraint().setProperties(properties));
+						inclusionConstraints.add(new ConceptConstraint().setProperties(properties).setActiveOnly(activeOnly));
 					} else if (op == ValueSet.FilterOperator.REGEX){
 						Set<String> singleton = Collections.singleton(value.replace(" ","\\s").replace("\\t","\\s").replace("\\n","\\s").replace("\\r","\\s").replace("\\f","\\s"));
 						if ("code".equals(property)){
-							inclusionConstraints.add(new ConceptConstraint(singleton).setType(ConceptConstraint.Type.REGEX));
+							inclusionConstraints.add(new ConceptConstraint(singleton).setType(ConceptConstraint.Type.REGEX).setActiveOnly(activeOnly));
 						} else {
 							Map<String, Collection<String>> properties = new HashMap<>();
 							properties.put(property, singleton);
-							inclusionConstraints.add(new ConceptConstraint().setProperties(properties).setType(ConceptConstraint.Type.REGEX));
+							inclusionConstraints.add(new ConceptConstraint().setProperties(properties).setType(ConceptConstraint.Type.REGEX).setActiveOnly(activeOnly));
 						}
 					}
 					else{
@@ -1015,6 +1015,13 @@ public class FHIRValueSetService {
 								"Supported filters for generic code systems are: (concept, is-a), (concept, descendant-of), (<any>, =).", OperationOutcome.IssueType.NOTSUPPORTED, 400);
 					}
 				}
+			}
+		}
+		if(activeOnly && inclusionConstraints.isEmpty()) {
+			if (FHIRHelper.isSnomedUri(codeSystemVersion.getUrl()) || codeSystemVersion.getUrl().equals("http://loinc.org") || codeSystemVersion.getUrl().startsWith("http://hl7.org/fhir/sid/icd-10")) {
+				//do nothing
+			} else {
+				inclusionConstraints.add(new ConceptConstraint().setActiveOnly(activeOnly));
 			}
 		}
 	}
