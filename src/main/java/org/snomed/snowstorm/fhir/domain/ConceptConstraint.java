@@ -37,7 +37,7 @@ public class ConceptConstraint {
 	}
 
 	public boolean isSimpleCodeSet() {
-		return CollectionUtils.isEmpty(parent) && CollectionUtils.isEmpty(ancestor) && ecl == null && !CollectionUtils.isEmpty(code) && getType()==TERMS;
+		return CollectionUtils.isEmpty(parent) && CollectionUtils.isEmpty(ancestor) && ecl == null && !CollectionUtils.isEmpty(code) && getType()==TERMS && activeOnly == null;
 	}
 
 	public ConceptConstraint setParent(Set<String> parent) {
