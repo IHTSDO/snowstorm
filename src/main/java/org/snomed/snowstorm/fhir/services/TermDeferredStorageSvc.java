@@ -71,6 +71,11 @@ public class TermDeferredStorageSvc implements ITermDeferredStorageSvc {
 	}
 
 	@Override
+	public boolean isJobsExecuting() {
+		return false;
+	}
+
+	@Override
 	public void disallowDeferredTaskTimeout() {
 
 	}
