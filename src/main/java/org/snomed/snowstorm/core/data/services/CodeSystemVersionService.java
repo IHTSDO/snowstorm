@@ -80,7 +80,14 @@ public class CodeSystemVersionService {
         }
 
         LOGGER.debug("Looking for {}'s dependency version.", codeSystemVersion);
-		final String cacheKey = buildKeyForCache(codeSystemVersion, branchService.findLatest(codeSystemVersion.getBranchPath()).getHeadTimestamp());
+
+		Branch latestBranch = branchService.findLatest(codeSystemVersion.getBranchPath());
+		if (latestBranch == null) {
+			LOGGER.error("Latest branch not found for {}. Ignoring this CodeSystem.", codeSystemVersion);
+			return;
+		}
+
+		final String cacheKey = buildKeyForCache(codeSystemVersion, latestBranch.getHeadTimestamp());
 		Integer dependantVersion = dependantVersionCache.computeIfAbsent(cacheKey, key -> {
 			LOGGER.debug("CodeSystemVersion '{}' not found in cache.", codeSystemVersion);
 			Optional<Integer> optionalDependency = doGetDependantVersionForCodeSystemVersion(codeSystemVersion);
