@@ -31,7 +31,7 @@ POST codesystem-version/_update_by_query
 }
 ```
 
-### Option 2 - Reindex codesystem-version to change the field type of importDate to long
+### Option 2 - Reindex codesystem-version and branch-review to change the field type of importDate and lastUpdated to long
 
 #### In Kibana create a new index for codesystem-version-tmp with updated mapping
 ```
@@ -134,6 +134,137 @@ POST _reindex
 #### Delete codesystem-version-tmp
 ```
 DELETE codesystem-version-tmp
+```
+
+#### Create a new index for branch-review-tmp with updated mapping
+```
+PUT branch-review-tmp
+{
+  "mappings":{
+    "properties":{
+      "_class":{
+        "type":"text",
+        "fields":{
+          "keyword":{
+            "type":"keyword",
+            "ignore_above":256
+          }
+        }
+      },
+      "changedConcepts":{
+        "type":"long"
+      },
+      "id":{
+        "type":"keyword"
+      },
+      "lastUpdated":{
+        "type":"long"
+      },
+      "source":{
+        "type":"nested",
+        "properties":{
+          "baseTimestamp":{
+            "type":"long"
+          },
+          "headTimestamp":{
+            "type":"long"
+          },
+          "path":{
+            "type":"text",
+            "fields":{
+              "keyword":{
+                "type":"keyword",
+                "ignore_above":256
+              }
+            }
+          }
+        }
+      },
+      "sourceIsParent":{
+        "type":"boolean"
+      },
+      "status":{
+        "type":"keyword"
+      },
+      "target":{
+        "type":"nested",
+        "properties":{
+          "baseTimestamp":{
+            "type":"long"
+          },
+          "headTimestamp":{
+            "type":"long"
+          },
+          "path":{
+            "type":"text",
+            "fields":{
+              "keyword":{
+                "type":"keyword",
+                "ignore_above":256
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+#### Reindex branch-review to branch-review-tmp
+```
+POST _reindex
+{
+  "source": {
+    "index": "branch-review"
+  },
+  "dest": {
+    "index": "branch-review-tmp"
+  },
+  "script": {
+    "source": """
+    if (ctx._source.containsKey('lastUpdated')) {
+      def value = ctx._source['lastUpdated'];
+      // Try parsing the value as a date and convert to millis
+      try {
+        if (value instanceof String) {
+          // Convert date to milliseconds
+          ZonedDateTime zdt = ZonedDateTime.parse(value);
+          long milliSinceEpoch = zdt.toInstant().toEpochMilli();
+          ctx._source.lastUpdated = milliSinceEpoch;
+        }
+      } catch (Exception e) {
+        // If parsing fails, handle the failure (e.g., log an error, set a default value)
+        ctx._source.lastUpdated = 1000; // Set a default value for debug, adjust as needed
+      }
+    }
+    """,
+    "lang": "painless"
+  }
+}
+```
+
+#### Delete branch-review
+```
+DELETE branch-review
+```
+
+#### Reindex branch-review-tmp back to the original index name.
+``` 
+POST _reindex
+{
+  "source": {
+    "index": "branch-review-tmp"
+  },
+  "dest": {
+    "index": "branch-review"
+  }
+}
+```
+
+#### Delete branch-review-tmp
+```
+DELETE branch-review-tmp
 ```
 Note: You can use curl for above operations if you don't have Kibana installed. See more details on [Reindex API](https://www.elastic.co/guide/en/elasticsearch/reference/current/docs-reindex.html)
 
