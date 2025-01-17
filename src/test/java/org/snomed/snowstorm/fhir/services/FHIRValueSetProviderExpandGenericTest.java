@@ -5,6 +5,7 @@ import org.hl7.fhir.r4.model.ValueSet;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.snomed.snowstorm.core.data.services.ServiceException;
 import org.snomed.snowstorm.fhir.domain.FHIRCodeSystemVersion;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpEntity;
@@ -32,7 +33,7 @@ public class FHIRValueSetProviderExpandGenericTest extends AbstractFHIRTest {
 	private FHIRCodeSystemVersion codeSystemVersion;
 
 	@BeforeEach
-	public void testSetup() throws IOException {
+	public void testSetup() throws IOException, ServiceException {
 		// Create generic code system for tests
 		File codeSystemFile = new File("src/test/resources/dummy-fhir-content/hl7/CodeSystem-v3-ContextControl.json");
 		assertTrue(codeSystemFile.isFile());

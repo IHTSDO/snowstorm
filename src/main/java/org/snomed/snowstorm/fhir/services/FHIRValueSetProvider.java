@@ -216,7 +216,8 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 			@OperationParam(name="system-version") StringType systemVersion,
 			@OperationParam(name="check-system-version") StringType checkSystemVersion,
 			@OperationParam(name="force-system-version") StringType forceSystemVersion,
-			@OperationParam(name="version") StringType version)// Invalid parameter
+			@OperationParam(name="version") StringType version,
+			@OperationParam(name="version") CodeType property)// Invalid parameter
 			{
 
 		ValueSetExpansionParameters params;
@@ -226,7 +227,7 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 		} else {
 			params = FHIRValueSetProviderHelper.getValueSetExpansionParameters(id, url, valueSetVersion, context, contextDirection, filter, date, offset, count,
 					includeDesignationsType, designations, includeDefinition, activeType, excludeNested, excludeNotForUI, excludePostCoordinated, displayLanguage,
-					excludeSystem, systemVersion, checkSystemVersion, forceSystemVersion, version);
+					excludeSystem, systemVersion, checkSystemVersion, forceSystemVersion, version, property);
 		}
 		return valueSetService.expand(params, FHIRHelper.getDisplayLanguage(params.getDisplayLanguage(), request.getHeader(ACCEPT_LANGUAGE_HEADER)));
 	}
@@ -256,7 +257,8 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 			@OperationParam(name="system-version") StringType systemVersion,
 			@OperationParam(name="check-system-version") StringType checkSystemVersion,
 			@OperationParam(name="force-system-version") StringType forceSystemVersion,
-			@OperationParam(name="version") StringType version)// Invalid parameter
+			@OperationParam(name="version") StringType version,
+			@OperationParam(name="property") CodeType property)// Invalid parameter
 			{
 		logger.info(FHIRValueSetProviderHelper.getFullURL(request));
 		ValueSetExpansionParameters params;
@@ -275,7 +277,7 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 		} else {
 			params = FHIRValueSetProviderHelper.getValueSetExpansionParameters(null, url, valueSetVersion, context, contextDirection, filter, date, offset, count,
 					includeDesignationsType, designations, includeDefinition, activeType, excludeNested, excludeNotForUI, excludePostCoordinated, displayLanguage,
-					excludeSystem, systemVersion, checkSystemVersion, forceSystemVersion, version);
+					excludeSystem, systemVersion, checkSystemVersion, forceSystemVersion, version, property);
 		}
 
 		return valueSetService.expand(params, FHIRHelper.getDisplayLanguage(params.getDisplayLanguage(), request.getHeader(ACCEPT_LANGUAGE_HEADER)));
