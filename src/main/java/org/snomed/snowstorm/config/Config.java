@@ -158,11 +158,6 @@ public abstract class Config extends ElasticsearchConfig {
 	private ReferencedConceptsLookupUpdateService refsetConceptsLookupUpdateService;
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
-	@Value("${git.build.version}")
-	private String applicationVersion;
-
-	@Value("${git.build.time}")
-	private String releaseDate;
 
 	@PostConstruct
 	public void configureCommitListeners() {
@@ -190,18 +185,6 @@ public abstract class Config extends ElasticsearchConfig {
 	private String secondsDuration(Date timepoint) {
 		return "" + (float) (new Date().getTime() - timepoint.getTime()) / 1000f;
 	}
-
-	@Bean
-	public String getApplicationVersion(){return applicationVersion;}
-
-	@Bean
-	public Date getReleaseDate(){
-        try {
-            return new SimpleDateFormat("yyyy-MM-dd'T'hh:mm:ss'Z'").parse(releaseDate);
-        } catch (ParseException e) {
-            return new Date();
-        }
-    }
 
 	@Bean
 	public ExecutorService taskExecutor() {

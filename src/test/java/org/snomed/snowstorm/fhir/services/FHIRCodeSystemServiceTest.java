@@ -30,7 +30,7 @@ class FHIRCodeSystemServiceTest extends AbstractFHIRTest {
 	}
 
 	@Test
-	void createUpdate() {
+	void createUpdate() throws ServiceException {
 		CodeSystem codeSystem = new CodeSystem();
 		codeSystem.setTitle("Example");
 		codeSystem.setUrl("http://example-test.com/");
@@ -52,7 +52,7 @@ class FHIRCodeSystemServiceTest extends AbstractFHIRTest {
 	}
 
 	@Test
-	void createSupplementNotSnomed() {
+	void createSupplementNotSnomed() throws ServiceException {
 		CodeSystem codeSystem = new CodeSystem();
 		codeSystem.setUrl("http://example-test.com/");
 		codeSystem.setContent(CodeSystem.CodeSystemContentMode.SUPPLEMENT);
@@ -60,12 +60,12 @@ class FHIRCodeSystemServiceTest extends AbstractFHIRTest {
 			codeSystemService.createUpdate(codeSystem);
 			fail(SHOULD_HAVE_THROWN_EXCEPTION_BEFORE_THIS_LINE);
 		} catch (SnowstormFHIRServerResponseException e) {
-			assertEquals(OperationOutcome.IssueType.NOTSUPPORTED, e.getIssueCode());
+			assertEquals(INVARIANT, e.getIssueCode());
 		}
 	}
 
 	@Test
-	void createSupplementSnomedNoSupplement() {
+	void createSupplementSnomedNoSupplement() throws ServiceException {
 		CodeSystem codeSystem = new CodeSystem();
 		codeSystem.setUrl("http://snomed.info/sct");
 		codeSystem.setContent(CodeSystem.CodeSystemContentMode.SUPPLEMENT);
@@ -78,7 +78,7 @@ class FHIRCodeSystemServiceTest extends AbstractFHIRTest {
 	}
 
 	@Test
-	void createSupplementSnomedSupplementDoesNotExist() {
+	void createSupplementSnomedSupplementDoesNotExist() throws ServiceException {
 		CodeSystem codeSystem = new CodeSystem();
 		codeSystem.setUrl("http://snomed.info/sct");
 		codeSystem.setSupplements("http://snomed.info/sct|http://snomed.info/sct/900000000000207008/version/20010130");
@@ -117,7 +117,7 @@ class FHIRCodeSystemServiceTest extends AbstractFHIRTest {
 	}
 
 	@Test
-	void createSupplementSnomedSupplementNoModule() {
+	void createSupplementSnomedSupplementNoModule() throws ServiceException {
 		CodeSystem codeSystem = new CodeSystem();
 		codeSystem.setUrl("http://snomed.info/sct");
 		codeSystem.setVersion("http://snomed.info/xsct");
@@ -134,7 +134,7 @@ class FHIRCodeSystemServiceTest extends AbstractFHIRTest {
 	}
 
 	@Test
-	void createSupplementSnomedSupplementNamespaceInsteadOfModule() {
+	void createSupplementSnomedSupplementNamespaceInsteadOfModule() throws ServiceException {
 		CodeSystem codeSystem = new CodeSystem();
 		codeSystem.setUrl("http://snomed.info/sct");
 		codeSystem.setVersion("http://snomed.info/xsct/1000003");// Demo namespace "1000003"
