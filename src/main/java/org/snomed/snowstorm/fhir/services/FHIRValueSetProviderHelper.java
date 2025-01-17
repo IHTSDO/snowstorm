@@ -55,7 +55,8 @@ class FHIRValueSetProviderHelper {
 			findParameterCanonicalOrNull(parametersParameterComponents, "system-version"),
 			findParameterCanonicalOrNull(parametersParameterComponents, "check-system-version"),
 			findParameterCanonicalOrNull(parametersParameterComponents, "force-system-version"),
-			findParameterStringOrNull(parametersParameterComponents, "version")
+			findParameterStringOrNull(parametersParameterComponents, "version"),
+			findParameterStringOrNull(parametersParameterComponents, "property")
 		);
 	}
 
@@ -81,7 +82,8 @@ class FHIRValueSetProviderHelper {
 			final StringType systemVersion,
 			final StringType checkSystemVersion,
 			final StringType forceSystemVersion,
-			final StringType version) {
+			final StringType version,
+			final CodeType property) {
 
 			return new ValueSetExpansionParameters(
 					id != null ? id.getIdPart() : null,
@@ -106,7 +108,9 @@ class FHIRValueSetProviderHelper {
 					CanonicalUri.fromString(getOrNull(systemVersion)),
 					CanonicalUri.fromString(getOrNull(checkSystemVersion)),
 					CanonicalUri.fromString(getOrNull(forceSystemVersion)),
-					getOrNull(version));
+					getOrNull(version),
+					getOrNull(property)
+			);
 	}
 
 	@Nullable

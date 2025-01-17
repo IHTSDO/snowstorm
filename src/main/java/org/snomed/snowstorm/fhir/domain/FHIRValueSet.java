@@ -13,7 +13,9 @@ import org.springframework.data.elasticsearch.annotations.FieldType;
 import org.springframework.data.elasticsearch.annotations.Setting;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 
 import static org.snomed.snowstorm.core.util.CollectionUtils.orEmpty;
 
@@ -58,6 +60,8 @@ public class FHIRValueSet {
 
 	private FHIRValueSetCompose compose;
 
+	private List<FHIRExtension> extensions;
+
 	public FHIRValueSet() {
 	}
 
@@ -88,6 +92,15 @@ public class FHIRValueSet {
 		copyright = hapiValueSet.getCopyright();
 
 		compose = new FHIRValueSetCompose(hapiValueSet.getCompose());
+
+		hapiValueSet.getExtension().forEach( e -> {
+			if(extensions == null){
+				extensions = new ArrayList<>();
+			}
+
+			extensions.add(new FHIRExtension(e));
+
+		});
 	}
 
 	@JsonIgnore
@@ -115,6 +128,10 @@ public class FHIRValueSet {
 		valueSet.setCopyright(copyright);
 
 		valueSet.setCompose(compose.getHapi());
+
+		Optional.ofNullable(extensions).orElse(Collections.emptyList()).forEach( fe -> {
+			valueSet.addExtension(fe.getHapi());
+		});
 		return valueSet;
 	}
 
@@ -228,5 +245,13 @@ public class FHIRValueSet {
 
 	public void setCompose(FHIRValueSetCompose compose) {
 		this.compose = compose;
+	}
+
+	public List<FHIRExtension> getExtensions() {
+		return extensions;
+	}
+
+	public void setExtensions(List<FHIRExtension> extensions) {
+		this.extensions = extensions;
 	}
 }

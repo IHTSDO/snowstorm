@@ -1,9 +1,16 @@
 package org.snomed.snowstorm.fhir.domain;
 
 import ca.uhn.fhir.jpa.entity.TermConceptDesignation;
+import org.apache.commons.lang3.StringUtils;
 import org.hl7.fhir.r4.model.CodeSystem;
 import org.hl7.fhir.r4.model.Coding;
+import org.hl7.fhir.r4.model.ValueSet;
 import org.snomed.snowstorm.core.data.domain.Description;
+
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.Optional;
 
 import static org.snomed.snowstorm.fhir.config.FHIRConstants.SNOMED_URI;
 
@@ -12,6 +19,10 @@ public class FHIRDesignation {
 	private String language;
 	private String use;
 	private String value;
+
+
+
+	private List<FHIRExtension> extensions;
 
 	public FHIRDesignation() {
 	}
@@ -43,6 +54,24 @@ public class FHIRDesignation {
 		language = designation.getLanguage();
 		value = designation.getValue();
 		setUse(designation.getUse());
+		designation.getExtension().forEach( ext -> {
+			if (extensions == null){
+				extensions = new ArrayList<>();
+			}
+			extensions.add(new FHIRExtension(ext));
+		});
+	}
+
+	public FHIRDesignation(ValueSet.ConceptReferenceDesignationComponent designation) {
+		language = designation.getLanguage();
+		value = designation.getValue();
+		setUse(designation.getUse());
+		designation.getExtension().forEach( ext -> {
+			if (extensions == null){
+				extensions = new ArrayList<>();
+			}
+			extensions.add(new FHIRExtension(ext));
+		});
 	}
 
 	public void setUse(Coding useCoding) {
@@ -50,7 +79,11 @@ public class FHIRDesignation {
 	}
 
 	public void setUse(String useSystem, String useCode) {
-		use = useSystem + "|" + useCode;
+		if(useSystem == null && useCode == null){
+			use = null;
+		} else {
+			use = useSystem + "|" + useCode;
+		}
 	}
 
 	public Coding getUseCoding() {
@@ -63,6 +96,17 @@ public class FHIRDesignation {
 			}
 		}
 		return null;
+	}
+
+	public ValueSet.ConceptReferenceDesignationComponent getHapi() {
+		ValueSet.ConceptReferenceDesignationComponent hapiConceptReferenceDesignationComponent = new ValueSet.ConceptReferenceDesignationComponent();
+		hapiConceptReferenceDesignationComponent.setLanguage(language);
+		hapiConceptReferenceDesignationComponent.setValue(value);
+		if (StringUtils.isNotEmpty(use)) {
+			hapiConceptReferenceDesignationComponent.setUse(this.getUseCoding());
+		}
+		hapiConceptReferenceDesignationComponent.setExtension(Optional.ofNullable(extensions).orElse(Collections.emptyList()).stream().map(d->d.getHapi()).toList());
+		return hapiConceptReferenceDesignationComponent;
 	}
 
 	private static Coding addKnownDisplays(Coding coding) {
@@ -106,5 +150,13 @@ public class FHIRDesignation {
 
 	public void setValue(String value) {
 		this.value = value;
+	}
+
+	public List<FHIRExtension> getExtensions() {
+		return extensions;
+	}
+
+	public void setExtensions(List<FHIRExtension> extensions) {
+		this.extensions = extensions;
 	}
 }

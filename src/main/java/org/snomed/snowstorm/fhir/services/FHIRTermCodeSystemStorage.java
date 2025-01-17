@@ -15,6 +15,8 @@ import org.hl7.fhir.r4.model.IdType;
 import org.hl7.fhir.r4.model.ValueSet;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.snomed.snowstorm.core.data.services.RuntimeServiceException;
+import org.snomed.snowstorm.core.data.services.ServiceException;
 import org.snomed.snowstorm.fhir.config.FHIRConstants;
 import org.snomed.snowstorm.fhir.domain.FHIRCodeSystemVersion;
 import org.snomed.snowstorm.fhir.domain.FHIRConceptMap;
@@ -68,7 +70,11 @@ public class FHIRTermCodeSystemStorage implements ITermCodeSystemStorageSvc {
 		if (codeSystem.getUrl().startsWith(FHIRConstants.ICD10_URI)) {
 			codeSystem.setHierarchyMeaning(CodeSystem.CodeSystemHierarchyMeaning.ISA);
 		}
-		codeSystemVersion = fhirCodeSystemService.createUpdate(codeSystem);
+		try {
+			codeSystemVersion = fhirCodeSystemService.createUpdate(codeSystem);
+		} catch (ServiceException e) {
+			throw new RuntimeServiceException("Failed to create FHIR CodeSystem.", e);
+		}
 		fhirConceptService.saveAllConceptsOfCodeSystemVersion(termCodeSystemVersion, codeSystemVersion);
 
 		valueSets = orEmpty(valueSets);

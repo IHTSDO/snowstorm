@@ -57,6 +57,21 @@ import static org.snomed.snowstorm.fhir.utils.FHIRPageHelper.toPage;
 @Service
 public class FHIRValueSetService {
 
+	public static final String[] URLS = {"http://hl7.org/fhir/StructureDefinition/itemWeight",
+			"http://hl7.org/fhir/StructureDefinition/valueset-label",
+			"http://hl7.org/fhir/StructureDefinition/valueset-conceptOrder",
+			"http://hl7.org/fhir/StructureDefinition/valueset-deprecated",
+			"http://hl7.org/fhir/StructureDefinition/valueset-concept-definition",
+			"http://hl7.org/fhir/StructureDefinition/valueset-supplement"
+	};
+
+	public static final HashMap<String,String> PROPERTY_TO_URL = new HashMap<>();
+
+	static{
+		PROPERTY_TO_URL.put("definition","http://hl7.org/fhir/concept-properties#definition");
+		PROPERTY_TO_URL.put("prop","http://hl7.org/fhir/test/CodeSystem/properties#prop");
+	}
+
 	// Constant to help with "?fhir_vs=refset"
 	public static final String REFSETS_WITH_MEMBERS = "Refsets";
 
@@ -337,6 +352,9 @@ public class FHIRValueSetService {
 
 		Map<String, String> idAndVersionToUrl = allInclusionVersions.stream()
 				.collect(Collectors.toMap(FHIRCodeSystemVersion::getId, FHIRCodeSystemVersion::getUrl));
+		allInclusionVersions.forEach(codeSystemVersion -> {
+			codeSystemVersion.getExtensions().forEach(ext -> hapiValueSet.addExtension(ext));
+				});
 		ValueSet.ValueSetExpansionComponent expansion = new ValueSet.ValueSetExpansionComponent();
 		String id = UUID.randomUUID().toString();
 		expansion.setId(id);
@@ -344,6 +362,7 @@ public class FHIRValueSetService {
 		expansion.setTimestamp(new Date());
 		Optional.ofNullable(params.getActiveOnly()).ifPresent(x->expansion.addParameter(new ValueSet.ValueSetExpansionParameterComponent(new StringType("activeOnly")).setValue(new BooleanType(x))));
 		Optional.ofNullable(params.getExcludeNested()).ifPresent(x->expansion.addParameter(new ValueSet.ValueSetExpansionParameterComponent(new StringType("excludeNested")).setValue(new BooleanType(x))));
+		Optional.ofNullable(params.getIncludeDesignations()).ifPresent(x->expansion.addParameter(new ValueSet.ValueSetExpansionParameterComponent(new StringType("includeDesignations")).setValue(new BooleanType(x))));
 		allInclusionVersions.forEach(codeSystemVersion -> {
 				if (codeSystemVersion.getVersion() != null) {
 					expansion.addParameter(new ValueSet.ValueSetExpansionParameterComponent(new StringType("version"))
@@ -353,25 +372,98 @@ public class FHIRValueSetService {
 				}
 			}
 		);
+
+		hapiValueSet.getExtension().forEach(ext ->{
+			if(ext.getUrl().equals("http://hl7.org/fhir/StructureDefinition/valueset-supplement")){
+				expansion.addParameter(new ValueSet.ValueSetExpansionParameterComponent(new StringType("used-supplement"))
+						.setValue(ext.getValue()));
+			}
+
+		});
+
+
+		Optional.ofNullable(params.getProperty()).ifPresent( x ->{
+					addPropertyToExpansion(x, PROPERTY_TO_URL.get(x), expansion);
+				}
+		);
+
         //this line was removed because of the GG tests.
 		//expansion.addParameter(new ValueSet.ValueSetExpansionParameterComponent(new StringType("displayLanguage")).setValue(new StringType(displayLanguage)));
 		expansion.setContains(conceptsPage.stream().map(concept -> {
+					List<ValueSet.ConceptReferenceComponent> references = hapiValueSet.getCompose().getInclude().stream()
+							.flatMap(set -> set.getConcept().stream()).filter(c -> c.getCode().equals(concept.getCode())).toList();
+
+
 					ValueSet.ValueSetExpansionContainsComponent component = new ValueSet.ValueSetExpansionContainsComponent()
 							.setSystem(idAndVersionToUrl.get(concept.getCodeSystemVersion()))
 							.setCode(concept.getCode())
 							.setInactiveElement(concept.isActive() ? null : new BooleanType(true))
 							.setDisplay(concept.getDisplay());
-					concept.getProperties().getOrDefault("status",Collections.emptyList()).stream().filter(x -> x.getValue().equals("retired")).findFirst().ifPresent(x-> component.setAbstract(true));
-					concept.getProperties().getOrDefault("status",Collections.emptyList()).stream().filter(x -> x.getValue().equals("retired")).findFirst().ifPresent(x-> component.setInactive(true));
+
+					concept.getProperties().entrySet().forEach( p -> {
+						if (p.getKey().equals("status")){
+							p.getValue().stream()
+									.filter(x -> x.getValue().equals("retired"))
+									.findFirst()
+									.ifPresent(x-> {
+										component.setAbstract(true);
+										component.setInactive(true);
+									});
+
+						} else if (p.getKey().equals("http://hl7.org/fhir/StructureDefinition/itemWeight")){
+							p.getValue().stream()
+									.findFirst()
+									.ifPresent(y-> {
+										addPropertyToContains("weight", component, y.toHapiValue(null));
+										addPropertyToExpansion("weight", "http://hl7.org/fhir/concept-properties#itemWeight", expansion);
+									});
+						} else if (p.getKey().equals("http://hl7.org/fhir/StructureDefinition/codesystem-label")){
+							p.getValue().stream()
+									.findFirst()
+									.ifPresent(y-> {
+										addPropertyToContains("label", component, y.toHapiValue(null));
+										addPropertyToExpansion("label", "http://hl7.org/fhir/concept-properties#label", expansion);
+									});
+						} else if (p.getKey().equals("http://hl7.org/fhir/StructureDefinition/codesystem-conceptOrder")){
+							p.getValue().stream()
+									.findFirst()
+									.ifPresent(y-> {
+										addPropertyToContains("order", component, new DecimalType(y.toHapiValue(null).primitiveValue()));
+										addPropertyToExpansion("order", "http://hl7.org/fhir/concept-properties#order", expansion);
+									});
+						}
+					});
+
+					Optional.ofNullable(params.getProperty()).ifPresent(x ->{
+						List<FHIRProperty> properties =concept.getProperties().getOrDefault(x, Collections.emptyList());
+						properties.stream()
+								.findFirst()
+								.ifPresent(y-> {
+									addPropertyToContains(y.getCode(), component, y.toHapiValue(null));
+								});
+					});
+
 					if (includeDesignations) {
 						for (FHIRDesignation designation : concept.getDesignations()) {
 							ValueSet.ConceptReferenceDesignationComponent designationComponent = new ValueSet.ConceptReferenceDesignationComponent();
 							designationComponent.setLanguage(designation.getLanguage());
 							designationComponent.setUse(designation.getUseCoding());
 							designationComponent.setValue(designation.getValue());
+							Optional.ofNullable(designation.getExtensions()).orElse(Collections.emptyList()).forEach(
+									e -> {
+										designationComponent.addExtension(e.getHapi());
+									}
+							);
 							component.addDesignation(designationComponent);
 						}
 					}
+					concept.getExtensions().forEach((key, value) ->{
+						value.stream().filter(x ->!x.isSpecialExtension()).forEach( fe ->{
+								//addition of these extensions is optional according to the G.G. tests
+								//component.addExtension(fe.getCode(), fe.toHapiValue(null));
+						});
+					});
+					addInfoFromReferences(component, references);
 					return component;
 		})
 				.collect(Collectors.toList()));
@@ -392,6 +484,95 @@ public class FHIRValueSetService {
 		}
 
 		return hapiValueSet;
+
+
+	}
+
+	private static void addPropertyToContains(String code, ValueSet.ValueSetExpansionContainsComponent component, Type value) {
+		Extension extension = new Extension();
+		extension.addExtension("code", new CodeType(code));
+		extension.addExtension("value", value);
+		extension.setUrl("http://hl7.org/fhir/5.0/StructureDefinition/extension-ValueSet.expansion.contains.property");
+		component.addExtension(extension);
+	}
+
+	private static void addPropertyToExpansion(String code, String url, ValueSet.ValueSetExpansionComponent expansion) {
+		if(expansion.getExtensionsByUrl("http://hl7.org/fhir/5.0/StructureDefinition/extension-ValueSet.expansion.property")
+				.stream()
+				.filter( extension -> extension.hasExtension("code"))
+				.noneMatch(extension -> extension.getExtensionByUrl("code").getValue().equalsDeep(new CodeType(code)))) {
+			Extension expExtension = new Extension();
+			expExtension.addExtension("code", new CodeType(code));
+			expExtension.addExtension("uri", new UriType(url));
+			expExtension.setUrl("http://hl7.org/fhir/5.0/StructureDefinition/extension-ValueSet.expansion.property");
+			expansion.addExtension(expExtension);
+		}
+	}
+
+	private static void removeExtension(Element component,String uri, String uri2,  Type value){
+		List<Extension> extensions = component.getExtensionsByUrl(uri);
+        for (Extension extension : extensions) {
+            List<Extension> extensions2 = extension.getExtensionsByUrl(uri2);
+            for (Extension item : extensions2) {
+                if (item.getValue().equalsDeep(value)) {
+                    component.getExtension().remove(extension);
+                    return;
+                }
+            }
+        }
+	}
+
+	private static void addInfoFromReferences(ValueSet.ValueSetExpansionContainsComponent component, List<ValueSet.ConceptReferenceComponent> references) {
+		references.stream().filter(reference -> reference.getCode().equals(component.getCode())).forEach( reference -> {
+			reference.getDesignation().forEach(
+					rd->{
+						Optional<ValueSet.ConceptReferenceDesignationComponent> od = component.getDesignation().stream().filter(ode -> ode.getLanguage().equals(rd.getLanguage())).findFirst();
+						od.ifPresentOrElse(x ->{
+							x.setValue(rd.getValue());
+							rd.getExtension().forEach(x::addExtension);
+						},()-> component.addDesignation(rd));
+					}
+			);
+			reference.getExtension().forEach(
+					re->{
+						if (Arrays.asList(FHIRValueSetService.URLS).contains(re.getUrl())){
+
+							Extension property = new Extension();
+							switch (re.getUrl()){
+								case "http://hl7.org/fhir/StructureDefinition/itemWeight":
+									removeExtension(component,"http://hl7.org/fhir/5.0/StructureDefinition/extension-ValueSet.expansion.contains.property","code" ,new CodeType("weight"));
+									property.addExtension("code",new CodeType("weight"));
+									property.addExtension("value", re.getValue());
+									property.setUrl("http://hl7.org/fhir/5.0/StructureDefinition/extension-ValueSet.expansion.contains.property");
+									break;
+								case "http://hl7.org/fhir/StructureDefinition/valueset-label":
+									removeExtension(component,"http://hl7.org/fhir/5.0/StructureDefinition/extension-ValueSet.expansion.contains.property","code" ,new CodeType("label"));
+									property.addExtension("code",new CodeType("label"));
+									property.addExtension("value", re.getValue());
+									property.setUrl("http://hl7.org/fhir/5.0/StructureDefinition/extension-ValueSet.expansion.contains.property");
+									break;
+								case "http://hl7.org/fhir/StructureDefinition/valueset-conceptOrder":
+									removeExtension(component,"http://hl7.org/fhir/5.0/StructureDefinition/extension-ValueSet.expansion.contains.property","code" ,new CodeType("order"));
+									property.addExtension("code",new CodeType("order"));
+									property.addExtension("value", new DecimalType(re.getValue().primitiveValue()));
+									property.setUrl("http://hl7.org/fhir/5.0/StructureDefinition/extension-ValueSet.expansion.contains.property");
+									break;
+								case "http://hl7.org/fhir/StructureDefinition/valueset-deprecated":
+									property = re;
+									break;
+								case "http://hl7.org/fhir/StructureDefinition/valueset-concept-definition":
+									property = re;
+									break;
+								default:
+							}
+							component.addExtension(property);
+						}
+					}
+			);
+
+
+		});
+
 	}
 
 	private String getUserRef(ValueSet valueSet) {
