@@ -123,6 +123,13 @@ public class FHIRConceptService {
 		}
 
 		Set<String> props = new HashSet<>();
+		//treat extensions as properties, until better solution...
+		concepts.forEach(concept ->{
+			concept.getExtensions().forEach((key,value)->{
+				concept.getProperties().put(key,value);
+			});
+		});
+
 		concepts.stream()
 				.filter(concept -> concept.getProperties() != null)
 				.forEach(concept -> props.addAll(concept.getProperties().keySet()));
@@ -152,6 +159,10 @@ public class FHIRConceptService {
 				percentToLog = null;
 			}
 		}
+	}
+
+	public Page<FHIRConcept> findConcepts(String idWithVersion, PageRequest pageRequest){
+		return conceptRepository.findByCodeSystemVersion(idWithVersion, pageRequest);
 	}
 
 	public void deleteExistingCodes(String idWithVersion) {

@@ -22,6 +22,7 @@ import org.snomed.snowstorm.core.data.domain.Concept;
 import org.snomed.snowstorm.core.data.domain.Description;
 import org.snomed.snowstorm.core.data.services.CodeSystemService;
 import org.snomed.snowstorm.core.data.services.MultiSearchService;
+import org.snomed.snowstorm.core.data.services.ServiceException;
 import org.snomed.snowstorm.core.pojo.LanguageDialect;
 import org.snomed.snowstorm.fhir.config.FHIRConstants;
 import org.snomed.snowstorm.fhir.domain.FHIRCodeSystemVersion;
@@ -198,19 +199,19 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants 
 	}
 
 	@Create
-	public MethodOutcome createCodeSystem(@ResourceParam CodeSystem codeSystem) {
+	public MethodOutcome createCodeSystem(@ResourceParam CodeSystem codeSystem) throws ServiceException {
 		// HAPI clears the id in the codeSystem when using this POST method
 		return doCreateUpdate(codeSystem);
 	}
 
 	@Update
-	public MethodOutcome createUpdateCodeSystem(@IdParam IdType id, @ResourceParam CodeSystem codeSystem) {
+	public MethodOutcome createUpdateCodeSystem(@IdParam IdType id, @ResourceParam CodeSystem codeSystem) throws ServiceException {
 		// HAPI keeps the id in the codeSystem when using this PUT method. It also ensures that the id in the resource and URL match.
 		return doCreateUpdate(codeSystem);
 	}
 
 	@NotNull
-	private MethodOutcome doCreateUpdate(CodeSystem codeSystem) {
+	private MethodOutcome doCreateUpdate(CodeSystem codeSystem) throws ServiceException {
 		FHIRHelper.readOnlyCheck(readOnlyMode);
 
 		MethodOutcome outcome = new MethodOutcome();

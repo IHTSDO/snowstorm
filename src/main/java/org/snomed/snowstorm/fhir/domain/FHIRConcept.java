@@ -84,14 +84,14 @@ public class FHIRConcept implements FHIRGraphNode {
 		}
 
 		properties = new HashMap<>();
-		for (TermConceptProperty property : termConcept.getProperties()) {
+		for (TermConceptProperty property : termConcept.getProperties().stream().filter(p -> !p.getKey().contains(EXTENSION_MARKER)).toList()) {
 			properties.computeIfAbsent(property.getKey(), i -> new ArrayList<>())
 					.add(new FHIRProperty(property));
 		}
 
 		extensions = new HashMap<>();
 		for (TermConceptProperty extension : termConcept.getProperties().stream().filter(p -> p.getKey().contains(EXTENSION_MARKER)).toList()) {
-			extensions.computeIfAbsent(extension.getKey(), (i) -> new ArrayList<>())
+			extensions.computeIfAbsent(extension.getKey(), i -> new ArrayList<>())
 					.add(new FHIRProperty(extension));
 		}
 
@@ -135,7 +135,21 @@ public class FHIRConcept implements FHIRGraphNode {
 		);
 		parents = new HashSet<>();
 		for (CodeSystem.ConceptPropertyComponent propertyComponent : definitionConcept.getProperty()) {
-			properties.computeIfAbsent(propertyComponent.getCode(), k -> new ArrayList<>()).add(new FHIRProperty(propertyComponent));
+			if (properties.get(propertyComponent.getCode())==null && !propertyComponent.getCode().contains(EXTENSION_MARKER)){
+				properties.put(propertyComponent.getCode(),new ArrayList<>());
+			}
+			try{
+				if(!propertyComponent.getCode().contains(EXTENSION_MARKER)){
+					properties.get(propertyComponent.getCode()).add(new FHIRProperty(propertyComponent));
+				}
+			} catch( UnsupportedOperationException e){
+				List<FHIRProperty> unmodifiableList = properties.get(propertyComponent.getCode());
+				List<FHIRProperty> modifiableList = new ArrayList<>();
+				modifiableList.addAll(unmodifiableList);
+				properties.put(propertyComponent.getCode(), modifiableList);
+				properties.get(propertyComponent.getCode()).add(new FHIRProperty(propertyComponent));
+			}
+
 			if (propertyComponent.getCode().equals("parent") || propertyComponent.getCode().equals("subsumedBy")) {
 				parents.add(propertyComponent.hasValueCoding() ? propertyComponent.getValueCoding().getCode() : propertyComponent.getValue().toString());
 			}
@@ -260,6 +274,9 @@ public class FHIRConcept implements FHIRGraphNode {
 	}
 
 	public Map<String, List<FHIRProperty>> getExtensions() {
+		if (extensions == null) {
+			extensions = new HashMap<>();
+		}
 		return extensions;
 	}
 
