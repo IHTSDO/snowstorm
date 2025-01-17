@@ -7,6 +7,7 @@ import org.apache.commons.compress.archivers.ArchiveEntry;
 import org.apache.commons.compress.archivers.tar.TarArchiveInputStream;
 import org.apache.commons.compress.compressors.gzip.GzipCompressorInputStream;
 import org.apache.commons.io.FileUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.hl7.fhir.instance.model.api.IBaseResource;
 import org.hl7.fhir.r4.model.CodeSystem;
 import org.hl7.fhir.r4.model.OperationOutcome;
@@ -100,15 +101,16 @@ public class FHIRLoadPackageService {
 						codeSystemService.deleteCodeSystemVersion(existingCodeSystemVersion);
 					}
 				}
-				List<CodeSystem.ConceptDefinitionComponent> concepts = codeSystem.getConcept();
-				logger.info("Importing CodeSystem {} with {} concepts from package", codeSystem.getUrl(), concepts != null ? concepts.size() : 0);
+				logger.info("Creating CodeSystem {}", codeSystem.getUrl());
 				FHIRCodeSystemVersion codeSystemVersion;
 				try {
 					codeSystemVersion = codeSystemService.createUpdate(codeSystem);
 				} catch (ServiceException e) {
 					throw new IOException("Failed to create FHIR CodeSystem.", e);
 				}
-				if (concepts != null) {
+				List<CodeSystem.ConceptDefinitionComponent> concepts = getConcepts(codeSystem, codeSystemVersion);
+				logger.info("Importing CodeSystem {} with {} concepts from package", codeSystem.getUrl(), concepts != null ? concepts.size() : 0);
+				if (concepts != null ) {
 					fhirConceptService.saveAllConceptsOfCodeSystemVersion(concepts, codeSystemVersion);
 				}
 			}
@@ -137,6 +139,22 @@ public class FHIRLoadPackageService {
 		}
 
 		logger.info("Completed import of package {}.", submittedFileName);
+	}
+
+	private List<CodeSystem.ConceptDefinitionComponent> getConcepts(CodeSystem codeSystem, FHIRCodeSystemVersion version) {
+		List<CodeSystem.ConceptDefinitionComponent> concepts;
+		if (StringUtils.isEmpty(codeSystem.getSupplements())){
+			concepts = codeSystem.getConcept();
+		} else {
+			CodeSystem newCodeSystem = codeSystemService.addSupplementToCodeSystem(codeSystem, version);
+			concepts = newCodeSystem.getConcept();
+		}
+
+
+
+
+
+		return concepts;
 	}
 
 	private static void validateResources(List<FHIRPackageIndexFile> filesToImport, Set<String> resourceUrlsToImport, boolean importAll, Set<String> supportedResourceTypes) {

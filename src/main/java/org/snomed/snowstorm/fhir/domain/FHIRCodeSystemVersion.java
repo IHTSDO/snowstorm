@@ -3,6 +3,7 @@ package org.snomed.snowstorm.fhir.domain;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import org.hl7.fhir.r4.model.CodeSystem;
 import org.hl7.fhir.r4.model.Enumerations;
+import org.hl7.fhir.r4.model.Extension;
 import org.joda.time.DateTime;
 import org.joda.time.format.DateTimeFormat;
 import org.joda.time.format.DateTimeFormatter;
@@ -16,6 +17,7 @@ import org.springframework.data.annotation.Transient;
 import org.springframework.data.elasticsearch.annotations.*;
 
 import java.util.Date;
+import java.util.List;
 
 import static org.snomed.snowstorm.fhir.config.FHIRConstants.*;
 
@@ -54,6 +56,9 @@ public class FHIRCodeSystemVersion {
 
 	@Field(type = FieldType.Keyword)
 	private String content;
+
+	@Field(type = FieldType.Nested)
+	private List<Extension> extensions;
 
 	@Transient
 	private String snomedBranch;
@@ -96,6 +101,7 @@ public class FHIRCodeSystemVersion {
 		compositional = codeSystem.getCompositional();
 		CodeSystem.CodeSystemContentMode codeSystemContent = codeSystem.getContent();
 		content = codeSystemContent != null ? codeSystemContent.toCode() : null;
+		extensions = codeSystem.getExtension();
 	}
 
 	public FHIRCodeSystemVersion(CodeSystemVersion snomedVersion) {
@@ -144,9 +150,12 @@ public class FHIRCodeSystemVersion {
 
 	public CodeSystem toHapiCodeSystem() {
 		CodeSystem codeSystem = new CodeSystem();
+		codeSystem.setExtension(extensions);
 		codeSystem.setId(id);
 		codeSystem.setUrl(url);
-		codeSystem.setVersion(version);
+		if(!"0".equals(version)) {
+			codeSystem.setVersion(version);
+		}
 		codeSystem.setDate(date);
 		codeSystem.setName(name);
 		codeSystem.setTitle(title);
@@ -181,7 +190,11 @@ public class FHIRCodeSystemVersion {
 	}
 
 	public String getCanonical() {
-		return url + "|" + version;
+		if ("0".equals(version)){
+			return url;
+		} else {
+			return url + "|" + version;
+		}
 	}
 
 	public String getId() {
@@ -246,6 +259,14 @@ public class FHIRCodeSystemVersion {
 
 	public void setPublisher(String publisher) {
 		this.publisher = publisher;
+	}
+
+	public List<Extension> getExtensions() {
+		return extensions;
+	}
+
+	public void setExtensions(List<Extension> extensions) {
+		this.extensions = extensions;
 	}
 
 	public String getHierarchyMeaning() {
