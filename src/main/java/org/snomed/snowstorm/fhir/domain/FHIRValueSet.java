@@ -28,6 +28,9 @@ public class FHIRValueSet {
 	@Field(type = FieldType.Keyword)
 	private String url;
 
+	@Field(type = FieldType.Keyword)
+	private String language;
+
 	private List<FHIRIdentifier> identifier;
 
 	@Field(type = FieldType.Keyword)
@@ -75,6 +78,7 @@ public class FHIRValueSet {
 			}
 			identifier.add(new FHIRIdentifier(hapiIdentifier));
 		}
+		language = hapiValueSet.getLanguage();
 		version = hapiValueSet.getVersion();
 		name = hapiValueSet.getName();
 		title = hapiValueSet.getTitle();
@@ -108,6 +112,7 @@ public class FHIRValueSet {
 		ValueSet valueSet = new ValueSet();
 		valueSet.setId(id);
 		valueSet.setUrl(url);
+		valueSet.setLanguage(language);
 
 		for (FHIRIdentifier fhirIdentifier : orEmpty(getIdentifier())) {
 			valueSet.addIdentifier(fhirIdentifier.getHapi());
@@ -253,5 +258,13 @@ public class FHIRValueSet {
 
 	public void setExtensions(List<FHIRExtension> extensions) {
 		this.extensions = extensions;
+	}
+
+	public String getLanguage() {
+		return language;
+	}
+
+	public void setLanguage(String language) {
+		this.language = language;
 	}
 }
