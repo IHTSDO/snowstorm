@@ -33,6 +33,9 @@ public class FHIRCodeSystemVersion {
 	@Field(type = FieldType.Keyword)
 	private String version;
 
+	@Field(type = FieldType.Keyword)
+	private String language;
+
 	@Field(type = FieldType.Date, format = DateFormat.date_time)
 	private Date date;
 
@@ -89,6 +92,7 @@ public class FHIRCodeSystemVersion {
 		version = codeSystem.getVersion();
 		date = codeSystem.getDate();
 		title = codeSystem.getTitle();
+		language = codeSystem.getLanguage();
 		if (title != null) {
 			title = title.replace(" Code System", "");
 		}
@@ -156,6 +160,7 @@ public class FHIRCodeSystemVersion {
 		if(!"0".equals(version)) {
 			codeSystem.setVersion(version);
 		}
+		codeSystem.setLanguage(language);
 		codeSystem.setDate(date);
 		codeSystem.setName(name);
 		codeSystem.setTitle(title);
@@ -311,5 +316,13 @@ public class FHIRCodeSystemVersion {
 	@Override
 	public String toString() {
 		return getId();
+	}
+
+	public String getLanguage() {
+		return language;
+	}
+
+	public void setLanguage(String language) {
+		this.language = language;
 	}
 }
