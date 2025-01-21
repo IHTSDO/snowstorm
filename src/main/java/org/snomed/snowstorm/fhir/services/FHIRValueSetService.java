@@ -5,6 +5,7 @@ import co.elastic.clients.elasticsearch._types.query_dsl.Operator;
 import com.google.common.base.Strings;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 import org.apache.lucene.analysis.standard.StandardAnalyzer;
+import org.apache.commons.lang3.tuple.Pair;
 import org.hl7.fhir.r4.model.*;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -183,7 +184,8 @@ public class FHIRValueSetService {
 		notSupported("context", params.getContext());
 		notSupported("contextDirection", params.getContextDirection());
 		notSupported("date", params.getDate());
-		notSupported("designation", params.getDesignations());
+		//notSupported("designation", params.getDesignations());
+		//notSupported("excludeNested", params.getExcludeNested());
 		notSupported("excludeNotForUI", params.getExcludeNotForUI());
 		notSupported("excludePostCoordinated", params.getExcludePostCoordinated());
 		notSupported("version", params.getVersion());// Not part of the FHIR API spec but requested under MAINT-1363
@@ -239,7 +241,7 @@ public class FHIRValueSetService {
 			copyright = SNOMED_VALUESET_COPYRIGHT;
 
 			FHIRCodeSystemVersion codeSystemVersion = allInclusionVersions.iterator().next();
-			List<LanguageDialect> languageDialects = ControllerHelper.parseAcceptLanguageHeader(displayLanguage);
+			List<LanguageDialect> languageDialects = ControllerHelper.parseAcceptLanguageHeader(FHIRHelper.getDisplayLanguage(params.getDisplayLanguage(),displayLanguage));
 
 			// Constraints:
 			// - Elasticsearch prevents us from requesting results beyond the first 10K
@@ -352,8 +354,10 @@ public class FHIRValueSetService {
 
 		Map<String, String> idAndVersionToUrl = allInclusionVersions.stream()
 				.collect(Collectors.toMap(FHIRCodeSystemVersion::getId, FHIRCodeSystemVersion::getUrl));
+		Map<String, String> idAndVersionToLanguage = allInclusionVersions.stream()
+				.collect(Collectors.toMap(FHIRCodeSystemVersion::getId, FHIRCodeSystemVersion::getLanguage));
 		allInclusionVersions.forEach(codeSystemVersion -> {
-			codeSystemVersion.getExtensions().forEach(ext -> hapiValueSet.addExtension(ext));
+			codeSystemVersion.getExtensions().forEach(hapiValueSet::addExtension);
 				});
 		ValueSet.ValueSetExpansionComponent expansion = new ValueSet.ValueSetExpansionComponent();
 		String id = UUID.randomUUID().toString();
@@ -363,6 +367,11 @@ public class FHIRValueSetService {
 		Optional.ofNullable(params.getActiveOnly()).ifPresent(x->expansion.addParameter(new ValueSet.ValueSetExpansionParameterComponent(new StringType("activeOnly")).setValue(new BooleanType(x))));
 		Optional.ofNullable(params.getExcludeNested()).ifPresent(x->expansion.addParameter(new ValueSet.ValueSetExpansionParameterComponent(new StringType("excludeNested")).setValue(new BooleanType(x))));
 		Optional.ofNullable(params.getIncludeDesignations()).ifPresent(x->expansion.addParameter(new ValueSet.ValueSetExpansionParameterComponent(new StringType("includeDesignations")).setValue(new BooleanType(x))));
+		Optional.ofNullable(params.getDesignations()).ifPresent(x->{
+			x.stream().forEach( language -> {
+				expansion.addParameter(new ValueSet.ValueSetExpansionParameterComponent(new StringType("designation")).setValue(new StringType(language)));
+			});
+		});
 		allInclusionVersions.forEach(codeSystemVersion -> {
 				if (codeSystemVersion.getVersion() != null) {
 					expansion.addParameter(new ValueSet.ValueSetExpansionParameterComponent(new StringType("version"))
@@ -386,9 +395,22 @@ public class FHIRValueSetService {
 					addPropertyToExpansion(x, PROPERTY_TO_URL.get(x), expansion);
 				}
 		);
+		final String fhirDisplayLanguage;
+		if(Optional.ofNullable(params.getDisplayLanguage()).isPresent()){
+			fhirDisplayLanguage = params.getDisplayLanguage();
+			expansion.addParameter(new ValueSet.ValueSetExpansionParameterComponent(new StringType("displayLanguage")).setValue(new CodeType(fhirDisplayLanguage)));
+		} else if (hasDisplayLanguage(hapiValueSet)){
+			fhirDisplayLanguage = hapiValueSet.getCompose().getExtensionByUrl("http://hl7.org/fhir/tools/StructureDefinition/valueset-expansion-parameter").getExtensionString("value");
+			expansion.addParameter(new ValueSet.ValueSetExpansionParameterComponent(new StringType("displayLanguage")).setValue(new CodeType(fhirDisplayLanguage)));
 
-        //this line was removed because of the GG tests.
-		//expansion.addParameter(new ValueSet.ValueSetExpansionParameterComponent(new StringType("displayLanguage")).setValue(new StringType(displayLanguage)));
+		} else if (displayLanguage != null){
+			fhirDisplayLanguage = displayLanguage;
+			expansion.addParameter(new ValueSet.ValueSetExpansionParameterComponent(new StringType("displayLanguage")).setValue(new CodeType(fhirDisplayLanguage)));
+		} else {
+			fhirDisplayLanguage = null;
+		}
+
+
 		expansion.setContains(conceptsPage.stream().map(concept -> {
 					List<ValueSet.ConceptReferenceComponent> references = hapiValueSet.getCompose().getInclude().stream()
 							.flatMap(set -> set.getConcept().stream()).filter(c -> c.getCode().equals(concept.getCode())).toList();
@@ -443,20 +465,6 @@ public class FHIRValueSetService {
 								});
 					});
 
-					if (includeDesignations) {
-						for (FHIRDesignation designation : concept.getDesignations()) {
-							ValueSet.ConceptReferenceDesignationComponent designationComponent = new ValueSet.ConceptReferenceDesignationComponent();
-							designationComponent.setLanguage(designation.getLanguage());
-							designationComponent.setUse(designation.getUseCoding());
-							designationComponent.setValue(designation.getValue());
-							Optional.ofNullable(designation.getExtensions()).orElse(Collections.emptyList()).forEach(
-									e -> {
-										designationComponent.addExtension(e.getHapi());
-									}
-							);
-							component.addDesignation(designationComponent);
-						}
-					}
 					concept.getExtensions().forEach((key, value) ->{
 						value.stream().filter(x ->!x.isSpecialExtension()).forEach( fe ->{
 								//addition of these extensions is optional according to the G.G. tests
@@ -464,6 +472,7 @@ public class FHIRValueSetService {
 						});
 					});
 					addInfoFromReferences(component, references);
+					setDisplayAndDesignations(component, concept, idAndVersionToLanguage.get(concept.getCodeSystemVersion()), includeDesignations, fhirDisplayLanguage, params.getDesignations());
 					return component;
 		})
 				.collect(Collectors.toList()));
@@ -486,6 +495,125 @@ public class FHIRValueSetService {
 		return hapiValueSet;
 
 
+	}
+
+	private static boolean hasDisplayLanguage(ValueSet hapiValueSet) {
+        return Optional.ofNullable(hapiValueSet.getCompose().getExtensionByUrl("http://hl7.org/fhir/tools/StructureDefinition/valueset-expansion-parameter")).isPresent() && "displayLanguage".equals(hapiValueSet.getCompose().getExtensionByUrl("http://hl7.org/fhir/tools/StructureDefinition/valueset-expansion-parameter").getExtensionString("name"));
+	}
+
+	private static void setDisplayAndDesignations(ValueSet.ValueSetExpansionContainsComponent component, FHIRConcept concept, String defaultConceptLanguage, boolean includeDesignations, String displayLanguage, List<String> designationLanguages) {
+		List<String> designationLang = Optional.ofNullable(designationLanguages).orElse(Collections.emptyList()).stream().map(x -> {
+			String[] systemAndLanguage = x.split("\\|");
+			if (systemAndLanguage.length < 2){
+				return systemAndLanguage[0];
+			} else {
+				return systemAndLanguage[1];
+			}
+
+		}).toList();
+		Map<String, ValueSet.ConceptReferenceDesignationComponent> languageToDesignation = new HashMap<>();
+		Map<String, List<Locale>> languageToVarieties = new HashMap<>();
+		List<Pair<LanguageDialect, Double>> weightedLanguages = ControllerHelper.parseAcceptLanguageHeaderWithWeights(displayLanguage,true);
+		Locale defaultLocale = Locale.forLanguageTag(defaultConceptLanguage);
+        if(languageToVarieties.get(defaultLocale.getLanguage()) == null){
+			List<Locale> allVarieties = new ArrayList<>();
+			languageToVarieties.put(defaultLocale.getLanguage(),allVarieties);
+		}
+		languageToVarieties.get(defaultLocale.getLanguage()).add(defaultLocale);
+
+		languageToDesignation.put(defaultConceptLanguage, new ValueSet.ConceptReferenceDesignationComponent().setValue(component.getDisplay())
+				.setLanguage(defaultConceptLanguage) );
+
+		List<ValueSet.ConceptReferenceDesignationComponent> noLanguage = new ArrayList<>();
+
+		for (ValueSet.ConceptReferenceDesignationComponent designation : component.getDesignation()){
+			if (designation.getLanguage()==null) {
+				noLanguage.add(designation);
+			} else {
+				Locale designationLocale = Locale.forLanguageTag(designation.getLanguage());
+				if (languageToVarieties.get(designationLocale.getLanguage()) == null) {
+					List<Locale> allVarieties = new ArrayList<>();
+					languageToVarieties.put(designationLocale.getLanguage(), allVarieties);
+				}
+				languageToVarieties.get(designationLocale.getLanguage()).add(designationLocale);
+				languageToDesignation.put(designation.getLanguage(), designation);
+			}
+
+		}
+
+
+			for (FHIRDesignation designation : concept.getDesignations()) {
+				ValueSet.ConceptReferenceDesignationComponent designationComponent = new ValueSet.ConceptReferenceDesignationComponent();
+				designationComponent.setLanguage(designation.getLanguage());
+				designationComponent.setUse(designation.getUseCoding());
+				designationComponent.setValue(designation.getValue());
+				Optional.ofNullable(designation.getExtensions()).orElse(Collections.emptyList()).forEach(
+						e -> {
+							designationComponent.addExtension(e.getHapi());
+						}
+				);
+				if (designation.getLanguage()==null) {
+					noLanguage.add(designationComponent);
+				} else {
+					Locale designationLocale = Locale.forLanguageTag(designation.getLanguage());
+					if (languageToVarieties.get(designationLocale.getLanguage()) == null) {
+						List<Locale> allVarieties = new ArrayList<>();
+						languageToVarieties.put(designationLocale.getLanguage(), allVarieties);
+					}
+					languageToVarieties.get(designationLocale.getLanguage()).add(designationLocale);
+					languageToDesignation.put(designation.getLanguage(), designationComponent);
+				}
+			}
+
+		String requestedLanguage = determineRequestedLanguage(defaultConceptLanguage, weightedLanguages, languageToDesignation.keySet(), languageToVarieties);
+		if (requestedLanguage == null) {
+			component.setDisplay(null);
+		} else {
+			component.setDisplay(languageToDesignation.get(requestedLanguage).getValue());
+		}
+
+		if (includeDesignations) {
+			List<ValueSet.ConceptReferenceDesignationComponent> newDesignations = new ArrayList<>();
+			for (Map.Entry<String, ValueSet.ConceptReferenceDesignationComponent> entry : languageToDesignation.entrySet() ){
+
+				if (!entry.getKey().equals(requestedLanguage)) {
+					if (entry.getKey().equals(defaultConceptLanguage)) {
+						entry.getValue().setUse(new Coding("http://terminology.hl7.org/CodeSystem/designation-usage", "display", null));
+					}
+
+
+					if(designationLang.isEmpty() || designationLang.contains(entry.getValue().getLanguage())) {
+						newDesignations.add(entry.getValue());
+					}
+
+				}
+			}
+			newDesignations.addAll(noLanguage);
+			component.setDesignation(newDesignations);
+		} else {
+			component.setDesignation(Collections.emptyList());
+		}
+
+	}
+
+	private static String determineRequestedLanguage(String defaultConceptLanguage, List<Pair<LanguageDialect, Double>> weightedLanguages, Set<String> availableVarieties, Map<String, List<Locale>> languageToVarieties) {
+		List<Pair<LanguageDialect,Double>> allowedLanguages = new ArrayList<>(weightedLanguages.stream().filter(x -> (x.getRight()>0d)).toList());
+		allowedLanguages.sort( (a,b) ->{ return a.getRight().compareTo(b.getRight())*-1;});
+		String requestedLanguage = allowedLanguages.isEmpty() ?defaultConceptLanguage:allowedLanguages.get(0).getLeft().getLanguageCode();
+		if (!availableVarieties.contains(requestedLanguage)){
+			Locale requested = Locale.forLanguageTag(requestedLanguage);
+			if(languageToVarieties.get(requested.getLanguage())==null){
+				List<String> forbiddenLanguages = weightedLanguages.stream().filter(x -> x.getRight().equals(0d)).map(x -> x.getLeft().getLanguageCode()).toList();
+				if(forbiddenLanguages.contains(defaultConceptLanguage)||forbiddenLanguages.contains("*")){
+					requestedLanguage = null;
+				} else {
+					requestedLanguage = defaultConceptLanguage;
+				}
+			} else {
+				requestedLanguage = languageToVarieties.get(requested.getLanguage()).stream().findFirst().get().toLanguageTag();
+			}
+		}
+		return requestedLanguage;
 	}
 
 	private static void addPropertyToContains(String code, ValueSet.ValueSetExpansionContainsComponent component, Type value) {
@@ -770,7 +898,37 @@ public class FHIRValueSetService {
 		// Grab value set
 		ValueSet hapiValueSet = findOrInferValueSet(id, FHIRHelper.toString(url), valueSet);
 		if (hapiValueSet == null) {
-			return null;
+			CodeableConcept detail = new CodeableConcept(new Coding(TX_ISSUE_TYPE,"not-found",null)).setText(format("A definition for the value Set '%s' could not be found",url.getValue()));
+			throw exception("message", OperationOutcome.IssueType.NOTFOUND,404,null, detail);
+		}
+
+		List<ValueSetCycleElement> valueSetCycle = getValueSetIncludeExcludeCycle(hapiValueSet);
+		if(!valueSetCycle.isEmpty()) {
+			String message = getCyclicDiagnosticMessage(valueSetCycle);
+			throw exception(message, OperationOutcome.IssueType.PROCESSING, 400, null, new CodeableConcept(new Coding()).setText(message));
+		}
+
+		Optional.ofNullable(versionValueSet).ifPresent(v->{
+			hapiValueSet.getCompose().getInclude().stream().filter(x->x.hasValueSet()).flatMap(x->x.getValueSet().stream()).filter(x->CanonicalUri.fromString(x.getValueAsString()).getSystem().equals(CanonicalUri.fromString(versionValueSet.getValueAsString()).getSystem())).forEach( x -> x.setValueAsString(versionValueSet.getValueAsString()));
+		});
+
+		hapiValueSet.getExtension().forEach(
+				ext ->{
+					if(ext.getUrl().equals("http://hl7.org/fhir/StructureDefinition/valueset-supplement")) {
+						if (!codeSystemService.supplementExists(ext.getValue().primitiveValue(), false)) {
+
+
+							String message = "Supplement %s does not exist.".formatted(ext.getValue().primitiveValue());
+							CodeableConcept cc = new CodeableConcept().setText(message);
+							throw exception(message,
+									OperationOutcome.IssueType.NOTFOUND, 404, null, cc);
+
+						}
+					}
+				});
+
+		if (hasDisplayLanguage(hapiValueSet) && displayLanguage == null) {
+			displayLanguage = hapiValueSet.getCompose().getExtensionByUrl("http://hl7.org/fhir/tools/StructureDefinition/valueset-expansion-parameter").getExtensionString("value");
 		}
 
 		// Get set of codings - one of which needs to be valid
