@@ -3,6 +3,8 @@ package org.snomed.snowstorm.rest;
 import com.google.common.base.Strings;
 import io.kaicode.rest.util.branchpathrewrite.BranchPathUriUtil;
 import jakarta.servlet.http.HttpServletRequest;
+import org.apache.commons.lang3.tuple.ImmutablePair;
+import org.apache.commons.lang3.tuple.Pair;
 import org.snomed.snowstorm.core.data.domain.ConceptMini;
 import org.snomed.snowstorm.core.data.services.DialectConfigurationService;
 import org.snomed.snowstorm.core.data.services.NotFoundException;
@@ -39,7 +41,6 @@ import static org.snomed.snowstorm.config.Config.DEFAULT_LANGUAGE_DIALECTS;
 public class ControllerHelper {
 
 	private static final Pattern LANGUAGE_PATTERN = Pattern.compile("([a-z]{2})");
-	private static final Pattern LANGUAGE_AND_REGIONAL_DIALECT_PATTERN = Pattern.compile("([a-z]{2})-\\d+$");
 	private static final Pattern LANGUAGE_AND_REFSET_PATTERN = Pattern.compile("([a-z]{2})-x-(" + IdentifierService.SCTID_PATTERN + ")");
 	private static final Pattern LANGUAGE_AND_DIALECT_PATTERN = Pattern.compile("([a-z]{2})-([a-z]{2})");
 	private static final Pattern LANGUAGE_AND_DIALECT_AND_CONTEXT_PATTERN = Pattern.compile("([a-z]{2})-([a-z]{2})-([a-z]+)");
@@ -159,14 +160,15 @@ public class ControllerHelper {
 		return languageDialects;
 	}
 
-	public static List<LanguageDialect> parseAcceptLanguageHeader(String acceptLanguageHeader) {
+
+	public static List<Pair<LanguageDialect, Double>> parseAcceptLanguageHeaderWithWeights(String acceptLanguageHeader, boolean wildcard){
 		// en-ie-x-21000220103;q=0.8,en-US;q=0.5
-		List<LanguageDialect> languageDialects = new ArrayList<>();
+		List<Pair<LanguageDialect,Double>> languageDialectsAndWeights = new ArrayList<>();
 
 		if (acceptLanguageHeader == null) {
 			acceptLanguageHeader = "";
 		}
-
+		Double weight;
 		acceptLanguageHeader = acceptLanguageHeader.replaceAll("\\s+", "");
 		String[] acceptLanguageList = acceptLanguageHeader.toLowerCase().split(",");
 		for (String acceptLanguage : acceptLanguageList) {
@@ -174,50 +176,52 @@ public class ControllerHelper {
 				continue;
 			}
 
+			String languageCode;
+			Long languageReferenceSet = null;
+
 			String[] valueAndWeight = acceptLanguage.split(";");
 			// We don't use the weight, just take the value
 			String value = valueAndWeight[0];
+			if (valueAndWeight.length < 2){
+				weight = 0.1;
+			} else {
+				weight = Double.parseDouble(valueAndWeight[1].substring(2));
+			}
 
-			List<LanguagePatternHandler> patternHandlers = List.of(
-				new LanguagePatternHandler(LANGUAGE_PATTERN, (matcher, ld) -> ld.setLanguageCode(matcher.group(1))),
-				new LanguagePatternHandler(LANGUAGE_AND_REGIONAL_DIALECT_PATTERN, (matcher, ld) -> ld.setLanguageCode(matcher.group(1))),
-				new LanguagePatternHandler(LANGUAGE_AND_REFSET_PATTERN, (matcher, ld) -> {
-					ld.setLanguageCode(matcher.group(1));
-					ld.setLanguageReferenceSet(parseLong(matcher.group(2)));
-				}),
-				new LanguagePatternHandler(LANGUAGE_AND_DIALECT_PATTERN, (matcher, ld) -> {
-					ld.setLanguageCode(matcher.group(1));
-					ld.setLanguageReferenceSet(DialectConfigurationService.instance().findRefsetForDialect(value));
-				}),
-				new LanguagePatternHandler(LANGUAGE_AND_DIALECT_AND_CONTEXT_PATTERN, (matcher, ld) -> {
-					ld.setLanguageCode(matcher.group(1));
-					ld.setLanguageReferenceSet(DialectConfigurationService.instance().findRefsetForDialect(value));
-				}),
-				new LanguagePatternHandler(LANGUAGE_AND_DIALECT_AND_REFSET_PATTERN, (matcher, ld) -> {
-					ld.setLanguageCode(matcher.group(1));
-					ld.setLanguageReferenceSet(parseLong(matcher.group(3)));
-				})
-			);
+			if("*".equals(value) && wildcard){
+				languageCode = value;
+			} else {
 
-			LanguageDialect languageDialect = new LanguageDialect();
-			boolean matched = false;
-			for (LanguagePatternHandler handler : patternHandlers) {
-				if (handler.handle(value, languageDialect)) {
-					matched = true;
-					break;
+				Matcher matcher = LANGUAGE_PATTERN.matcher(value);
+				if (matcher.matches()) {
+					languageCode = matcher.group(1);
+				} else if ((matcher = LANGUAGE_AND_REFSET_PATTERN.matcher(value)).matches()) {
+					languageCode = matcher.group(1);
+					languageReferenceSet = parseLong(matcher.group(2));
+				} else if ((matcher = LANGUAGE_AND_DIALECT_PATTERN.matcher(value)).matches() || (matcher = LANGUAGE_AND_DIALECT_AND_CONTEXT_PATTERN.matcher(value)).matches()) {
+					languageCode = matcher.group(1);
+					languageReferenceSet = DialectConfigurationService.instance().findRefsetForDialect(value);
+				} else if ((matcher = LANGUAGE_AND_DIALECT_AND_REFSET_PATTERN.matcher(value)).matches()) {
+					languageCode = matcher.group(1);
+					languageReferenceSet = parseLong(matcher.group(3));
+				} else {
+					throw new IllegalArgumentException("Unexpected value within Accept-Language request header '" + value + "'.");
 				}
 			}
 
-			if (!matched) {
-				throw new IllegalArgumentException("Unexpected value within Accept-Language request header '" + value + "'.");
-			}
-			
-			if (!languageDialects.contains(languageDialect)) {
+
+			Pair<LanguageDialect,Double> languageDialect = new ImmutablePair<>(new LanguageDialect(languageCode, languageReferenceSet), weight);
+
+			if (!languageDialectsAndWeights.contains(languageDialect)) {
 				//Would normally use a Set here, but the order may be important
-				languageDialects.add(languageDialect);
+				languageDialectsAndWeights.add(languageDialect);
 			}
 		}
-		return languageDialects;
+		return languageDialectsAndWeights;
+	}
+
+	public static List<LanguageDialect> parseAcceptLanguageHeader(String acceptLanguageHeader) {
+		return parseAcceptLanguageHeaderWithWeights(acceptLanguageHeader,false).stream().map(x -> x.getLeft()).toList();
 	}
 
 	static void validatePageSize(long offset, int limit) {
