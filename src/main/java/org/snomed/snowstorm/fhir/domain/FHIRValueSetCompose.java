@@ -12,6 +12,9 @@ public class FHIRValueSetCompose {
 	private List<FHIRValueSetCriteria> include;
 
 	private List<FHIRValueSetCriteria> exclude;
+
+	private List<FHIRExtension> extensions;
+
 	private Boolean inactive;
 
 	public FHIRValueSetCompose() {
@@ -30,6 +33,15 @@ public class FHIRValueSetCompose {
 		for (ValueSet.ConceptSetComponent hapiExclude : hapiCompose.getExclude()) {
 			addInclude(new FHIRValueSetCriteria(hapiExclude));
 		}
+
+		hapiCompose.getExtension().forEach( ext -> {
+			if (extensions == null){
+				extensions = new ArrayList<>();
+			}
+
+			extensions.add(new FHIRExtension(ext));
+
+		});
 	}
 
 	public ValueSet.ValueSetComposeComponent getHapi() {
@@ -43,6 +55,10 @@ public class FHIRValueSetCompose {
 		for (FHIRValueSetCriteria exclude : orEmpty(getExclude())) {
 			hapiCompose.addExclude(exclude.getHapi());
 		}
+
+		orEmpty(extensions).forEach( ext ->{
+			hapiCompose.addExtension(ext.getHapi());
+		});
 		return hapiCompose;
 	}
 
@@ -83,4 +99,13 @@ public class FHIRValueSetCompose {
 	public Boolean isInactive() {
 		return inactive;
 	}
+
+	public List<FHIRExtension> getExtensions() {
+		return extensions;
+	}
+
+	public void setExtensions(List<FHIRExtension> extensions) {
+		this.extensions = extensions;
+	}
+
 }
