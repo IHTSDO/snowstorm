@@ -438,9 +438,7 @@ public class FHIRValueSetService {
 		if(Optional.ofNullable(params.getDisplayLanguage()).isPresent()){
 			fhirDisplayLanguage = params.getDisplayLanguage();
 			expansion.addParameter(new ValueSet.ValueSetExpansionParameterComponent(new StringType("displayLanguage")).setValue(new CodeType(fhirDisplayLanguage)));
-		} else if (Optional.ofNullable(hapiValueSet.getCompose().getExtensionByUrl("http://hl7.org/fhir/tools/StructureDefinion/valueset-expansion-param")).isPresent()
-		&& "displayValue".equals(hapiValueSet.getCompose().getExtensionByUrl("http://hl7.org/fhir/tools/StructureDefinion/valueset-expansion-param").getExtensionString("name"))
-		){
+		} else if (hasDisplayLanguage(hapiValueSet)){
 			fhirDisplayLanguage = hapiValueSet.getCompose().getExtensionByUrl("http://hl7.org/fhir/tools/StructureDefinion/valueset-expansion-param").getExtensionString("value");
 			expansion.addParameter(new ValueSet.ValueSetExpansionParameterComponent(new StringType("displayLanguage")).setValue(new CodeType(fhirDisplayLanguage)));
 
@@ -538,6 +536,10 @@ public class FHIRValueSetService {
 
 	}
 
+	private static boolean hasDisplayLanguage(ValueSet hapiValueSet) {
+        return Optional.ofNullable(hapiValueSet.getCompose().getExtensionByUrl("http://hl7.org/fhir/tools/StructureDefinion/valueset-expansion-param")).isPresent() && "displayLanguage".equals(hapiValueSet.getCompose().getExtensionByUrl("http://hl7.org/fhir/tools/StructureDefinion/valueset-expansion-param").getExtensionString("name"));
+	}
+
 	private static void setDisplayAndDesignations(ValueSet.ValueSetExpansionContainsComponent component, FHIRConcept concept, String defaultConceptLanguage, boolean includeDesignations, String displayLanguage, List<String> designationLanguages) {
 		List<String> designationLang = Optional.ofNullable(designationLanguages).orElse(Collections.emptyList()).stream().map(x -> {
 			String[] systemAndLanguage = x.split("\\|");
@@ -561,16 +563,27 @@ public class FHIRValueSetService {
 		languageToDesignation.put(defaultConceptLanguage, new ValueSet.ConceptReferenceDesignationComponent().setValue(component.getDisplay())
 				.setLanguage(defaultConceptLanguage) );
 
+		List<ValueSet.ConceptReferenceDesignationComponent> noLanguage = new ArrayList<>();
 
-			for (FHIRDesignation designation : concept.getDesignations()) {
-				ValueSet.ConceptReferenceDesignationComponent designationComponent = new ValueSet.ConceptReferenceDesignationComponent();
-				designationComponent.setLanguage(designation.getLanguage());
+		for (ValueSet.ConceptReferenceDesignationComponent designation : component.getDesignation()){
+			if (designation.getLanguage()==null) {
+				noLanguage.add(designation);
+			} else {
 				Locale designationLocale = Locale.forLanguageTag(designation.getLanguage());
-				if (languageToVarieties.get(designationLocale.getLanguage())==null){
+				if (languageToVarieties.get(designationLocale.getLanguage()) == null) {
 					List<Locale> allVarieties = new ArrayList<>();
 					languageToVarieties.put(designationLocale.getLanguage(), allVarieties);
 				}
 				languageToVarieties.get(designationLocale.getLanguage()).add(designationLocale);
+				languageToDesignation.put(designation.getLanguage(), designation);
+			}
+
+		}
+
+
+			for (FHIRDesignation designation : concept.getDesignations()) {
+				ValueSet.ConceptReferenceDesignationComponent designationComponent = new ValueSet.ConceptReferenceDesignationComponent();
+				designationComponent.setLanguage(designation.getLanguage());
 				designationComponent.setUse(designation.getUseCoding());
 				designationComponent.setValue(designation.getValue());
 				Optional.ofNullable(designation.getExtensions()).orElse(Collections.emptyList()).forEach(
@@ -578,7 +591,17 @@ public class FHIRValueSetService {
 							designationComponent.addExtension(e.getHapi());
 						}
 				);
-				languageToDesignation.put(designation.getLanguage(), designationComponent);
+				if (designation.getLanguage()==null) {
+					noLanguage.add(designationComponent);
+				} else {
+					Locale designationLocale = Locale.forLanguageTag(designation.getLanguage());
+					if (languageToVarieties.get(designationLocale.getLanguage()) == null) {
+						List<Locale> allVarieties = new ArrayList<>();
+						languageToVarieties.put(designationLocale.getLanguage(), allVarieties);
+					}
+					languageToVarieties.get(designationLocale.getLanguage()).add(designationLocale);
+					languageToDesignation.put(designation.getLanguage(), designationComponent);
+				}
 			}
 
 		String requestedLanguage = determineRequestedLanguage(defaultConceptLanguage, weightedLanguages, languageToDesignation.keySet(), languageToVarieties);
@@ -604,6 +627,7 @@ public class FHIRValueSetService {
 
 				}
 			}
+			newDesignations.addAll(noLanguage);
 			component.setDesignation(newDesignations);
 		} else {
 			component.setDesignation(Collections.emptyList());
