@@ -3,6 +3,19 @@ All notable changes to this project will be documented in this file.
 
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 10.7.0 Release (January 2025)
+Maintenance release with bug fixes and general improvements.
+
+### Improvements
+- MAINT-2309 Prevent copy endpoint from modifying versioned Branch
+- PIP-575 Address CVE-2024-38816
+- PIP-584 Address CVE-2024-47072
+- PIP-583 Address CVE-2024-51132
+
+### Fixes
+- ISTO-125 Allow pagination beyond 10K for LOINC
+- ISTO-127 Improve handling of term search for LOINC
+
 ## 10.6.1 Release (December 2024)
 Maintenance release with bug fix.
 
