@@ -31,11 +31,16 @@ class FHIRValueSetProviderHelper {
 
 	static ValueSetExpansionParameters getValueSetExpansionParameters(IdType id, final List<Parameters.ParametersParameterComponent> parametersParameterComponents) {
 		Parameters.ParametersParameterComponent valueSetParam = findParameterOrNull(parametersParameterComponents, "valueSet");
+		URI url = null;
 		try {
-			return new ValueSetExpansionParameters(
+			url = new URI(findParameterStringOrNull(parametersParameterComponents, "url"));
+		} catch (URISyntaxException e) {
+			throw FHIRHelper.exception("Invalid url parameter.", OperationOutcome.IssueType.INVALID, 400);
+		}
+		return new ValueSetExpansionParameters(
 					id != null ? id.getIdPart() : null,
 					valueSetParam != null ? (ValueSet) valueSetParam.getResource() : null,
-					new URI(findParameterStringOrNull(parametersParameterComponents, "url")),
+					url,
 					findParameterStringOrNull(parametersParameterComponents, "valueSetVersion"),
 					findParameterStringOrNull(parametersParameterComponents, "context"),
 					findParameterStringOrNull(parametersParameterComponents, "contextDirection"),
@@ -56,9 +61,7 @@ class FHIRValueSetProviderHelper {
 					findParameterCanonicalOrNull(parametersParameterComponents, "check-system-version"),
 					findParameterCanonicalOrNull(parametersParameterComponents, "force-system-version"),
 					findParameterStringOrNull(parametersParameterComponents, "version"));
-		} catch (URISyntaxException e) {
-			throw new RuntimeException(e);
-		}
+
 	}
 
 	static ValueSetExpansionParameters getValueSetExpansionParameters(
