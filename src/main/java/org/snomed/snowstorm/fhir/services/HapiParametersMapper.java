@@ -123,11 +123,6 @@ public class HapiParametersMapper implements FHIRConstants {
 			}
 		}
 
-		//Parameters.ParametersParameterComponent param = parameters.addParameter().setName(PROPERTY);
-		//param.addPart().setName(CODE).setValue(new CodeType("inactive"));
-		//param.addPart().setName(VALUE).setValue(new BooleanType(!concept.isActive()));
-
-
 		for (FHIRDesignation designation : concept.getDesignations()) {
 			Parameters.ParametersParameterComponent desParam = parameters.addParameter().setName(DESIGNATION);
 			if (designation.getLanguage() != null) {
