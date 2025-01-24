@@ -15,6 +15,7 @@ import org.hl7.fhir.r4.model.*;
 import org.hl7.fhir.r4.model.OperationOutcome.IssueType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.snomed.snowstorm.core.data.services.RuntimeServiceException;
 import org.snomed.snowstorm.fhir.config.FHIRConstants;
 import org.snomed.snowstorm.fhir.domain.FHIRValueSet;
 import org.snomed.snowstorm.fhir.domain.SearchFilter;
@@ -267,7 +268,7 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 			try {
 				loadPackageService.uploadPackageResources(npmPackage, Collections.singleton("*"),"tx-resources",false);
 			} catch (IOException e) {
-				throw new RuntimeException(e);
+				throw new RuntimeServiceException(e);
 			}
 			params = FHIRValueSetProviderHelper.getValueSetExpansionParameters(null, parsed );
 		} else {
