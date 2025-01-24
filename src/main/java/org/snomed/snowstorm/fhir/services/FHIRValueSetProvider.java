@@ -255,7 +255,7 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 			@OperationParam(name="force-system-version") StringType forceSystemVersion,
 			@OperationParam(name="version") StringType version)// Invalid parameter
 			{
-				logger.info(FHIRValueSetProviderHelper.getFullURL(request));
+		logger.info(FHIRValueSetProviderHelper.getFullURL(request));
 		ValueSetExpansionParameters params;
 		if (request.getMethod().equals(RequestMethod.POST.name())) {
 			// HAPI doesn't populate the OperationParam values for POST, we parse the body instead.
