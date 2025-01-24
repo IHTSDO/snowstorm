@@ -114,7 +114,7 @@ class FHIRValueSetProviderHelper {
 					CanonicalUri.fromString(getOrNull(forceSystemVersion)),
 					getOrNull(version));
 		} catch (URISyntaxException e) {
-			throw new RuntimeException(e);
+			throw  FHIRHelper.exception("Invalid url parameter.", OperationOutcome.IssueType.INVALID, 400);
 		}
 	}
 
