@@ -54,13 +54,9 @@ public class FHIRLoadPackageService {
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
 	public void uploadPackageResources(File packageFile, Set<String> resourceUrlsToImport, String submittedFileName, boolean testValueSets) throws IOException {
-		byte[] packageBytes = FileUtils.readFileToByteArray(packageFile);
-		uploadPackageResources(packageBytes, resourceUrlsToImport,submittedFileName, testValueSets);
-	}
-
-	public void uploadPackageResources(byte[] packageBytes, Set<String> resourceUrlsToImport, String submittedFileName, boolean testValueSets) throws IOException {
+		FHIRHelper.readOnlyCheck(readOnlyMode);
 		JsonParser jsonParser = (JsonParser) fhirContext.newJsonParser();
-		FHIRPackageIndex index = extractObject(new ByteArrayInputStream(packageBytes), ".index.json", FHIRPackageIndex.class, jsonParser);
+		FHIRPackageIndex index = extractObject(new FileInputStream(packageFile), ".index.json", FHIRPackageIndex.class, jsonParser);
 		Set<String> supportedResourceTypes = Set.of("CodeSystem", "ValueSet");
 		boolean importAll = resourceUrlsToImport.contains("*");
 		List<FHIRPackageIndexFile> filesToImport = index.getFiles().stream()
@@ -77,7 +73,7 @@ public class FHIRLoadPackageService {
 			String id = indexFileToImport.getId();
 			String url = indexFileToImport.getUrl();
 			if (id != null && url != null) {
-				CodeSystem codeSystem = extractObject(new ByteArrayInputStream(packageBytes), filename, CodeSystem.class, jsonParser);
+				CodeSystem codeSystem = extractObject(new FileInputStream(packageFile), filename, CodeSystem.class, jsonParser);
 				codeSystem.setId(id);
 				codeSystem.setUrl(url);
 				if (FHIRHelper.isSnomedUri(codeSystem.getUrl())) {
@@ -109,7 +105,7 @@ public class FHIRLoadPackageService {
 			String id = indexFileToImport.getId();
 			String url = indexFileToImport.getUrl();
 			if (id != null && url != null) {
-				ValueSet valueSet = extractObject(new ByteArrayInputStream(packageBytes), filename, ValueSet.class, jsonParser);
+				ValueSet valueSet = extractObject(new FileInputStream(packageFile), filename, ValueSet.class, jsonParser);
 				valueSet.setId(id);
 				valueSet.setUrl(url);
 				valueSet.setVersion(indexFileToImport.getVersion());
