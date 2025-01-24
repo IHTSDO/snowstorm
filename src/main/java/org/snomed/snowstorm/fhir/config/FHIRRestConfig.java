@@ -55,6 +55,7 @@ public class FHIRRestConfig {
 			}
 		});
 
+
 		return servletRegistrationBean;
 	}
 
