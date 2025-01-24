@@ -187,7 +187,7 @@ public class FHIRConceptService {
 		searchQuery.setTrackTotalHits(true);
 		updateQueryWithSearchAfter(searchQuery, pageRequest);
 
-		logger.info("QUERY:"+searchQuery.getQuery().toString());
+		logger.debug("QUERY:"+searchQuery.getQuery().toString());
 
 		return toPage(elasticsearchOperations.search(searchQuery, FHIRConcept.class), pageRequest);
 
