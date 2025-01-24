@@ -22,6 +22,7 @@ import org.snomed.snowstorm.core.data.services.pojo.MemberSearchRequest;
 import org.snomed.snowstorm.core.data.services.pojo.PageWithBucketAggregations;
 import org.snomed.snowstorm.core.pojo.LanguageDialect;
 import org.snomed.snowstorm.core.util.SearchAfterPage;
+import org.snomed.snowstorm.fhir.config.FHIRConstants;
 import org.snomed.snowstorm.fhir.domain.*;
 import org.snomed.snowstorm.fhir.pojo.CanonicalUri;
 import org.snomed.snowstorm.fhir.pojo.ValueSetExpansionParameters;
@@ -168,7 +169,6 @@ public class FHIRValueSetService {
 		notSupported("contextDirection", params.getContextDirection());
 		notSupported("date", params.getDate());
 		notSupported("designation", params.getDesignations());
-		//notSupported("excludeNested", params.getExcludeNested());
 		notSupported("excludeNotForUI", params.getExcludeNotForUI());
 		notSupported("excludePostCoordinated", params.getExcludePostCoordinated());
 		notSupported("version", params.getVersion());// Not part of the FHIR API spec but requested under MAINT-1363
@@ -449,7 +449,6 @@ public class FHIRValueSetService {
 		for (Map.Entry<FHIRCodeSystemVersion, Set<ConceptConstraint>> entry : constraints.entrySet()) {
 			for (ConceptConstraint conceptConstraint : entry.getValue()) {
 				if (conceptConstraint.isSimpleCodeSet()) {
-					//.setType(conceptConstraint.getType())
 					simpleConstraints.computeIfAbsent(entry.getKey(), k -> new ConceptConstraint(new HashSet<>())).getCode().addAll(conceptConstraint.getCode());
 				} else {
 					combinedConstraints.computeIfAbsent(entry.getKey(), k -> new HashSet<>()).add(conceptConstraint);
@@ -964,7 +963,7 @@ public class FHIRValueSetService {
 					} else {
 						throw exception(format("Unexpected property '%s' for SNOMED CT ValueSet filter.", property), OperationOutcome.IssueType.INVALID, 400);
 					}
-				} else if (codeSystemVersion.getUrl().equals("http://loinc.org")) {
+				} else if (codeSystemVersion.getUrl().equals(FHIRConstants.LOINC_ORG)) {
 					// LOINC filters:
 					// parent/ancestor, =/in, [partCode]
 					// [property], =/regex, [value] - not supported
@@ -982,7 +981,7 @@ public class FHIRValueSetService {
 						throw exception(format("This server does not support ValueSet filter using LOINC property '%s'. " +
 								"Only parent and ancestor filters are supported for LOINC.", property), OperationOutcome.IssueType.NOTSUPPORTED, 400);
 					}
-				} else if (codeSystemVersion.getUrl().startsWith("http://hl7.org/fhir/sid/icd-10")) {
+				} else if (codeSystemVersion.getUrl().startsWith(FHIRConstants.HL_7_ORG_FHIR_SID_ICD_10)) {
 					// Spec says there are no filters for ICD-9 and 10.
 					throw exception("This server does not expect any ValueSet property filters for ICD-10.", OperationOutcome.IssueType.NOTSUPPORTED, 400);
 				} else {
@@ -1018,7 +1017,7 @@ public class FHIRValueSetService {
 			}
 		}
 		if(activeOnly && inclusionConstraints.isEmpty()) {
-			if (FHIRHelper.isSnomedUri(codeSystemVersion.getUrl()) || codeSystemVersion.getUrl().equals("http://loinc.org") || codeSystemVersion.getUrl().startsWith("http://hl7.org/fhir/sid/icd-10")) {
+			if (FHIRHelper.isSnomedUri(codeSystemVersion.getUrl()) || codeSystemVersion.getUrl().equals(FHIRConstants.LOINC_ORG) || codeSystemVersion.getUrl().startsWith(FHIRConstants.HL_7_ORG_FHIR_SID_ICD_10)) {
 				//do nothing
 			} else {
 				inclusionConstraints.add(new ConceptConstraint().setActiveOnly(activeOnly));
