@@ -28,6 +28,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Component;
 import org.springframework.web.bind.annotation.RequestMethod;
 
+import java.io.File;
 import java.io.IOException;
 import java.util.Collections;
 import java.util.List;
@@ -264,7 +265,7 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 			List<Parameters.ParametersParameterComponent> txResources = FHIRValueSetProviderHelper.findParametersByName(parsed, "tx-resource");
 			//List<Parameters.ParametersParameterComponent> valueSets = FHIRValueSetProviderHelper.findParametersByName(parsed, "valueSet");
 			List<Resource> resources = txResources.stream().map(x -> x.getResource()).toList();
-			byte[] npmPackage = FHIRValueSetProviderHelper.createNpmPackageFromResources(resources);
+			File npmPackage = FHIRValueSetProviderHelper.createNpmPackageFromResources(resources);
 			try {
 				loadPackageService.uploadPackageResources(npmPackage, Collections.singleton("*"),"tx-resources",false);
 			} catch (IOException e) {

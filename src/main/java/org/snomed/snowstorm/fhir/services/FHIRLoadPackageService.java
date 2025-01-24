@@ -54,14 +54,6 @@ public class FHIRLoadPackageService {
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
-
-	public void uploadPackageResources(byte[] packageBytes, Set<String> resourceUrlsToImport, String submittedFileName, boolean testValueSets) throws IOException {
-		File file = File.createTempFile(submittedFileName,"tgz");
-		FileUtils.writeByteArrayToFile(file, packageBytes);
-		uploadPackageResources(file,resourceUrlsToImport,submittedFileName,testValueSets);
-
-	}
-
 	public void uploadPackageResources(File packageFile, Set<String> resourceUrlsToImport, String submittedFileName, boolean testValueSets) throws IOException {
 		FHIRHelper.readOnlyCheck(readOnlyMode);
 		JsonParser jsonParser = (JsonParser) fhirContext.newJsonParser();
