@@ -486,7 +486,6 @@ public class FHIRValueSetService {
 		for (Map.Entry<FHIRCodeSystemVersion, Set<ConceptConstraint>> entry : constraints.entrySet()) {
 			for (ConceptConstraint conceptConstraint : entry.getValue()) {
 				if (conceptConstraint.isSimpleCodeSet()) {
-					//.setType(conceptConstraint.getType())
 					simpleConstraints.computeIfAbsent(entry.getKey(), k -> new ConceptConstraint(new HashSet<>())).getCode().addAll(conceptConstraint.getCode());
 				} else {
 					combinedConstraints.computeIfAbsent(entry.getKey(), k -> new HashSet<>()).add(conceptConstraint);
