@@ -12,15 +12,11 @@ import org.snomed.snowstorm.fhir.domain.FHIRPackageIndexFile;
 import org.snomed.snowstorm.fhir.pojo.CanonicalUri;
 import org.snomed.snowstorm.fhir.pojo.ValueSetExpansionParameters;
 
-import java.io.ByteArrayOutputStream;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.UncheckedIOException;
+import java.io.*;
 import java.util.List;
 import java.util.zip.GZIPOutputStream;
 
 import static org.snomed.snowstorm.fhir.services.FHIRHelper.*;
-
 
 class FHIRValueSetProviderHelper {
 
@@ -145,7 +141,7 @@ class FHIRValueSetProviderHelper {
 		}
 	}
 
-	public static byte[] createNpmPackageFromResources(List<Resource> resources) {
+	public static File createNpmPackageFromResources(List<Resource> resources) {
 
 		class Tuple{
 			FHIRPackageIndexFile indexFile;
@@ -162,61 +158,60 @@ class FHIRValueSetProviderHelper {
 					x.getNamedProperty("version").getValues().stream().findFirst().ifPresent(y -> { temp.version = y.primitiveValue();});
 					tuple.indexFile = temp;
 
+					// Instantiate a new JSON parser
+					IParser parser = ctx.newJsonParser();
 
-
-			// Instantiate a new JSON parser
-			IParser parser = ctx.newJsonParser();
-
-			// Serialize it
-			String serialized = parser.encodeResourceToString(x);
-					tuple.string = serialized;
+					// Serialize it
+            		tuple.string = parser.encodeResourceToString(x);
 
 					return tuple;
 				}
 		).toList();
 
-		ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        try {
+            File npmPackage = File.createTempFile("tx-resources-",".tgz");
+            npmPackage.deleteOnExit();
+			FileOutputStream fop = new FileOutputStream(npmPackage);
+			BufferedOutputStream bop = new BufferedOutputStream(fop);
+			GZIPOutputStream gzipOutputStream = new GZIPOutputStream(bop);
+			TarArchiveOutputStream tarArchiveOutputStream = new TarArchiveOutputStream(gzipOutputStream);
 
+			try {
 
+				for (Tuple tuple : tuples) {
+					TarArchiveEntry entry = new TarArchiveEntry("package/" + tuple.indexFile.getFilename());
+					entry.setSize(tuple.string.getBytes().length);
+					tarArchiveOutputStream.putArchiveEntry(entry);
+					tarArchiveOutputStream.write(tuple.string.getBytes());
+					tarArchiveOutputStream.closeArchiveEntry();
+				}
 
+				class FHIRIndex {
+					public List<FHIRPackageIndexFile> files;
+				}
 
+				FHIRIndex fi = new FHIRIndex();
+				fi.files = tuples.stream().map(x -> x.indexFile).toList();
+				ObjectMapper mapper = new ObjectMapper();
+				String index = mapper.writeValueAsString(fi);
 
-		try (TarArchiveOutputStream gzOut = new TarArchiveOutputStream(
-					new GZIPOutputStream(
-							baos)))
-		{
-			for (Tuple tuple : tuples) {
-				TarArchiveEntry entry = new TarArchiveEntry("package/" + tuple.indexFile.getFilename());
-				entry.setSize(tuple.string.getBytes().length);
-				gzOut.putArchiveEntry(entry);
-				gzOut.write(tuple.string.getBytes());
-				gzOut.closeArchiveEntry();
+				TarArchiveEntry entry = new TarArchiveEntry("package/.index.json");
+				entry.setSize(index.getBytes().length);
+
+				tarArchiveOutputStream.putArchiveEntry(entry);
+				tarArchiveOutputStream.write(index.getBytes());
+				tarArchiveOutputStream.closeArchiveEntry();
+			} finally {
+				tarArchiveOutputStream.finish();
+				tarArchiveOutputStream.close();
+				gzipOutputStream.close();
+				bop.close();
+				fop.close();
 			}
+			return npmPackage;
 
-			class FHIRIndex{
-				List<FHIRPackageIndexFile> files;
-			}
-
-			FHIRIndex fi = new FHIRIndex();
-			fi.files = tuples.stream().map(x -> x.indexFile).toList();
-			ObjectMapper mapper = new ObjectMapper();
-			String index = mapper.writeValueAsString(fi);
-
-			TarArchiveEntry entry = new TarArchiveEntry("package/.index.json");
-			entry.setSize(index.getBytes().length);
-
-			gzOut.putArchiveEntry(entry);
-			gzOut.write(index.getBytes());
-			gzOut.closeArchiveEntry();
-		} catch (IOException e) {
-			throw new UncheckedIOException(e);
-		}
-
-		byte[] out = baos.toByteArray();
-
-		return out;
-
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
 	}
-
-
 }
