@@ -26,6 +26,7 @@ import org.snomed.snowstorm.core.data.services.pojo.PageWithBucketAggregations;
 import org.snomed.snowstorm.core.data.services.postcoordination.ExpressionRepositoryService;
 import org.snomed.snowstorm.core.pojo.LanguageDialect;
 import org.snomed.snowstorm.core.util.SearchAfterPage;
+import org.snomed.snowstorm.fhir.config.FHIRConstants;
 import org.snomed.snowstorm.fhir.domain.*;
 import org.snomed.snowstorm.fhir.pojo.CanonicalUri;
 import org.snomed.snowstorm.fhir.pojo.ValueSetExpansionParameters;
@@ -992,7 +993,7 @@ public class FHIRValueSetService {
 					} else {
 						throw exception(format("Unexpected property '%s' for SNOMED CT ValueSet filter.", property), OperationOutcome.IssueType.INVALID, 400);
 					}
-				} else if (codeSystemVersion.getUrl().equals("http://loinc.org")) {
+				} else if (codeSystemVersion.getUrl().equals(FHIRConstants.LOINC_ORG)) {
 					// LOINC filters:
 					// parent/ancestor, =/in, [partCode]
 					// [property], =/regex, [value] - not supported
@@ -1010,7 +1011,7 @@ public class FHIRValueSetService {
 						throw exception(format("This server does not support ValueSet filter using LOINC property '%s'. " +
 								"Only parent and ancestor filters are supported for LOINC.", property), OperationOutcome.IssueType.NOTSUPPORTED, 400);
 					}
-				} else if (codeSystemVersion.getUrl().startsWith("http://hl7.org/fhir/sid/icd-10")) {
+				} else if (codeSystemVersion.getUrl().startsWith(FHIRConstants.HL_7_ORG_FHIR_SID_ICD_10)) {
 					// Spec says there are no filters for ICD-9 and 10.
 					throw exception("This server does not expect any ValueSet property filters for ICD-10.", OperationOutcome.IssueType.NOTSUPPORTED, 400);
 				} else {
@@ -1046,7 +1047,7 @@ public class FHIRValueSetService {
 			}
 		}
 		if(activeOnly && inclusionConstraints.isEmpty()) {
-			if (FHIRHelper.isSnomedUri(codeSystemVersion.getUrl()) || codeSystemVersion.getUrl().equals("http://loinc.org") || codeSystemVersion.getUrl().startsWith("http://hl7.org/fhir/sid/icd-10")) {
+			if (FHIRHelper.isSnomedUri(codeSystemVersion.getUrl()) || codeSystemVersion.getUrl().equals(FHIRConstants.LOINC_ORG) || codeSystemVersion.getUrl().startsWith(FHIRConstants.HL_7_ORG_FHIR_SID_ICD_10)) {
 				//do nothing
 			} else {
 				inclusionConstraints.add(new ConceptConstraint().setActiveOnly(activeOnly));
