@@ -8,12 +8,12 @@ import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
 import org.apache.commons.compress.archivers.tar.TarArchiveOutputStream;
 import org.hl7.fhir.r4.model.*;
 import org.jetbrains.annotations.Nullable;
+import org.snomed.snowstorm.core.data.services.RuntimeServiceException;
 import org.snomed.snowstorm.fhir.domain.FHIRPackageIndexFile;
 import org.snomed.snowstorm.fhir.pojo.CanonicalUri;
 import org.snomed.snowstorm.fhir.pojo.ValueSetExpansionParameters;
 
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
+import java.io.*;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.List;
@@ -31,11 +31,16 @@ class FHIRValueSetProviderHelper {
 
 	static ValueSetExpansionParameters getValueSetExpansionParameters(IdType id, final List<Parameters.ParametersParameterComponent> parametersParameterComponents) {
 		Parameters.ParametersParameterComponent valueSetParam = findParameterOrNull(parametersParameterComponents, "valueSet");
+		URI url = null;
 		try {
-			return new ValueSetExpansionParameters(
+			url = new URI(findParameterStringOrNull(parametersParameterComponents, "url"));
+		} catch (URISyntaxException e) {
+			throw FHIRHelper.exception("Invalid url parameter.", OperationOutcome.IssueType.INVALID, 400);
+		}
+		return new ValueSetExpansionParameters(
 					id != null ? id.getIdPart() : null,
 					valueSetParam != null ? (ValueSet) valueSetParam.getResource() : null,
-					new URI(findParameterStringOrNull(parametersParameterComponents, "url")),
+					url,
 					findParameterStringOrNull(parametersParameterComponents, "valueSetVersion"),
 					findParameterStringOrNull(parametersParameterComponents, "context"),
 					findParameterStringOrNull(parametersParameterComponents, "contextDirection"),
@@ -57,9 +62,6 @@ class FHIRValueSetProviderHelper {
 					findParameterCanonicalOrNull(parametersParameterComponents, "force-system-version"),
 					findParameterStringOrNull(parametersParameterComponents, "version"),
 					findParameterStringOrNull(parametersParameterComponents, "property"));
-		} catch (URISyntaxException e) {
-			throw new RuntimeException(e);
-		}
 	}
 
 	static ValueSetExpansionParameters getValueSetExpansionParameters(
@@ -114,7 +116,7 @@ class FHIRValueSetProviderHelper {
 					getOrNull(version),
 					getOrNull(property));
 		} catch (URISyntaxException e) {
-			throw new RuntimeException(e);
+			throw  FHIRHelper.exception("Invalid url parameter.", OperationOutcome.IssueType.INVALID, 400);
 		}
 	}
 
@@ -150,7 +152,7 @@ class FHIRValueSetProviderHelper {
 		}
 	}
 
-	public static byte[] createNpmPackageFromResources(List<Resource> resources) {
+	public static File createNpmPackageFromResources(List<Resource> resources) {
 
 		class Tuple{
 			public FHIRPackageIndexFile indexFile;
@@ -169,65 +171,60 @@ class FHIRValueSetProviderHelper {
 
 
 
-			// Instantiate a new JSON parser
-			IParser parser = ctx.newJsonParser();
+					// Instantiate a new JSON parser
+					IParser parser = ctx.newJsonParser();
 
-			// Serialize it
-			String serialized = parser.encodeResourceToString(x);
-					tuple.string = serialized;
+					// Serialize it
+            		tuple.string = parser.encodeResourceToString(x);
 
 					return tuple;
 				}
 		).toList();
 
-		ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        try {
+            File npmPackage = File.createTempFile("tx-resources-",".tgz");
+            npmPackage.deleteOnExit();
+			FileOutputStream fop = new FileOutputStream(npmPackage);
+			BufferedOutputStream bop = new BufferedOutputStream(fop);
+			GZIPOutputStream gzipOutputStream = new GZIPOutputStream(bop);
+			TarArchiveOutputStream tarArchiveOutputStream = new TarArchiveOutputStream(gzipOutputStream);
 
+			try {
 
+				for (Tuple tuple : tuples) {
+					TarArchiveEntry entry = new TarArchiveEntry("package/" + tuple.indexFile.getFilename());
+					entry.setSize(tuple.string.getBytes().length);
+					tarArchiveOutputStream.putArchiveEntry(entry);
+					tarArchiveOutputStream.write(tuple.string.getBytes());
+					tarArchiveOutputStream.closeArchiveEntry();
+				}
 
+				class FHIRIndex {
+					public List<FHIRPackageIndexFile> files;
+				}
 
+				FHIRIndex fi = new FHIRIndex();
+				fi.files = tuples.stream().map(x -> x.indexFile).toList();
+				ObjectMapper mapper = new ObjectMapper();
+				String index = mapper.writeValueAsString(fi);
 
-		try (TarArchiveOutputStream gzOut = new TarArchiveOutputStream(
-					new GZIPOutputStream(
-							baos)))
-		{
+				TarArchiveEntry entry = new TarArchiveEntry("package/.index.json");
+				entry.setSize(index.getBytes().length);
 
-
-			for (Tuple tuple : tuples) {
-				TarArchiveEntry entry = new TarArchiveEntry("package/" + tuple.indexFile.getFilename());
-				entry.setSize(tuple.string.getBytes().length);
-				gzOut.putArchiveEntry(entry);
-				gzOut.write(tuple.string.getBytes());
-				gzOut.closeArchiveEntry();
+				tarArchiveOutputStream.putArchiveEntry(entry);
+				tarArchiveOutputStream.write(index.getBytes());
+				tarArchiveOutputStream.closeArchiveEntry();
+			} finally {
+				tarArchiveOutputStream.finish();
+				tarArchiveOutputStream.close();
+				gzipOutputStream.close();
+				bop.close();
+				fop.close();
 			}
+			return npmPackage;
 
-			class FHIRIndex{
-				public List<FHIRPackageIndexFile> files;
-			}
-
-			FHIRIndex fi = new FHIRIndex();
-			fi.files = tuples.stream().map(x -> x.indexFile).toList();
-			ObjectMapper mapper = new ObjectMapper();
-			String index = mapper.writeValueAsString(fi);
-
-			TarArchiveEntry entry = new TarArchiveEntry("package/.index.json");
-			entry.setSize(index.getBytes().length);
-
-			gzOut.putArchiveEntry(entry);
-			gzOut.write(index.getBytes());
-			gzOut.closeArchiveEntry();
-
-
-
-		} catch (IOException e) {
-			throw new RuntimeException(e);
-		}
-
-
-		byte[] out = baos.toByteArray();
-
-		return out;
-
+        } catch (IOException e) {
+            throw new RuntimeServiceException(e);
+        }
 	}
-
-
 }

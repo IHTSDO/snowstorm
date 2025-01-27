@@ -50,6 +50,8 @@ public interface FHIRConstants {
 			"Organisation (SNOMED International), and distributed by agreement between SNOMED International and HL7. Implementer use of SNOMED CT is not covered by this " +
 			"agreement.";
 	String HL7_DESIGNATION_USAGE = "http://terminology.hl7.org/CodeSystem/designation-usage";
+	String LOINC_ORG = "http://loinc.org";
+	String HL_7_ORG_FHIR_SID_ICD_10 = "http://hl7.org/fhir/sid/icd-10";
 
 	enum Validation { EQUALS, STARTS_WITH }
 	

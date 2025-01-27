@@ -15,6 +15,7 @@ import org.hl7.fhir.r4.model.*;
 import org.hl7.fhir.r4.model.OperationOutcome.IssueType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.snomed.snowstorm.core.data.services.RuntimeServiceException;
 import org.snomed.snowstorm.fhir.config.FHIRConstants;
 import org.snomed.snowstorm.fhir.domain.FHIRValueSet;
 import org.snomed.snowstorm.fhir.domain.SearchFilter;
@@ -27,6 +28,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Component;
 import org.springframework.web.bind.annotation.RequestMethod;
 
+import java.io.File;
 import java.io.IOException;
 import java.util.Collections;
 import java.util.List;
@@ -257,7 +259,7 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 			@OperationParam(name="version") StringType version,
 			@OperationParam(name="property") CodeType property)// Invalid parameter
 			{
-				logger.info(FHIRValueSetProviderHelper.getFullURL(request));
+		logger.info(FHIRValueSetProviderHelper.getFullURL(request));
 		ValueSetExpansionParameters params;
 		if (request.getMethod().equals(RequestMethod.POST.name())) {
 			// HAPI doesn't populate the OperationParam values for POST, we parse the body instead.
@@ -265,11 +267,11 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 			List<Parameters.ParametersParameterComponent> txResources = FHIRValueSetProviderHelper.findParametersByName(parsed, "tx-resource");
 			//List<Parameters.ParametersParameterComponent> valueSets = FHIRValueSetProviderHelper.findParametersByName(parsed, "valueSet");
 			List<Resource> resources = txResources.stream().map(x -> x.getResource()).toList();
-			byte[] npmPackage = FHIRValueSetProviderHelper.createNpmPackageFromResources(resources);
+			File npmPackage = FHIRValueSetProviderHelper.createNpmPackageFromResources(resources);
 			try {
 				loadPackageService.uploadPackageResources(npmPackage, Collections.singleton("*"),"tx-resources",false);
 			} catch (IOException e) {
-				throw new RuntimeException(e);
+				throw new RuntimeServiceException(e);
 			}
 			params = FHIRValueSetProviderHelper.getValueSetExpansionParameters(null, parsed );
 		} else {
