@@ -1,8 +1,11 @@
 package org.snomed.snowstorm.fhir.domain;
 
+import ca.uhn.fhir.jpa.cache.IResourceChangeListenerRegistry;
 import ca.uhn.fhir.jpa.entity.TermConceptProperty;
 import ca.uhn.fhir.jpa.entity.TermConceptPropertyTypeEnum;
 import org.hl7.fhir.r4.model.*;
+
+import java.util.Arrays;
 
 public class FHIRProperty {
 
@@ -10,6 +13,11 @@ public class FHIRProperty {
 	public static final String CODING = "CODING";
 	public static final String CODE = "CODE";
 	public static final String BOOLEAN = "BOOLEAN";
+	public static final String INTEGER = "INTEGER";
+	public static final String DECIMAL = "DECIMAL";
+	public static final String[] URLS = {"http://hl7.org/fhir/StructureDefinition/itemWeight",
+			"http://hl7.org/fhir/StructureDefinition/codesystem-label",
+			"http://hl7.org/fhir/StructureDefinition/codesystem-conceptOrder"};
 
 	private String code;
 	private String display;
@@ -50,7 +58,33 @@ public class FHIRProperty {
 		} else if (propertyComponent.hasValueBooleanType()){
 			value = propertyComponent.getValueBooleanType().getValueAsString();
 			type = BOOLEAN;
+		} else if (propertyComponent.hasValueIntegerType()){
+			value = propertyComponent.getValueIntegerType().getValueAsString();
+			type = INTEGER;
+		} else if (propertyComponent.hasValueDecimalType()){
+			value = propertyComponent.getValueDecimalType().getValueAsString();
+			type = DECIMAL;
 		}
+	}
+
+	static String typeToFHIRPropertyType(Type value) {
+		String fhirPropertyType;
+		if (value instanceof CodeType) {
+			fhirPropertyType = CODE;
+		} else if (value instanceof StringType){
+			fhirPropertyType = STRING;
+		} else if (value instanceof Coding) {
+			fhirPropertyType = CODING;
+		} else if (value instanceof BooleanType) {
+			fhirPropertyType = BOOLEAN;
+		} else if (value instanceof IntegerType) {
+			fhirPropertyType = INTEGER;
+		} else if (value instanceof DecimalType) {
+			fhirPropertyType = DECIMAL;
+		}else {
+			throw new RuntimeException("unknown FHIRProperty type");
+		}
+		return fhirPropertyType;
 	}
 
 	public Type toHapiValue(String systemVersionUrl) {
@@ -62,6 +96,10 @@ public class FHIRProperty {
 			return new Coding(systemVersionUrl, value, display);
 		} else if (BOOLEAN.equals(type)) {
 			return new BooleanType(value);
+		} else if (INTEGER.equals(type)) {
+			return new IntegerType(value);
+		}else if (DECIMAL.equals(type)) {
+			return new DecimalType(value);
 		}
 		return null;
 	}
@@ -88,5 +126,9 @@ public class FHIRProperty {
 
 	public void setValue(String value) {
 		this.value = value;
+	}
+
+	public boolean isSpecialExtension() {
+		return Arrays.asList(URLS).contains(code);
 	}
 }
