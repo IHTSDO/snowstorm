@@ -206,9 +206,9 @@ public class FHIRCodeSystemService {
 
 		CodeSystem updatedCodeSystem = codeSystemRepository.findByUrlAndVersion(dependentVersion.getUrl(), dependentVersion.getVersion()).toHapiCodeSystem();
 
-		supplement.getExtension().stream().forEach(x -> updatedCodeSystem.addExtension(x));
-
-
+		List<Extension> extensions = new ArrayList<Extension>(supplement.getExtension());
+		extensions.addAll(updatedCodeSystem.getExtension());
+		updatedCodeSystem.setExtension(extensions);
 
 		//deleteCodeSystemVersion(dependentVersion);
 
