@@ -16,8 +16,7 @@ import org.springframework.data.annotation.Id;
 import org.springframework.data.annotation.Transient;
 import org.springframework.data.elasticsearch.annotations.*;
 
-import java.util.Date;
-import java.util.List;
+import java.util.*;
 
 import static org.snomed.snowstorm.fhir.config.FHIRConstants.*;
 
@@ -60,8 +59,10 @@ public class FHIRCodeSystemVersion {
 	@Field(type = FieldType.Keyword)
 	private String content;
 
-	@Field(type = FieldType.Nested)
-	private List<Extension> extensions;
+	@Field(type = FieldType.Keyword)
+	private Set<String> availableLanguages;
+
+	private List<FHIRExtension> extensions;
 
 	@Transient
 	private String snomedBranch;
@@ -105,7 +106,22 @@ public class FHIRCodeSystemVersion {
 		compositional = codeSystem.getCompositional();
 		CodeSystem.CodeSystemContentMode codeSystemContent = codeSystem.getContent();
 		content = codeSystemContent != null ? codeSystemContent.toCode() : null;
-		extensions = codeSystem.getExtension();
+		codeSystem.getExtension().stream().forEach( e -> {
+			if (extensions == null){
+				extensions = new ArrayList<>();
+			}
+			extensions.add(new FHIRExtension(e));
+		});
+		codeSystem.getConcept().stream().forEach( c->{
+			c.getDesignation().stream().forEach( d ->{
+				if (d.getLanguage()!=null){
+					if (availableLanguages == null){
+						availableLanguages = new HashSet<>();
+					}
+					availableLanguages.add(d.getLanguage());
+				}
+			});
+		});
 	}
 
 	public FHIRCodeSystemVersion(CodeSystemVersion snomedVersion) {
@@ -154,7 +170,7 @@ public class FHIRCodeSystemVersion {
 
 	public CodeSystem toHapiCodeSystem() {
 		CodeSystem codeSystem = new CodeSystem();
-		codeSystem.setExtension(extensions);
+		codeSystem.setExtension(Optional.ofNullable(extensions).orElse(Collections.emptyList()).stream().map(fe -> fe.getHapi()).toList());
 		codeSystem.setId(id);
 		codeSystem.setUrl(url);
 		if(!"0".equals(version)) {
@@ -266,11 +282,11 @@ public class FHIRCodeSystemVersion {
 		this.publisher = publisher;
 	}
 
-	public List<Extension> getExtensions() {
+	public List<FHIRExtension> getExtensions() {
 		return extensions;
 	}
 
-	public void setExtensions(List<Extension> extensions) {
+	public void setExtensions(List<FHIRExtension> extensions) {
 		this.extensions = extensions;
 	}
 
@@ -324,5 +340,13 @@ public class FHIRCodeSystemVersion {
 
 	public void setLanguage(String language) {
 		this.language = language;
+	}
+
+	public Set<String> getAvailableLanguages() {
+		return availableLanguages;
+	}
+
+	public void setAvailableLanguages(Set<String> availableLanguages) {
+		this.availableLanguages = availableLanguages;
 	}
 }
