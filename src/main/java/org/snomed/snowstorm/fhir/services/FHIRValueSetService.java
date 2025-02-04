@@ -4,7 +4,7 @@ import co.elastic.clients.elasticsearch._types.query_dsl.BoolQuery;
 import co.elastic.clients.elasticsearch._types.query_dsl.Operator;
 import com.google.common.base.Strings;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
-import org.apache.lucene.analysis.standard.StandardAnalyzer;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.hl7.fhir.r4.model.*;
 import org.jetbrains.annotations.NotNull;
@@ -26,6 +26,7 @@ import org.snomed.snowstorm.core.util.SearchAfterPage;
 import org.snomed.snowstorm.fhir.config.FHIRConstants;
 import org.snomed.snowstorm.fhir.domain.*;
 import org.snomed.snowstorm.fhir.pojo.CanonicalUri;
+import org.snomed.snowstorm.fhir.pojo.FHIRCodeSystemVersionParams;
 import org.snomed.snowstorm.fhir.pojo.ValueSetExpansionParameters;
 import org.snomed.snowstorm.fhir.repositories.FHIRValueSetRepository;
 import org.snomed.snowstorm.fhir.services.context.CodeSystemVersionProvider;
@@ -57,6 +58,21 @@ import static org.snomed.snowstorm.fhir.utils.FHIRPageHelper.toPage;
 
 @Service
 public class FHIRValueSetService {
+
+	public static final String TX_ISSUE_TYPE = "http://hl7.org/fhir/tools/CodeSystem/tx-issue-type";
+	public static final String DISPLAY_COMMENT = "display-comment";
+
+	private class SelectedDisplay{
+		public Boolean languageAvailable;
+		public String selectedLanguage;
+		public String selectedDisplay;
+
+		public SelectedDisplay(String value, String language, Boolean b) {
+			selectedDisplay = value;
+			selectedLanguage = language;
+			languageAvailable = b;
+		}
+	}
 
 	public static final String[] URLS = {"http://hl7.org/fhir/StructureDefinition/itemWeight",
 			"http://hl7.org/fhir/StructureDefinition/valueset-label",
@@ -357,8 +373,10 @@ public class FHIRValueSetService {
 		Map<String, String> idAndVersionToLanguage = allInclusionVersions.stream()
 				.collect(Collectors.toMap(FHIRCodeSystemVersion::getId, FHIRCodeSystemVersion::getLanguage));
 		allInclusionVersions.forEach(codeSystemVersion -> {
-			codeSystemVersion.getExtensions().forEach(hapiValueSet::addExtension);
-				});
+			orEmpty(codeSystemVersion.getExtensions()).forEach(fe ->{
+				hapiValueSet.addExtension(fe.getHapi());
+			});
+		});
 		ValueSet.ValueSetExpansionComponent expansion = new ValueSet.ValueSetExpansionComponent();
 		String id = UUID.randomUUID().toString();
 		expansion.setId(id);
@@ -936,7 +954,9 @@ public class FHIRValueSetService {
 		if (code != null) {
 			codings.add(new Coding(FHIRHelper.toString(system), code, display).setVersion(systemVersion));
 		} else if (coding != null) {
-			coding.setDisplay(display);
+			if (display!=null) {
+				coding.setDisplay(display);
+			}
 			codings.add(coding);
 		} else {
 			codings.addAll(codeableConcept.getCoding());
@@ -946,7 +966,17 @@ public class FHIRValueSetService {
 		}
 
 		Set<CanonicalUri> codingSystemVersions = codings.stream()
-				.filter(Coding::hasVersion).map(codingA -> CanonicalUri.of(codingA.getSystem(), codingA.getVersion())).collect(Collectors.toSet());
+				.map(c ->{
+				if (!c.hasVersion()){
+					Coding updated = c.copy();
+					updated.setVersion("0");
+					return updated;
+
+				} else {
+					return c;
+				}
+			}
+			).map(codingA -> CanonicalUri.of(codingA.getSystem(), codingA.getVersion())).collect(Collectors.toSet());
 
 		CodeSystemVersionProvider codeSystemVersionProvider = new CodeSystemVersionProvider(codingSystemVersions, null, null, null, codeSystemService);
 		// Collate set of inclusion and exclusion constraints for each code system version
@@ -970,8 +1000,8 @@ public class FHIRValueSetService {
 		if (codings.size() == 1) {
 			// Add response details about the coding, if there is only one
 			Coding codingA = codings.iterator().next();
-			response.addParameter("code", codingA.getCode());
-			response.addParameter("system", codingA.getSystem());
+			response.addParameter("code", codingA.getCodeElement());
+			response.addParameter("system", codingA.getSystemElement());
 		}
 
 		if (resolvedCodeSystemVersionsMatchingCodings.isEmpty()) {
@@ -995,7 +1025,10 @@ public class FHIRValueSetService {
 		}
 		// Add version actually used in the response
 		if (codings.size() == 1) {
-			response.addParameter("version", resolvedCodeSystemVersionsMatchingCodings.iterator().next().getVersion());
+			String version = resolvedCodeSystemVersionsMatchingCodings.iterator().next().getVersion();
+			if (!"0".equals(version)) {
+				response.addParameter("version", version);
+			}
 		}
 
 		List<LanguageDialect> languageDialects = ControllerHelper.parseAcceptLanguageHeader(displayLanguage);
@@ -1006,8 +1039,31 @@ public class FHIRValueSetService {
 					response.addParameter("inactive", !concept.isActive());
 				}
 				String codingADisplay = codingA.getDisplay();
-				if (codingADisplay == null) {
+				if (codingADisplay == null || Objects.equals(codingADisplay, concept.getDisplay())) {
 					response.addParameter("result", true);
+					FHIRCodeSystemVersion codeSystemVersion = codeSystemService.findCodeSystemVersion(new FHIRCodeSystemVersionParams(codingA.getSystem()));
+					if(concept.getDisplay()!=null){
+						SelectedDisplay selectedDisplay = selectDisplay(codingA.getSystem(),displayLanguage,concept);
+						response.addParameter("display", selectedDisplay.selectedDisplay);
+					}
+
+					if((!languageDialects.isEmpty()) && languageDialects.stream().map(LanguageDialect::getLanguageCode).map(l -> {
+							List<String> languages = new ArrayList<>(concept.getDesignations().stream().map(d -> d.getLanguage()).toList());
+							if(codeSystemVersion.getLanguage()!=null) {
+								languages.add(codeSystemVersion.getLanguage());
+							}
+							return languages.isEmpty()||languages.contains(l);
+						} ).noneMatch(b ->b.equals(TRUE))){
+						CodeableConcept cc;
+						if(orEmpty(codeSystemVersion.getAvailableLanguages()).contains(displayLanguage)){
+							cc = new CodeableConcept(new Coding().setSystem(TX_ISSUE_TYPE).setCode(DISPLAY_COMMENT)).setText(format("'%s' is the default display; no valid Display Names found for %s#%s in the language %s", concept.getDisplay(), codingA.getSystem(), codingA.getCode(), displayLanguage));
+						} else {
+							cc = new CodeableConcept(new Coding().setSystem(TX_ISSUE_TYPE).setCode(DISPLAY_COMMENT)).setText(format("'%s' is the default display; the code system %s has no Display Names for the language %s", concept.getDisplay(), codingA.getSystem(), displayLanguage));
+						}
+
+						Parameters.ParametersParameterComponent operationOutcomeParameter = createOperationOutcomeWithIssues(cc, OperationOutcome.IssueSeverity.INFORMATION);
+						response.addParameter(operationOutcomeParameter);
+					}
 					return response;
 				} else {
 					FHIRDesignation termMatch = null;
@@ -1017,8 +1073,8 @@ public class FHIRValueSetService {
 							if (designation.getLanguage() == null || languageDialects.isEmpty() || languageDialects.stream()
 										.anyMatch(languageDialect -> designation.getLanguage().equals(languageDialect.getLanguageCode()))) {
 								response.addParameter("result", true);
-								response.addParameter("message", format("The code '%s' was found in the ValueSet and the display matched one of the designations.",
-										codingA.getCode()));
+								response.addParameter("display", termMatch.getValue());
+								//response.addParameter("message", format("The code '%s' was found in the ValueSet and the display matched one of the designations.",codingA.getCode()));
 								return response;
 							}
 						}
@@ -1028,11 +1084,49 @@ public class FHIRValueSetService {
 						response.addParameter("message", format("The code '%s' was found in the ValueSet and the display matched the designation with term '%s', " +
 								"however the language of the designation '%s' did not match any of the languages in the requested display language '%s'.",
 								codingA.getCode(), termMatch.getValue(), termMatch.getLanguage(), displayLanguage));
+						CodeableConcept cc = new CodeableConcept();
+						Parameters.ParametersParameterComponent operationOutcomeParameter = createOperationOutcomeWithIssues(cc, OperationOutcome.IssueSeverity.INFORMATION);
+						response.addParameter(operationOutcomeParameter);
 						return response;
 					} else {
+						SelectedDisplay selectedDisplay = selectDisplay(codingA.getSystem(),displayLanguage,concept);
+						response.addParameter("display", selectedDisplay.selectedDisplay);
 						response.addParameter("result", false);
-						response.addParameter("message", format("The code '%s' was found in the ValueSet, however the display '%s' did not match any designations.",
-								codingA.getCode(), codingA.getDisplay()));
+						CodeableConcept cc;
+						if(selectedDisplay.languageAvailable == null){
+							String message = "Wrong Display Name '%s' for %s#%s. Valid display is '%s' (for the language(s) '%s')";
+							response.addParameter("message", format(message, codingA.getDisplay(), codingA.getSystem(), codingA.getCode(), selectedDisplay.selectedDisplay, displayLanguage==null?"--":displayLanguage));
+							cc = new CodeableConcept(new Coding().setSystem(TX_ISSUE_TYPE).setCode("invalid-display")).setText(format(message, codingA.getDisplay(), codingA.getSystem(), codingA.getCode(), selectedDisplay.selectedDisplay, displayLanguage==null?"--":displayLanguage));
+						}
+						else if(selectedDisplay.languageAvailable) {
+							if (displayLanguage == null & concept.getDesignations().size()>0){
+								String prefix = "Wrong Display Name '%s' for %s#%s. Valid display is one of %d choices: ";
+								String languageFormat = "'%s' (%s)";
+								String interfix = " or ";
+								String suffix = " (for the language(s) '%s')";
+								String fullString = format(prefix, codingA.getDisplay(), codingA.getSystem(), codingA.getCode(), concept.getDesignations().size()+1);
+								//add language of codesystem
+								fullString += format(languageFormat, selectedDisplay.selectedDisplay, selectedDisplay.selectedLanguage);
+								for (FHIRDesignation d : concept.getDesignations()){
+									fullString += (interfix + format(languageFormat, d.getValue(), d.getLanguage()));
+								}
+								fullString += format(suffix,"--");
+								response.addParameter("message", fullString);
+								cc = new CodeableConcept(new Coding().setSystem(TX_ISSUE_TYPE).setCode("invalid-display")).setText(fullString);
+
+
+							} else {
+								String message = "Wrong Display Name '%s' for %s#%s. Valid display is '%s' (%s) (for the language(s) '%s')";
+								response.addParameter("message", format(message, codingA.getDisplay(), codingA.getSystem(), codingA.getCode(), selectedDisplay.selectedDisplay, selectedDisplay.selectedLanguage, displayLanguage != null ? displayLanguage : "--"));
+								cc = new CodeableConcept(new Coding().setSystem(TX_ISSUE_TYPE).setCode("invalid-display")).setText(format(message, codingA.getDisplay(), codingA.getSystem(), codingA.getCode(), selectedDisplay.selectedDisplay, selectedDisplay.selectedLanguage, displayLanguage != null ? displayLanguage : "--"));
+							}
+						} else {
+							String message = "Wrong Display Name '%s' for %s#%s. There are no valid display names found for language(s) '%s'. Default display is '%s'";
+							response.addParameter("message", format(message, codingA.getDisplay(), codingA.getSystem(), codingA.getCode(), displayLanguage, concept.getDisplay()));
+							cc = new CodeableConcept(new Coding().setSystem(TX_ISSUE_TYPE).setCode("invalid-display")).setText(format(message, codingA.getDisplay(), codingA.getSystem(), codingA.getCode(), displayLanguage, concept.getDisplay()));
+						}
+						Parameters.ParametersParameterComponent operationOutcomeParameter = createOperationOutcomeWithIssues(cc, OperationOutcome.IssueSeverity.ERROR);
+						response.addParameter(operationOutcomeParameter);
 						return response;
 					}
 				}
@@ -1045,10 +1139,56 @@ public class FHIRValueSetService {
 			String codingAVersion = codingA.getVersion();
 			response.addParameter("message", format("The code '%s' from CodeSystem '%s'%s was not found in this ValueSet.", codingA.getCode(), codingA.getSystem(),
 					codingAVersion != null ? format(" version '%s'", codingAVersion) : ""));
+			CodeableConcept cc = new CodeableConcept();
+			Parameters.ParametersParameterComponent operationOutcomeParameter = createOperationOutcomeWithIssues(cc, OperationOutcome.IssueSeverity.INFORMATION);
+			response.addParameter(operationOutcomeParameter);
 		} else {
 			response.addParameter("message", "None of the codes in the CodableConcept were found in this ValueSet.");
+			CodeableConcept cc = new CodeableConcept();
+			Parameters.ParametersParameterComponent operationOutcomeParameter = createOperationOutcomeWithIssues(cc, OperationOutcome.IssueSeverity.INFORMATION);
+			response.addParameter(operationOutcomeParameter);
 		}
 		return response;
+	}
+
+	private SelectedDisplay selectDisplay(String system, String displayLanguage, FHIRConcept concept) {
+		FHIRCodeSystemVersion codeSystemVersion = codeSystemService.findCodeSystemVersion(new FHIRCodeSystemVersionParams(system));
+		if (displayLanguage == null){
+			if (!StringUtils.isEmpty(codeSystemVersion.getLanguage())){
+				displayLanguage = codeSystemVersion.getLanguage();
+			} else {
+				displayLanguage = "en";
+			}
+		}
+		final String fhirDisplayLanguage = displayLanguage;
+		SelectedDisplay selectedDisplay;
+		if(StringUtils.isEmpty(codeSystemVersion.getLanguage())){
+			selectedDisplay = new SelectedDisplay(concept.getDisplay(),fhirDisplayLanguage,null);
+			//language is not available, but it doesn't matter, because the codesystem has no language
+		} else if(fhirDisplayLanguage.equals(codeSystemVersion.getLanguage()) || orEmpty(codeSystemVersion.getAvailableLanguages()).contains(fhirDisplayLanguage)) {
+			selectedDisplay = concept.getDesignations().stream()
+					.filter(d -> fhirDisplayLanguage.equals(d.getLanguage()))
+					.findFirst().map(d -> new SelectedDisplay(d.getValue(),d.getLanguage(),true)).orElse(new SelectedDisplay(concept.getDisplay(),codeSystemVersion.getLanguage(),Objects.equals(codeSystemVersion.getLanguage(),fhirDisplayLanguage)));
+
+		}else{
+			selectedDisplay = new SelectedDisplay(concept.getDisplay(),fhirDisplayLanguage,false);
+		}
+		return selectedDisplay;
+	}
+
+	private static Parameters.@NotNull ParametersParameterComponent createOperationOutcomeWithIssues(CodeableConcept cc, OperationOutcome.IssueSeverity issueSeverity) {
+		OperationOutcome operationOutcome = new OperationOutcome();
+		OperationOutcome.OperationOutcomeIssueComponent issue = new OperationOutcome.OperationOutcomeIssueComponent();
+
+		issue.setSeverity(issueSeverity)
+				.setCode(OperationOutcome.IssueType.INVALID)
+				.setLocation(Collections.singletonList(new StringType("Coding.display")))
+				.setExpression(Collections.singletonList(new StringType("Coding.display")))
+				.setDetails(cc);
+		operationOutcome.addIssue(issue);
+		Parameters.ParametersParameterComponent operationOutcomeParameter = new Parameters.ParametersParameterComponent(new StringType("issues"));
+		operationOutcomeParameter.setResource(operationOutcome);
+		return operationOutcomeParameter;
 	}
 
 	@Nullable
