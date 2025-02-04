@@ -121,7 +121,7 @@ public class FHIRHelper implements FHIRConstants {
 		if (acceptHeader != null) {
 			return acceptHeader;
 		}
-		return "en";
+		return null;
 	}
 
 	public static void parameterNamingHint(String incorrectParamName, Object incorrectParamValue, String correctParamName) {

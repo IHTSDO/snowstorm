@@ -265,14 +265,7 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 		if (request.getMethod().equals(RequestMethod.POST.name())) {
 			// HAPI doesn't populate the OperationParam values for POST, we parse the body instead.
 			List<Parameters.ParametersParameterComponent> parsed = fhirContext.newJsonParser().parseResource(Parameters.class, rawBody).getParameter();
-			List<Parameters.ParametersParameterComponent> txResources = FHIRValueSetProviderHelper.findParametersByName(parsed, "tx-resource");
-			List<Resource> resources = txResources.stream().map(x -> x.getResource()).toList();
-			File npmPackage = FHIRValueSetProviderHelper.createNpmPackageFromResources(resources);
-			try {
-				loadPackageService.uploadPackageResources(npmPackage, Collections.singleton("*"),"tx-resources",false);
-			} catch (IOException e) {
-				throw new UncheckedIOException("Failed to read package from resources", e);
-			}
+			handleTxResources(loadPackageService,parsed);
 			params = FHIRValueSetProviderHelper.getValueSetExpansionParameters(null, parsed );
 		} else {
 			params = FHIRValueSetProviderHelper.getValueSetExpansionParameters(null, url, valueSetVersion, context, contextDirection, filter, date, offset, count,
@@ -281,6 +274,18 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 		}
 
 		return valueSetService.expand(params,  request.getHeader(ACCEPT_LANGUAGE_HEADER));
+	}
+
+	private static void handleTxResources(FHIRLoadPackageService loadPackageService,List<Parameters.ParametersParameterComponent> parsed) {
+		List<Parameters.ParametersParameterComponent> txResources = FHIRValueSetProviderHelper.findParametersByName(parsed, "tx-resource");
+		//List<Parameters.ParametersParameterComponent> valueSets = FHIRValueSetProviderHelper.findParametersByName(parsed, "valueSet");
+		List<Resource> resources = txResources.stream().map(x -> x.getResource()).toList();
+		File npmPackage = FHIRValueSetProviderHelper.createNpmPackageFromResources(resources);
+		try {
+			loadPackageService.uploadPackageResources(npmPackage, Collections.singleton("*"),"tx-resources",false);
+		} catch (IOException e) {
+			throw new RuntimeServiceException(e);
+		}
 	}
 
 	@Operation(name="$validate-code", idempotent=true)
@@ -312,6 +317,7 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 	public Parameters validateCodeImplicit(
 			HttpServletRequest request,
 			HttpServletResponse response,
+			@ResourceParam String rawBody,
 			@OperationParam(name="url") UriType url,
 			@OperationParam(name="context") UriType context,
 			@OperationParam(name="valueSet") ValueSet valueSet,
@@ -328,6 +334,12 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 			@OperationParam(name="system-version") String incorrectParamSystemVersion) {
 
 		validateCodeParamHints(incorrectParamSystemVersion);
+		logger.info(FHIRValueSetProviderHelper.getFullURL(request));
+		if (request.getMethod().equals(RequestMethod.POST.name())) {
+			// HAPI doesn't populate the OperationParam values for POST, we parse the body instead.
+			List<Parameters.ParametersParameterComponent> parsed = fhirContext.newJsonParser().parseResource(Parameters.class, rawBody).getParameter();
+			handleTxResources(loadPackageService, parsed);
+		}
 		return valueSetService.validateCode(null, url, context, valueSet, valueSetVersion, code, system, systemVersion, display, coding, codeableConcept, date, abstractBool,
 				FHIRHelper.getDisplayLanguage(displayLanguage, request.getHeader(ACCEPT_LANGUAGE_HEADER)));
 	}
