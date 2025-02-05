@@ -106,8 +106,12 @@ public class FHIRHelper implements FHIRConstants {
 
 	@SuppressWarnings("unchecked")
 	public static List<String> findParameterStringListOrNull(List<Parameters.ParametersParameterComponent> parametersParameterComponents, String name) {
-		return parametersParameterComponents.stream().filter(parametersParameterComponent -> parametersParameterComponent.getName().equals(name)).findFirst()
-				.map(param -> (List<String>) param.getValue()).orElse(null);
+		List<String> result =  parametersParameterComponents.stream().filter(parametersParameterComponent -> parametersParameterComponent.getName().equals(name)).map(parametersParameterComponent -> parametersParameterComponent.getValue().primitiveValue()).toList();
+		if (result.isEmpty()){
+			return null;
+		} else {
+			return result;
+		}
 	}
 
 	public static String getDisplayLanguage(String displayLanguageParam, String acceptHeader) {
