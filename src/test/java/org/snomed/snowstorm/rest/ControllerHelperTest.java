@@ -2,12 +2,15 @@ package org.snomed.snowstorm.rest;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.snomed.snowstorm.core.pojo.LanguageDialect;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpHeaders;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 
 import jakarta.servlet.http.HttpServletRequest;
+
+import java.util.List;
 import java.util.UUID;
 
 import static org.junit.Assert.assertEquals;
@@ -45,7 +48,7 @@ class ControllerHelperTest {
 	}
 
 	@Test
-	public void getCreatedLocationHeaders_ShouldReturnExpectedLocationFromHttpHeaders_WhenRequestingFromLocalhost() {
+	void getCreatedLocationHeaders_ShouldReturnExpectedLocationFromHttpHeaders_WhenRequestingFromLocalhost() {
 		//given
 		RequestContextHolder.setRequestAttributes(servletRequestAttributes);
 		when(httpServletRequest.getRequestURL()).thenReturn(new StringBuffer().append("http://localhost:8080/imports"));
@@ -58,5 +61,17 @@ class ControllerHelperTest {
 
 		//then
 		assertEquals(expectedLocation, actualLocation);
+	}
+
+	@Test
+	void parseAcceptLanguageHeader_ShouldReturnExpectedLanguage_WhenParsingLanguageWithRegionalDialect() {
+		//given
+		String acceptLanguageHeader = "es-419,es;q=0.9";
+
+		//when
+		final List<LanguageDialect> languageDialects = ControllerHelper.parseAcceptLanguageHeader(acceptLanguageHeader);
+
+		//then
+		assertEquals("es", languageDialects.get(0).getLanguageCode());
 	}
 }
