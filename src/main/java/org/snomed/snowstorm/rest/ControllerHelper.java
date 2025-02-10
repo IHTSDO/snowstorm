@@ -2,6 +2,7 @@ package org.snomed.snowstorm.rest;
 
 import com.google.common.base.Strings;
 import io.kaicode.rest.util.branchpathrewrite.BranchPathUriUtil;
+import jakarta.servlet.http.HttpServletRequest;
 import org.snomed.snowstorm.core.data.domain.ConceptMini;
 import org.snomed.snowstorm.core.data.services.DialectConfigurationService;
 import org.snomed.snowstorm.core.data.services.NotFoundException;
@@ -23,10 +24,10 @@ import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
-import jakarta.servlet.http.HttpServletRequest;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.function.BiConsumer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -173,32 +174,44 @@ public class ControllerHelper {
 				continue;
 			}
 
-			String languageCode;
-			Long languageReferenceSet = null;
-
 			String[] valueAndWeight = acceptLanguage.split(";");
 			// We don't use the weight, just take the value
 			String value = valueAndWeight[0];
 
-			Matcher matcher = LANGUAGE_PATTERN.matcher(value);
-			if (matcher.matches()) {
-				languageCode = matcher.group(1);
-			} else if ((matcher = LANGUAGE_AND_REGIONAL_DIALECT_PATTERN.matcher(value)).matches()) {
-				languageCode = matcher.group(1);
-			} else if ((matcher = LANGUAGE_AND_REFSET_PATTERN.matcher(value)).matches()) {
-				languageCode = matcher.group(1);
-				languageReferenceSet = parseLong(matcher.group(2));
-			} else if ((matcher = LANGUAGE_AND_DIALECT_PATTERN.matcher(value)).matches() || (matcher = LANGUAGE_AND_DIALECT_AND_CONTEXT_PATTERN.matcher(value)).matches()) {
-				languageCode = matcher.group(1);
-				languageReferenceSet = DialectConfigurationService.instance().findRefsetForDialect(value); 
-			} else if ((matcher = LANGUAGE_AND_DIALECT_AND_REFSET_PATTERN.matcher(value)).matches()) {
-				languageCode = matcher.group(1);
-				languageReferenceSet = parseLong(matcher.group(3));
-			} else {
+			List<LanguagePatternHandler> patternHandlers = List.of(
+				new LanguagePatternHandler(LANGUAGE_PATTERN, (matcher, ld) -> ld.setLanguageCode(matcher.group(1))),
+				new LanguagePatternHandler(LANGUAGE_AND_REGIONAL_DIALECT_PATTERN, (matcher, ld) -> ld.setLanguageCode(matcher.group(1))),
+				new LanguagePatternHandler(LANGUAGE_AND_REFSET_PATTERN, (matcher, ld) -> {
+					ld.setLanguageCode(matcher.group(1));
+					ld.setLanguageReferenceSet(parseLong(matcher.group(2)));
+				}),
+				new LanguagePatternHandler(LANGUAGE_AND_DIALECT_PATTERN, (matcher, ld) -> {
+					ld.setLanguageCode(matcher.group(1));
+					ld.setLanguageReferenceSet(DialectConfigurationService.instance().findRefsetForDialect(value));
+				}),
+				new LanguagePatternHandler(LANGUAGE_AND_DIALECT_AND_CONTEXT_PATTERN, (matcher, ld) -> {
+					ld.setLanguageCode(matcher.group(1));
+					ld.setLanguageReferenceSet(DialectConfigurationService.instance().findRefsetForDialect(value));
+				}),
+				new LanguagePatternHandler(LANGUAGE_AND_DIALECT_AND_REFSET_PATTERN, (matcher, ld) -> {
+					ld.setLanguageCode(matcher.group(1));
+					ld.setLanguageReferenceSet(parseLong(matcher.group(3)));
+				})
+			);
+
+			LanguageDialect languageDialect = new LanguageDialect();
+			boolean matched = false;
+			for (LanguagePatternHandler handler : patternHandlers) {
+				if (handler.handle(value, languageDialect)) {
+					matched = true;
+					break;
+				}
+			}
+
+			if (!matched) {
 				throw new IllegalArgumentException("Unexpected value within Accept-Language request header '" + value + "'.");
 			}
 			
-			LanguageDialect languageDialect = new LanguageDialect(languageCode, languageReferenceSet);
 			if (!languageDialects.contains(languageDialect)) {
 				//Would normally use a Set here, but the order may be important
 				languageDialects.add(languageDialect);
@@ -214,6 +227,25 @@ public class ControllerHelper {
 
 		if ((offset + limit) > 10_000) {
 			throw new IllegalArgumentException("Maximum unsorted offset + page size is 10,000.");
+		}
+	}
+
+	static class LanguagePatternHandler {
+		private final Pattern pattern;
+		private final BiConsumer<Matcher, LanguageDialect> handler;
+
+		public LanguagePatternHandler(Pattern pattern, BiConsumer<Matcher, LanguageDialect> handler) {
+			this.pattern = pattern;
+			this.handler = handler;
+		}
+
+		public boolean handle(String value, LanguageDialect languageDialect) {
+			Matcher matcher = pattern.matcher(value);
+			if (matcher.matches()) {
+				handler.accept(matcher, languageDialect);
+				return true;
+			}
+			return false;
 		}
 	}
 }
