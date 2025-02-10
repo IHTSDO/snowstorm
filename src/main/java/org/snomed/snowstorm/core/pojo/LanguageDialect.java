@@ -23,8 +23,16 @@ public class LanguageDialect implements Serializable {
 		this.languageReferenceSet = languageReferenceSet;
 	}
 
+	public void setLanguageCode(String languageCode) {
+		this.languageCode = languageCode;
+	}
+
 	public String getLanguageCode() {
 		return languageCode;
+	}
+
+	public void setLanguageReferenceSet(Long languageReferenceSet) {
+		this.languageReferenceSet = languageReferenceSet;
 	}
 
 	public Long getLanguageReferenceSet() {
