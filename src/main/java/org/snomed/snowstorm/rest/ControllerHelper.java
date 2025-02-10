@@ -38,6 +38,7 @@ import static org.snomed.snowstorm.config.Config.DEFAULT_LANGUAGE_DIALECTS;
 public class ControllerHelper {
 
 	private static final Pattern LANGUAGE_PATTERN = Pattern.compile("([a-z]{2})");
+	private static final Pattern LANGUAGE_AND_REGIONAL_DIALECT_PATTERN = Pattern.compile("([a-z]{2})-\\d+$");
 	private static final Pattern LANGUAGE_AND_REFSET_PATTERN = Pattern.compile("([a-z]{2})-x-(" + IdentifierService.SCTID_PATTERN + ")");
 	private static final Pattern LANGUAGE_AND_DIALECT_PATTERN = Pattern.compile("([a-z]{2})-([a-z]{2})");
 	private static final Pattern LANGUAGE_AND_DIALECT_AND_CONTEXT_PATTERN = Pattern.compile("([a-z]{2})-([a-z]{2})-([a-z]+)");
@@ -181,6 +182,8 @@ public class ControllerHelper {
 
 			Matcher matcher = LANGUAGE_PATTERN.matcher(value);
 			if (matcher.matches()) {
+				languageCode = matcher.group(1);
+			} else if ((matcher = LANGUAGE_AND_REGIONAL_DIALECT_PATTERN.matcher(value)).matches()) {
 				languageCode = matcher.group(1);
 			} else if ((matcher = LANGUAGE_AND_REFSET_PATTERN.matcher(value)).matches()) {
 				languageCode = matcher.group(1);
