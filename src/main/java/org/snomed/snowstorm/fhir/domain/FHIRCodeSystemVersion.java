@@ -62,6 +62,7 @@ public class FHIRCodeSystemVersion {
 	@Field(type = FieldType.Keyword)
 	private Set<String> availableLanguages;
 
+	@Field(type = FieldType.Nested)
 	private List<FHIRExtension> extensions;
 
 	@Transient
