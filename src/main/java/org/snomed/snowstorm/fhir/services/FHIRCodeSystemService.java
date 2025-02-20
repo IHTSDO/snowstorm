@@ -1,9 +1,8 @@
 package org.snomed.snowstorm.fhir.services;
 
+import co.elastic.clients.elasticsearch._types.query_dsl.*;
 import org.apache.commons.lang3.StringUtils;
-import org.hl7.fhir.r4.model.CodeSystem;
-import org.hl7.fhir.r4.model.Extension;
-import org.hl7.fhir.r4.model.OperationOutcome;
+import org.hl7.fhir.r4.model.*;
 import org.ihtsdo.drools.helper.IdentifierHelper;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
@@ -28,18 +27,26 @@ import org.snomed.snowstorm.fhir.repositories.FHIRCodeSystemRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.elasticsearch.client.elc.NativeQuery;
+import org.springframework.data.elasticsearch.client.elc.NativeQueryBuilder;
+import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
 
 import static java.lang.String.format;
+import static org.snomed.snowstorm.core.util.SearchAfterQueryHelper.updateQueryWithSearchAfter;
 import static org.snomed.snowstorm.fhir.services.FHIRHelper.exception;
+import static org.snomed.snowstorm.fhir.utils.FHIRPageHelper.toPage;
 
 @Service
 public class FHIRCodeSystemService {
 
 	public static final String SCT_ID_PREFIX = "sct_";
 	private static final int PAGESIZE = 1_000;
+
+	@Autowired
+	private ElasticsearchOperations elasticsearchOperations;
 
 	@Autowired
 	private FHIRCodeSystemRepository codeSystemRepository;
@@ -115,13 +122,13 @@ public class FHIRCodeSystemService {
 		 */
 		// if not SNOMED
 		if (!FHIRHelper.isSnomedUri(fhirCodeSystemVersion.getUrl())) {
-			return handleNotSnomedSupplement(codeSystem);
+			return handleNotSnomedSupplement(codeSystem, fhirCodeSystemVersion);
 		}
 
-		return handleSnomedSupplement(codeSystem);
+		return handleSnomedSupplement(codeSystem, fhirCodeSystemVersion);
 	}
 
-	private @NotNull FHIRCodeSystemVersion handleSnomedSupplement(CodeSystem codeSystem) throws ServiceException {
+	private @NotNull FHIRCodeSystemVersion handleSnomedSupplement(CodeSystem codeSystem, FHIRCodeSystemVersion fhirCodeSystemVersion) throws ServiceException {
 		// if no dependency
 		if (!codeSystem.hasSupplements()) {
 			throw exception("SNOMED CT CodeSystem supplements must declare which SNOMED CT edition and version they supplement " +
@@ -190,7 +197,7 @@ public class FHIRCodeSystemService {
 		return new FHIRCodeSystemVersion(savedCodeSystem, true);
 	}
 
-	private @NotNull FHIRCodeSystemVersion handleNotSnomedSupplement(CodeSystem supplement) throws ServiceException {
+	private @NotNull FHIRCodeSystemVersion handleNotSnomedSupplement(CodeSystem supplement, FHIRCodeSystemVersion fhirCodeSystemVersion) throws ServiceException {
 		// if no dependency
 		if (!supplement.hasSupplements()) {
 			throw exception("CodeSystem supplements must declare which codesystem they supplement " +
@@ -207,6 +214,10 @@ public class FHIRCodeSystemService {
 		CodeSystem updatedCodeSystem = codeSystemRepository.findByUrlAndVersion(dependentVersion.getUrl(), dependentVersion.getVersion()).toHapiCodeSystem();
 
 		List<Extension> extensions = new ArrayList<Extension>(supplement.getExtension());
+		Extension supExt = new Extension();
+		supExt.setUrl("https://github.com/IHTSDO/snowstorm/codesystem-supplement");
+		supExt.setValue(new CanonicalType(fhirCodeSystemVersion.getCanonical()));
+		extensions.add(supExt);
 		extensions.addAll(updatedCodeSystem.getExtension());
 		updatedCodeSystem.setExtension(extensions);
 
@@ -318,7 +329,16 @@ public class FHIRCodeSystemService {
 	public FHIRCodeSystemVersion findCodeSystemVersionOrThrow(FHIRCodeSystemVersionParams systemVersionParams) {
 		FHIRCodeSystemVersion codeSystemVersion = findCodeSystemVersion(systemVersionParams);
 		if (codeSystemVersion == null) {
-			throw exception(format("Code system not found for parameters %s.", systemVersionParams), OperationOutcome.IssueType.NOTFOUND, 400);
+			if(supplementExists(systemVersionParams.getCodeSystem()+(systemVersionParams.getVersion()==null?"*":format("|%s",systemVersionParams.getVersion())), systemVersionParams.getVersion()==null)){
+				String message = format("CodeSystem %s is a supplement, so can't be used as a value in Coding.system",systemVersionParams.getCodeSystem());
+				CodeableConcept cc = new CodeableConcept();
+				cc.setText(message);
+				cc.addCoding(new Coding("http://hl7.org/fhir/tools/CodeSystem/tx-issue-type", "invalid-data",null));
+				OperationOutcome oo = FHIRHelper.createOperationOutcomeWithIssue(cc, OperationOutcome.IssueSeverity.ERROR, "Coding.system", OperationOutcome.IssueType.INVALID, Collections.singletonList(new Extension("http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id", new StringType("CODESYSTEM_CS_NO_SUPPLEMENT"))), null);
+				throw new SnowstormFHIRServerResponseException(400,message,oo);
+			}else {
+				throw exception(format("Code system not found for parameters %s.", systemVersionParams), OperationOutcome.IssueType.NOTFOUND, 400);
+			}
 		}
 
 		if (systemVersionParams.getId() != null) {
@@ -496,5 +516,32 @@ public class FHIRCodeSystemService {
 
 	private void throwCodeNotFound(String code, FHIRCodeSystemVersion codeSystemVersion) {
 		throw exception(String.format("Code '%s' was not found in code system '%s'.", code, codeSystemVersion), OperationOutcome.IssueType.INVALID, 400);
+	}
+
+	public boolean supplementExists(String value, boolean containsWildcard) {
+		NestedQuery.Builder nested = new NestedQuery.Builder();
+		BoolQuery.Builder query = new BoolQuery.Builder();
+		if(containsWildcard){
+			query.filter(new WildcardQuery.Builder().field("extensions.value").value(value).build()._toQuery());
+		} else {
+			query.filter(new TermQuery.Builder().field("extensions.value").value(value).build()._toQuery());
+		}
+		nested.path("extensions").query(query.build()._toQuery());
+		Page<FHIRCodeSystemVersion> result = find(PageRequest.of(0,100), nested.build()._toQuery());
+		return result.getTotalElements() != 0;
+	}
+
+	public Page<FHIRCodeSystemVersion> find(PageRequest pageRequest, Query query) {
+		NativeQuery searchQuery = new NativeQueryBuilder()
+				.withQuery(query)
+				.withPageable(pageRequest)
+				.build();
+		searchQuery.setTrackTotalHits(true);
+		updateQueryWithSearchAfter(searchQuery, pageRequest);
+
+		logger.info("QUERY:"+searchQuery.getQuery().toString());
+
+		return toPage(elasticsearchOperations.search(searchQuery, FHIRCodeSystemVersion.class), pageRequest);
+
 	}
 }
