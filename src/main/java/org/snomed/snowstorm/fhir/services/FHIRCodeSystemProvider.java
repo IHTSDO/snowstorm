@@ -36,6 +36,8 @@ import org.springframework.stereotype.Component;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.web.bind.annotation.RequestMethod;
+
 import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -55,6 +57,12 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants 
 
 	@Value("${snowstorm.rest-api.readonly}")
 	private boolean readOnlyMode;
+
+	@Autowired
+	private FHIRLoadPackageService loadPackageService;
+
+	@Autowired
+	private FhirContext fhirContext;
 
 	@Autowired
 	private FHIRCodeSystemService fhirCodeSystemService;
@@ -305,6 +313,7 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants 
 	public Parameters validateCodeImplicit(
 			HttpServletRequest request,
 			HttpServletResponse response,
+			@ResourceParam String rawBody,
 			@OperationParam(name="url") UriType url,
 			@OperationParam(name="codeSystem") StringType codeSystem,
 			@OperationParam(name="code") CodeType code,
@@ -318,6 +327,11 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants 
 		notSupported("date", date);
 		mutuallyExclusive("code", code, "coding", coding);
 		mutuallyRequired("display", display, "code", code, "coding", coding);
+		if (request.getMethod().equals(RequestMethod.POST.name())) {
+			// HAPI doesn't populate the OperationParam values for POST, we parse the body instead.
+			List<Parameters.ParametersParameterComponent> parsed = fhirContext.newJsonParser().parseResource(Parameters.class, rawBody).getParameter();
+			FHIRHelper.handleTxResources(loadPackageService,parsed);
+		}
 		FHIRCodeSystemVersionParams codeSystemParams = getCodeSystemVersionParams(null, url, version, coding);
 		return validateCode(codeSystemParams, fhirHelper.recoverCode(code, coding), display, request.getHeader(ACCEPT_LANGUAGE_HEADER));
 	}
@@ -335,6 +349,7 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants 
 			@OperationParam(name="date") DateTimeType date,
 			@OperationParam(name="coding") Coding coding,
 			@OperationParam(name="displayLanguage") String displayLanguage) {
+
 		FHIRCodeSystemVersionParams codeSystemParams = getCodeSystemVersionParams(id, url, version, coding);
 		return validateCode(codeSystemParams, fhirHelper.recoverCode(code, coding), display, request.getHeader(ACCEPT_LANGUAGE_HEADER));
 	}
@@ -396,7 +411,24 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants 
 			parameters.addParameter("version", codeSystemVersion.getVersion());
 			return parameters;
 		} else {
-			FHIRCodeSystemVersion codeSystemVersion = fhirCodeSystemService.findCodeSystemVersionOrThrow(codeSystemParams);
+			FHIRCodeSystemVersion codeSystemVersion = null;
+			try {
+				codeSystemVersion = fhirCodeSystemService.findCodeSystemVersionOrThrow(codeSystemParams);
+			} catch(SnowstormFHIRServerResponseException e) {
+				if (isSupplementAsCodeSystemException(e)){
+					Parameters parameters = new Parameters();
+					parameters.addParameter("code", new CodeType(code));
+					parameters.addParameter(new Parameters.ParametersParameterComponent(new StringType("issues")).setResource(e.getOperationOutcome()));
+					parameters.addParameter("message",e.getMessage());
+					parameters.addParameter("result",false);
+					parameters.addParameter("system",new UriType(codeSystemParams.getCodeSystem()));
+					return parameters;
+				} else {
+					throw e;
+				}
+
+
+			}
 			FHIRConcept concept = fhirConceptService.findConcept(codeSystemVersion, code);
 
 			if (concept != null) {
@@ -410,7 +442,11 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants 
 			}
 		}
 	}
-	
+
+	private static boolean isSupplementAsCodeSystemException(SnowstormFHIRServerResponseException e) {
+		return !Optional.ofNullable(Optional.ofNullable(Optional.ofNullable(e.getOperationOutcome()).orElse(new OperationOutcome()).getIssue()).orElse(Collections.emptyList()).stream().findFirst().orElse(new OperationOutcome.OperationOutcomeIssueComponent()).getExtension()).orElse(Collections.emptyList()).stream().filter(i -> "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id".equals(i.getUrl()) && "CODESYSTEM_CS_NO_SUPPLEMENT".equals(i.getValue().primitiveValue())).toList().isEmpty();
+	}
+
 	@Operation(name="$subsumes", idempotent=true)
 	public Parameters subsumesInstance(
 			@IdParam IdType id,
