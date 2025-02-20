@@ -15,10 +15,7 @@ import org.snomed.snowstorm.core.data.domain.ConceptMini;
 import org.snomed.snowstorm.core.data.domain.Concepts;
 import org.snomed.snowstorm.core.data.domain.QueryConcept;
 import org.snomed.snowstorm.core.data.domain.ReferenceSetMember;
-import org.snomed.snowstorm.core.data.services.ConceptService;
-import org.snomed.snowstorm.core.data.services.DescriptionService;
-import org.snomed.snowstorm.core.data.services.QueryService;
-import org.snomed.snowstorm.core.data.services.ReferenceSetMemberService;
+import org.snomed.snowstorm.core.data.services.*;
 import org.snomed.snowstorm.core.data.services.pojo.MemberSearchRequest;
 import org.snomed.snowstorm.core.data.services.pojo.PageWithBucketAggregations;
 import org.snomed.snowstorm.core.pojo.LanguageDialect;
@@ -87,6 +84,7 @@ public class FHIRValueSetService {
 	static{
 		PROPERTY_TO_URL.put("definition","http://hl7.org/fhir/concept-properties#definition");
 		PROPERTY_TO_URL.put("prop","http://hl7.org/fhir/test/CodeSystem/properties#prop");
+		PROPERTY_TO_URL.put("alternateCode", "http://hl7.org/fhir/concept-properties#alternateCode");
 	}
 
 	// Constant to help with "?fhir_vs=refset"
@@ -397,20 +395,43 @@ public class FHIRValueSetService {
 					expansion.addParameter(new ValueSet.ValueSetExpansionParameterComponent(new StringType("used-codesystem"))
 							.setValue(new CanonicalType(codeSystemVersion.getCanonical())));
 				}
+				if (codeSystemVersion.getExtensions() != null){
+					for( FHIRExtension fe: codeSystemVersion.getExtensions()){
+						if ("https://github.com/IHTSDO/snowstorm/codesystem-supplement".equals(fe.getUri())){
+							expansion.addParameter(new ValueSet.ValueSetExpansionParameterComponent(new StringType("used-supplement"))
+									.setValue(new CanonicalType(fe.getValue())));
+						}
+					}
+				}
 			}
 		);
 
-		hapiValueSet.getExtension().forEach(ext ->{
-			if(ext.getUrl().equals("http://hl7.org/fhir/StructureDefinition/valueset-supplement")){
-				expansion.addParameter(new ValueSet.ValueSetExpansionParameterComponent(new StringType("used-supplement"))
-						.setValue(ext.getValue()));
-			}
+		hapiValueSet.getExtension().forEach(
+				ext ->{
+			if(ext.getUrl().equals("http://hl7.org/fhir/StructureDefinition/valueset-supplement")) {
+				if (codeSystemService.supplementExists(ext.getValue().primitiveValue(), false)) {
 
+					if (expansion.getParameter("used-supplement").isEmpty()) {
+						expansion.addParameter(new ValueSet.ValueSetExpansionParameterComponent(new StringType("used-supplement"))
+								.setValue(ext.getValue()));
+					}
+				} else {
+					String message = "Supplement %s does not exist.".formatted(ext.getValue().primitiveValue());
+					CodeableConcept cc = new CodeableConcept().setText(message);
+					throw exception(message,
+							OperationOutcome.IssueType.NOTFOUND, 404, null, cc);
+
+				}
+			}
 		});
 
 
 		Optional.ofNullable(params.getProperty()).ifPresent( x ->{
-					addPropertyToExpansion(x, PROPERTY_TO_URL.get(x), expansion);
+					if ("alternateCode".equals(x)){
+						//do nothing
+					} else {
+						addPropertyToExpansion(x, getUrlForProperty(x), expansion);
+					}
 				}
 		);
 		final String fhirDisplayLanguage;
@@ -642,7 +663,7 @@ public class FHIRValueSetService {
 		component.addExtension(extension);
 	}
 
-	private static void addPropertyToExpansion(String code, String url, ValueSet.ValueSetExpansionComponent expansion) {
+	private static void addPropertyToExpansion(String code, @NotNull String url, ValueSet.ValueSetExpansionComponent expansion) {
 		if(expansion.getExtensionsByUrl("http://hl7.org/fhir/5.0/StructureDefinition/extension-ValueSet.expansion.property")
 				.stream()
 				.filter( extension -> extension.hasExtension("code"))
@@ -949,6 +970,21 @@ public class FHIRValueSetService {
 			displayLanguage = hapiValueSet.getCompose().getExtensionByUrl("http://hl7.org/fhir/tools/StructureDefinition/valueset-expansion-parameter").getExtensionString("value");
 		}
 
+		hapiValueSet.getExtension().forEach(
+				ext ->{
+					if(ext.getUrl().equals("http://hl7.org/fhir/StructureDefinition/valueset-supplement")) {
+						if (!codeSystemService.supplementExists(ext.getValue().primitiveValue(), false)) {
+
+
+							String message = "Supplement %s does not exist.".formatted(ext.getValue().primitiveValue());
+							CodeableConcept cc = new CodeableConcept().setText(message);
+							throw exception(message,
+									OperationOutcome.IssueType.NOTFOUND, 404, null, cc);
+
+						}
+					}
+				});
+
 		// Get set of codings - one of which needs to be valid
 		Set<Coding> codings = new HashSet<>();
 		if (code != null) {
@@ -1061,7 +1097,7 @@ public class FHIRValueSetService {
 							cc = new CodeableConcept(new Coding().setSystem(TX_ISSUE_TYPE).setCode(DISPLAY_COMMENT)).setText(format("'%s' is the default display; the code system %s has no Display Names for the language %s", concept.getDisplay(), codingA.getSystem(), displayLanguage));
 						}
 
-						Parameters.ParametersParameterComponent operationOutcomeParameter = createOperationOutcomeWithIssues(cc, OperationOutcome.IssueSeverity.INFORMATION);
+						Parameters.ParametersParameterComponent operationOutcomeParameter = createParameterComponentWithOperationOutcomeWithIssues(cc, OperationOutcome.IssueSeverity.INFORMATION, "Coding.display", OperationOutcome.IssueType.INVALID);
 						response.addParameter(operationOutcomeParameter);
 					}
 					return response;
@@ -1070,10 +1106,15 @@ public class FHIRValueSetService {
 					for (FHIRDesignation designation : concept.getDesignations()) {
 						if (codingADisplay.equalsIgnoreCase(designation.getValue())) {
 							termMatch = designation;
-							if (designation.getLanguage() == null || languageDialects.isEmpty() || languageDialects.stream()
+							if (termMatch.getLanguage() == null || languageDialects.stream()
 										.anyMatch(languageDialect -> designation.getLanguage().equals(languageDialect.getLanguageCode()))) {
 								response.addParameter("result", true);
 								response.addParameter("display", termMatch.getValue());
+								//response.addParameter("message", format("The code '%s' was found in the ValueSet and the display matched one of the designations.",codingA.getCode()));
+								return response;
+							} else if (languageDialects.isEmpty()){
+								response.addParameter("result", true);
+								response.addParameter("display", concept.getDisplay());
 								//response.addParameter("message", format("The code '%s' was found in the ValueSet and the display matched one of the designations.",codingA.getCode()));
 								return response;
 							}
@@ -1085,7 +1126,7 @@ public class FHIRValueSetService {
 								"however the language of the designation '%s' did not match any of the languages in the requested display language '%s'.",
 								codingA.getCode(), termMatch.getValue(), termMatch.getLanguage(), displayLanguage));
 						CodeableConcept cc = new CodeableConcept();
-						Parameters.ParametersParameterComponent operationOutcomeParameter = createOperationOutcomeWithIssues(cc, OperationOutcome.IssueSeverity.INFORMATION);
+						Parameters.ParametersParameterComponent operationOutcomeParameter = createParameterComponentWithOperationOutcomeWithIssues(cc, OperationOutcome.IssueSeverity.INFORMATION, "Coding.display", OperationOutcome.IssueType.INVALID);
 						response.addParameter(operationOutcomeParameter);
 						return response;
 					} else {
@@ -1125,7 +1166,7 @@ public class FHIRValueSetService {
 							response.addParameter("message", format(message, codingA.getDisplay(), codingA.getSystem(), codingA.getCode(), displayLanguage, concept.getDisplay()));
 							cc = new CodeableConcept(new Coding().setSystem(TX_ISSUE_TYPE).setCode("invalid-display")).setText(format(message, codingA.getDisplay(), codingA.getSystem(), codingA.getCode(), displayLanguage, concept.getDisplay()));
 						}
-						Parameters.ParametersParameterComponent operationOutcomeParameter = createOperationOutcomeWithIssues(cc, OperationOutcome.IssueSeverity.ERROR);
+						Parameters.ParametersParameterComponent operationOutcomeParameter = createParameterComponentWithOperationOutcomeWithIssues(cc, OperationOutcome.IssueSeverity.ERROR, "Coding.display", OperationOutcome.IssueType.INVALID);
 						response.addParameter(operationOutcomeParameter);
 						return response;
 					}
@@ -1140,12 +1181,12 @@ public class FHIRValueSetService {
 			response.addParameter("message", format("The code '%s' from CodeSystem '%s'%s was not found in this ValueSet.", codingA.getCode(), codingA.getSystem(),
 					codingAVersion != null ? format(" version '%s'", codingAVersion) : ""));
 			CodeableConcept cc = new CodeableConcept();
-			Parameters.ParametersParameterComponent operationOutcomeParameter = createOperationOutcomeWithIssues(cc, OperationOutcome.IssueSeverity.INFORMATION);
+			Parameters.ParametersParameterComponent operationOutcomeParameter = createParameterComponentWithOperationOutcomeWithIssues(cc, OperationOutcome.IssueSeverity.INFORMATION, "Coding.display", OperationOutcome.IssueType.INVALID);
 			response.addParameter(operationOutcomeParameter);
 		} else {
 			response.addParameter("message", "None of the codes in the CodableConcept were found in this ValueSet.");
 			CodeableConcept cc = new CodeableConcept();
-			Parameters.ParametersParameterComponent operationOutcomeParameter = createOperationOutcomeWithIssues(cc, OperationOutcome.IssueSeverity.INFORMATION);
+			Parameters.ParametersParameterComponent operationOutcomeParameter = createParameterComponentWithOperationOutcomeWithIssues(cc, OperationOutcome.IssueSeverity.INFORMATION, "Coding.display", OperationOutcome.IssueType.INVALID);
 			response.addParameter(operationOutcomeParameter);
 		}
 		return response;
@@ -1174,21 +1215,6 @@ public class FHIRValueSetService {
 			selectedDisplay = new SelectedDisplay(concept.getDisplay(),fhirDisplayLanguage,false);
 		}
 		return selectedDisplay;
-	}
-
-	private static Parameters.@NotNull ParametersParameterComponent createOperationOutcomeWithIssues(CodeableConcept cc, OperationOutcome.IssueSeverity issueSeverity) {
-		OperationOutcome operationOutcome = new OperationOutcome();
-		OperationOutcome.OperationOutcomeIssueComponent issue = new OperationOutcome.OperationOutcomeIssueComponent();
-
-		issue.setSeverity(issueSeverity)
-				.setCode(OperationOutcome.IssueType.INVALID)
-				.setLocation(Collections.singletonList(new StringType("Coding.display")))
-				.setExpression(Collections.singletonList(new StringType("Coding.display")))
-				.setDetails(cc);
-		operationOutcome.addIssue(issue);
-		Parameters.ParametersParameterComponent operationOutcomeParameter = new Parameters.ParametersParameterComponent(new StringType("issues"));
-		operationOutcomeParameter.setResource(operationOutcome);
-		return operationOutcomeParameter;
 	}
 
 	@Nullable
@@ -1587,4 +1613,12 @@ public class FHIRValueSetService {
 		}
 	}
 
+	private static String getUrlForProperty(String propertyName){
+		String url = PROPERTY_TO_URL.get(propertyName);
+		if (url==null){
+			return "Unknown property %s".formatted(propertyName);
+		} else {
+			return url;
+		}
+	}
 }

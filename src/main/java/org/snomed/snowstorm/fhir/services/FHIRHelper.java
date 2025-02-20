@@ -8,10 +8,12 @@ import org.hl7.fhir.r4.model.CodeSystem;
 import org.hl7.fhir.r4.model.*;
 import org.hl7.fhir.r4.model.Identifier;
 import org.hl7.fhir.r4.model.OperationOutcome.IssueType;
+import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.services.DialectConfigurationService;
+import org.snomed.snowstorm.core.data.services.RuntimeServiceException;
 import org.snomed.snowstorm.core.pojo.LanguageDialect;
 import org.snomed.snowstorm.fhir.config.FHIRConstants;
 import org.snomed.snowstorm.fhir.domain.FHIRCodeSystemVersion;
@@ -22,11 +24,10 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Component;
 
+import java.io.File;
+import java.io.IOException;
 import java.text.SimpleDateFormat;
-import java.util.ArrayList;
-import java.util.Date;
-import java.util.List;
-import java.util.Objects;
+import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -39,6 +40,7 @@ public class FHIRHelper implements FHIRConstants {
 	private static final Pattern SNOMED_URI_MODULE_PATTERN = Pattern.compile("http://snomed.info/x?sct/(\\d+)");
 	private static final Pattern SNOMED_URI_MODULE_AND_VERSION_PATTERN = Pattern.compile("http://snomed.info/x?sct/(\\d+)/version/([\\d]{8})");
 	private static final Pattern SCT_ID_PATTERN = Pattern.compile("sct_(\\d)+_(\\d){8}");
+	public static int DEFAULT_PAGESIZE = 1_000;
 
 	@Autowired
 	private DialectConfigurationService dialectService;
@@ -67,12 +69,11 @@ public class FHIRHelper implements FHIRConstants {
 	}
 
 	public static SnowstormFHIRServerResponseException exception(String message, IssueType issueType, int theStatusCode, Throwable e) {
-		OperationOutcome outcome = new OperationOutcome();
-		OperationOutcome.OperationOutcomeIssueComponent component = new OperationOutcome.OperationOutcomeIssueComponent();
-		component.setSeverity(OperationOutcome.IssueSeverity.ERROR);
-		component.setCode(issueType);
-		component.setDiagnostics(message);
-		outcome.addIssue(component);
+		return exception(message, issueType,theStatusCode, e, null);
+	}
+
+	public static SnowstormFHIRServerResponseException exception(String message, IssueType issueType, int theStatusCode, Throwable e, CodeableConcept detail) {
+		OperationOutcome outcome = createOperationOutcomeWithIssue(detail, OperationOutcome.IssueSeverity.ERROR,null, issueType,null, message);
 		return new SnowstormFHIRServerResponseException(theStatusCode, message, outcome, e);
 	}
 
@@ -139,6 +140,41 @@ public class FHIRHelper implements FHIRConstants {
 		if (readOnlyMode) {
 			logger.info("Write operation not permitted, the server is in read-only mode.");
 			throw exception("Write operation not permitted.", IssueType.FORBIDDEN, 401);
+		}
+	}
+
+	static Parameters.@NotNull ParametersParameterComponent createParameterComponentWithOperationOutcomeWithIssues(CodeableConcept cc, OperationOutcome.IssueSeverity issueSeverity, String locationExpression, IssueType issueType) {
+		OperationOutcome operationOutcome = createOperationOutcomeWithIssue(cc, issueSeverity, locationExpression, issueType,null, null);
+		Parameters.ParametersParameterComponent operationOutcomeParameter = new Parameters.ParametersParameterComponent(new StringType("issues"));
+		operationOutcomeParameter.setResource(operationOutcome);
+		return operationOutcomeParameter;
+	}
+
+	public static @NotNull OperationOutcome createOperationOutcomeWithIssue(CodeableConcept cc, OperationOutcome.IssueSeverity issueSeverity, String locationExpression, IssueType issueType, List<Extension> extensions, String diagnostics) {
+		OperationOutcome operationOutcome = new OperationOutcome();
+		OperationOutcome.OperationOutcomeIssueComponent issue = new OperationOutcome.OperationOutcomeIssueComponent();
+		issue.setSeverity(issueSeverity)
+				.setCode(issueType)
+				.setDetails(cc);
+		if (locationExpression != null){
+			issue.setLocation(Collections.singletonList(new StringType(locationExpression)))
+					.setExpression(Collections.singletonList(new StringType(locationExpression)));
+		}
+		issue.setDiagnostics(diagnostics);
+		issue.setExtension(extensions);
+		operationOutcome.addIssue(issue);
+		return operationOutcome;
+	}
+
+	static void handleTxResources(FHIRLoadPackageService loadPackageService, List<Parameters.ParametersParameterComponent> parsed) {
+		List<Parameters.ParametersParameterComponent> txResources = FHIRValueSetProviderHelper.findParametersByName(parsed, "tx-resource");
+		//List<Parameters.ParametersParameterComponent> valueSets = FHIRValueSetProviderHelper.findParametersByName(parsed, "valueSet");
+		List<Resource> resources = txResources.stream().map(x -> x.getResource()).toList();
+		File npmPackage = FHIRValueSetProviderHelper.createNpmPackageFromResources(resources);
+		try {
+			loadPackageService.uploadPackageResources(npmPackage, Collections.singleton("*"),"tx-resources",false);
+		} catch (IOException e) {
+			throw new RuntimeServiceException(e);
 		}
 	}
 
