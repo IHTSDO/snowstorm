@@ -12,8 +12,39 @@ class FHIRCodeSystemProviderLookupTest extends AbstractFHIRTest {
 		String url = baseUrl + "/CodeSystem/$lookup?system=http://snomed.info/sct&code=" + sampleSCTID + "&_format=json";
 		Parameters p = getParameters(url);
 		assertNotNull(p);
+		assertEquals("http://snomed.info/sct", p.getParameterValue("system").toString());
+		assertEquals("http://snomed.info/sct/900000000000207008/version/20190131", p.getParameterValue("version").toString());
+	}
+
+	@Test
+	void testSingleConceptLookupInternationalSnomedVersion() {
+		String url = baseUrl + "/CodeSystem/$lookup?system=http://snomed.info/sct" +
+				"&version=http://snomed.info/sct/900000000000207008&code=" + sampleSCTID + "&_format=json";
+		Parameters p = getParameters(url);
+		assertNotNull(p);
+		assertEquals("http://snomed.info/sct", p.getParameterValue("system").toString());
+		assertEquals("http://snomed.info/sct/900000000000207008/version/20190131", p.getParameterValue("version").toString());
+	}
+
+	@Test
+	void testSingleConceptLookupExtensionSnomedVersionByVersionParam() {
+		String url = baseUrl + "/CodeSystem/$lookup?system=http://snomed.info/sct" +
+				"&version=http://snomed.info/sct/1234000008&code=" + sampleSCTID + "&_format=json";
+		Parameters p = getParameters(url);
+		assertNotNull(p);
+		assertEquals("http://snomed.info/sct", p.getParameterValue("system").toString());
+		assertEquals("http://snomed.info/sct/1234000008/version/20190731", p.getParameterValue("version").toString());
 	}
 	
+	@Test
+	void testSingleConceptLookupExtensionSnomedVersionByInstanceUrl() {
+		String url = baseUrl + "/CodeSystem/sct_1234000008_20190731/$lookup?code=" + sampleSCTID + "&_format=json";
+		Parameters p = getParameters(url);
+		assertNotNull(p);
+		assertEquals("http://snomed.info/sct", p.getParameterValue("system").toString());
+		assertEquals("http://snomed.info/sct/1234000008/version/20190731", p.getParameterValue("version").toString());
+	}
+
 	@Test
 	void testSinglePropertiesRecovery() {
 		String url = baseUrl + "/CodeSystem/$lookup?system=http://snomed.info/sct&code=" + sampleSCTID + "&property=normalForm&_format=json";
