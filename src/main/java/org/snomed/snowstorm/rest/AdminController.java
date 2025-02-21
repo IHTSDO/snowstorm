@@ -58,6 +58,9 @@ public class AdminController {
 	@Autowired
 	private ECLQueryService eclQueryService;
 
+	@Autowired
+	private RefsetConceptsLookupUpdateService refsetConceptsLookupUpdateService;
+
 	@Operation(summary = "Rebuild the description index.",
 			description = "Use this if the search configuration for international character handling of a language has been " +
 					"set or updated after importing content of that language. " +
@@ -91,6 +94,21 @@ public class AdminController {
 			throws ServiceException {
 
 		final Map<String, Integer> updateCount = queryConceptUpdateService.rebuildStatedAndInferredSemanticIndex(BranchPathUriUtil.decodePath(branch), dryRun);
+		return new UpdatedDocumentCount(updateCount);
+	}
+
+
+	@Operation(summary = "Rebuild the refset concepts lookup of the branch.",
+			description = """
+                    You are unlikely to need this action. If something has gone wrong with processing of refset concepts lookup updates on the branch for fast ECL member of queries , can be rebuilt on demand.\s
+                    Setting the dryRun to true when rebuilding the 'MAIN' or other CodeSystem branch will log a summary of the changes required without persisting the changes. This parameter can not be used on other branches.\s
+                    If no changes are required or dryRun is set the empty commit used to run this function will be rolled back.""")
+	@PostMapping(value = "/{branch}/actions/rebuild-refset-concepts-lookup")
+	@PreAuthorize("hasPermission('ADMIN', #branch)")
+	public UpdatedDocumentCount rebuildBranchRefsetConceptsLookup(@PathVariable String branch, @RequestParam(required = true) String refsetId, @RequestParam(required = false, defaultValue = "false") boolean dryRun)
+			throws ServiceException {
+
+		final Map<String, Integer> updateCount = refsetConceptsLookupUpdateService.rebuild(BranchPathUriUtil.decodePath(branch), refsetId, dryRun);
 		return new UpdatedDocumentCount(updateCount);
 	}
 

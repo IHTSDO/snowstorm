@@ -35,7 +35,7 @@ public class SPathUtil {
         return ancestors;
     }
 
-    private static boolean isCodeSystemBranch(String branchPath) {
+    public static boolean isCodeSystemBranch(String branchPath) {
         return branchPath.equals("MAIN") || branchPath.startsWith("SNOMEDCT-", branchPath.lastIndexOf("/") + 1);
     }
 }
