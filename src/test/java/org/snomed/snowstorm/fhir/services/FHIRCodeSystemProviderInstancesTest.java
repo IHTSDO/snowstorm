@@ -13,7 +13,7 @@ import static org.junit.jupiter.api.Assertions.*;
 class FHIRCodeSystemProviderInstancesTest extends AbstractFHIRTest {
 
 	@Test
-	void testCodeSystemRecovery() {
+	void testCodeSystemList() {
 		String url = "http://localhost:" + port + "/fhir/CodeSystem";
 		ResponseEntity<String> response = this.restTemplate.exchange(url, HttpMethod.GET, defaultRequestEntity, String.class);
 		expectResponse(response, 200);
@@ -27,7 +27,7 @@ class FHIRCodeSystemProviderInstancesTest extends AbstractFHIRTest {
 	}
 	
 	@Test
-	void testCodeSystemRecoverySorted() {
+	void testCodeSystemListSorted() {
 		String url = "http://localhost:" + port + "/fhir/CodeSystem?_sort=title,-date";
 		ResponseEntity<String> response = this.restTemplate.exchange(url, HttpMethod.GET, defaultRequestEntity, String.class);
 		expectResponse(response, 200);
@@ -42,10 +42,10 @@ class FHIRCodeSystemProviderInstancesTest extends AbstractFHIRTest {
 	}
 	
 	@Test
-	void testCodeSystemRecoverySortedExpectedFail() {
+	void testCodeSystemListSortedExpectedFail() {
 		String url = "http://localhost:" + port + "/fhir/CodeSystem?_sort=foo,-bar";
 		ResponseEntity<String> response = this.restTemplate.exchange(url, HttpMethod.GET, defaultRequestEntity, String.class);
 		expectResponse(response, 400);
 	}
-	
+
 }
