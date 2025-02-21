@@ -74,5 +74,5 @@ class FHIRCodeSystemProviderInstancesTest extends AbstractFHIRTest {
 		ResponseEntity<String> response = this.restTemplate.exchange(url, HttpMethod.GET, defaultRequestEntity, String.class);
 		expectResponse(response, 400);
 	}
-	
+
 }
