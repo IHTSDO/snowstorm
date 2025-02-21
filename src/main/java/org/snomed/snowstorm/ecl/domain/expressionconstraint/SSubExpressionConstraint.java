@@ -1,6 +1,7 @@
 package org.snomed.snowstorm.ecl.domain.expressionconstraint;
 
 import co.elastic.clients.elasticsearch._types.query_dsl.BoolQuery;
+import co.elastic.clients.elasticsearch._types.query_dsl.Query;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import io.kaicode.elasticvc.api.BranchCriteria;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
@@ -177,7 +178,7 @@ public class SSubExpressionConstraint extends SubExpressionConstraint implements
 	public void addCriteria(RefinementBuilder refinementBuilder, Consumer<List<Long>> filteredOrSupplementedContentCallback, boolean triedCache) {
 		BoolQuery.Builder query = refinementBuilder.getQueryBuilder();
 
-		if (operator == Operator.memberOf || isAnyFiltersOrSupplements() || isNestedExpressionConstraintMemberOfQuery()) {
+		if (isAnyFiltersOrSupplements()) {
 			// Fetching required
 
 			ECLContentService eclContentService = refinementBuilder.getEclContentService();
@@ -278,6 +279,7 @@ public class SSubExpressionConstraint extends SubExpressionConstraint implements
 
 		} else if (operator == Operator.memberOf) {
 			// Member of wildcard (any reference set)
+			// TODO make changes here for terms lookup query
 			Set<Long> conceptIdsInReferenceSet = refinementBuilder.getEclContentService()
 					.findConceptIdsInReferenceSet(null, getMemberFilterConstraints(), refinementBuilder);
 			queryBuilder.must(termsQuery(QueryConcept.Fields.CONCEPT_ID, conceptIdsInReferenceSet));
@@ -345,9 +347,14 @@ public class SSubExpressionConstraint extends SubExpressionConstraint implements
                     );
             case memberOf -> {
                 // ^
-                Set<Long> conceptIdsInReferenceSet = conceptSelector.findConceptIdsInReferenceSet(conceptIds, getMemberFilterConstraints(), refinementBuilder);
-                queryBuilder.filter(termsQuery(QueryConcept.Fields.CONCEPT_ID, conceptIdsInReferenceSet));
-                return conceptIdsInReferenceSet;
+				List<Query> termsLookupFilters = conceptSelector.getTermsLookupQueryForMemberOfECL(branchCriteria, conceptIds);
+				if ((getMemberFilterConstraints() != null && !getMemberFilterConstraints().isEmpty()) || termsLookupFilters.isEmpty()) {
+					Set<Long> conceptIdsInReferenceSet = conceptSelector.findConceptIdsInReferenceSet(conceptIds, getMemberFilterConstraints(), refinementBuilder);
+					queryBuilder.filter(termsQuery(QueryConcept.Fields.CONCEPT_ID, conceptIdsInReferenceSet));
+					return conceptIdsInReferenceSet;
+				} else {
+					queryBuilder.filter(termsLookupFilters);
+				}
             }
         }
 		return null;
