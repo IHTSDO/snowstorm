@@ -2,6 +2,7 @@ package org.snomed.snowstorm.ecl;
 
 import co.elastic.clients.elasticsearch._types.query_dsl.BoolQuery;
 import co.elastic.clients.elasticsearch._types.query_dsl.Query;
+import co.elastic.clients.elasticsearch._types.query_dsl.TermsLookup;
 import co.elastic.clients.json.JsonData;
 import io.kaicode.elasticvc.api.BranchCriteria;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
@@ -13,10 +14,7 @@ import org.snomed.langauges.ecl.domain.ConceptReference;
 import org.snomed.langauges.ecl.domain.expressionconstraint.SubExpressionConstraint;
 import org.snomed.langauges.ecl.domain.filter.*;
 import org.snomed.snowstorm.core.data.domain.*;
-import org.snomed.snowstorm.core.data.services.DescriptionService;
-import org.snomed.snowstorm.core.data.services.QueryService;
-import org.snomed.snowstorm.core.data.services.ReferenceSetMemberService;
-import org.snomed.snowstorm.core.data.services.RelationshipService;
+import org.snomed.snowstorm.core.data.services.*;
 import org.snomed.snowstorm.core.util.PageHelper;
 import org.snomed.snowstorm.core.util.SearchAfterPage;
 import org.snomed.snowstorm.core.util.SearchAfterPageImpl;
@@ -72,6 +70,9 @@ public class ECLContentService {
 	@Autowired
 	@Lazy
 	private ECLQueryService eclQueryService;
+
+	@Autowired
+	private RefsetConceptsLookupService refsetConceptsLookupService;
 
 	private SExpressionConstraint historyMaxECL;
 
@@ -405,5 +406,39 @@ public class ECLContentService {
 			}
 		}
 		return associations;
+	}
+
+	public List<Query> getTermsLookupQueryForMemberOfECL(BranchCriteria branchCriteria, Collection<Long> refsetIds) {
+		long start = System.currentTimeMillis();
+
+		if (refsetIds.isEmpty()) {
+			return Collections.emptyList();
+		}
+		// Limit the number of refsetIds to lookup to prevent performance issues
+		// Throw TooCostlyException if the number of refsetIds is too large
+		if (refsetIds.size() > 10) {
+			throw new TooCostlyException("Too many refsetIds to to terms lookup got " + refsetIds.size() + " expected less than 10.");
+		}
+		// Get the refset concepts lookups
+		List<Query> termsQuery = new ArrayList<>();
+		refsetIds.forEach(refsetId -> {
+			List<RefsetConceptsLookup> lookups = refsetConceptsLookupService.getRefsetConceptsLookups(branchCriteria, refsetId);
+			// Build terms lookup query
+			lookups.forEach(lookup -> {
+				// Build the terms lookup
+				TermsLookup termsLookup = new TermsLookup.Builder()
+						.index(elasticsearchOperations.getIndexCoordinatesFor(RefsetConceptsLookup.class).getIndexName())
+						.id(lookup.getId())
+						.path(RefsetConceptsLookup.Fields.CONCEPT_IDS)
+						.build();
+
+				// Build the query
+				termsQuery.add(Query.of(q -> q.terms(t -> t
+								.field(QueryConcept.Fields.CONCEPT_ID)
+								.terms(termsQueryField -> termsQueryField.lookup(termsLookup)))));
+			});
+
+		});
+		return termsQuery;
 	}
 }
