@@ -23,6 +23,8 @@ import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicLong;
 
+import static java.lang.Long.parseLong;
+
 @RestController
 @Tag(name = "Admin", description = "-")
 @RequestMapping(value = "/admin", produces = "application/json")
@@ -59,7 +61,7 @@ public class AdminController {
 	private ECLQueryService eclQueryService;
 
 	@Autowired
-	private RefsetConceptsLookupUpdateService refsetConceptsLookupUpdateService;
+	private ReferencedConceptsLookupUpdateService refsetConceptsLookupUpdateService;
 
 	@Operation(summary = "Rebuild the description index.",
 			description = "Use this if the search configuration for international character handling of a language has been " +
@@ -98,17 +100,17 @@ public class AdminController {
 	}
 
 
-	@Operation(summary = "Rebuild the refset concepts lookup of the branch.",
+	@Operation(summary = "Rebuild the referenced concepts lookup of the branch.",
 			description = """
-                    You are unlikely to need this action. If something has gone wrong with processing of refset concepts lookup updates on the branch for fast ECL member of queries , can be rebuilt on demand.\s
-                    Setting the dryRun to true when rebuilding the 'MAIN' or other CodeSystem branch will log a summary of the changes required without persisting the changes. This parameter can not be used on other branches.\s
+                    This is to rebuild referenced concepts lookups on the branch for fast ECL member of queries. \s
+                    Setting the dryRun to true when rebuilding the 'MAIN' or other CodeSystem branch will log a summary of the changes required without persisting the changes.
                     If no changes are required or dryRun is set the empty commit used to run this function will be rolled back.""")
-	@PostMapping(value = "/{branch}/actions/rebuild-refset-concepts-lookup")
+	@PostMapping(value = "/{branch}/actions/rebuild-referenced-concepts-lookup")
 	@PreAuthorize("hasPermission('ADMIN', #branch)")
-	public UpdatedDocumentCount rebuildBranchRefsetConceptsLookup(@PathVariable String branch, @RequestParam(required = true) String refsetId, @RequestParam(required = false, defaultValue = "false") boolean dryRun)
+	public UpdatedDocumentCount rebuildBranchReferencedConceptsLookups(@PathVariable String branch, @RequestParam List<Long> refsetIds, @RequestParam(required = false, defaultValue = "false") boolean dryRun)
 			throws ServiceException {
 
-		final Map<String, Integer> updateCount = refsetConceptsLookupUpdateService.rebuild(BranchPathUriUtil.decodePath(branch), refsetId, dryRun);
+		final Map<String, Integer> updateCount = refsetConceptsLookupUpdateService.rebuild(BranchPathUriUtil.decodePath(branch), refsetIds, dryRun);
 		return new UpdatedDocumentCount(updateCount);
 	}
 
