@@ -1,0 +1,17 @@
+{{- $fullName := include "snowstorm.fullname" . -}}
+
+{{- if .Values.browser.service.enabled -}}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $fullName }}-browser
+  labels:
+    {{- include "snowstorm.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.browser.service.type }}
+  selector:
+    app: browser
+  ports:
+  - port: {{ .Values.browser.service.port | default 80 }}
+    targetPort: 80
+{{- end -}}

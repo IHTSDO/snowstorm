@@ -1,7 +1,9 @@
+{{- $fullName := include "snowstorm.fullname" . -}}
+
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ .Release.Name }}-elasticsearch
+  name: {{ $fullName }}-elasticsearch
   labels:
     app: elasticsearch
 spec:
@@ -31,21 +33,18 @@ spec:
           value: {{ .Values.elasticsearch.environment.ES_JAVA_OPTS }}
         ports:
         - containerPort: 9200
-        resources: {{ toYaml .Values.elasticsearch.resources | nindent 10 }}
         volumeMounts:
         - name: elastic-data
           mountPath: /usr/share/elasticsearch/data
+        livenessProbe:
+          exec:
+            command:
+            - curl
+            - -f
+            - http://localhost:9200
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          failureThreshold: 6
       volumes:
       - name: elastic-data
         emptyDir: {}
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: {{ .Release.Name }}-elasticsearch
-spec:
-  selector:
-    app: elasticsearch
-  ports:
-  - port: 9200
-    targetPort: 9200

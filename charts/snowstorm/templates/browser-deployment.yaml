@@ -1,7 +1,9 @@
+{{- $fullName := include "snowstorm.fullname" . -}}
+
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ .Release.Name }}-browser
+  name: {{ $fullName }}-browser
   labels:
     app: browser
 spec:
@@ -16,26 +18,23 @@ spec:
     spec:
       initContainers:
       - name: wait-for-snowstorm
-        image: busybox
-        command: ['sh', '-c', 'until nc -z {{ .Release.Name }}-snowstorm 8080; do echo waiting for snowstorm; sleep 2; done;']
+        image: public.ecr.aws/docker/library/busybox:1.36
+        command: ['sh', '-c', 'until wget -q -O- http://{{ $fullName }}-snowstorm:8080/actuator/health; do echo "Waiting for Snowstorm API"; sleep 5; done;']
       containers:
       - name: browser
         image: {{ .Values.browser.image.repository }}:{{ .Values.browser.image.tag }}
-        imagePullPolicy: {{ .Values.browser.image.pullPolicy }}
+        imagePullPolicy: {{ .Values.browser.image.pullPolicy | default "IfNotPresent" }}
         env:
-          - name: API_HOST
-            value: http://{{ .Release.Name }}-snowstorm:8080
+        - name: API_HOST
+          value: http://{{ $fullName }}-snowstorm:8080/
         ports:
         - containerPort: 80
-        resources: {{ toYaml .Values.browser.resources | nindent 10 }}
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: {{ .Release.Name }}-browser
-spec:
-  selector:
-    app: browser
-  ports:
-  - port: 80
-    targetPort: 80
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 80
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          failureThreshold: 3
+        resources:
+          {{- toYaml .Values.browser.resources | nindent 10 }}

@@ -2,9 +2,6 @@
 # This is a YAML-formatted file.
 # Declare variables to be passed into your templates.
 
-# This will set the replicaset count more information can be found here: https://kubernetes.io/docs/concepts/workloads/controllers/replicaset/
-replicaCount: 1
-
 # Elasticsearch Service Configuration
 elasticsearch:
   image:
@@ -17,6 +14,10 @@ elasticsearch:
     NODE_NAME: snowstorm
     CLUSTER_NAME: snowstorm-cluster
     ES_JAVA_OPTS: "-Xms4g -Xmx4g"
+  service:
+    enabled: true
+    type: ClusterIP
+    port: 9200
   resources: {}
   # Uncomment and adjust the following resources as needed:
   # resources:
@@ -26,53 +27,18 @@ elasticsearch:
   #   limits:
   #     cpu: 2
   #     memory: 6Gi
-  ports:
-    - containerPort: 9200
-      hostPort: 9200
-      hostIP: 127.0.0.1
 
-# Snowstorm Service Configuration
+# Snowstorm Configuration
 snowstorm:
   image:
     repository: snomedinternational/snowstorm
     tag: latest
     pullPolicy: Always
+  service:
+    enabled: true
+    type: ClusterIP
+    port: 8080
   resources: {}
-  # Uncomment and adjust the following resources as needed:
-  # resources:
-  #   requests:
-  #     cpu: 500m
-  #     memory: 2Gi
-  #   limits:
-  #     cpu: 2
-  #     memory: 4Gi
-  environment:
-    JAVA_OPTS: "-Xms2g -Xmx4g --add-opens java.base/java.lang=ALL-UNNAMED --add-opens=java.base/java.util=ALL-UNNAMED"
-    ELASTICSEARCH_URLS: "http://{{ .Release.Name }}-elasticsearch:9200"
-  ports:
-    - containerPort: 8080
-      hostPort: 8080
-
-# Browser Service Configuration
-browser:
-  image:
-    repository: snomedinternational/snomedct-browser
-    tag: latest
-    pullPolicy: IfNotPresent
-  environment:
-    API_HOST: "http://{{ .Release.Name }}-snowstorm:8080"
-  resources: {}
-  # Uncomment and adjust the following resources as needed:
-  # resources:
-  #   requests:
-  #     cpu: 100m
-  #     memory: 256Mi
-  #   limits:
-  #     cpu: 500m
-  #     memory: 512Mi
-  ports:
-    - containerPort: 80
-
 # This is for the secrets for pulling an image from a private repository more information can be found here: https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry/
 imagePullSecrets: []
 # This is to override the chart name.
@@ -109,30 +75,6 @@ securityContext: {}
   # runAsNonRoot: true
   # runAsUser: 1000
 
-# This is for setting up a service more information can be found here: https://kubernetes.io/docs/concepts/services-networking/service/
-service:
-  # This sets the service type more information can be found here: https://kubernetes.io/docs/concepts/services-networking/service/#publishing-services-service-types
-  type: ClusterIP
-  # This sets the ports more information can be found here: https://kubernetes.io/docs/concepts/services-networking/service/#field-spec-ports
-  port: 80
-
-# This block is for setting up the ingress for more information can be found here: https://kubernetes.io/docs/concepts/services-networking/ingress/
-ingress:
-  enabled: false
-  className: ""
-  annotations: {}
-    # kubernetes.io/ingress.class: nginx
-    # kubernetes.io/tls-acme: "true"
-  hosts:
-    - host: chart-example.local
-      paths:
-        - path: /
-          pathType: ImplementationSpecific
-  tls: []
-  #  - secretName: chart-example-tls
-  #    hosts:
-  #      - chart-example.local
-
 resources: {}
   # We usually recommend not to specify default resources and to leave this as a conscious
   # choice for the user. This also increases chances charts run on environments with little
@@ -145,23 +87,41 @@ resources: {}
   #   cpu: 100m
   #   memory: 128Mi
 
-# This is to setup the liveness and readiness probes more information can be found here: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/
-livenessProbe:
-  httpGet:
-    path: /
-    port: http
-readinessProbe:
-  httpGet:
-    path: /
-    port: http
+# Browser Configuration
+browser:
+  image:
+    repository: snomedinternational/snomedct-browser
+    tag: latest
+    pullPolicy: IfNotPresent
+  service:
+    enabled: true
+    type: LoadBalancer
+    port: 80
+  resources: {}
+    # Uncomment and adjust as needed
+    # requests:
+    #   cpu: 100m
+    #   memory: 256Mi
+    # limits:
+    #   cpu: 500m
+    #   memory: 512Mi
 
-# This section is for setting up autoscaling more information can be found here: https://kubernetes.io/docs/concepts/workloads/autoscaling/
-autoscaling:
+# Ingress Configuration
+ingress:
   enabled: false
-  minReplicas: 1
-  maxReplicas: 100
-  targetCPUUtilizationPercentage: 80
-  # targetMemoryUtilizationPercentage: 80
+  className: "nginx"
+  annotations: {}
+    # kubernetes.io/ingress.class: nginx
+    # kubernetes.io/tls-acme: "true"
+  hosts:
+    - host: chart-example.local
+      paths:
+        - path: /
+          pathType: ImplementationSpecific
+  tls: []
+  #  - secretName: chart-example-tls
+  #    hosts:
+  #      - chart-example.local
 
 # Additional volumes on the output Deployment definition.
 volumes: []

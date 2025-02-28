@@ -1,7 +1,9 @@
+{{- $fullName := include "snowstorm.fullname" . -}}
+
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ .Release.Name }}-snowstorm
+  name: {{ $fullName }}-snowstorm
   labels:
     app: snowstorm
 spec:
@@ -16,8 +18,8 @@ spec:
     spec:
       initContainers:
       - name: wait-for-elasticsearch
-        image: busybox
-        command: ['sh', '-c', 'until nc -z {{ .Release.Name }}-elasticsearch 9200; do echo waiting for elasticsearch; sleep 2; done;']
+        image: public.ecr.aws/docker/library/busybox:1.36
+        command: ['sh', '-c', 'until nc -z {{ $fullName }}-elasticsearch 9200; do echo "Waiting for Elasticsearch"; sleep 5; done;']
       containers:
       - name: snowstorm
         image: {{ .Values.snowstorm.image.repository }}:{{ .Values.snowstorm.image.tag }}
@@ -31,33 +33,24 @@ spec:
           --add-opens=java.base/java.util=ALL-UNNAMED 
           -cp @/app/jib-classpath-file 
           org.snomed.snowstorm.SnowstormApplication 
-          --elasticsearch.urls=http://{{ .Release.Name }}-elasticsearch:9200
-        env:
-        - name: ELASTICSEARCH_URLS
-          value: http://{{ .Release.Name }}-elasticsearch:9200
+          --elasticsearch.urls=http://{{ $fullName }}-elasticsearch:9200
         ports:
         - containerPort: 8080
-        resources: {{ toYaml .Values.snowstorm.resources | nindent 10 }}
         readinessProbe:
           httpGet:
             path: /actuator/health
             port: 8080
-          initialDelaySeconds: 30
+          initialDelaySeconds: 60
           periodSeconds: 10
+          failureThreshold: 5
+          timeoutSeconds: 5
         livenessProbe:
           httpGet:
             path: /actuator/health
             port: 8080
-          initialDelaySeconds: 60
-          periodSeconds: 20
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: {{ .Release.Name }}-snowstorm
-spec:
-  selector:
-    app: snowstorm
-  ports:
-  - port: 8080
-    targetPort: 8080
+          initialDelaySeconds: 90
+          periodSeconds: 15
+          failureThreshold: 3
+      volumes:
+      - name: elastic-data
+        emptyDir: {}

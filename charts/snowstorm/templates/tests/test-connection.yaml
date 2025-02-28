@@ -11,5 +11,5 @@ spec:
     - name: wget
       image: busybox
       command: ['wget']
-      args: ['{{ include "snowstorm.fullname" . }}:{{ .Values.service.port }}']
+      args: ['{{ include "snowstorm.fullname" . }}-api:{{ .Values.snowstorm.service.port }}']
   restartPolicy: Never
