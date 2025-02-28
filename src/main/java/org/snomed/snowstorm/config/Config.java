@@ -145,6 +145,9 @@ public abstract class Config extends ElasticsearchConfig {
 	@Autowired
 	private RefsetDescriptorUpdaterService refsetDescriptorUpdaterService;
 
+	@Autowired
+	private ReferencedConceptsLookupUpdateService refsetConceptsLookupUpdateService;
+
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
 	@PostConstruct
@@ -157,6 +160,7 @@ public abstract class Config extends ElasticsearchConfig {
 		branchService.addCommitListener(branchClassificationStatusService);
 		branchService.addCommitListener(refsetDescriptorUpdaterService);
 		branchService.addCommitListener(integrityService);
+		branchService.addCommitListener(refsetConceptsLookupUpdateService);
 		branchService.addCommitListener(multiSearchService);
 		branchService.addCommitListener(eclPreprocessingService);
 		branchService.addCommitListener(commitServiceHookClient);
