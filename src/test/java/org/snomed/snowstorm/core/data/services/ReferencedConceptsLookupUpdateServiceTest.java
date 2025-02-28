@@ -157,7 +157,7 @@ class ReferencedConceptsLookupUpdateServiceTest extends AbstractTest {
         lookups = conceptsLookupService.getConceptsLookups(versionControlHelper.getBranchCriteria(branchService.findLatest(taskA.getPath())));
         // one from MAIN and one from task A
         assertEquals(2, lookups.size());
-        lookups = conceptsLookupService.getConceptsLookupsForCurrentBranchOnly(versionControlHelper.getBranchCriteria(branchService.findLatest(taskA.getPath())));
+        lookups = conceptsLookupService.getConceptsLookups(versionControlHelper.getChangesOnBranchCriteria(branchService.findLatest(taskA.getPath())));
         assertEquals(1, lookups.size());
         lookups.forEach(lookup -> {
             assertEquals(1, lookup.getTotal());
@@ -170,7 +170,7 @@ class ReferencedConceptsLookupUpdateServiceTest extends AbstractTest {
         Branch taskB = branchService.create("MAIN/projectA/taskB");
         String another = members.stream().filter(member -> member.getReferencedComponentId().equals("200002")).findFirst().orElseThrow().getMemberId();
         refsetMemberService.deleteMember(taskB.getPath(), another);
-        lookups = conceptsLookupService.getConceptsLookupsForCurrentBranchOnly(versionControlHelper.getBranchCriteria(branchService.findLatest(taskB.getPath())));
+        lookups = conceptsLookupService.getConceptsLookups(versionControlHelper.getChangesOnBranchCriteria(branchService.findLatest(taskB.getPath())));
         assertEquals(1, lookups.size());
 
         // Promote task A to project A
@@ -178,7 +178,7 @@ class ReferencedConceptsLookupUpdateServiceTest extends AbstractTest {
         lookups = conceptsLookupService.getConceptsLookups(versionControlHelper.getBranchCriteria(branchService.findLatest(projectA.getPath())));
         assertEquals(2, lookups.size());
         // EXCLUDE on project A as change made on MAIN originally
-        lookups = conceptsLookupService.getConceptsLookupsForCurrentBranchOnly(versionControlHelper.getBranchCriteria(branchService.findLatest(projectA.getPath())));
+        lookups = conceptsLookupService.getConceptsLookups(versionControlHelper.getChangesOnBranchCriteria(branchService.findLatest(projectA.getPath())));
         assertEquals(1, lookups.size());
         lookups.forEach(lookup -> {
             assertEquals(1, lookup.getTotal());
