@@ -20,15 +20,13 @@ import static io.kaicode.elasticvc.helper.QueryHelper.termsQuery;
 
 @Service
 public class ReferencedConceptsLookupService {
-
+    private final ElasticsearchOperations elasticsearchOperations;
+    private final ReferencedConceptsLookupRepository conceptsLookupRepository;
     @Autowired
-    private ElasticsearchOperations elasticsearchOperations;
-
-    @Autowired
-    private ReferencedConceptsLookupRepository conceptsLookupRepository;
-
-
-
+    public ReferencedConceptsLookupService(ElasticsearchOperations elasticsearchOperations, ReferencedConceptsLookupRepository conceptsLookupRepository) {
+        this.elasticsearchOperations = elasticsearchOperations;
+        this.conceptsLookupRepository = conceptsLookupRepository;
+    }
     public List<ReferencedConceptsLookup> getConceptsLookups(BranchCriteria branchCriteria, boolean includeConceptIds) {
         return getConceptsLookups(branchCriteria, null, includeConceptIds);
     }
@@ -37,15 +35,8 @@ public class ReferencedConceptsLookupService {
         return getConceptsLookups(branchCriteria, null, true);
     }
 
-
-    public List<ReferencedConceptsLookup> getConceptsLookupsForCurrentBranchOnly(BranchCriteria branchCriteria) {
-        return getConceptsLookups(branchCriteria, null, true).stream()
-                .filter(lookUp -> lookUp.getPath().equals(branchCriteria.getBranchPath())).toList();
-    }
-
-    public List<ReferencedConceptsLookup> getConceptsLookupsForCurrentBranchOnly(BranchCriteria branchCriteria, Collection<Long> refsetIds) {
-        return getConceptsLookups(branchCriteria, refsetIds, true).stream()
-                .filter(lookUp -> lookUp.getPath().equals(branchCriteria.getBranchPath())).toList();
+    public List<ReferencedConceptsLookup> getConceptsLookups(BranchCriteria branchCriteria, Collection<Long> refsetIds) {
+        return getConceptsLookups(branchCriteria, refsetIds, true);
     }
 
     public List<ReferencedConceptsLookup> getConceptsLookups(BranchCriteria branchCriteria, Collection<Long> refsetIds, boolean includeConceptIds) {
