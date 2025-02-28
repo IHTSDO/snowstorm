@@ -8,8 +8,8 @@ import org.springframework.data.elasticsearch.annotations.FieldType;
 import java.util.Objects;
 import java.util.Set;
 
-@Document(indexName = "#{@indexNameProvider.indexName('refset-concepts-lookup')}", createIndex = false)
-public class RefsetConceptsLookup extends DomainEntity<RefsetConceptsLookup> {
+@Document(indexName = "#{@indexNameProvider.indexName('concepts-lookup')}", createIndex = false)
+public class ReferencedConceptsLookup extends DomainEntity<ReferencedConceptsLookup> {
     @Field(type = FieldType.Keyword)
     private String refsetId;
 
@@ -32,11 +32,11 @@ public class RefsetConceptsLookup extends DomainEntity<RefsetConceptsLookup> {
         EXCLUDE
     }
 
-    public RefsetConceptsLookup() {
+    public ReferencedConceptsLookup() {
         // Default constructor for serialization
     }
 
-    public RefsetConceptsLookup(String refsetId, Set<Long> conceptIds, Type type) {
+    public ReferencedConceptsLookup(String refsetId, Set<Long> conceptIds, Type type) {
         this.refsetId = refsetId;
         this.conceptIds = conceptIds;
         this.type = type;
@@ -57,6 +57,7 @@ public class RefsetConceptsLookup extends DomainEntity<RefsetConceptsLookup> {
 
     public void setConceptIds(Set<Long> conceptIds) {
         this.conceptIds = conceptIds;
+        setTotal(conceptIds.size());
     }
 
     public Integer getTotal() {
@@ -81,19 +82,30 @@ public class RefsetConceptsLookup extends DomainEntity<RefsetConceptsLookup> {
     }
 
     @Override
-    public boolean isComponentChanged(RefsetConceptsLookup existingComponent) {
+    public boolean isComponentChanged(ReferencedConceptsLookup existingComponent) {
         return false;
     }
 
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
-        if (!(o instanceof RefsetConceptsLookup that)) return false;
+        if (!(o instanceof ReferencedConceptsLookup that)) return false;
         return Objects.equals(refsetId, that.refsetId) && type == that.type && Objects.equals(getInternalId(), that.getInternalId());
     }
 
     @Override
     public int hashCode() {
         return Objects.hash(refsetId, type, getInternalId());
+    }
+
+    @Override
+    public String toString() {
+        return "ReferencedConceptsLookup{" +
+                "_id='" + getInternalId() + '\'' +
+                "refsetId='" + refsetId + '\'' +
+                ", total=" + total +
+                ", path='" + getPath() + '\'' +
+                ", type=" + type +
+                '}';
     }
 }
