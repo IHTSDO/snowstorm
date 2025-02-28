@@ -1,0 +1,51 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-elasticsearch
+  labels:
+    app: elasticsearch
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: elasticsearch
+  template:
+    metadata:
+      labels:
+        app: elasticsearch
+    spec:
+      containers:
+      - name: elasticsearch
+        image: {{ .Values.elasticsearch.image.repository }}:{{ .Values.elasticsearch.image.tag }}
+        imagePullPolicy: {{ .Values.elasticsearch.image.pullPolicy }}
+        env:
+        - name: discovery.type
+          value: {{ .Values.elasticsearch.environment.DISCOVERY_TYPE }}
+        - name: xpack.security.enabled
+          value: "{{ .Values.elasticsearch.environment.XPACK_SECURITY_ENABLED }}"
+        - name: node.name
+          value: {{ .Values.elasticsearch.environment.NODE_NAME }}
+        - name: cluster.name
+          value: {{ .Values.elasticsearch.environment.CLUSTER_NAME }}
+        - name: ES_JAVA_OPTS
+          value: {{ .Values.elasticsearch.environment.ES_JAVA_OPTS }}
+        ports:
+        - containerPort: 9200
+        resources: {{ toYaml .Values.elasticsearch.resources | nindent 10 }}
+        volumeMounts:
+        - name: elastic-data
+          mountPath: /usr/share/elasticsearch/data
+      volumes:
+      - name: elastic-data
+        emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}-elasticsearch
+spec:
+  selector:
+    app: elasticsearch
+  ports:
+  - port: 9200
+    targetPort: 9200

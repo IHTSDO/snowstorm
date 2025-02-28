@@ -1,0 +1,63 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-snowstorm
+  labels:
+    app: snowstorm
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: snowstorm
+  template:
+    metadata:
+      labels:
+        app: snowstorm
+    spec:
+      initContainers:
+      - name: wait-for-elasticsearch
+        image: busybox
+        command: ['sh', '-c', 'until nc -z {{ .Release.Name }}-elasticsearch 9200; do echo waiting for elasticsearch; sleep 2; done;']
+      containers:
+      - name: snowstorm
+        image: {{ .Values.snowstorm.image.repository }}:{{ .Values.snowstorm.image.tag }}
+        imagePullPolicy: {{ .Values.snowstorm.image.pullPolicy }}
+        command: ["/bin/sh", "-c"]
+        args: 
+        - >
+          java 
+          -Xms2g -Xmx4g 
+          --add-opens java.base/java.lang=ALL-UNNAMED 
+          --add-opens=java.base/java.util=ALL-UNNAMED 
+          -cp @/app/jib-classpath-file 
+          org.snomed.snowstorm.SnowstormApplication 
+          --elasticsearch.urls=http://{{ .Release.Name }}-elasticsearch:9200
+        env:
+        - name: ELASTICSEARCH_URLS
+          value: http://{{ .Release.Name }}-elasticsearch:9200
+        ports:
+        - containerPort: 8080
+        resources: {{ toYaml .Values.snowstorm.resources | nindent 10 }}
+        readinessProbe:
+          httpGet:
+            path: /actuator/health
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        livenessProbe:
+          httpGet:
+            path: /actuator/health
+            port: 8080
+          initialDelaySeconds: 60
+          periodSeconds: 20
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}-snowstorm
+spec:
+  selector:
+    app: snowstorm
+  ports:
+  - port: 8080
+    targetPort: 8080

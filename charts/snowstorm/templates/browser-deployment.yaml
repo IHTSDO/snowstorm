@@ -1,0 +1,41 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-browser
+  labels:
+    app: browser
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: browser
+  template:
+    metadata:
+      labels:
+        app: browser
+    spec:
+      initContainers:
+      - name: wait-for-snowstorm
+        image: busybox
+        command: ['sh', '-c', 'until nc -z {{ .Release.Name }}-snowstorm 8080; do echo waiting for snowstorm; sleep 2; done;']
+      containers:
+      - name: browser
+        image: {{ .Values.browser.image.repository }}:{{ .Values.browser.image.tag }}
+        imagePullPolicy: {{ .Values.browser.image.pullPolicy }}
+        env:
+          - name: API_HOST
+            value: http://{{ .Release.Name }}-snowstorm:8080
+        ports:
+        - containerPort: 80
+        resources: {{ toYaml .Values.browser.resources | nindent 10 }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}-browser
+spec:
+  selector:
+    app: browser
+  ports:
+  - port: 80
+    targetPort: 80

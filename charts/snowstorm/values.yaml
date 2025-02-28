@@ -5,13 +5,73 @@
 # This will set the replicaset count more information can be found here: https://kubernetes.io/docs/concepts/workloads/controllers/replicaset/
 replicaCount: 1
 
-# This sets the container image more information can be found here: https://kubernetes.io/docs/concepts/containers/images/
-image:
-  repository: nginx
-  # This sets the pull policy for images.
-  pullPolicy: IfNotPresent
-  # Overrides the image tag whose default is the chart appVersion.
-  tag: ""
+# Elasticsearch Service Configuration
+elasticsearch:
+  image:
+    repository: docker.elastic.co/elasticsearch/elasticsearch
+    tag: 8.11.1
+    pullPolicy: IfNotPresent
+  environment:
+    DISCOVERY_TYPE: single-node
+    XPACK_SECURITY_ENABLED: "false"
+    NODE_NAME: snowstorm
+    CLUSTER_NAME: snowstorm-cluster
+    ES_JAVA_OPTS: "-Xms4g -Xmx4g"
+  resources: {}
+  # Uncomment and adjust the following resources as needed:
+  # resources:
+  #   requests:
+  #     cpu: 500m
+  #     memory: 4Gi
+  #   limits:
+  #     cpu: 2
+  #     memory: 6Gi
+  ports:
+    - containerPort: 9200
+      hostPort: 9200
+      hostIP: 127.0.0.1
+
+# Snowstorm Service Configuration
+snowstorm:
+  image:
+    repository: snomedinternational/snowstorm
+    tag: latest
+    pullPolicy: Always
+  resources: {}
+  # Uncomment and adjust the following resources as needed:
+  # resources:
+  #   requests:
+  #     cpu: 500m
+  #     memory: 2Gi
+  #   limits:
+  #     cpu: 2
+  #     memory: 4Gi
+  environment:
+    JAVA_OPTS: "-Xms2g -Xmx4g --add-opens java.base/java.lang=ALL-UNNAMED --add-opens=java.base/java.util=ALL-UNNAMED"
+    ELASTICSEARCH_URLS: "http://{{ .Release.Name }}-elasticsearch:9200"
+  ports:
+    - containerPort: 8080
+      hostPort: 8080
+
+# Browser Service Configuration
+browser:
+  image:
+    repository: snomedinternational/snomedct-browser
+    tag: latest
+    pullPolicy: IfNotPresent
+  environment:
+    API_HOST: "http://{{ .Release.Name }}-snowstorm:8080"
+  resources: {}
+  # Uncomment and adjust the following resources as needed:
+  # resources:
+  #   requests:
+  #     cpu: 100m
+  #     memory: 256Mi
+  #   limits:
+  #     cpu: 500m
+  #     memory: 512Mi
+  ports:
+    - containerPort: 80
 
 # This is for the secrets for pulling an image from a private repository more information can be found here: https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry/
 imagePullSecrets: []
