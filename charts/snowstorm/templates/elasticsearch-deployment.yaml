@@ -33,9 +33,6 @@ spec:
           value: {{ .Values.elasticsearch.environment.ES_JAVA_OPTS }}
         ports:
         - containerPort: 9200
-        volumeMounts:
-        - name: elasticsearch-storage
-          mountPath: /usr/share/elasticsearch/data
         livenessProbe:
           exec:
             command:
@@ -45,7 +42,12 @@ spec:
           initialDelaySeconds: 30
           periodSeconds: 10
           failureThreshold: 6
+    {{- if .Values.elasticsearch.persistence.enabled -}}
+        volumeMounts:
+        - name: elasticsearch-storage
+          mountPath: /usr/share/elasticsearch/data
       volumes:
       - name: elasticsearch-storage
         persistentVolumeClaim:
-          claimName: {{ $fullName }}-elasticsearch
+          claimName: {{ include "snowstorm.fullname" . }}-elasticsearch
+    {{- end -}}
