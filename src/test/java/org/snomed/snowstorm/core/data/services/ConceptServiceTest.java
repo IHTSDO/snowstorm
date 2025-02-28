@@ -17,8 +17,6 @@ import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.AbstractTest;
 import org.snomed.snowstorm.config.Config;
 import org.snomed.snowstorm.core.data.domain.*;
-import org.snomed.snowstorm.core.data.domain.review.MergeReview;
-import org.snomed.snowstorm.core.data.domain.review.MergeReviewConceptVersions;
 import org.snomed.snowstorm.core.data.services.pojo.AsyncConceptChangeBatch;
 import org.snomed.snowstorm.core.data.services.pojo.DescriptionCriteria;
 import org.snomed.snowstorm.core.data.services.pojo.MemberSearchRequest;
@@ -33,7 +31,6 @@ import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.data.elasticsearch.client.elc.NativeQuery;
 import org.springframework.data.elasticsearch.client.elc.NativeQueryBuilder;
 import org.springframework.security.core.context.SecurityContextHolder;
-import static org.snomed.snowstorm.core.data.services.CodeSystemService.SNOMEDCT;
 
 import java.io.IOException;
 import java.util.*;
@@ -2407,7 +2404,7 @@ class ConceptServiceTest extends AbstractTest {
 		concept = new Concept()
 				.addDescription(new Description("Vehicles (reference set)").setTypeId(FSN))
 				.addDescription(new Description("Vehicles reference set").setTypeId(SYNONYM))
-				.addAxiom(new Relationship(ISA, SNOMEDCT_ROOT))
+				.addAxiom(new Relationship(ISA, REFSET_SIMPLE))
 				.addRelationship(new Relationship(ISA, referenceSetId));
 		concept = conceptService.create(concept, intMain);
 		String vehiclesReferenceSetId = concept.getConceptId();

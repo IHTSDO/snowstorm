@@ -79,7 +79,7 @@ class SemanticIndexUpdateServiceTest extends AbstractTest {
 	@Test
 	void testCommitListenerOrderingConfig() {
 		List<CommitListener> commitListeners = branchService.getCommitListeners();
-		assertEquals(13, commitListeners.size());
+		assertEquals(14, commitListeners.size());
 		assertEquals(MRCMLoader.class, commitListeners.get(0).getClass());
 		assertEquals(ConceptDefinitionStatusUpdateService.class, commitListeners.get(1).getClass());
 		assertEquals(SemanticIndexUpdateService.class, commitListeners.get(2).getClass());
@@ -87,9 +87,10 @@ class SemanticIndexUpdateServiceTest extends AbstractTest {
 		assertEquals(BranchClassificationStatusService.class, commitListeners.get(4).getClass());
 		assertEquals(RefsetDescriptorUpdaterService.class, commitListeners.get(5).getClass());
 		assertEquals(IntegrityService.class, commitListeners.get(6).getClass());
-		assertEquals(MultiSearchService.class, commitListeners.get(7).getClass());
-		assertEquals(ECLPreprocessingService.class, commitListeners.get(8).getClass());
-		assertEquals(TraceabilityLogService.class, commitListeners.get(10).getClass());
+		assertEquals(ReferencedConceptsLookupUpdateService.class, commitListeners.get(7).getClass());
+		assertEquals(MultiSearchService.class, commitListeners.get(8).getClass());
+		assertEquals(ECLPreprocessingService.class, commitListeners.get(9).getClass());
+		assertEquals(TraceabilityLogService.class, commitListeners.get(11).getClass());
 	}
 
 	@Test
