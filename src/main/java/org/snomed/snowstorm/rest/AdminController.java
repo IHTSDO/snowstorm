@@ -107,8 +107,7 @@ public class AdminController {
                     If no changes are required or dryRun is set the empty commit used to run this function will be rolled back.""")
 	@PostMapping(value = "/{branch}/actions/rebuild-referenced-concepts-lookup")
 	@PreAuthorize("hasPermission('ADMIN', #branch)")
-	public UpdatedDocumentCount rebuildBranchReferencedConceptsLookups(@PathVariable String branch, @RequestParam List<Long> refsetIds, @RequestParam(required = false, defaultValue = "false") boolean dryRun)
-			throws ServiceException {
+	public UpdatedDocumentCount rebuildBranchReferencedConceptsLookups(@PathVariable String branch, @RequestParam List<Long> refsetIds, @RequestParam(required = false, defaultValue = "false") boolean dryRun) {
 
 		final Map<String, Integer> updateCount = refsetConceptsLookupUpdateService.rebuildLookupsOnContentSave(BranchPathUriUtil.decodePath(branch), refsetIds, dryRun);
 		return new UpdatedDocumentCount(updateCount);
