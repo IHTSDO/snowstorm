@@ -177,8 +177,7 @@ public class SSubExpressionConstraint extends SubExpressionConstraint implements
 	@Override
 	public void addCriteria(RefinementBuilder refinementBuilder, Consumer<List<Long>> filteredOrSupplementedContentCallback, boolean triedCache) {
 		BoolQuery.Builder query = refinementBuilder.getQueryBuilder();
-
-		if (isAnyFiltersOrSupplements()) {
+		if (operator == Operator.memberOf || isAnyFiltersOrSupplements() || isNestedExpressionConstraintMemberOfQuery()) {
 			// Fetching required
 
 			ECLContentService eclContentService = refinementBuilder.getEclContentService();
@@ -193,7 +192,7 @@ public class SSubExpressionConstraint extends SubExpressionConstraint implements
 				// If there is a member filter constraint we can assume the results set will be fairly small / not reusable.
 				// If there are no filters this
 				// Fetch without cache.
-				prefetchedConceptIds = doAddCriteria(refinementBuilder, query);
+ 				prefetchedConceptIds = doAddCriteria(refinementBuilder, query);
 			}
 
 			if (prefetchedConceptIds == null) {
@@ -279,7 +278,7 @@ public class SSubExpressionConstraint extends SubExpressionConstraint implements
 
 		} else if (operator == Operator.memberOf) {
 			// Member of wildcard (any reference set)
-			// TODO make changes here for terms lookup query
+			// Can't use concepts lookups here due to no reference set ids specified
 			Set<Long> conceptIdsInReferenceSet = refinementBuilder.getEclContentService()
 					.findConceptIdsInReferenceSet(null, getMemberFilterConstraints(), refinementBuilder);
 			queryBuilder.must(termsQuery(QueryConcept.Fields.CONCEPT_ID, conceptIdsInReferenceSet));
@@ -347,18 +346,23 @@ public class SSubExpressionConstraint extends SubExpressionConstraint implements
                     );
             case memberOf -> {
                 // ^
-				List<Query> termsLookupFilters = conceptSelector.getTermsLookupQueryForMemberOfECL(branchCriteria, conceptIds);
-				if ((getMemberFilterConstraints() != null && !getMemberFilterConstraints().isEmpty()) || termsLookupFilters.isEmpty()) {
+				Query termsLookupFilter = conceptSelector.getTermsLookupFilterForMemberOfECL(branchCriteria, conceptIds);
+				if (termsLookupFilter == null || (getMemberFilterConstraints() != null && !getMemberFilterConstraints().isEmpty())) {
 					Set<Long> conceptIdsInReferenceSet = conceptSelector.findConceptIdsInReferenceSet(conceptIds, getMemberFilterConstraints(), refinementBuilder);
 					queryBuilder.filter(termsQuery(QueryConcept.Fields.CONCEPT_ID, conceptIdsInReferenceSet));
 					return conceptIdsInReferenceSet;
 				} else {
-					queryBuilder.filter(termsLookupFilters);
+					if (isNestedExpressionConstraintMemberOfQuery()) {
+						queryBuilder.filter(termsLookupFilter);
+					} else {
+						return conceptSelector.getConceptIdsFromLookup(branchCriteria, conceptIds);
+					}
 				}
             }
         }
 		return null;
 	}
+
 
 	private Set<Long> retrieveAllAncestors(Collection<Long> conceptIds, BranchCriteria branchCriteria, boolean stated, ECLContentService eclContentService) {
 		return eclContentService.findAncestorIdsAsUnion(branchCriteria, stated, conceptIds);

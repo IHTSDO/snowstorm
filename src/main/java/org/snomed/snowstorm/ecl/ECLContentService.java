@@ -10,6 +10,8 @@ import it.unimi.dsi.fastutil.longs.LongArraySet;
 import it.unimi.dsi.fastutil.longs.LongComparators;
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.snomed.langauges.ecl.domain.ConceptReference;
 import org.snomed.langauges.ecl.domain.expressionconstraint.SubExpressionConstraint;
 import org.snomed.langauges.ecl.domain.filter.*;
@@ -72,11 +74,13 @@ public class ECLContentService {
 	private ECLQueryService eclQueryService;
 
 	@Autowired
-	private RefsetConceptsLookupService refsetConceptsLookupService;
+	private ReferencedConceptsLookupService refsetConceptsLookupService;
 
 	private SExpressionConstraint historyMaxECL;
 
 	private static final List<Long> HISTORY_PROFILE_MIN = Collections.singletonList(parseLong(Concepts.REFSET_SAME_AS_ASSOCIATION));
+
+	private static final Logger logger = LoggerFactory.getLogger(ECLContentService.class);
 	private static final List<Long> HISTORY_PROFILE_MOD = List.of(
 			parseLong(Concepts.REFSET_SAME_AS_ASSOCIATION),
 			parseLong(Concepts.REFSET_REPLACED_BY_ASSOCIATION),
@@ -408,37 +412,62 @@ public class ECLContentService {
 		return associations;
 	}
 
-	public List<Query> getTermsLookupQueryForMemberOfECL(BranchCriteria branchCriteria, Collection<Long> refsetIds) {
-		long start = System.currentTimeMillis();
 
+
+	public Set<Long> getConceptIdsFromLookup(BranchCriteria branchCriteria, Collection<Long> refsetIds) {
+		List<ReferencedConceptsLookup> lookUps = refsetConceptsLookupService.getConceptsLookups(branchCriteria, refsetIds, true);
+		Set<Long> conceptIds = new HashSet<>();
+		Set<Long> toExclude = new HashSet<>();
+		lookUps.forEach(lookUp -> {
+			if (ReferencedConceptsLookup.Type.INCLUDE == lookUp.getType()) {
+				conceptIds.addAll(lookUp.getConceptIds());
+			} else {
+				toExclude.addAll(lookUp.getConceptIds());
+			}
+		});
+		conceptIds.removeAll(toExclude);
+		return conceptIds;
+	}
+
+	public Query getTermsLookupFilterForMemberOfECL(BranchCriteria branchCriteria, Collection<Long> refsetIds) {
 		if (refsetIds.isEmpty()) {
-			return Collections.emptyList();
+			return null;
 		}
-		// Limit the number of refsetIds to lookup to prevent performance issues
+		// Limit the number of refset Ids to do lookup to prevent performance issues
 		// Throw TooCostlyException if the number of refsetIds is too large
 		if (refsetIds.size() > 10) {
-			throw new TooCostlyException("Too many refsetIds to to terms lookup got " + refsetIds.size() + " expected less than 10.");
+			throw new TooCostlyException("Too many refset IDs to to terms lookup got " + refsetIds.size() + " expected less than 10.");
 		}
-		// Get the refset concepts lookups
-		List<Query> termsQuery = new ArrayList<>();
-		refsetIds.forEach(refsetId -> {
-			List<RefsetConceptsLookup> lookups = refsetConceptsLookupService.getRefsetConceptsLookups(branchCriteria, refsetId);
-			// Build terms lookup query
-			lookups.forEach(lookup -> {
+		// Get the refset concepts lookups with the concept ids
+		List<ReferencedConceptsLookup> lookups = refsetConceptsLookupService.getConceptsLookups(branchCriteria, refsetIds, false);
+		if (lookups.isEmpty()) {
+			return null;
+		}
+		logger.info("Found concepts lookups {} for refset ids {}", lookups, refsetIds);
+		NativeQueryBuilder queryBuilder = new NativeQueryBuilder();
+		// Build terms lookup query
+		lookups.forEach(lookup -> {
+			if (lookup.getTotal() > 0) {
 				// Build the terms lookup
 				TermsLookup termsLookup = new TermsLookup.Builder()
-						.index(elasticsearchOperations.getIndexCoordinatesFor(RefsetConceptsLookup.class).getIndexName())
+						.index(elasticsearchOperations.getIndexCoordinatesFor(ReferencedConceptsLookup.class).getIndexName())
 						.id(lookup.getId())
-						.path(RefsetConceptsLookup.Fields.CONCEPT_IDS)
+						.path(ReferencedConceptsLookup.Fields.CONCEPT_IDS)
 						.build();
 
 				// Build the query
-				termsQuery.add(Query.of(q -> q.terms(t -> t
-								.field(QueryConcept.Fields.CONCEPT_ID)
-								.terms(termsQueryField -> termsQueryField.lookup(termsLookup)))));
-			});
+				Query termsLookupQuery = Query.of(q -> q.terms(t -> t
+						.field(QueryConcept.Fields.CONCEPT_ID)
+						.terms(termsQueryField -> termsQueryField.lookup(termsLookup))));
 
+				if (ReferencedConceptsLookup.Type.INCLUDE == lookup.getType()) {
+					queryBuilder.withFilter(bool(b -> b.should(termsLookupQuery)));
+				} else {
+					queryBuilder.withFilter(bool(b -> b.mustNot(termsLookupQuery)));
+				}
+			}
 		});
-		return termsQuery;
+		logger.debug("Terms lookup filter query: {}", queryBuilder.build().getFilter());
+		return NativeQuery.builder().withFilter(queryBuilder.build().getFilter()).build().getFilter();
 	}
 }
