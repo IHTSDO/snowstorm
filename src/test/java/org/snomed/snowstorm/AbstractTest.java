@@ -18,6 +18,7 @@ import org.snomed.snowstorm.core.data.services.*;
 import org.snomed.snowstorm.core.data.services.classification.ClassificationService;
 import org.snomed.snowstorm.core.data.services.servicehook.CommitServiceHookClient;
 import org.snomed.snowstorm.core.data.services.traceability.Activity;
+import org.snomed.snowstorm.ecl.ReferencedConceptsLookupService;
 import org.snomed.snowstorm.rest.View;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -77,6 +78,9 @@ public abstract class AbstractTest {
 	@Autowired
 	private ElasticsearchOperations elasticsearchOperations;
 
+	@Autowired
+	private ReferencedConceptsLookupService referencedConceptsLookupService;
+
 	@Value("${ims-security.roles.enabled}")
 	private boolean rolesEnabled;
 
@@ -105,6 +109,7 @@ public abstract class AbstractTest {
 			classificationService.deleteAll();
 			permissionService.deleteAll();
 			identifierComponentService.deleteAll();
+			referencedConceptsLookupService.deleteAll();
 		} catch (OptimisticLockingFailureException e) {
 			// Try again
 			Thread.sleep(100);
