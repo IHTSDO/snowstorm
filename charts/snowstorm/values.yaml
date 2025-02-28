@@ -27,6 +27,11 @@ elasticsearch:
   #   limits:
   #     cpu: 2
   #     memory: 6Gi
+  persistence:
+    enabled: false
+    accessMode: ReadWriteOnce
+    size: 10Gi
+    storageClass: ""
 
 # Snowstorm Configuration
 snowstorm:

@@ -34,7 +34,7 @@ spec:
         ports:
         - containerPort: 9200
         volumeMounts:
-        - name: elastic-data
+        - name: elasticsearch-storage
           mountPath: /usr/share/elasticsearch/data
         livenessProbe:
           exec:
@@ -46,5 +46,6 @@ spec:
           periodSeconds: 10
           failureThreshold: 6
       volumes:
-      - name: elastic-data
-        emptyDir: {}
+      - name: elasticsearch-storage
+        persistentVolumeClaim:
+          claimName: {{ $fullName }}-elasticsearch

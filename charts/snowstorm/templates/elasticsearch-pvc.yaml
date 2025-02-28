@@ -1,0 +1,15 @@
+{{- if .Values.elasticsearch.persistence.enabled -}}
+        apiVersion: v1
+        kind: PersistentVolumeClaim
+        metadata:
+          name: {{ include "snowstorm.fullname" . }}-elasticsearch
+          labels:
+            {{- include "snowstorm.labels" . | nindent 4 }}
+        spec:
+          accessModes:
+            - {{ .Values.elasticsearch.persistence.accessMode | default "ReadWriteOnce" }}
+          resources:
+            requests:
+              storage: {{ .Values.elasticsearch.persistence.size | default "10Gi" }}
+          storageClassName: {{ .Values.elasticsearch.persistence.storageClass | default "standard" }}
+        {{- end -}}
