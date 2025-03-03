@@ -109,7 +109,7 @@ public class AdminController {
 	@PreAuthorize("hasPermission('ADMIN', #branch)")
 	public UpdatedDocumentCount rebuildBranchReferencedConceptsLookups(@PathVariable String branch, @RequestParam List<Long> refsetIds, @RequestParam(required = false, defaultValue = "false") boolean dryRun) {
 
-		final Map<String, Integer> updateCount = refsetConceptsLookupUpdateService.rebuildLookupsOnContentSave(BranchPathUriUtil.decodePath(branch), refsetIds, dryRun);
+		final Map<String, Integer> updateCount = refsetConceptsLookupUpdateService.rebuild(BranchPathUriUtil.decodePath(branch), refsetIds, dryRun);
 		return new UpdatedDocumentCount(updateCount);
 	}
 
