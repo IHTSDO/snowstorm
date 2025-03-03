@@ -24,6 +24,7 @@ import org.snomed.snowstorm.ecl.domain.RefinementBuilder;
 import org.snomed.snowstorm.ecl.domain.expressionconstraint.SExpressionConstraint;
 import org.snomed.snowstorm.ecl.domain.expressionconstraint.SSubExpressionConstraint;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -75,6 +76,9 @@ public class ECLContentService {
 
 	@Autowired
 	private ReferencedConceptsLookupService refsetConceptsLookupService;
+
+	@Value("${ecl.concepts-lookup.enabled}")
+	private boolean conceptsLookupEnabled;
 
 	private SExpressionConstraint historyMaxECL;
 
@@ -414,6 +418,10 @@ public class ECLContentService {
 
 
 
+	public boolean isConceptsLookupEnabled() {
+		return conceptsLookupEnabled;
+	}
+
 	public Set<Long> getConceptIdsFromLookup(BranchCriteria branchCriteria, Collection<Long> refsetIds) {
 		List<ReferencedConceptsLookup> lookUps = refsetConceptsLookupService.getConceptsLookups(branchCriteria, refsetIds, true);
 		Set<Long> conceptIds = new HashSet<>();
@@ -430,6 +438,7 @@ public class ECLContentService {
 	}
 
 	public Query getTermsLookupFilterForMemberOfECL(BranchCriteria branchCriteria, Collection<Long> refsetIds) {
+
 		if (refsetIds.isEmpty()) {
 			return null;
 		}
