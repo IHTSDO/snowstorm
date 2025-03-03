@@ -7,6 +7,7 @@ import io.kaicode.elasticvc.api.BranchCriteria;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 import it.unimi.dsi.fastutil.longs.LongLinkedOpenHashSet;
 
+import org.jetbrains.annotations.NotNull;
 import org.snomed.langauges.ecl.domain.ConceptReference;
 import org.snomed.langauges.ecl.domain.expressionconstraint.ExpressionConstraint;
 import org.snomed.langauges.ecl.domain.expressionconstraint.SubExpressionConstraint;
@@ -346,7 +347,10 @@ public class SSubExpressionConstraint extends SubExpressionConstraint implements
                     );
             case memberOf -> {
                 // ^
-				Query termsLookupFilter = conceptSelector.getTermsLookupFilterForMemberOfECL(branchCriteria, conceptIds);
+				Query termsLookupFilter = null;
+				if (conceptSelector.isConceptsLookupEnabled()) {
+					termsLookupFilter = conceptSelector.getTermsLookupFilterForMemberOfECL(branchCriteria, conceptIds);
+				}
 				if (termsLookupFilter == null || (getMemberFilterConstraints() != null && !getMemberFilterConstraints().isEmpty())) {
 					Set<Long> conceptIdsInReferenceSet = conceptSelector.findConceptIdsInReferenceSet(conceptIds, getMemberFilterConstraints(), refinementBuilder);
 					queryBuilder.filter(termsQuery(QueryConcept.Fields.CONCEPT_ID, conceptIdsInReferenceSet));
@@ -362,7 +366,6 @@ public class SSubExpressionConstraint extends SubExpressionConstraint implements
         }
 		return null;
 	}
-
 
 	private Set<Long> retrieveAllAncestors(Collection<Long> conceptIds, BranchCriteria branchCriteria, boolean stated, ECLContentService eclContentService) {
 		return eclContentService.findAncestorIdsAsUnion(branchCriteria, stated, conceptIds);
