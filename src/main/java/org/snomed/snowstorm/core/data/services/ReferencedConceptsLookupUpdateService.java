@@ -199,15 +199,15 @@ public class ReferencedConceptsLookupUpdateService extends ComponentService impl
             logger.info("Concepts lookup rebuild is disabled.");
             return Collections.emptyMap();
         }
-        try (Commit commit = branchService.openCommit(branchPath, branchMetadataHelper.getBranchLockMetadata("Rebuilding refset concepts lookup."))) {
-            if (refsetIds == null || refsetIds.isEmpty()) {
-                throw new IllegalArgumentException("Refset IDs must be provided when updating refset concepts lookup.");
-            }
+        try (Commit commit = branchService.openCommit(branchPath, branchMetadataHelper.getBranchLockMetadata("Rebuilding referenced concepts lookup."))) {
             Set<Long> allowedRefsetIds = getSelfOrDescendantOf(versionControlHelper.getBranchCriteriaIncludingOpenCommit(commit), getRefsetIdsFromConfig());
-            if (!allowedRefsetIds.containsAll(refsetIds)) {
+            if (refsetIds != null && refsetIds.isEmpty() && !allowedRefsetIds.containsAll(refsetIds)) {
                 throw new IllegalArgumentException("Refset IDs must be self or descendant of " + refsetIdsForLookup);
+            } else {
+                refsetIds = new ArrayList<>(allowedRefsetIds);
             }
             final Map<String, Integer> updateCounts = new HashMap<>();
+            logger.info("Start rebuilding concepts lookup on branch {}", branchPath);
             refsetIds.forEach(refsetId -> rebuildConceptsLookup(commit, refsetId, dryRun).forEach((key, value) -> updateCounts.put(refsetId + "-" + key, value))
             );
             if (!dryRun && updateCounts.values().stream().anyMatch(updateCount -> updateCount > 0)) {
@@ -216,6 +216,7 @@ public class ReferencedConceptsLookupUpdateService extends ComponentService impl
                 logger.info("{} so rolling back the empty commit on {}.", dryRun ? "Dry run mode" : "No refset concept ids lookup changes required", branchPath);
                 // When a commit is not marked as successful it is rolled back automatically when closed.
             }
+            logger.info("Complete rebuilding concepts lookup on branch {}", branchPath);
             return updateCounts;
         }
     }
