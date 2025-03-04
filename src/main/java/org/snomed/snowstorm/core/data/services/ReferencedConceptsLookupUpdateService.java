@@ -333,7 +333,8 @@ public class ReferencedConceptsLookupUpdateService extends ComponentService impl
     private void performRebuild(Commit commit, Long refsetId, Set<Long> conceptIdsToAdd, Set<Long> conceptIdsToRemove) {
         boolean completeRebuild = SPathUtil.isCodeSystemBranch(commit.getBranch().getPath());
         if (completeRebuild) {
-           rebuildOnCodeSystemBranch(commit, refsetId, conceptIdsToAdd);
+            BranchCriteria branchCriteria = versionControlHelper.getChangesOnBranchIncludingOpenCommit(commit);
+            conceptIdsToAdd.addAll(getReferencedConceptsForRefsetId(branchCriteria, refsetId));
         } else {
             rebuildOnBranch(commit, refsetId, conceptIdsToAdd, conceptIdsToRemove);
         }
@@ -342,13 +343,6 @@ public class ReferencedConceptsLookupUpdateService extends ComponentService impl
         }
     }
 
-    private void rebuildOnCodeSystemBranch(Commit commit, Long refsetId, Set<Long> conceptIdsToAdd) {
-        BranchCriteria branchCriteria = versionControlHelper.getBranchCriteriaIncludingOpenCommit(commit);
-        if (commit.isRebase()) {
-            branchCriteria = versionControlHelper.getChangesOnBranchIncludingOpenCommit(commit);
-        }
-        conceptIdsToAdd.addAll(getReferencedConceptsForRefsetId(branchCriteria, refsetId));
-    }
 
     private void rebuildOnBranch(Commit commit, Long refsetId, Set<Long> conceptIdsToAdd, Set<Long> conceptIdsToRemove) {
         final BranchCriteria branchCriteria = versionControlHelper.getChangesOnBranchIncludingOpenCommit(commit);
