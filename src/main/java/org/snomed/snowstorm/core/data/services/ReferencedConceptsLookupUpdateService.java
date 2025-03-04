@@ -201,10 +201,10 @@ public class ReferencedConceptsLookupUpdateService extends ComponentService impl
         }
         try (Commit commit = branchService.openCommit(branchPath, branchMetadataHelper.getBranchLockMetadata("Rebuilding referenced concepts lookup."))) {
             Set<Long> allowedRefsetIds = getSelfOrDescendantOf(versionControlHelper.getBranchCriteriaIncludingOpenCommit(commit), getRefsetIdsFromConfig());
-            if (refsetIds != null && refsetIds.isEmpty() && !allowedRefsetIds.containsAll(refsetIds)) {
-                throw new IllegalArgumentException("Refset IDs must be self or descendant of " + refsetIdsForLookup);
-            } else {
+            if (refsetIds == null || refsetIds.isEmpty()) {
                 refsetIds = new ArrayList<>(allowedRefsetIds);
+            } else if (!allowedRefsetIds.containsAll(refsetIds)) {
+                throw new IllegalArgumentException("Refset IDs must be self or descendant of " + refsetIdsForLookup);
             }
             final Map<String, Integer> updateCounts = new HashMap<>();
             logger.info("Start rebuilding concepts lookup on branch {}", branchPath);
@@ -292,11 +292,6 @@ public class ReferencedConceptsLookupUpdateService extends ComponentService impl
             throw new IllegalArgumentException("RefsetId must be provided when updating concepts lookup.");
         }
         performRebuild(commit, refsetId, conceptIdsToAdd, conceptIdsToRemove);
-        if (dryRun) {
-            updateCount.put(INCLUDE.name(), conceptIdsToAdd.size());
-            updateCount.put(EXCLUDE.name(), conceptIdsToRemove.size());
-            return updateCount;
-        }
         if (!conceptIdsToAdd.isEmpty() || !conceptIdsToRemove.isEmpty()) {
             // GET existing lookups
             final List<ReferencedConceptsLookup> existingLookups = refsetConceptsLookupService.getConceptsLookups(
@@ -314,7 +309,12 @@ public class ReferencedConceptsLookupUpdateService extends ComponentService impl
                 logger.info("Lookups are already up to date for {} refset on branch {}", refsetId, commit.getBranch().getPath());
                 return updateCount;
             }
-            // Expire existing lookups
+
+            if (dryRun) {
+                reportUpdateCountForDryRun(conceptIdsToAdd, updateCount, conceptIdsToRemove);
+                return updateCount;
+            }
+            // Not dry run expire existing lookups
             // To Use update query to update end date instead of fetching the whole document for more performance
             existingLookupsOnBranch.forEach(onBranchLookup -> onBranchLookup.setEnd(commit.getTimepoint()));
             refsetConceptsLookupRepository.saveAll(existingLookupsOnBranch);
@@ -328,6 +328,15 @@ public class ReferencedConceptsLookupUpdateService extends ComponentService impl
             }
         }
         return updateCount;
+    }
+
+    private static void reportUpdateCountForDryRun(Set<Long> conceptIdsToAdd, Map<String, Integer> updateCount, Set<Long> conceptIdsToRemove) {
+        if (!conceptIdsToAdd.isEmpty()) {
+            updateCount.put(INCLUDE.name(), conceptIdsToAdd.size());
+        }
+        if (!conceptIdsToRemove.isEmpty()) {
+            updateCount.put(EXCLUDE.name(), conceptIdsToRemove.size());
+        }
     }
 
     private void performRebuild(Commit commit, Long refsetId, Set<Long> conceptIdsToAdd, Set<Long> conceptIdsToRemove) {
