@@ -117,6 +117,21 @@ public class AdminController {
 		return new UpdatedDocumentCount(updateCount);
 	}
 
+
+	@Operation(summary = "Remove the referenced concepts lookup of the branch.",
+			description = """
+                    This is to remove referenced concepts lookups on the branch for fast ECL member of queries. \s
+                    When refsetIds are provided, referenced concepts lookup for the specified reference sets will be removed. \s
+                    Otherwise, the referenced concepts lookup for all configured reference sets will be removed. \s
+                    See ecl.concepts-lookup.refset.ids in the application.properties file more detail \s
+                    To enable lookups for a reference set again, you need to rebuild them \s
+                    """)
+	@PostMapping(value = "/{branch}/actions/remove-referenced-concepts-lookup")
+	@PreAuthorize("hasPermission('ADMIN', #branch)")
+	public void removeBranchReferencedConceptsLookups(@PathVariable String branch, @RequestParam(required = false) List<Long> refsetIds) {
+		refsetConceptsLookupUpdateService.remove(BranchPathUriUtil.decodePath(branch), refsetIds);
+	}
+
 	@Operation(summary = "Force update of definition statuses of all concepts based on axioms.",
 			description = "You are unlikely to need this action. " +
 					"If something has wrong with processing content updates on the branch the definition statuses " +
