@@ -289,6 +289,16 @@ class ReferencedConceptsLookupUpdateServiceTest extends AbstractTest {
         // 1 for MAIN and 2 for AU
         assertEquals(3, lookups.size());
         assertEquals(Set.of("446609009", "609331003"), lookups.stream().map(ReferencedConceptsLookup::getRefsetId).collect(Collectors.toSet()));
+        // Check lookups for AU only for changes in AU code system branch only
+        lookups.stream().filter(lookup -> lookup.getPath().equals("MAIN/SNOMEDCT-AU")).forEach(lookup -> {
+            if (lookup.getRefsetId().equals("446609009")) {
+                assertEquals(2, lookup.getTotal());
+                assertEquals(Set.of(200003L, 200004L), lookup.getConceptIds());
+            } else {
+                assertEquals(2, lookup.getTotal());
+                assertEquals(Set.of(200005L, 200006L), lookup.getConceptIds());
+            }
+        });
 
         // Add more members and version MAIN
         createMembers(MAIN, Concepts.REFSET_SIMPLE, List.of("200007", "200008"));
