@@ -453,4 +453,24 @@ public class ReferencedConceptsLookupUpdateService extends ComponentService impl
         }
         return results;
     }
+
+
+    public void remove(String path, List<Long> refsetIds) {
+        if (!conceptsLookupEnabled) {
+            logger.info("Concepts lookup is disabled.");
+        }
+        try (Commit commit = branchService.openCommit(path, branchMetadataHelper.getBranchLockMetadata("Removing referenced concepts lookup."))) {
+            logger.info("Start removing concepts lookup on branch {} for refsetIds {}", path, refsetIds);
+            List<ReferencedConceptsLookup> lookupsToEnd = refsetConceptsLookupService.getConceptsLookups(versionControlHelper.getBranchCriteria(commit.getBranch()), refsetIds);
+            logger.info("Find total {} concepts lookups to remove", lookupsToEnd.size());
+            lookupsToEnd.forEach(lookup -> lookup.setEnd(commit.getTimepoint()));
+            refsetConceptsLookupRepository.saveAll(lookupsToEnd);
+            if (!lookupsToEnd.isEmpty()) {
+                commit.markSuccessful();
+            } else {
+                logger.info("No concepts lookup found to remove on branch {} for refsetIds {}", path, refsetIds);
+            }
+            logger.info("Complete removing concepts lookup on branch {} for refsetIds {}", path, refsetIds);
+        }
+    }
 }
