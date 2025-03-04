@@ -430,7 +430,8 @@ public class ReferencedConceptsLookupUpdateService extends ComponentService impl
         try (final SearchHitsIterator<ReferenceSetMember> searchHitsIterator = elasticsearchOperations.searchForStream(new NativeQueryBuilder()
                 .withQuery(bool(b -> b
                         .must(criteria.getEntityBranchCriteria(ReferenceSetMember.class))
-                        .must(termQuery(REFSET_ID, refsetId))))
+                        .must(termQuery(REFSET_ID, refsetId))
+                        .must(termQuery(ACTIVE, true))))
                 .withSourceFilter(new FetchSourceFilter(new String[]{REFERENCED_COMPONENT_ID}, null))
                 .withPageable(LARGE_PAGE).build(), ReferenceSetMember.class)) {
             searchHitsIterator.forEachRemaining(hit -> conceptIds.add(parseLong(hit.getContent().getReferencedComponentId())));
