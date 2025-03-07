@@ -334,6 +334,15 @@ class ReferencedConceptsLookupUpdateServiceTest extends AbstractTest {
         });
     }
 
+    @Test
+    void testRebuildDryRun() {
+        Map<String, Integer> updateCount = conceptsLookupUpdateService.rebuild("MAIN", null, true);
+        assertEquals(0, updateCount.size());
+        Branch branch = branchService.findLatest("MAIN");
+        assertFalse(branch.isLocked());
+        assertNull(branch.getMetadata().getMap("lock"));
+    }
+
     private Set<ReferenceSetMember> createMembers(String branchPath, String refsetId, List<String> referencedConcepts) {
         Set<ReferenceSetMember> members = new HashSet<>();
         for (String conceptId : referencedConcepts) {
