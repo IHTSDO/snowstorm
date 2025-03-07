@@ -101,7 +101,7 @@ public class ReferencedConceptsLookupUpdateService extends ComponentService impl
     }
 
     private void updateOnPromotion(Commit commit) {
-        // Step 1: Create a map from refsetId to ReferencedConceptsLookup for targetLookups
+        // Create a map from refsetId to ReferencedConceptsLookup for targetLookups
         // Fetch existing lookups from target branch for the same refset ids
         BranchCriteria sourceBranchOnly = versionControlHelper.getChangesOnBranchCriteria(commit.getSourceBranchPath());
         List<ReferencedConceptsLookup> sourceLookups = refsetConceptsLookupService.getConceptsLookups(sourceBranchOnly);
@@ -111,18 +111,18 @@ public class ReferencedConceptsLookupUpdateService extends ComponentService impl
         Map<Long, ReferencedConceptsLookup> targetIncludeLookupMap = constructMapByRefsetId(targetLookups, INCLUDE);
         Map<Long, ReferencedConceptsLookup> targetExcludeLookupMap = constructMapByRefsetId(targetLookups, EXCLUDE);
 
-        // Step 2: Iterate through sourceLookups and update or create targetLookups
+        // Iterate through sourceLookups and update or create targetLookups
         List<ReferencedConceptsLookup> newTargetLookups = new ArrayList<>();
         for (ReferencedConceptsLookup sourceLookup : sourceLookups) {
             newTargetLookups.addAll(createOrUpdateLookups(sourceLookup, targetIncludeLookupMap, targetExcludeLookupMap));
         }
-        // Step 5: Save new targetLookups
+        // Save new targetLookups
         newTargetLookups.forEach(target -> {
             target.setPath(commit.getBranch().getPath());
             target.setTotal(target.getConceptIds().size());
             target.setStart(commit.getTimepoint());
         });
-        // Step 6: Expire existing lookups and save new ones
+        // Expire existing lookups and save new ones
         targetLookups.forEach(lookup -> lookup.setEnd(commit.getTimepoint()));
         sourceLookups.forEach(lookup -> lookup.setEnd(commit.getTimepoint()));
         refsetConceptsLookupRepository.saveAll(newTargetLookups);
@@ -137,8 +137,7 @@ public class ReferencedConceptsLookupUpdateService extends ComponentService impl
         List<ReferencedConceptsLookup> newTargetLookups = new ArrayList<>();
         ReferencedConceptsLookup targetLookup = clone(targetIncludeLookupMap.get(refsetId));
         if (targetLookup != null) {
-            // Step 3: Update existing targetLookup based on sourceLookup
-            newTargetLookups.add(targetLookup);
+            // Update existing targetLookup based on sourceLookup
             if (INCLUDE == sourceLookup.getType()) {
                 // Add conceptIds from sourceLookup to targetLookup
                 targetLookup.getConceptIds().addAll(sourceLookup.getConceptIds());
@@ -161,12 +160,14 @@ public class ReferencedConceptsLookupUpdateService extends ComponentService impl
                 }
             }
         } else {
-            // Step 4: Create a new targetLookup if it doesn't exist
-            ReferencedConceptsLookup newLookup = new ReferencedConceptsLookup();
-            newLookup.setRefsetId(sourceLookup.getRefsetId());
-            newLookup.setType(sourceLookup.getType());
-            newLookup.setConceptIds(new HashSet<>(sourceLookup.getConceptIds())); // Copy conceptIds
-            newTargetLookups.add(newLookup);
+            // Create a new targetLookup if it doesn't exist
+            targetLookup = new ReferencedConceptsLookup();
+            targetLookup.setRefsetId(sourceLookup.getRefsetId());
+            targetLookup.setType(sourceLookup.getType());
+            targetLookup.setConceptIds(new HashSet<>(sourceLookup.getConceptIds())); // Copy conceptIds
+        }
+        if (targetLookup.getConceptIds() != null && !targetLookup.getConceptIds().isEmpty()) {
+            newTargetLookups.add(targetLookup);
         }
         return newTargetLookups;
     }
@@ -345,7 +346,7 @@ public class ReferencedConceptsLookupUpdateService extends ComponentService impl
             BranchCriteria branchCriteria = versionControlHelper.getChangesOnBranchIncludingOpenCommit(commit);
             conceptIdsToAdd.addAll(getReferencedConceptsForRefsetId(branchCriteria, refsetId));
         } else {
-            rebuildOnBranch(commit, refsetId, conceptIdsToAdd, conceptIdsToRemove);
+            rebuildOnBranchChangesOnly(commit, refsetId, conceptIdsToAdd, conceptIdsToRemove);
         }
         if (!conceptIdsToAdd.isEmpty() || !conceptIdsToRemove.isEmpty()) {
             logger.info("Found {} concepts to add and {} concepts to remove for reference set {}", conceptIdsToAdd.size(), conceptIdsToRemove.size(), refsetId);
@@ -353,7 +354,7 @@ public class ReferencedConceptsLookupUpdateService extends ComponentService impl
     }
 
 
-    private void rebuildOnBranch(Commit commit, Long refsetId, Set<Long> conceptIdsToAdd, Set<Long> conceptIdsToRemove) {
+    private void rebuildOnBranchChangesOnly(Commit commit, Long refsetId, Set<Long> conceptIdsToAdd, Set<Long> conceptIdsToRemove) {
         final BranchCriteria branchCriteria = versionControlHelper.getChangesOnBranchIncludingOpenCommit(commit);
         NativeQuery memberQuery = new NativeQueryBuilder()
                 .withQuery(bool(b -> b.must(branchCriteria.getEntityBranchCriteria(ReferenceSetMember.class))
@@ -375,8 +376,11 @@ public class ReferencedConceptsLookupUpdateService extends ComponentService impl
             });
         }
         // Check deleted members
-        Set<ReferenceSetMember> changedMembers = getChangedMembersFromVersionReplaced(commit.getEntityVersionsReplaced()
-                .getOrDefault(ReferenceSetMember.class.getSimpleName(), Collections.emptySet()), refsetId);
+        Set<String> memberReplaced = commit.getBranch().getVersionsReplaced().getOrDefault(ReferenceSetMember.class.getSimpleName(), new HashSet<>());
+        memberReplaced.addAll(commit.getEntityVersionsReplaced()
+                .getOrDefault(ReferenceSetMember.class.getSimpleName(), Collections.emptySet()));
+
+        Set<ReferenceSetMember> changedMembers = getChangedMembersFromVersionReplaced(memberReplaced, refsetId);
         final AtomicInteger deletedCounter = new AtomicInteger();
         changedMembers.forEach(referenceSetMember -> {
             if (!memberIds.contains(referenceSetMember.getMemberId())) {
