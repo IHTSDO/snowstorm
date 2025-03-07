@@ -47,6 +47,9 @@ class ReferencedConceptsLookupUpdateServiceTest extends AbstractTest {
     @Autowired
     private CodeSystemUpgradeService codeSystemUpgradeService;
 
+    @Autowired
+    private ReferencedConceptsLookupUpdateService conceptsLookupUpdateService;
+
     private Branch projectA;
     private Branch taskA;
     @BeforeEach
@@ -141,6 +144,34 @@ class ReferencedConceptsLookupUpdateServiceTest extends AbstractTest {
         assertEquals(1, lookups.size());
     }
 
+
+    @Test
+    void testPromotionsWhenDeleteAll() throws ServiceException {
+        // Add two refset changes on a project A
+        Set<ReferenceSetMember> members = createMembers(projectA.getPath(), Concepts.REFSET_SIMPLE, List.of("200001", "200002"));
+        List<ReferencedConceptsLookup> lookups = conceptsLookupService.getConceptsLookups(versionControlHelper.getBranchCriteria(branchService.findLatest(projectA.getPath())));
+        assertEquals(1, lookups.size());
+        // Add deletion on task B for both
+        Branch taskB = branchService.create("MAIN/projectA/taskB");
+        members.forEach(member -> refsetMemberService.deleteMember(taskB.getPath(), member.getMemberId()));
+        lookups = conceptsLookupService.getConceptsLookups(versionControlHelper.getBranchCriteria(branchService.findLatest(taskB.getPath())), true);
+        assertEquals(2, lookups.size());
+        lookups.forEach(lookup -> {
+            assertEquals(2, lookup.getTotal());
+            assertEquals(Set.of(200001L, 200002L), lookup.getConceptIds());
+            if (lookup.getPath().equals(projectA.getPath())) {
+                assertEquals(INCLUDE, lookup.getType());
+            } else {
+                assertEquals(EXCLUDE, lookup.getType());
+                assertEquals("MAIN/projectA/taskB", lookup.getPath());
+            }
+        });
+        // Promote task B to project A
+        branchMergeService.mergeBranchSync(taskB.getPath(), projectA.getPath(), Collections.emptyList());
+        lookups = conceptsLookupService.getConceptsLookups(versionControlHelper.getBranchCriteria(branchService.findLatest(projectA.getPath())));
+        assertEquals(0, lookups.size());
+    }
+
     @Test
     void testRebaseWithDeletion() throws ServiceException {
         // Add two refset changes on MAIN
@@ -215,7 +246,7 @@ class ReferencedConceptsLookupUpdateServiceTest extends AbstractTest {
         List<ReferencedConceptsLookup> lookups = conceptsLookupService.getConceptsLookups(versionControlHelper.getBranchCriteria(branchService.findLatest(taskA.getPath())));
         assertEquals(1, lookups.size());
 
-        // Add a refset change on project A and no lookups created yet
+        // Add refset changes on project A
         createMembers(projectA.getPath(), Concepts.REFSET_SIMPLE, List.of("200003", "200004"));
         lookups = conceptsLookupService.getConceptsLookups(versionControlHelper.getBranchCriteria(branchService.findLatest(projectA.getPath())));
         assertEquals(1, lookups.size());
