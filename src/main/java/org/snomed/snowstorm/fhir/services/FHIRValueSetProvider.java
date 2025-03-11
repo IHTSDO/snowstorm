@@ -287,11 +287,13 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 			@OperationParam(name="date") DateTimeType date,
 			@OperationParam(name="abstract") BooleanType abstractBool,
 			@OperationParam(name="displayLanguage") String displayLanguage,
-			@OperationParam(name="system-version") String incorrectParamSystemVersion) {
+			@OperationParam(name="system-version") String incorrectParamSystemVersion,
+			@OperationParam(name="inferSystem") BooleanType inferSystem,
+			@OperationParam(name="activeOnly") BooleanType activeOnly) {
 
 		validateCodeParamHints(incorrectParamSystemVersion);
 		return valueSetService.validateCode(id.getIdPart(), url, context, valueSet, valueSetVersion, code, system, systemVersion, display, coding, codeableConcept, date, abstractBool,
-				FHIRHelper.getDisplayLanguage(displayLanguage, request.getHeader(ACCEPT_LANGUAGE_HEADER)));
+				FHIRHelper.getDisplayLanguage(displayLanguage, request.getHeader(ACCEPT_LANGUAGE_HEADER)),inferSystem, activeOnly);
 	}
 
 	@Operation(name="$validate-code", idempotent=true)
@@ -312,7 +314,9 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 			@OperationParam(name="date") DateTimeType date,
 			@OperationParam(name="abstract") BooleanType abstractBool,
 			@OperationParam(name="displayLanguage") String displayLanguage,
-			@OperationParam(name="system-version") String incorrectParamSystemVersion) {
+			@OperationParam(name="system-version") String incorrectParamSystemVersion,
+			@OperationParam(name="inferSystem") BooleanType inferSystem,
+			@OperationParam(name="activeOnly") BooleanType activeOnly) {
 
 		validateCodeParamHints(incorrectParamSystemVersion);
 		logger.info(FHIRValueSetProviderHelper.getFullURL(request));
@@ -322,7 +326,7 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 			FHIRHelper.handleTxResources(loadPackageService, parsed);
 		}
 		return valueSetService.validateCode(null, url, context, valueSet, valueSetVersion, code, system, systemVersion, display, coding, codeableConcept, date, abstractBool,
-				FHIRHelper.getDisplayLanguage(displayLanguage, request.getHeader(ACCEPT_LANGUAGE_HEADER)));
+				FHIRHelper.getDisplayLanguage(displayLanguage, request.getHeader(ACCEPT_LANGUAGE_HEADER)), inferSystem, activeOnly);
 	}
 
 	private void validateCodeParamHints(String incorrectParamSystemVersion) {
