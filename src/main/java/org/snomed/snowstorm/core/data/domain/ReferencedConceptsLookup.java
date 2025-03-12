@@ -83,7 +83,9 @@ public class ReferencedConceptsLookup extends DomainEntity<ReferencedConceptsLoo
 
     @Override
     public boolean isComponentChanged(ReferencedConceptsLookup existingComponent) {
-        return false;
+        return !Objects.equals(existingComponent.getRefsetId(), refsetId) ||
+                !Objects.equals(existingComponent.getConceptIds(), conceptIds) ||
+                !Objects.equals(existingComponent.getType(), type);
     }
 
     @Override
