@@ -3,7 +3,6 @@ package org.snomed.snowstorm.core.data.services;
 import co.elastic.clients.elasticsearch._types.aggregations.Aggregation;
 import io.kaicode.elasticvc.api.*;
 import io.kaicode.elasticvc.domain.Commit;
-import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.core.data.domain.QueryConcept;
@@ -101,78 +100,94 @@ public class ReferencedConceptsLookupUpdateService extends ComponentService impl
     }
 
     private void updateOnPromotion(Commit commit) {
-        // Create a map from refsetId to ReferencedConceptsLookup for targetLookups
-        // Fetch existing lookups from target branch for the same refset ids
         BranchCriteria sourceBranchOnly = versionControlHelper.getChangesOnBranchCriteria(commit.getSourceBranchPath());
         List<ReferencedConceptsLookup> sourceLookups = refsetConceptsLookupService.getConceptsLookups(sourceBranchOnly);
         Set<Long> refsetIds = sourceLookups.stream().map(lookup -> Long.parseLong(lookup.getRefsetId())).collect(Collectors.toSet());
         BranchCriteria targetBranchOnly = versionControlHelper.getChangesOnBranchCriteria(commit.getBranch());
-        List<ReferencedConceptsLookup> targetLookups = refsetConceptsLookupService.getConceptsLookups(targetBranchOnly, refsetIds);
-        Map<Long, ReferencedConceptsLookup> targetIncludeLookupMap = constructMapByRefsetId(targetLookups, INCLUDE);
-        Map<Long, ReferencedConceptsLookup> targetExcludeLookupMap = constructMapByRefsetId(targetLookups, EXCLUDE);
+        List<ReferencedConceptsLookup> existingTargetLookups = refsetConceptsLookupService.getConceptsLookups(targetBranchOnly, refsetIds);
+        Map<Long, ReferencedConceptsLookup> targetIncludeLookupMap = constructMapByRefsetId(existingTargetLookups, INCLUDE);
+        Map<Long, ReferencedConceptsLookup> targetExcludeLookupMap = constructMapByRefsetId(existingTargetLookups, EXCLUDE);
 
-        // Iterate through sourceLookups and update or create targetLookups
-        List<ReferencedConceptsLookup> newTargetLookups = new ArrayList<>();
-        for (ReferencedConceptsLookup sourceLookup : sourceLookups) {
-            newTargetLookups.addAll(createOrUpdateLookups(sourceLookup, targetIncludeLookupMap, targetExcludeLookupMap));
-        }
-        // Save new targetLookups
+        List<ReferencedConceptsLookup> newTargetLookups = sourceLookups.stream()
+                .flatMap(sourceLookup -> constructNewTargetLookups(sourceLookup, targetIncludeLookupMap, targetExcludeLookupMap).stream())
+                .toList();
+
+        // Consolidate lookups for INCLUDE and EXCLUDE to remove overlap concepts by refsetId
+        consolidateLookups(newTargetLookups);
+        List<ReferencedConceptsLookup> lookupsToSave = new ArrayList<>();
         newTargetLookups.forEach(target -> {
-            target.setPath(commit.getBranch().getPath());
-            target.setTotal(target.getConceptIds().size());
-            target.setStart(commit.getTimepoint());
+            if (isLookupChanged(target, targetIncludeLookupMap, targetExcludeLookupMap) && !target.getConceptIds().isEmpty()) {
+                target.setPath(commit.getBranch().getPath());
+                target.setTotal(target.getConceptIds().size());
+                target.setStart(commit.getTimepoint());
+                lookupsToSave.add(target);
+            }
         });
-        // Expire existing lookups and save new ones
-        targetLookups.forEach(lookup -> lookup.setEnd(commit.getTimepoint()));
+
+        existingTargetLookups.stream()
+                .filter(ReferencedConceptsLookup::isChanged)
+                .forEach(lookup -> {
+                    lookup.setEnd(commit.getTimepoint());
+                    lookupsToSave.add(lookup);
+                });
+
         sourceLookups.forEach(lookup -> lookup.setEnd(commit.getTimepoint()));
-        refsetConceptsLookupRepository.saveAll(newTargetLookups);
-        refsetConceptsLookupRepository.saveAll(targetLookups);
-        refsetConceptsLookupRepository.saveAll(sourceLookups);
+        lookupsToSave.addAll(sourceLookups);
+        refsetConceptsLookupRepository.saveAll(lookupsToSave);
     }
 
-    private List<ReferencedConceptsLookup> createOrUpdateLookups(ReferencedConceptsLookup sourceLookup,
-                                                                 Map<Long, ReferencedConceptsLookup> targetIncludeLookupMap,
-                                                                 Map<Long, ReferencedConceptsLookup> targetExcludeLookupMap) {
-        Long refsetId = Long.parseLong(sourceLookup.getRefsetId());
-        List<ReferencedConceptsLookup> newTargetLookups = new ArrayList<>();
-        ReferencedConceptsLookup targetLookup = clone(targetIncludeLookupMap.get(refsetId));
-        if (targetLookup != null) {
-            // Update existing targetLookup based on sourceLookup
-            if (INCLUDE == sourceLookup.getType()) {
-                // Add conceptIds from sourceLookup to targetLookup
-                targetLookup.getConceptIds().addAll(sourceLookup.getConceptIds());
-            } else if (EXCLUDE == sourceLookup.getType()) {
-                // Remove conceptIds from targetLookup that are present in sourceLookup
-                if (targetLookup.getConceptIds().containsAll(sourceLookup.getConceptIds())) {
-                    targetLookup.getConceptIds().removeAll(sourceLookup.getConceptIds());
-                } else {
-                    // Need to create a EXCLUDE lookup with the difference
-                    Set<Long> remaining = new HashSet<>(targetLookup.getConceptIds());
-                    remaining.removeAll(sourceLookup.getConceptIds());
-                    ReferencedConceptsLookup exclude = new ReferencedConceptsLookup();
-                    exclude.setRefsetId(sourceLookup.getRefsetId());
-                    if (targetExcludeLookupMap.containsKey(refsetId)) {
-                        remaining.addAll(targetExcludeLookupMap.get(refsetId).getConceptIds());
-                    }
-                    exclude.setConceptIds(remaining);
-                    exclude.setType(EXCLUDE);
-                    newTargetLookups.add(exclude);
-                }
+    private void consolidateLookups(List<ReferencedConceptsLookup> newTargetLookups) {
+        Map<Long, ReferencedConceptsLookup> includeLookupMap = constructMapByRefsetId(newTargetLookups, INCLUDE);
+        Map<Long, ReferencedConceptsLookup> excludeLookupMap = constructMapByRefsetId(newTargetLookups, EXCLUDE);
+
+        for (ReferencedConceptsLookup includeLookup : includeLookupMap.values()) {
+            ReferencedConceptsLookup excludeLookup = excludeLookupMap.get(parseLong(includeLookup.getRefsetId()));
+            if (excludeLookup != null) {
+                Set<Long> intersection = new HashSet<>(excludeLookup.getConceptIds());
+                intersection.retainAll(includeLookup.getConceptIds());
+                includeLookup.getConceptIds().removeAll(intersection);
+                excludeLookup.getConceptIds().removeAll(intersection);
             }
-        } else {
-            // Create a new targetLookup if it doesn't exist
-            targetLookup = new ReferencedConceptsLookup();
-            targetLookup.setRefsetId(sourceLookup.getRefsetId());
-            targetLookup.setType(sourceLookup.getType());
-            targetLookup.setConceptIds(new HashSet<>(sourceLookup.getConceptIds())); // Copy conceptIds
         }
-        if (targetLookup.getConceptIds() != null && !targetLookup.getConceptIds().isEmpty()) {
-            newTargetLookups.add(targetLookup);
+    }
+
+    private boolean isLookupChanged(ReferencedConceptsLookup target,
+                                    Map<Long, ReferencedConceptsLookup> targetIncludeLookupMap,
+                                    Map<Long, ReferencedConceptsLookup> targetExcludeLookupMap) {
+        Map<Long, ReferencedConceptsLookup> lookupMap = target.getType() == INCLUDE ? targetIncludeLookupMap : targetExcludeLookupMap;
+        ReferencedConceptsLookup existing = lookupMap.get(parseLong(target.getRefsetId()));
+        if (existing == null) {
+            return true;
+        }
+        if (!existing.getConceptIds().equals(target.getConceptIds())) {
+            existing.setChanged(true);
+            return true;
+        }
+        return false;
+    }
+
+    private List<ReferencedConceptsLookup> constructNewTargetLookups(ReferencedConceptsLookup sourceLookup,
+                                                                     Map<Long, ReferencedConceptsLookup> targetIncludeLookupMap,
+                                                                     Map<Long, ReferencedConceptsLookup> targetExcludeLookupMap) {
+        List<ReferencedConceptsLookup> newTargetLookups = new ArrayList<>();
+        Long refsetId = parseLong(sourceLookup.getRefsetId());
+        ReferencedConceptsLookup newTargetLookup = clone(sourceLookup.getType() == INCLUDE ? targetIncludeLookupMap.get(refsetId) : targetExcludeLookupMap.get(refsetId));
+
+        if (newTargetLookup == null) {
+            newTargetLookup = new ReferencedConceptsLookup(sourceLookup.getRefsetId(), new HashSet<>(sourceLookup.getConceptIds()), sourceLookup.getType());
+        } else {
+            newTargetLookup.getConceptIds().addAll(sourceLookup.getConceptIds());
+        }
+        newTargetLookups.add(newTargetLookup);
+
+        // Add the other type lookup if it exists for the refsetId so that it can be consolidated later
+        ReferencedConceptsLookup newOtherTypeLookup = clone(sourceLookup.getType() == INCLUDE ? targetExcludeLookupMap.get(refsetId) : targetIncludeLookupMap.get(refsetId));
+        if (newOtherTypeLookup != null) {
+            newTargetLookups.add(newOtherTypeLookup);
         }
         return newTargetLookups;
     }
 
-    @NotNull
     private static Map<Long, ReferencedConceptsLookup> constructMapByRefsetId(List<ReferencedConceptsLookup> targetLookups, ReferencedConceptsLookup.Type type) {
         return targetLookups.stream()
                 .filter(lookup -> lookup.getType().equals(type))
