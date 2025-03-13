@@ -333,23 +333,11 @@
 	<build>
 		<plugins>
 			<plugin>
-				<groupId>io.github.git-commit-id</groupId>
-				<artifactId>git-commit-id-maven-plugin</artifactId>
-				<version>5.0.0</version>
-				<executions>
-					<execution>
-						<goals>
-							<goal>revision</goal>
-						</goals>
-					</execution>
-				</executions>
+				<groupId>org.owasp</groupId>
+				<artifactId>dependency-check-maven</artifactId>
+				<version>${dependency-check-maven.version}</version>
 				<configuration>
-					<verbose>true</verbose>
-					<dotGitDirectory>${project.basedir}/.git</dotGitDirectory>
-					<dateFormat>yyyy-MM-dd'T'HH:mm:ss'Z'</dateFormat>
-					<generateGitPropertiesFile>true</generateGitPropertiesFile>
-					<generateGitPropertiesFilename>src/main/resources/git.properties</generateGitPropertiesFilename>
-					<failOnNoGitDirectory>true</failOnNoGitDirectory>
+					<skip>true</skip>
 				</configuration>
 			</plugin>
 			<!--
