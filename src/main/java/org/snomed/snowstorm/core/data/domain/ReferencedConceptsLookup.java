@@ -5,6 +5,7 @@ import org.springframework.data.elasticsearch.annotations.Document;
 import org.springframework.data.elasticsearch.annotations.Field;
 import org.springframework.data.elasticsearch.annotations.FieldType;
 
+import java.util.HashSet;
 import java.util.Objects;
 import java.util.Set;
 
@@ -22,9 +23,12 @@ public class ReferencedConceptsLookup extends DomainEntity<ReferencedConceptsLoo
     @Field(type = FieldType.Keyword)
     private Type type;
 
-    public interface Fields {
-        String CONCEPT_IDS = "conceptIds";
-        String REFSETID = "refsetId";
+    public static class Fields {
+        private Fields() {
+            // To hide default constructor
+        }
+        public static final String CONCEPT_IDS = "conceptIds";
+        public static final String REFSETID = "refsetId";
     }
 
     public enum Type {
@@ -38,7 +42,7 @@ public class ReferencedConceptsLookup extends DomainEntity<ReferencedConceptsLoo
 
     public ReferencedConceptsLookup(String refsetId, Set<Long> conceptIds, Type type) {
         this.refsetId = refsetId;
-        this.conceptIds = conceptIds;
+        this.conceptIds = new HashSet<>(conceptIds);
         this.type = type;
         this.total = conceptIds.size();
     }
@@ -56,7 +60,7 @@ public class ReferencedConceptsLookup extends DomainEntity<ReferencedConceptsLoo
     }
 
     public void setConceptIds(Set<Long> conceptIds) {
-        this.conceptIds = conceptIds;
+        this.conceptIds = new HashSet<>(conceptIds);
         setTotal(conceptIds.size());
     }
 
@@ -92,12 +96,14 @@ public class ReferencedConceptsLookup extends DomainEntity<ReferencedConceptsLoo
     public boolean equals(Object o) {
         if (this == o) return true;
         if (!(o instanceof ReferencedConceptsLookup that)) return false;
-        return Objects.equals(refsetId, that.refsetId) && type == that.type && Objects.equals(getInternalId(), that.getInternalId());
+        return Objects.equals(refsetId, that.refsetId) && type == that.type
+                && Objects.equals(conceptIds, that.conceptIds)
+                && Objects.equals(getInternalId(), that.getInternalId());
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(refsetId, type, getInternalId());
+        return Objects.hash(refsetId, type, conceptIds, getInternalId());
     }
 
     @Override
