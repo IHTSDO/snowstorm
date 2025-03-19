@@ -64,4 +64,8 @@ public class ReferencedConceptsLookupService {
     public void deleteAll() {
         conceptsLookupRepository.deleteAll();
     }
+
+    public void saveAll(List<ReferencedConceptsLookup> lookups) {
+        conceptsLookupRepository.saveAll(lookups);
+    }
 }
