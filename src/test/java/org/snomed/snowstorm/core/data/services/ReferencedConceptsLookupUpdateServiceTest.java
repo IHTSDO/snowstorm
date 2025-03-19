@@ -480,9 +480,11 @@ class ReferencedConceptsLookupUpdateServiceTest extends AbstractTest {
             if (lookup.getPath().equals("MAIN")) {
                 assertEquals(2, lookup.getTotal());
                 assertEquals(Set.of(200001L, 200002L), lookup.getConceptIds());
+                assertEquals(INCLUDE, lookup.getType());
             } else {
                 assertEquals(2, lookup.getTotal());
                 assertEquals(Set.of(200001L, 200002L), lookup.getConceptIds());
+                assertEquals(EXCLUDE, lookup.getType());
             }
         });
 
@@ -564,6 +566,42 @@ class ReferencedConceptsLookupUpdateServiceTest extends AbstractTest {
         });
     }
 
+    @Test
+    void testPromotionWithChangesForBothTypes() throws ServiceException {
+        // Add new refset changes on task A and promote to project A
+        Set<ReferenceSetMember> members = createMembers(taskA.getPath(), Concepts.REFSET_SIMPLE, List.of("200001", "200002"));
+        // Promote task A to Project A
+        branchMergeService.mergeBranchSync(taskA.getPath(), projectA.getPath(), Collections.emptyList());
+        // Add two more and two deletion changes in task B
+        Branch taskB = branchService.create("MAIN/projectA/taskB");
+        createMembers(taskB.getPath(), Concepts.REFSET_SIMPLE, List.of("200003", "200004"));
+        taskB = branchService.findLatest(taskB.getPath());
+        members.forEach(member -> {
+            member.setActive(false);
+            member.setPath("MAIN/projectA/taskB");
+        });
+        try (Commit commit = branchService.openCommit(taskB.getPath(), "Inactivate members")) {
+            refsetMemberService.doSaveBatchMembers(members, commit);
+            commit.markSuccessful();
+        }
+        List<ReferencedConceptsLookup> lookups = conceptsLookupService.getConceptsLookups(versionControlHelper.getBranchCriteria(branchService.findLatest(taskB.getPath())));
+        assertEquals(3, lookups.size());
+
+        lookups = conceptsLookupService.getConceptsLookups(versionControlHelper.getBranchCriteria(branchService.findLatest(projectA.getPath())));
+        assertEquals(1, lookups.size());
+        // Promote task B to Project A
+        taskB = branchService.findLatest(taskB.getPath());
+        branchMergeService.mergeBranchSync(taskB.getPath(), projectA.getPath(), Collections.emptyList());
+        // Check lookups on project A
+        lookups = conceptsLookupService.getConceptsLookups(versionControlHelper.getBranchCriteria(branchService.findLatest(projectA.getPath())));
+        assertEquals(1, lookups.size());
+        lookups.forEach(lookup -> {
+            assertEquals(INCLUDE, lookup.getType());
+            assertEquals(2, lookup.getTotal());
+            assertEquals(Set.of(200003L, 200004L), lookup.getConceptIds());
+        });
+
+    }
     private Set<ReferenceSetMember> createMembers(String branchPath, String refsetId, List<String> referencedConcepts) {
         Set<ReferenceSetMember> members = new HashSet<>();
         for (String conceptId : referencedConcepts) {
