@@ -102,6 +102,10 @@ public class ReferencedConceptsLookupUpdateService extends ComponentService impl
     private void updateOnPromotion(Commit commit) {
         BranchCriteria sourceBranchOnly = versionControlHelper.getChangesOnBranchCriteria(commit.getSourceBranchPath());
         List<ReferencedConceptsLookup> sourceLookups = refsetConceptsLookupService.getConceptsLookups(sourceBranchOnly);
+        if (sourceLookups.isEmpty()) {
+            return;
+        }
+        logger.info("Found {} lookups on branch {} to promote", sourceLookups.size(), commit.getSourceBranchPath());
         Set<Long> refsetIds = sourceLookups.stream().map(lookup -> Long.parseLong(lookup.getRefsetId())).collect(Collectors.toSet());
         BranchCriteria targetBranchOnly = versionControlHelper.getChangesOnBranchCriteria(commit.getBranch());
         List<ReferencedConceptsLookup> existingTargetLookups = refsetConceptsLookupService.getConceptsLookups(targetBranchOnly, refsetIds);
@@ -128,9 +132,13 @@ public class ReferencedConceptsLookupUpdateService extends ComponentService impl
                     lookupsToSave.add(lookup);
                 });
 
+        if (!lookupsToSave.isEmpty()) {
+            logger.info("Updating {} lookups on branch {}", lookupsToSave.size(), commit.getBranch().getPath());
+        }
         sourceLookups.forEach(lookup -> lookup.setEnd(commit.getTimepoint()));
         lookupsToSave.addAll(sourceLookups);
         refsetConceptsLookupRepository.saveAll(lookupsToSave);
+        logger.info("Completed saving {} concepts lookups on promotion.", lookupsToSave.size());
     }
 
     private void consolidateLookups(List<ReferencedConceptsLookup> newTargetLookups) {
@@ -505,15 +513,15 @@ public class ReferencedConceptsLookupUpdateService extends ComponentService impl
         try (Commit commit = branchService.openCommit(path, branchMetadataHelper.getBranchLockMetadata("Removing referenced concepts lookup."))) {
             logger.info("Start removing concepts lookup on branch {} for refsetIds {}", path, refsetIds);
             List<ReferencedConceptsLookup> lookupsToEnd = refsetConceptsLookupService.getConceptsLookups(versionControlHelper.getBranchCriteria(commit.getBranch()), refsetIds);
-            logger.info("Find total {} concepts lookups to remove", lookupsToEnd.size());
-            lookupsToEnd.forEach(lookup -> lookup.setEnd(commit.getTimepoint()));
-            refsetConceptsLookupRepository.saveAll(lookupsToEnd);
             if (!lookupsToEnd.isEmpty()) {
+                logger.info("Find total {} concepts lookups to remove", lookupsToEnd.size());
+                lookupsToEnd.forEach(lookup -> lookup.setEnd(commit.getTimepoint()));
+                refsetConceptsLookupRepository.saveAll(lookupsToEnd);
                 commit.markSuccessful();
+                logger.info("Complete removing {} concepts lookup on branch {} for refsetIds {}", lookupsToEnd.size(), path, refsetIds);
             } else {
                 logger.info("No concepts lookup found to remove on branch {} for refsetIds {}", path, refsetIds);
             }
-            logger.info("Complete removing concepts lookup on branch {} for refsetIds {}", path, refsetIds);
         }
     }
 }
