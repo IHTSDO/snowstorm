@@ -10,6 +10,7 @@ import org.snomed.snowstorm.core.data.domain.QueryConcept;
 import org.snomed.snowstorm.core.data.services.*;
 import org.snomed.snowstorm.core.rf2.RF2Type;
 import org.snomed.snowstorm.core.rf2.rf2import.ImportService;
+import org.snomed.snowstorm.syndication.SyndicationService;
 import org.springframework.beans.factory.BeanCreationException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.ApplicationArguments;
@@ -33,6 +34,8 @@ import java.util.List;
 @EnableCaching
 public class SnowstormApplication extends Config implements ApplicationRunner {
 
+	public static final String SNOMED_VERSION = "snomed-version";
+	public static final String EXTENSION_COUNTRY_CODE = "extension-country-code";
 	private static final String DELETE_INDICES_FLAG = "delete-indices";
 	private static final String IMPORT_ARG = "import";
 	private static final String IMPORT_FULL_ARG = "import-full";
@@ -52,6 +55,9 @@ public class SnowstormApplication extends Config implements ApplicationRunner {
 
 	@Autowired
 	private CodeSystemVersionService codeSystemVersionService;
+
+	@Autowired
+	private SyndicationService syndicationService;
 
 	private static final Logger logger = LoggerFactory.getLogger(SnowstormApplication.class);
 
@@ -75,7 +81,7 @@ public class SnowstormApplication extends Config implements ApplicationRunner {
 	}
 
 	@Override
-	public void run(ApplicationArguments applicationArguments) throws InterruptedException, ServiceException {
+	public void run(ApplicationArguments applicationArguments) throws InterruptedException, ServiceException, IOException, ReleaseImportException {
 		try {
 			boolean deleteIndices = applicationArguments.containsOption(DELETE_INDICES_FLAG);
 			if (deleteIndices) {
@@ -111,6 +117,11 @@ public class SnowstormApplication extends Config implements ApplicationRunner {
 				fileExistsForArgument(releasePath, IMPORT_FULL_ARG);
 
 				importEditionRF2FromDisk(releasePath, RF2Type.FULL);
+			} else if (applicationArguments.containsOption(SNOMED_VERSION)) {
+				// Import snomed edition or extension 'Snapshot' from uri at startup including the dependencies
+				String releaseUri = getOneValue(applicationArguments, SNOMED_VERSION);
+				String extensionName = applicationArguments.containsOption(EXTENSION_COUNTRY_CODE) ? getOneValue(applicationArguments, EXTENSION_COUNTRY_CODE) : null;
+				syndicationService.importSnomed(releaseUri, extensionName);
 			}
 			if (applicationArguments.containsOption(EXIT)) {
 				logger.info("Exiting application.");
