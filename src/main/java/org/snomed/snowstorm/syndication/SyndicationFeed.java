@@ -3,6 +3,7 @@ package org.snomed.snowstorm.syndication;
 import jakarta.xml.bind.annotation.XmlElement;
 import jakarta.xml.bind.annotation.XmlRootElement;
 
+import java.util.ArrayList;
 import java.util.List;
 
 @XmlRootElement(name = "feed")
@@ -22,6 +23,9 @@ public class SyndicationFeed {
 
 	@XmlElement(name="entry", type = SyndicationFeedEntry.class)
 	public List<SyndicationFeedEntry> getEntries() {
+		if(entries == null) {
+			entries = new ArrayList<>();
+		}
 		return entries;
 	}
 

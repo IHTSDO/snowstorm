@@ -121,7 +121,7 @@ public class SnowstormApplication extends Config implements ApplicationRunner {
 				// Import snomed edition or extension 'Snapshot' from uri at startup including the dependencies
 				String releaseUri = getOneValue(applicationArguments, SNOMED_VERSION);
 				String extensionName = applicationArguments.containsOption(EXTENSION_COUNTRY_CODE) ? getOneValue(applicationArguments, EXTENSION_COUNTRY_CODE) : null;
-				syndicationService.importSnomed(releaseUri, extensionName);
+				syndicationService.importSnomedEditionAndExtension(releaseUri, extensionName);
 			}
 			if (applicationArguments.containsOption(EXIT)) {
 				logger.info("Exiting application.");

@@ -61,27 +61,23 @@ public class SyndicationClient {
         if(isReleaseExtension(entry)) {
             addReleaseEditionLink(entry, feed, feedEntries);
         }
-        if (!feedEntries.isEmpty()) {
-            List<String> packageFilePaths = new ArrayList<>();
-            logger.info("{} package(s) will be downloaded", feedEntries.size());
-            try {
-                for (SyndicationFeedEntry feedEntry : feedEntries) {
-                    logger.info("Downloading package file {}\n on: {}", feedEntry.getTitle(), feedEntry.getZipLink().getHref());
+        List<String> packageFilePaths = new ArrayList<>();
+        logger.info("{} package(s) will be downloaded", feedEntries.size());
+        try {
+            for (SyndicationFeedEntry feedEntry : feedEntries) {
+                logger.info("Downloading package file {}\n on: {}", feedEntry.getTitle(), feedEntry.getZipLink().getHref());
 
-                    File outputFile = Files.createTempFile(UUID.randomUUID().toString(), ".zip").toFile();
-                    restTemplate.execute(feedEntry.getZipLink().getHref(), HttpMethod.GET,
-                            request -> request.getHeaders().setBasicAuth(snomedUsername, snomedPassword),
-                            clientHttpResponse -> handleHttpResponse(feedEntry.getZipLink(), clientHttpResponse, outputFile));
-                    outputFile.deleteOnExit();
-                    packageFilePaths.add(outputFile.getAbsolutePath());
-                }
-            } catch (HttpClientErrorException e) {
-                throw new ServiceException(format("Failed to download package due to HTTP error: %s", e.getStatusCode()), e);
+                File outputFile = Files.createTempFile(UUID.randomUUID().toString(), ".zip").toFile();
+                restTemplate.execute(feedEntry.getZipLink().getHref(), HttpMethod.GET,
+                        request -> request.getHeaders().setBasicAuth(snomedUsername, snomedPassword),
+                        clientHttpResponse -> handleHttpResponse(feedEntry.getZipLink(), clientHttpResponse, outputFile));
+                outputFile.deleteOnExit();
+                packageFilePaths.add(outputFile.getAbsolutePath());
             }
-            return packageFilePaths;
-        } else {
-            throw new ServiceException("Can not load content, no links found within the syndication feed for the requested package.");
+        } catch (HttpClientErrorException e) {
+            throw new ServiceException(format("Failed to download package due to HTTP error: %s", e.getStatusCode()), e);
         }
+        return packageFilePaths;
     }
 
     private void addReleaseEditionLink(SyndicationFeedEntry entry, SyndicationFeed feed, List<SyndicationFeedEntry> feedEntries) throws ServiceException {

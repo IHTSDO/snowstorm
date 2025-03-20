@@ -15,6 +15,7 @@ import org.springframework.stereotype.Service;
 
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.List;
 
@@ -42,10 +43,7 @@ public class SyndicationService {
 
     private final Logger logger = LoggerFactory.getLogger(getClass());
 
-    public void importSnomed(String releaseUri, String extensionCountryCode) throws IOException, ServiceException {
-        if (Strings.isBlank(releaseUri)) {
-            throw new IllegalArgumentException("Parameter ' " + SNOMED_VERSION + " ' must be set when loading SNOMED via syndication.");
-        }
+    public void importSnomedEditionAndExtension(String releaseUri, String extensionCountryCode) throws IOException, ServiceException {
         if (!SNOMED_URI_MODULE_AND_VERSION_PATTERN.matcher(releaseUri).matches()) {
             throw new IllegalArgumentException("Parameter ' " + SNOMED_VERSION + " ' is not a valid SNOMED CT Edition Version URI. " +
                     "Please use the format: 'http://snomed.info/sct/[module-id]/version/[YYYYMMDD]'. " +
@@ -53,32 +51,9 @@ public class SyndicationService {
         }
         validateSyndicationCredentials();
         List<String> filePaths = syndicationClient.downloadPackages(releaseUri, snomedUsername, snomedPassword);
-        importPackage(filePaths.get(0), MAIN);
-        logger.info("Edition import DONE");
-        if(filePaths.size() > 1 && extensionCountryCode == null) {
-            throw new IllegalArgumentException("ReleaseURI: '" + releaseUri + "' is an extension. An extension name must be specified.");
-        }
-        if(filePaths.size() > 1) {
-            String shortName = "SNOMED-" + extensionCountryCode;
-            String branchPath = MAIN + "/" + shortName;
-            codeSystemService.createCodeSystem(new CodeSystem(shortName, branchPath, extensionCountryCode + " edition", extensionCountryCode.toLowerCase()));
-            importPackage(filePaths.get(1), branchPath);
-            logger.info("Extension import DONE");
-        }
-        for (String filePath : filePaths) {
-            if (!new File(filePath).delete()) {
-                logger.warn("Failed to delete temp file {}", filePath);
-            }
-        }
-    }
-
-    private void importPackage(String filePath, String branchName) {
-        String importId = importService.createJob(RF2Type.SNAPSHOT, branchName, true, false);
-        try (FileInputStream releaseFileStream = new FileInputStream(filePath)) {
-            importService.importArchive(importId, releaseFileStream);
-        } catch (IOException | ReleaseImportException e) {
-            logger.error("Import failed.", e);
-        }
+        importEdition(filePaths);
+        importExtension(releaseUri, extensionCountryCode, filePaths);
+        removeTempFiles(filePaths);
     }
 
     private void validateSyndicationCredentials() {
@@ -89,6 +64,45 @@ public class SyndicationService {
         if (Strings.isBlank(snomedPassword)) {
             logger.error("Syndication password is blank.");
             throw new IllegalArgumentException("Syndication password is blank.");
+        }
+    }
+
+    private void importEdition(List<String> filePaths) {
+        importPackage(filePaths.get(0), MAIN);
+        logger.info("Edition import DONE");
+    }
+
+    private void importExtension(String releaseUri, String extensionCountryCode, List<String> filePaths) throws ServiceException {
+        if(filePaths.size() > 1 && extensionCountryCode == null) {
+            throw new IllegalArgumentException("ReleaseURI: '" + releaseUri + "' is an extension. An extension name must be specified.");
+        }
+        if(filePaths.size() > 1) {
+            String shortName = "SNOMED-" + extensionCountryCode;
+            String branchPath = MAIN + "/" + shortName;
+            codeSystemService.createCodeSystem(new CodeSystem(shortName, branchPath, extensionCountryCode + " edition", extensionCountryCode.toLowerCase()));
+            importPackage(filePaths.get(1), branchPath);
+            logger.info("Extension import DONE");
+        }
+    }
+
+    private void importPackage(String filePath, String branchName) {
+        String importId = importService.createJob(RF2Type.SNAPSHOT, branchName, true, false);
+        try (FileInputStream releaseFileStream = getFileInputStream(filePath)) {
+            importService.importArchive(importId, releaseFileStream);
+        } catch (IOException | ReleaseImportException e) {
+            logger.error("Import failed.", e);
+        }
+    }
+
+    protected FileInputStream getFileInputStream(String filePath) throws FileNotFoundException {
+        return new FileInputStream(filePath);
+    }
+
+    private void removeTempFiles(List<String> filePaths) {
+        for (String filePath : filePaths) {
+            if (!new File(filePath).delete()) {
+                logger.warn("Failed to delete temp file {}", filePath);
+            }
         }
     }
 }
