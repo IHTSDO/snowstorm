@@ -325,14 +325,6 @@
 	</dependencyManagement>
 	<build>
 		<plugins>
-			<plugin>
-				<groupId>org.owasp</groupId>
-				<artifactId>dependency-check-maven</artifactId>
-				<version>${dependency-check-maven.version}</version>
-				<configuration>
-					<skip>true</skip>
-				</configuration>
-			</plugin>
 			<!--
                Add the Add-Opens to the manifest file to allow snomed-owl-toolkit to work with java 17. Remove this when the owl-api is updated to use version 5
            -->

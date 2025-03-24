@@ -16,6 +16,9 @@ public class StreamUtil {
 		int byteCount = 0;
 		int bytesRead;
 		int percentageLogged = -1;
+		if(totalStreamLength <= 0) {
+			throw new IllegalArgumentException("Invalid length: " + totalStreamLength);
+		}
 		for (byte[] buffer = new byte[4096]; (bytesRead = inputStream.read(buffer)) != -1; byteCount += bytesRead) {
 			outputStream.write(buffer, 0, bytesRead);
 			float percentageFloat = ((float) byteCount / (float) totalStreamLength) * 100;

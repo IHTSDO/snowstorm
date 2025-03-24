@@ -14,13 +14,22 @@ WORKDIR $APP_HOME
 COPY target/snowstorm*.jar /app/snowstorm.jar
 
 # Testing purposes (import RF from disk)
-#COPY international_sample.zip /app/international_sample.zip
+COPY international_sample.zip /app/international_sample.zip
 
-# Install net-tools and npm for testing/debugging purposes
-#RUN apt-get update && apt-get install -y \
-#    net-tools \
-#    npm \
-#    && rm -rf /var/lib/apt/lists/*
+# Install net-tools and npm
+RUN apt-get update && apt-get install -y \
+    net-tools \
+    npm \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create a non-root user
+RUN useradd -m -d $APP_HOME -s /bin/bash appuser
+
+# Change ownership of the app files
+RUN chown -R appuser:appuser $APP_HOME
+
+# Switch to the non-root user
+USER appuser
 
 # Expose application port
 EXPOSE 8080
