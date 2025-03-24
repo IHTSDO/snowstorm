@@ -154,7 +154,7 @@ public class ControllerHelper {
 	}
 	
 	public static List<LanguageDialect> parseAcceptLanguageHeaderWithDefaultFallback(String acceptLanguageHeader) {
-		List<LanguageDialect> languageDialects = parseAcceptLanguageHeader(acceptLanguageHeader);
+		List<LanguageDialect> languageDialects = new ArrayList<>(parseAcceptLanguageHeader(acceptLanguageHeader));
 		languageDialects.addAll(DEFAULT_LANGUAGE_DIALECTS);
 		return languageDialects;
 	}
@@ -220,7 +220,7 @@ public class ControllerHelper {
 	}
 
 	public static List<LanguageDialect> parseAcceptLanguageHeader(String acceptLanguageHeader) {
-		return parseAcceptLanguageHeaderWithWeights(acceptLanguageHeader,false).stream().map(x -> x.getLeft()).toList();
+		return parseAcceptLanguageHeaderWithWeights(acceptLanguageHeader,false).stream().map(Pair::getLeft).toList();
 	}
 
 	static void validatePageSize(long offset, int limit) {
