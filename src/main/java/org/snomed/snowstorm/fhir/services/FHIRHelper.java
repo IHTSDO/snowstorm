@@ -38,7 +38,7 @@ public class FHIRHelper implements FHIRConstants {
 
 	private static final Pattern SNOMED_URI_MODULE_PATTERN = Pattern.compile("http://snomed.info/x?sct/(\\d+)");
 	private static final Pattern SNOMED_URI_MODULE_AND_VERSION_PATTERN = Pattern.compile("http://snomed.info/x?sct/(\\d+)/version/([\\d]{8})");
-	private static final Pattern SCT_ID_PATTERN = Pattern.compile("sct_(\\d)+_(\\d){8}");
+	private static final Pattern SCT_ID_PATTERN = Pattern.compile("sct_(\\d+)_(\\d{8})");
 
 	private static final SimpleDateFormat sdf = new SimpleDateFormat("yyyyMMdd"); // TODO: This is not thread safe!
 
@@ -348,6 +348,7 @@ public class FHIRHelper implements FHIRConstants {
 			}
 		}
 		if (systemId != null) {
+			codeSystemParams.setId(systemId);
 			if (codeSystemParams.isSnomed()) {
 				Matcher idMatcher = SCT_ID_PATTERN.matcher(systemId);
 				if (!idMatcher.matches()) {
