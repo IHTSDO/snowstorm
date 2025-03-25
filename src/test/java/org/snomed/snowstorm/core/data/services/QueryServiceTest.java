@@ -1,6 +1,8 @@
 package org.snomed.snowstorm.core.data.services;
 
 import com.google.common.collect.Lists;
+import io.kaicode.elasticvc.api.BranchService;
+import io.kaicode.elasticvc.domain.Commit;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -16,11 +18,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Set;
-import java.util.stream.Collectors;
+import java.util.*;
 
 import static java.lang.Long.parseLong;
 import static org.junit.jupiter.api.Assertions.*;
@@ -39,19 +37,25 @@ class QueryServiceTest extends AbstractTest {
 	@Autowired
 	private CodeSystemService codeSystemService;
 
+	@Autowired
+	private BranchService branchService;
+
+	@Autowired
+	private ReferenceSetMemberService referenceSetMemberService;
+
 	private static final PageRequest PAGE_REQUEST = PageRequest.of(0, 50);
 	public static final String PATH = "MAIN";
 	public static final int TEST_ET = 20210131;
-	private final static String MODEL_COMPONENT = "900000000000441003";
-	private final static String BODY_STRUCTURE = "123037004";
-	private final static String LATERALITY = "272741003";
-	private final static String RIGHT = "24028007";
-	private final static String PULMONARY_VALVE_STRUCTURE = "39057004";
-	private final static String DISORDER = "64572001";
-	private final static String PENTALOGY_OF_FALLOT = "204306007";
-	private final static String ASSOCIATED_MORPHOLOGY = "116676008";
-	private final static String STENOSIS = "415582006";
-	private final static String HYPERTROPHY = "56246009";
+	private static final String MODEL_COMPONENT = "900000000000441003";
+	private static final String BODY_STRUCTURE = "123037004";
+	private static final String LATERALITY = "272741003";
+	private static final String RIGHT = "24028007";
+	private static final String PULMONARY_VALVE_STRUCTURE = "39057004";
+	private static final String DISORDER = "64572001";
+	private static final String PENTALOGY_OF_FALLOT = "204306007";
+	private static final String ASSOCIATED_MORPHOLOGY = "116676008";
+	private static final String STENOSIS = "415582006";
+	private static final String HYPERTROPHY = "56246009";
 	private static final String RIGHT_VENTRICULAR_STRUCTURE = "53085002";
 
 	private Concept root;
@@ -219,7 +223,7 @@ class QueryServiceTest extends AbstractTest {
 	}
 
 	@Test
-	public void testModuleFilter() {
+	void testModuleFilter() {
 		QueryService.ConceptQueryBuilder queryBuilder = service.createQueryBuilder(false).activeFilter(true);
 		assertEquals(5, service.search(queryBuilder, PATH, PAGE_REQUEST).getTotalElements());
 
@@ -245,24 +249,18 @@ class QueryServiceTest extends AbstractTest {
 		String ecl = "( *: 116676008 |Associated morphology (attribute)|= 415582006 |Stenosis (morphologic abnormality)|). 363698007 |Finding site (attribute)|";
 		queryBuilder.ecl(ecl);
 		List<ConceptMini> results = service.search(queryBuilder, PATH, PAGE_REQUEST).getContent();
-		System.out.println("Dot notation query results:");
-		results.forEach(ConceptMini::getFsnTerm);
 		assertEquals(2, results.size());
 
 		// Add term filtering
 		queryBuilder.descriptionTerm("structure");
 
 		results = service.search(queryBuilder, PATH, PAGE_REQUEST).getContent();
-		System.out.println("Dot notation query results with term filter:");
-		results.forEach(ConceptMini::getFsnTerm);
 		assertEquals(2, results.size());
 
 		// Reverse flag
 		ecl = "* : R 363698007 |Finding site (attribute)| = (* : 116676008 |Associated morphology (attribute)| = 415582006 |Stenosis (morphologic abnormality)|)";
 		queryBuilder.ecl(ecl);
 		results = service.search(queryBuilder, PATH, PAGE_REQUEST).getContent();
-		System.out.println("Reverse flag query results:");
-		results.forEach(ConceptMini::getFsnTerm);
 		assertEquals(2, results.size());
 	}
 
@@ -278,15 +276,32 @@ class QueryServiceTest extends AbstractTest {
 
 		ItemsPage<ConceptMini> resultsPageOne = new ItemsPage<>(service.search(queryBuilder, PATH, SearchAfterPageRequest.of(0, 1, sort)));
 		assertEquals(1, resultsPageOne.getItems().size());
-		ConceptMini conceptPageOne = resultsPageOne.getItems().stream().collect(Collectors.toList()).get(0);
+		ConceptMini conceptPageOne = resultsPageOne.getItems().stream().toList().get(0);
 		assertEquals(RIGHT_VENTRICULAR_STRUCTURE, conceptPageOne.getConceptId());
 
 		ItemsPage<ConceptMini> resultsPageTwo = new ItemsPage<>(service.search(queryBuilder, PATH, SearchAfterPageRequest.of(resultsPageOne.getSearchAfterArray(), 1, sort)));
 		assertEquals(1, resultsPageTwo.getItems().size());
-		ConceptMini conceptPageTwo = resultsPageTwo.getItems().stream().collect(Collectors.toList()).get(0);
+		ConceptMini conceptPageTwo = resultsPageTwo.getItems().stream().toList().get(0);
 		assertEquals(PULMONARY_VALVE_STRUCTURE, conceptPageTwo.getConceptId());
 
 		assertNotEquals(resultsPageOne.getSearchAfter(), resultsPageTwo.getSearchAfter());
+	}
+
+
+	@Test
+	void testDotNotationEclWithMemberOf() throws ServiceException {
+		createConceptsForDotNotationTests();
+		createMembers(MAIN, REFSET_SIMPLE, List.of(STENOSIS, HYPERTROPHY));
+		QueryService.ConceptQueryBuilder queryBuilder = service.createQueryBuilder(false).activeFilter(true);
+		String ecl = "<<^446609009";
+		queryBuilder.ecl(ecl);
+		List<ConceptMini> results = service.search(queryBuilder, PATH, PAGE_REQUEST).getContent();
+		assertEquals(2, results.size());
+
+		ecl = "( *: 116676008 |Associated morphology (attribute)|= ^446609009).363698007|Finding site (attribute)|";
+		queryBuilder.ecl(ecl);
+		results = service.search(queryBuilder, PATH, PAGE_REQUEST).getContent();
+		assertEquals(2, results.size());
 	}
 
 	private void createConceptsForDotNotationTests() throws ServiceException {
@@ -324,4 +339,20 @@ class QueryServiceTest extends AbstractTest {
 		conceptService.batchCreate(allConcepts, MAIN);
 	}
 
+	private void createMembers(String branchPath, String refsetId, List<String> referencedConcepts) {
+		Set<ReferenceSetMember> members = new HashSet<>();
+		for (String conceptId : referencedConcepts) {
+			ReferenceSetMember member = new ReferenceSetMember();
+			member.setRefsetId(refsetId);
+			member.setReferencedComponentId(conceptId);
+			member.setModuleId(Concepts.CORE_MODULE);
+			member.setPath(branchPath);
+			members.add(member);
+		}
+		try (Commit commit = branchService.openCommit(branchPath, "Testing")) {
+			referenceSetMemberService.doSaveBatchMembers(members, commit);
+			commit.markSuccessful();
+		}
+		referenceSetMemberService.createMembers(branchPath, members);
+	}
 }
