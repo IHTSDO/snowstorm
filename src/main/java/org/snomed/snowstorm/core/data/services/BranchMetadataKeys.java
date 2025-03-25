@@ -7,6 +7,7 @@ public interface BranchMetadataKeys {
 	String ASSERTION_GROUP_NAMES = "assertionGroupNames";
 	String REQUIRED_LANGUAGE_REFSETS = "requiredLanguageRefsets";
 	String DEFAULT_MODULE_ID = "defaultModuleId";
+	String EXPECTED_EXTENSION_MODULES = "expectedExtensionModules";
 	String DEFAULT_NAMESPACE = "defaultNamespace";
 	String SHORTNAME = "shortname";
 	String DEPENDENCY_RELEASE = "dependencyRelease";
