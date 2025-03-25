@@ -890,7 +890,7 @@ public class ConceptService extends ComponentService {
 		logger.info("Searching concepts to donate from {} to {} using ECL expression: '{}' (includeDependencies = '{}')", sourceBranchPath, destinationBranchPath, ecl, includeDependencies);
 		QueryService.ConceptQueryBuilder queryBuilder = queryService.createQueryBuilder(true)
 				.ecl(ecl)
-				.module(Long.parseLong(getDefaultModuleId(sourceBranch)))
+				.module(Optional.ofNullable(getExpectedExtensionModules(sourceBranch)).orElse(List.of(Long.valueOf(getDefaultModuleId(sourceBranch)))))
 				.activeFilter(true)
 				.isNullEffectiveTime(false)
 				.resultLanguageDialects(languageDialects);
@@ -910,6 +910,10 @@ public class ConceptService extends ComponentService {
 
 	private String getDefaultModuleId(Branch branch) {
 		return branch.getMetadata().containsKey(BranchMetadataKeys.DEFAULT_MODULE_ID) ? branch.getMetadata().getString(BranchMetadataKeys.DEFAULT_MODULE_ID) : Concepts.CORE_MODULE;
+	}
+
+	private List<Long> getExpectedExtensionModules(Branch branch) {
+		return branch.getMetadata().containsKey(BranchMetadataKeys.EXPECTED_EXTENSION_MODULES) ? branch.getMetadata().getList(BranchMetadataKeys.EXPECTED_EXTENSION_MODULES).stream().map(Long::valueOf).toList() : null;
 	}
 
 	private void joinAnnotations(BranchCriteria branchCriteria, Map<String, Concept> conceptIdMap, Map<String, ConceptMini> conceptMiniMap, List<LanguageDialect> languageDialects, TimerUtil timer) {
