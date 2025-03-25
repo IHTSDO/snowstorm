@@ -1,4 +1,4 @@
-package org.snomed.snowstorm.syndication;
+package org.snomed.snowstorm.syndication.snomed;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
@@ -29,7 +29,7 @@ class SyndicationClientTest {
     private RestTemplate restTemplate;
 
     @InjectMocks
-    private SyndicationClient syndicationClient;
+    private SnomedSyndicationClient syndicationClient;
 
     @BeforeEach
     void setUp() {

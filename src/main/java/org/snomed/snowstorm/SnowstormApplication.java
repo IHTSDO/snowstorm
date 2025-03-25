@@ -10,7 +10,8 @@ import org.snomed.snowstorm.core.data.domain.QueryConcept;
 import org.snomed.snowstorm.core.data.services.*;
 import org.snomed.snowstorm.core.rf2.RF2Type;
 import org.snomed.snowstorm.core.rf2.rf2import.ImportService;
-import org.snomed.snowstorm.syndication.SyndicationService;
+import org.snomed.snowstorm.syndication.hl7.Hl7SyndicationService;
+import org.snomed.snowstorm.syndication.snomed.SnomedSyndicationService;
 import org.springframework.beans.factory.BeanCreationException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.ApplicationArguments;
@@ -40,6 +41,7 @@ public class SnowstormApplication extends Config implements ApplicationRunner {
 	private static final String IMPORT_ARG = "import";
 	private static final String IMPORT_FULL_ARG = "import-full";
 	private static final String EXIT = "exit";
+	private static final String IMPORT_HL_7_TERMINOLOGY = "import-hl7-terminology";
 
 	@Autowired
 	private ImportService importService;
@@ -57,7 +59,10 @@ public class SnowstormApplication extends Config implements ApplicationRunner {
 	private CodeSystemVersionService codeSystemVersionService;
 
 	@Autowired
-	private SyndicationService syndicationService;
+	private SnomedSyndicationService snomedSyndicationService;
+
+	@Autowired
+	private Hl7SyndicationService hl7SyndicationService;
 
 	private static final Logger logger = LoggerFactory.getLogger(SnowstormApplication.class);
 
@@ -121,7 +126,10 @@ public class SnowstormApplication extends Config implements ApplicationRunner {
 				// Import snomed edition or extension 'Snapshot' from uri at startup including the dependencies
 				String releaseUri = getOneValue(applicationArguments, SNOMED_VERSION);
 				String extensionName = applicationArguments.containsOption(EXTENSION_COUNTRY_CODE) ? getOneValue(applicationArguments, EXTENSION_COUNTRY_CODE) : null;
-				syndicationService.importSnomedEditionAndExtension(releaseUri, extensionName);
+				snomedSyndicationService.importSnomedEditionAndExtension(releaseUri, extensionName);
+			}
+			if (applicationArguments.containsOption(IMPORT_HL_7_TERMINOLOGY)) {
+				hl7SyndicationService.importHl7Terminology();
 			}
 			if (applicationArguments.containsOption(EXIT)) {
 				logger.info("Exiting application.");

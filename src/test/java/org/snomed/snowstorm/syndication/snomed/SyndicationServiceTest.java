@@ -1,4 +1,4 @@
-package org.snomed.snowstorm.syndication;
+package org.snomed.snowstorm.syndication.snomed;
 
 import org.ihtsdo.otf.snomedboot.ReleaseImportException;
 import org.junit.jupiter.api.BeforeEach;
@@ -26,7 +26,7 @@ class SyndicationServiceTest {
     private static final String RELEASE_URI = "http://snomed.info/sct/11000172109/version/20250315";
 
     @Mock
-    private SyndicationClient syndicationClient;
+    private SnomedSyndicationClient syndicationClient;
 
     @Mock
     private ImportService importService;
@@ -36,7 +36,7 @@ class SyndicationServiceTest {
 
     @Spy
     @InjectMocks
-    private SyndicationService syndicationService;
+    private SnomedSyndicationService syndicationService;
 
     @BeforeEach
     void setUp() {

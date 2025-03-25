@@ -10,17 +10,15 @@ ENV APP_HOME=/app
 # Set working directory
 WORKDIR $APP_HOME
 
-# Copy Snowstorm JAR (you need to build it first with Maven)
-COPY target/snowstorm*.jar /app/snowstorm.jar
-
-# Testing purposes (import RF from disk)
-COPY international_sample.zip /app/international_sample.zip
-
 # Install net-tools and npm
 RUN apt-get update && apt-get install -y \
     net-tools \
+    unzip \
     npm \
     && rm -rf /var/lib/apt/lists/*
+
+# Download the hl7 FHIR terminilogy package using npm
+RUN npm --registry https://packages.simplifier.net pack hl7.terminology.r4
 
 # Create a non-root user
 RUN useradd -m -d $APP_HOME -s /bin/bash appuser
@@ -30,6 +28,12 @@ RUN chown -R appuser:appuser $APP_HOME
 
 # Switch to the non-root user
 USER appuser
+
+# Copy Snowstorm JAR (you need to build it first with Maven)
+COPY target/snowstorm*.jar /app/snowstorm.jar
+
+# Testing purposes (import RF from disk)
+COPY international_sample.zip /app/international_sample.zip
 
 # Expose application port
 EXPOSE 8080

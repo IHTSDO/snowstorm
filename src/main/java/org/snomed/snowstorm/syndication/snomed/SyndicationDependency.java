@@ -1,4 +1,4 @@
-package org.snomed.snowstorm.syndication;
+package org.snomed.snowstorm.syndication.snomed;
 
 import jakarta.xml.bind.annotation.XmlElement;
 

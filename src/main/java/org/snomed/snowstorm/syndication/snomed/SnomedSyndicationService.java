@@ -1,4 +1,4 @@
-package org.snomed.snowstorm.syndication;
+package org.snomed.snowstorm.syndication.snomed;
 
 import org.apache.logging.log4j.util.Strings;
 import org.ihtsdo.otf.snomedboot.ReleaseImportException;
@@ -24,7 +24,7 @@ import static org.snomed.snowstorm.core.data.services.CodeSystemService.MAIN;
 import static org.snomed.snowstorm.fhir.services.FHIRHelper.SNOMED_URI_MODULE_AND_VERSION_PATTERN;
 
 @Service
-public class SyndicationService {
+public class SnomedSyndicationService {
 
     @Value("${SNOMED_USERNAME}")
     private String snomedUsername;
@@ -33,7 +33,7 @@ public class SyndicationService {
     private String snomedPassword;
 
     @Autowired
-    private SyndicationClient syndicationClient;
+    private SnomedSyndicationClient syndicationClient;
 
     @Autowired
     private ImportService importService;
