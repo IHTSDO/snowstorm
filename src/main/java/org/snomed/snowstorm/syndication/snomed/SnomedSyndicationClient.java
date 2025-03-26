@@ -1,4 +1,4 @@
-package org.snomed.snowstorm.syndication;
+package org.snomed.snowstorm.syndication.snomed;
 
 import jakarta.xml.bind.JAXBContext;
 import jakarta.xml.bind.JAXBException;
@@ -35,7 +35,7 @@ import java.util.UUID;
 import static java.lang.String.format;
 
 @Service
-public class SyndicationClient {
+public class SnomedSyndicationClient {
 
     public static final Set<String> acceptablePackageTypes = Set.of("SCT_RF2_SNAPSHOT", "SCT_RF2_FULL", "SCT_RF2_ALL");
 
@@ -43,7 +43,7 @@ public class SyndicationClient {
     private final JAXBContext jaxbContext;
     private final Logger logger = LoggerFactory.getLogger(getClass());
 
-    public SyndicationClient(@Value("${syndication.snomed.url}") String snomedUrl) throws JAXBException {
+    public SnomedSyndicationClient(@Value("${syndication.snomed.url}") String snomedUrl) throws JAXBException {
         restTemplate = new RestTemplateBuilder()
                 .rootUri(snomedUrl)
                 .messageConverters(new StringHttpMessageConverter())

@@ -35,8 +35,6 @@ services:
         condition: service_healthy
     entrypoint: [
       "java",
-          #"-Xdebug", # debugging purposes
-          #"-agentlib:jdwp=transport=dt_socket,server=y,address=*:5005,suspend=n", # debugging purposes
           "-Xms2g",
           "-Xmx4g",
           "--add-opens", "java.base/java.lang=ALL-UNNAMED",
@@ -45,8 +43,7 @@ services:
     ]
     command: [
       "--elasticsearch.urls=http://es:9200",
-      #"--release-file-path=/app/international_sample.zip", # testing purposes using sample release test file
-      #"--snomed-version=http://snomed.info/sct/900000000000207008/version/20250301" # international edition
+      "--import-hl7-terminology",
       "--snomed-version=http://snomed.info/sct/11000172109/version/20250315", # belgian extension (+ international edition dependency)
       "--extension-country-code=BE"
     ]

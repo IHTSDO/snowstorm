@@ -324,7 +324,7 @@ public class FHIRHelper implements FHIRConstants {
 
 	public String recoverCode(CodeType code, Coding coding) {
 		if (code == null && coding == null) {
-			throw exception("Use either 'code' or 'coding' parameters, not both.", IssueType.INVARIANT, 400);
+			throw exception("Use either 'code' or 'coding' parameters, not none.", IssueType.INVARIANT, 400);
 		} else if (code != null) {
 			if (code.getCode().contains("|") &&
 					// Only throw error if there is only one pipe in the code, otherwise this may be a postcoordinated expression with terms.

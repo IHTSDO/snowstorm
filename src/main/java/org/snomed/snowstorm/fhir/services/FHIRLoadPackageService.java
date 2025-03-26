@@ -86,7 +86,8 @@ public class FHIRLoadPackageService {
 				FHIRCodeSystemVersion existingCodeSystemVersion = codeSystemService.findCodeSystemVersion(new FHIRCodeSystemVersionParams(url).setVersion(version));
 				if (existingCodeSystemVersion != null) {
 					if (codeSystem.getContent() == CodeSystem.CodeSystemContentMode.NOTPRESENT) {
-						logger.info("Skipping import of CodeSystem %s with 'content:not-present' because a CodeSystem with the same url and version already exists.");
+						logger.info("Skipping import of CodeSystem {} with 'content:not-present' because a CodeSystem with the same url and version already exists.", existingCodeSystemVersion.getUrl());
+						continue;
 					} else {
 						logger.info("Deleting existing CodeSystem and concepts for url:{}, version:{}", existingCodeSystemVersion.getUrl(), existingCodeSystemVersion.getVersion());
 						codeSystemService.deleteCodeSystemVersion(existingCodeSystemVersion);
