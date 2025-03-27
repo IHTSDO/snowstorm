@@ -51,9 +51,6 @@ public class ReleaseService {
 			// Disable traceability when versioning to prevent logging every component in the release
 			BranchMetadataHelper.markCommitAsCreatingCodeSystemVersion(commit);
 			
-			//Update the Module Dependency Refset members and persist
-			mdService.generateModuleDependencies(path, effectiveTime.toString(), null, false, commit);
-
 			BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(path);
 
 			Set<Class<? extends SnomedComponent<?>>> componentTypes = domainEntityConfiguration.getComponentTypeRepositoryMap().keySet();
