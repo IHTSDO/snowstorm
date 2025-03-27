@@ -1,43 +1,28 @@
 package org.snomed.snowstorm.rest;
 
-import com.fasterxml.jackson.annotation.JsonView;
-import io.kaicode.elasticvc.api.BranchService;
-import io.kaicode.elasticvc.domain.Branch;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import org.drools.util.StringUtils;
-import org.snomed.snowstorm.core.data.domain.ReferenceSetMember;
 import org.snomed.snowstorm.core.data.domain.jobs.ExportConfiguration;
 import org.snomed.snowstorm.core.data.domain.jobs.ExportStatus;
-import org.snomed.snowstorm.core.data.services.BranchMetadataKeys;
-import org.snomed.snowstorm.core.data.services.ModuleDependencyService;
-import org.snomed.snowstorm.core.rf2.export.ExportFilter;
 import org.snomed.snowstorm.core.rf2.export.ExportService;
 import org.snomed.snowstorm.rest.pojo.ExportRequestView;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.io.*;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
-import java.util.List;
 import java.util.Objects;
-import java.util.Set;
-import java.util.stream.Collectors;
 
 @RestController
 @Tag(name = "Export", description = "RF2")
 @RequestMapping(value = "/exports", produces = "application/json")
 public class ExportController {
-	@Autowired
-	private ExportService exportService;
-	
-	@Autowired
-	private BranchService branchService;
-	
-	@Autowired
-	private ModuleDependencyService moduleDependencyService;
+	private final ExportService exportService;
+
+	public ExportController(ExportService exportService) {
+		this.exportService = exportService;
+	}
 
     @Operation(summary = "Create an export job.",
 			description = "Create a job to export an RF2 archive. " +
@@ -91,26 +76,5 @@ public class ExportController {
 			response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
 			response.getWriter().flush();
 		}
-	}
-	
-	@Operation(summary = "View a preview of the module dependency refset that would be generated for export")
-	@GetMapping(value = "/module-dependency-preview")
-	@JsonView(value = View.Component.class)
-	public List<ReferenceSetMember> generateModuleDependencyPreview (
-			@RequestParam String branchPath,
-			@RequestParam String effectiveDate,
-			@RequestParam(defaultValue="true") boolean isDelta,
-			@RequestParam(required = false) Set<String> modulesIncluded) {
-		
-		//Need to detect if this is an Edition or Extension package so we know what MDRS rows to export
-		//Extensions only mention their own modules, despite being able to "see" those on MAIN
-		Branch branch = branchService.findBranchOrThrow(branchPath);
-		final boolean isExtension = (branch.getMetadata() != null && !StringUtils.isEmpty(branch.getMetadata().getString(BranchMetadataKeys.DEPENDENCY_PACKAGE)));
-		ExportFilter<ReferenceSetMember> exportFilter = rm -> moduleDependencyService.isExportable(rm, isExtension, modulesIncluded);
-		
-		return moduleDependencyService.generateModuleDependencies(branchPath, effectiveDate, modulesIncluded, isDelta, null)
-				.stream()
-				.filter(exportFilter::isValid)
-				.collect(Collectors.toList());
 	}
 }
