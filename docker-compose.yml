@@ -29,31 +29,18 @@ services:
     build: .
     env_file: ./.env
     container_name: snowstorm
-    restart: always
+    #restart: always
     depends_on:
       elasticsearch:
         condition: service_healthy
-    entrypoint: [
-      "java",
-          "-Xms2g",
-          "-Xmx4g",
-          "--add-opens", "java.base/java.lang=ALL-UNNAMED",
-          "--add-opens", "java.base/java.util=ALL-UNNAMED",
-          "-jar", "/app/snowstorm.jar"
-    ]
-    command: [
-      "--elasticsearch.urls=http://es:9200",
-      "--import-hl7-terminology",
-      "--snomed-version=http://snomed.info/sct/11000172109/version/20250315", # belgian extension (+ international edition dependency)
-      "--extension-country-code=BE"
-    ]
+    entrypoint: ["./entrypoint.sh"]
     networks:
       elastic:
         aliases:
          - snowstorm
     ports:
       - "8080:8080"
-      #- "5005:5005" # debugging purposes
+      - "5005:5005" # debugging purposes
 
   browser:
     image: snomedinternational/snomedct-browser:latest
@@ -68,7 +55,7 @@ services:
       - API_HOST=http://snowstorm:8080/
     ports:
       - "80:80"
-    restart: always
+    #restart: always
 
 
 networks:
