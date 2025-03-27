@@ -87,6 +87,55 @@ public class ModuleDependencyService extends ComponentService {
 		return true;
 	}
 
+	/**
+	 * In preparation for versioning, set the sourceEffectiveTime and, optionally, the targetEffectiveTime
+	 * of the relevant ReferenceSetMembers.
+	 *
+	 * @param branchPath     The branch path to process.
+	 * @param effectiveTimeI The soon-to-be new effectiveTime for the CodeSystem.
+	 * @return Whether the operation has completed successfully.
+	 */
+	public boolean setSourceAndTargetEffectiveTimes(String branchPath, Integer effectiveTimeI) {
+		if (branchPath == null || branchPath.isEmpty() || effectiveTimeI == null) {
+			return false;
+		}
+
+		Branch branch = branchService.findLatest(branchPath);
+		if (branch == null || branch.getMetadata() == null || branch.getMetadata().size() == 0) {
+			return false;
+		}
+
+		Optional<CodeSystem> codeSystem = codeSystemService.findByBranchPath(branchPath);
+		if (codeSystem.isEmpty()) {
+			return false;
+		}
+		branchPath = codeSystem.get().getBranchPath();
+
+		Set<String> modules = getModules(branch);
+		if (modules.isEmpty()) {
+			return false;
+		}
+
+		List<ReferenceSetMember> referenceSetMembers = getMDRSEntries(branch, modules);
+		if (referenceSetMembers.isEmpty()) {
+			return false;
+		}
+
+		String effectiveTime = String.valueOf(effectiveTimeI);
+		for (ReferenceSetMember referenceSetMember : referenceSetMembers) {
+			referenceSetMember.setAdditionalField(ReferenceSetMember.MDRSFields.SOURCE_EFFECTIVE_TIME, effectiveTime);
+
+			boolean dependingOnOwnModule = modules.contains(referenceSetMember.getReferencedComponentId());
+			if (dependingOnOwnModule) {
+				referenceSetMember.setAdditionalField(ReferenceSetMember.MDRSFields.TARGET_EFFECTIVE_TIME, effectiveTime);
+			}
+
+			referenceSetMemberService.updateMember(branchPath, referenceSetMember);
+		}
+
+		return true;
+	}
+
 	private Set<String> getModules(Branch branch) {
 		Set<String> modules = new HashSet<>();
 
