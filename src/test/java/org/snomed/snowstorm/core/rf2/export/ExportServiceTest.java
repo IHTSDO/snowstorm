@@ -1,17 +1,22 @@
 package org.snomed.snowstorm.core.rf2.export;
 
+import io.kaicode.elasticvc.api.BranchService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.snomed.snowstorm.AbstractTest;
 import org.snomed.snowstorm.TestConfig;
+import org.snomed.snowstorm.config.Config;
 import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.domain.jobs.ExportConfiguration;
 import org.snomed.snowstorm.core.data.services.*;
+import org.snomed.snowstorm.core.data.services.pojo.MemberSearchRequest;
 import org.snomed.snowstorm.core.rf2.RF2Constants;
 import org.snomed.snowstorm.core.rf2.RF2Type;
 import org.snomed.snowstorm.core.util.StreamUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
 
@@ -19,15 +24,14 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.snomed.snowstorm.config.Config.PAGE_OF_ONE;
+import static org.snomed.snowstorm.core.data.domain.Concepts.*;
+import static org.snomed.snowstorm.core.data.domain.Concepts.MODULE;
 
 @ExtendWith(SpringExtension.class)
 @ContextConfiguration(classes = TestConfig.class)
@@ -52,6 +56,9 @@ class ExportServiceTest extends AbstractTest {
 
 	@Autowired
 	private IdentifierComponentService identifierComponentService;
+
+	@Autowired
+	private BranchService branchService;
 
 	private String descriptionId;
 	private String textDefId;
@@ -739,6 +746,117 @@ class ExportServiceTest extends AbstractTest {
 					printLines(lines);
 					assertEquals("id\teffectiveTime\tactive\tmoduleId\trefsetId\treferencedComponentId\tdomainConstraint\tparentDomain\tproximalPrimitiveConstraint\tproximalPrimitiveRefinement\tdomainTemplateForPrecoordination\tdomainTemplateForPostcoordination\tguideURL", lines.get(0));
 					assertTrue(lines.get(1).endsWith("\t\t1\t900000000000207008\t723589008\t433590000\t<< 433590000 |Administration of substance via specific route (procedure)|\t<< 71388002 |Procedure (procedure)|\tsomething here\tsomething here\tsomething here\tsomething here\t"));
+				}
+			}
+		}
+	}
+
+	@Test
+	void exportRF2Archive_ShouldIncludeTransientEffectiveTime_WhenGivenMDRS() throws IOException {
+		// Prepare for export
+		File exportFile = getTempFile("export", ".zip");
+		exportFile.deleteOnExit();
+
+		// Create simple mdrs entry
+		ReferenceSetMember mdrs = new ReferenceSetMember(Concepts.CORE_MODULE, Concepts.MODULE_DEPENDENCY_REFERENCE_SET, Concepts.MODEL_MODULE);
+		referenceSetMemberService.createMember("MAIN", mdrs);
+
+		// Export content
+		try (FileOutputStream outputStream = new FileOutputStream(exportFile)) {
+			ExportConfiguration exportConfiguration = new ExportConfiguration("MAIN", RF2Type.SNAPSHOT);
+			exportConfiguration.setTransientEffectiveTime("20250101");
+			exportService.createJob(exportConfiguration);
+			exportService.exportRF2Archive(exportConfiguration, outputStream);
+		}
+
+		// Assert
+		try (ZipInputStream zipInputStream = new ZipInputStream(new FileInputStream(exportFile))) {
+			ZipEntry zipEntry;
+			while ((zipEntry = zipInputStream.getNextEntry()) != null) {
+				if (zipEntry.getName().contains("ModuleDependency")) {
+					List<String> lines = getLines(zipInputStream);
+					assertEquals(2, lines.size());
+					assertEquals("id\teffectiveTime\tactive\tmoduleId\trefsetId\treferencedComponentId\tsourceEffectiveTime\ttargetEffectiveTime", lines.get(0));
+					assertEquals(mdrs.getMemberId() + "\t20250101\t1\t900000000000207008\t900000000000534007\t900000000000012004\t20250101\t20250101", lines.get(1));
+				}
+			}
+		}
+	}
+
+	@Test
+	void exportRF2Archive_ShouldExportExpectedMDRS_WhenGivenExtension() throws ServiceException, IOException {
+		CodeSystem codeSystem;
+		Concept concept;
+		ReferenceSetMember mdrs;
+
+		// Create International
+		codeSystem = codeSystemService.createCodeSystem(new CodeSystem("SNOMEDCT", "MAIN"));
+
+		// Create International MDRS
+		mdrs = new ReferenceSetMember(Concepts.CORE_MODULE, Concepts.MODULE_DEPENDENCY_REFERENCE_SET, Concepts.MODEL_MODULE);
+		referenceSetMemberService.createMember("MAIN", mdrs);
+
+		// Version International
+		codeSystemService.createVersion(codeSystem, 20250101, "20250101");
+
+		// Create Extension
+		codeSystem = codeSystemService.createCodeSystem(new CodeSystem("SNOMEDCT-XX", "MAIN/SNOMEDCT-XX"));
+		concept = conceptService.create(
+				new Concept()
+						.addDescription(new Description("Extension module (module)").setTypeId(FSN))
+						.addDescription(new Description("Extension module").setTypeId(SYNONYM))
+						.addAxiom(new Relationship(ISA, MODULE)),
+				"MAIN/SNOMEDCT-XX"
+		);
+		String extModuleId = concept.getConceptId();
+		branchService.updateMetadata(
+				"MAIN/SNOMEDCT-XX",
+				Map.of(Config.DEFAULT_MODULE_ID_KEY, extModuleId,
+						Config.EXPECTED_EXTENSION_MODULES, List.of(extModuleId),
+						Config.DEPENDENCY_PACKAGE, "20250101.zip"
+				)
+		);
+
+		// Create Extension MDRS
+		mdrs = new ReferenceSetMember(extModuleId, Concepts.MODULE_DEPENDENCY_REFERENCE_SET, CORE_MODULE);
+		mdrs.setAdditionalField(ReferenceSetMember.MDRSFields.SOURCE_EFFECTIVE_TIME, "");
+		mdrs.setAdditionalField(ReferenceSetMember.MDRSFields.TARGET_EFFECTIVE_TIME, "20250101");
+		mdrs = referenceSetMemberService.createMember("MAIN/SNOMEDCT-XX", mdrs);
+		String extMdrsId = mdrs.getMemberId();
+
+		// Version Extension
+		codeSystem = codeSystemService.find("SNOMEDCT-XX");
+		codeSystemService.createVersion(codeSystem, 20250102, "20250102");
+
+		// Assert Extension post versioning
+		mdrs = referenceSetMemberService.findMember("MAIN/SNOMEDCT-XX", extMdrsId);
+		assertTrue(mdrs.isReleased());
+		assertEquals(20250102, mdrs.getEffectiveTimeI());
+		assertEquals(20250102, mdrs.getReleasedEffectiveTime());
+		assertEquals("20250102", mdrs.getAdditionalField(ReferenceSetMember.MDRSFields.SOURCE_EFFECTIVE_TIME));
+		assertEquals("20250101", mdrs.getAdditionalField(ReferenceSetMember.MDRSFields.TARGET_EFFECTIVE_TIME));
+
+		// Prepare for export
+		File exportFile = getTempFile("export", ".zip");
+		exportFile.deleteOnExit();
+
+		// Export content
+		try (FileOutputStream outputStream = new FileOutputStream(exportFile)) {
+			ExportConfiguration exportConfiguration = new ExportConfiguration("MAIN/SNOMEDCT-XX", RF2Type.SNAPSHOT);
+			exportConfiguration.setRefsetIds(Set.of(MODULE_DEPENDENCY_REFERENCE_SET));
+			exportService.createJob(exportConfiguration);
+			exportService.exportRF2Archive(exportConfiguration, outputStream);
+		}
+
+		// Assert export only contains Extension MDRS
+		try (ZipInputStream zipInputStream = new ZipInputStream(new FileInputStream(exportFile))) {
+			ZipEntry zipEntry;
+			while ((zipEntry = zipInputStream.getNextEntry()) != null) {
+				if (zipEntry.getName().contains("ModuleDependency")) {
+					List<String> lines = getLines(zipInputStream);
+					assertEquals(2, lines.size());
+					assertEquals("id\teffectiveTime\tactive\tmoduleId\trefsetId\treferencedComponentId\tsourceEffectiveTime\ttargetEffectiveTime", lines.get(0));
+					assertEquals(extMdrsId + "\t20250102\t1\t" + extModuleId + "\t900000000000534007\t" + CORE_MODULE + "\t20250102\t20250101", lines.get(1));
 				}
 			}
 		}

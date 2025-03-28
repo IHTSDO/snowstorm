@@ -44,19 +44,30 @@ class ReferenceSetMemberExportWriter extends ExportWriter<ReferenceSetMember> {
 				bufferedWriter.write(TAB);
 				bufferedWriter.write(member.getReferencedComponentId());
 
-				for (String extraField : extraFieldNames) {
-					bufferedWriter.write(TAB);
-					String value = member.getAdditionalField(extraField);
-					if (value == null) {
-						value = "";
-					}
-					bufferedWriter.write(value);
-				}
+				writeAdditionalFields(member);
+
 				writeNewLine();
 			}
 			componentBuffer.clear();
 		} catch (IOException e) {
 			throw new ExportException("Failed to write ReferenceSetMember to RF2 file.", e);
+		}
+	}
+
+	private void writeAdditionalFields(ReferenceSetMember member) throws IOException {
+		for (String extraField : extraFieldNames) {
+			bufferedWriter.write(TAB);
+			String value = member.getAdditionalField(extraField);
+
+			if (value == null) {
+				value = "";
+
+				if (ReferenceSetMember.MDRSFields.SOURCE_EFFECTIVE_TIME.equals(extraField) || ReferenceSetMember.MDRSFields.TARGET_EFFECTIVE_TIME.equals(extraField)) {
+					value = getTransientEffectiveTime();
+				}
+			}
+
+			bufferedWriter.write(value);
 		}
 	}
 }

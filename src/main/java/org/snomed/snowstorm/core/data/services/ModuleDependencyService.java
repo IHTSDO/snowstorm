@@ -187,6 +187,25 @@ public class ModuleDependencyService extends ComponentService {
 		return true;
 	}
 
+	/**
+	 * Return the modules relevant to the Module Dependency Reference Set for the given branch.
+	 *
+	 * @param branchPath The branch path to query.
+	 * @return Modules relevant to the Module Dependency Reference Set.
+	 */
+	public Set<String> getModules(String branchPath) {
+		if (branchPath == null || branchPath.isEmpty()) {
+			return Collections.emptySet();
+		}
+
+		Branch branch = branchService.findLatest(branchPath);
+		if (branch == null) {
+			return Collections.emptySet();
+		}
+
+		return getModules(branch);
+	}
+
 	private Set<String> getModules(Branch branch) {
 		Set<String> modules = new HashSet<>();
 

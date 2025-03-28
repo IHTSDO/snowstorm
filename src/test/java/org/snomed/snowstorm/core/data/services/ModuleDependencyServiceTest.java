@@ -14,6 +14,7 @@ import org.springframework.data.domain.Page;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.snomed.snowstorm.core.data.domain.Concepts.*;
@@ -121,8 +122,8 @@ class ModuleDependencyServiceTest extends AbstractTest {
 		assertTrue(mdrs.isReleased());
 		assertEquals(20250101, mdrs.getEffectiveTimeI());
 		assertEquals(20250101, mdrs.getReleasedEffectiveTime());
-		// todo assertEquals("20250101", mdrs.getAdditionalField(ReferenceSetMember.MDRSFields.SOURCE_EFFECTIVE_TIME));
-		// todo assertEquals("20250101", mdrs.getAdditionalField(ReferenceSetMember.MDRSFields.TARGET_EFFECTIVE_TIME));
+		assertEquals("20250101", mdrs.getAdditionalField(ReferenceSetMember.MDRSFields.SOURCE_EFFECTIVE_TIME));
+		assertEquals("20250101", mdrs.getAdditionalField(ReferenceSetMember.MDRSFields.TARGET_EFFECTIVE_TIME));
 
 		// Start new authoring cycle
 		boolean clearSourceAndTargetEffectiveTimes = mdService.clearSourceAndTargetEffectiveTimes(intMain);
@@ -160,8 +161,8 @@ class ModuleDependencyServiceTest extends AbstractTest {
 		assertTrue(mdrs.isReleased());
 		assertEquals(20250201, mdrs.getEffectiveTimeI());
 		assertEquals(20250201, mdrs.getReleasedEffectiveTime());
-		// todo assertEquals("20250201", mdrs.getAdditionalField(ReferenceSetMember.MDRSFields.SOURCE_EFFECTIVE_TIME));
-		// todo assertEquals("20250201", mdrs.getAdditionalField(ReferenceSetMember.MDRSFields.TARGET_EFFECTIVE_TIME));
+		assertEquals("20250201", mdrs.getAdditionalField(ReferenceSetMember.MDRSFields.SOURCE_EFFECTIVE_TIME));
+		assertEquals("20250201", mdrs.getAdditionalField(ReferenceSetMember.MDRSFields.TARGET_EFFECTIVE_TIME));
 	}
 
 	@Test
@@ -242,7 +243,7 @@ class ModuleDependencyServiceTest extends AbstractTest {
 		assertEquals(20250102, mdrs.getEffectiveTimeI());
 		assertEquals(20250102, mdrs.getReleasedEffectiveTime());
 		assertEquals("20250101", mdrs.getAdditionalField(ReferenceSetMember.MDRSFields.TARGET_EFFECTIVE_TIME));
-		// todo assertEquals("20250102", mdrs.getAdditionalField(ReferenceSetMember.MDRSFields.SOURCE_EFFECTIVE_TIME));
+		assertEquals("20250102", mdrs.getAdditionalField(ReferenceSetMember.MDRSFields.SOURCE_EFFECTIVE_TIME));
 
 		// Start new authoring cycle
 		boolean clearSourceAndTargetEffectiveTimes = mdService.clearSourceAndTargetEffectiveTimes(extMain);
@@ -346,8 +347,8 @@ class ModuleDependencyServiceTest extends AbstractTest {
 		assertTrue(mdrs.isReleased());
 		assertEquals(20250101, mdrs.getEffectiveTimeI());
 		assertEquals(20250101, mdrs.getReleasedEffectiveTime());
-		// todo assertEquals("20250101", mdrs.getAdditionalField(ReferenceSetMember.MDRSFields.SOURCE_EFFECTIVE_TIME));
-		// todo assertEquals("20250101", mdrs.getAdditionalField(ReferenceSetMember.MDRSFields.TARGET_EFFECTIVE_TIME));
+		assertEquals("20250101", mdrs.getAdditionalField(ReferenceSetMember.MDRSFields.SOURCE_EFFECTIVE_TIME));
+		assertEquals("20250101", mdrs.getAdditionalField(ReferenceSetMember.MDRSFields.TARGET_EFFECTIVE_TIME));
 	}
 
 	@Test
@@ -429,7 +430,7 @@ class ModuleDependencyServiceTest extends AbstractTest {
 		assertTrue(mdrs.isReleased());
 		assertEquals(20250102, mdrs.getEffectiveTimeI());
 		assertEquals(20250102, mdrs.getReleasedEffectiveTime());
-		// todo assertEquals("20250102", mdrs.getAdditionalField(ReferenceSetMember.MDRSFields.SOURCE_EFFECTIVE_TIME));
+		assertEquals("20250102", mdrs.getAdditionalField(ReferenceSetMember.MDRSFields.SOURCE_EFFECTIVE_TIME));
 		assertEquals("20250101", mdrs.getAdditionalField(ReferenceSetMember.MDRSFields.TARGET_EFFECTIVE_TIME));
 	}
 
@@ -525,8 +526,8 @@ class ModuleDependencyServiceTest extends AbstractTest {
 		assertTrue(mdrs.isReleased());
 		assertEquals(20250101, mdrs.getEffectiveTimeI());
 		assertEquals(20250101, mdrs.getReleasedEffectiveTime());
-		// todo assertEquals("20250101", mdrs.getAdditionalField(ReferenceSetMember.MDRSFields.SOURCE_EFFECTIVE_TIME));
-		// todo assertEquals("20250101", mdrs.getAdditionalField(ReferenceSetMember.MDRSFields.TARGET_EFFECTIVE_TIME));
+		assertEquals("20250101", mdrs.getAdditionalField(ReferenceSetMember.MDRSFields.SOURCE_EFFECTIVE_TIME));
+		assertEquals("20250101", mdrs.getAdditionalField(ReferenceSetMember.MDRSFields.TARGET_EFFECTIVE_TIME));
 
 		// Upgrade CodeSystem
 		boolean success = mdService.setTargetEffectiveTime("MAIN", 20250201);
@@ -537,8 +538,8 @@ class ModuleDependencyServiceTest extends AbstractTest {
 		assertTrue(mdrs.isReleased());
 		assertEquals(20250101, mdrs.getEffectiveTimeI());
 		assertEquals(20250101, mdrs.getReleasedEffectiveTime());
-		// todo assertEquals("20250101", mdrs.getAdditionalField(ReferenceSetMember.MDRSFields.SOURCE_EFFECTIVE_TIME));
-		// todo assertEquals("20250101", mdrs.getAdditionalField(ReferenceSetMember.MDRSFields.TARGET_EFFECTIVE_TIME));
+		assertEquals("20250101", mdrs.getAdditionalField(ReferenceSetMember.MDRSFields.SOURCE_EFFECTIVE_TIME));
+		assertEquals("20250101", mdrs.getAdditionalField(ReferenceSetMember.MDRSFields.TARGET_EFFECTIVE_TIME));
 	}
 
 	@Test
@@ -630,7 +631,7 @@ class ModuleDependencyServiceTest extends AbstractTest {
 		assertTrue(mdrs.isReleased());
 		assertEquals(20250102, mdrs.getReleasedEffectiveTime());
 		assertEquals(20250102, mdrs.getEffectiveTimeI());
-		// todo assertEquals("20250102", mdrs.getAdditionalField(ReferenceSetMember.MDRSFields.SOURCE_EFFECTIVE_TIME));
+		assertEquals("20250102", mdrs.getAdditionalField(ReferenceSetMember.MDRSFields.SOURCE_EFFECTIVE_TIME));
 		assertEquals("20250101", mdrs.getAdditionalField(ReferenceSetMember.MDRSFields.TARGET_EFFECTIVE_TIME));
 
 		// Upgrade Extension
@@ -641,8 +642,58 @@ class ModuleDependencyServiceTest extends AbstractTest {
 		mdrs = referenceSetMemberService.findMember(extMain, mdrsExtensionId);
 		assertTrue(mdrs.isReleased());
 		assertEquals(20250102, mdrs.getReleasedEffectiveTime());
-		// todo assertNull(mdrs.getEffectiveTimeI());
-		// todo assertEquals("20250102", mdrs.getAdditionalField(ReferenceSetMember.MDRSFields.SOURCE_EFFECTIVE_TIME));
-		// todo assertEquals("20250201", mdrs.getAdditionalField(ReferenceSetMember.MDRSFields.TARGET_EFFECTIVE_TIME));
+		assertNull(mdrs.getEffectiveTimeI());
+		assertEquals("20250102", mdrs.getAdditionalField(ReferenceSetMember.MDRSFields.SOURCE_EFFECTIVE_TIME));
+		assertEquals("20250201", mdrs.getAdditionalField(ReferenceSetMember.MDRSFields.TARGET_EFFECTIVE_TIME));
+	}
+
+	@Test
+	void getModules_ShouldReturnExpected_WhenGivenNull() {
+		// when
+		Set<String> result = mdService.getModules(null);
+
+		// then
+		assertTrue(result.isEmpty());
+	}
+
+	@Test
+	void getModules_ShouldReturnExpected_WhenGivenUnknown() {
+		// when
+		Set<String> result = mdService.getModules("i-dont-exist");
+
+		// then
+		assertTrue(result.isEmpty());
+	}
+
+	@Test
+	void getModules_ShouldReturnExpected_WhenGivenInternational() {
+		// given
+		Set<String> expectedModules = Set.of(Concepts.CORE_MODULE, Concepts.MODEL_MODULE, Concepts.ICD10_MODULE, Concepts.ICD11_MODULE);
+
+		// when
+		Set<String> result = mdService.getModules("MAIN");
+
+		// then
+		assertEquals(4, result.size());
+		assertTrue(result.containsAll(expectedModules));
+	}
+
+	@Test
+	void getModules_ShouldReturnExpected_WhenGivenExtension() {
+		// given
+		codeSystemService.createCodeSystem(new CodeSystem("SNOMEDCT-XX", "MAIN/SNOMEDCT-XX"));
+		branchService.updateMetadata(
+				"MAIN/SNOMEDCT-XX",
+				Map.of(Config.EXPECTED_EXTENSION_MODULES, List.of("100011"),
+						Config.DEPENDENCY_PACKAGE, "20250101.zip"
+				)
+		);
+
+		// when
+		Set<String> result = mdService.getModules("MAIN/SNOMEDCT-XX");
+
+		// then
+		assertEquals(1, result.size());
+		assertEquals("100011", result.iterator().next());
 	}
 }
