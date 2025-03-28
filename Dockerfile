@@ -59,6 +59,7 @@ RUN curl -fsSL https://github.com/hapifhir/hapi-fhir/releases/download/v7.2.2/ha
     npm i puppeteer
 # Copy puppeteer script to image
 COPY download_loinc.mjs $LOINC_HOME/download_loinc.mjs
+#COPY Loinc_2.80.zip $LOINC_HOME/Loinc_2.80.zip # testing without loinc download
 
 ##############
 ### SNOMED ###
@@ -79,13 +80,13 @@ RUN chown -R appuser:appuser $APP_HOME
 # Expose application port
 EXPOSE 8080
 
-# Prepare entrypoint
-COPY entrypoint.sh $APP_HOME/entrypoint.sh
-RUN chmod +x $APP_HOME/entrypoint.sh
-
 # Copy Snowstorm JAR (you need to have built it first with Maven beforehand) + the entrypoint
 COPY target/snowstorm*.jar ./snowstorm.jar
 
 USER appuser
 
-ENTRYPOINT ["/app/entrypoint.sh"]
+# Run the app
+ENTRYPOINT ["java", "-Xms2g", "-Xmx4g", "--add-opens", "java.base/java.lang=ALL-UNNAMED", "--add-opens", "java.base/java.util=ALL-UNNAMED", "-jar", "/app/snowstorm.jar"]
+
+# Using arguments that are likely to be customized
+CMD ["--elasticsearch.urls=http://es:9200","--snomed-version=http://snomed.info/sct/11000172109/version/20250315", "--extension-country-code=BE", "--import-loinc-terminology", "--import-hl7-terminology"]

@@ -2,7 +2,7 @@ import puppeteer from 'puppeteer';
 import fs from 'fs';
 import path from 'path';
 
-const downloadPath = path.resolve('./loinc'); // Set download directory
+const downloadPath = path.resolve('.'); // Set download directory
 
 // Ensure the directory exists
 if (!fs.existsSync(downloadPath)) {

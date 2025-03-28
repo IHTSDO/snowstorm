@@ -14,8 +14,8 @@ public class FileUtils {
         return getPath(directory, filePattern).map(Path::toFile).orElse(null);
     }
 
-    public static String findFileName(String directory, String filePattern) throws IOException {
-        return getPath(directory, filePattern).map(Path::getFileName).map(Path::toString).orElse(null);
+    public static Optional<String> findFileName(String directory, String filePattern) throws IOException {
+        return getPath(directory, filePattern).map(Path::getFileName).map(Path::toString);
     }
 
     private static Optional<Path> getPath(String directory, String filePattern) throws IOException {

@@ -32,14 +32,31 @@ services:
     depends_on:
       elasticsearch:
         condition: service_healthy
-    entrypoint: ["./entrypoint.sh"]
+    entrypoint: [
+      "java",
+      #"-Xdebug",
+      #"-agentlib:jdwp=transport=dt_socket,server=y,address=*:5005,suspend=n",
+      "-Xms2g",
+      "-Xmx4g",
+      "--add-opens", "java.base/java.lang=ALL-UNNAMED",
+      "--add-opens", "java.base/java.util=ALL-UNNAMED",
+      "-jar", "/app/snowstorm.jar"
+    ]
+    command: [
+      "--elasticsearch.urls=http://es:9200",
+      "--import-hl7-terminology",
+      #"--import=/app/snomed/international_sample.zip"
+      "--snomed-version=http://snomed.info/sct/11000172109/version/20250315", # belgian extension (+ international edition dependency)
+      "--extension-country-code=BE",
+      "--import-loinc-terminology"
+    ]
     networks:
       elastic:
         aliases:
          - snowstorm
     ports:
       - "8080:8080"
-      - "5005:5005" # debugging purposes
+      #- "5005:5005" # debugging purposes
 
   browser:
     image: snomedinternational/snomedct-browser:latest

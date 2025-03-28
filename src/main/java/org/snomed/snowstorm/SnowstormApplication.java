@@ -101,6 +101,7 @@ public class SnowstormApplication extends Config implements ApplicationRunner {
 
 			updateIndexMaxTermsSetting(QueryConcept.class);
 			updateIndexMaxTermsSettingForAllSnomedComponents();
+			updateIndexMappingFieldsLimitSetting();
 
 			codeSystemService.init();
 			referenceSetMemberService.init();
