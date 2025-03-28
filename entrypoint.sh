@@ -1,6 +1,6 @@
 #!/bin/sh
 
-node download_loinc.mjs
+node ./loinc/download_loinc.mjs
 
 java \
 -Xdebug \
@@ -10,6 +10,8 @@ java \
 --add-opens java.base/java.util=ALL-UNNAMED \
 -jar /app/snowstorm.jar \
 --elasticsearch.urls=http://es:9200 \
---import=/app/international_sample.zip \
+--import=/app/snomed/international_sample.zip \
 --snomed-version=http://snomed.info/sct/11000172109/version/20250315 \
---extension-country-code=BE
+--extension-country-code=BE \
+--import-loinc-terminology
+#--import-hl7-terminology \

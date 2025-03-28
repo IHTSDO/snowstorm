@@ -1,0 +1,33 @@
+package org.snomed.snowstorm.core.util;
+
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+
+import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+
+import static org.junit.jupiter.api.Assertions.*;
+
+class FileUtilsTest {
+
+    @TempDir
+    Path tempDir;
+
+    @Test
+    void testFindFile_Success() throws IOException {
+        Path hl7File = tempDir.resolve("hl7.terminology.r4-6.2.0.tgz");
+        Files.createFile(hl7File);
+
+        File foundFile = FileUtils.findFile(tempDir.toString(), "hl7.terminology.*.tgz");
+        assertNotNull(foundFile);
+        assertEquals("hl7.terminology.r4-6.2.0.tgz", foundFile.getName());
+    }
+
+    @Test
+    void testFindFile_NoMatch() throws IOException {
+        File foundFile = FileUtils.findFile(tempDir.toString(), "hl7.terminology.*.tgz");
+        assertNull(foundFile);
+    }
+}

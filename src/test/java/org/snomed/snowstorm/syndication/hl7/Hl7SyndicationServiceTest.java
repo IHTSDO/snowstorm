@@ -54,20 +54,4 @@ class Hl7SyndicationServiceTest {
 
         verify(loadPackageService, never()).uploadPackageResources(any(), any(), any(), anyBoolean());
     }
-
-    @Test
-    void testFindHl7TerminologyFile_Success() throws IOException {
-        Path hl7File = tempDir.resolve("hl7.terminology.r4-6.2.0.tgz");
-        Files.createFile(hl7File);
-
-        File foundFile = hl7SyndicationService.findHl7TerminologyFile();
-        assertNotNull(foundFile);
-        assertEquals("hl7.terminology.r4-6.2.0.tgz", foundFile.getName());
-    }
-
-    @Test
-    void testFindHl7TerminologyFile_NoMatch() throws IOException {
-        File foundFile = hl7SyndicationService.findHl7TerminologyFile();
-        assertNull(foundFile);
-    }
 }

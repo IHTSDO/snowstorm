@@ -11,6 +11,7 @@ import org.snomed.snowstorm.core.data.services.*;
 import org.snomed.snowstorm.core.rf2.RF2Type;
 import org.snomed.snowstorm.core.rf2.rf2import.ImportService;
 import org.snomed.snowstorm.syndication.hl7.Hl7SyndicationService;
+import org.snomed.snowstorm.syndication.loinc.LoincSyndicationService;
 import org.snomed.snowstorm.syndication.snomed.SnomedSyndicationService;
 import org.springframework.beans.factory.BeanCreationException;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -41,6 +42,7 @@ public class SnowstormApplication extends Config implements ApplicationRunner {
 	private static final String IMPORT_ARG = "import";
 	private static final String IMPORT_FULL_ARG = "import-full";
 	private static final String EXIT = "exit";
+	private static final String IMPORT_LOINC_TERMINOLOGY = "import-loinc-terminology";
 	private static final String IMPORT_HL_7_TERMINOLOGY = "import-hl7-terminology";
 
 	@Autowired
@@ -63,6 +65,9 @@ public class SnowstormApplication extends Config implements ApplicationRunner {
 
 	@Autowired
 	private Hl7SyndicationService hl7SyndicationService;
+
+	@Autowired
+	private LoincSyndicationService loincSyndicationService;
 
 	private static final Logger logger = LoggerFactory.getLogger(SnowstormApplication.class);
 
@@ -130,6 +135,9 @@ public class SnowstormApplication extends Config implements ApplicationRunner {
 			}
 			if (applicationArguments.containsOption(IMPORT_HL_7_TERMINOLOGY)) {
 				hl7SyndicationService.importHl7Terminology();
+			}
+			if (applicationArguments.containsOption(IMPORT_LOINC_TERMINOLOGY)) {
+				loincSyndicationService.importLoincTerminology();
 			}
 			if (applicationArguments.containsOption(EXIT)) {
 				logger.info("Exiting application.");

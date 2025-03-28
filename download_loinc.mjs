@@ -2,7 +2,7 @@ import puppeteer from 'puppeteer';
 import fs from 'fs';
 import path from 'path';
 
-const downloadPath = path.resolve('./downloads'); // Set download directory
+const downloadPath = path.resolve('./loinc'); // Set download directory
 
 // Ensure the directory exists
 if (!fs.existsSync(downloadPath)) {
@@ -65,7 +65,7 @@ async function waitForDownload(dir, timeout = 30000) {
 
     while (Date.now() - start < timeout) {
         const files = await fs.promises.readdir(dir);
-        if (files.some(file => file.endsWith('.zip'))) {
+        if (files.some(file => file.startsWith('Loinc') && file.endsWith('.zip'))) {
             return true; // Download complete
         }
         await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 sec before checking again

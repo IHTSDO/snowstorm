@@ -6,12 +6,15 @@ FROM openjdk:17-jdk-buster
 
 # Set up environment variables
 ENV APP_HOME=/app
+ENV SNOMED_HOME=$APP_HOME/snomed
+ENV LOINC_HOME=$APP_HOME/loinc
+ENV HL7_HOME=$APP_HOME/hl7
+ENV PUPPETEER_CACHE_DIR=$APP_HOME/.cache/puppeteer
 
-# Set working directory
-WORKDIR $APP_HOME
-
-# Install tools and libraries necessary for puppeteer to work
-RUN apt-get update && apt-get install -y \
+# Install Nodejs and libraries necessary for puppeteer to work + utilities
+RUN curl -sL https://deb.nodesource.com/setup_18.x -o /tmp/nodesource_setup.sh &&\
+    bash /tmp/nodesource_setup.sh \
+    && apt-get update && apt-get install -y \
     net-tools \
     unzip \
     ca-certificates \
@@ -35,47 +38,54 @@ RUN apt-get update && apt-get install -y \
     libasound2 \
     libxshmfence1 \
     xdg-utils \
+    nodejs \
     && rm -rf /var/lib/apt/lists/*
 
-# install npm & nodejs
-RUN curl -sL https://deb.nodesource.com/setup_18.x -o /tmp/nodesource_setup.sh  &&  \
-    bash /tmp/nodesource_setup.sh &&  \
-    apt-get install -y nodejs
-
-# Download the hl7 FHIR terminilogy package using npm to the /app directory
+#############
+#### HL7 ####
+#############
+WORKDIR $HL7_HOME
+# Download the hl7 FHIR terminology package
 RUN npm --registry https://packages.simplifier.net pack hl7.terminology.r4
 
-# Download the tool that will assist performing the LOINC import
+#############
+### LOINC ###
+#############
+WORKDIR $LOINC_HOME
+# Download the tool that will assist performing the LOINC import + puppeteer for downloading the LOINC file
 RUN curl -fsSL https://github.com/hapifhir/hapi-fhir/releases/download/v7.2.2/hapi-fhir-7.2.2-cli.zip -o hapi-fhir-cli.zip && \
-    unzip hapi-fhir-cli.zip
+    unzip hapi-fhir-cli.zip && \
+    rm hapi-fhir-cli.zip && \
+    npm i puppeteer
+# Copy puppeteer script to image
+COPY download_loinc.mjs $LOINC_HOME/download_loinc.mjs
 
-# Copy Snowstorm JAR (you need to build it first with Maven)
-COPY target/snowstorm*.jar /app/snowstorm.jar
-
+##############
+### SNOMED ###
+##############
+WORKDIR $SNOMED_HOME
 # Testing purposes (import RF from disk)
-COPY international_sample.zip /app/international_sample.zip
+COPY international_sample.zip $SNOMED_HOME/international_sample.zip
 
-# Copy Snowstorm JAR (you need to build it first with Maven)
-COPY download_loinc.mjs /app/download_loinc.mjs
+##############
+### Common ###
+##############
+WORKDIR $APP_HOME
 
-# Install puppeteer for downloading the LOINC release file on container startup
-ENV PUPPETEER_CACHE_DIR=/app/.cache/puppeteer
-RUN npm i puppeteer
+# Create a non-root user, add ownership to app files and switch to it
+RUN useradd -m -d $APP_HOME -s /bin/bash appuser
+RUN chown -R appuser:appuser $APP_HOME
 
 # Expose application port
 EXPOSE 8080
 
+# Prepare entrypoint
 COPY entrypoint.sh $APP_HOME/entrypoint.sh
-
 RUN chmod +x $APP_HOME/entrypoint.sh
 
-# Create a non-root user
-RUN useradd -m -d $APP_HOME -s /bin/bash appuser
+# Copy Snowstorm JAR (you need to have built it first with Maven beforehand) + the entrypoint
+COPY target/snowstorm*.jar ./snowstorm.jar
 
-# Change ownership of the app files
-RUN chown -R appuser:appuser $APP_HOME
-
-# Switch to the non-root user
 USER appuser
 
 ENTRYPOINT ["/app/entrypoint.sh"]
