@@ -1,21 +1,20 @@
 package org.snomed.snowstorm.core.data.services;
 
+import co.elastic.clients.elasticsearch.core.search.FieldCollapse;
 import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.domain.Branch;
 import io.kaicode.elasticvc.domain.Metadata;
-import org.snomed.snowstorm.core.data.domain.CodeSystem;
-import org.snomed.snowstorm.core.data.domain.Concepts;
-import org.snomed.snowstorm.core.data.domain.ReferenceSetMember;
-import org.snomed.snowstorm.core.data.domain.SnomedComponent;
+import org.snomed.snowstorm.core.data.domain.*;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.data.elasticsearch.client.elc.NativeQueryBuilder;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
+import org.springframework.data.elasticsearch.core.SearchHit;
+import org.springframework.data.elasticsearch.core.SearchHits;
 import org.springframework.data.elasticsearch.core.SearchHitsIterator;
 import org.springframework.stereotype.Service;
 import io.kaicode.elasticvc.api.ComponentService;
 
 import java.util.*;
-import java.util.stream.Collectors;
 
 import static co.elastic.clients.elasticsearch._types.query_dsl.QueryBuilders.bool;
 import static io.kaicode.elasticvc.helper.QueryHelper.*;
@@ -28,17 +27,14 @@ public class ModuleDependencyService extends ComponentService {
 	private final BranchService branchService;
 	private final CodeSystemService codeSystemService;
 	private final ReferenceSetMemberService referenceSetMemberService;
-	private final AuthoringStatsService authoringStatsService;
 	private final ElasticsearchOperations elasticsearchOperations;
 
-	public ModuleDependencyService(BranchService branchService, CodeSystemService codeSystemService, @Lazy ReferenceSetMemberService referenceSetMemberService, AuthoringStatsService authoringStatsService, ElasticsearchOperations elasticsearchOperations) {
+	public ModuleDependencyService(BranchService branchService, CodeSystemService codeSystemService, @Lazy ReferenceSetMemberService referenceSetMemberService, ElasticsearchOperations elasticsearchOperations) {
 		this.branchService = branchService;
 		this.codeSystemService = codeSystemService;
 		this.referenceSetMemberService = referenceSetMemberService;
-		this.authoringStatsService = authoringStatsService;
 		this.elasticsearchOperations = elasticsearchOperations;
 	}
-
 
 	/**
 	 * In preparation for starting a new authoring cycle, clear the sourceEffectiveTime and, optionally, the targetEffectiveTime
@@ -187,14 +183,34 @@ public class ModuleDependencyService extends ComponentService {
 		return true;
 	}
 
+	/**
+	 * Return the modules relevant to the Module Dependency Reference Set for the given branch.
+	 *
+	 * @param branchPath The branch path to query.
+	 * @return Modules relevant to the Module Dependency Reference Set.
+	 */
+	public Set<String> getModules(String branchPath) {
+		if (branchPath == null || branchPath.isEmpty()) {
+			return Collections.emptySet();
+		}
+
+		Branch branch = branchService.findLatest(branchPath);
+		if (branch == null) {
+			return Collections.emptySet();
+		}
+
+		return getModules(branch);
+	}
+
 	private Set<String> getModules(Branch branch) {
 		Set<String> modules = new HashSet<>();
 
 		// Collect modules from content
-		modules.addAll(authoringStatsService.getComponentCountsPerModule(branch.getPath()).values().stream()
-				.map(Map::keySet)
-				.flatMap(Set::stream)
-				.collect(Collectors.toSet()));
+		String branchPath = branch.getPath();
+		modules.addAll(getUniqueModuleId(branchPath, Concept.class));
+		modules.addAll(getUniqueModuleId(branchPath, Description.class));
+		modules.addAll(getUniqueModuleId(branchPath, Relationship.class));
+		modules.addAll(getUniqueModuleId(branchPath, ReferenceSetMember.class));
 
 		// Collect modules from branch metadata
 		Metadata metadata = branch.getMetadata();
@@ -204,6 +220,31 @@ public class ModuleDependencyService extends ComponentService {
 		} else if (metadata.containsKey(BranchMetadataKeys.EXPECTED_EXTENSION_MODULES)) {
 			modules.removeAll(INTERNATIONAL_MODULES);
 			modules.addAll(metadata.getList(BranchMetadataKeys.EXPECTED_EXTENSION_MODULES));
+		}
+
+		return modules;
+	}
+
+	private Set<String> getUniqueModuleId(String branchPath, Class<? extends SnomedComponent<?>> clazz) {
+		SearchHits<? extends SnomedComponent<?>> page = elasticsearchOperations.search(new NativeQueryBuilder()
+				.withQuery(bool()
+						.must(termQuery(SnomedComponent.Fields.PATH, branchPath))
+						.mustNot(existsQuery("end")).build()._toQuery())
+				.withFieldCollapse(FieldCollapse.of(f -> f.field(SnomedComponent.Fields.MODULE_ID)))
+				.withPageable(LARGE_PAGE)
+				.build(), clazz);
+
+		if (page.isEmpty()) {
+			return Collections.emptySet();
+		}
+
+		Set<String> modules = new HashSet<>();
+		for (SearchHit<? extends SnomedComponent<?>> searchHit : page.getSearchHits()) {
+			SnomedComponent<?> snomedComponent = searchHit.getContent();
+			String moduleId = snomedComponent.getModuleId();
+			if (moduleId != null) {
+				modules.add(moduleId);
+			}
 		}
 
 		return modules;
