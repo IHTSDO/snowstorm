@@ -3,6 +3,7 @@ package org.snomed.snowstorm.fhir.services;
 import ca.uhn.fhir.jpa.entity.TermCodeSystemVersion;
 import ca.uhn.fhir.jpa.entity.TermConcept;
 import co.elastic.clients.elasticsearch._types.query_dsl.BoolQuery;
+import co.elastic.clients.elasticsearch._types.query_dsl.TermQuery;
 import com.google.common.collect.Iterables;
 import org.hl7.fhir.r4.model.CodeSystem;
 import org.hl7.fhir.r4.model.CodeType;
@@ -217,5 +218,13 @@ public class FHIRConceptService {
 
 	public Page<FHIRConcept> findConcepts(Set<String> codes, FHIRCodeSystemVersion codeSystemVersion, Pageable pageable) {
 		return conceptRepository.findByCodeSystemVersionAndCodeIn(codeSystemVersion.getId(), codes, pageable);
+	}
+
+	public Page<FHIRConcept> findConceptsWithoutSystem(String code, PageRequest pageRequest) {
+		BoolQuery.Builder bool = new BoolQuery.Builder();
+		bool.must(new TermQuery.Builder().value(code).field("code").build()._toQuery());
+
+		return findConcepts(bool,pageRequest );
+
 	}
 }
