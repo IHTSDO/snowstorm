@@ -36,6 +36,7 @@ import java.util.*;
 
 import static java.lang.String.format;
 import static org.snomed.snowstorm.core.util.SearchAfterQueryHelper.updateQueryWithSearchAfter;
+import static org.snomed.snowstorm.fhir.services.FHIRHelper.createOperationOutcomeWithIssues;
 import static org.snomed.snowstorm.fhir.services.FHIRHelper.exception;
 import static org.snomed.snowstorm.fhir.utils.FHIRPageHelper.toPage;
 
@@ -331,13 +332,15 @@ public class FHIRCodeSystemService {
 		if (codeSystemVersion == null) {
 			if(supplementExists(systemVersionParams.getCodeSystem()+(systemVersionParams.getVersion()==null?"*":format("|%s",systemVersionParams.getVersion())), systemVersionParams.getVersion()==null)){
 				String message = format("CodeSystem %s is a supplement, so can't be used as a value in Coding.system",systemVersionParams.getCodeSystem());
-				CodeableConcept cc = new CodeableConcept();
-				cc.setText(message);
-				cc.addCoding(new Coding("http://hl7.org/fhir/tools/CodeSystem/tx-issue-type", "invalid-data",null));
+				CodeableConcept cc = new CodeableConcept(new Coding("http://hl7.org/fhir/tools/CodeSystem/tx-issue-type", "invalid-data",null)).setText(message);
 				OperationOutcome oo = FHIRHelper.createOperationOutcomeWithIssue(cc, OperationOutcome.IssueSeverity.ERROR, "Coding.system", OperationOutcome.IssueType.INVALID, Collections.singletonList(new Extension("http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id", new StringType("CODESYSTEM_CS_NO_SUPPLEMENT"))), null);
 				throw new SnowstormFHIRServerResponseException(400,message,oo);
 			}else {
-				throw exception(format("Code system not found for parameters %s.", systemVersionParams), OperationOutcome.IssueType.NOTFOUND, 400);
+				FHIRCodeSystemVersion other = findCodeSystemVersion(new FHIRCodeSystemVersionParams(systemVersionParams.getCodeSystem()));
+				String message = format("The CodeSystem %s version %s is unknown. Valid versions: [%s]", systemVersionParams.getCodeSystem(), systemVersionParams.getVersion(), other==null?"":other.getVersion());
+				CodeableConcept cc = new CodeableConcept(new Coding("http://hl7.org/fhir/tools/CodeSystem/tx-issue-type", "not-found",null)).setText(message);
+				OperationOutcome oo = FHIRHelper.createOperationOutcomeWithIssue(cc, OperationOutcome.IssueSeverity.ERROR, "Coding.system", OperationOutcome.IssueType.NOTFOUND, Arrays.asList(new Extension("https://github.com/IHTSDO/snowstorm/missing-codesystem-version", new CanonicalType(CanonicalUri.of(systemVersionParams.getCodeSystem(), systemVersionParams.getVersion()).toString())),new Extension("https://github.com/IHTSDO/snowstorm/available-codesystem-version", new CanonicalType(other==null?"":other.getCanonical()))), null);
+				throw new SnowstormFHIRServerResponseException(400,message,oo);
 			}
 		}
 
