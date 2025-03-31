@@ -116,7 +116,7 @@ public class FHIRLoadPackageService {
 				valueSet.setId(id);
 				valueSet.setUrl(url);
 				valueSet.setVersion(indexFileToImport.getVersion());
-				logger.info("Importing ValueSet {} from package", valueSet.getUrl());
+				logger.info("Importing ValueSet {} {} from package", valueSet.getUrl(), valueSet.getVersion());
 				valueSetService.createOrUpdateValuesetWithoutExpandValidation(valueSet);
 				if (testValueSets) {
 					try {

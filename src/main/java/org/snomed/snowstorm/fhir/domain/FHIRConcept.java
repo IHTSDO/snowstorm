@@ -76,7 +76,7 @@ public class FHIRConcept implements FHIRGraphNode {
 
 		code = termConcept.getCode();
 		setDisplay(termConcept.getDisplay());
-		termConcept.getProperties().stream().filter(x -> x.getKey().equals("status") && x.getValue().equals("retired")).findFirst().ifPresentOrElse(x -> active = false, ()-> active = true);
+		termConcept.getProperties().stream().filter(x -> ( x.getKey().equals("inactive") && !Boolean.valueOf(x.getValue()).equals(Boolean.FALSE)) || x.getKey().equals("status") && x.getValue().equals("retired")).findFirst().ifPresentOrElse(x -> active = false, ()-> active = true);
 
 		designations = new ArrayList<>();
 		for (TermConceptDesignation designation : termConcept.getDesignations()) {
