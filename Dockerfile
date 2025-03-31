@@ -16,6 +16,7 @@ RUN curl -sL https://deb.nodesource.com/setup_18.x -o /tmp/nodesource_setup.sh &
     bash /tmp/nodesource_setup.sh \
     && apt-get update && apt-get install -y \
     net-tools \
+    jq \
     unzip \
     ca-certificates \
     curl \
@@ -52,8 +53,8 @@ RUN npm --registry https://packages.simplifier.net pack hl7.terminology.r4
 ### LOINC ###
 #############
 WORKDIR $LOINC_HOME
-# Download the tool that will assist performing the LOINC import + puppeteer for downloading the LOINC file
-RUN curl -fsSL https://github.com/hapifhir/hapi-fhir/releases/download/v7.2.2/hapi-fhir-7.2.2-cli.zip -o hapi-fhir-cli.zip && \
+# Download latest version of the tool that will assist performing the LOINC import + puppeteer for downloading the LOINC file
+RUN curl -fsSL $(curl -s https://api.github.com/repos/hapifhir/hapi-fhir/releases/latest | jq -r '.assets[] | select(.name | endswith("cli.zip")).browser_download_url') -o hapi-fhir-cli.zip && \
     unzip hapi-fhir-cli.zip && \
     rm hapi-fhir-cli.zip && \
     npm i puppeteer
