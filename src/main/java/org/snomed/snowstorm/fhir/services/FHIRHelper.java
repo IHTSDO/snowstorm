@@ -92,7 +92,7 @@ public class FHIRHelper implements FHIRConstants {
 
 	public static CanonicalUri findParameterCanonicalOrNull(final List<Parameters.ParametersParameterComponent> parametersParameterComponents, final String name) {
 		return parametersParameterComponents.stream().filter(parametersParameterComponent -> parametersParameterComponent.getName().equals(name)).findFirst()
-				.map(Objects::toString).map(CanonicalUri::fromString).orElse(null);
+				.map(p-> p.getValue().primitiveValue()).map(CanonicalUri::fromString).orElse(null);
 	}
 
 	public static Boolean findParameterBooleanOrNull(List<Parameters.ParametersParameterComponent> parametersParameterComponents, String name) {
@@ -143,7 +143,21 @@ public class FHIRHelper implements FHIRConstants {
 		}
 	}
 
-	static Parameters.@NotNull ParametersParameterComponent createParameterComponentWithOperationOutcomeWithIssues(CodeableConcept cc, OperationOutcome.IssueSeverity issueSeverity, String locationExpression, IssueType issueType) {
+	public static boolean isPostcoordinatedSnomed(String code, FHIRCodeSystemVersionParams codeSystemParams) {
+		if (codeSystemParams.isSnomed() && code != null) {
+			return code.startsWith("===") || code.startsWith("<<<") || code.contains("+") || code.contains(":");
+		}
+		return false;
+	}
+
+	static Parameters.@NotNull ParametersParameterComponent createParameterComponentWithOperationOutcomeWithIssues( List<OperationOutcome.OperationOutcomeIssueComponent> issues) {
+		OperationOutcome operationOutcome = createOperationOutcomeWithIssues(issues);
+		Parameters.ParametersParameterComponent operationOutcomeParameter = new Parameters.ParametersParameterComponent(new StringType("issues"));
+		operationOutcomeParameter.setResource(operationOutcome);
+		return operationOutcomeParameter;
+	}
+
+	static Parameters.@NotNull ParametersParameterComponent createParameterComponentWithOperationOutcomeWithIssue(CodeableConcept cc, OperationOutcome.IssueSeverity issueSeverity, String locationExpression, IssueType issueType) {
 		OperationOutcome operationOutcome = createOperationOutcomeWithIssue(cc, issueSeverity, locationExpression, issueType,null, null);
 		Parameters.ParametersParameterComponent operationOutcomeParameter = new Parameters.ParametersParameterComponent(new StringType("issues"));
 		operationOutcomeParameter.setResource(operationOutcome);
@@ -166,9 +180,28 @@ public class FHIRHelper implements FHIRConstants {
 		return operationOutcome;
 	}
 
+	public static @NotNull OperationOutcome createOperationOutcomeWithIssues(List<OperationOutcome.OperationOutcomeIssueComponent> issues) {
+		OperationOutcome operationOutcome = new OperationOutcome();
+		operationOutcome.setIssue(issues);
+		return operationOutcome;
+	}
+
+	public static OperationOutcome.@NotNull OperationOutcomeIssueComponent createOperationOutcomeIssueComponent(CodeableConcept cc, OperationOutcome.IssueSeverity issueSeverity, String locationExpression, IssueType issueType, List<Extension> extensions, String diagnostics) {
+		OperationOutcome.OperationOutcomeIssueComponent issue = new OperationOutcome.OperationOutcomeIssueComponent();
+		issue.setSeverity(issueSeverity)
+				.setCode(issueType)
+				.setDetails(cc);
+		if (locationExpression != null){
+			issue.setLocation(Collections.singletonList(new StringType(locationExpression)))
+					.setExpression(Collections.singletonList(new StringType(locationExpression)));
+		}
+		issue.setDiagnostics(diagnostics);
+		issue.setExtension(extensions);
+		return issue;
+	}
+
 	static void handleTxResources(FHIRLoadPackageService loadPackageService, List<Parameters.ParametersParameterComponent> parsed) {
 		List<Parameters.ParametersParameterComponent> txResources = FHIRValueSetProviderHelper.findParametersByName(parsed, "tx-resource");
-		//List<Parameters.ParametersParameterComponent> valueSets = FHIRValueSetProviderHelper.findParametersByName(parsed, "valueSet");
 		List<Resource> resources = txResources.stream().map(x -> x.getResource()).toList();
 		File npmPackage = FHIRValueSetProviderHelper.createNpmPackageFromResources(resources);
 		try {
@@ -176,6 +209,10 @@ public class FHIRHelper implements FHIRConstants {
 		} catch (IOException e) {
 			throw new RuntimeServiceException(e);
 		}
+	}
+
+	static @NotNull String createFullyQualifiedCodeString(Coding codingA) {
+		return Optional.ofNullable(codingA.getSystem()).orElse("") + "#" + codingA.getCode();
 	}
 
 	public List<LanguageDialect> getLanguageDialects(List<String> designations, String acceptLanguageHeader) {
