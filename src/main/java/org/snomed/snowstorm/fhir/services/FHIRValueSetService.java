@@ -206,7 +206,7 @@ public class FHIRValueSetService {
 
 	public ValueSet expand(final ValueSetExpansionParameters params, String displayLanguage) {
 		// Lots of not supported parameters
-		notSupported("valueSetVersion", params.getValueSetVersion());
+		//notSupported("valueSetVersion", params.getValueSetVersion());
 		notSupported("context", params.getContext());
 		notSupported("contextDirection", params.getContextDirection());
 		notSupported("date", params.getDate());
@@ -214,7 +214,7 @@ public class FHIRValueSetService {
 		notSupported("excludePostCoordinated", params.getExcludePostCoordinated());
 		notSupported("version", params.getVersion());// Not part of the FHIR API spec but requested under MAINT-1363
 
-		ValueSet hapiValueSet = findOrInferValueSet(params.getId(), params.getUrl(), params.getValueSet());
+		ValueSet hapiValueSet = findOrInferValueSet(params.getId(), params.getUrl(), params.getValueSet(), params.getValueSetVersion());
 		if (hapiValueSet == null) {
 			return null;
 		}
@@ -972,7 +972,7 @@ public class FHIRValueSetService {
 		mutuallyRequired("display", display, "code", code, "coding", coding);
 
 		// Grab value set
-		ValueSet hapiValueSet = findOrInferValueSet(id, FHIRHelper.toString(url), valueSet);
+		ValueSet hapiValueSet = findOrInferValueSet(id, FHIRHelper.toString(url), valueSet, null);
 		if (hapiValueSet == null) {
 			return null;
 		}
@@ -1225,7 +1225,7 @@ public class FHIRValueSetService {
 	}
 
 	@Nullable
-	private ValueSet findOrInferValueSet(String id, String url, ValueSet hapiValueSet) {
+	private ValueSet findOrInferValueSet(String id, String url, ValueSet hapiValueSet, String version) {
 		mutuallyExclusive("id", id, "url", url);
 		mutuallyExclusive("id", id, "valueSet", hapiValueSet);
 		mutuallyExclusive("url", url, "valueSet", hapiValueSet);
@@ -1253,6 +1253,9 @@ public class FHIRValueSetService {
 			valueSet.setCompose(compose);
 			valueSet.setStatus(Enumerations.PublicationStatus.ACTIVE.toCode());
 			hapiValueSet = valueSet.getHapi();
+		} else if (version != null){
+			hapiValueSet = find(url, version).map(FHIRValueSet::getHapi).orElse(null);
+
 		} else if (hapiValueSet == null) {
 			hapiValueSet = findLatestByUrl(url).map(FHIRValueSet::getHapi).orElse(null);
 		}
