@@ -1,17 +1,23 @@
 package org.snomed.snowstorm.core.util;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.List;
 import java.util.Optional;
 
 public class FileUtils {
 
-    public static File findFile(String directory, String filePattern) throws IOException {
-        return getPath(directory, filePattern).map(Path::toFile).orElse(null);
+    private static final Logger logger = LoggerFactory.getLogger(FileUtils.class);
+
+    public static Optional<File> findFile(String directory, String filePattern) throws IOException {
+        return getPath(directory, filePattern).map(Path::toFile);
     }
 
     public static Optional<String> findFileName(String directory, String filePattern) throws IOException {
@@ -27,5 +33,13 @@ public class FileUtils {
             }
         }
         return Optional.empty();
+    }
+
+    public static void removeTempFiles(List<String> filePaths) {
+        for (String filePath : filePaths) {
+            if (!new File(filePath).delete()) {
+                logger.warn("Failed to delete temp file {}", filePath);
+            }
+        }
     }
 }

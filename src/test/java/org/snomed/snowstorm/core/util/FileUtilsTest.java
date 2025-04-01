@@ -21,15 +21,15 @@ class FileUtilsTest {
         Path hl7File = tempDir.resolve("hl7.terminology.r4-6.2.0.tgz");
         Files.createFile(hl7File);
 
-        File foundFile = FileUtils.findFile(tempDir.toString(), "hl7.terminology.*.tgz");
-        assertNotNull(foundFile);
-        assertEquals("hl7.terminology.r4-6.2.0.tgz", foundFile.getName());
+        Optional<File> foundFile = FileUtils.findFile(tempDir.toString(), "hl7.terminology.*.tgz");
+        assertTrue(foundFile.isPresent());
+        assertEquals("hl7.terminology.r4-6.2.0.tgz", foundFile.get().getName());
     }
 
     @Test
     void testFindFile_NoMatch() throws IOException {
-        File foundFile = FileUtils.findFile(tempDir.toString(), "hl7.terminology.*.tgz");
-        assertNull(foundFile);
+        Optional<File> foundFile = FileUtils.findFile(tempDir.toString(), "hl7.terminology.*.tgz");
+        assertTrue(foundFile.isEmpty());
     }
 
     @Test

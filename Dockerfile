@@ -46,8 +46,6 @@ RUN curl -sL https://deb.nodesource.com/setup_18.x -o /tmp/nodesource_setup.sh &
 #### HL7 ####
 #############
 WORKDIR $HL7_HOME
-# Download the hl7 FHIR terminology package
-RUN npm --registry https://packages.simplifier.net pack hl7.terminology.r4
 
 #############
 ### LOINC ###
@@ -60,7 +58,6 @@ RUN curl -fsSL $(curl -s https://api.github.com/repos/hapifhir/hapi-fhir/release
     npm i puppeteer
 # Copy puppeteer script to image
 COPY download_loinc.mjs $LOINC_HOME/download_loinc.mjs
-#COPY Loinc_2.80.zip $LOINC_HOME/Loinc_2.80.zip # testing without loinc download
 
 ##############
 ### SNOMED ###

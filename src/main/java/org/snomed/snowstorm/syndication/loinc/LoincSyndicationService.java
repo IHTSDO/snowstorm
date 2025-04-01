@@ -1,18 +1,15 @@
 package org.snomed.snowstorm.syndication.loinc;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.core.data.services.ServiceException;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
-import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
-import java.io.InputStreamReader;
 import java.util.Optional;
 
 import static org.snomed.snowstorm.core.util.FileUtils.findFileName;
+import static org.snomed.snowstorm.syndication.SyndicationUtils.waitForProcessTermination;
 
 @Service
 public class LoincSyndicationService {
@@ -23,23 +20,25 @@ public class LoincSyndicationService {
     @Value("${syndication.loinc.fileNamePattern}")
     private String fileNamePattern;
 
-    private final Logger logger = LoggerFactory.getLogger(getClass());
-
-
-    public void importLoincTerminology() throws IOException, InterruptedException, ServiceException {
+    /**
+     * Will import the loinc terminology. If a loinc terminology file is already present on the filesystem, it will use it.
+     * Else, it will download the latest version or version @param version if specified
+     * @param version The version to download. E.g. null (latest version) or "2.78"
+     */
+    public void importLoincTerminology(String version) throws IOException, InterruptedException, ServiceException {
         Optional<String> fileName = findFileName(workingDirectory, fileNamePattern);
         if(fileName.isEmpty()) {
-            fileName = downloadLoincZip();
+            fileName = downloadLoincZip(version);
         }
         importLoincZip(fileName);
     }
 
-    private Optional<String> downloadLoincZip() throws IOException, InterruptedException {
-        Process process = new ProcessBuilder("node", "./download_loinc.mjs")
+    private Optional<String> downloadLoincZip(String version) throws IOException, InterruptedException {
+        Process process = new ProcessBuilder("node", "./download_loinc.mjs", version == null ? "" : version)
                 .directory(new File(workingDirectory))
                 .start();
 
-        waitForProcessTermination(process, "Download LOINC process");
+        waitForProcessTermination(process, "Download LOINC terminology");
         return findFileName(workingDirectory, fileNamePattern);
     }
 
@@ -56,15 +55,6 @@ public class LoincSyndicationService {
                 .directory(new File(workingDirectory))
                 .start();
 
-        waitForProcessTermination(process, "Import LOINC process");
-    }
-
-    private void waitForProcessTermination(Process process, String processName) throws IOException, InterruptedException {
-        BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
-        String line;
-        while ((line = reader.readLine()) != null) {
-            logger.info(line);
-        }
-        System.out.println(processName + " exited with code: " +  + process.waitFor());
+        waitForProcessTermination(process, "Import LOINC terminology");
     }
 }

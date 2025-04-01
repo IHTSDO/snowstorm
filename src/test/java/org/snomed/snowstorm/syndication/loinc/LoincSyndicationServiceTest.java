@@ -4,8 +4,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
-import org.mockito.Mock;
-import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.snomed.snowstorm.core.data.services.ServiceException;
 import org.snomed.snowstorm.core.util.FileUtils;
@@ -38,7 +36,7 @@ class LoincSyndicationServiceTest {
             mockStatic.when(() -> FileUtils.findFileName("/tmp", "loinc.zip"))
                     .thenReturn(Optional.of("loinc.zip"));
 
-            loincSyndicationService.importLoincTerminology();
+            loincSyndicationService.importLoincTerminology(null);
 
             mockStatic.verify(() -> FileUtils.findFileName("/tmp", "loinc.zip"), times(1));
         }
@@ -51,7 +49,7 @@ class LoincSyndicationServiceTest {
                     .thenReturn(Optional.empty())
                     .thenReturn(Optional.of("loinc.zip"));
 
-            loincSyndicationService.importLoincTerminology();
+            loincSyndicationService.importLoincTerminology(null);
 
             mockStatic.verify(() -> FileUtils.findFileName("/tmp", "loinc.zip"), times(2));
         }
@@ -63,7 +61,7 @@ class LoincSyndicationServiceTest {
             mockStatic.when(() -> FileUtils.findFileName("/tmp", "loinc.zip"))
                     .thenReturn(Optional.empty());
 
-            assertThrows(ServiceException.class, () -> loincSyndicationService.importLoincTerminology());
+            assertThrows(ServiceException.class, () -> loincSyndicationService.importLoincTerminology("2.80"));
         }
     }
 

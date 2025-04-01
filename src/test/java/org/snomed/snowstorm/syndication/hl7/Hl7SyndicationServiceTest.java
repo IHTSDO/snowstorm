@@ -6,6 +6,7 @@ import org.junit.jupiter.api.io.TempDir;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+import org.snomed.snowstorm.core.data.services.ServiceException;
 import org.snomed.snowstorm.fhir.services.FHIRLoadPackageService;
 import org.springframework.test.util.ReflectionTestUtils;
 
@@ -33,6 +34,7 @@ class Hl7SyndicationServiceTest {
     void setUp() {
         MockitoAnnotations.openMocks(this);
         ReflectionTestUtils.setField(hl7SyndicationService, "workingDirectory", tempDir.toString());
+        ReflectionTestUtils.setField(hl7SyndicationService, "fileNamePattern", "hl7.terminology.*.tgz");
     }
 
     @Test
@@ -40,7 +42,7 @@ class Hl7SyndicationServiceTest {
         Path hl7File = tempDir.resolve("hl7.terminology.r4-6.2.0.tgz");
         Files.createFile(hl7File);
 
-        assertDoesNotThrow(() -> hl7SyndicationService.importHl7Terminology());
+        assertDoesNotThrow(() -> hl7SyndicationService.importHl7Terminology(null));
 
         verify(loadPackageService, times(1))
                 .uploadPackageResources(any(File.class), eq(Set.of("*")), eq("hl7.terminology.r4-6.2.0.tgz"), eq(false));
@@ -48,9 +50,9 @@ class Hl7SyndicationServiceTest {
 
     @Test
     void testImportHl7Terminology_FileNotFound() throws IOException {
-        Exception exception = assertThrows(RuntimeException.class, () -> hl7SyndicationService.importHl7Terminology());
+        Exception exception = assertThrows(ServiceException.class, () -> hl7SyndicationService.importHl7Terminology(null));
 
-        assertEquals("FHIR package not found!", exception.getMessage());
+        assertEquals("Hl7 terminology file not found, cannot be imported", exception.getMessage());
 
         verify(loadPackageService, never()).uploadPackageResources(any(), any(), any(), anyBoolean());
     }
