@@ -93,6 +93,8 @@ public class Annotation extends ReferenceSetMember implements AnnotationView {
 		setEffectiveTimeI(fromMember.getEffectiveTimeI());
 		setReferencedComponentId(fromMember.getReferencedComponentId());
 		setReleased(fromMember.isReleased());
+		setReleaseHash(fromMember.getReleaseHash());
+		setReleasedEffectiveTime(fromMember.getReleasedEffectiveTime());
 		setTypeId(fromMember.getAdditionalField(AnnotationFields.TYPE_ID));
 		setValue(fromMember.getAdditionalField(AnnotationFields.VALUE));
 		setLanguageDialectCode(fromMember.getAdditionalField(AnnotationFields.LANGUAGE_DIALECT_CODE));
@@ -100,10 +102,13 @@ public class Annotation extends ReferenceSetMember implements AnnotationView {
 	}
 
 	public ReferenceSetMember toRefsetMember() {
-		String refsetId = getRefsetId() != null ? getRefsetId() : Concepts.ANNOTATION_REFERENCE_SET;
-		String annotationId = getAnnotationId() != null ? getAnnotationId() : UUID.randomUUID().toString();
+		String referenceSetId = getRefsetId() != null ? getRefsetId() : Concepts.ANNOTATION_REFERENCE_SET;
+		String memberId = getAnnotationId() != null ? getAnnotationId() : UUID.randomUUID().toString();
 		String moduleId = getModuleId() != null ? getModuleId() : Concepts.CORE_MODULE;
-		ReferenceSetMember member = new ReferenceSetMember(annotationId, getEffectiveTimeI(), isActive(), moduleId, refsetId, getReferencedComponentId());
+		ReferenceSetMember member = new ReferenceSetMember(memberId, getEffectiveTimeI(), isActive(), moduleId, referenceSetId, getReferencedComponentId());
+		member.setReleased(isReleased());
+		member.setReleaseHash(getReleaseHash());
+		member.setReleasedEffectiveTime(getReleasedEffectiveTime());
 		member.setAdditionalField(AnnotationFields.TYPE_ID, getTypeId());
 		member.setAdditionalField(AnnotationFields.VALUE, getValue());
 		member.setAdditionalField(AnnotationFields.LANGUAGE_DIALECT_CODE, getLanguageDialectCode());
@@ -119,6 +124,8 @@ public class Annotation extends ReferenceSetMember implements AnnotationView {
 		setEffectiveTimeI(annotation.getEffectiveTimeI());
 		setReferencedComponentId(annotation.getReferencedComponentId());
 		setReleased(annotation.isReleased());
+		setReleaseHash(annotation.getReleaseHash());
+		setReleasedEffectiveTime(annotation.getReleasedEffectiveTime());
 		setTypeId(annotation.getTypeId());
 		setType(annotation.getType());
 		setValue(annotation.getValue());
