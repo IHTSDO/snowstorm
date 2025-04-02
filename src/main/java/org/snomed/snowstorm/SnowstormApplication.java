@@ -134,13 +134,14 @@ public class SnowstormApplication extends Config implements ApplicationRunner {
 				String extensionName = getOneValueOrNull(applicationArguments, EXTENSION_COUNTRY_CODE);
 				snomedSyndicationService.importSnomedEditionAndExtension(releaseUri, extensionName);
 			}
-			if (applicationArguments.containsOption(IMPORT_LOINC_TERMINOLOGY)) {
-				String releaseVersion = getOneValueOrNull(applicationArguments, IMPORT_LOINC_TERMINOLOGY);
-				loincSyndicationService.importLoincTerminology(releaseVersion);
-			}
+			boolean importLoinc = applicationArguments.containsOption(IMPORT_LOINC_TERMINOLOGY);
 			if (applicationArguments.containsOption(IMPORT_HL_7_TERMINOLOGY)) {
 				String releaseVersion = getOneValueOrNull(applicationArguments, IMPORT_HL_7_TERMINOLOGY);
-				hl7SyndicationService.importHl7Terminology(releaseVersion);
+				hl7SyndicationService.importHl7Terminology(releaseVersion, importLoinc);
+			}
+			if (importLoinc) {
+				String releaseVersion = getOneValueOrNull(applicationArguments, IMPORT_LOINC_TERMINOLOGY);
+				loincSyndicationService.importLoincTerminology(releaseVersion);
 			}
 			if (applicationArguments.containsOption(EXIT)) {
 				logger.info("Exiting application.");

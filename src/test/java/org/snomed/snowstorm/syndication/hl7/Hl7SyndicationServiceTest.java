@@ -7,6 +7,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.snomed.snowstorm.core.data.services.ServiceException;
+import org.snomed.snowstorm.fhir.services.FHIRCodeSystemService;
 import org.snomed.snowstorm.fhir.services.FHIRLoadPackageService;
 import org.springframework.test.util.ReflectionTestUtils;
 
@@ -23,6 +24,9 @@ class Hl7SyndicationServiceTest {
 
     @Mock
     private FHIRLoadPackageService loadPackageService;
+
+    @Mock
+    private FHIRCodeSystemService codeSystemService;
 
     @InjectMocks
     private Hl7SyndicationService hl7SyndicationService;
@@ -42,7 +46,7 @@ class Hl7SyndicationServiceTest {
         Path hl7File = tempDir.resolve("hl7.terminology.r4-6.2.0.tgz");
         Files.createFile(hl7File);
 
-        assertDoesNotThrow(() -> hl7SyndicationService.importHl7Terminology(null));
+        assertDoesNotThrow(() -> hl7SyndicationService.importHl7Terminology(null, true));
 
         verify(loadPackageService, times(1))
                 .uploadPackageResources(any(File.class), eq(Set.of("*")), eq("hl7.terminology.r4-6.2.0.tgz"), eq(false));
@@ -50,7 +54,7 @@ class Hl7SyndicationServiceTest {
 
     @Test
     void testImportHl7Terminology_FileNotFound() throws IOException {
-        Exception exception = assertThrows(ServiceException.class, () -> hl7SyndicationService.importHl7Terminology(null));
+        Exception exception = assertThrows(ServiceException.class, () -> hl7SyndicationService.importHl7Terminology(null, false));
 
         assertEquals("Hl7 terminology file not found, cannot be imported", exception.getMessage());
 
