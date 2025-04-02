@@ -13,7 +13,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
-import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -21,6 +20,7 @@ import java.util.List;
 
 import static org.snomed.snowstorm.SnowstormApplication.SNOMED_VERSION;
 import static org.snomed.snowstorm.core.data.services.CodeSystemService.MAIN;
+import static org.snomed.snowstorm.core.util.FileUtils.removeTempFiles;
 import static org.snomed.snowstorm.fhir.services.FHIRHelper.SNOMED_URI_MODULE_AND_VERSION_PATTERN;
 
 @Service
@@ -96,13 +96,5 @@ public class SnomedSyndicationService {
 
     protected FileInputStream getFileInputStream(String filePath) throws FileNotFoundException {
         return new FileInputStream(filePath);
-    }
-
-    private void removeTempFiles(List<String> filePaths) {
-        for (String filePath : filePaths) {
-            if (!new File(filePath).delete()) {
-                logger.warn("Failed to delete temp file {}", filePath);
-            }
-        }
     }
 }

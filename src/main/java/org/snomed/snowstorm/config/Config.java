@@ -100,6 +100,9 @@ public abstract class Config extends ElasticsearchConfig {
 	@Value("${elasticsearch.index.max.terms.count}")
 	private int indexMaxTermsCount;
 
+	@Value("${elasticsearch.index.max.fields.limit}")
+	private int indexMaxFieldsLimit;
+
 	@Value("${search.term.minimumLength}")
 	private int searchTermMinimumLength;
 
@@ -304,5 +307,14 @@ public abstract class Config extends ElasticsearchConfig {
 		}
 	}
 
-
+	protected void updateIndexMappingFieldsLimitSetting() {
+		try {
+			Request updateSettingsRequest = new Request("PUT", "/fhir-concept/_settings");
+			updateSettingsRequest.setJsonEntity("{\"" + INDEX_MAX_FIELDS_LIMIT + "\": " + indexMaxFieldsLimit + "}");
+			elasticsearchRestClient(clientConfiguration()).performRequest(updateSettingsRequest);
+			logger.info("{} is updated to {}", INDEX_MAX_FIELDS_LIMIT, indexMaxFieldsLimit);
+		} catch (IOException e) {
+			logger.error("Failed to update setting {}", INDEX_MAX_TERMS_COUNT, e);
+		}
+	}
 }

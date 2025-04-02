@@ -35,6 +35,7 @@ import java.util.*;
 public class ElasticsearchConfig extends ElasticsearchConfiguration {
 
 	public static final String INDEX_MAX_TERMS_COUNT = "index.max_terms_count";
+	public static final String INDEX_MAX_FIELDS_LIMIT = "index.mapping.total_fields.limit";
 
 	@Value("${elasticsearch.username}")
 	private String elasticsearchUsername;
