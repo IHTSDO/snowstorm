@@ -38,16 +38,17 @@ public final class ValueSetExpansionParameters {
 	private final String version;
 	private final ValueSet valueSet;
 	private final String property;
+	private final CanonicalUri versionValueSet;
 
 	public ValueSetExpansionParameters(ValueSet valueSet, boolean includeDefinition1) {
 		this(null, valueSet, null, null, null, null, null, null, null, null, null,
-				null, includeDefinition1, null, null, null, null, null, null, null, null, null, null, null);
+				null, includeDefinition1, null, null, null, null, null, null, null, null, null, null, null,null);
 	}
 
 	public ValueSetExpansionParameters(String id, ValueSet valueSet, URI url, String valueSetVersion, String context, String contextDirection, String filter, String date,
 									   Integer offset, Integer count, Boolean includeDesignations, List<String> designations, Boolean includeDefinition, Boolean activeOnly,
 									   Boolean excludeNested, Boolean excludeNotForUI, Boolean excludePostCoordinated, String displayLanguage, CanonicalUri excludeSystem, CanonicalUri systemVersion,
-									   CanonicalUri checkSystemVersion, CanonicalUri forceSystemVersion, String version, String property) {
+									   CanonicalUri checkSystemVersion, CanonicalUri forceSystemVersion, String version, String property, CanonicalUri versionValueSet) {
 
 		this.id = id;
 		this.url = url;
@@ -73,6 +74,7 @@ public final class ValueSetExpansionParameters {
 		this.version = version;
 		this.valueSet = valueSet;
 		this.property = property;
+		this.versionValueSet = versionValueSet;
 	}
 
 	public PageRequest getPageRequest(Sort sort) {
@@ -180,5 +182,8 @@ public final class ValueSetExpansionParameters {
 
 	public ValueSet getValueSet() {
 		return valueSet;
+	}
+
+	public CanonicalUri getVersionValueSet() { return versionValueSet;
 	}
 }
