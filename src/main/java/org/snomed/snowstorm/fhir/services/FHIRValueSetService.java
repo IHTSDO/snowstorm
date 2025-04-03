@@ -936,7 +936,7 @@ public class FHIRValueSetService {
 					} catch (SnowstormFHIRServerResponseException e){
 						if(e.getIssueCode()== OperationOutcome.IssueType.INVARIANT){
 							Extension ext = new Extension().setUrl("https://github.com/IHTSDO/snowstorm/missing-valueset").setValue(new CanonicalType(canonicalUri.toString()));
-							OperationOutcome oo = createOperationOutcomeWithIssue(new CodeableConcept().setText(format("Unable to find included value set '%s' version '%s'", canonicalUri.getSystem(), canonicalUri.getVersion())), OperationOutcome.IssueSeverity.ERROR, null, OperationOutcome.IssueType.UNKNOWN, Collections.singletonList(ext), "$external:2$");
+							OperationOutcome oo = createOperationOutcomeWithIssue(new CodeableConcept(new Coding(TX_ISSUE_TYPE,"not-found",null)).setText(format("Unable to find included value set '%s' version '%s'", canonicalUri.getSystem(), canonicalUri.getVersion())), OperationOutcome.IssueSeverity.ERROR, null, OperationOutcome.IssueType.NOTFOUND, Collections.singletonList(ext), "$external:2$");
 							throw new SnowstormFHIRServerResponseException(404,"ValueSet not found",oo);
 						}else{
 							throw e;
@@ -963,7 +963,7 @@ public class FHIRValueSetService {
 	}
 
 	public Parameters validateCode(String id, UriType url, UriType context, ValueSet valueSet, String valueSetVersion, String code, UriType system, String systemVersion,
-								   String display, Coding coding, CodeableConcept codeableConcept, DateTimeType date, BooleanType abstractBool, String displayLanguage, BooleanType inferSystem, BooleanType activeOnly, UrlType versionValueSet) {
+								   String display, Coding coding, CodeableConcept codeableConcept, DateTimeType date, BooleanType abstractBool, String displayLanguage, BooleanType inferSystem, BooleanType activeOnly, CanonicalType versionValueSet) {
 
 		notSupported("context", context);
 		notSupported("valueSetVersion", valueSetVersion);
@@ -1099,9 +1099,9 @@ public class FHIRValueSetService {
 				issues[1] = createOperationOutcomeIssueComponent(detail2, OperationOutcome.IssueSeverity.WARNING, null, OperationOutcome.IssueType.NOTFOUND, null, null);
 				response.addParameter(createParameterComponentWithOperationOutcomeWithIssues(Arrays.asList(issues)));
 				return response;
-			} else if(OperationOutcome.IssueType.UNKNOWN.equals(e.getIssueCode()) && !e.getOperationOutcome().getIssue().stream().filter(i -> OperationOutcome.IssueType.UNKNOWN.equals(i.getCode())).flatMap( ex -> ex.getExtension().stream()).filter(ex -> ex.getUrl().equals("https://github.com/IHTSDO/snowstorm/missing-valueset")).toList().isEmpty() ){
+			} else if(OperationOutcome.IssueType.NOTFOUND.equals(e.getIssueCode()) && !e.getOperationOutcome().getIssue().stream().filter(i -> OperationOutcome.IssueType.NOTFOUND.equals(i.getCode())).flatMap( ex -> ex.getExtension().stream()).filter(ex -> ex.getUrl().equals("https://github.com/IHTSDO/snowstorm/missing-valueset")).toList().isEmpty() ){
 				Parameters response = new Parameters();
-				String valueSetCanonical = e.getOperationOutcome().getIssue().stream().filter(i -> OperationOutcome.IssueType.UNKNOWN.equals(i.getCode())).flatMap( ex -> ex.getExtension().stream()).filter(ex -> ex.getUrl().equals("https://github.com/IHTSDO/snowstorm/missing-valueset")).map(ext -> ext.getValue().primitiveValue()).findFirst().orElse(null);
+				String valueSetCanonical = e.getOperationOutcome().getIssue().stream().filter(i -> OperationOutcome.IssueType.NOTFOUND.equals(i.getCode())).flatMap( ex -> ex.getExtension().stream()).filter(ex -> ex.getUrl().equals("https://github.com/IHTSDO/snowstorm/missing-valueset")).map(ext -> ext.getValue().primitiveValue()).findFirst().orElse(null);
 				if(codeableConcept!=null){
 					response.addParameter("codeableConcept", codeableConcept);
 				}else if (coding != null){
