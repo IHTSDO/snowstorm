@@ -5,6 +5,7 @@ import ca.uhn.fhir.rest.api.server.RequestDetails;
 import ca.uhn.fhir.rest.server.RestfulServer;
 import ca.uhn.fhir.rest.server.provider.ServerCapabilityStatementProvider;
 import jakarta.servlet.http.HttpServletRequest;
+import org.apache.jena.sys.JenaSystem;
 import org.hl7.fhir.instance.model.api.IBaseConformance;
 import org.hl7.fhir.r4.model.*;
 import org.slf4j.Logger;
@@ -58,6 +59,7 @@ public class FHIRTerminologyCapabilitiesProvider extends ServerCapabilityStateme
 			tc.setExpansion(expansion);
 			return tc;
 		} else {
+			JenaSystem.init();
 			IBaseConformance resource = super.getServerConformance(request, requestDetails);
 			CapabilityStatement cs = (CapabilityStatement) resource;
 			Extension testsVersion = new Extension("http://hl7.org/fhir/uv/application-feature/StructureDefinition/feature");

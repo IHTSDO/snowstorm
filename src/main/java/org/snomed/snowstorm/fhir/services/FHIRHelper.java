@@ -92,7 +92,7 @@ public class FHIRHelper implements FHIRConstants {
 
 	public static CanonicalUri findParameterCanonicalOrNull(final List<Parameters.ParametersParameterComponent> parametersParameterComponents, final String name) {
 		return parametersParameterComponents.stream().filter(parametersParameterComponent -> parametersParameterComponent.getName().equals(name)).findFirst()
-				.map(Objects::toString).map(CanonicalUri::fromString).orElse(null);
+				.map(p-> p.getValue().primitiveValue()).map(CanonicalUri::fromString).orElse(null);
 	}
 
 	public static Boolean findParameterBooleanOrNull(List<Parameters.ParametersParameterComponent> parametersParameterComponents, String name) {
@@ -202,7 +202,6 @@ public class FHIRHelper implements FHIRConstants {
 
 	static void handleTxResources(FHIRLoadPackageService loadPackageService, List<Parameters.ParametersParameterComponent> parsed) {
 		List<Parameters.ParametersParameterComponent> txResources = FHIRValueSetProviderHelper.findParametersByName(parsed, "tx-resource");
-		//List<Parameters.ParametersParameterComponent> valueSets = FHIRValueSetProviderHelper.findParametersByName(parsed, "valueSet");
 		List<Resource> resources = txResources.stream().map(x -> x.getResource()).toList();
 		File npmPackage = FHIRValueSetProviderHelper.createNpmPackageFromResources(resources);
 		try {
