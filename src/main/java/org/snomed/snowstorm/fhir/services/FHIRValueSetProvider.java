@@ -211,7 +211,7 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 			@OperationParam(name="force-system-version") StringType forceSystemVersion,
 			@OperationParam(name="version") StringType version,
 			@OperationParam(name="property") CodeType property,
-			@OperationParam(name = "valueset-version") UrlType versionValueSet)// Invalid parameter
+			@OperationParam(name = "default-valueset-version") CanonicalType versionValueSet)// Invalid parameter
 			{
 
 		ValueSetExpansionParameters params;
@@ -253,7 +253,7 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 			@OperationParam(name="force-system-version") StringType forceSystemVersion,
 			@OperationParam(name="version") StringType version,// Invalid parameter
 			@OperationParam(name="property") CodeType property,
-			@OperationParam(name="valueset-version") UrlType versionValueSet)
+			@OperationParam(name="default-valueset-version") CanonicalType versionValueSet)
 			{
 		logger.info(FHIRValueSetProviderHelper.getFullURL(request));
 		ValueSetExpansionParameters params;
@@ -319,7 +319,7 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 			@OperationParam(name="system-version") String incorrectParamSystemVersion,
 			@OperationParam(name="inferSystem") BooleanType inferSystem,
 			@OperationParam(name="activeOnly") BooleanType activeOnly,
-			@OperationParam(name="valueset-version") UrlType versionValueSet) {
+			@OperationParam(name="default-valueset-version") CanonicalType versionValueSet) {
 
 		validateCodeParamHints(incorrectParamSystemVersion);
 		logger.info(FHIRValueSetProviderHelper.getFullURL(request));
