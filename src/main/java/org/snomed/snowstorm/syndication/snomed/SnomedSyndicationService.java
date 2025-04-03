@@ -26,10 +26,10 @@ import static org.snomed.snowstorm.fhir.services.FHIRHelper.SNOMED_URI_MODULE_AN
 @Service
 public class SnomedSyndicationService {
 
-    @Value("${SNOMED_USERNAME}")
+    @Value("${SNOMED_USERNAME:empty}")
     private String snomedUsername;
 
-    @Value("${SNOMED_PASSWORD}")
+    @Value("${SNOMED_PASSWORD:empty}")
     private String snomedPassword;
 
     @Autowired
@@ -40,6 +40,8 @@ public class SnomedSyndicationService {
 
     @Autowired
     private CodeSystemService codeSystemService;
+
+    private static final String DEFAULT_VALUE = "empty";
 
     private final Logger logger = LoggerFactory.getLogger(getClass());
 
@@ -57,11 +59,11 @@ public class SnomedSyndicationService {
     }
 
     private void validateSyndicationCredentials() {
-        if (Strings.isBlank(snomedUsername)) {
+        if (Strings.isBlank(snomedUsername) || DEFAULT_VALUE.equals(snomedUsername)) {
             logger.error("Syndication username is blank.");
             throw new IllegalArgumentException("Syndication username is blank.");
         }
-        if (Strings.isBlank(snomedPassword)) {
+        if (Strings.isBlank(snomedPassword) || DEFAULT_VALUE.equals(snomedPassword)) {
             logger.error("Syndication password is blank.");
             throw new IllegalArgumentException("Syndication password is blank.");
         }
