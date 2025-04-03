@@ -53,7 +53,7 @@ public class FHIRConcept implements FHIRGraphNode {
 	private Integer displayLen;
 
 	@Transient
-	private  boolean active;
+	private  Boolean active;
 
 	@Field(type = FieldType.Keyword)
 	private Set<String> parents;
@@ -68,7 +68,7 @@ public class FHIRConcept implements FHIRGraphNode {
 	private Map<String, List<FHIRProperty>> extensions;
 
 	public FHIRConcept() {
-		active = true;
+		active = null;
 	}
 
 	public FHIRConcept(TermConcept termConcept, FHIRCodeSystemVersion codeSystemVersion) {
@@ -77,7 +77,7 @@ public class FHIRConcept implements FHIRGraphNode {
 		code = termConcept.getCode();
 		setDisplay(termConcept.getDisplay());
 		//active = true;
-		termConcept.getProperties().stream().filter(x -> x.getKey().equals("status") && x.getValue().equals("retired")).findFirst().ifPresentOrElse(x -> active = false, ()-> active = true);
+		termConcept.getProperties().stream().filter(x -> ( x.getKey().equals("inactive") && !Boolean.valueOf(x.getValue()).equals(Boolean.FALSE)) || x.getKey().equals("status") && x.getValue().equals("retired")).findFirst().ifPresentOrElse(x -> active = false, ()-> active = true);
 
 		designations = new ArrayList<>();
 		for (TermConceptDesignation designation : termConcept.getDesignations()) {
@@ -118,7 +118,7 @@ public class FHIRConcept implements FHIRGraphNode {
 
 		properties = new HashMap<>();
 		Optional.ofNullable(definitionConcept.getDefinition()).ifPresent(x -> properties.put("definition",Collections.singletonList(new FHIRProperty("definition",null,x,FHIRProperty.STRING))));
-		definitionConcept.getProperty().stream().filter(x-> x.getCode().equals("status") && x.getValueCodeType().getCode().equals("retired") ).findFirst().ifPresentOrElse(x -> active= false, ()->active =true);
+		definitionConcept.getProperty().stream().filter( x-> (x.getCode().equals("inactive") && !Boolean.valueOf(x.getValueBooleanType().getValueAsString()).equals(Boolean.FALSE)) || x.getCode().equals("status") && x.getValueCodeType().getCode().equals("retired") ).findFirst().ifPresentOrElse(x -> active= false, ()->active =true);
 		properties.put("inactive",Collections.singletonList(new FHIRProperty("inactive",null,Boolean.toString(!isActive()),FHIRProperty.BOOLEAN)));
 		extensions = new HashMap<>();
 		definitionConcept.getExtension().forEach(
@@ -233,6 +233,10 @@ public class FHIRConcept implements FHIRGraphNode {
 	}
 
 	public boolean isActive() {
+		if (active == null){
+			List<FHIRProperty> props = properties.get("inactive");
+			active = ( props == null || props.isEmpty() || !props.stream().map(x -> Boolean.valueOf(x.getValue())).distinct().allMatch(Boolean.TRUE::equals));
+		}
 		return active;
 	}
 
