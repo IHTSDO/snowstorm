@@ -94,6 +94,7 @@ public abstract class Config extends ElasticsearchConfig {
 	public static final String DEFAULT_NAMESPACE_KEY = "defaultNamespace";
 	public static final String EXPECTED_EXTENSION_MODULES = "expectedExtensionModules";
 	public static final String DEPENDENCY_PACKAGE = "dependencyPackage";
+	public static final String REQUIRED_LANGUAGE_REFSETS = "requiredLanguageRefsets";
 
 	@Value("${elasticsearch.index.max.terms.count}")
 	private int indexMaxTermsCount;

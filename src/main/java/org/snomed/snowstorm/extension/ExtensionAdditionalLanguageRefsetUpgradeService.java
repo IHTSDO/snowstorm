@@ -35,8 +35,7 @@ import static co.elastic.clients.elasticsearch._types.query_dsl.QueryBuilders.bo
 import static co.elastic.clients.elasticsearch._types.query_dsl.QueryBuilders.range;
 import static com.google.common.collect.Iterables.partition;
 import static io.kaicode.elasticvc.api.ComponentService.LARGE_PAGE;
-import static io.kaicode.elasticvc.helper.QueryHelper.termQuery;
-import static io.kaicode.elasticvc.helper.QueryHelper.termsQuery;
+import static io.kaicode.elasticvc.helper.QueryHelper.*;
 import static org.snomed.snowstorm.core.data.domain.Description.Fields.DESCRIPTION_ID;
 import static org.snomed.snowstorm.core.data.domain.Description.Fields.TYPE_ID;
 import static org.snomed.snowstorm.core.data.domain.ReferenceSetMember.Fields.*;
@@ -111,7 +110,7 @@ public class ExtensionAdditionalLanguageRefsetUpgradeService {
 			if (lastDependantEffectiveTime == null) {
 				logger.info("No dependent version found in the latest version {} for CodeSystem {}", config.getCodeSystem().getLatestVersion(), config.getCodeSystem().getShortName());
 			}
-			Map<Long, List<ReferenceSetMember>> languageRefsetMembersToCopy = getReferencedComponents(branchPath, config.getLanguageRefsetIdToCopyFrom(), lastDependantEffectiveTime, currentDependantEffectiveTime);
+			Map<Long, List<ReferenceSetMember>> languageRefsetMembersToCopy = getReferencedComponents(config.getCodeSystem().getBranchPath(), branchPath, config.getLanguageRefsetIdToCopyFrom(), lastDependantEffectiveTime, currentDependantEffectiveTime);
 			logger.info("{} components found with language refset id {} and effective time between {} and {}.", languageRefsetMembersToCopy.keySet().size(),
 					config.getLanguageRefsetIdToCopyFrom(), lastDependantEffectiveTime, currentDependantEffectiveTime);
 			toSave = addOrUpdateLanguageRefsetComponents(branchPath, config, languageRefsetMembersToCopy);
@@ -144,14 +143,16 @@ public class ExtensionAdditionalLanguageRefsetUpgradeService {
 		return result;
 	}
 
-	private Map<Long, List<ReferenceSetMember>> getReferencedComponents(String branchPath, String languageRefsetId, Integer lastDependantEffectiveTime, Integer currentDependantEffectiveTime) {
+	private Map<Long, List<ReferenceSetMember>> getReferencedComponents(String codeSystemPath, String branchPath, String languageRefsetId, Integer lastDependantEffectiveTime, Integer currentDependantEffectiveTime) {
 		Objects.requireNonNull(currentDependantEffectiveTime, "Current dependant effective time can't be null");
 		BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(branchPath);
 		Map<Long, List<ReferenceSetMember>> result = new Long2ObjectOpenHashMap<>();
 		NativeQueryBuilder searchQueryBuilder = new NativeQueryBuilder()
 				.withQuery(bool(b -> b
 						.must(branchCriteria.getEntityBranchCriteria(ReferenceSetMember.class))
-						.must(termQuery(REFSET_ID, languageRefsetId))))
+						.must(termQuery(REFSET_ID, languageRefsetId))
+						.mustNot(prefixQuery(PATH,codeSystemPath)))
+				)
 				.withSourceFilter(new FetchSourceFilter(new String[]{ MEMBER_ID, REFERENCED_COMPONENT_ID, ACTIVE, ACCEPTABILITY_ID_FIELD_PATH, CONCEPT_ID}, null))
 				.withPageable(LARGE_PAGE);
 		if (lastDependantEffectiveTime != null) {
