@@ -9,6 +9,8 @@ import org.snomed.snowstorm.core.data.services.CodeSystemService;
 import org.snomed.snowstorm.core.data.services.ServiceException;
 import org.snomed.snowstorm.core.rf2.RF2Type;
 import org.snomed.snowstorm.core.rf2.rf2import.ImportService;
+import org.snomed.snowstorm.syndication.SyndicationService;
+import org.snomed.snowstorm.syndication.common.SyndicationImportParams;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -18,13 +20,13 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.List;
 
-import static org.snomed.snowstorm.SnowstormApplication.SNOMED_VERSION;
 import static org.snomed.snowstorm.core.data.services.CodeSystemService.MAIN;
 import static org.snomed.snowstorm.core.util.FileUtils.removeTempFiles;
 import static org.snomed.snowstorm.fhir.services.FHIRHelper.SNOMED_URI_MODULE_AND_VERSION_PATTERN;
+import static org.snomed.snowstorm.syndication.common.SyndicationConstants.IMPORT_SNOMED_TERMINOLOGY;
 
-@Service
-public class SnomedSyndicationService {
+@Service(IMPORT_SNOMED_TERMINOLOGY)
+public class SnomedSyndicationService extends SyndicationService {
 
     @Value("${SNOMED_USERNAME}")
     private String snomedUsername;
@@ -43,17 +45,28 @@ public class SnomedSyndicationService {
 
     private final Logger logger = LoggerFactory.getLogger(getClass());
 
-    public void importSnomedEditionAndExtension(String releaseUri, String extensionCountryCode) throws IOException, ServiceException {
+    public SnomedSyndicationService() {
+        super("Snomed");
+    }
+
+    @Override
+    protected void importTerminology(SyndicationImportParams params) throws IOException, ServiceException {
+        String releaseUri = params.getVersion();
+        validateReleaseUriPattern(releaseUri);
+        validateSyndicationCredentials();
+        List<String> filePaths = syndicationClient.downloadPackages(releaseUri, snomedUsername, snomedPassword);
+        setActualTerminologyVersion(releaseUri);
+        importEdition(filePaths);
+        importExtension(releaseUri, params.getExtensionName(), filePaths);
+        removeTempFiles(filePaths);
+    }
+
+    private static void validateReleaseUriPattern(String releaseUri) {
         if (!SNOMED_URI_MODULE_AND_VERSION_PATTERN.matcher(releaseUri).matches()) {
-            throw new IllegalArgumentException("Parameter ' " + SNOMED_VERSION + " ' is not a valid SNOMED CT Edition Version URI. " +
+            throw new IllegalArgumentException("Parameter ' " + IMPORT_SNOMED_TERMINOLOGY + " ' is not a valid SNOMED CT Edition Version URI. " +
                     "Please use the format: 'http://snomed.info/sct/[module-id]/version/[YYYYMMDD]'. " +
                     "See http://snomed.org/uri for examples of Edition version URIs");
         }
-        validateSyndicationCredentials();
-        List<String> filePaths = syndicationClient.downloadPackages(releaseUri, snomedUsername, snomedPassword);
-        importEdition(filePaths);
-        importExtension(releaseUri, extensionCountryCode, filePaths);
-        removeTempFiles(filePaths);
     }
 
     private void validateSyndicationCredentials() {
@@ -73,10 +86,10 @@ public class SnomedSyndicationService {
     }
 
     private void importExtension(String releaseUri, String extensionCountryCode, List<String> filePaths) throws ServiceException {
-        if(filePaths.size() > 1 && extensionCountryCode == null) {
+        if (filePaths.size() > 1 && extensionCountryCode == null) {
             throw new IllegalArgumentException("ReleaseURI: '" + releaseUri + "' is an extension. An extension name must be specified.");
         }
-        if(filePaths.size() > 1) {
+        if (filePaths.size() > 1) {
             String shortName = "SNOMED-" + extensionCountryCode;
             String branchPath = MAIN + "/" + shortName;
             codeSystemService.createCodeSystem(new CodeSystem(shortName, branchPath, extensionCountryCode + " edition", extensionCountryCode.toLowerCase()));
@@ -96,5 +109,10 @@ public class SnomedSyndicationService {
 
     protected FileInputStream getFileInputStream(String filePath) throws FileNotFoundException {
         return new FileInputStream(filePath);
+    }
+
+    @Override
+    protected void setActualTerminologyVersion(String releaseFileName) {
+        actualVersion = releaseFileName; // todo: adapt during snomed refactoring
     }
 }

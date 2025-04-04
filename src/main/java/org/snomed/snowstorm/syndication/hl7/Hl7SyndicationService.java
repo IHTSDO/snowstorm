@@ -7,6 +7,8 @@ import org.snomed.snowstorm.fhir.domain.FHIRCodeSystemVersion;
 import org.snomed.snowstorm.fhir.pojo.FHIRCodeSystemVersionParams;
 import org.snomed.snowstorm.fhir.services.FHIRCodeSystemService;
 import org.snomed.snowstorm.fhir.services.FHIRLoadPackageService;
+import org.snomed.snowstorm.syndication.SyndicationService;
+import org.snomed.snowstorm.syndication.common.SyndicationImportParams;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -16,11 +18,13 @@ import java.io.IOException;
 import java.util.Optional;
 import java.util.Set;
 
+import static org.apache.logging.log4j.util.Strings.isNotBlank;
 import static org.snomed.snowstorm.core.util.FileUtils.findFile;
-import static org.snomed.snowstorm.syndication.SyndicationUtils.waitForProcessTermination;
+import static org.snomed.snowstorm.syndication.common.SyndicationConstants.IMPORT_HL_7_TERMINOLOGY;
+import static org.snomed.snowstorm.syndication.common.SyndicationUtils.waitForProcessTermination;
 
-@Service
-public class Hl7SyndicationService {
+@Service(IMPORT_HL_7_TERMINOLOGY)
+public class Hl7SyndicationService extends SyndicationService {
 
     @Autowired
     private FHIRLoadPackageService loadPackageService;
@@ -39,21 +43,23 @@ public class Hl7SyndicationService {
 
     private final Logger logger = LoggerFactory.getLogger(getClass());
 
+    public Hl7SyndicationService() {
+        super("Hl7");
+    }
+
     /**
      * Will import the hl7 terminology. If a hl7 terminology file is already present on the filesystem, it will use it.
-     * Else, it will download the latest version or version @param version if specified
-     *
-     * @param version     The version to download. E.g. null (latest version) or "6.2.0"
-     * @param importLoinc Whether the LOINC terminology is supposed to be used as well.
-     *                    In that case, a conflicting codeSystem imported through hl7 must be removed ( see <a href="https://github.com/IHTSDO/snowstorm/issues/609"></a>)
+     * Else, it will download the latest version or version @param version if specified.
+     * If the LOINC terminology is supposed to be used as well, a conflicting codeSystem imported through hl7 must be removed ( see <a href="https://github.com/IHTSDO/snowstorm/issues/609"></a>)
      */
-    public void importHl7Terminology(String version, boolean importLoinc) throws IOException, InterruptedException, ServiceException {
+    @Override
+    protected void importTerminology(SyndicationImportParams params) throws IOException, InterruptedException, ServiceException {
         Optional<File> file = findFile(workingDirectory, fileNamePattern);
-        if(file.isEmpty()) {
-            file = downloadFile(version);
+        if (file.isEmpty()) {
+            file = downloadFile(params.getVersion());
         }
         importHl7Package(file);
-        if(importLoinc) {
+        if (params.isLoincImportIncluded()) {
             deleteConflictingHl7CodeSystem();
         }
     }
@@ -73,6 +79,7 @@ public class Hl7SyndicationService {
             throw new ServiceException("Hl7 terminology file not found, cannot be imported");
         }
         File file = fileOpt.get();
+        setActualTerminologyVersion(file.getName());
         logger.info("Importing HL7 Terminology from: {}", file.getName());
         loadPackageService.uploadPackageResources(file, Set.of("*"), file.getName(), false);
     }
@@ -81,8 +88,14 @@ public class Hl7SyndicationService {
         FHIRCodeSystemVersionParams codeSystemVersionParams = new FHIRCodeSystemVersionParams("http://loinc.org");
         codeSystemVersionParams.setId("v3-loinc");
         FHIRCodeSystemVersion codeSystemVersion = fhirCodeSystemService.findCodeSystemVersion(codeSystemVersionParams);
-        if(codeSystemVersion != null) {
+        if (codeSystemVersion != null) {
             fhirCodeSystemService.deleteCodeSystemVersion(codeSystemVersion);
         }
+    }
+
+    @Override
+    protected void setActualTerminologyVersion(String releaseFileName) {
+        String version = releaseFileName.replaceAll("^hl7\\.terminology\\.r4-(\\d+\\.\\d+\\.\\d+)\\.tgz$", "$1");
+        actualVersion = isNotBlank(version) ? version : releaseFileName;
     }
 }

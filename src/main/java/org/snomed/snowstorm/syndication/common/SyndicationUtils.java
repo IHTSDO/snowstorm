@@ -1,4 +1,4 @@
-package org.snomed.snowstorm.syndication;
+package org.snomed.snowstorm.syndication.common;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

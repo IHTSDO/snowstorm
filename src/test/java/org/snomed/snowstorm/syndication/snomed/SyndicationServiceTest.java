@@ -12,6 +12,7 @@ import org.snomed.snowstorm.core.data.domain.CodeSystem;
 import org.snomed.snowstorm.core.data.services.CodeSystemService;
 import org.snomed.snowstorm.core.data.services.ServiceException;
 import org.snomed.snowstorm.core.rf2.rf2import.ImportService;
+import org.snomed.snowstorm.syndication.common.SyndicationImportParams;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.io.IOException;
@@ -49,7 +50,7 @@ class SyndicationServiceTest {
         String invalidUri = "invalid-uri";
 
         IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () ->
-                syndicationService.importSnomedEditionAndExtension(invalidUri, "BE"));
+                syndicationService.importTerminology(new SyndicationImportParams(invalidUri, "BE", false)));
 
         assertTrue(exception.getMessage().contains("not a valid SNOMED CT Edition Version URI"));
     }
@@ -62,7 +63,7 @@ class SyndicationServiceTest {
         doNothing().when(importService).importArchive(any(), any());
         doReturn(null).when(syndicationService).getFileInputStream(any());
 
-        syndicationService.importSnomedEditionAndExtension(RELEASE_URI, "BE");
+        syndicationService.importTerminology(new SyndicationImportParams(RELEASE_URI, "BE", false));
 
         verify(syndicationClient).downloadPackages(RELEASE_URI, "testUser", "testPass");
         verify(importService, times(2)).importArchive(any(), any());
@@ -74,7 +75,7 @@ class SyndicationServiceTest {
 
 
         IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () ->
-                syndicationService.importSnomedEditionAndExtension(RELEASE_URI, "BE"));
+                syndicationService.importTerminology(new SyndicationImportParams(RELEASE_URI, "BE", false)));
 
         assertEquals("Syndication username is blank.", exception.getMessage());
     }
@@ -85,7 +86,7 @@ class SyndicationServiceTest {
 
 
         IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () ->
-                syndicationService.importSnomedEditionAndExtension(RELEASE_URI, "BE"));
+                syndicationService.importTerminology(new SyndicationImportParams(RELEASE_URI, "BE", false)));
 
         assertEquals("Syndication password is blank.", exception.getMessage());
     }
