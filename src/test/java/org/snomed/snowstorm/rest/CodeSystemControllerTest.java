@@ -1,10 +1,12 @@
 package org.snomed.snowstorm.rest;
 
+import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.api.PathUtil;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.snomed.snowstorm.AbstractTest;
 import org.snomed.snowstorm.TestConfig;
+import org.snomed.snowstorm.config.Config;
 import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.services.*;
 import org.snomed.snowstorm.rest.pojo.ItemsPage;
@@ -39,6 +41,15 @@ class CodeSystemControllerTest extends AbstractTest {
 
     @Autowired
     private ConceptService conceptService;
+
+    @Autowired
+    private BranchService branchService;
+
+    @Autowired
+    private CodeSystemController codeSystemController;
+
+    @Autowired
+    private ReferenceSetMemberService referenceSetMemberService;
 
     @BeforeEach
     public void setUp() throws ServiceException {
@@ -235,6 +246,144 @@ class CodeSystemControllerTest extends AbstractTest {
         Optional<CodeSystem> parentCodeSystem = codeSystemService.findByBranchPath(PathUtil.getParentPath(codeSystem.getBranchPath()));
         CodeSystemVersion parentCodeSystemVersion = codeSystemService.findVersion(parentCodeSystem.get().getShortName(), codeSystem.getDependantVersionEffectiveTime());
         assertEquals(parentCodeSystemVersion.getReleasePackage(), receivedMetaData.get("dependencyPackage"));
+    }
+
+    @Test
+    void generateAdditionalLanguageRefsetDelta_ShouldNotRemovePT_WhenExtReactivatesInt() throws ServiceException {
+        String intMain = "MAIN";
+        String extMain = "MAIN/SNOMEDCT-XX";
+        Map<String, String> intPreferred = Map.of(GB_EN_LANG_REFSET, descriptionAcceptabilityNames.get(PREFERRED));
+        Map<String, String> intAcceptable = Map.of(GB_EN_LANG_REFSET, descriptionAcceptabilityNames.get(ACCEPTABLE));
+        String ci = "CASE_INSENSITIVE";
+        Concept concept;
+        CodeSystem codeSystem;
+        ReferenceSetMember referenceSetMember;
+
+        // International creates top level concept
+        concept = new Concept()
+                .addDescription(new Description("Vehicle (vehicle)").setTypeId(FSN).setCaseSignificance(ci).setAcceptabilityMap(intPreferred))
+                .addDescription(new Description("Vehicle").setTypeId(SYNONYM).setCaseSignificance(ci).setAcceptabilityMap(intPreferred))
+                .addDescription(new Description("Car").setTypeId(SYNONYM).setCaseSignificance(ci).setAcceptabilityMap(intAcceptable))
+                .addAxiom(new Relationship(ISA, SNOMEDCT_ROOT));
+        concept = conceptService.create(concept, intMain);
+        String vehicleId = concept.getConceptId();
+
+        // International versions
+        codeSystem = codeSystemService.find("SNOMEDCT");
+        codeSystemService.createVersion(codeSystem, 20250101, "20250101");
+
+        // Extension created
+        codeSystem = codeSystemService.createCodeSystem(new CodeSystem("SNOMEDCT-XX", extMain));
+        concept = conceptService.create(
+                new Concept()
+                        .addDescription(new Description("Extension module (module)").setTypeId(FSN).setCaseSignificance(ci).setAcceptabilityMap(intPreferred))
+                        .addDescription(new Description("Extension module").setTypeId(SYNONYM).setCaseSignificance(ci).setAcceptabilityMap(intPreferred))
+                        .addAxiom(new Relationship(ISA, MODULE)),
+                extMain
+        );
+        String extModuleId = concept.getConceptId();
+        concept = conceptService.create(
+                new Concept()
+                        .addDescription(new Description("Extension language reference set (reference set)").setTypeId(FSN).setCaseSignificance(ci).setAcceptabilityMap(intPreferred))
+                        .addDescription(new Description("Extension language reference set").setTypeId(SYNONYM).setCaseSignificance(ci).setAcceptabilityMap(intPreferred))
+                        .addAxiom(new Relationship(ISA, SNOMEDCT_ROOT)),
+                extMain
+        );
+        String extLanguageReferenceSetId = concept.getConceptId();
+        branchService.updateMetadata(
+                extMain,
+                Map.of(Config.DEFAULT_MODULE_ID_KEY, extModuleId,
+                        Config.EXPECTED_EXTENSION_MODULES, List.of(extModuleId),
+                        Config.DEPENDENCY_PACKAGE, "20250101.zip",
+                        Config.REQUIRED_LANGUAGE_REFSETS, List.of(Map.of("default", "true", "en", extLanguageReferenceSetId, "dialectName", "en-xx"))
+                )
+        );
+
+        // Extension versions
+        codeSystem = codeSystemService.find("SNOMEDCT-XX");
+        codeSystemService.createVersion(codeSystem, 20250102, "20250102");
+
+        // International inactivates synonym
+        concept = conceptService.find(vehicleId, intMain);
+        getDescription(concept, "Car").setActive(false);
+        concept = conceptService.update(concept, intMain);
+
+        // International versions
+        codeSystem = codeSystemService.find("SNOMEDCT");
+        codeSystemService.createVersion(codeSystem, 20250201, "20250201");
+
+        // Extension upgrades
+        codeSystem = codeSystemService.find("SNOMEDCT-XX");
+        codeSystemUpgradeService.upgrade(null, codeSystem, 20250201, true);
+
+        // Extension re-activates Description (creates own Acceptability)
+        concept = conceptService.find(vehicleId, extMain);
+        Description desc = getDescription(concept, "Car");
+        desc.setActive(true);
+        desc.setModuleId(extModuleId);
+        concept = conceptService.update(concept, extMain);
+
+        referenceSetMember = new ReferenceSetMember();
+        referenceSetMember.setModuleId(CORE_MODULE);
+        referenceSetMember.setRefsetId(GB_EN_LANG_REFSET);
+        referenceSetMember.setReferencedComponentId(getDescription(concept, "Car").getDescriptionId());
+        referenceSetMember.setAdditionalField(ReferenceSetMember.LanguageFields.ACCEPTABILITY_ID, ACCEPTABLE);
+        referenceSetMember = referenceSetMemberService.createMember(extMain, referenceSetMember);
+
+        referenceSetMember = new ReferenceSetMember();
+        referenceSetMember.setModuleId(extModuleId);
+        referenceSetMember.setRefsetId(extLanguageReferenceSetId);
+        referenceSetMember.setReferencedComponentId(getDescription(concept, "Car").getDescriptionId());
+        referenceSetMember.setAdditionalField(ReferenceSetMember.LanguageFields.ACCEPTABILITY_ID, PREFERRED);
+        referenceSetMember = referenceSetMemberService.createMember(extMain, referenceSetMember);
+
+        // Extension versions
+        codeSystem = codeSystemService.find("SNOMEDCT-XX");
+        codeSystemService.createVersion(codeSystem, 20250202, "20250202");
+
+        // International version
+        codeSystem = codeSystemService.find("SNOMEDCT");
+        codeSystemService.createVersion(codeSystem, 20250301, "20250301");
+
+        // Upgrade Extension
+        codeSystem = codeSystemService.find("SNOMEDCT-XX");
+        codeSystemUpgradeService.upgrade(null, codeSystem, 20250301, true);
+
+        // en-gb import for extension
+        codeSystemController.generateAdditionalLanguageRefsetDelta("SNOMEDCT-XX", extMain, GB_EN_LANG_REFSET, false);
+
+        // Assert
+        concept = conceptService.find(vehicleId, extMain);
+        int descWithPTCount = 0;
+        for (Description description : concept.getDescriptions()) {
+            for (ReferenceSetMember langRefsetMember : description.getLangRefsetMembers()) {
+                if (!Objects.equals(extLanguageReferenceSetId, langRefsetMember.getRefsetId())) {
+                    continue;
+                }
+
+                if (Objects.equals(langRefsetMember.getAdditionalField(ReferenceSetMember.LanguageFields.ACCEPTABILITY_ID), PREFERRED)) {
+                    descWithPTCount = descWithPTCount + 1;
+                }
+            }
+        }
+
+        assertTrue(descWithPTCount > 0);
+    }
+
+    private Description getDescription(Concept concept, String term) {
+        if (concept == null || concept.getDescriptions() == null || concept.getDescriptions().isEmpty()) {
+            return null;
+        }
+
+
+        Set<Description> descriptions = concept.getDescriptions();
+        for (Description description : descriptions) {
+            if (term.equals(description.getTerm())) {
+                return description;
+            }
+        }
+
+        return null;
     }
 
     //Wrapper for given blocks as used throughout test class

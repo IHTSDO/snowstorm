@@ -3,6 +3,7 @@ package org.snomed.snowstorm.extension;
 import co.elastic.clients.json.JsonData;
 import io.kaicode.elasticvc.api.BranchCriteria;
 import io.kaicode.elasticvc.api.BranchService;
+import io.kaicode.elasticvc.api.PathUtil;
 import io.kaicode.elasticvc.api.VersionControlHelper;
 import io.kaicode.elasticvc.domain.Branch;
 import io.kaicode.elasticvc.domain.Commit;
@@ -11,15 +12,8 @@ import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.snomed.snowstorm.core.data.domain.CodeSystem;
-import org.snomed.snowstorm.core.data.domain.Concepts;
-import org.snomed.snowstorm.core.data.domain.Description;
-import org.snomed.snowstorm.core.data.domain.ReferenceSetMember;
-import org.snomed.snowstorm.core.data.services.BranchMetadataHelper;
-import org.snomed.snowstorm.core.data.services.CodeSystemVersionService;
-import org.snomed.snowstorm.core.data.services.NotFoundException;
-import org.snomed.snowstorm.core.data.services.ReferenceSetMemberService;
-import org.springframework.beans.factory.annotation.Autowired;
+import org.snomed.snowstorm.core.data.domain.*;
+import org.snomed.snowstorm.core.data.services.*;
 import org.springframework.data.elasticsearch.client.elc.NativeQueryBuilder;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.data.elasticsearch.core.SearchHitsIterator;
@@ -35,8 +29,7 @@ import static co.elastic.clients.elasticsearch._types.query_dsl.QueryBuilders.bo
 import static co.elastic.clients.elasticsearch._types.query_dsl.QueryBuilders.range;
 import static com.google.common.collect.Iterables.partition;
 import static io.kaicode.elasticvc.api.ComponentService.LARGE_PAGE;
-import static io.kaicode.elasticvc.helper.QueryHelper.termQuery;
-import static io.kaicode.elasticvc.helper.QueryHelper.termsQuery;
+import static io.kaicode.elasticvc.helper.QueryHelper.*;
 import static org.snomed.snowstorm.core.data.domain.Description.Fields.DESCRIPTION_ID;
 import static org.snomed.snowstorm.core.data.domain.Description.Fields.TYPE_ID;
 import static org.snomed.snowstorm.core.data.domain.ReferenceSetMember.Fields.*;
@@ -49,24 +42,23 @@ import static org.snomed.snowstorm.core.data.services.BranchMetadataKeys.REQUIRE
 
 @Service
 public class ExtensionAdditionalLanguageRefsetUpgradeService {
+	private final BranchService branchService;
+	private final BranchMetadataHelper branchMetadataHelper;
+	private final ReferenceSetMemberService referenceSetMemberService;
+	private final VersionControlHelper versionControlHelper;
+	private final ElasticsearchOperations elasticsearchOperations;
+	private final CodeSystemVersionService codeSystemVersionService;
+	private final CodeSystemService codeSystemService;
 
-	@Autowired
-	private BranchService branchService;
-
-	@Autowired
-	private BranchMetadataHelper branchMetadataHelper;
-
-	@Autowired
-	private ReferenceSetMemberService referenceSetMemberService;
-
-	@Autowired
-	private VersionControlHelper versionControlHelper;
-
-	@Autowired
-	private ElasticsearchOperations elasticsearchOperations;
-
-	@Autowired
-	private CodeSystemVersionService codeSystemVersionService;
+	public ExtensionAdditionalLanguageRefsetUpgradeService(BranchService branchService, BranchMetadataHelper branchMetadataHelper, ReferenceSetMemberService referenceSetMemberService, VersionControlHelper versionControlHelper, ElasticsearchOperations elasticsearchOperations, CodeSystemVersionService codeSystemVersionService, CodeSystemService codeSystemService) {
+		this.branchService = branchService;
+		this.branchMetadataHelper = branchMetadataHelper;
+		this.referenceSetMemberService = referenceSetMemberService;
+		this.versionControlHelper = versionControlHelper;
+		this.elasticsearchOperations = elasticsearchOperations;
+		this.codeSystemVersionService = codeSystemVersionService;
+		this.codeSystemService = codeSystemService;
+	}
 
 	private final Logger logger = LoggerFactory.getLogger(ExtensionAdditionalLanguageRefsetUpgradeService.class);
 
@@ -111,7 +103,7 @@ public class ExtensionAdditionalLanguageRefsetUpgradeService {
 			if (lastDependantEffectiveTime == null) {
 				logger.info("No dependent version found in the latest version {} for CodeSystem {}", config.getCodeSystem().getLatestVersion(), config.getCodeSystem().getShortName());
 			}
-			Map<Long, List<ReferenceSetMember>> languageRefsetMembersToCopy = getReferencedComponents(branchPath, config.getLanguageRefsetIdToCopyFrom(), lastDependantEffectiveTime, currentDependantEffectiveTime);
+			Map<Long, List<ReferenceSetMember>> languageRefsetMembersToCopy = getReferencedComponents(config.getParentCodeSystemBranchPath(), config.getLanguageRefsetIdToCopyFrom(), lastDependantEffectiveTime, currentDependantEffectiveTime);
 			logger.info("{} components found with language refset id {} and effective time between {} and {}.", languageRefsetMembersToCopy.keySet().size(),
 					config.getLanguageRefsetIdToCopyFrom(), lastDependantEffectiveTime, currentDependantEffectiveTime);
 			toSave = addOrUpdateLanguageRefsetComponents(branchPath, config, languageRefsetMembersToCopy);
@@ -125,6 +117,16 @@ public class ExtensionAdditionalLanguageRefsetUpgradeService {
 				logger.info("{} components saved.", toSave.size());
 			}
 		}
+	}
+
+	private String getParentCodeSystemBranchPath(CodeSystem codeSystem) {
+		String branchPath = codeSystem.getBranchPath();
+		final Optional<CodeSystem> parentCodeSystem = codeSystemService.findByBranchPath(PathUtil.getParentPath(branchPath));
+		if (parentCodeSystem.isEmpty()) {
+			throw new NotFoundException("Cannot find parent CodeSystem for " + branchPath);
+		}
+
+		return parentCodeSystem.get().getBranchPath();
 	}
 
 	private List<ReferenceSetMember> copyAll(String branchPath, AdditionalRefsetExecutionConfig config) {
@@ -369,6 +371,7 @@ public class ExtensionAdditionalLanguageRefsetUpgradeService {
 		}
 		config.setDefaultEnglishLanguageRefsetId(defaultEnglishLanguageRefsetId);
 		config.setDefaultModuleId(defaultModuleId);
+		config.setParentCodeSystemBranchPath(getParentCodeSystemBranchPath(codeSystem));
 		return config;
 	}
 
@@ -378,6 +381,7 @@ public class ExtensionAdditionalLanguageRefsetUpgradeService {
 		private String defaultEnglishLanguageRefsetId;
 		private final boolean completeCopy;
 		private String languageRefsetIdToCopyFrom;
+		private String parentCodeSystemBranchPath;
 
 		AdditionalRefsetExecutionConfig(CodeSystem codeSystem, Boolean completeCopy) {
 			this.codeSystem = codeSystem;
@@ -412,6 +416,14 @@ public class ExtensionAdditionalLanguageRefsetUpgradeService {
 
 		 String getLanguageRefsetIdToCopyFrom() {
 			return this.languageRefsetIdToCopyFrom;
+		 }
+
+		 String getParentCodeSystemBranchPath() {
+			 return parentCodeSystemBranchPath;
+		 }
+
+		 void setParentCodeSystemBranchPath(String parentCodeSystemBranchPath) {
+			 this.parentCodeSystemBranchPath = parentCodeSystemBranchPath;
 		 }
 	 }
 
