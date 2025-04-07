@@ -43,11 +43,6 @@ RUN curl -sL https://deb.nodesource.com/setup_18.x -o /tmp/nodesource_setup.sh &
     && rm -rf /var/lib/apt/lists/*
 
 #############
-#### HL7 ####
-#############
-WORKDIR $HL7_HOME
-
-#############
 ### LOINC ###
 #############
 WORKDIR $LOINC_HOME
@@ -58,15 +53,23 @@ RUN curl -fsSL $(curl -s https://api.github.com/repos/hapifhir/hapi-fhir/release
     npm i puppeteer
 # Copy puppeteer script to image
 COPY download_loinc.mjs $LOINC_HOME/download_loinc.mjs
-# Testing purposes (import RF from disk)
-#COPY Loinc_2.80.zip $LOINC_HOME/Loinc_2.80.zip
+# For local testing of loinc imports
+COPY Loinc_*.zip $LOINC_HOME/
+
+#############
+#### HL7 ####
+#############
+WORKDIR $HL7_HOME
+# (Optional) For local testing of hl7 imports
+COPY hl7.terminology.*.tgz $HL7_HOME/
 
 ##############
 ### SNOMED ###
 ##############
 WORKDIR $SNOMED_HOME
-# Testing purposes (import RF from disk)
-#COPY international_sample.zip $SNOMED_HOME/international_sample.zip
+# For local testing of snomed imports
+COPY snomed-edition*.zip $SNOMED_HOME/
+COPY snomed-extension*.zip $SNOMED_HOME/
 
 ##############
 ### Common ###

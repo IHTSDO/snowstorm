@@ -7,8 +7,6 @@ import org.snomed.snowstorm.core.data.repositories.ImportStatusRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
-import java.util.Optional;
-
 @Service
 public class SyndicationImportStatusService {
 
@@ -30,7 +28,7 @@ public class SyndicationImportStatusService {
     /**
      * Read import status by terminology.
      */
-    public Optional<SyndicationImportStatus> getImportStatus(String terminology) {
-        return repository.findById(terminology);
+    public SyndicationImportStatus getImportStatus(String terminology) {
+        return repository.findById(terminology).orElse(null);
     }
 }

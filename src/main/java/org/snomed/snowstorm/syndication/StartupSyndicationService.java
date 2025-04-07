@@ -11,9 +11,10 @@ import org.springframework.stereotype.Service;
 import java.io.IOException;
 import java.util.Map;
 
-import static org.snomed.snowstorm.SnowstormApplication.getOneValueOrNull;
+import static org.snomed.snowstorm.SnowstormApplication.getOneValueOrDefault;
 import static org.snomed.snowstorm.syndication.common.SyndicationConstants.EXTENSION_COUNTRY_CODE;
 import static org.snomed.snowstorm.syndication.common.SyndicationConstants.IMPORT_LOINC_TERMINOLOGY;
+import static org.snomed.snowstorm.syndication.common.SyndicationConstants.LATEST_VERSION;
 import static org.snomed.snowstorm.syndication.common.SyndicationConstants.SUPPORTED_TERMINOLOGIES;
 
 @Service
@@ -26,10 +27,10 @@ public class StartupSyndicationService {
 
     public void handleStartupSyndication(ApplicationArguments applicationArguments) throws IOException, ServiceException, InterruptedException {
         boolean isLoincIncluded = applicationArguments.containsOption(IMPORT_LOINC_TERMINOLOGY);
-        String extensionName = getOneValueOrNull(applicationArguments, EXTENSION_COUNTRY_CODE);
+        String extensionName = getOneValueOrDefault(applicationArguments, EXTENSION_COUNTRY_CODE, null);
         for (String terminology : SUPPORTED_TERMINOLOGIES) {
             if (applicationArguments.containsOption(terminology)) {
-                String version = getOneValueOrNull(applicationArguments, terminology);
+                String version = getOneValueOrDefault(applicationArguments, terminology, LATEST_VERSION);
                 SyndicationService service = syndicationServices.get(terminology);
                 if (service == null) {
                     throw new IllegalStateException("No service found for terminology: " + terminology);

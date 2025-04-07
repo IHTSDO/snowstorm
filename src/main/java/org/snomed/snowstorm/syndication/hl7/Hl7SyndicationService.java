@@ -1,6 +1,5 @@
 package org.snomed.snowstorm.syndication.hl7;
 
-import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.core.data.services.ServiceException;
 import org.snomed.snowstorm.fhir.domain.FHIRCodeSystemVersion;
@@ -15,16 +14,22 @@ import org.springframework.stereotype.Service;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
-import static org.apache.logging.log4j.util.Strings.isNotBlank;
+import static java.util.Collections.singletonList;
 import static org.snomed.snowstorm.core.util.FileUtils.findFile;
 import static org.snomed.snowstorm.syndication.common.SyndicationConstants.IMPORT_HL_7_TERMINOLOGY;
-import static org.snomed.snowstorm.syndication.common.SyndicationUtils.waitForProcessTermination;
+import static org.snomed.snowstorm.syndication.common.CommandUtils.getSingleLineCommandResult;
+import static org.snomed.snowstorm.syndication.common.CommandUtils.waitForProcessTermination;
+import static org.snomed.snowstorm.syndication.common.SyndicationConstants.LATEST_VERSION;
+import static org.snomed.snowstorm.syndication.common.SyndicationConstants.LOCAL_VERSION;
 
 @Service(IMPORT_HL_7_TERMINOLOGY)
 public class Hl7SyndicationService extends SyndicationService {
+
+    public static final String HL_7 = "Hl7";
 
     @Autowired
     private FHIRLoadPackageService loadPackageService;
@@ -41,10 +46,16 @@ public class Hl7SyndicationService extends SyndicationService {
     @Value("${syndication.hl7.fhir.version}")
     private String fhirVersion;
 
-    private final Logger logger = LoggerFactory.getLogger(getClass());
-
     public Hl7SyndicationService() {
-        super("Hl7");
+        super(HL_7, LoggerFactory.getLogger(Hl7SyndicationService.class));
+    }
+
+    @Override
+    protected List<File> fetchTerminologyPackages(SyndicationImportParams params) throws IOException, InterruptedException, ServiceException {
+        Optional<File> file = LOCAL_VERSION.equals(params.getVersion())
+                ? findFile(workingDirectory, fileNamePattern)
+                : downloadHl7File(params.getVersion());
+        return singletonList(file.orElseThrow(() -> new ServiceException("Hl7 terminology file not found, cannot be imported")));
     }
 
     /**
@@ -53,19 +64,15 @@ public class Hl7SyndicationService extends SyndicationService {
      * If the LOINC terminology is supposed to be used as well, a conflicting codeSystem imported through hl7 must be removed ( see <a href="https://github.com/IHTSDO/snowstorm/issues/609"></a>)
      */
     @Override
-    protected void importTerminology(SyndicationImportParams params) throws IOException, InterruptedException, ServiceException {
-        Optional<File> file = findFile(workingDirectory, fileNamePattern);
-        if (file.isEmpty()) {
-            file = downloadFile(params.getVersion());
-        }
-        importHl7Package(file);
+    protected void importTerminology(SyndicationImportParams params, List<File> files) throws IOException {
+        importHl7Package(files.get(0));
         if (params.isLoincImportIncluded()) {
             deleteConflictingHl7CodeSystem();
         }
     }
 
-    private Optional<File> downloadFile(String version) throws IOException, InterruptedException {
-        String versionSuffix = version == null ? "" : "@" + version;
+    private Optional<File> downloadHl7File(String version) throws IOException, InterruptedException {
+        String versionSuffix = LATEST_VERSION.equals(version) ? "" : "@" + version;
         String packageName = "hl7.terminology." + fhirVersion + versionSuffix;
         Process process = new ProcessBuilder("npm", "--registry", "https://packages.simplifier.net", "pack", packageName)
                 .directory(new File(workingDirectory))
@@ -74,14 +81,10 @@ public class Hl7SyndicationService extends SyndicationService {
         return findFile(workingDirectory, fileNamePattern);
     }
 
-    private void importHl7Package(Optional<File> fileOpt) throws IOException, ServiceException {
-        if (fileOpt.isEmpty()) {
-            throw new ServiceException("Hl7 terminology file not found, cannot be imported");
-        }
-        File file = fileOpt.get();
-        setActualTerminologyVersion(file.getName());
-        logger.info("Importing HL7 Terminology from: {}", file.getName());
-        loadPackageService.uploadPackageResources(file, Set.of("*"), file.getName(), false);
+    private void importHl7Package(File file) throws IOException {
+        String fileName = file.getName();
+        logger.info("Importing HL7 Terminology from: {}", fileName);
+        loadPackageService.uploadPackageResources(file, Set.of("*"), fileName, false);
     }
 
     private void deleteConflictingHl7CodeSystem() {
@@ -94,8 +97,12 @@ public class Hl7SyndicationService extends SyndicationService {
     }
 
     @Override
-    protected void setActualTerminologyVersion(String releaseFileName) {
-        String version = releaseFileName.replaceAll("^hl7\\.terminology\\.r4-(\\d+\\.\\d+\\.\\d+)\\.tgz$", "$1");
-        actualVersion = isNotBlank(version) ? version : releaseFileName;
+    protected String getTerminologyVersion(String releaseFileName) {
+        return releaseFileName.replaceAll("^hl7\\.terminology\\.r4-(\\d+\\.\\d+\\.\\d+)(?:-[^.]+)?\\.tgz$", "$1");
+    }
+
+    @Override
+    protected String getLatestTerminologyVersion() throws IOException, InterruptedException {
+        return getSingleLineCommandResult("curl -s https://packages.simplifier.net/hl7.terminology.r4 | jq -r '.versions | map(.version)[]' | tail -n 1");
     }
 }

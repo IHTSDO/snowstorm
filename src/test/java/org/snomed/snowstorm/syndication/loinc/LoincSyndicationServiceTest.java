@@ -4,10 +4,12 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
+import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.snomed.snowstorm.core.data.services.ServiceException;
 import org.snomed.snowstorm.core.util.FileUtils;
 import org.snomed.snowstorm.syndication.common.SyndicationImportParams;
+import org.snomed.snowstorm.syndication.common.SyndicationImportStatusService;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.io.File;
@@ -15,11 +17,16 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.util.Optional;
 
+import static org.apache.commons.compress.java.util.jar.Pack200.Packer.LATEST;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.*;
+import static org.snomed.snowstorm.syndication.common.SyndicationConstants.LOCAL_VERSION;
 
 @ExtendWith(MockitoExtension.class)
 class LoincSyndicationServiceTest {
+
+    @Mock
+    private SyndicationImportStatusService importStatusService;
 
     @InjectMocks
     private LoincSyndicationService loincSyndicationService;
@@ -34,35 +41,34 @@ class LoincSyndicationServiceTest {
     @Test
     void testImportLoincTerminology_FileAlreadyExists() throws IOException, InterruptedException, ServiceException {
         try (var mockStatic = mockStatic(FileUtils.class)) {
-            mockStatic.when(() -> FileUtils.findFileName("/tmp", "loinc.zip"))
-                    .thenReturn(Optional.of("loinc.zip"));
+            mockStatic.when(() -> FileUtils.findFile("/tmp", "loinc.zip"))
+                    .thenReturn(Optional.of(new File("loinc.zip")));
 
-            loincSyndicationService.importTerminology(new SyndicationImportParams(null, null, false));
+            loincSyndicationService.importTerminologyAndStoreResult(new SyndicationImportParams(LOCAL_VERSION, null, false));
 
-            mockStatic.verify(() -> FileUtils.findFileName("/tmp", "loinc.zip"), times(1));
+            mockStatic.verify(() -> FileUtils.findFile("/tmp", "loinc.zip"), times(1));
         }
     }
 
     @Test
     void testImportLoincTerminology_FileNeedsDownload() throws IOException, InterruptedException, ServiceException {
         try (var mockStatic = mockStatic(FileUtils.class)) {
-            mockStatic.when(() -> FileUtils.findFileName("/tmp", "loinc.zip"))
-                    .thenReturn(Optional.empty())
-                    .thenReturn(Optional.of("loinc.zip"));
+            mockStatic.when(() -> FileUtils.findFile("/tmp", "loinc.zip"))
+                    .thenReturn(Optional.of(new File("loinc.zip")));
 
-            loincSyndicationService.importTerminology(new SyndicationImportParams(null, null, false));
+            loincSyndicationService.importTerminologyAndStoreResult(new SyndicationImportParams(LATEST, null, false));
 
-            mockStatic.verify(() -> FileUtils.findFileName("/tmp", "loinc.zip"), times(2));
+            mockStatic.verify(() -> FileUtils.findFile("/tmp", "loinc.zip"), times(1));
         }
     }
 
     @Test
     void testImportLoincTerminology_FileNotFoundAfterDownload() {
         try (var mockStatic = mockStatic(FileUtils.class)) {
-            mockStatic.when(() -> FileUtils.findFileName("/tmp", "loinc.zip"))
+            mockStatic.when(() -> FileUtils.findFile("/tmp", "loinc.zip"))
                     .thenReturn(Optional.empty());
 
-            assertThrows(ServiceException.class, () -> loincSyndicationService.importTerminology(new SyndicationImportParams("2.80", null, false)));
+            assertThrows(ServiceException.class, () -> loincSyndicationService.importTerminologyAndStoreResult(new SyndicationImportParams("2.80", null, false)));
         }
     }
 

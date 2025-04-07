@@ -42,48 +42,25 @@ public class SyndicationImportStatus {
         return terminology;
     }
 
-    public void setTerminology(String terminology) {
-        this.terminology = terminology;
-    }
-
     public String getRequestedVersion() {
         return requestedVersion;
-    }
-
-    public void setRequestedVersion(String version) {
-        this.requestedVersion = version;
     }
 
     public String getActualVersion() {
         return actualVersion;
     }
 
-    public void setActualVersion(String version) {
-        this.actualVersion = version;
-    }
-
     public boolean isSuccess() {
         return success;
-    }
-
-    public void setSuccess(boolean success) {
-        this.success = success;
     }
 
     public String getException() {
         return exception;
     }
 
-    public void setException(String exception) {
-        this.exception = exception;
-    }
-
     public long getTimestamp() {
         return timestamp;
     }
 
-    public void setTimestamp(long timestamp) {
-        this.timestamp = timestamp;
-    }
 }
 

@@ -10,6 +10,7 @@ import org.snomed.snowstorm.core.data.domain.QueryConcept;
 import org.snomed.snowstorm.core.data.services.*;
 import org.snomed.snowstorm.core.rf2.RF2Type;
 import org.snomed.snowstorm.core.rf2.rf2import.ImportService;
+import org.snomed.snowstorm.core.util.CollectionUtils;
 import org.snomed.snowstorm.syndication.StartupSyndicationService;
 import org.springframework.beans.factory.BeanCreationException;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -131,8 +132,8 @@ public class SnowstormApplication extends Config implements ApplicationRunner {
 		}
 	}
 
-	public static String getOneValueOrNull(ApplicationArguments applicationArguments, String argName) {
-        return applicationArguments.getOptionValues(argName).isEmpty() ? null : getOneValue(applicationArguments, argName);
+	public static String getOneValueOrDefault(ApplicationArguments applicationArguments, String argName, String defaultValue) {
+        return CollectionUtils.orEmpty(applicationArguments.getOptionValues(argName)).isEmpty() ? defaultValue : getOneValue(applicationArguments, argName);
     }
 
 	private static String getOneValue(ApplicationArguments applicationArguments, String argName) {

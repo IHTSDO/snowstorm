@@ -2,7 +2,6 @@ package org.snomed.snowstorm.syndication.snomed;
 
 import org.apache.logging.log4j.util.Strings;
 import org.ihtsdo.otf.snomedboot.ReleaseImportException;
-import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.core.data.domain.CodeSystem;
 import org.snomed.snowstorm.core.data.services.CodeSystemService;
@@ -15,24 +14,39 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import static org.snomed.snowstorm.core.data.services.CodeSystemService.MAIN;
-import static org.snomed.snowstorm.core.util.FileUtils.removeTempFiles;
+import static org.snomed.snowstorm.core.util.FileUtils.findFile;
 import static org.snomed.snowstorm.fhir.services.FHIRHelper.SNOMED_URI_MODULE_AND_VERSION_PATTERN;
 import static org.snomed.snowstorm.syndication.common.SyndicationConstants.IMPORT_SNOMED_TERMINOLOGY;
+import static org.snomed.snowstorm.syndication.common.SyndicationConstants.LOCAL_VERSION;
 
 @Service(IMPORT_SNOMED_TERMINOLOGY)
 public class SnomedSyndicationService extends SyndicationService {
+
+    public static final String SNOMED = "Snomed";
 
     @Value("${SNOMED_USERNAME}")
     private String snomedUsername;
 
     @Value("${SNOMED_PASSWORD}")
     private String snomedPassword;
+
+    @Value("${syndication.snomed.working-directory}")
+    private String workingDirectory;
+
+    @Value("${syndication.snomed.fileNamePattern.edition}")
+    private String editionFileNamePattern;
+
+    @Value("${syndication.snomed.fileNamePattern.extension}")
+    private String extensionFileNamePattern;
 
     @Autowired
     private SnomedSyndicationClient syndicationClient;
@@ -43,22 +57,46 @@ public class SnomedSyndicationService extends SyndicationService {
     @Autowired
     private CodeSystemService codeSystemService;
 
-    private final Logger logger = LoggerFactory.getLogger(getClass());
+    private String releaseUri;
 
     public SnomedSyndicationService() {
-        super("Snomed");
+        super(SNOMED, LoggerFactory.getLogger(SnomedSyndicationService.class));
     }
 
     @Override
-    protected void importTerminology(SyndicationImportParams params) throws IOException, ServiceException {
+    protected List<File> fetchTerminologyPackages(SyndicationImportParams params) throws ServiceException, IOException {
+        releaseUri = params.getVersion();
+        if(LOCAL_VERSION.equals(releaseUri)) {
+            return retrieveLocalPackages(params);
+        } else {
+            validateReleaseUriPattern(releaseUri);
+            validateSyndicationCredentials();
+            return syndicationClient.downloadPackages(releaseUri, snomedUsername, snomedPassword);
+        }
+    }
+
+    /**
+     * Will import the snomed terminology. If the version provided in the params is an extension, it will import the linked edition as well
+     */
+    @Override
+    protected void importTerminology(SyndicationImportParams params, List<File> files) throws ServiceException {
         String releaseUri = params.getVersion();
-        validateReleaseUriPattern(releaseUri);
-        validateSyndicationCredentials();
-        List<String> filePaths = syndicationClient.downloadPackages(releaseUri, snomedUsername, snomedPassword);
-        setActualTerminologyVersion(releaseUri);
-        importEdition(filePaths);
-        importExtension(releaseUri, params.getExtensionName(), filePaths);
-        removeTempFiles(filePaths);
+        List<String> packageFilePaths = files.stream().map(File::getAbsolutePath).collect(Collectors.toList());
+        importEdition(packageFilePaths);
+        importExtension(releaseUri, params.getExtensionName(), packageFilePaths);
+    }
+
+    private List<File> retrieveLocalPackages(SyndicationImportParams params) throws ServiceException, IOException {
+        List<File> packageFilePaths = new ArrayList<>();
+        packageFilePaths.add(
+                findFile(workingDirectory, editionFileNamePattern)
+                        .orElseThrow(() -> new ServiceException("Could not find edition file with pattern " + editionFileNamePattern)));
+        if(params.getExtensionName() != null) {
+            packageFilePaths.add(
+                    findFile(workingDirectory, extensionFileNamePattern)
+                            .orElseThrow(() -> new ServiceException("Could not find extension file with pattern " + extensionFileNamePattern)));
+        }
+        return packageFilePaths;
     }
 
     private static void validateReleaseUriPattern(String releaseUri) {
@@ -80,7 +118,7 @@ public class SnomedSyndicationService extends SyndicationService {
         }
     }
 
-    private void importEdition(List<String> filePaths) {
+    private void importEdition(List<String> filePaths) throws ServiceException {
         importPackage(filePaths.get(0), MAIN);
         logger.info("Edition import DONE");
     }
@@ -98,12 +136,13 @@ public class SnomedSyndicationService extends SyndicationService {
         }
     }
 
-    private void importPackage(String filePath, String branchName) {
+    private void importPackage(String filePath, String branchName) throws ServiceException {
         String importId = importService.createJob(RF2Type.SNAPSHOT, branchName, true, false);
         try (FileInputStream releaseFileStream = getFileInputStream(filePath)) {
             importService.importArchive(importId, releaseFileStream);
         } catch (IOException | ReleaseImportException e) {
             logger.error("Import failed.", e);
+            throw new ServiceException("Import package failed .", e);
         }
     }
 
@@ -112,7 +151,12 @@ public class SnomedSyndicationService extends SyndicationService {
     }
 
     @Override
-    protected void setActualTerminologyVersion(String releaseFileName) {
-        actualVersion = releaseFileName; // todo: adapt during snomed refactoring
+    protected String getTerminologyVersion(String releaseFileName) {
+        return releaseUri;
+    }
+
+    @Override
+    protected String getLatestTerminologyVersion() {
+        throw new IllegalArgumentException("Not yet implemented");
     }
 }

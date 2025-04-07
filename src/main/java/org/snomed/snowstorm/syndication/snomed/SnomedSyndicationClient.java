@@ -54,14 +54,14 @@ public class SnomedSyndicationClient {
     /**
      * @return a list containing first the downloaded edition package file path, then if present the downloaded extension package file path
      */
-    public List<String> downloadPackages(String releaseUri, String snomedUsername, String snomedPassword) throws IOException, ServiceException {
+    public List<File> downloadPackages(String releaseUri, String snomedUsername, String snomedPassword) throws IOException, ServiceException {
         SyndicationFeed feed = getFeed();
         SyndicationFeedEntry entry = findEntryBasedOnUri(feed, releaseUri);
         List<SyndicationFeedEntry> feedEntries = new ArrayList<>(List.of(entry));
         if(isReleaseExtension(entry)) {
             addReleaseEditionLink(entry, feed, feedEntries);
         }
-        List<String> packageFilePaths = new ArrayList<>();
+        List<File> packageFilePaths = new ArrayList<>();
         logger.info("{} package(s) will be downloaded", feedEntries.size());
         try {
             for (SyndicationFeedEntry feedEntry : feedEntries) {
@@ -72,7 +72,7 @@ public class SnomedSyndicationClient {
                         request -> request.getHeaders().setBasicAuth(snomedUsername, snomedPassword),
                         clientHttpResponse -> handleHttpResponse(feedEntry.getZipLink(), clientHttpResponse, outputFile));
                 outputFile.deleteOnExit();
-                packageFilePaths.add(outputFile.getAbsolutePath());
+                packageFilePaths.add(outputFile);
             }
         } catch (HttpClientErrorException e) {
             throw new ServiceException(format("Failed to download package due to HTTP error: %s", e.getStatusCode()), e);
