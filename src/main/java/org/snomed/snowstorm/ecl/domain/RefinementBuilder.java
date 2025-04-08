@@ -27,4 +27,8 @@ public interface RefinementBuilder {
 	void inclusionFilterRequired();
 
 	boolean isInclusionFilterRequired();
+
+	void setShouldPrefetchMemberOfQueryResults(boolean prefetchMemberOfQueryResults);
+
+	Boolean shouldPrefetchMemberOfQueryResults();
 }
