@@ -242,7 +242,7 @@ class QueryServiceTest extends AbstractTest {
 
 	@Test
 	void testDotNotationEclQuery() throws ServiceException {
-		createConceptsForDotNotationTests();
+		createConcepts();
 
 		QueryService.ConceptQueryBuilder queryBuilder = service.createQueryBuilder(false).activeFilter(true);
 		// Dot notation
@@ -266,7 +266,7 @@ class QueryServiceTest extends AbstractTest {
 
 	@Test
 	void testDotNotationEclQueryWithSearchAfter() throws ServiceException {
-		createConceptsForDotNotationTests();
+		createConcepts();
 
 		QueryService.ConceptQueryBuilder queryBuilder = service.createQueryBuilder(false).activeFilter(true);
 		String ecl = "( *: 116676008 |Associated morphology (attribute)|= 415582006 |Stenosis (morphologic abnormality)|). 363698007 |Finding site (attribute)|";
@@ -287,26 +287,70 @@ class QueryServiceTest extends AbstractTest {
 		assertNotEquals(resultsPageOne.getSearchAfter(), resultsPageTwo.getSearchAfter());
 	}
 
-
 	@Test
-	void testDotNotationEclWithMemberOf() throws ServiceException {
-		createConceptsForDotNotationTests();
+	void testNestedMemberOfQueries()throws ServiceException {
+		createConcepts();
 		createMembers(MAIN, REFSET_SIMPLE, List.of(STENOSIS, HYPERTROPHY));
 		QueryService.ConceptQueryBuilder queryBuilder = service.createQueryBuilder(false).activeFilter(true);
-		String ecl = "<<^446609009";
+		String ecl = "^ 446609009";
 		queryBuilder.ecl(ecl);
 		List<ConceptMini> results = service.search(queryBuilder, PATH, PAGE_REQUEST).getContent();
 		assertEquals(2, results.size());
 
-		ecl = "( *: 116676008 |Associated morphology (attribute)|= ^446609009).363698007|Finding site (attribute)|";
+		ecl = "(^ 446609009)";
+		queryBuilder.ecl(ecl);
+		results = service.search(queryBuilder, PATH, PAGE_REQUEST).getContent();
+		assertEquals(2, results.size());
+
+		ecl = "^(<<900000000000455006)";
 		queryBuilder.ecl(ecl);
 		results = service.search(queryBuilder, PATH, PAGE_REQUEST).getContent();
 		assertEquals(2, results.size());
 	}
 
-	private void createConceptsForDotNotationTests() throws ServiceException {
+	@Test
+	void testRefinedExpressionConstraintWithMemberOf()throws ServiceException {
+		createConcepts();
+		createMembers(MAIN, REFSET_SIMPLE, List.of(STENOSIS, HYPERTROPHY));
+		QueryService.ConceptQueryBuilder queryBuilder = service.createQueryBuilder(false).activeFilter(true);
+		String ecl = "^446609009:116676008 |Associated morphology (attribute)|=*";
+		queryBuilder.ecl(ecl);
+		List<ConceptMini> results = service.search(queryBuilder, PATH, PAGE_REQUEST).getContent();
+		assertEquals(0, results.size());
+
+		createMembers(MAIN, REFSET_SIMPLE, List.of(PENDING_MOVE, PENTALOGY_OF_FALLOT));
+		results = service.search(queryBuilder, PATH, PAGE_REQUEST).getContent();
+		assertEquals(1, results.size());
+		assertEquals(PENTALOGY_OF_FALLOT, results.get(0).getConceptId());
+	}
+
+
+	@Test
+	void testDotNotationEclWithMemberOf() throws ServiceException {
+		createConcepts();
+		createMembers(MAIN, REFSET_SIMPLE, List.of(STENOSIS, HYPERTROPHY));
+		QueryService.ConceptQueryBuilder queryBuilder = service.createQueryBuilder(false).activeFilter(true);
+		String ecl = "( *: 116676008 |Associated morphology (attribute)|= ^446609009).363698007|Finding site (attribute)|";
+		queryBuilder.ecl(ecl);
+		List<ConceptMini> results = service.search(queryBuilder, PATH, PAGE_REQUEST).getContent();
+		assertEquals(2, results.size());
+		assertEquals(RIGHT_VENTRICULAR_STRUCTURE, results.get(0).getConceptId());
+		assertEquals(PULMONARY_VALVE_STRUCTURE, results.get(1).getConceptId());
+
+		createMembers(MAIN, REFSET_SIMPLE, List.of(PENDING_MOVE, PENTALOGY_OF_FALLOT));
+		ecl = "^446609009.116676008 |Associated morphology (attribute)|";
+		queryBuilder.ecl(ecl);
+		results = service.search(queryBuilder, PATH, PAGE_REQUEST).getContent();
+		assertEquals(2, results.size());
+		assertEquals(STENOSIS, results.get(0).getConceptId());
+		assertEquals(HYPERTROPHY, results.get(1).getConceptId());
+	}
+
+	private void createConcepts() throws ServiceException {
 		List<Concept> allConcepts = new ArrayList<>();
 		allConcepts.add(new Concept(ISA).addRelationship(new Relationship(ISA, SNOMEDCT_ROOT)));
+		allConcepts.add(new Concept(REFSET_SIMPLE).addRelationship(new Relationship(ISA, REFSET)));
+		allConcepts.add(new Concept(REFSET).addRelationship(new Relationship(ISA, SNOMEDCT_ROOT)));
 		allConcepts.add(new Concept(MODEL_COMPONENT).addRelationship(new Relationship(ISA, SNOMEDCT_ROOT)));
 		allConcepts.add(new Concept(CONCEPT_MODEL_ATTRIBUTE).addRelationship(new Relationship(ISA, MODEL_COMPONENT)));
 		allConcepts.add(new Concept(CONCEPT_MODEL_OBJECT_ATTRIBUTE).addRelationship(new Relationship(ISA, CONCEPT_MODEL_ATTRIBUTE)));
