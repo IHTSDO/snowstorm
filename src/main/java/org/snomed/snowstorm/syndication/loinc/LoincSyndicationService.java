@@ -73,7 +73,7 @@ public class LoincSyndicationService extends SyndicationService {
 
     @Override
     protected String getTerminologyVersion(String releaseFileName) {
-        return releaseFileName.replaceAll("^Loinc_(\\\\d+\\\\.\\\\d+)(?:-[^\\\\.]+)?\\\\.zip$", "$1");
+        return releaseFileName.replaceAll("^Loinc_(\\d+\\.\\d+)(?:-[^.]+)?\\.zip$", "$1");
     }
 
     @Override

@@ -44,13 +44,13 @@ services:
     ]
     command: [
       "--elasticsearch.urls=http://es:9200",
-      #"--import-hl7-terminology",
+      "--import-hl7-terminology",
       #"--import-hl7-terminology=local",
       #"--import-hl7-terminology=6.1.0",
-      #"--import-snomed-terminology", # not yet implemented
-      "--import-snomed-terminology=local",
-      #"--import-snomed-terminology=http://snomed.info/sct/11000172109/version/20250315", # belgian extension (+ international edition dependency)
-      "--extension-country-code=BE",
+      #"--import-snomed-terminology=local",
+      #"--import-snomed-terminology=http://snomed.info/sct/11000172109", # belgian extension (+ international edition dependency)
+      "--import-snomed-terminology=http://snomed.info/sct/11000172109/version/20250315", # specific version
+      "--extension-country-code=BE", # mandatory when loading snomed extensions
       #"--import-loinc-terminology",
       #"--import-loinc-terminology=local",
       #"--import-loinc-terminology=2.78",

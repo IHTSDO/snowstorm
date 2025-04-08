@@ -54,22 +54,22 @@ RUN curl -fsSL $(curl -s https://api.github.com/repos/hapifhir/hapi-fhir/release
 # Copy puppeteer script to image
 COPY download_loinc.mjs $LOINC_HOME/download_loinc.mjs
 # For local testing of loinc imports
-COPY Loinc_*.zip $LOINC_HOME/
+#COPY Loinc_*-sample.zip $LOINC_HOME/
 
 #############
 #### HL7 ####
 #############
 WORKDIR $HL7_HOME
 # (Optional) For local testing of hl7 imports
-COPY hl7.terminology.*.tgz $HL7_HOME/
+#COPY hl7.terminology.*-sample.tgz $HL7_HOME/
 
 ##############
 ### SNOMED ###
 ##############
 WORKDIR $SNOMED_HOME
 # For local testing of snomed imports
-COPY snomed-edition*.zip $SNOMED_HOME/
-COPY snomed-extension*.zip $SNOMED_HOME/
+#COPY snomed-edition*-sample.zip $SNOMED_HOME/
+#COPY snomed-extension*-sample.zip $SNOMED_HOME/
 
 ##############
 ### Common ###

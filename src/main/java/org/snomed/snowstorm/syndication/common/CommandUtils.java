@@ -45,6 +45,9 @@ public class CommandUtils {
         stderrReader.join();
 
         logger.info("Process {} exited with code: {}", processName, exitCode);
+        if(exitCode != 0) {
+            throw new RuntimeException("Process " + processName + " exited with code " + exitCode);
+        }
     }
 
     public static String getSingleLineCommandResult(String command) throws IOException, InterruptedException {
