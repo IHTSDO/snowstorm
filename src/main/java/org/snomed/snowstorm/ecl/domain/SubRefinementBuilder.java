@@ -12,6 +12,7 @@ public class SubRefinementBuilder implements RefinementBuilder {
 
 	private final RefinementBuilder refinementBuilder;
 	private final BoolQuery.Builder query;
+	private Boolean shouldReturnPrefetchedResults;
 
 	public SubRefinementBuilder(RefinementBuilder refinementBuilder, BoolQuery.Builder queryBuilder) {
 		this.refinementBuilder = refinementBuilder;
@@ -61,5 +62,14 @@ public class SubRefinementBuilder implements RefinementBuilder {
 	@Override
 	public boolean isInclusionFilterRequired() {
 		return refinementBuilder.isInclusionFilterRequired();
+	}
+
+	@Override
+	public void setShouldPrefetchMemberOfQueryResults(boolean shouldReturnPrefetchedResults) {
+		this.shouldReturnPrefetchedResults = shouldReturnPrefetchedResults;
+	}
+	@Override
+	public Boolean shouldPrefetchMemberOfQueryResults() {
+		return this.shouldReturnPrefetchedResults;
 	}
 }
