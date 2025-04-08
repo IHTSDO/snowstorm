@@ -17,6 +17,7 @@ public class RefinementBuilderImpl implements RefinementBuilder {
 	private final ECLContentService eclContentService;
 	private Function<QueryConcept, Boolean> inclusionFilter;
 	private boolean inclusionFilterRequired;
+	private Boolean shouldReturnPrefetchedResults;
 
 	public RefinementBuilderImpl(BoolQuery.Builder queryBuilder, BranchCriteria branchCriteria, boolean stated, ECLContentService eclContentService) {
 		this.queryBuilder = queryBuilder;
@@ -64,5 +65,14 @@ public class RefinementBuilderImpl implements RefinementBuilder {
 	@Override
 	public boolean isInclusionFilterRequired() {
 		return inclusionFilterRequired;
+	}
+
+	@Override
+	public void setShouldPrefetchMemberOfQueryResults(boolean prefetchMemberOfQueryResults) {
+		this.shouldReturnPrefetchedResults = prefetchMemberOfQueryResults;
+	}
+	@Override
+	public Boolean shouldPrefetchMemberOfQueryResults() {
+		return this.shouldReturnPrefetchedResults;
 	}
 }
