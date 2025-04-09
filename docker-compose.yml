@@ -28,14 +28,14 @@ services:
     build: .
     env_file: ./.env
     container_name: snowstorm
-    #restart: always
+    restart: always
     depends_on:
       elasticsearch:
         condition: service_healthy
     entrypoint: [
       "java",
-      "-Xdebug",
-      "-agentlib:jdwp=transport=dt_socket,server=y,address=*:5005,suspend=n",
+      #"-Xdebug",
+      #"-agentlib:jdwp=transport=dt_socket,server=y,address=*:5005,suspend=n",
       "-Xms2g",
       "-Xmx4g",
       "--add-opens", "java.base/java.lang=ALL-UNNAMED",
@@ -48,10 +48,10 @@ services:
       #"--import-hl7-terminology=local",
       #"--import-hl7-terminology=6.1.0",
       #"--import-snomed-terminology=local",
-      #"--import-snomed-terminology=http://snomed.info/sct/11000172109", # belgian extension (+ international edition dependency)
-      "--import-snomed-terminology=http://snomed.info/sct/11000172109/version/20250315", # specific version
+      "--import-snomed-terminology=http://snomed.info/sct/11000172109", # latest belgian extension (+ international edition dependency)
+      #"--import-snomed-terminology=http://snomed.info/sct/11000172109/version/20250315", # specific version
       "--extension-country-code=BE", # mandatory when loading snomed extensions
-      #"--import-loinc-terminology",
+      "--import-loinc-terminology",
       #"--import-loinc-terminology=local",
       #"--import-loinc-terminology=2.78",
     ]
@@ -61,7 +61,7 @@ services:
          - snowstorm
     ports:
       - "8080:8080"
-      - "5005:5005" # debugging purposes
+      #- "5005:5005" # debugging purposes
 
   browser:
     image: snomedinternational/snomedct-browser:latest
@@ -76,7 +76,7 @@ services:
       - API_HOST=http://snowstorm:8080/
     ports:
       - "80:80"
-    #restart: always
+    restart: always
 
 
 networks:

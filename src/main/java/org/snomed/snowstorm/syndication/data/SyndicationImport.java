@@ -1,12 +1,13 @@
 package org.snomed.snowstorm.syndication.data;
 
+import org.snomed.snowstorm.core.rf2.rf2import.ImportJob;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.elasticsearch.annotations.Document;
 import org.springframework.data.elasticsearch.annotations.Field;
 import org.springframework.data.elasticsearch.annotations.FieldType;
 
-@Document(indexName = "syndication_import_status")
-public class SyndicationImportStatus {
+@Document(indexName = "syndication_import")
+public class SyndicationImport {
 
     @Id
     private String terminology;
@@ -17,8 +18,8 @@ public class SyndicationImportStatus {
     @Field(type = FieldType.Keyword)
     private String actualVersion;
 
-    @Field(type = FieldType.Boolean)
-    private boolean success;
+    @Field(type = FieldType.Keyword)
+    private ImportJob.ImportStatus status;
 
     @Field(type = FieldType.Keyword)
     private String exception;
@@ -26,14 +27,13 @@ public class SyndicationImportStatus {
     @Field(type = FieldType.Long)
     private long timestamp;
 
-    public SyndicationImportStatus() {
-    }
+    public SyndicationImport() {}
 
-    public SyndicationImportStatus(String terminology, String requestedVersion, String actualVersion, boolean success, String exception) {
+    public SyndicationImport(String terminology, String requestedVersion, String actualVersion, ImportJob.ImportStatus status, String exception) {
         this.terminology = terminology;
         this.requestedVersion = requestedVersion;
         this.actualVersion = actualVersion;
-        this.success = success;
+        this.status = status;
         this.exception = exception;
         this.timestamp = System.currentTimeMillis();
     }
@@ -50,8 +50,8 @@ public class SyndicationImportStatus {
         return actualVersion;
     }
 
-    public boolean isSuccess() {
-        return success;
+    public ImportJob.ImportStatus getStatus() {
+        return status;
     }
 
     public String getException() {

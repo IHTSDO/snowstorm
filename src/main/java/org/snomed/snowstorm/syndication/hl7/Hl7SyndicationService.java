@@ -102,7 +102,7 @@ public class Hl7SyndicationService extends SyndicationService {
     }
 
     @Override
-    protected String getLatestTerminologyVersion() throws IOException, InterruptedException {
+    protected String getLatestTerminologyVersion(String params) throws IOException, InterruptedException {
         return getSingleLineCommandResult("curl -s https://packages.simplifier.net/hl7.terminology.r4 | jq -r '.versions | map(.version)[]' | tail -n 1");
     }
 }

@@ -111,7 +111,7 @@ public class SnomedSyndicationClient {
         return outputFile;
     }
 
-    private SyndicationFeed getFeed() throws IOException {
+    public SyndicationFeed getFeed() throws IOException {
         logger.info("Loading snow_med syndication feed");
         HttpHeaders headers = new HttpHeaders();
         headers.setAccept(Collections.singletonList(MediaType.APPLICATION_ATOM_XML));

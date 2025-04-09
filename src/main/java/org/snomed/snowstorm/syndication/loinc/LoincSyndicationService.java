@@ -77,7 +77,7 @@ public class LoincSyndicationService extends SyndicationService {
     }
 
     @Override
-    protected String getLatestTerminologyVersion() throws IOException, InterruptedException {
+    protected String getLatestTerminologyVersion(String params) throws IOException, InterruptedException {
         return getSingleLineCommandResult("curl -s https://loinc.org/downloads/ | grep -oP 'Loinc[_-]\\K[0-9]+\\.[0-9]+' | head -n 1");
     }
 }

@@ -25,6 +25,7 @@ import java.util.stream.Collectors;
 import static org.snomed.snowstorm.core.data.services.CodeSystemService.MAIN;
 import static org.snomed.snowstorm.core.util.FileUtils.findFile;
 import static org.snomed.snowstorm.fhir.services.FHIRHelper.SNOMED_URI_MODULE_AND_VERSION_PATTERN;
+import static org.snomed.snowstorm.fhir.services.FHIRHelper.SNOMED_URI_MODULE_PATTERN;
 import static org.snomed.snowstorm.syndication.common.SyndicationConstants.IMPORT_SNOMED_TERMINOLOGY;
 import static org.snomed.snowstorm.syndication.common.SyndicationConstants.LOCAL_VERSION;
 
@@ -68,11 +69,11 @@ public class SnomedSyndicationService extends SyndicationService {
         releaseUri = params.getVersion();
         if(LOCAL_VERSION.equals(releaseUri)) {
             return retrieveLocalPackages(params);
-        } else {
-            validateReleaseUriPattern(releaseUri);
-            validateSyndicationCredentials();
-            return syndicationClient.downloadPackages(releaseUri, snomedUsername, snomedPassword);
         }
+        releaseUri = releaseUri.contains("version") ? releaseUri : getLatestTerminologyVersion(params.getVersion());
+        validateReleaseUriAndVersionPattern(releaseUri);
+        validateSyndicationCredentials();
+        return syndicationClient.downloadPackages(releaseUri, snomedUsername, snomedPassword);
     }
 
     /**
@@ -99,11 +100,19 @@ public class SnomedSyndicationService extends SyndicationService {
         return packageFilePaths;
     }
 
-    private static void validateReleaseUriPattern(String releaseUri) {
+    private static void validateReleaseUriAndVersionPattern(String releaseUri) {
         if (!SNOMED_URI_MODULE_AND_VERSION_PATTERN.matcher(releaseUri).matches()) {
-            throw new IllegalArgumentException("Parameter ' " + IMPORT_SNOMED_TERMINOLOGY + " ' is not a valid SNOMED CT Edition Version URI. " +
+            throw new IllegalArgumentException("Parameter ' " + IMPORT_SNOMED_TERMINOLOGY + " ' is not a valid SNOMED CT release version URI. " +
                     "Please use the format: 'http://snomed.info/sct/[module-id]/version/[YYYYMMDD]'. " +
-                    "See http://snomed.org/uri for examples of Edition version URIs");
+                    "See https://confluence.ihtsdotools.org/display/DOCURI/2.1+URIs+for+Editions+and+Versions for examples of release version URIs");
+        }
+    }
+
+    private static void validateReleaseUriPattern(String releaseUri) {
+        if (!SNOMED_URI_MODULE_PATTERN.matcher(releaseUri).matches()) {
+            throw new IllegalArgumentException("Parameter ' " + IMPORT_SNOMED_TERMINOLOGY + " ' is not a valid SNOMED CT release URI. " +
+                    "Please use the format: 'http://snomed.info/sct/[module-id]'. " +
+                    "See https://confluence.ihtsdotools.org/display/DOCEXTPG/4.4.2+Edition+URI+Examples for examples of release URIs");
         }
     }
 
@@ -156,7 +165,12 @@ public class SnomedSyndicationService extends SyndicationService {
     }
 
     @Override
-    protected String getLatestTerminologyVersion() {
-        throw new IllegalArgumentException("Not yet implemented");
+    protected String getLatestTerminologyVersion(String releaseUri) throws IOException, ServiceException {
+        validateReleaseUriPattern(releaseUri);
+        return syndicationClient.getFeed().getEntries().stream()
+                .map(SyndicationFeedEntry::getContentItemVersion)
+                .filter(contentItemVersion -> contentItemVersion.contains(releaseUri))
+                .findFirst()
+                .orElseThrow(() -> new ServiceException("No snomed release found related to the supplied release URI: " + releaseUri));
     }
 }
