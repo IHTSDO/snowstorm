@@ -61,7 +61,7 @@ class SnomedSyndicationServiceTest {
         String invalidUri = "invalid-uri";
 
         IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () ->
-                syndicationService.importTerminologyAndStoreResult(new SyndicationImportParams(invalidUri, "BE", false)));
+                syndicationService.fetchAndImportTerminology(new SyndicationImportParams(invalidUri, "BE", false)));
 
         assertTrue(exception.getMessage().contains("not a valid SNOMED CT release URI"));
     }
@@ -74,7 +74,7 @@ class SnomedSyndicationServiceTest {
         doNothing().when(importService).importArchive(any(), any());
         doReturn(null).when(syndicationService).getFileInputStream(any());
 
-        syndicationService.importTerminologyAndStoreResult(new SyndicationImportParams(RELEASE_VERSION_URI, "BE", false));
+        syndicationService.fetchAndImportTerminology(new SyndicationImportParams(RELEASE_VERSION_URI, "BE", false));
 
         verify(syndicationClient).downloadPackages(RELEASE_VERSION_URI, "testUser", "testPass");
         verify(importService, times(2)).importArchive(any(), any());
@@ -89,7 +89,7 @@ class SnomedSyndicationServiceTest {
                     .thenReturn(Optional.of(new File("edition.zip"))).thenReturn(Optional.of(new File("extension.zip")));
             doNothing().when(importService).importArchive(any(), any());
             doReturn(null).when(syndicationService).getFileInputStream(any());
-            syndicationService.importTerminologyAndStoreResult(new SyndicationImportParams(LOCAL_VERSION, "BE", false));
+            syndicationService.fetchAndImportTerminology(new SyndicationImportParams(LOCAL_VERSION, "BE", false));
 
             verify(syndicationClient, never()).downloadPackages(any(), any(), any());
             verify(importService, times(2)).importArchive(any(), any());
@@ -102,7 +102,7 @@ class SnomedSyndicationServiceTest {
 
 
         IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () ->
-                syndicationService.importTerminologyAndStoreResult(new SyndicationImportParams(RELEASE_VERSION_URI, "BE", false)));
+                syndicationService.fetchAndImportTerminology(new SyndicationImportParams(RELEASE_VERSION_URI, "BE", false)));
 
         assertEquals("Syndication username is blank.", exception.getMessage());
     }
@@ -113,7 +113,7 @@ class SnomedSyndicationServiceTest {
 
 
         IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () ->
-                syndicationService.importTerminologyAndStoreResult(new SyndicationImportParams(RELEASE_VERSION_URI, "BE", false)));
+                syndicationService.fetchAndImportTerminology(new SyndicationImportParams(RELEASE_VERSION_URI, "BE", false)));
 
         assertEquals("Syndication password is blank.", exception.getMessage());
     }

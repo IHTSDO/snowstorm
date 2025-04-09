@@ -37,9 +37,9 @@ public class LoincSyndicationService extends SyndicationService {
 
     @Override
     protected List<File> fetchTerminologyPackages(SyndicationImportParams params) throws IOException, InterruptedException, ServiceException {
-        Optional<File> file = LOCAL_VERSION.equals(params.getVersion())
+        Optional<File> file = LOCAL_VERSION.equals(params.version())
                 ? findFile(workingDirectory, fileNamePattern)
-                : downloadLoincZip(params.getVersion());
+                : downloadLoincZip(params.version());
         return singletonList(file.orElseThrow(() -> new ServiceException("Loinc terminology file not found, cannot be imported")));
     }
 

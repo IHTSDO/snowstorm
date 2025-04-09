@@ -18,7 +18,8 @@ These terminologies can be loaded in three different ways:
 
 - **Load the latest version**: The app checks whether the latest version is already imported. If not, it downloads and imports it.
 - **Load a specific version**: The app checks for the presence of a specific version. If not already imported, it will download and import it.
-- **Load a local version**: If you already have the terminology file locally, the app will import it from the local filesystem.
+- **Load a local version**: If you already have the terminology file locally, the app can import it from the local filesystem. 
+Please then make sure that the file is present in the docker container and that the filename respects the format specified in the application.properties file (see syndication.hl7.fileNamePattern, syndication.loinc.fileNamePattern, ...).
 
 These options must be passed as command-line arguments to the application (see Docker Compose section).
 

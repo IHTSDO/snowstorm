@@ -35,7 +35,7 @@ public abstract class SyndicationService {
         this.logger = logger;
     }
 
-    public void importTerminologyAndStoreResult(SyndicationImportParams params) throws IOException, ServiceException, InterruptedException {
+    public void fetchAndImportTerminology(SyndicationImportParams params) throws IOException, ServiceException, InterruptedException {
         SyndicationImport status = importStatusService.getImportStatus(terminologyName);
         if (alreadyImported(params, status)) {
             logger.info("Terminology {} version {} is already imported", terminologyName, status.getActualVersion());
@@ -43,21 +43,21 @@ public abstract class SyndicationService {
         }
         String importedVersion = null;
         try {
-            importStatusService.saveOrUpdateImportStatus(terminologyName, params.getVersion(), importedVersion, RUNNING, null);
+            importStatusService.saveOrUpdateImportStatus(terminologyName, params.version(), importedVersion, RUNNING, null);
             List<File> files = fetchTerminologyPackages(params);
             if(CollectionUtils.isEmpty(files)) {
                 throw new ServiceException("No terminology packages found for imported version" + status.getActualVersion());
             }
             importTerminology(params, files);
-            importedVersion = LOCAL_VERSION.equals(params.getVersion())
+            importedVersion = LOCAL_VERSION.equals(params.version())
                     ? getLocalPackageIdentifier(files)
                     : getTerminologyVersion(files.get(files.size() - 1).getName());
-            importStatusService.saveOrUpdateImportStatus(terminologyName, params.getVersion(), importedVersion, COMPLETED, null);
-            if(!LOCAL_VERSION.equals(params.getVersion())) {
+            importStatusService.saveOrUpdateImportStatus(terminologyName, params.version(), importedVersion, COMPLETED, null);
+            if(!LOCAL_VERSION.equals(params.version())) {
                 removeDownloadedFiles(files);
             }
         } catch (Exception e) {
-            importStatusService.saveOrUpdateImportStatus(terminologyName, params.getVersion(), importedVersion, FAILED, e.getMessage());
+            importStatusService.saveOrUpdateImportStatus(terminologyName, params.version(), importedVersion, FAILED, e.getMessage());
             throw e;
         }
     }
@@ -65,17 +65,17 @@ public abstract class SyndicationService {
 
     private boolean alreadyImported(SyndicationImportParams params, SyndicationImport syndicationImport) throws ServiceException, IOException, InterruptedException {
         if (syndicationImport != null && syndicationImport.getStatus() == COMPLETED && isNotBlank(syndicationImport.getActualVersion())) {
-            if (syndicationImport.getActualVersion().equals(params.getVersion())) {
+            if (syndicationImport.getActualVersion().equals(params.version())) {
                 return true;
             }
-            if(LOCAL_VERSION.equals(params.getVersion())) {
+            if(LOCAL_VERSION.equals(params.version())) {
                 String localPackageIdentifier = getLocalPackageIdentifier(fetchTerminologyPackages(params));
                 return syndicationImport.getActualVersion().equals(localPackageIdentifier);
             }
-            if(LATEST_VERSION.equals(params.getVersion()) || syndicationImport.getActualVersion().contains(params.getVersion())) {
+            if(LATEST_VERSION.equals(params.version()) || syndicationImport.getActualVersion().contains(params.version())) {
                 logger.info("Fetching latest version number for terminology: {}", terminologyName);
                 try {
-                    String latestVersion = getLatestTerminologyVersion(params.getVersion());
+                    String latestVersion = getLatestTerminologyVersion(params.version());
                     logger.info("Latest terminology version: {}", latestVersion);
                     return syndicationImport.getActualVersion().equals(latestVersion);
                 }

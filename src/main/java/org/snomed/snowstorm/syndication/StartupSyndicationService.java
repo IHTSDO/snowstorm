@@ -36,7 +36,7 @@ public class StartupSyndicationService {
                     throw new IllegalStateException("No service found for terminology: " + terminology);
                 }
                 logger.info("Triggering import for: {} with version: {}", terminology, version);
-                service.importTerminologyAndStoreResult(new SyndicationImportParams(version, extensionName, isLoincIncluded));
+                service.fetchAndImportTerminology(new SyndicationImportParams(version, extensionName, isLoincIncluded));
             }
         }
     }

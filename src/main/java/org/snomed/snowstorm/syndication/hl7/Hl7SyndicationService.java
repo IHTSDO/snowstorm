@@ -52,9 +52,9 @@ public class Hl7SyndicationService extends SyndicationService {
 
     @Override
     protected List<File> fetchTerminologyPackages(SyndicationImportParams params) throws IOException, InterruptedException, ServiceException {
-        Optional<File> file = LOCAL_VERSION.equals(params.getVersion())
+        Optional<File> file = LOCAL_VERSION.equals(params.version())
                 ? findFile(workingDirectory, fileNamePattern)
-                : downloadHl7File(params.getVersion());
+                : downloadHl7File(params.version());
         return singletonList(file.orElseThrow(() -> new ServiceException("Hl7 terminology file not found, cannot be imported")));
     }
 

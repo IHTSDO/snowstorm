@@ -66,11 +66,11 @@ public class SnomedSyndicationService extends SyndicationService {
 
     @Override
     protected List<File> fetchTerminologyPackages(SyndicationImportParams params) throws ServiceException, IOException {
-        releaseUri = params.getVersion();
+        releaseUri = params.version();
         if(LOCAL_VERSION.equals(releaseUri)) {
             return retrieveLocalPackages(params);
         }
-        releaseUri = releaseUri.contains("version") ? releaseUri : getLatestTerminologyVersion(params.getVersion());
+        releaseUri = releaseUri.contains("version") ? releaseUri : getLatestTerminologyVersion(params.version());
         validateReleaseUriAndVersionPattern(releaseUri);
         validateSyndicationCredentials();
         return syndicationClient.downloadPackages(releaseUri, snomedUsername, snomedPassword);
@@ -81,10 +81,10 @@ public class SnomedSyndicationService extends SyndicationService {
      */
     @Override
     protected void importTerminology(SyndicationImportParams params, List<File> files) throws ServiceException {
-        String releaseUri = params.getVersion();
+        String releaseUri = params.version();
         List<String> packageFilePaths = files.stream().map(File::getAbsolutePath).collect(Collectors.toList());
         importEdition(packageFilePaths);
-        importExtension(releaseUri, params.getExtensionName(), packageFilePaths);
+        importExtension(releaseUri, params.extensionName(), packageFilePaths);
     }
 
     private List<File> retrieveLocalPackages(SyndicationImportParams params) throws ServiceException, IOException {
@@ -92,7 +92,7 @@ public class SnomedSyndicationService extends SyndicationService {
         packageFilePaths.add(
                 findFile(workingDirectory, editionFileNamePattern)
                         .orElseThrow(() -> new ServiceException("Could not find edition file with pattern " + editionFileNamePattern)));
-        if(params.getExtensionName() != null) {
+        if(params.extensionName() != null) {
             packageFilePaths.add(
                     findFile(workingDirectory, extensionFileNamePattern)
                             .orElseThrow(() -> new ServiceException("Could not find extension file with pattern " + extensionFileNamePattern)));

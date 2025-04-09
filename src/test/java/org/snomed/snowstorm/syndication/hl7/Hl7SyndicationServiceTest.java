@@ -61,7 +61,7 @@ class Hl7SyndicationServiceTest {
         Path hl7File = tempDir.resolve("hl7.terminology.r4-6.2.0.tgz");
         Files.createFile(hl7File);
         try (var ignored = mockStatic(CommandUtils.class)) {
-            assertDoesNotThrow(() -> hl7SyndicationService.importTerminologyAndStoreResult(new SyndicationImportParams(null, null, true)));
+            assertDoesNotThrow(() -> hl7SyndicationService.fetchAndImportTerminology(new SyndicationImportParams(null, null, true)));
 
             verify(loadPackageService, times(1))
                     .uploadPackageResources(any(File.class), eq(Set.of("*")), eq("hl7.terminology.r4-6.2.0.tgz"), eq(false));
@@ -73,7 +73,7 @@ class Hl7SyndicationServiceTest {
     @Test
     void testImportHl7Terminology_FileNotFound() throws IOException {
         try (var ignored = mockStatic(CommandUtils.class)) {
-            Exception exception = assertThrows(ServiceException.class, () -> hl7SyndicationService.importTerminologyAndStoreResult(new SyndicationImportParams(null, null, false)));
+            Exception exception = assertThrows(ServiceException.class, () -> hl7SyndicationService.fetchAndImportTerminology(new SyndicationImportParams(null, null, false)));
 
             assertEquals("Hl7 terminology file not found, cannot be imported", exception.getMessage());
 
@@ -88,7 +88,7 @@ class Hl7SyndicationServiceTest {
         SyndicationImport importStatus = new SyndicationImport("hl7", VERSION, VERSION, COMPLETED, null);
         doReturn(importStatus).when(importStatusService).getImportStatus(any());
 
-        assertDoesNotThrow(() -> hl7SyndicationService.importTerminologyAndStoreResult(new SyndicationImportParams(VERSION, null, true)));
+        assertDoesNotThrow(() -> hl7SyndicationService.fetchAndImportTerminology(new SyndicationImportParams(VERSION, null, true)));
         verify(importStatusService, never()).saveOrUpdateImportStatus(any(), any(), any(), any(), any());
     }
 
@@ -99,7 +99,7 @@ class Hl7SyndicationServiceTest {
         SyndicationImport importStatus = new SyndicationImport("hl7", VERSION, VERSION, COMPLETED, null);
         doReturn(importStatus).when(importStatusService).getImportStatus(any());
 
-        assertDoesNotThrow(() -> hl7SyndicationService.importTerminologyAndStoreResult(new SyndicationImportParams(LATEST_VERSION, null, true)));
+        assertDoesNotThrow(() -> hl7SyndicationService.fetchAndImportTerminology(new SyndicationImportParams(LATEST_VERSION, null, true)));
         verify(importStatusService, never()).saveOrUpdateImportStatus(any(), any(), any(), any(), any());
     }
 }

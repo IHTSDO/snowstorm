@@ -49,9 +49,9 @@ class StartupSyndicationServiceTest {
 
         startupService.handleStartupSyndication(mockArgs);
 
-        verify(snomedService, times(1)).importTerminologyAndStoreResult(any());
-        verify(loincService, never()).importTerminologyAndStoreResult(any());
-        verify(hl7Service, never()).importTerminologyAndStoreResult(any());
+        verify(snomedService, times(1)).fetchAndImportTerminology(any());
+        verify(loincService, never()).fetchAndImportTerminology(any());
+        verify(hl7Service, never()).fetchAndImportTerminology(any());
     }
 
     @Test
@@ -67,11 +67,11 @@ class StartupSyndicationServiceTest {
         startupService.handleStartupSyndication(mockArgs);
 
         ArgumentCaptor<SyndicationImportParams> captor = ArgumentCaptor.forClass(SyndicationImportParams.class);
-        verify(hl7Service).importTerminologyAndStoreResult(captor.capture());
+        verify(hl7Service).fetchAndImportTerminology(captor.capture());
 
         SyndicationImportParams params = captor.getValue();
-        assertEquals("6.2.0", params.getVersion());
-        assertEquals("US", params.getExtensionName());
+        assertEquals("6.2.0", params.version());
+        assertEquals("US", params.extensionName());
         assertTrue(params.isLoincImportIncluded());
     }
 
