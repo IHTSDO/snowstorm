@@ -67,6 +67,11 @@ public class ReferenceSetMember extends SnomedComponent<ReferenceSetMember> impl
 		String VALUE = "value";
 	}
 
+	public interface MDRSFields {
+		String SOURCE_EFFECTIVE_TIME = "sourceEffectiveTime";
+		String TARGET_EFFECTIVE_TIME = "targetEffectiveTime";
+	}
+
 	@JsonView(value = View.Component.class)
 	@Field(type = FieldType.Keyword)
 	private String memberId;
