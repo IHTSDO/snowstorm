@@ -1,10 +1,13 @@
 package org.snomed.snowstorm.ecl;
 
+import co.elastic.clients.elasticsearch._types.query_dsl.Query;
+import co.elastic.clients.elasticsearch._types.query_dsl.TermsLookup;
 import io.kaicode.elasticvc.api.BranchCriteria;
 import org.snomed.snowstorm.core.data.domain.ReferencedConceptsLookup;
 import org.snomed.snowstorm.core.data.repositories.ReferencedConceptsLookupRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.elasticsearch.client.elc.NativeQuery;
 import org.springframework.data.elasticsearch.client.elc.NativeQueryBuilder;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.data.elasticsearch.core.SearchHits;
@@ -59,6 +62,33 @@ public class ReferencedConceptsLookupService {
         List<ReferencedConceptsLookup> results = new ArrayList<>();
         refsetConceptsLookupSearchHits.forEach(hit -> results.add(hit.getContent()));
         return results;
+    }
+
+    public Query constructQueryWithLookups(Collection<ReferencedConceptsLookup> lookups, String fieldName) {
+        NativeQueryBuilder queryBuilder = new NativeQueryBuilder();
+        // Build terms lookup query
+        lookups.forEach(lookup -> {
+            if (lookup.getTotal() > 0) {
+                // Build the terms lookup
+                TermsLookup termsLookup = new TermsLookup.Builder()
+                        .index(elasticsearchOperations.getIndexCoordinatesFor(ReferencedConceptsLookup.class).getIndexName())
+                        .id(lookup.getId())
+                        .path(ReferencedConceptsLookup.Fields.CONCEPT_IDS)
+                        .build();
+
+                // Build the query
+                Query termsLookupQuery = Query.of(q -> q.terms(t -> t
+                        .field(fieldName)
+                        .terms(termsQueryField -> termsQueryField.lookup(termsLookup))));
+
+                if (ReferencedConceptsLookup.Type.INCLUDE == lookup.getType()) {
+                    queryBuilder.withFilter(bool(b -> b.should(termsLookupQuery)));
+                } else {
+                    queryBuilder.withFilter(bool(b -> b.mustNot(termsLookupQuery)));
+                }
+            }
+        });
+        return NativeQuery.builder().withFilter(queryBuilder.build().getFilter()).build().getFilter();
     }
 
     public void deleteAll() {
