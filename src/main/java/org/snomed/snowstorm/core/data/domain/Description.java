@@ -62,6 +62,7 @@ public class Description extends SnomedComponent<Description> implements SnomedC
 	@Field(type = FieldType.Keyword)
 	@NotNull
 	@Size(min = 2, max = 2)
+	@jakarta.validation.constraints.Pattern(regexp = "^[a-z]+$", message = "Language code must contain only lowercase characters")
 	private String languageCode;
 
 	@JsonView(value = View.Component.class)
