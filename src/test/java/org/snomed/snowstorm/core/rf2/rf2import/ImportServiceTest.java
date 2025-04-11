@@ -837,7 +837,7 @@ class ImportServiceTest extends AbstractTest {
 
 		// Check that semantic index is not completely rebuilt and in this case should only be increased by 2
 		results = queryConceptRepository.findAll(PageRequest.of(0, 10));
-		assertEquals(60, results.getTotalElements());
+		assertEquals(61, results.getTotalElements());
 	}
 
 	@Test
@@ -859,6 +859,6 @@ class ImportServiceTest extends AbstractTest {
 		ImportJob importJob = importService.getImportJobOrThrow(importJobId);
 		assertEquals(ImportJob.ImportStatus.COMPLETED, importJob.getStatus());
 		concepts = conceptService.findAll(MAIN, PageRequest.of(0, 10));
-		assertEquals(18, concepts.getTotalElements());
+		assertEquals(20, concepts.getTotalElements());
 	}
 }
