@@ -2,7 +2,6 @@ package org.snomed.snowstorm.ecl;
 
 import co.elastic.clients.elasticsearch._types.query_dsl.BoolQuery;
 import co.elastic.clients.elasticsearch._types.query_dsl.Query;
-import co.elastic.clients.elasticsearch._types.query_dsl.TermsLookup;
 import co.elastic.clients.json.JsonData;
 import io.kaicode.elasticvc.api.BranchCriteria;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
@@ -10,6 +9,7 @@ import it.unimi.dsi.fastutil.longs.LongArraySet;
 import it.unimi.dsi.fastutil.longs.LongComparators;
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 
+import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.langauges.ecl.domain.ConceptReference;
@@ -45,6 +45,7 @@ import static io.kaicode.elasticvc.api.ComponentService.LARGE_PAGE;
 import static java.lang.Long.parseLong;
 import static co.elastic.clients.elasticsearch._types.query_dsl.QueryBuilders.*;
 import static io.kaicode.elasticvc.helper.QueryHelper.*;
+import static org.snomed.snowstorm.core.data.domain.SnomedComponent.Fields.ACTIVE;
 import static org.snomed.snowstorm.core.util.CollectionUtils.orEmpty;
 
 /**
@@ -174,47 +175,7 @@ public class ECLContentService {
 			return Collections.emptyList();
 		}
 
-		BoolQuery.Builder boolQueryBuilder = bool()
-				.must(branchCriteria.getEntityBranchCriteria(QueryConcept.class))
-				.must(termQuery(QueryConcept.Fields.STATED, stated));
-
-		if (attributeTypeIds != null) {
-			BoolQuery.Builder shoulds = bool();
-			for (Long attributeTypeId : attributeTypeIds) {
-				if (!attributeTypeId.equals(Concepts.IS_A_LONG)) {
-					shoulds.should(existsQuery(QueryConcept.Fields.ATTR + "." + attributeTypeId));
-				}
-			}
-			boolQueryBuilder.must(shoulds.build()._toQuery());
-		}
-
-		if (sourceConceptIds != null) {
-			boolQueryBuilder.must(termsQuery(QueryConcept.Fields.CONCEPT_ID, sourceConceptIds));
-		}
-
-		NativeQuery query = new NativeQueryBuilder()
-				.withQuery(boolQueryBuilder.build()._toQuery())
-				.withPageable(LARGE_PAGE)
-				.build();
-
-		Set<Long> destinationIds = new LongArraySet();
-		try (SearchHitsIterator<QueryConcept> stream = elasticsearchOperations.searchForStream(query, QueryConcept.class)) {
-			stream.forEachRemaining(hit -> {
-				QueryConcept queryConcept = hit.getContent();
-				if (attributeTypeIds != null) {
-					for (Long attributeTypeId : attributeTypeIds) {
-						if (attributeTypeId.equals(Concepts.IS_A_LONG)) {
-							destinationIds.addAll(queryConcept.getParents());
-						} else {
-							queryConcept.getAttr().getOrDefault(attributeTypeId.toString(), Collections.emptySet()).forEach(id -> addDestinationId(id, destinationIds));
-						}
-					}
-				} else {
-					queryConcept.getAttr().values().forEach(destinationSet -> destinationSet.forEach(destinationId -> addDestinationId(destinationId, destinationIds)));
-				}
-			});
-		}
-
+		Set<Long> destinationIds = fetchDestinationIdsForStatedView(branchCriteria, null, sourceConceptIds, attributeTypeIds);
 		// Stream search doesn't sort for us
 		// Sorting meaningless but supports deterministic pagination
 		List<Long> sortedIds = new LongArrayList(destinationIds);
@@ -327,10 +288,10 @@ public class ECLContentService {
 	private void applyActiveFilters(List<ActiveFilter> activeFilters, BoolQuery.Builder componentFilterQuery) {
 		activeFilters = orEmpty(activeFilters);
 		if (activeFilters.isEmpty()) {
-			componentFilterQuery.must(termQuery(SnomedComponent.Fields.ACTIVE, true));
+			componentFilterQuery.must(termQuery(ACTIVE, true));
 		} else {
 			for (ActiveFilter activeFilter : activeFilters) {
-				componentFilterQuery.must(termQuery(SnomedComponent.Fields.ACTIVE, activeFilter.isActive()));
+				componentFilterQuery.must(termQuery(ACTIVE, activeFilter.isActive()));
 			}
 		}
 	}
@@ -381,7 +342,7 @@ public class ECLContentService {
 		NativeQueryBuilder queryBuilder = new NativeQueryBuilder()
 				.withQuery(bool(b -> b
 						.must(branchCriteria.getEntityBranchCriteria(ReferenceSetMember.class))
-						.must(termQuery(ReferenceSetMember.Fields.ACTIVE, true))
+						.must(termQuery(ACTIVE, true))
 						.must(termsQuery(ReferenceSetMember.Fields.REFSET_ID, associationTypes))))
 				.withFilter(termsQuery(ReferenceSetMember.Fields.ADDITIONAL_FIELDS_PREFIX + ReferenceSetMember.AssociationFields.TARGET_COMP_ID, initialConcepts))
 				.withSourceFilter(new FetchSourceFilter(new String[]{ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID}, null))
@@ -437,6 +398,12 @@ public class ECLContentService {
 		return conceptIds;
 	}
 
+	public List<ReferencedConceptsLookup> getConceptsLookups(BranchCriteria branchCriteria, Collection<Long> refsetIds) {
+		List<ReferencedConceptsLookup> lookups = refsetConceptsLookupService.getConceptsLookups(branchCriteria, refsetIds, false);
+		logger.info("Found concepts lookups {} for refset ids {} on branch {}", lookups, refsetIds, branchCriteria.getBranchPath());
+		return lookups;
+	}
+
 	public Query getTermsLookupFilterForMemberOfECL(BranchCriteria branchCriteria, Collection<Long> refsetIds) {
 
 		if (refsetIds.isEmpty()) {
@@ -453,30 +420,71 @@ public class ECLContentService {
 			return null;
 		}
 		logger.info("Found concepts lookups {} for refset ids {}", lookups, refsetIds);
-		NativeQueryBuilder queryBuilder = new NativeQueryBuilder();
-		// Build terms lookup query
-		lookups.forEach(lookup -> {
-			if (lookup.getTotal() > 0) {
-				// Build the terms lookup
-				TermsLookup termsLookup = new TermsLookup.Builder()
-						.index(elasticsearchOperations.getIndexCoordinatesFor(ReferencedConceptsLookup.class).getIndexName())
-						.id(lookup.getId())
-						.path(ReferencedConceptsLookup.Fields.CONCEPT_IDS)
-						.build();
 
-				// Build the query
-				Query termsLookupQuery = Query.of(q -> q.terms(t -> t
-						.field(QueryConcept.Fields.CONCEPT_ID)
-						.terms(termsQueryField -> termsQueryField.lookup(termsLookup))));
+		return refsetConceptsLookupService.constructQueryWithLookups(lookups, QueryConcept.Fields.CONCEPT_ID);
+	}
 
-				if (ReferencedConceptsLookup.Type.INCLUDE == lookup.getType()) {
-					queryBuilder.withFilter(bool(b -> b.should(termsLookupQuery)));
+	public List<Long> findRelationshipDestinationIdsWithLookup(Collection<ReferencedConceptsLookup> conceptsLookups, List<Long> attributeTypeIds, BranchCriteria branchCriteria, boolean stated) {
+		if (!stated) {
+			// Use relationships - it's faster
+			return relationshipService.findRelationshipDestinationIds(conceptsLookups, attributeTypeIds, branchCriteria, false);
+		}
+
+		// For the stated view we'll use the semantic index to access relationships from both stated relationships or axioms.
+		Set<Long> destinationIds = fetchDestinationIdsForStatedView(branchCriteria, conceptsLookups, null, attributeTypeIds);
+
+		// Stream search doesn't sort for us
+		// Sorting meaningless but supports deterministic pagination
+		List<Long> sortedIds = new LongArrayList(destinationIds);
+		sortedIds.sort(LongComparators.OPPOSITE_COMPARATOR);
+		return sortedIds;
+	}
+
+	private @NotNull Set<Long> fetchDestinationIdsForStatedView(BranchCriteria branchCriteria, Collection<ReferencedConceptsLookup> conceptsLookups, Collection<Long> sourceConceptIds, List<Long> attributeTypeIds) {
+		NativeQuery query = constructAttributeSearchQuery(branchCriteria, conceptsLookups, sourceConceptIds, attributeTypeIds);
+		Set<Long> destinationIds = new LongArraySet();
+		try (SearchHitsIterator<QueryConcept> stream = elasticsearchOperations.searchForStream(query, QueryConcept.class)) {
+			stream.forEachRemaining(hit -> {
+				QueryConcept queryConcept = hit.getContent();
+				if (attributeTypeIds != null) {
+					for (Long attributeTypeId : attributeTypeIds) {
+						if (attributeTypeId.equals(Concepts.IS_A_LONG)) {
+							destinationIds.addAll(queryConcept.getParents());
+						} else {
+							queryConcept.getAttr().getOrDefault(attributeTypeId.toString(), Collections.emptySet()).forEach(id -> addDestinationId(id, destinationIds));
+						}
+					}
 				} else {
-					queryBuilder.withFilter(bool(b -> b.mustNot(termsLookupQuery)));
+					queryConcept.getAttr().values().forEach(destinationSet -> destinationSet.forEach(destinationId -> addDestinationId(destinationId, destinationIds)));
+				}
+			});
+		}
+		return destinationIds;
+	}
+
+	private NativeQuery constructAttributeSearchQuery(BranchCriteria branchCriteria, Collection<ReferencedConceptsLookup> conceptsLookups, Collection<Long> sourceConceptIds, List<Long> attributeTypeIds) {
+		BoolQuery.Builder boolQueryBuilder = bool()
+				.must(branchCriteria.getEntityBranchCriteria(QueryConcept.class))
+				.must(termQuery(QueryConcept.Fields.STATED, true));
+
+		if (attributeTypeIds != null) {
+			BoolQuery.Builder shoulds = bool();
+			for (Long attributeTypeId : attributeTypeIds) {
+				if (!attributeTypeId.equals(Concepts.IS_A_LONG)) {
+					shoulds.should(existsQuery(QueryConcept.Fields.ATTR + "." + attributeTypeId));
 				}
 			}
-		});
-		logger.debug("Terms lookup filter query: {}", queryBuilder.build().getFilter());
-		return NativeQuery.builder().withFilter(queryBuilder.build().getFilter()).build().getFilter();
+			boolQueryBuilder.must(shoulds.build()._toQuery());
+		}
+
+		if (conceptsLookups != null) {
+			boolQueryBuilder.must(refsetConceptsLookupService.constructQueryWithLookups(conceptsLookups, QueryConcept.Fields.CONCEPT_ID));
+		} else if (sourceConceptIds != null) {
+			boolQueryBuilder.must(termsQuery(QueryConcept.Fields.CONCEPT_ID, sourceConceptIds));
+		}
+		return  new NativeQueryBuilder()
+				.withQuery(boolQueryBuilder.build()._toQuery())
+				.withPageable(LARGE_PAGE)
+				.build();
 	}
 }
