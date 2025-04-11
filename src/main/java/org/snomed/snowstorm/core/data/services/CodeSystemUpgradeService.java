@@ -59,6 +59,9 @@ public class CodeSystemUpgradeService {
 	private ExecutorService executorService;
 
 	@Autowired
+	private ModuleDependencyService moduleDependencyService;
+
+	@Autowired
 	private JmsTemplate jmsTemplate;
 
 	@Value("${snowstorm.rest-api.readonly}")
@@ -201,6 +204,10 @@ public class CodeSystemUpgradeService {
 				upgradeInactivationService.findAndUpdateDescriptionsInactivation(codeSystem);
 				upgradeInactivationService.findAndUpdateLanguageRefsets(codeSystem);
 				upgradeInactivationService.findAndUpdateAdditionalAxioms(codeSystem);
+				boolean success = moduleDependencyService.setTargetEffectiveTime(branchPath, newDependantVersion);
+				if (!success) {
+					logger.warn("Failed to update MDRS when upgrading {} to {}", branchPath, newDependantVersion);
+				}
 				logger.info("Completed upgrade content automations on {}.", branchPath);
 			}
 
