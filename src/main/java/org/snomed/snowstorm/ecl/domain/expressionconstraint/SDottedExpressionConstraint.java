@@ -4,6 +4,8 @@ import io.kaicode.elasticvc.api.BranchCriteria;
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 import org.snomed.langauges.ecl.domain.expressionconstraint.DottedExpressionConstraint;
 import org.snomed.langauges.ecl.domain.expressionconstraint.SubExpressionConstraint;
+import org.snomed.langauges.ecl.domain.refinement.Operator;
+import org.snomed.snowstorm.core.data.domain.ReferencedConceptsLookup;
 import org.snomed.snowstorm.core.util.PageHelper;
 import org.snomed.snowstorm.ecl.ConceptSelectorHelper;
 import org.snomed.snowstorm.ecl.ECLContentService;
@@ -19,7 +21,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.Consumer;
 import java.util.function.LongPredicate;
-import java.util.stream.Collectors;
 
 import static com.google.common.collect.Sets.newHashSet;
 import static java.util.stream.Collectors.toSet;
@@ -48,8 +49,16 @@ public class SDottedExpressionConstraint extends DottedExpressionConstraint impl
 		if (getSubExpressionConstraint().isWildcard()) {
 			throw new UnsupportedOperationException("Dotted expression using wildcard focus concept is not supported.");
 		}
-		List<Long> conceptIds = ConceptSelectorHelper.select((SExpressionConstraint) getSubExpressionConstraint(), branchCriteria, stated,
-				null, null, eclContentService, triedCache).getContent();
+		List<ReferencedConceptsLookup> referencedConceptsLookups = null;
+		if (Operator.memberOf.equals(getSubExpressionConstraint().getOperator()) && eclContentService.isConceptsLookupEnabled()) {
+			// Use lookup for Member of query
+			referencedConceptsLookups = eclContentService.getConceptsLookups(branchCriteria, List.of(Long.parseLong(getSubExpressionConstraint().getConceptId())));
+		}
+		List<Long> conceptIds = null;
+		if (referencedConceptsLookups == null || referencedConceptsLookups.isEmpty()) {
+			conceptIds = ConceptSelectorHelper.select((SExpressionConstraint) getSubExpressionConstraint(), branchCriteria, stated,
+					null, null, eclContentService, triedCache).getContent();
+		}
 
 		// Iteratively traverse attributes
 		for (SubExpressionConstraint dottedAttribute : dottedAttributes) {
@@ -57,7 +66,11 @@ public class SDottedExpressionConstraint extends DottedExpressionConstraint impl
 			Optional<Page<Long>> attributeTypeIdsOptional = aDottedAttribute.select(branchCriteria, stated, null, null, eclContentService, false);
 			List<Long> attributeTypeIds = attributeTypeIdsOptional.map(Slice::getContent).orElse(null);
 			// XXX Note that this content is not paginated
-			conceptIds = eclContentService.findRelationshipDestinationIds(conceptIds, attributeTypeIds, branchCriteria, stated);
+			if (conceptIds != null) {
+				conceptIds = eclContentService.findRelationshipDestinationIds(conceptIds, attributeTypeIds, branchCriteria, stated);
+			} else {
+				conceptIds = eclContentService.findRelationshipDestinationIdsWithLookup(referencedConceptsLookups, attributeTypeIds, branchCriteria, stated);
+			}
 		}
 
 		LongPredicate filter = null;
@@ -66,8 +79,8 @@ public class SDottedExpressionConstraint extends DottedExpressionConstraint impl
 			filter = fastSet::contains;
 		}
 		// Filtering on final results
-		if (filter != null) {
-			conceptIds = conceptIds.stream().filter(filter::test).collect(Collectors.toList());
+		if (filter != null && conceptIds != null) {
+			conceptIds = conceptIds.stream().filter(filter::test).toList();
 		}
 
 		// Manually apply pagination

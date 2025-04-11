@@ -14,11 +14,12 @@ import it.unimi.dsi.fastutil.longs.LongComparators;
 
 import org.snomed.snowstorm.core.data.domain.Concepts;
 import org.snomed.snowstorm.core.data.domain.ConcreteValue;
+import org.snomed.snowstorm.core.data.domain.ReferencedConceptsLookup;
 import org.snomed.snowstorm.core.data.domain.Relationship;
+import org.snomed.snowstorm.ecl.ReferencedConceptsLookupService;
 import org.snomed.snowstorm.mrcm.MRCMLoader;
 import org.snomed.snowstorm.mrcm.model.AttributeRange;
 import org.snomed.snowstorm.mrcm.model.MRCM;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
@@ -32,28 +33,33 @@ import org.springframework.data.elasticsearch.core.query.FetchSourceFilter;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
-import java.util.stream.Collectors;
-
 import static java.lang.Long.parseLong;
 import static co.elastic.clients.elasticsearch._types.query_dsl.QueryBuilders.*;
 import static io.kaicode.elasticvc.helper.QueryHelper.*;
+import static org.snomed.snowstorm.core.data.domain.Relationship.Fields.*;
 
 @Service
 public class RelationshipService extends ComponentService {
-	@Autowired
-	private ElasticsearchOperations elasticsearchOperations;
+	private final ElasticsearchOperations elasticsearchOperations;
+	private final VersionControlHelper versionControlHelper;
+	private final BranchService branchService;
+	private final ConceptUpdateHelper conceptUpdateHelper;
+	private final MRCMLoader mrcmLoader;
+	private final ReferencedConceptsLookupService referencedConceptsLookupService;
 
-	@Autowired
-	private VersionControlHelper versionControlHelper;
-
-	@Autowired
-	private BranchService branchService;
-
-	@Autowired
-	private ConceptUpdateHelper conceptUpdateHelper;
-
-	@Autowired
-	private MRCMLoader mrcmLoader;
+	public RelationshipService(ElasticsearchOperations elasticsearchOperations,
+	                           VersionControlHelper versionControlHelper,
+	                           BranchService branchService,
+	                           ConceptUpdateHelper conceptUpdateHelper,
+	                           MRCMLoader mrcmLoader,
+	                           ReferencedConceptsLookupService referencedConceptsLookupService) {
+	    this.elasticsearchOperations = elasticsearchOperations;
+	    this.versionControlHelper = versionControlHelper;
+	    this.branchService = branchService;
+	    this.conceptUpdateHelper = conceptUpdateHelper;
+	    this.mrcmLoader = mrcmLoader;
+	    this.referencedConceptsLookupService = referencedConceptsLookupService;
+	}
 
 	public Relationship findRelationship(String branchPath, String relationshipId) {
 		final Page<Relationship> relationships = findRelationships(branchPath, relationshipId, null, null, null, null, null, null, null, null, PageRequest.of(0, 1));
@@ -129,28 +135,28 @@ public class RelationshipService extends ComponentService {
 			queryBuilder.must(termQuery(Relationship.Fields.RELATIONSHIP_ID, relationshipId));
 		}
 		if (active != null) {
-			queryBuilder.must(termQuery(Relationship.Fields.ACTIVE, active));
+			queryBuilder.must(termQuery(ACTIVE, active));
 		}
 		if (moduleId != null) {
-			queryBuilder.must(termQuery(Relationship.Fields.MODULE_ID, moduleId));
+			queryBuilder.must(termQuery(MODULE_ID, moduleId));
 		}
 		if (effectiveTime != null) {
-			queryBuilder.must(termQuery(Relationship.Fields.EFFECTIVE_TIME, effectiveTime));
+			queryBuilder.must(termQuery(EFFECTIVE_TIME, effectiveTime));
 		}
 		if (sourceId != null) {
-			queryBuilder.must(termQuery(Relationship.Fields.SOURCE_ID, sourceId));
+			queryBuilder.must(termQuery(SOURCE_ID, sourceId));
 		}
 		if (typeId != null) {
-			queryBuilder.must(termQuery(Relationship.Fields.TYPE_ID, typeId));
+			queryBuilder.must(termQuery(TYPE_ID, typeId));
 		}
 		if (destinationId != null) {
-			queryBuilder.must(termQuery(Relationship.Fields.DESTINATION_ID, destinationId));
+			queryBuilder.must(termQuery(DESTINATION_ID, destinationId));
 		}
 		if (group != null) {
-			queryBuilder.must(termQuery(Relationship.Fields.RELATIONSHIP_GROUP, group));
+			queryBuilder.must(termQuery(RELATIONSHIP_GROUP, group));
 		}
 		if (characteristicType != null) {
-			queryBuilder.must(termQuery(Relationship.Fields.CHARACTERISTIC_TYPE_ID, characteristicType.getConceptId()));
+			queryBuilder.must(termQuery(CHARACTERISTIC_TYPE_ID, characteristicType.getConceptId()));
 		}
 
 		NativeQuery searchQuery = new NativeQueryBuilder()
@@ -160,19 +166,19 @@ public class RelationshipService extends ComponentService {
 		searchQuery.setTrackTotalHits(true);
 
 		SearchHits<Relationship> searchHits = elasticsearchOperations.search(searchQuery, Relationship.class);
-		return new PageImpl<>(searchHits.get().map(SearchHit::getContent).collect(Collectors.toList()), page, searchHits.getTotalHits());
+		return new PageImpl<>(searchHits.get().map(SearchHit::getContent).toList(), page, searchHits.getTotalHits());
 	}
 
 	private List<Relationship> findRelationships(Set<String> relationshipIds, String branchPath) {
 		BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(branchPath);
 		return elasticsearchOperations.search(new NativeQueryBuilder()
-				.withQuery(bool(b -> b
-						.must(branchCriteria.getEntityBranchCriteria(Relationship.class))
-						.must(termsQuery(Relationship.Fields.RELATIONSHIP_ID, relationshipIds)))
-				)
-				.withPageable(PageRequest.of(0, relationshipIds.size()))
-				.build(), Relationship.class)
-				.get().map(SearchHit::getContent).collect(Collectors.toList());
+						.withQuery(bool(b -> b
+								.must(branchCriteria.getEntityBranchCriteria(Relationship.class))
+								.must(termsQuery(Relationship.Fields.RELATIONSHIP_ID, relationshipIds)))
+						)
+						.withPageable(PageRequest.of(0, relationshipIds.size()))
+						.build(), Relationship.class)
+				.get().map(SearchHit::getContent).toList();
 	}
 
 	public List<Long> findRelationshipDestinationIds(Collection<Long> sourceConceptIds, Collection<Long> attributeTypeIds, BranchCriteria branchCriteria, boolean stated) {
@@ -212,15 +218,15 @@ public class RelationshipService extends ComponentService {
 	private NativeQuery constructDestinationSearchQuery(Collection<Long> sourceConceptIds, Collection<Long> attributeTypeIds, BranchCriteria branchCriteria, boolean stated) {
 		BoolQuery.Builder boolQueryBuilder = bool()
 				.must(branchCriteria.getEntityBranchCriteria(Relationship.class))
-				.must(termQuery(Relationship.Fields.CHARACTERISTIC_TYPE_ID, stated ? Concepts.STATED_RELATIONSHIP : Concepts.INFERRED_RELATIONSHIP))
-				.must(termQuery(Relationship.Fields.ACTIVE, true));
+				.must(termQuery(CHARACTERISTIC_TYPE_ID, stated ? Concepts.STATED_RELATIONSHIP : Concepts.INFERRED_RELATIONSHIP))
+				.must(termQuery(ACTIVE, true));
 
 		if (attributeTypeIds != null) {
-			boolQueryBuilder.must(termsQuery(Relationship.Fields.TYPE_ID, attributeTypeIds));
+			boolQueryBuilder.must(termsQuery(TYPE_ID, attributeTypeIds));
 		}
 
 		if (sourceConceptIds != null) {
-			boolQueryBuilder.must(termsQuery(Relationship.Fields.SOURCE_ID, sourceConceptIds));
+			boolQueryBuilder.must(termsQuery(SOURCE_ID, sourceConceptIds));
 		}
 
 		return new NativeQueryBuilder()
@@ -232,9 +238,10 @@ public class RelationshipService extends ComponentService {
 
 	/**
 	 * Delete a relationship by id.
+	 *
 	 * @param relationshipId The id of the relationship to be deleted.
-	 * @param branch The branch on which to make the change.
-	 * @param force Delete the relationship even if it has been released.
+	 * @param branch         The branch on which to make the change.
+	 * @param force          Delete the relationship even if it has been released.
 	 */
 	public void deleteRelationship(String relationshipId, String branch, boolean force) {
 		Relationship relationship = findRelationship(BranchPathUriUtil.decodePath(branch), relationshipId);
@@ -253,9 +260,10 @@ public class RelationshipService extends ComponentService {
 
 	/**
 	 * Delete a set of relationships by id.
+	 *
 	 * @param relationshipIds The ids of the relationships to be deleted.
-	 * @param branch The branch on which to make the change.
-	 * @param force Delete the relationships even if they have been released.
+	 * @param branch          The branch on which to make the change.
+	 * @param force           Delete the relationships even if they have been released.
 	 */
 	public void deleteRelationships(Set<String> relationshipIds, String branch, boolean force) {
 		doDeleteRelationships(relationshipIds, branch, force, null);
@@ -272,7 +280,7 @@ public class RelationshipService extends ComponentService {
 
 		List<Relationship> matches = findRelationships(relationshipIds, BranchPathUriUtil.decodePath(branch));
 		if (matches.size() != relationshipIds.size()) {
-			List<String> matchedIds = matches.stream().map(Relationship::getRelationshipId).collect(Collectors.toList());
+			List<String> matchedIds = matches.stream().map(Relationship::getRelationshipId).toList();
 			Set<String> missingIds = new HashSet<>(relationshipIds);
 			missingIds.removeAll(matchedIds);
 			throw new NotFoundException(String.format("%s relationships not found on branch %s: %s", missingIds.size(), branch, missingIds));
@@ -301,4 +309,45 @@ public class RelationshipService extends ComponentService {
 		conceptUpdateHelper.doSaveBatchRelationships(matches, commit);
 	}
 
+	public List<Long> findRelationshipDestinationIds(Collection<ReferencedConceptsLookup> sourceConceptsLookups, List<Long> attributeTypeIds, BranchCriteria branchCriteria, boolean stated) {
+		if (attributeTypeIds != null && attributeTypeIds.isEmpty()) {
+			return Collections.emptyList();
+		}
+
+		Set<Long> destinationIds = new LongArraySet();
+		if (sourceConceptsLookups != null && !sourceConceptsLookups.isEmpty()) {
+			NativeQuery query = constructDestinationSearchQueryWithLookups(sourceConceptsLookups, attributeTypeIds, branchCriteria, stated);
+			try (SearchHitsIterator<Relationship> stream = elasticsearchOperations.searchForStream(query, Relationship.class)) {
+				stream.forEachRemaining(hit -> {
+					if (hit.getContent().getDestinationId() != null) {
+						destinationIds.add(parseLong(hit.getContent().getDestinationId()));
+					}
+				});
+			}
+		}
+		List<Long> sortedIds = new LongArrayList(destinationIds);
+		sortedIds.sort(LongComparators.OPPOSITE_COMPARATOR);
+		return sortedIds;
+	}
+
+	private NativeQuery constructDestinationSearchQueryWithLookups(Collection<ReferencedConceptsLookup> sourceConceptsLookups, List<Long> attributeTypeIds, BranchCriteria branchCriteria, boolean stated) {
+		BoolQuery.Builder boolQueryBuilder = bool()
+				.must(branchCriteria.getEntityBranchCriteria(Relationship.class))
+				.must(termQuery(CHARACTERISTIC_TYPE_ID, stated ? Concepts.STATED_RELATIONSHIP : Concepts.INFERRED_RELATIONSHIP))
+				.must(termQuery(ACTIVE, true));
+
+		if (attributeTypeIds != null) {
+			boolQueryBuilder.must(termsQuery(TYPE_ID, attributeTypeIds));
+		}
+
+		if (sourceConceptsLookups != null) {
+			boolQueryBuilder.must(referencedConceptsLookupService.constructQueryWithLookups(sourceConceptsLookups, SOURCE_ID));
+		}
+
+		return new NativeQueryBuilder()
+				.withQuery(boolQueryBuilder.build()._toQuery())
+				.withSourceFilter(new FetchSourceFilter(new String[]{Relationship.Fields.DESTINATION_ID}, null))
+				.withPageable(LARGE_PAGE)
+				.build();
+	}
 }
