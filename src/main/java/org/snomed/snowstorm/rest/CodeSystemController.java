@@ -16,7 +16,6 @@ import org.snomed.snowstorm.rest.pojo.CodeSystemUpdateRequest;
 import org.snomed.snowstorm.rest.pojo.CodeSystemUpgradeRequest;
 import org.snomed.snowstorm.rest.pojo.CreateCodeSystemVersionRequest;
 import org.snomed.snowstorm.rest.pojo.ItemsPage;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -33,24 +32,23 @@ import static org.snomed.snowstorm.rest.ImportController.CODE_SYSTEM_INTERNAL_RE
 @Tag(name = "Code Systems", description = "-")
 @RequestMapping(value = "/codesystems", produces = "application/json")
 public class CodeSystemController {
+	private final CodeSystemService codeSystemService;
+	private final CodeSystemUpgradeService codeSystemUpgradeService;
+	private final DailyBuildService dailyBuildService;
+	private final PermissionService permissionService;
+	private final ExtensionAdditionalLanguageRefsetUpgradeService extensionAdditionalLanguageRefsetUpgradeService;
+	private final CodeSystemVersionService codeSystemVersionService;
+	private final ModuleDependencyService moduleDependencyService;
 
-	@Autowired
-	private CodeSystemService codeSystemService;
-
-	@Autowired
-	private CodeSystemUpgradeService codeSystemUpgradeService;
-
-	@Autowired
-	private DailyBuildService dailyBuildService;
-
-	@Autowired
-	private PermissionService permissionService;
-
-	@Autowired
-	private ExtensionAdditionalLanguageRefsetUpgradeService extensionAdditionalLanguageRefsetUpgradeService;
-
-	@Autowired
-	private CodeSystemVersionService codeSystemVersionService;
+	public CodeSystemController(CodeSystemService codeSystemService, CodeSystemUpgradeService codeSystemUpgradeService, DailyBuildService dailyBuildService, PermissionService permissionService, ExtensionAdditionalLanguageRefsetUpgradeService extensionAdditionalLanguageRefsetUpgradeService, CodeSystemVersionService codeSystemVersionService, ModuleDependencyService moduleDependencyService) {
+		this.codeSystemService = codeSystemService;
+		this.codeSystemUpgradeService = codeSystemUpgradeService;
+		this.dailyBuildService = dailyBuildService;
+		this.permissionService = permissionService;
+		this.extensionAdditionalLanguageRefsetUpgradeService = extensionAdditionalLanguageRefsetUpgradeService;
+		this.codeSystemVersionService = codeSystemVersionService;
+		this.moduleDependencyService = moduleDependencyService;
+	}
 
 	@Value("${codesystem.all.latest-version.allow-future}")
 	private boolean showFutureVersionsDefault;
@@ -266,6 +264,7 @@ public class CodeSystemController {
 	public void startNewAuthoringCycle(@PathVariable String shortName) {
 		CodeSystem codeSystem = ControllerHelper.throwIfNotFound("Code System", codeSystemService.find(shortName));
 		codeSystemService.updateCodeSystemBranchMetadata(codeSystem);
+		moduleDependencyService.clearSourceAndTargetEffectiveTimes(codeSystem.getBranchPath());
 	}
 
 	private CodeSystem joinUserPermissionsInfo(CodeSystem codeSystem) {
