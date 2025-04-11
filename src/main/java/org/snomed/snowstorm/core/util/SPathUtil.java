@@ -35,6 +35,37 @@ public class SPathUtil {
         return ancestors;
     }
 
+    /**
+     * Return the given Branch path's ancestry. The given Branch path is included in the ancestry, and processing
+     * stops at the CodeSystem level, i.e. processing an Extension's Branch path will stop at MAIN/SNOMEDCT-XX.
+     *
+     * @param branchPath Find ancestry for this Branch path.
+     * @returnThe given Branch path's ancestry.
+     */
+    public static List<String> getAncestry(String branchPath) {
+        if (isCodeSystemBranch(branchPath)) {
+            return List.of(branchPath);
+        }
+
+        List<String> ancestry = new ArrayList<>();
+        ancestry.add(branchPath);
+
+        String parent = branchPath;
+        while ((parent = PathUtil.getParentPath(parent)) != null) {
+            if (!parent.startsWith("MAIN/") && branchPath.startsWith("MAIN/SNOMEDCT-") && parent.contains("SNOMEDCT-")) {
+                parent = "MAIN/" + parent;
+            }
+
+            ancestry.add(parent);
+
+            if (isCodeSystemBranch(parent)) {
+                break;
+            }
+        }
+
+        return ancestry;
+    }
+
     public static boolean isCodeSystemBranch(String branchPath) {
         return branchPath.equals("MAIN") || branchPath.startsWith("SNOMEDCT-", branchPath.lastIndexOf("/") + 1);
     }
