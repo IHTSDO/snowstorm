@@ -17,14 +17,10 @@ import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.domain.jobs.ExportConfiguration;
 import org.snomed.snowstorm.core.data.domain.jobs.ExportStatus;
 import org.snomed.snowstorm.core.data.repositories.ExportConfigurationRepository;
-import org.snomed.snowstorm.core.data.services.BranchMetadataHelper;
-import org.snomed.snowstorm.core.data.services.CodeSystemService;
-import org.snomed.snowstorm.core.data.services.NotFoundException;
-import org.snomed.snowstorm.core.data.services.QueryService;
+import org.snomed.snowstorm.core.data.services.*;
 import org.snomed.snowstorm.core.rf2.RF2Type;
 import org.snomed.snowstorm.core.util.DateUtil;
 import org.snomed.snowstorm.core.util.TimerUtil;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.data.elasticsearch.core.SearchHit;
 import org.springframework.data.elasticsearch.core.SearchHitsIterator;
@@ -49,29 +45,27 @@ import static io.kaicode.elasticvc.helper.QueryHelper.*;
 @Service
 public class ExportService {
 
-	@Autowired
-	private VersionControlHelper versionControlHelper;
+	private final VersionControlHelper versionControlHelper;
+	private final ElasticsearchOperations elasticsearchOperations;
+	private final QueryService queryService;
+	private final ExportConfigurationRepository exportConfigurationRepository;
+	private final BranchService branchService;
+	private final BranchMetadataHelper branchMetadataHelper;
+	private final CodeSystemService codeSystemService;
+	private final ExecutorService executorService;
+	private final SBranchService sBranchService;
 
-	@Autowired
-	private ElasticsearchOperations elasticsearchOperations;
-
-	@Autowired
-	private QueryService queryService;
-
-	@Autowired
-	private ExportConfigurationRepository exportConfigurationRepository;
-
-	@Autowired
-	private BranchService branchService;
-
-	@Autowired
-	private BranchMetadataHelper branchMetadataHelper;
-
-	@Autowired
-	private CodeSystemService codeSystemService;
-
-	@Autowired
-	private ExecutorService executorService;
+	public ExportService(VersionControlHelper versionControlHelper, ElasticsearchOperations elasticsearchOperations, QueryService queryService, ExportConfigurationRepository exportConfigurationRepository, BranchService branchService, BranchMetadataHelper branchMetadataHelper, CodeSystemService codeSystemService, ExecutorService executorService, SBranchService sBranchService) {
+		this.versionControlHelper = versionControlHelper;
+		this.elasticsearchOperations = elasticsearchOperations;
+		this.queryService = queryService;
+		this.exportConfigurationRepository = exportConfigurationRepository;
+		this.branchService = branchService;
+		this.branchMetadataHelper = branchMetadataHelper;
+		this.codeSystemService = codeSystemService;
+		this.executorService = executorService;
+		this.sBranchService = sBranchService;
+	}
 
 	private final Set<String> refsetTypesRequiredForClassification = Sets.newHashSet(Concepts.REFSET_MRCM_ATTRIBUTE_DOMAIN, Concepts.OWL_EXPRESSION_TYPE_REFERENCE_SET);
 
@@ -292,11 +286,16 @@ public class ExportService {
 				logger.info("{} Reference Set Types found for this export: {}", referenceSetTypes.size(), referenceSetTypes);
 
 				Query memberBranchCriteria = selectionBranchCriteria.getEntityBranchCriteria(ReferenceSetMember.class);
+				Set<String> moduleIdsBackup = moduleIds;
 				for (ReferenceSetType referenceSetType : referenceSetTypes) {
 					List<Long> refsetsOfThisType = new ArrayList<>(queryService.findDescendantIdsAsUnion(allContentBranchCriteria, true, Collections.singleton(Long.parseLong(referenceSetType.getConceptId()))));
 					refsetsOfThisType.add(Long.parseLong(referenceSetType.getConceptId()));
 					for (Long refsetToExport : refsetsOfThisType) {
 						if (!refsetOnlyExport || refsetIds.contains(refsetToExport.toString())) {
+							if (Concepts.MODULE_DEPENDENCY_REFERENCE_SET.equals(String.valueOf(refsetToExport))) {
+								moduleIds.addAll(sBranchService.getModules(branchPath));
+							}
+
 							BoolQuery.Builder memberQueryBuilder = getContentQuery(exportType, moduleIds, startEffectiveTime, memberBranchCriteria);
 							memberQueryBuilder.must(termQuery(ReferenceSetMember.Fields.REFSET_ID, refsetToExport));
 							Query memberQuery = memberQueryBuilder.build()._toQuery();
@@ -319,6 +318,7 @@ public class ExportService {
 										codeSystemRF2Name,
 										null);
 							}
+							moduleIds = moduleIdsBackup;
 						}
 					}
 				}

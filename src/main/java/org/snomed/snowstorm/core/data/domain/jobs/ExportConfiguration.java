@@ -10,6 +10,7 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
 
 import java.util.Date;
+import java.util.HashSet;
 import java.util.Set;
 
 @Document(indexName = "#{@indexNameProvider.indexName('export-config')}", createIndex = false)
@@ -46,7 +47,7 @@ public class ExportConfiguration {
 	@Pattern(regexp = "[0-9]{8}")
 	private String startEffectiveTime;
 
-	private Set<String> moduleIds;
+	private Set<String> moduleIds = new HashSet<>();
 
 	@Schema(description = "If refsetIds are included, this indicates that the export will be a refset-only export.")
 	private Set<String> refsetIds;
