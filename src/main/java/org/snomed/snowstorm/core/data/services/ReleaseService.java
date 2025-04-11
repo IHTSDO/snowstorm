@@ -46,6 +46,8 @@ public class ReleaseService {
 	private ConceptService componentService;
 
 	public void createVersion(Integer effectiveTime, String path) {
+		mdService.setSourceAndTargetEffectiveTimes(path, effectiveTime);
+
 		try (Commit commit = branchService.openCommit(path, branchMetadataHelper.getBranchLockMetadata("Versioning components using effectiveTime " + effectiveTime))) {
 
 			// Disable traceability when versioning to prevent logging every component in the release
