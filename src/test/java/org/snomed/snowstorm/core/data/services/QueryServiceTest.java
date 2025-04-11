@@ -346,6 +346,18 @@ class QueryServiceTest extends AbstractTest {
 		assertEquals(HYPERTROPHY, results.get(1).getConceptId());
 	}
 
+	@Test
+	void testDotNotationEclWithMemberOfForStatedView() throws ServiceException {
+		createConcepts();
+		createMembers(MAIN, REFSET_SIMPLE, List.of(STENOSIS, HYPERTROPHY));
+		QueryService.ConceptQueryBuilder queryBuilder = service.createQueryBuilder(true).activeFilter(true);
+		createMembers(MAIN, REFSET_SIMPLE, List.of(PENDING_MOVE, PENTALOGY_OF_FALLOT));
+		String ecl = "^446609009.116676008 |Associated morphology (attribute)|";
+		queryBuilder.ecl(ecl);
+		List<ConceptMini> results = service.search(queryBuilder, PATH, PAGE_REQUEST).getContent();
+		assertEquals(0, results.size());
+	}
+
 	private void createConcepts() throws ServiceException {
 		List<Concept> allConcepts = new ArrayList<>();
 		allConcepts.add(new Concept(ISA).addRelationship(new Relationship(ISA, SNOMEDCT_ROOT)));

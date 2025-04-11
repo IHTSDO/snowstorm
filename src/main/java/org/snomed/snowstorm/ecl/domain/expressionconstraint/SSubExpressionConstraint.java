@@ -7,7 +7,6 @@ import io.kaicode.elasticvc.api.BranchCriteria;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 import it.unimi.dsi.fastutil.longs.LongLinkedOpenHashSet;
 
-import org.jetbrains.annotations.NotNull;
 import org.snomed.langauges.ecl.domain.ConceptReference;
 import org.snomed.langauges.ecl.domain.expressionconstraint.ExpressionConstraint;
 import org.snomed.langauges.ecl.domain.expressionconstraint.SubExpressionConstraint;
@@ -219,7 +218,7 @@ public class SSubExpressionConstraint extends SubExpressionConstraint implements
 				(refinementBuilder.shouldPrefetchMemberOfQueryResults() != null && refinementBuilder.shouldPrefetchMemberOfQueryResults()));
 	}
 
-	private @NotNull SortedSet<Long> applyFilters(SortedSet<Long> conceptIdSortedSet, ECLContentService eclContentService, BranchCriteria branchCriteria, boolean stated) {
+	private SortedSet<Long> applyFilters(SortedSet<Long> conceptIdSortedSet, ECLContentService eclContentService, BranchCriteria branchCriteria, boolean stated) {
 		if (!conceptIdSortedSet.isEmpty()) {
 			// Apply filter constraints
 			if (getConceptFilterConstraints() != null) {
