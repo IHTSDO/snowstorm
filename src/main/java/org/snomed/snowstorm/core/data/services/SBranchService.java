@@ -1,6 +1,7 @@
 package org.snomed.snowstorm.core.data.services;
 
 import co.elastic.clients.json.JsonData;
+import io.kaicode.elasticvc.api.BranchNotFoundException;
 import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.api.PathUtil;
 import io.kaicode.elasticvc.domain.Branch;
@@ -236,5 +237,42 @@ public class SBranchService {
 		metadata.putMap(AUTHOR_FLAGS_METADATA_KEY, authFlagMap);
 
 		return branchService.updateMetadata(branchPath, metadata);
+	}
+
+	/**
+	 * Return the configured module identifiers for the given branch path.
+	 *
+	 * @param branchPath The branch path to find module identifiers.
+	 * @return The configured module identifiers for the given branch path.
+	 */
+	public Set<String> getModules(String branchPath) {
+		Branch branch = getBranchNullable(branchPath);
+		if (branch == null) {
+			return Collections.emptySet();
+		}
+
+		Metadata metadata = branch.getMetadata();
+		if (metadata == null || metadata.size() == 0) {
+			return Collections.emptySet();
+		}
+
+		Set<String> moduleIds = new HashSet<>();
+		if (metadata.containsKey(BranchMetadataKeys.DEFAULT_MODULE_ID)) {
+			moduleIds.add(metadata.getString(BranchMetadataKeys.DEFAULT_MODULE_ID));
+		}
+
+		if (metadata.containsKey(BranchMetadataKeys.EXPECTED_EXTENSION_MODULES)) {
+			moduleIds.addAll(metadata.getList(BranchMetadataKeys.EXPECTED_EXTENSION_MODULES));
+		}
+
+		return moduleIds;
+	}
+
+	private Branch getBranchNullable(String branchPath) {
+		try {
+			return branchService.findBranchOrThrow(branchPath, true);
+		} catch (BranchNotFoundException | IllegalArgumentException e) {
+			return null;
+		}
 	}
 }
