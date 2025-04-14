@@ -118,7 +118,9 @@ public class FHIRConcept implements FHIRGraphNode {
 
 		properties = new HashMap<>();
 		Optional.ofNullable(definitionConcept.getDefinition()).ifPresent(x -> properties.put("definition",Collections.singletonList(new FHIRProperty("definition",null,x,FHIRProperty.STRING))));
-		definitionConcept.getProperty().stream().filter( x-> (x.getCode().equals("inactive") && !Boolean.valueOf(x.getValueBooleanType().getValueAsString()).equals(Boolean.FALSE)) || x.getCode().equals("status") && x.getValueCodeType().getCode().equals("retired") ).findFirst().ifPresentOrElse(x -> active= false, ()->active =true);
+		definitionConcept.getProperty().stream()
+				.filter(FHIRConcept::isPropertyInactive)
+				.findFirst().ifPresentOrElse(x -> active = false, ()-> active = true);
 		properties.put("inactive",Collections.singletonList(new FHIRProperty("inactive",null,Boolean.toString(!isActive()),FHIRProperty.BOOLEAN)));
 		extensions = new HashMap<>();
 		definitionConcept.getExtension().forEach(
@@ -157,7 +159,6 @@ public class FHIRConcept implements FHIRGraphNode {
 		}
 		// Ancestors will be set before save
 	}
-
 
 	public FHIRConcept(ConceptMini snomedConceptMini, FHIRCodeSystemVersion codeSystemVersion, boolean includeDesignations) {
 		this.codeSystemVersion = codeSystemVersion.getId();
@@ -278,5 +279,13 @@ public class FHIRConcept implements FHIRGraphNode {
 
 	public void setExtensions(Map<String, List<FHIRProperty>> extensions) {
 		this.extensions = extensions;
+	}
+
+	private static boolean isPropertyInactive(CodeSystem.ConceptPropertyComponent x) {
+		if (x.getCode().equals("inactive")) {
+			if (x.hasValueBooleanType() && !Boolean.valueOf(x.getValueBooleanType().getValueAsString()).equals(Boolean.FALSE)) return true;
+			if (x.hasValueCodeType() && !Boolean.valueOf(x.getValueCodeType().getValueAsString()).equals(Boolean.FALSE)) return true;
+		}
+		return x.getCode().equals("status") && x.hasValueCodeType() && x.getValueCodeType().getCode().equals("retired");
 	}
 }
