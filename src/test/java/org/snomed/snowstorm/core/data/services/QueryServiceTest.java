@@ -349,13 +349,33 @@ class QueryServiceTest extends AbstractTest {
 	@Test
 	void testDotNotationEclWithMemberOfForStatedView() throws ServiceException {
 		createConcepts();
-		createMembers(MAIN, REFSET_SIMPLE, List.of(STENOSIS, HYPERTROPHY));
 		QueryService.ConceptQueryBuilder queryBuilder = service.createQueryBuilder(true).activeFilter(true);
 		createMembers(MAIN, REFSET_SIMPLE, List.of(PENDING_MOVE, PENTALOGY_OF_FALLOT));
 		String ecl = "^446609009.116676008 |Associated morphology (attribute)|";
 		queryBuilder.ecl(ecl);
 		List<ConceptMini> results = service.search(queryBuilder, PATH, PAGE_REQUEST).getContent();
 		assertEquals(0, results.size());
+	}
+
+	@Test
+	void testCompoundExpressionWithMemberOf() throws ServiceException {
+		createConcepts();
+		createMembers(MAIN, REFSET_SIMPLE, List.of(STENOSIS, HYPERTROPHY, "116676008"));
+		QueryService.ConceptQueryBuilder queryBuilder = service.createQueryBuilder(false).activeFilter(true);
+		String ecl = "(^446609009) AND (<<123037004)";
+		queryBuilder.ecl(ecl);
+		List<ConceptMini> results = service.search(queryBuilder, PATH, PAGE_REQUEST).getContent();
+		assertEquals(2, results.size());
+
+		ecl = "(<<123037004) MINUS (^446609009)";
+		queryBuilder.ecl(ecl);
+		results = service.search(queryBuilder, PATH, PAGE_REQUEST).getContent();
+		assertEquals(3, results.size());
+
+		ecl = "(^446609009) MINUS (<<123037004)";
+		queryBuilder.ecl(ecl);
+		results = service.search(queryBuilder, PATH, PAGE_REQUEST).getContent();
+		assertEquals(1, results.size());
 	}
 
 	private void createConcepts() throws ServiceException {
