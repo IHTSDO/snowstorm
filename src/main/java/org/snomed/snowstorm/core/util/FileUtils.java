@@ -35,10 +35,10 @@ public class FileUtils {
         return Optional.empty();
     }
 
-    public static void removeTempFiles(List<String> filePaths) {
-        for (String filePath : filePaths) {
-            if (!new File(filePath).delete()) {
-                logger.warn("Failed to delete temp file {}", filePath);
+    public static void removeDownloadedFiles(List<File> files) {
+        for (File file : files) {
+            if (!file.delete()) {
+                logger.warn("Failed to delete temp file {}", file.getAbsolutePath());
             }
         }
     }

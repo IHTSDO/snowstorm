@@ -1,26 +1,32 @@
 package org.snomed.snowstorm.syndication.hl7;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.core.data.services.ServiceException;
 import org.snomed.snowstorm.fhir.domain.FHIRCodeSystemVersion;
 import org.snomed.snowstorm.fhir.pojo.FHIRCodeSystemVersionParams;
 import org.snomed.snowstorm.fhir.services.FHIRCodeSystemService;
 import org.snomed.snowstorm.fhir.services.FHIRLoadPackageService;
+import org.snomed.snowstorm.syndication.common.SyndicationService;
+import org.snomed.snowstorm.syndication.common.SyndicationImportParams;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
+import static java.util.Collections.singletonList;
 import static org.snomed.snowstorm.core.util.FileUtils.findFile;
-import static org.snomed.snowstorm.syndication.SyndicationUtils.waitForProcessTermination;
+import static org.snomed.snowstorm.syndication.common.SyndicationConstants.HL_7_TERMINOLOGY;
+import static org.snomed.snowstorm.syndication.common.CommandUtils.getSingleLineCommandResult;
+import static org.snomed.snowstorm.syndication.common.CommandUtils.waitForProcessTermination;
+import static org.snomed.snowstorm.syndication.common.SyndicationConstants.LATEST_VERSION;
+import static org.snomed.snowstorm.syndication.common.SyndicationConstants.LOCAL_VERSION;
 
-@Service
-public class Hl7SyndicationService {
+@Service(HL_7_TERMINOLOGY)
+public class Hl7SyndicationService extends SyndicationService {
 
     @Autowired
     private FHIRLoadPackageService loadPackageService;
@@ -37,29 +43,29 @@ public class Hl7SyndicationService {
     @Value("${syndication.hl7.fhir.version}")
     private String fhirVersion;
 
-    private final Logger logger = LoggerFactory.getLogger(getClass());
+    @Override
+    protected List<File> fetchTerminologyPackages(SyndicationImportParams params) throws IOException, InterruptedException, ServiceException {
+        Optional<File> file = LOCAL_VERSION.equals(params.version())
+                ? findFile(workingDirectory, fileNamePattern)
+                : downloadHl7File(params.version());
+        return singletonList(file.orElseThrow(() -> new ServiceException("Hl7 terminology file not found, cannot be imported")));
+    }
 
     /**
      * Will import the hl7 terminology. If a hl7 terminology file is already present on the filesystem, it will use it.
-     * Else, it will download the latest version or version @param version if specified
-     *
-     * @param version     The version to download. E.g. null (latest version) or "6.2.0"
-     * @param importLoinc Whether the LOINC terminology is supposed to be used as well.
-     *                    In that case, a conflicting codeSystem imported through hl7 must be removed ( see <a href="https://github.com/IHTSDO/snowstorm/issues/609"></a>)
+     * Else, it will download the latest version or version @param version if specified.
+     * If the LOINC terminology is supposed to be used as well, a conflicting codeSystem imported through hl7 must be removed ( see <a href="https://github.com/IHTSDO/snowstorm/issues/609"></a>)
      */
-    public void importHl7Terminology(String version, boolean importLoinc) throws IOException, InterruptedException, ServiceException {
-        Optional<File> file = findFile(workingDirectory, fileNamePattern);
-        if(file.isEmpty()) {
-            file = downloadFile(version);
-        }
-        importHl7Package(file);
-        if(importLoinc) {
+    @Override
+    protected void importTerminology(SyndicationImportParams params, List<File> files) throws IOException {
+        importHl7Package(files.get(0));
+        if (params.isLoincImportIncluded()) {
             deleteConflictingHl7CodeSystem();
         }
     }
 
-    private Optional<File> downloadFile(String version) throws IOException, InterruptedException {
-        String versionSuffix = version == null ? "" : "@" + version;
+    private Optional<File> downloadHl7File(String version) throws IOException, InterruptedException {
+        String versionSuffix = LATEST_VERSION.equals(version) ? "" : "@" + version;
         String packageName = "hl7.terminology." + fhirVersion + versionSuffix;
         Process process = new ProcessBuilder("npm", "--registry", "https://packages.simplifier.net", "pack", packageName)
                 .directory(new File(workingDirectory))
@@ -68,21 +74,28 @@ public class Hl7SyndicationService {
         return findFile(workingDirectory, fileNamePattern);
     }
 
-    private void importHl7Package(Optional<File> fileOpt) throws IOException, ServiceException {
-        if (fileOpt.isEmpty()) {
-            throw new ServiceException("Hl7 terminology file not found, cannot be imported");
-        }
-        File file = fileOpt.get();
-        logger.info("Importing HL7 Terminology from: {}", file.getName());
-        loadPackageService.uploadPackageResources(file, Set.of("*"), file.getName(), false);
+    private void importHl7Package(File file) throws IOException {
+        String fileName = file.getName();
+        logger.info("Importing HL7 Terminology from: {}", fileName);
+        loadPackageService.uploadPackageResources(file, Set.of("*"), fileName, false);
     }
 
     private void deleteConflictingHl7CodeSystem() {
         FHIRCodeSystemVersionParams codeSystemVersionParams = new FHIRCodeSystemVersionParams("http://loinc.org");
         codeSystemVersionParams.setId("v3-loinc");
         FHIRCodeSystemVersion codeSystemVersion = fhirCodeSystemService.findCodeSystemVersion(codeSystemVersionParams);
-        if(codeSystemVersion != null) {
+        if (codeSystemVersion != null) {
             fhirCodeSystemService.deleteCodeSystemVersion(codeSystemVersion);
         }
+    }
+
+    @Override
+    protected String getTerminologyVersion(String releaseFileName) {
+        return releaseFileName.replaceAll("^hl7\\.terminology\\.r4-(\\d+\\.\\d+\\.\\d+)(?:-[^.]+)?\\.tgz$", "$1");
+    }
+
+    @Override
+    protected String getLatestTerminologyVersion(String params) throws IOException, InterruptedException {
+        return getSingleLineCommandResult("curl -s https://packages.simplifier.net/hl7.terminology.r4 | jq -r '.versions | map(.version)[]' | tail -n 1");
     }
 }

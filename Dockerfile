@@ -43,11 +43,6 @@ RUN curl -sL https://deb.nodesource.com/setup_18.x -o /tmp/nodesource_setup.sh &
     && rm -rf /var/lib/apt/lists/*
 
 #############
-#### HL7 ####
-#############
-WORKDIR $HL7_HOME
-
-#############
 ### LOINC ###
 #############
 WORKDIR $LOINC_HOME
@@ -58,13 +53,23 @@ RUN curl -fsSL $(curl -s https://api.github.com/repos/hapifhir/hapi-fhir/release
     npm i puppeteer
 # Copy puppeteer script to image
 COPY download_loinc.mjs $LOINC_HOME/download_loinc.mjs
+# For local testing of loinc imports
+#COPY Loinc_*-sample*.zip $LOINC_HOME/
+
+#############
+#### HL7 ####
+#############
+WORKDIR $HL7_HOME
+# (Optional) For local testing of hl7 imports
+#COPY hl7.terminology.*-sample*.tgz $HL7_HOME/
 
 ##############
 ### SNOMED ###
 ##############
 WORKDIR $SNOMED_HOME
-# Testing purposes (import RF from disk)
-COPY international_sample.zip $SNOMED_HOME/international_sample.zip
+# For local testing of snomed imports
+#COPY snomed-edition*-sample*.zip $SNOMED_HOME/
+#COPY snomed-extension*-sample*.zip $SNOMED_HOME/
 
 ##############
 ### Common ###
@@ -87,4 +92,4 @@ USER appuser
 ENTRYPOINT ["java", "-Xms2g", "-Xmx4g", "--add-opens", "java.base/java.lang=ALL-UNNAMED", "--add-opens", "java.base/java.util=ALL-UNNAMED", "-jar", "/app/snowstorm.jar"]
 
 # Using arguments that are likely to be customized
-CMD ["--elasticsearch.urls=http://es:9200","--snomed-version=http://snomed.info/sct/11000172109/version/20250315", "--extension-country-code=BE", "--import-loinc-terminology", "--import-hl7-terminology"]
+CMD ["--elasticsearch.urls=http://es:9200","--import-snomed-terminology=http://snomed.info/sct/11000172109/version/20250315", "--extension-country-code=BE", "--import-loinc-terminology", "--import-hl7-terminology"]

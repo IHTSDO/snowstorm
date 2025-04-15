@@ -10,9 +10,8 @@ import org.snomed.snowstorm.core.data.domain.QueryConcept;
 import org.snomed.snowstorm.core.data.services.*;
 import org.snomed.snowstorm.core.rf2.RF2Type;
 import org.snomed.snowstorm.core.rf2.rf2import.ImportService;
-import org.snomed.snowstorm.syndication.hl7.Hl7SyndicationService;
-import org.snomed.snowstorm.syndication.loinc.LoincSyndicationService;
-import org.snomed.snowstorm.syndication.snomed.SnomedSyndicationService;
+import org.snomed.snowstorm.core.util.CollectionUtils;
+import org.snomed.snowstorm.syndication.StartupSyndicationService;
 import org.springframework.beans.factory.BeanCreationException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.ApplicationArguments;
@@ -36,14 +35,10 @@ import java.util.List;
 @EnableCaching
 public class SnowstormApplication extends Config implements ApplicationRunner {
 
-	public static final String SNOMED_VERSION = "snomed-version";
-	public static final String EXTENSION_COUNTRY_CODE = "extension-country-code";
 	private static final String DELETE_INDICES_FLAG = "delete-indices";
 	private static final String IMPORT_ARG = "import";
 	private static final String IMPORT_FULL_ARG = "import-full";
 	private static final String EXIT = "exit";
-	private static final String IMPORT_LOINC_TERMINOLOGY = "import-loinc-terminology";
-	private static final String IMPORT_HL_7_TERMINOLOGY = "import-hl7-terminology";
 
 	@Autowired
 	private ImportService importService;
@@ -61,13 +56,7 @@ public class SnowstormApplication extends Config implements ApplicationRunner {
 	private CodeSystemVersionService codeSystemVersionService;
 
 	@Autowired
-	private SnomedSyndicationService snomedSyndicationService;
-
-	@Autowired
-	private Hl7SyndicationService hl7SyndicationService;
-
-	@Autowired
-	private LoincSyndicationService loincSyndicationService;
+	private StartupSyndicationService startupSyndicationService;
 
 	private static final Logger logger = LoggerFactory.getLogger(SnowstormApplication.class);
 
@@ -128,21 +117,8 @@ public class SnowstormApplication extends Config implements ApplicationRunner {
 				fileExistsForArgument(releasePath, IMPORT_FULL_ARG);
 
 				importEditionRF2FromDisk(releasePath, RF2Type.FULL);
-			} else if (applicationArguments.containsOption(SNOMED_VERSION)) {
-				// Import snomed edition or extension 'Snapshot' from uri at startup including the dependencies
-				String releaseUri = getOneValue(applicationArguments, SNOMED_VERSION);
-				String extensionName = getOneValueOrNull(applicationArguments, EXTENSION_COUNTRY_CODE);
-				snomedSyndicationService.importSnomedEditionAndExtension(releaseUri, extensionName);
 			}
-			boolean importLoinc = applicationArguments.containsOption(IMPORT_LOINC_TERMINOLOGY);
-			if (applicationArguments.containsOption(IMPORT_HL_7_TERMINOLOGY)) {
-				String releaseVersion = getOneValueOrNull(applicationArguments, IMPORT_HL_7_TERMINOLOGY);
-				hl7SyndicationService.importHl7Terminology(releaseVersion, importLoinc);
-			}
-			if (importLoinc) {
-				String releaseVersion = getOneValueOrNull(applicationArguments, IMPORT_LOINC_TERMINOLOGY);
-				loincSyndicationService.importLoincTerminology(releaseVersion);
-			}
+			startupSyndicationService.handleStartupSyndication(applicationArguments);
 			if (applicationArguments.containsOption(EXIT)) {
 				logger.info("Exiting application.");
 				((ConfigurableApplicationContext)applicationContext).close();
@@ -156,11 +132,11 @@ public class SnowstormApplication extends Config implements ApplicationRunner {
 		}
 	}
 
-	private String getOneValueOrNull(ApplicationArguments applicationArguments, String argName) {
-        return applicationArguments.getOptionValues(argName).isEmpty() ? null : getOneValue(applicationArguments, argName);
+	public static String getOneValueOrDefault(ApplicationArguments applicationArguments, String argName, String defaultValue) {
+        return CollectionUtils.orEmpty(applicationArguments.getOptionValues(argName)).isEmpty() ? defaultValue : getOneValue(applicationArguments, argName);
     }
 
-	private String getOneValue(ApplicationArguments applicationArguments, String argName) {
+	private static String getOneValue(ApplicationArguments applicationArguments, String argName) {
 		List<String> values = applicationArguments.getOptionValues(argName);
 		if (values.size() != 1) {
 			throw new IllegalArgumentException(argName + " argument must have exactly one value");

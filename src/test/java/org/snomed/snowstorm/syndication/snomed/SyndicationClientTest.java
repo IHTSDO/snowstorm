@@ -17,6 +17,7 @@ import org.springframework.http.*;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import java.io.File;
 import java.io.IOException;
 import java.util.List;
 
@@ -62,7 +63,7 @@ class SyndicationClientTest {
         doReturn(new ResponseEntity<>(getFeedResponse(), HttpStatus.OK))
                 .when(restTemplate).exchange(eq("/feed"), eq(HttpMethod.GET), any(HttpEntity.class), eq(String.class));
 
-        List<String> downloadedPackagePaths = syndicationClient.downloadPackages(EDITION_URI, "user", "pass");
+        List<File> downloadedPackagePaths = syndicationClient.downloadPackages(EDITION_URI, "user", "pass");
         Assertions.assertEquals(1, downloadedPackagePaths.size());
     }
 
@@ -71,7 +72,7 @@ class SyndicationClientTest {
         doReturn(new ResponseEntity<>(getFeedResponse(), HttpStatus.OK))
                 .when(restTemplate).exchange(eq("/feed"), eq(HttpMethod.GET), any(HttpEntity.class), eq(String.class));
 
-        List<String> downloadedPackagePaths = syndicationClient.downloadPackages(EXTENSION_URI, "user", "pass");
+        List<File> downloadedPackagePaths = syndicationClient.downloadPackages(EXTENSION_URI, "user", "pass");
         Assertions.assertEquals(2, downloadedPackagePaths.size());
     }
 
