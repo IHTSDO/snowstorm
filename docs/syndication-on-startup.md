@@ -4,7 +4,7 @@ This document provides a complete overview of how terminology loading works duri
 
 ---
 
-## Terminology Loading on Startup
+## Terminology Loading on (runtime) Startup
 
 The application supports automatic loading of the following healthcare terminologies:
 
@@ -28,6 +28,79 @@ These options must be passed as command-line arguments to the application (see D
 - **Minimal Docker Image**: No terminology files are bundled in the image, keeping it lightweight.
 - **Runtime Fetching**: Terminologies are downloaded on startup from their official sources.
 - **Licensing and Access**: Some terminologies (e.g., SNOMED CT and LOINC) require licensed access and credentials.
+
+---
+
+## Terminology Loading on Runtime
+
+This API endpoint allows for dynamic loading of clinical terminologies at runtime, without requiring a restart of the application. It is intended for system administrators that need to update or import a terminology into the application environment.
+
+### Endpoint
+```
+PUT /syndication/import
+```
+
+### Description
+
+This endpoint initiates a background job to import or update a terminology version. It can be used to keep terminologies like SNOMED CT, LOINC, or HL7 FHIR CodeSystems up to date in environments where updates are required (e.g. monthly LOINC refreshes or SNOMED CT extension releases).
+Downgrades to lower versions are also possible using this endpoint.
+
+### Supported Terminologies
+
+- **SNOMED CT**
+- **LOINC**
+- **HL7 FHIR**
+
+### Request Body
+
+The request must be in JSON format and conform to the `SyndicationImportRequest` structure. A few examples are listed below.
+Each time, a secret needs to be passed. The value must match with the one defined in the environment variables (see Environment File section below). 
+This basic security mechanism prevents unwanted non-admin type users from updating terminologies.
+
+Loinc latest version
+```json
+{
+  "terminologyName": "loinc",
+  "syndicationSecret": "theSecret"
+}
+```
+
+Loinc version 2.80
+```json
+{
+  "terminologyName": "loinc",
+  "version": "2.80",
+  "syndicationSecret": "theSecret"
+}
+```
+
+Snomed belgian extension + international edition latest version
+```json
+{
+  "terminologyName": "snomed",
+  "version": "http://snomed.info/sct/11000172109",
+  "extensionName": "BE",
+  "syndicationSecret": "theSecret"
+}
+```
+
+Snomed belgian extension + international edition version 20250315
+```json
+{
+  "terminologyName": "snomed",
+  "version": "http://snomed.info/sct/11000172109/version/20250315",
+  "extensionName": "BE",
+  "syndicationSecret": "theSecret"
+}
+```
+
+Hl7 latest version
+```json
+{
+  "terminologyName": "hl7",
+  "syndicationSecret": "theSecret"
+}
+```
 
 ---
 
@@ -163,16 +236,17 @@ You can comment/uncomment lines to select the desired loading mode.
 
 ## Environment File (`.env`)
 
-Create a `.env` file to securely pass credentials required for SNOMED and LOINC downloads.
+Create a `.env` file to securely pass credentials required for SNOMED and LOINC downloads. The SYNDICATION_SECRET environment variable will be used as a basic security mechanism to prevent unwanted users from using the PUT /syndication/import endpoint.
 
 ```env
 SNOMED_USERNAME=username@mail.com
 SNOMED_PASSWORD=snomedPassword
 LOINC_USERNAME=username
 LOINC_PASSWORD=loincPassword
+SYNDICATION_SECRET=secret
 ```
 
-If you're not using `docker-compose`, ensure these are provided via another secure mechanism (e.g. environment injection, secrets manager).
+If you're not using `docker-compose` and its 'env_file' configuration, ensure these are provided via another secure mechanism (e.g. environment injection, secrets manager).
 
 ---
 

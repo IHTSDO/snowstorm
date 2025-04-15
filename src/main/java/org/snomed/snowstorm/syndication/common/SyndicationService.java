@@ -1,9 +1,9 @@
-package org.snomed.snowstorm.syndication;
+package org.snomed.snowstorm.syndication.common;
 
 import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.core.data.services.ServiceException;
-import org.snomed.snowstorm.syndication.importstatus.SyndicationImportService;
-import org.snomed.snowstorm.syndication.common.SyndicationImportParams;
+import org.snomed.snowstorm.syndication.SyndicationImportService;
 import org.snomed.snowstorm.syndication.data.SyndicationImport;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -27,43 +27,33 @@ public abstract class SyndicationService {
     @Autowired
     protected SyndicationImportService importStatusService;
 
-    protected final String terminologyName;
-    protected final Logger logger;
-
-    protected SyndicationService(String terminologyName, Logger logger) {
-        this.terminologyName = terminologyName;
-        this.logger = logger;
-    }
+    protected final Logger logger = LoggerFactory.getLogger(this.getClass());
 
     public void fetchAndImportTerminology(SyndicationImportParams params) throws IOException, ServiceException, InterruptedException {
-        SyndicationImport status = importStatusService.getImportStatus(terminologyName);
-        if (alreadyImported(params, status)) {
-            logger.info("Terminology {} version {} is already imported", terminologyName, status.getActualVersion());
-            return;
-        }
         String importedVersion = null;
         try {
-            importStatusService.saveOrUpdateImportStatus(terminologyName, params.version(), importedVersion, RUNNING, null);
+            importStatusService.saveOrUpdateImportStatus(params.terminology(), params.version(), importedVersion, RUNNING, null);
             List<File> files = fetchTerminologyPackages(params);
             if(CollectionUtils.isEmpty(files)) {
-                throw new ServiceException("No terminology packages found for imported version" + status.getActualVersion());
+                throw new ServiceException("No terminology packages found for version" + params.version());
             }
             importTerminology(params, files);
             importedVersion = LOCAL_VERSION.equals(params.version())
                     ? getLocalPackageIdentifier(files)
                     : getTerminologyVersion(files.get(files.size() - 1).getName());
-            importStatusService.saveOrUpdateImportStatus(terminologyName, params.version(), importedVersion, COMPLETED, null);
+            importStatusService.saveOrUpdateImportStatus(params.terminology(), params.version(), importedVersion, COMPLETED, null);
             if(!LOCAL_VERSION.equals(params.version())) {
                 removeDownloadedFiles(files);
             }
         } catch (Exception e) {
-            importStatusService.saveOrUpdateImportStatus(terminologyName, params.version(), importedVersion, FAILED, e.getMessage());
+            importStatusService.saveOrUpdateImportStatus(params.terminology(), params.version(), importedVersion, FAILED, e.getMessage());
             throw e;
         }
     }
 
 
-    private boolean alreadyImported(SyndicationImportParams params, SyndicationImport syndicationImport) throws ServiceException, IOException, InterruptedException {
+    public boolean alreadyImported(SyndicationImportParams params, SyndicationImport syndicationImport) throws ServiceException, IOException, InterruptedException {
+        String terminologyName = params.terminology().getName();
         if (syndicationImport != null && syndicationImport.getStatus() == COMPLETED && isNotBlank(syndicationImport.getActualVersion())) {
             if (syndicationImport.getActualVersion().equals(params.version())) {
                 return true;

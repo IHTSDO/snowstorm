@@ -10,7 +10,8 @@ import org.snomed.snowstorm.core.data.services.ServiceException;
 import org.snomed.snowstorm.core.util.FileUtils;
 import org.snomed.snowstorm.syndication.common.CommandUtils;
 import org.snomed.snowstorm.syndication.common.SyndicationImportParams;
-import org.snomed.snowstorm.syndication.importstatus.SyndicationImportService;
+import org.snomed.snowstorm.syndication.SyndicationImportService;
+import org.snomed.snowstorm.syndication.common.SyndicationTerminology;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.io.File;
@@ -45,7 +46,7 @@ class LoincSyndicationServiceTest {
             mockStatic.when(() -> FileUtils.findFile("/tmp", "loinc.zip"))
                     .thenReturn(Optional.of(new File("loinc.zip")));
 
-            loincSyndicationService.fetchAndImportTerminology(new SyndicationImportParams(LOCAL_VERSION, null, false));
+            loincSyndicationService.fetchAndImportTerminology(new SyndicationImportParams(SyndicationTerminology.LOINC, LOCAL_VERSION, null, false));
 
             mockStatic.verify(() -> FileUtils.findFile("/tmp", "loinc.zip"), times(1));
         }
@@ -60,7 +61,7 @@ class LoincSyndicationServiceTest {
             mockFileUtils.when(() -> FileUtils.findFile("/tmp", "loinc.zip"))
                     .thenReturn(Optional.of(new File("loinc.zip")));
 
-            loincSyndicationService.fetchAndImportTerminology(new SyndicationImportParams(LATEST, null, false));
+            loincSyndicationService.fetchAndImportTerminology(new SyndicationImportParams(SyndicationTerminology.LOINC, LATEST, null, false));
 
             mockFileUtils.verify(() -> FileUtils.findFile("/tmp", "loinc.zip"), times(1));
             mockStatic.verify(() -> CommandUtils.waitForProcessTermination(any(), any()), times(2));
@@ -76,7 +77,7 @@ class LoincSyndicationServiceTest {
             mockStatic.when(() -> FileUtils.findFile("/tmp", "loinc.zip"))
                     .thenReturn(Optional.empty());
 
-            assertThrows(ServiceException.class, () -> loincSyndicationService.fetchAndImportTerminology(new SyndicationImportParams("2.80", null, false)));
+            assertThrows(ServiceException.class, () -> loincSyndicationService.fetchAndImportTerminology(new SyndicationImportParams(SyndicationTerminology.LOINC, "2.80", null, false)));
             mockStatic.verify(() -> CommandUtils.waitForProcessTermination(any(), any()), times(1));
         }
     }

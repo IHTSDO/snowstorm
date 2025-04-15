@@ -1,8 +1,7 @@
 package org.snomed.snowstorm.syndication.loinc;
 
-import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.core.data.services.ServiceException;
-import org.snomed.snowstorm.syndication.SyndicationService;
+import org.snomed.snowstorm.syndication.common.SyndicationService;
 import org.snomed.snowstorm.syndication.common.SyndicationImportParams;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -15,25 +14,19 @@ import java.util.Optional;
 import static java.util.Collections.singletonList;
 import static org.snomed.snowstorm.core.util.FileUtils.findFile;
 import static org.snomed.snowstorm.syndication.common.CommandUtils.getSingleLineCommandResult;
-import static org.snomed.snowstorm.syndication.common.SyndicationConstants.IMPORT_LOINC_TERMINOLOGY;
 import static org.snomed.snowstorm.syndication.common.CommandUtils.waitForProcessTermination;
 import static org.snomed.snowstorm.syndication.common.SyndicationConstants.LATEST_VERSION;
 import static org.snomed.snowstorm.syndication.common.SyndicationConstants.LOCAL_VERSION;
+import static org.snomed.snowstorm.syndication.common.SyndicationConstants.LOINC_TERMINOLOGY;
 
-@Service(IMPORT_LOINC_TERMINOLOGY)
+@Service(LOINC_TERMINOLOGY)
 public class LoincSyndicationService extends SyndicationService {
-
-    public static final String LOINC = "Loinc";
 
     @Value("${syndication.loinc.working-directory}")
     private String workingDirectory;
 
     @Value("${syndication.loinc.fileNamePattern}")
     private String fileNamePattern;
-
-    public LoincSyndicationService() {
-        super(LOINC, LoggerFactory.getLogger(LoincSyndicationService.class));
-    }
 
     @Override
     protected List<File> fetchTerminologyPackages(SyndicationImportParams params) throws IOException, InterruptedException, ServiceException {

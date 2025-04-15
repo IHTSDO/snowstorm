@@ -14,7 +14,8 @@ import org.snomed.snowstorm.core.data.services.ServiceException;
 import org.snomed.snowstorm.core.rf2.rf2import.ImportService;
 import org.snomed.snowstorm.core.util.FileUtils;
 import org.snomed.snowstorm.syndication.common.SyndicationImportParams;
-import org.snomed.snowstorm.syndication.importstatus.SyndicationImportService;
+import org.snomed.snowstorm.syndication.SyndicationImportService;
+import org.snomed.snowstorm.syndication.common.SyndicationTerminology;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.io.File;
@@ -61,7 +62,7 @@ class SnomedSyndicationServiceTest {
         String invalidUri = "invalid-uri";
 
         IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () ->
-                syndicationService.fetchAndImportTerminology(new SyndicationImportParams(invalidUri, "BE", false)));
+                syndicationService.fetchAndImportTerminology(new SyndicationImportParams(SyndicationTerminology.SNOMED, invalidUri, "BE", false)));
 
         assertTrue(exception.getMessage().contains("not a valid SNOMED CT release URI"));
     }
@@ -74,7 +75,7 @@ class SnomedSyndicationServiceTest {
         doNothing().when(importService).importArchive(any(), any());
         doReturn(null).when(syndicationService).getFileInputStream(any());
 
-        syndicationService.fetchAndImportTerminology(new SyndicationImportParams(RELEASE_VERSION_URI, "BE", false));
+        syndicationService.fetchAndImportTerminology(new SyndicationImportParams(SyndicationTerminology.SNOMED, RELEASE_VERSION_URI, "BE", false));
 
         verify(syndicationClient).downloadPackages(RELEASE_VERSION_URI, "testUser", "testPass");
         verify(importService, times(2)).importArchive(any(), any());
@@ -82,14 +83,12 @@ class SnomedSyndicationServiceTest {
 
     @Test
     void testImportSnomedEditionAndExtension_Local_CallsImportMethods() throws IOException, ServiceException, ReleaseImportException, InterruptedException {
-        List<File> filePaths = List.of(new File("edition.zip"), new File("extension.zip"));
-
         try(var fileUtilsMock = mockStatic(FileUtils.class)) {
             fileUtilsMock.when(() -> FileUtils.findFile(any(), any()))
                     .thenReturn(Optional.of(new File("edition.zip"))).thenReturn(Optional.of(new File("extension.zip")));
             doNothing().when(importService).importArchive(any(), any());
             doReturn(null).when(syndicationService).getFileInputStream(any());
-            syndicationService.fetchAndImportTerminology(new SyndicationImportParams(LOCAL_VERSION, "BE", false));
+            syndicationService.fetchAndImportTerminology(new SyndicationImportParams(SyndicationTerminology.SNOMED, LOCAL_VERSION, "BE", false));
 
             verify(syndicationClient, never()).downloadPackages(any(), any(), any());
             verify(importService, times(2)).importArchive(any(), any());
@@ -102,7 +101,7 @@ class SnomedSyndicationServiceTest {
 
 
         IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () ->
-                syndicationService.fetchAndImportTerminology(new SyndicationImportParams(RELEASE_VERSION_URI, "BE", false)));
+                syndicationService.fetchAndImportTerminology(new SyndicationImportParams(SyndicationTerminology.SNOMED, RELEASE_VERSION_URI, "BE", false)));
 
         assertEquals("Syndication username is blank.", exception.getMessage());
     }
@@ -113,7 +112,7 @@ class SnomedSyndicationServiceTest {
 
 
         IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () ->
-                syndicationService.fetchAndImportTerminology(new SyndicationImportParams(RELEASE_VERSION_URI, "BE", false)));
+                syndicationService.fetchAndImportTerminology(new SyndicationImportParams(SyndicationTerminology.SNOMED, RELEASE_VERSION_URI, "BE", false)));
 
         assertEquals("Syndication password is blank.", exception.getMessage());
     }

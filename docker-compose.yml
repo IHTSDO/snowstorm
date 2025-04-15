@@ -34,8 +34,8 @@ services:
         condition: service_healthy
     entrypoint: [
       "java",
-      #"-Xdebug",
-      #"-agentlib:jdwp=transport=dt_socket,server=y,address=*:5005,suspend=n",
+      #"-Xdebug", # debugging purposes
+      #"-agentlib:jdwp=transport=dt_socket,server=y,address=*:5005,suspend=n", # debugging purposes
       "-Xms2g",
       "-Xmx4g",
       "--add-opens", "java.base/java.lang=ALL-UNNAMED",

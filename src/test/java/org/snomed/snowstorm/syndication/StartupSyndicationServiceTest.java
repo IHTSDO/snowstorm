@@ -4,6 +4,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.snomed.snowstorm.syndication.common.SyndicationImportParams;
+import org.snomed.snowstorm.syndication.common.SyndicationService;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.test.util.ReflectionTestUtils;
 
@@ -19,6 +20,7 @@ class StartupSyndicationServiceTest {
     private SyndicationService snomedService;
     private SyndicationService loincService;
     private SyndicationService hl7Service;
+    private SyndicationImportService importStatusService;
 
     @BeforeEach
     void setup() {
@@ -27,14 +29,16 @@ class StartupSyndicationServiceTest {
         snomedService = mock(SyndicationService.class);
         loincService = mock(SyndicationService.class);
         hl7Service = mock(SyndicationService.class);
+        importStatusService = mock(SyndicationImportService.class);
 
         Map<String, SyndicationService> services = Map.of(
-                "import-snomed-terminology", snomedService,
-                "import-loinc-terminology", loincService,
-                "import-hl7-terminology", hl7Service
+                "snomed", snomedService,
+                "loinc", loincService,
+                "hl7", hl7Service
         );
 
         ReflectionTestUtils.setField(startupService, "syndicationServices", services);
+        ReflectionTestUtils.setField(startupService, "importStatusService", importStatusService);
     }
 
     @Test

@@ -2,13 +2,12 @@ package org.snomed.snowstorm.syndication.snomed;
 
 import org.apache.logging.log4j.util.Strings;
 import org.ihtsdo.otf.snomedboot.ReleaseImportException;
-import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.core.data.domain.CodeSystem;
 import org.snomed.snowstorm.core.data.services.CodeSystemService;
 import org.snomed.snowstorm.core.data.services.ServiceException;
 import org.snomed.snowstorm.core.rf2.RF2Type;
 import org.snomed.snowstorm.core.rf2.rf2import.ImportService;
-import org.snomed.snowstorm.syndication.SyndicationService;
+import org.snomed.snowstorm.syndication.common.SyndicationService;
 import org.snomed.snowstorm.syndication.common.SyndicationImportParams;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -26,13 +25,11 @@ import static org.snomed.snowstorm.core.data.services.CodeSystemService.MAIN;
 import static org.snomed.snowstorm.core.util.FileUtils.findFile;
 import static org.snomed.snowstorm.fhir.services.FHIRHelper.SNOMED_URI_MODULE_AND_VERSION_PATTERN;
 import static org.snomed.snowstorm.fhir.services.FHIRHelper.SNOMED_URI_MODULE_PATTERN;
-import static org.snomed.snowstorm.syndication.common.SyndicationConstants.IMPORT_SNOMED_TERMINOLOGY;
 import static org.snomed.snowstorm.syndication.common.SyndicationConstants.LOCAL_VERSION;
+import static org.snomed.snowstorm.syndication.common.SyndicationConstants.SNOMED_TERMINOLOGY;
 
-@Service(IMPORT_SNOMED_TERMINOLOGY)
+@Service(SNOMED_TERMINOLOGY)
 public class SnomedSyndicationService extends SyndicationService {
-
-    public static final String SNOMED = "Snomed";
 
     @Value("${SNOMED_USERNAME:empty}")
     private String snomedUsername;
@@ -61,10 +58,6 @@ public class SnomedSyndicationService extends SyndicationService {
     private static final String DEFAULT_VALUE = "empty";
 
     private String releaseUri;
-
-    public SnomedSyndicationService() {
-        super(SNOMED, LoggerFactory.getLogger(SnomedSyndicationService.class));
-    }
 
     @Override
     protected List<File> fetchTerminologyPackages(SyndicationImportParams params) throws ServiceException, IOException {
@@ -104,7 +97,7 @@ public class SnomedSyndicationService extends SyndicationService {
 
     private static void validateReleaseUriAndVersionPattern(String releaseUri) {
         if (!SNOMED_URI_MODULE_AND_VERSION_PATTERN.matcher(releaseUri).matches()) {
-            throw new IllegalArgumentException("Parameter ' " + IMPORT_SNOMED_TERMINOLOGY + " ' is not a valid SNOMED CT release version URI. " +
+            throw new IllegalArgumentException("Parameter.version is not a valid SNOMED CT release version URI. " +
                     "Please use the format: 'http://snomed.info/sct/[module-id]/version/[YYYYMMDD]'. " +
                     "See https://confluence.ihtsdotools.org/display/DOCURI/2.1+URIs+for+Editions+and+Versions for examples of release version URIs");
         }
@@ -112,7 +105,7 @@ public class SnomedSyndicationService extends SyndicationService {
 
     private static void validateReleaseUriPattern(String releaseUri) {
         if (!SNOMED_URI_MODULE_PATTERN.matcher(releaseUri).matches()) {
-            throw new IllegalArgumentException("Parameter ' " + IMPORT_SNOMED_TERMINOLOGY + " ' is not a valid SNOMED CT release URI. " +
+            throw new IllegalArgumentException("Parameter.version is not a valid SNOMED CT release URI. " +
                     "Please use the format: 'http://snomed.info/sct/[module-id]'. " +
                     "See https://confluence.ihtsdotools.org/display/DOCEXTPG/4.4.2+Edition+URI+Examples for examples of release URIs");
         }

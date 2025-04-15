@@ -1,12 +1,11 @@
 package org.snomed.snowstorm.syndication.hl7;
 
-import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.core.data.services.ServiceException;
 import org.snomed.snowstorm.fhir.domain.FHIRCodeSystemVersion;
 import org.snomed.snowstorm.fhir.pojo.FHIRCodeSystemVersionParams;
 import org.snomed.snowstorm.fhir.services.FHIRCodeSystemService;
 import org.snomed.snowstorm.fhir.services.FHIRLoadPackageService;
-import org.snomed.snowstorm.syndication.SyndicationService;
+import org.snomed.snowstorm.syndication.common.SyndicationService;
 import org.snomed.snowstorm.syndication.common.SyndicationImportParams;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -20,16 +19,14 @@ import java.util.Set;
 
 import static java.util.Collections.singletonList;
 import static org.snomed.snowstorm.core.util.FileUtils.findFile;
-import static org.snomed.snowstorm.syndication.common.SyndicationConstants.IMPORT_HL_7_TERMINOLOGY;
+import static org.snomed.snowstorm.syndication.common.SyndicationConstants.HL_7_TERMINOLOGY;
 import static org.snomed.snowstorm.syndication.common.CommandUtils.getSingleLineCommandResult;
 import static org.snomed.snowstorm.syndication.common.CommandUtils.waitForProcessTermination;
 import static org.snomed.snowstorm.syndication.common.SyndicationConstants.LATEST_VERSION;
 import static org.snomed.snowstorm.syndication.common.SyndicationConstants.LOCAL_VERSION;
 
-@Service(IMPORT_HL_7_TERMINOLOGY)
+@Service(HL_7_TERMINOLOGY)
 public class Hl7SyndicationService extends SyndicationService {
-
-    public static final String HL_7 = "Hl7";
 
     @Autowired
     private FHIRLoadPackageService loadPackageService;
@@ -45,10 +42,6 @@ public class Hl7SyndicationService extends SyndicationService {
 
     @Value("${syndication.hl7.fhir.version}")
     private String fhirVersion;
-
-    public Hl7SyndicationService() {
-        super(HL_7, LoggerFactory.getLogger(Hl7SyndicationService.class));
-    }
 
     @Override
     protected List<File> fetchTerminologyPackages(SyndicationImportParams params) throws IOException, InterruptedException, ServiceException {
