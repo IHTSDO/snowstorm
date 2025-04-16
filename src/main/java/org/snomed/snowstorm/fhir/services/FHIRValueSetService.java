@@ -1086,7 +1086,7 @@ public class FHIRValueSetService {
 				}else {
 					response.addParameter("code", new CodeType(code));
 				}
-				String availableVersion = e.getOperationOutcome().getIssue().stream().flatMap(i -> i.getExtensionsByUrl("https://github.com/IHTSDO/snowstorm/available-codesystem-version").stream()).map(ext -> CanonicalUri.fromString(ext.getValue().primitiveValue()).getVersion()).findFirst().orElse("");
+				String availableVersion = e.getOperationOutcome().getIssue().stream().flatMap(i -> i.getExtensionsByUrl("https://github.com/IHTSDO/snowstorm/available-codesystem-version").stream()).map(ext -> CanonicalUri.fromString(ext.getValue().primitiveValue()).getVersion()).filter(Objects::nonNull).findFirst().orElse("");
 				CanonicalUri missing = e.getOperationOutcome().getIssue().stream().flatMap(i -> i.getExtensionsByUrl("https://github.com/IHTSDO/snowstorm/missing-codesystem-version").stream()).map(ext -> CanonicalUri.fromString(ext.getValue().primitiveValue())).findFirst().orElse(CanonicalUri.fromString(""));
 				String message = format("The CodeSystem %s version %s is unknown. Valid versions: [%s]; Unable to check whether the code is in the value set %s", missing.getSystem(), missing.getVersion(), availableVersion ,CanonicalUri.of(hapiValueSet.getUrl(),hapiValueSet.getVersion()));
 				response.addParameter("message", message);
