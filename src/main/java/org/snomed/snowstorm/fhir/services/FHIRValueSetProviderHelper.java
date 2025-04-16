@@ -31,9 +31,10 @@ class FHIRValueSetProviderHelper {
 
 	static ValueSetExpansionParameters getValueSetExpansionParameters(IdType id, final List<Parameters.ParametersParameterComponent> parametersParameterComponents) {
 		Parameters.ParametersParameterComponent valueSetParam = findParameterOrNull(parametersParameterComponents, "valueSet");
-		URI url = null;
+		URI url;
 		try {
-			url = new URI(findParameterStringOrNull(parametersParameterComponents, "url"));
+			String urlParam = findParameterStringOrNull(parametersParameterComponents, "url");
+			url = urlParam == null ? null : new URI(urlParam);
 		} catch (URISyntaxException e) {
 			throw FHIRHelper.exception("Invalid url parameter.", OperationOutcome.IssueType.INVALID, 400);
 		}

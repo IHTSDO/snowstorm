@@ -55,7 +55,7 @@ public class FHIRTerminologyCapabilitiesProvider extends ServerCapabilityStateme
 			"offset",
 			"property",
 			"system-version",
-			"tx-resource").stream().forEach(x -> expansion.addParameter(new TerminologyCapabilities.TerminologyCapabilitiesExpansionParameterComponent().setName(x)));
+			"tx-resource").forEach(x -> expansion.addParameter(new TerminologyCapabilities.TerminologyCapabilitiesExpansionParameterComponent().setName(x)));
 			tc.setExpansion(expansion);
 			return tc;
 		} else {
@@ -68,7 +68,7 @@ public class FHIRTerminologyCapabilitiesProvider extends ServerCapabilityStateme
 			cs.addExtension(testsVersion);
 			Extension codeSystemAsParameter = new Extension("http://hl7.org/fhir/uv/application-feature/StructureDefinition/feature");
 			codeSystemAsParameter.addExtension("definition", new CanonicalType("http://hl7.org/fhir/uv/tx-ecosystem/FeatureDefinition/CodeSystemAsParameter"));
-			codeSystemAsParameter.addExtension("value", new StringType("empty"));
+			codeSystemAsParameter.addExtension("value", new StringType("true"));
 			cs.addExtension(codeSystemAsParameter);
 			cs.setUrl(requestDetails.getFhirServerBase()+"/metadata");
 			CapabilityStatement.CapabilityStatementRestResourceOperationComponent operation = new CapabilityStatement.CapabilityStatementRestResourceOperationComponent();
