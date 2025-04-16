@@ -212,6 +212,7 @@ public class ConceptUpdateHelper extends ComponentService {
 
 			for (Description description : newVersionConcept.getDescriptions()) {
 				description.setConceptId(newVersionConcept.getConceptId());
+				description.setLanguageCode(description.getLanguageCode().toLowerCase());
 				if (description.getDescriptionId() == null) {
 					description.setDescriptionId(reservedIds.getNextId(ComponentType.Description).toString());
 				}
