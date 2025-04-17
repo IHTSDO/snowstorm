@@ -12,6 +12,7 @@ import org.snomed.snowstorm.core.data.domain.CodeSystem;
 import org.snomed.snowstorm.core.data.domain.Concepts;
 import org.snomed.snowstorm.core.data.domain.ReferenceSetMember;
 import org.snomed.snowstorm.core.data.domain.ReferencedConceptsLookup;
+import org.snomed.snowstorm.core.data.repositories.ReferencedConceptsLookupRepository;
 import org.snomed.snowstorm.ecl.ReferencedConceptsLookupService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
@@ -33,6 +34,9 @@ class ReferencedConceptsLookupUpdateServiceTest extends AbstractTest {
     private VersionControlHelper versionControlHelper;
 
     @Autowired
+    private SBranchService sBranchService;
+
+    @Autowired
     private ReferenceSetMemberService refsetMemberService;
 
     @Autowired
@@ -52,6 +56,11 @@ class ReferencedConceptsLookupUpdateServiceTest extends AbstractTest {
 
     private Branch projectA;
     private Branch taskA;
+    @Autowired
+    private ReferencedConceptsLookupService referencedConceptsLookupService;
+    @Autowired
+    private ReferencedConceptsLookupRepository referencedConceptsLookupRepository;
+
     @BeforeEach
     void setUp() {
        projectA = branchService.create("MAIN/projectA");
@@ -600,8 +609,20 @@ class ReferencedConceptsLookupUpdateServiceTest extends AbstractTest {
             assertEquals(2, lookup.getTotal());
             assertEquals(Set.of(200003L, 200004L), lookup.getConceptIds());
         });
-
     }
+
+    @Test
+    void testRollback() {
+        // Add new refset changes on task A
+        createMembers(taskA.getPath(), Concepts.REFSET_SIMPLE, List.of("200001", "200002"));
+        taskA = branchService.findLatest(taskA.getPath());
+        sBranchService.rollbackCommit(taskA.getPath(),  taskA.getHeadTimestamp());
+        List<ReferencedConceptsLookup> lookups = referencedConceptsLookupService.getConceptsLookups(versionControlHelper.getBranchCriteria(taskA.getPath()));
+        assertEquals(0, lookups.size());
+        Iterable<ReferencedConceptsLookup> results = referencedConceptsLookupRepository.findAll();
+        assertFalse(results.iterator().hasNext());
+    }
+
     private Set<ReferenceSetMember> createMembers(String branchPath, String refsetId, List<String> referencedConcepts) {
         Set<ReferenceSetMember> members = new HashSet<>();
         for (String conceptId : referencedConcepts) {
