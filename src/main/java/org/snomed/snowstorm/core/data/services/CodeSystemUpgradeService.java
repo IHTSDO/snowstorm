@@ -189,13 +189,10 @@ public class CodeSystemUpgradeService {
 
 			if (contentAutomations) {
 				logger.info("Running upgrade content automations on {}.", branchPath);
+				moduleDependencyService.setTargetEffectiveTime(branchPath, newDependantVersion);
 				upgradeInactivationService.findAndUpdateDescriptionsInactivation(codeSystem);
 				upgradeInactivationService.findAndUpdateLanguageRefsets(codeSystem);
 				upgradeInactivationService.findAndUpdateAdditionalAxioms(codeSystem);
-				boolean success = moduleDependencyService.setTargetEffectiveTime(branchPath, newDependantVersion);
-				if (!success) {
-					logger.warn("Failed to update MDRS when upgrading {} to {}", branchPath, newDependantVersion);
-				}
 				logger.info("Completed upgrade content automations on {}.", branchPath);
 			}
 

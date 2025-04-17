@@ -2,6 +2,8 @@ package org.snomed.snowstorm.core.data.services;
 
 import io.kaicode.elasticvc.api.*;
 import io.kaicode.elasticvc.domain.Branch;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.util.SPathUtil;
 import org.springframework.context.annotation.Lazy;
@@ -18,6 +20,8 @@ import static io.kaicode.elasticvc.helper.QueryHelper.termQuery;
 
 @Service
 public class ModuleDependencyService extends ComponentService {
+	private static final Logger LOGGER = LoggerFactory.getLogger(ModuleDependencyService.class);
+
 	private final BranchService branchService;
 	private final CodeSystemService codeSystemService;
 	private final ReferenceSetMemberService referenceSetMemberService;
@@ -43,24 +47,29 @@ public class ModuleDependencyService extends ComponentService {
 	 */
 	public boolean clearSourceAndTargetEffectiveTimes(String branchPath) {
 		if (branchPath == null || branchPath.isEmpty()) {
+			LOGGER.error("Cannot update MDRS: cannot clear source and target effective times as the given branch path is null.");
 			return false;
 		}
 
 		Branch branch = getBranch(branchPath);
 		if (branch == null || branch.getMetadata() == null || branch.getMetadata().size() == 0) {
+			LOGGER.error("Cannot update MDRS: cannot clear source and target effective times as {} has no metadata.", branchPath);
 			return false;
 		}
 
 		Set<String> modules = sBranchService.getModules(branchPath);
 		if (modules.isEmpty()) {
+			LOGGER.error("Cannot update MDRS: cannot clear source and target effective times as {} has no modules.", branchPath);
 			return false;
 		}
 
 		List<ReferenceSetMember> referenceSetMembers = getMDRSEntries(versionControlHelper.getBranchCriteria(branchPath), SPathUtil.getAncestry(branchPath), modules);
 		if (referenceSetMembers.isEmpty()) {
+			LOGGER.error("Cannot update MDRS: cannot clear source and target effective times as {} has no existing MDRS.", branchPath);
 			return false;
 		}
 
+		List<String> membersUpdated = new ArrayList<>();
 		for (ReferenceSetMember referenceSetMember : referenceSetMembers) {
 			referenceSetMember.setAdditionalField(ReferenceSetMember.MDRSFields.SOURCE_EFFECTIVE_TIME, null);
 
@@ -69,9 +78,11 @@ public class ModuleDependencyService extends ComponentService {
 				referenceSetMember.setAdditionalField(ReferenceSetMember.MDRSFields.TARGET_EFFECTIVE_TIME, null);
 			}
 
-			referenceSetMemberService.updateMember(branchPath, referenceSetMember);
+			referenceSetMember = referenceSetMemberService.updateMember(branchPath, referenceSetMember);
+			membersUpdated.add(referenceSetMember.getMemberId());
 		}
 
+		LOGGER.error("{} MDRS entries prepared for new authoring cycle for {}:{}", membersUpdated.size(), branchPath, membersUpdated);
 		return true;
 	}
 
@@ -86,19 +97,23 @@ public class ModuleDependencyService extends ComponentService {
 	public boolean setSourceAndTargetEffectiveTimes(String branchPath, Integer effectiveTimeI) {
 		Branch branch = getBranch(branchPath);
 		if (branch == null || branch.getMetadata() == null || branch.getMetadata().size() == 0) {
+			LOGGER.error("Cannot update MDRS: cannot set source and target effective times as the given branch path is null.");
 			return false;
 		}
 
 		Set<String> modules = sBranchService.getModules(branchPath);
 		if (modules.isEmpty()) {
+			LOGGER.error("Cannot update MDRS: cannot set source and target effective times as {} has no modules.", branchPath);
 			return false;
 		}
 
 		List<ReferenceSetMember> referenceSetMembers = getMDRSEntries(versionControlHelper.getBranchCriteria(branchPath), SPathUtil.getAncestry(branchPath), modules);
 		if (referenceSetMembers.isEmpty()) {
+			LOGGER.error("Cannot update MDRS: cannot set source and target effective times as {} has existing MDRS.", branchPath);
 			return false;
 		}
 
+		List<String> membersUpdated = new ArrayList<>();
 		String effectiveTime = String.valueOf(effectiveTimeI);
 		for (ReferenceSetMember referenceSetMember : referenceSetMembers) {
 			referenceSetMember.setAdditionalField(ReferenceSetMember.MDRSFields.SOURCE_EFFECTIVE_TIME, effectiveTime);
@@ -108,9 +123,11 @@ public class ModuleDependencyService extends ComponentService {
 				referenceSetMember.setAdditionalField(ReferenceSetMember.MDRSFields.TARGET_EFFECTIVE_TIME, effectiveTime);
 			}
 
-			referenceSetMemberService.updateMember(branchPath, referenceSetMember);
+			referenceSetMember = referenceSetMemberService.updateMember(branchPath, referenceSetMember);
+			membersUpdated.add(referenceSetMember.getMemberId());
 		}
 
+		LOGGER.error("{} MDRS entries prepared for versioning for {}:{}", membersUpdated.size(), branchPath, membersUpdated);
 		return true;
 	}
 
@@ -123,29 +140,35 @@ public class ModuleDependencyService extends ComponentService {
 	 */
 	public boolean setTargetEffectiveTime(String branchPath, Integer effectiveTimeI) {
 		if (branchPath == null || branchPath.isEmpty()) {
+			LOGGER.error("Cannot update MDRS: cannot set target effective time as the given branch path is null.");
 			return false;
 		}
 
 		Optional<CodeSystem> codeSystem = codeSystemService.findByBranchPath(branchPath);
 		if (codeSystem.isEmpty()) {
+			LOGGER.error("Cannot update MDRS: cannot set target effective time as {} has no associated CodeSystem.", branchPath);
 			return false;
 		}
 
 		if ("MAIN".equals(codeSystem.get().getBranchPath())) {
+			LOGGER.error("Cannot update MDRS: root CodeSystem cannot be upgraded.");
 			// Root CodeSystem cannot be upgraded.
 			return false;
 		}
 
 		Set<String> modules = sBranchService.getModules(branchPath);
 		if (modules.isEmpty()) {
+			LOGGER.error("Cannot update MDRS: cannot set target effective time as {} has no modules.", branchPath);
 			return false;
 		}
 
 		List<ReferenceSetMember> referenceSetMembers = getMDRSEntries(versionControlHelper.getBranchCriteria(branchPath), SPathUtil.getAncestry(branchPath), modules);
 		if (referenceSetMembers.isEmpty()) {
+			LOGGER.error("Cannot update MDRS: cannot set target effective time as {} has existing MDRS.", branchPath);
 			return false;
 		}
 
+		List<String> membersUpdated = new ArrayList<>();
 		String effectiveTime = String.valueOf(effectiveTimeI);
 		for (ReferenceSetMember referenceSetMember : referenceSetMembers) {
 			boolean dependingOnOwnModule = modules.contains(referenceSetMember.getReferencedComponentId());
@@ -153,9 +176,11 @@ public class ModuleDependencyService extends ComponentService {
 				referenceSetMember.setAdditionalField(ReferenceSetMember.MDRSFields.TARGET_EFFECTIVE_TIME, effectiveTime);
 			}
 
-			referenceSetMemberService.updateMember(branchPath, referenceSetMember);
+			referenceSetMember = referenceSetMemberService.updateMember(branchPath, referenceSetMember);
+			membersUpdated.add(referenceSetMember.getMemberId());
 		}
 
+		LOGGER.error("{} MDRS entries prepared for upgrading for {}:{}", membersUpdated.size(), branchPath, membersUpdated);
 		return true;
 	}
 
