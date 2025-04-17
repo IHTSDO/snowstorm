@@ -268,8 +268,11 @@ public class BranchMergeService {
 				logger.info("Performing promotion {} -> {}", source, target);
 				final Map<String, Set<String>> versionsReplaced = sourceBranch.getVersionsReplaced();
 				final Map<Class<? extends DomainEntity>, ElasticsearchRepository> componentTypeRepoMap = domainEntityConfiguration.getAllTypeRepositoryMap();
-				componentTypeRepoMap.entrySet().parallelStream().forEach(entry -> promoteEntities(source, commit, entry.getKey(), entry.getValue(), versionsReplaced));
-
+				componentTypeRepoMap.entrySet().parallelStream().forEach(entry -> {
+							if (!domainEntityConfiguration.getEntityTypesToSkipVersionControl().contains(entry.getKey())) {
+								promoteEntities(source, commit, entry.getKey(), entry.getValue(), versionsReplaced);
+							}
+						});
 				commit.markSuccessful();
 			}
 		}

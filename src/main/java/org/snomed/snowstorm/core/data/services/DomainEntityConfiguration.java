@@ -34,11 +34,16 @@ public class DomainEntityConfiguration {
 	@Autowired
 	private ReferenceSetTypeRepository referenceSetTypeRepository;
 
+	@Autowired
+	private ReferencedConceptsLookupRepository referencedConceptsLookupRepository;
+
 	private Map<Class<? extends SnomedComponent<?>>, ElasticsearchRepository> componentTypeRepositoryMap;
 	private Map<Class<? extends DomainEntity>, ElasticsearchRepository> allTypeRepositoryMap;
 
 	private Set<Class<? extends DomainEntity<?>>> allTypes;
 	private Map<Class<? extends DomainEntity>, String> allIdFields;
+
+	private Set<Class<? extends DomainEntity<?>>> entityTypesToSkipVersionControl;
 
 	@PostConstruct
 	public void init() {
@@ -53,13 +58,19 @@ public class DomainEntityConfiguration {
 		allTypeRepositoryMap = new LinkedHashMap<>(componentTypeRepositoryMap);
 		allTypeRepositoryMap.put(QueryConcept.class, queryConceptRepository);
 		allTypeRepositoryMap.put(ReferenceSetType.class, referenceSetTypeRepository);
+		allTypeRepositoryMap.put(ReferencedConceptsLookup.class, referencedConceptsLookupRepository);
 		allTypeRepositoryMap = Collections.unmodifiableMap(allTypeRepositoryMap);
 
 		allTypes = new HashSet<>();
 		allTypes.addAll(componentTypeRepositoryMap.keySet());
 		allTypes.add(QueryConcept.class);
 		allTypes.add(ReferenceSetType.class);
+		allTypes.add(ReferencedConceptsLookup.class);
 		allTypes = Collections.unmodifiableSet(allTypes);
+
+		entityTypesToSkipVersionControl = new LinkedHashSet<>();
+		// To skip version control but need to be included in the ALL types for commit rollback
+		entityTypesToSkipVersionControl.add(ReferencedConceptsLookup.class);
 
 		allIdFields = new HashMap<>();
 		allIdFields.put(Concept.class, Concept.Fields.CONCEPT_ID);
@@ -81,6 +92,10 @@ public class DomainEntityConfiguration {
 
 	public Set<Class<? extends DomainEntity<?>>> getAllDomainEntityTypes() {
 		return allTypes;
+	}
+
+	public Set<Class<? extends DomainEntity<?>>> getEntityTypesToSkipVersionControl() {
+		return entityTypesToSkipVersionControl;
 	}
 
 	public Map<Class<? extends DomainEntity>, String> getAllIdFields() {
