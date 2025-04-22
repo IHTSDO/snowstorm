@@ -45,7 +45,7 @@ hapi-fhir-cli upload-terminology -d custom_code_system.zip -v r4 -t http://local
 ```
 
 ## Loading FHIR Packages
-Currently only CodeSystem and ValueSet type resources can be loaded via FHIR package. The import of ConceptMaps is not yet implemented.
+CodeSystem, ValueSet and ConceptMap type resources can be loaded via FHIR package.
 
 To load resources from a FHIR package first download the package from a package registry.
 For example:
