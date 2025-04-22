@@ -3,6 +3,37 @@ All notable changes to this project will be documented in this file.
 
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 10.8.0 Release (April 2025)
+Maintenance release with bug fixes and general improvements.
+
+### Features
+- PIP-677 Add new index for reference set concept id lookup (refset-concepts-lookup)
+
+### Improvements
+- MAINT-2628 Update Accept-Language header parser for language with regional dialect
+- ISTO-130 Add CZ to default configuration
+- PIP-662 Address CVE-2024-43709
+- PIP-680 Improve performance of "member of" ECL query
+- PIP-681 Add admin function to rebuild and clear new index (refset-concepts-lookup)
+- PIP-679 Add to "refset-concepts-lookup" during import
+- PIP-678 Add to "refset-concepts-lookup" during authoring
+- PIP-700 Add configuration to optionally use "refset-concepts-lookup" index during ECL queries
+- MAINT-2793 Use expectedExtensionModules when donating Concept
+- PIP-730 Update ECL "member of" query with dot notation to use new index (refset-concepts-lookup)
+- MAINT-2545 Remove current MDRS automation
+- MAINT-2543 Update MDRS when starting new authoring cycle 
+- MAINT-2542 Update MDRS when versioning
+- MAINT-2544 Update MDRS when upgrading
+- MAINT-2686 Stop ability to create Descriptions with capitalized language  codes
+- PIP-710 Improve performance of compound ECL "member of" query
+
+### Fixes
+- ISTO-129 Suppress not found error when querying unknown resource in FHIR
+- MAINT-2732 Prevent error during startup when CodeSystemVersion has no underlying Branch
+- MAINT-2788 Stop published Annotations losing "released" and "effectiveTime" properties during rebase
+- MAINT-2801 Fix en-gb import by specifying dependant CodeSystem
+- MAINT-2761 Stop publishes Annotations being deleted
+- 
 ## 10.7.0 Release (January 2025)
 Maintenance release with bug fixes and general improvements.
 
