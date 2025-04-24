@@ -9,6 +9,7 @@ import io.kaicode.elasticvc.api.BranchCriteria;
 import io.kaicode.elasticvc.api.VersionControlHelper;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 
+import org.apache.commons.collections4.ListUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.hl7.fhir.r4.model.*;
@@ -56,6 +57,7 @@ import static java.lang.Boolean.TRUE;
 import static java.lang.String.format;
 import static co.elastic.clients.elasticsearch._types.query_dsl.QueryBuilders.*;
 import static io.kaicode.elasticvc.helper.QueryHelper.*;
+import static org.apache.commons.collections4.MapUtils.emptyIfNull;
 import static org.snomed.snowstorm.core.data.services.ReferenceSetMemberService.AGGREGATION_MEMBER_COUNTS_BY_REFERENCE_SET;
 import static org.snomed.snowstorm.core.util.CollectionUtils.orEmpty;
 import static org.snomed.snowstorm.fhir.services.FHIRHelper.*;
@@ -530,7 +532,7 @@ public class FHIRValueSetService {
 							.setInactiveElement(concept.isActive() ? null : new BooleanType(true))
 							.setDisplay(concept.getDisplay());
 
-					concept.getProperties().entrySet().forEach( p -> {
+					emptyIfNull(concept.getProperties()).entrySet().forEach( p -> {
 						if (p.getKey().equals("status")){
 							p.getValue().stream()
 									.filter(x -> x.getValue().equals("retired"))
@@ -573,7 +575,7 @@ public class FHIRValueSetService {
 								});
 					});
 
-					concept.getExtensions().forEach((key, value) ->{
+					emptyIfNull(concept.getExtensions()).forEach((key, value) ->{
 						value.stream().filter(x ->!x.isSpecialExtension()).forEach( fe ->{
 								//addition of these extensions is optional according to the G.G. tests
 								//component.addExtension(fe.getCode(), fe.toHapiValue(null));
@@ -650,7 +652,7 @@ public class FHIRValueSetService {
 		}
 
 
-			for (FHIRDesignation designation : concept.getDesignations()) {
+			for (FHIRDesignation designation : ListUtils.emptyIfNull(concept.getDesignations())) {
 				ValueSet.ConceptReferenceDesignationComponent designationComponent = new ValueSet.ConceptReferenceDesignationComponent();
 				designationComponent.setLanguage(designation.getLanguage());
 				designationComponent.setUse(designation.getUseCoding());

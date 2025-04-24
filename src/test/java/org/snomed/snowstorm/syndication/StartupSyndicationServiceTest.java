@@ -20,6 +20,11 @@ class StartupSyndicationServiceTest {
     private SyndicationService snomedService;
     private SyndicationService loincService;
     private SyndicationService hl7Service;
+    private SyndicationService atcService;
+    private SyndicationService bcp13Service;
+    private SyndicationService bcp47Service;
+    private SyndicationService iso3166Service;
+    private SyndicationService m49Service;
     private SyndicationImportService importStatusService;
 
     @BeforeEach
@@ -29,12 +34,22 @@ class StartupSyndicationServiceTest {
         snomedService = mock(SyndicationService.class);
         loincService = mock(SyndicationService.class);
         hl7Service = mock(SyndicationService.class);
+        atcService = mock(SyndicationService.class);
+        bcp13Service = mock(SyndicationService.class);
+        bcp47Service = mock(SyndicationService.class);
+        iso3166Service = mock(SyndicationService.class);
+        m49Service = mock(SyndicationService.class);
         importStatusService = mock(SyndicationImportService.class);
 
         Map<String, SyndicationService> services = Map.of(
                 "snomed", snomedService,
                 "loinc", loincService,
-                "hl7", hl7Service
+                "hl7", hl7Service,
+                "atc", atcService,
+                "bcp13", bcp13Service,
+                "bcp47", bcp47Service,
+                "iso3166", iso3166Service,
+                "m49", m49Service
         );
 
         ReflectionTestUtils.setField(startupService, "syndicationServices", services);

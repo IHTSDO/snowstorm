@@ -81,7 +81,7 @@ public class HapiParametersMapper implements FHIRConstants {
 
 	public Parameters mapToFHIR(FHIRCodeSystemVersion codeSystemVersion, FHIRConcept concept) {
 		Parameters parameters = new Parameters();
-		Optional.of(codeSystemVersion.getName()).ifPresent(x->parameters.addParameter("name", x));
+		Optional.ofNullable(codeSystemVersion.getName()).ifPresent(x->parameters.addParameter("name", x));
 		//Optional.of(codeSystemVersion.getTitle()).ifPresent(x->parameters.addParameter("title", x));
 		parameters.addParameter("system", new UriType(codeSystemVersion.getUrl()));
 		parameters.addParameter("version", codeSystemVersion.getVersion());

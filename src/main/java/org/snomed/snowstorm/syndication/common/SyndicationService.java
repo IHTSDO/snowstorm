@@ -4,6 +4,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.core.data.services.ServiceException;
 import org.snomed.snowstorm.syndication.SyndicationImportService;
+import org.snomed.snowstorm.syndication.codesystem.CodeSystemSyndicationService;
 import org.snomed.snowstorm.syndication.data.SyndicationImport;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -34,15 +35,18 @@ public abstract class SyndicationService {
         try {
             importStatusService.saveOrUpdateImportStatus(params.terminology(), params.version(), importedVersion, RUNNING, null);
             List<File> files = fetchTerminologyPackages(params);
-            if(CollectionUtils.isEmpty(files)) {
+            if(CollectionUtils.isEmpty(files) && params.terminology().requiresFiles()) {
                 throw new ServiceException("No terminology packages found for version" + params.version());
             }
             importTerminology(params, files);
-            importedVersion = LOCAL_VERSION.equals(params.version())
-                    ? getLocalPackageIdentifier(files)
-                    : getTerminologyVersion(files.get(files.size() - 1).getName());
+            if (LOCAL_VERSION.equals(params.version())) {
+                importedVersion = getLocalPackageIdentifier(files);
+            } else {
+                String fileName = files.isEmpty() ? null : files.get(files.size() - 1).getName();
+                importedVersion = getTerminologyVersion(fileName);
+            }
             importStatusService.saveOrUpdateImportStatus(params.terminology(), params.version(), importedVersion, COMPLETED, null);
-            if(!LOCAL_VERSION.equals(params.version())) {
+            if(!LOCAL_VERSION.equals(params.version()) && !(this instanceof CodeSystemSyndicationService)) {
                 removeDownloadedFiles(files);
             }
         } catch (Exception e) {

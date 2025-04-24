@@ -31,11 +31,11 @@ public class StartupSyndicationService {
     private final Logger logger = LoggerFactory.getLogger(getClass());
 
     public void handleStartupSyndication(ApplicationArguments applicationArguments) throws IOException, ServiceException, InterruptedException {
-        boolean isLoincIncluded = applicationArguments.containsOption(LOINC.getImportName());
+        boolean isLoincIncluded = applicationArguments.containsOption(LOINC.getImportArg());
         String extensionName = getOneValueOrDefault(applicationArguments, EXTENSION_COUNTRY_CODE, null);
         for (SyndicationTerminology terminology : SyndicationTerminology.values()) {
-            if (applicationArguments.containsOption(terminology.getImportName())) {
-                String version = getOneValueOrDefault(applicationArguments, terminology.getImportName(), LATEST_VERSION);
+            if (terminology.importByDefault() || applicationArguments.containsOption(terminology.getImportArg())) {
+                String version = getOneValueOrDefault(applicationArguments, terminology.getImportArg(), LATEST_VERSION);
                 SyndicationService service = syndicationServices.get(terminology.getName());
                 if (service == null) {
                     throw new IllegalStateException("No service found for terminology: " + terminology);

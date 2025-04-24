@@ -55,6 +55,10 @@ public class FHIRHelper implements FHIRConstants {
 		return uri != null && (uri.startsWith(SNOMED_URI) || uri.startsWith(SNOMED_URI_UNVERSIONED));
 	}
 
+	public static boolean isUcumUri(String uri) {
+		return uri != null && uri.startsWith(UCUM_URI);
+	}
+
 	static String translateDescType(String typeSctid) {
         return switch (typeSctid) {
             case Concepts.FSN -> "Fully specified name";

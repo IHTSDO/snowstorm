@@ -19,6 +19,8 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import static org.snomed.snowstorm.core.data.services.CodeSystemService.MAIN;
@@ -134,7 +136,9 @@ public class SnomedSyndicationService extends SyndicationService {
         if (filePaths.size() > 1) {
             String shortName = "SNOMED-" + extensionCountryCode;
             String branchPath = MAIN + "/" + shortName;
-            codeSystemService.createCodeSystem(new CodeSystem(shortName, branchPath, extensionCountryCode + " edition", extensionCountryCode.toLowerCase()));
+            CodeSystem newCodeSystem = new CodeSystem(shortName, branchPath, extensionCountryCode + " edition", extensionCountryCode.toLowerCase());
+            newCodeSystem.setUriModuleId(getModuleUri(releaseUri));
+            codeSystemService.createCodeSystem(newCodeSystem);
             importPackage(filePaths.get(1), branchPath);
             logger.info("Extension import DONE");
         }
@@ -167,5 +171,19 @@ public class SnomedSyndicationService extends SyndicationService {
                 .filter(contentItemVersion -> contentItemVersion.contains(releaseUri))
                 .findFirst()
                 .orElseThrow(() -> new ServiceException("No snomed release found related to the supplied release URI: " + releaseUri));
+    }
+
+    /**
+     *
+     * @param releaseUri e.g. http ://snomed.info/sct/11000172109/, local, http ://snomed.info/sct/11000172109/version/20250315, ...
+     * @return the imported moduleUri or null if not found, e.g. 11000172109
+     */
+    private String getModuleUri(String releaseUri) {
+        try {
+            Matcher matcher = Pattern.compile("sct/(\\d+)").matcher(releaseUri);
+            return matcher.find() ? matcher.group(1) : null;
+        } catch (Exception e) {
+            return null;
+        }
     }
 }

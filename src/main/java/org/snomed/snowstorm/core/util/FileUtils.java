@@ -9,6 +9,7 @@ import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
@@ -18,6 +19,19 @@ public class FileUtils {
 
     public static Optional<File> findFile(String directory, String filePattern) throws IOException {
         return getPath(directory, filePattern).map(Path::toFile);
+    }
+
+    public static List<File> findFiles(String directory, String filePattern) throws IOException {
+        Path dirPath = Paths.get(directory);
+        List<File> result = new ArrayList<>();
+
+        try (DirectoryStream<Path> stream = Files.newDirectoryStream(dirPath, filePattern)) {
+            for (Path entry : stream) {
+                result.add(entry.toFile());
+            }
+        }
+
+        return result;
     }
 
     public static Optional<String> findFileName(String directory, String filePattern) throws IOException {
