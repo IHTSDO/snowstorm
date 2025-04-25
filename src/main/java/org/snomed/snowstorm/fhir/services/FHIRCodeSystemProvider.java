@@ -40,7 +40,7 @@ import org.snomed.snowstorm.fhir.pojo.ConceptAndSystemResult;
 import org.snomed.snowstorm.fhir.pojo.FHIRCodeSystemVersionParams;
 import org.snomed.snowstorm.fhir.pojo.PatchCode;
 import org.snomed.snowstorm.fhir.pojo.PatchOperation;
-import org.snomed.snowstorm.validation.UcumCodeValidationService;
+import org.snomed.snowstorm.syndication.services.importers.fixedversion.ucum.UcumCodeValidationService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
@@ -503,7 +503,7 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants 
 			parameters.addParameter("version", codeSystemVersion.getVersion());
 			return parameters;
 		} else if (codeSystemParams.isUcum()) {
-			return ucumCodeValidationService.validateCode(code, codeSystemParams);
+			return ucumCodeValidationService.validateCode(code, codeSystemParams.getCodeSystem());
 		}
 		else {
 			FHIRCodeSystemVersion codeSystemVersion = null;

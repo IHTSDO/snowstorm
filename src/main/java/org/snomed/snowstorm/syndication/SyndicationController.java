@@ -3,8 +3,9 @@ package org.snomed.snowstorm.syndication;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.snomed.snowstorm.core.data.services.ServiceException;
-import org.snomed.snowstorm.syndication.common.SyndicationImportRequest;
-import org.snomed.snowstorm.syndication.data.SyndicationImport;
+import org.snomed.snowstorm.syndication.models.requestDto.SyndicationImportRequest;
+import org.snomed.snowstorm.syndication.models.data.SyndicationImport;
+import org.snomed.snowstorm.syndication.services.importstatus.SyndicationImportStatusService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
@@ -24,7 +25,7 @@ import java.util.List;
 public class SyndicationController {
 
     @Autowired
-    private SyndicationImportService importStatusService;
+    private SyndicationImportStatusService importStatusService;
 
     @Value("${SYNDICATION_SECRET:empty}")
     private String syndicationSecret;

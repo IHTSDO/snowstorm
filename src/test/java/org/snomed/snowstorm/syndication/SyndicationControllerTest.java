@@ -3,8 +3,9 @@ package org.snomed.snowstorm.syndication;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.snomed.snowstorm.core.data.services.ServiceException;
-import org.snomed.snowstorm.syndication.common.SyndicationImportRequest;
-import org.snomed.snowstorm.syndication.data.SyndicationImport;
+import org.snomed.snowstorm.syndication.models.requestDto.SyndicationImportRequest;
+import org.snomed.snowstorm.syndication.models.data.SyndicationImport;
+import org.snomed.snowstorm.syndication.services.importstatus.SyndicationImportStatusService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -14,17 +15,17 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
-import static org.snomed.snowstorm.syndication.common.SyndicationConstants.LOINC_TERMINOLOGY;
+import static org.snomed.snowstorm.syndication.constants.SyndicationConstants.LOINC_TERMINOLOGY;
 
 class SyndicationControllerUnitTest {
 
     private static final String SYNDICATION_SECRET = "SECRET";
-    private SyndicationImportService importStatusService;
+    private SyndicationImportStatusService importStatusService;
     private SyndicationController controller;
 
     @BeforeEach
     void setup() {
-        importStatusService = mock(SyndicationImportService.class);
+        importStatusService = mock(SyndicationImportStatusService.class);
         controller = new SyndicationController();
         ReflectionTestUtils.setField(controller, "importStatusService", importStatusService);
         ReflectionTestUtils.setField(controller, "syndicationSecret", SYNDICATION_SECRET);

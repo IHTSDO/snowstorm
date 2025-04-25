@@ -83,12 +83,12 @@ WORKDIR $UCUM_HOME
 RUN ZIPBALL_URL=$(curl -s https://api.github.com/repos/ucum-org/ucum/releases/latest | jq -r '.zipball_url') && \
         curl -fsSL "$ZIPBALL_URL" -o ucum-source.zip && \
         unzip ucum-source.zip && \
-        find . -name ucum-essence.xml -exec mv {} "$UCUM_HOME/ucum-essence.xml" \; && \
+        find . -name ucum-essence.xml -exec mv {} "$UCUM_HOME/ucum-codesystem.xml" \; && \
         echo "ucum-essence.xml from UCUM (source zipball), © Regenstrief Institute. See https://unitsofmeasure.org for license." > /UCUM_LICENSE.txt && \
         rm -rf ucum-source.zip ucum-org-ucum-*
 
 ##############
-### ATC ####
+### ATC ######
 ##############
 WORKDIR $ATC_HOME
 COPY target/classes/atc/ATC_DDD_Index.csv $ATC_HOME/atc-codesystem.csv
@@ -146,4 +146,4 @@ USER appuser
 ENTRYPOINT ["java", "-Xms2g", "-Xmx4g", "--add-opens", "java.base/java.lang=ALL-UNNAMED", "--add-opens", "java.base/java.util=ALL-UNNAMED", "-jar", "/app/snowstorm.jar"]
 
 # Using arguments that are likely to be customized
-CMD ["--elasticsearch.urls=http://es:9200","--import-snomed-terminology=http://snomed.info/sct/11000172109/version/20250315", "--extension-country-code=BE", "--import-loinc-terminology", "--import-hl7-terminology"]
+CMD ["--elasticsearch.urls=http://es:9200","--snomed=http://snomed.info/sct/11000172109/version/20250315", "--extension-country-code=BE", "--loinc", "--hl7"]
