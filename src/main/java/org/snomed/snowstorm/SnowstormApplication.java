@@ -11,7 +11,7 @@ import org.snomed.snowstorm.core.data.services.*;
 import org.snomed.snowstorm.core.rf2.RF2Type;
 import org.snomed.snowstorm.core.rf2.rf2import.ImportService;
 import org.snomed.snowstorm.core.util.CollectionUtils;
-import org.snomed.snowstorm.syndication.StartupSyndicationService;
+import org.snomed.snowstorm.syndication.services.StartupSyndicationService;
 import org.springframework.beans.factory.BeanCreationException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.ApplicationArguments;
@@ -38,6 +38,7 @@ public class SnowstormApplication extends Config implements ApplicationRunner {
 	private static final String DELETE_INDICES_FLAG = "delete-indices";
 	private static final String IMPORT_ARG = "import";
 	private static final String IMPORT_FULL_ARG = "import-full";
+	private static final String SYNDICATION = "syndication";
 	private static final String EXIT = "exit";
 
 	@Autowired
@@ -118,7 +119,9 @@ public class SnowstormApplication extends Config implements ApplicationRunner {
 
 				importEditionRF2FromDisk(releasePath, RF2Type.FULL);
 			}
-			startupSyndicationService.handleStartupSyndication(applicationArguments);
+			else if (applicationArguments.containsOption(SYNDICATION)) {
+				startupSyndicationService.handleStartupSyndication(applicationArguments);
+			}
 			if (applicationArguments.containsOption(EXIT)) {
 				logger.info("Exiting application.");
 				((ConfigurableApplicationContext)applicationContext).close();

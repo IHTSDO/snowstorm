@@ -4,13 +4,6 @@
 # Use a Debian-based OpenJDK 17 image (includes apt)
 FROM openjdk:17-jdk-buster
 
-# Set up environment variables
-ENV APP_HOME=/app
-ENV SNOMED_HOME=$APP_HOME/snomed
-ENV LOINC_HOME=$APP_HOME/loinc
-ENV HL7_HOME=$APP_HOME/hl7
-ENV PUPPETEER_CACHE_DIR=$APP_HOME/.cache/puppeteer
-
 # Install Nodejs and libraries necessary for puppeteer to work + utilities
 RUN curl -sL https://deb.nodesource.com/setup_18.x -o /tmp/nodesource_setup.sh &&\
     bash /tmp/nodesource_setup.sh \
@@ -42,6 +35,18 @@ RUN curl -sL https://deb.nodesource.com/setup_18.x -o /tmp/nodesource_setup.sh &
     nodejs \
     && rm -rf /var/lib/apt/lists/*
 
+# Set up environment variables
+ENV APP_HOME=/app
+ENV SNOMED_HOME=$APP_HOME/snomed
+ENV LOINC_HOME=$APP_HOME/loinc
+ENV HL7_HOME=$APP_HOME/hl7
+ENV UCUM_HOME=$APP_HOME/ucum
+ENV ATC_HOME=$APP_HOME/atc
+ENV BCP13_HOME=$APP_HOME/bcp13
+ENV BCP47_HOME=$APP_HOME/bcp47
+ENV ISO3166_HOME=$APP_HOME/iso3166
+ENV PUPPETEER_CACHE_DIR=$APP_HOME/.cache/puppeteer
+
 #############
 ### LOINC ###
 #############
@@ -72,6 +77,55 @@ WORKDIR $SNOMED_HOME
 #COPY snomed-extension*-sample*.zip $SNOMED_HOME/
 
 ##############
+### UCUM ###
+##############
+WORKDIR $UCUM_HOME
+RUN ZIPBALL_URL=$(curl -s https://api.github.com/repos/ucum-org/ucum/releases/latest | jq -r '.zipball_url') && \
+        curl -fsSL "$ZIPBALL_URL" -o ucum-source.zip && \
+        unzip ucum-source.zip && \
+        find . -name ucum-essence.xml -exec mv {} "$UCUM_HOME/ucum-codesystem.xml" \; && \
+        echo "ucum-essence.xml from UCUM (source zipball), © Regenstrief Institute. See https://unitsofmeasure.org for license." > /UCUM_LICENSE.txt && \
+        rm -rf ucum-source.zip ucum-org-ucum-*
+
+##############
+### ATC ######
+##############
+WORKDIR $ATC_HOME
+COPY target/classes/atc/ATC_DDD_Index.csv $ATC_HOME/atc-codesystem.csv
+
+##############
+### BCP13 ####
+##############
+WORKDIR $BCP13_HOME
+RUN curl -fsSL https://www.iana.org/assignments/media-types/application.csv -o bcp13-application-codesystem.csv && \
+    curl -fsSL https://www.iana.org/assignments/media-types/audio.csv -o bcp13-audio-codesystem.csv && \
+    curl -fsSL https://www.iana.org/assignments/media-types/font.csv -o bcp13-font-codesystem.csv && \
+    curl -fsSL https://www.iana.org/assignments/media-types/haptics.csv -o bcp13-haptics-codesystem.csv && \
+    curl -fsSL https://www.iana.org/assignments/media-types/image.csv -o bcp13-image-codesystem.csv && \
+    curl -fsSL https://www.iana.org/assignments/media-types/message.csv -o bcp13-message-codesystem.csv && \
+    curl -fsSL https://www.iana.org/assignments/media-types/model.csv -o bcp13-model-codesystem.csv && \
+    curl -fsSL https://www.iana.org/assignments/media-types/multipart.csv -o bcp13-multipart-codesystem.csv && \
+    curl -fsSL https://www.iana.org/assignments/media-types/text.csv -o bcp13-text-codesystem.csv && \
+    curl -fsSL https://www.iana.org/assignments/media-types/video.csv -o bcp13-video-codesystem.csv
+
+##############
+### BCP47 ####
+##############
+WORKDIR $BCP47_HOME
+RUN npm --registry https://packages.simplifier.net install dk.ehealth.sundhed.fhir.ig.core@3.2.0 && \
+    find . -name CodeSystem-urn-ietf-bcp-47.json -exec mv {} "$BCP47_HOME/bcp47-codesystem.json" \; && \
+    rm -rf node_modules package*.json
+
+##############
+### ISO3166 ##
+##############
+WORKDIR $ISO3166_HOME
+RUN npm --registry https://packages.simplifier.net install fhir.tx.support.r4@0.19.0 && \
+    find . -name CodeSystem-iso3166.json -exec mv {} "$ISO3166_HOME/iso3166-codesystem.json" \; && \
+    find . -name CodeSystem-iso3166-2.json -exec mv {} "$ISO3166_HOME/iso3166-2-codesystem.json" \; && \
+    rm -rf node_modules package*.json
+
+##############
 ### Common ###
 ##############
 WORKDIR $APP_HOME
@@ -92,4 +146,4 @@ USER appuser
 ENTRYPOINT ["java", "-Xms2g", "-Xmx4g", "--add-opens", "java.base/java.lang=ALL-UNNAMED", "--add-opens", "java.base/java.util=ALL-UNNAMED", "-jar", "/app/snowstorm.jar"]
 
 # Using arguments that are likely to be customized
-CMD ["--elasticsearch.urls=http://es:9200","--import-snomed-terminology=http://snomed.info/sct/11000172109/version/20250315", "--extension-country-code=BE", "--import-loinc-terminology", "--import-hl7-terminology"]
+CMD ["--elasticsearch.urls=http://es:9200","--snomed=http://snomed.info/sct/11000172109/version/20250315", "--extension-country-code=BE", "--loinc", "--hl7"]

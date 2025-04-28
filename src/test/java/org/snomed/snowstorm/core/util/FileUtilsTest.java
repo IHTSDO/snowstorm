@@ -2,6 +2,7 @@ package org.snomed.snowstorm.core.util;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.snomed.snowstorm.syndication.utils.FileUtils;
 
 import java.io.File;
 import java.io.IOException;
