@@ -1,6 +1,6 @@
 # 🐳 Syndication Using Docker
 
-This guide explains how to use Docker to build and run the **Snowstorm terminology server**, including dynamic syndication of clinical terminologies like SNOMED CT, LOINC, HL7, and others.
+This guide explains the Docker and docker-compose parts of the **Snowstorm terminology server**.
 
 ---
 
@@ -48,7 +48,7 @@ ENV PUPPETEER_CACHE_DIR=$APP_HOME/.cache/puppeteer
 
 ---
 
-## 📥 Terminology Setup (Per Type)
+## 📥 Docker Terminology Setup (Per Type)
 
 ### 📘 LOINC
 
@@ -102,6 +102,17 @@ ENTRYPOINT ["java", "-Xms2g", "-Xmx4g", "--add-opens", "java.base/java.lang=ALL-
 
 
 ## ⚙️ Docker Compose Architecture
+The provided `docker-compose.yml` is intended as a usage example.
+
+### Networks and Volumes
+
+```yaml
+networks:
+  elastic:
+
+volumes:
+  elastic:
+```
 
 ### Services
 
@@ -123,47 +134,4 @@ ENTRYPOINT ["java", "-Xms2g", "-Xmx4g", "--add-opens", "java.base/java.lang=ALL-
 - 🔌 Port: `80`
 - 🔗 Connects to Snowstorm API
 
-### Networks and Volumes
-
-```yaml
-networks:
-  elastic:
-
-volumes:
-  elastic:
-```
-
----
-
-## ⚙️ Sample `docker-compose` Command Config
-The `--syndicate` option instructs Snowstorm to import the version-specific terminologies (Loinc, Snomed-CT, Hl7) included in the command, as well as the custom-version terminologies (atc, bcp47, Ucum, ...)
-This sample shows how to control what terminologies to load on container startup:
-
-```yaml
-command: [
-  "--elasticsearch.urls=http://es:9200",
-  "--syndicate",
-  "--hl7",
-  #"--hl7=local",
-  #"--hl7=6.1.0",
-  #"--loinc",
-  "--loinc=local",
-  #"--loinc=2.78",
-  #"--snomed=http://snomed.info/sct/11000172109",
-  #"--snomed=local",
-  "--snomed=http://snomed.info/sct/11000172109/version/20250315",
-  "--extension-country-code=BE"
-]
-```
-
-> 💡 **Tip**: Comment/uncomment lines to enable specific terminology imports or versions.  
-> Omit all import arguments (not the elasticsearch url) to skip terminology import entirely.
-
----
-
-## ✅ Final Notes
-
-- Ensure **Elasticsearch is up and reachable** at the configured URL before startup.
-- You can modify the `CMD` in the Dockerfile or pass a custom `command` via `docker-compose`.
-- Built to support **dynamic terminology environments**, especially for fast-moving clinical ecosystems.
 

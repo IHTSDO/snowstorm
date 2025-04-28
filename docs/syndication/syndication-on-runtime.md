@@ -21,7 +21,8 @@ Invoking this endpoint triggers a **background job** that imports or updates a t
 - **Custom-version terminologies** (e.g., SNOMED CT, LOINC, HL7 FHIR)
 - **Fixed-version terminologies** (e.g., ISO codes, UCUM)
 
-> ⚠️ **Security Notice**: A secret key (`syndicationSecret`) must be provided in the request body. This secret must match the value defined in your environment variables to prevent unauthorized access.
+> ⚠️ **Security Notice**: A secret key (`syndicationSecret`) must be provided in the request body. This secret must match 
+> the value defined in your environment variables (see syndication-terminologies.md) to prevent unauthorized access.
 
 ---
 
@@ -89,7 +90,7 @@ This option is ideal for terminology sources that release regular updates (e.g.,
 This option re-imports terminology files **already present on the Docker container's file system**. It's useful when:
 
 - You want to re-trigger an import without restarting the app.
-- You’ve manually copied a new file version to the container during runtime.
+- You’ve manually copied a new file version to the container during runtime or want to import the original one.
 
 > 📌 File naming convention must follow: `*-codesystem.*`  
 > Example: `bcp13-codesystem.json`, `iso3166-codesystem.json`
