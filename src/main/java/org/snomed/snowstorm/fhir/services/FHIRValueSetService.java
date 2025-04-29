@@ -388,7 +388,7 @@ public class FHIRValueSetService {
 		Map<String, String> idAndVersionToUrl = allInclusionVersions.stream()
 				.collect(Collectors.toMap(FHIRCodeSystemVersion::getId, FHIRCodeSystemVersion::getUrl));
 		Map<String, String> idAndVersionToLanguage = allInclusionVersions.stream()
-				.collect(Collectors.toMap(FHIRCodeSystemVersion::getId, FHIRCodeSystemVersion::getLanguage));
+				.filter(fhirCodeSystemVersion -> fhirCodeSystemVersion.getLanguage() != null).collect(Collectors.toMap(FHIRCodeSystemVersion::getId, FHIRCodeSystemVersion::getLanguage));
 		allInclusionVersions.forEach(codeSystemVersion -> {
 			orEmpty(codeSystemVersion.getExtensions()).forEach(fe ->{
 				hapiValueSet.addExtension(fe.getHapi());
@@ -540,7 +540,7 @@ public class FHIRValueSetService {
 						});
 					});
 					addInfoFromReferences(component, references);
-					setDisplayAndDesignations(component, concept, idAndVersionToLanguage.get(concept.getCodeSystemVersion()), includeDesignations, fhirDisplayLanguage, params.getDesignations());
+					setDisplayAndDesignations(component, concept, idAndVersionToLanguage.getOrDefault(concept.getCodeSystemVersion(), "en"), includeDesignations, fhirDisplayLanguage, params.getDesignations());
 					return component;
 		})
 				.collect(Collectors.toList()));
@@ -1290,7 +1290,7 @@ public class FHIRValueSetService {
 							return languages.isEmpty()||languages.contains(l);
 						} ).noneMatch(b ->b.equals(TRUE))){
 						CodeableConcept cc;
-						if(orEmpty(codeSystemVersion.getAvailableLanguages()).contains(displayLanguage)){
+						if(codeSystemVersion.getAvailableLanguages().contains(displayLanguage)){
 							cc = new CodeableConcept(new Coding().setSystem(TX_ISSUE_TYPE).setCode(DISPLAY_COMMENT)).setText(format("'%s' is the default display; no valid Display Names found for %s#%s in the language %s", concept.getDisplay(), codingA.getSystem(), codingA.getCode(), displayLanguage));
 						} else {
 							cc = new CodeableConcept(new Coding().setSystem(TX_ISSUE_TYPE).setCode(DISPLAY_COMMENT)).setText(format("'%s' is the default display; the code system %s has no Display Names for the language %s", concept.getDisplay(), codingA.getSystem(), displayLanguage));
@@ -1454,7 +1454,7 @@ public class FHIRValueSetService {
 		if(StringUtils.isEmpty(codeSystemVersion.getLanguage())){
 			selectedDisplay = new SelectedDisplay(concept.getDisplay(),fhirDisplayLanguage,null);
 			//language is not available, but it doesn't matter, because the codesystem has no language
-		} else if(fhirDisplayLanguage.equals(codeSystemVersion.getLanguage()) || orEmpty(codeSystemVersion.getAvailableLanguages()).contains(fhirDisplayLanguage)) {
+		} else if(fhirDisplayLanguage.equals(codeSystemVersion.getLanguage()) || codeSystemVersion.getAvailableLanguages().contains(fhirDisplayLanguage)) {
 			selectedDisplay = concept.getDesignations().stream()
 					.filter(d -> fhirDisplayLanguage.equals(d.getLanguage()))
 					.findFirst().map(d -> new SelectedDisplay(d.getValue(),d.getLanguage(),true)).orElse(new SelectedDisplay(concept.getDisplay(),codeSystemVersion.getLanguage(),Objects.equals(codeSystemVersion.getLanguage(),fhirDisplayLanguage)));
