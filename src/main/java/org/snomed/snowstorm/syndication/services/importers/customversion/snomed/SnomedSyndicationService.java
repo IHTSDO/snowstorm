@@ -135,7 +135,7 @@ public class SnomedSyndicationService extends SyndicationService {
             throw new IllegalArgumentException("ReleaseURI: '" + releaseUri + "' is an extension. An extension name must be specified.");
         }
         if (filePaths.size() > 1) {
-            String shortName = "SNOMED-" + extensionCountryCode;
+            String shortName = "SNOMEDCT-" + extensionCountryCode;
             String branchPath = MAIN + "/" + shortName;
             CodeSystem newCodeSystem = new CodeSystem(shortName, branchPath, extensionCountryCode + " edition", extensionCountryCode.toLowerCase());
             newCodeSystem.setUriModuleId(getModuleUri(releaseUri));

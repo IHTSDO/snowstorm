@@ -115,10 +115,7 @@ public class FHIRCodeSystemVersion {
 		codeSystem.getConcept().stream().forEach( c->{
 			c.getDesignation().stream().forEach( d ->{
 				if (d.getLanguage()!=null){
-					if (availableLanguages == null){
-						availableLanguages = new HashSet<>();
-					}
-					availableLanguages.add(d.getLanguage());
+					getAvailableLanguages().add(d.getLanguage());
 				}
 			});
 		});
@@ -165,6 +162,11 @@ public class FHIRCodeSystemVersion {
 			content = CodeSystem.CodeSystemContentMode.COMPLETE.toCode();
 		}
 		snomedBranch = snomedCodeSystem.getBranchPath();
+		var languages = snomedCodeSystem.getLanguages();
+		if (languages != null) {
+			language = languages.containsKey("en") ? "en" : languages.values().iterator().next();
+			availableLanguages = new HashSet<>(languages.keySet());
+		}
 		this.snomedCodeSystem = snomedCodeSystem;
 	}
 
@@ -343,7 +345,7 @@ public class FHIRCodeSystemVersion {
 	}
 
 	public Set<String> getAvailableLanguages() {
-		return availableLanguages;
+		return availableLanguages == null ? new HashSet<>() : availableLanguages;
 	}
 
 	public void setAvailableLanguages(Set<String> availableLanguages) {
