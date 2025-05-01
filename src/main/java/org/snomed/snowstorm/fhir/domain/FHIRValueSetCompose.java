@@ -31,7 +31,7 @@ public class FHIRValueSetCompose {
 			addInclude(new FHIRValueSetCriteria(hapiInclude));
 		}
 		for (ValueSet.ConceptSetComponent hapiExclude : hapiCompose.getExclude()) {
-			addInclude(new FHIRValueSetCriteria(hapiExclude));
+			addExclude(new FHIRValueSetCriteria(hapiExclude));
 		}
 
 		hapiCompose.getExtension().forEach( ext -> {
