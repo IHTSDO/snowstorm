@@ -34,11 +34,11 @@ class ReferenceSetMemberExportWriter extends ExportWriter<ReferenceSetMember> {
 			for (ReferenceSetMember member : componentBuffer) {
 				bufferedWriter.write(member.getMemberId());
 				bufferedWriter.write(TAB);
-				bufferedWriter.write(member.getEffectiveTimeI() != null ? member.getEffectiveTimeI().toString() : getTransientEffectiveTime());
+				bufferedWriter.write(member.getEffectiveTimeI() == null ? getTransientEffectiveTime() : member.getEffectiveTimeI().toString());
 				bufferedWriter.write(TAB);
 				bufferedWriter.write(member.isActive() ? "1" : "0");
 				bufferedWriter.write(TAB);
-				bufferedWriter.write(member.getModuleId());
+				bufferedWriter.write(member.getModuleId() == null ? "" : member.getModuleId());
 				bufferedWriter.write(TAB);
 				bufferedWriter.write(member.getRefsetId());
 				bufferedWriter.write(TAB);
