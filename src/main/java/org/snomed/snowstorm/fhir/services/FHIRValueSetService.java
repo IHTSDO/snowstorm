@@ -389,11 +389,6 @@ public class FHIRValueSetService {
 				.collect(Collectors.toMap(FHIRCodeSystemVersion::getId, FHIRCodeSystemVersion::getUrl));
 		Map<String, String> idAndVersionToLanguage = allInclusionVersions.stream()
 				.filter(fhirCodeSystemVersion -> fhirCodeSystemVersion.getLanguage() != null).collect(Collectors.toMap(FHIRCodeSystemVersion::getId, FHIRCodeSystemVersion::getLanguage));
-		allInclusionVersions.forEach(codeSystemVersion -> {
-			orEmpty(codeSystemVersion.getExtensions()).forEach(fe ->{
-				hapiValueSet.addExtension(fe.getHapi());
-			});
-		});
 		ValueSet.ValueSetExpansionComponent expansion = new ValueSet.ValueSetExpansionComponent();
 		String id = UUID.randomUUID().toString();
 		expansion.setId(id);
@@ -424,6 +419,8 @@ public class FHIRValueSetService {
 				}
 			}
 		);
+		collectCodeSystemSetWarnings(allInclusionVersions).forEach(expansion::addParameter);
+		collectValueSetWarnings(codeSelectionCriteria).forEach(expansion::addParameter);
 
 		hapiValueSet.getCompose().getInclude().stream().filter(x -> x.hasValueSet()).flatMap(x -> x.getValueSet().stream()).forEach(x ->{
 			CanonicalUri uri = CanonicalUri.fromString(x.getValueAsString());
@@ -433,6 +430,12 @@ public class FHIRValueSetService {
 			}
 			expansion.addParameter(new ValueSet.ValueSetExpansionParameterComponent(new StringType("used-valueset")).setValue(new UriType(uri.toString())));
 			expansion.addParameter(new ValueSet.ValueSetExpansionParameterComponent(new StringType("version")).setValue(new UriType(uri.toString())));
+		});
+
+		allInclusionVersions.forEach(codeSystemVersion -> {
+			orEmpty(codeSystemVersion.getExtensions()).forEach(fe ->{
+				hapiValueSet.addExtension(fe.getHapi());
+			});
 		});
 
 		hapiValueSet.getExtension().forEach(
@@ -568,6 +571,46 @@ public class FHIRValueSetService {
 		return hapiValueSet;
 
 
+	}
+
+	private List<ValueSet.ValueSetExpansionParameterComponent> collectCodeSystemSetWarnings(Set<FHIRCodeSystemVersion> codeSystems) {
+        List<ValueSet.ValueSetExpansionParameterComponent> list = new ArrayList<>();
+        for (FHIRCodeSystemVersion codeSystem : codeSystems) {
+            for (FHIRExtension ext : orEmpty(codeSystem.getExtensions())) {
+                if (ext != null && "http://hl7.org/fhir/StructureDefinition/structuredefinition-standards-status".equals(ext.getUri())) {
+					list.add(new ValueSet.ValueSetExpansionParameterComponent(new StringType("warning-" + ext.getValue()))
+							.setValue(new CanonicalType(codeSystem.getCanonical())));
+                }
+            }
+			if("draft".equals(codeSystem.getStatus())) {
+				list.add(new ValueSet.ValueSetExpansionParameterComponent(new StringType("warning-draft"))
+						.setValue(new CanonicalType(codeSystem.getCanonical())));
+			}
+			if(codeSystem.isExperimental()) {
+				list.add(new ValueSet.ValueSetExpansionParameterComponent(new StringType("warning-experimental"))
+						.setValue(new CanonicalType(codeSystem.getCanonical())));
+			}
+        }
+        return list;
+	}
+
+	private List<ValueSet.ValueSetExpansionParameterComponent> collectValueSetWarnings(CodeSelectionCriteria codeSelectionCriteria) {
+		ArrayList<ValueSet.ValueSetExpansionParameterComponent> result = new ArrayList<>();
+		collectValueSetWarnings(codeSelectionCriteria, result);
+		return result;
+	}
+
+	private void collectValueSetWarnings(CodeSelectionCriteria criteria, List<ValueSet.ValueSetExpansionParameterComponent> result) {
+		ValueSet valueset = findOrInferValueSet(null, criteria.getValueSetUserRef(), null, null);
+		if (valueset != null) {
+			valueset.getExtension().stream()
+					.filter(ext -> "http://hl7.org/fhir/StructureDefinition/structuredefinition-standards-status".equals(ext.getUrl()))
+					.map(warnExt ->
+							new ValueSet.ValueSetExpansionParameterComponent(new StringType("warning-" + warnExt.getValue()))
+									.setValue(new CanonicalType(valueset.getUrl() + "|" + valueset.getVersion())))
+					.forEach(result::add);
+			criteria.getNestedSelections().forEach(nestedValueSetCriteria -> collectValueSetWarnings(nestedValueSetCriteria, result));
+		}
 	}
 
 	private static boolean hasDisplayLanguage(ValueSet hapiValueSet) {
@@ -1276,6 +1319,24 @@ public class FHIRValueSetService {
 						response.addParameter("result", false);
 						return response;
 					}
+				}
+				List<OperationOutcome.OperationOutcomeIssueComponent> issues = new ArrayList<>();
+				List<ValueSet.ValueSetExpansionParameterComponent> codeSystemWarnings = collectCodeSystemSetWarnings(resolvedCodeSystemVersionsMatchingCodings);
+				codeSystemWarnings.forEach(warning -> {
+					issues.add(createOperationOutcomeIssueComponent(
+							new CodeableConcept(new Coding(TX_ISSUE_TYPE, "status-check",null))
+									.setText(format("Reference to %s CodeSystem %s", warning.getName().split("warning-")[1], warning.getValue().primitiveValue())), OperationOutcome.IssueSeverity.INFORMATION,null, OperationOutcome.IssueType.BUSINESSRULE,null,null
+					));
+				});
+				List<ValueSet.ValueSetExpansionParameterComponent> valueSetWarnings = collectValueSetWarnings(codeSelectionCriteria);
+				valueSetWarnings.forEach(warning -> {
+					issues.add(createOperationOutcomeIssueComponent(
+							new CodeableConcept(new Coding(TX_ISSUE_TYPE, "status-check",null))
+									.setText(format("Reference to %s ValueSet %s", warning.getName().split("warning-")[1], warning.getValue().primitiveValue())), OperationOutcome.IssueSeverity.INFORMATION,null, OperationOutcome.IssueType.BUSINESSRULE,null,null
+					));
+				});
+				if(!issues.isEmpty()) {
+					response.addParameter(createParameterComponentWithOperationOutcomeWithIssues(issues));
 				}
 				String codingADisplay = codingA.getDisplay();
 				if (codingADisplay == null || Objects.equals(codingADisplay, concept.getDisplay())) {

@@ -56,6 +56,9 @@ public class FHIRCodeSystemVersion {
 	@Field(type = FieldType.Boolean)
 	private boolean compositional;
 
+	@Field(type = FieldType.Boolean)
+	private boolean experimental;
+
 	@Field(type = FieldType.Keyword)
 	private String content;
 
@@ -89,6 +92,7 @@ public class FHIRCodeSystemVersion {
 			this.id = codeSystem.getId().replace("CodeSystem/", "");
 		}
 		version = codeSystem.getVersion();
+		experimental = codeSystem.getExperimental();
 		date = codeSystem.getDate();
 		title = codeSystem.getTitle();
 		language = codeSystem.getLanguage();
@@ -301,6 +305,10 @@ public class FHIRCodeSystemVersion {
 
 	public void setCompositional(boolean compositional) {
 		this.compositional = compositional;
+	}
+
+	public boolean isExperimental() {
+		return experimental;
 	}
 
 	public String getContent() {
