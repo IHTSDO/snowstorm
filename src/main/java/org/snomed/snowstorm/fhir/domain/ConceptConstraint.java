@@ -4,20 +4,21 @@ import org.springframework.util.CollectionUtils;
 
 import java.util.*;
 
-import static org.snomed.snowstorm.fhir.domain.ConceptConstraint.Type.TERMS;
+import static org.snomed.snowstorm.fhir.domain.ConceptConstraint.Type.INCLUDE_TERMS;
 
 public class ConceptConstraint {
 
-	public static enum Type{
-		TERMS,
-		REGEX
+	public enum Type{
+		INCLUDE_TERMS,
+		EXCLUDE_TERMS,
+		MATCH_REGEX
 	}
 	private Collection<String> code;
 	private Set<String> parent;// ECL used instead for SNOMED
 	private Set<String> ancestor;
 	private String ecl;
 	private Map<String,Collection<String>> properties;
-	private Type type = TERMS;
+	private Type type = INCLUDE_TERMS;
 
 	public Boolean isActiveOnly() {
 		return activeOnly;
@@ -37,7 +38,7 @@ public class ConceptConstraint {
 	}
 
 	public boolean isSimpleCodeSet() {
-		return CollectionUtils.isEmpty(parent) && CollectionUtils.isEmpty(ancestor) && ecl == null && !CollectionUtils.isEmpty(code) && getType()==TERMS && activeOnly == null;
+		return CollectionUtils.isEmpty(parent) && CollectionUtils.isEmpty(ancestor) && ecl == null && !CollectionUtils.isEmpty(code) && getType()== INCLUDE_TERMS && activeOnly == null;
 	}
 
 	public ConceptConstraint setParent(Set<String> parent) {
