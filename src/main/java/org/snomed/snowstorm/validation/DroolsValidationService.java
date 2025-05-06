@@ -65,6 +65,9 @@ public class DroolsValidationService {
 	@Autowired
 	private ConceptService conceptService;
 
+	@Autowired
+	private AxiomConversionService axiomConversionService;
+
 	private final String droolsRulesPath;
 	private final ResourceManager testResourceManager;
 
@@ -122,7 +125,7 @@ public class DroolsValidationService {
 		setReleaseHashAndEffectiveTime(concepts, branchCriteria);
 		Set<String> inferredTopLevelHierarchies = getTopLevelHierarchies();
 		DisposableQueryService disposableQueryService = new DisposableQueryService(queryService, branchPath, branchCriteria);
-		ConceptDroolsValidationService droolsConceptService = new ConceptDroolsValidationService(branchCriteria, elasticsearchOperations, disposableQueryService, inferredTopLevelHierarchies);
+		ConceptDroolsValidationService droolsConceptService = new ConceptDroolsValidationService(branchCriteria, elasticsearchOperations, disposableQueryService, inferredTopLevelHierarchies, versionControlHelper, axiomConversionService);
 		DescriptionDroolsValidationService droolsDescriptionService = new DescriptionDroolsValidationService(branchPath, branchCriteria, elasticsearchOperations,
 				this.descriptionService, disposableQueryService, testResourceProvider, inferredTopLevelHierarchies);
 		RelationshipDroolsValidationService relationshipService = new RelationshipDroolsValidationService(disposableQueryService);
