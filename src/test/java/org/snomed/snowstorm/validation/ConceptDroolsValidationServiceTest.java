@@ -10,6 +10,7 @@ import org.snomed.snowstorm.AbstractTest;
 import org.snomed.snowstorm.TestConfig;
 import org.snomed.snowstorm.core.data.domain.Concept;
 import org.snomed.snowstorm.core.data.domain.Concepts;
+import org.snomed.snowstorm.core.data.services.AxiomConversionService;
 import org.snomed.snowstorm.core.data.services.ConceptService;
 import org.snomed.snowstorm.core.data.services.QueryService;
 import org.snomed.snowstorm.core.data.services.ServiceException;
@@ -36,6 +37,9 @@ class ConceptDroolsValidationServiceTest extends AbstractTest {
 	@Autowired
 	private QueryService queryService;
 
+	@Autowired
+	private AxiomConversionService axiomConversionService;
+
 	private ConceptDroolsValidationService validationService;
 
 	@BeforeEach
@@ -46,7 +50,7 @@ class ConceptDroolsValidationServiceTest extends AbstractTest {
 
 		BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(branch);
 		DisposableQueryService disposableQueryService = new DisposableQueryService(queryService, branch, branchCriteria);
-		validationService = new ConceptDroolsValidationService(branchCriteria, elasticsearchOperations, disposableQueryService, Collections.emptySet());
+		validationService = new ConceptDroolsValidationService(branchCriteria, elasticsearchOperations, disposableQueryService, Collections.emptySet(), versionControlHelper, axiomConversionService);
 	}
 
 	@Test
