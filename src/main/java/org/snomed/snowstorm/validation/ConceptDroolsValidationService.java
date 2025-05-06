@@ -108,32 +108,35 @@ public class ConceptDroolsValidationService implements org.ihtsdo.drools.service
 			.withQuery(bool(b -> b
 					.must(branchCriteriaAtBranchCreation.getEntityBranchCriteria(org.snomed.snowstorm.core.data.domain.Relationship.class))
 					.must(termQuery(org.snomed.snowstorm.core.data.domain.Relationship.Fields.SOURCE_ID, concept.getId()))
-					.must(termQuery(org.snomed.snowstorm.core.data.domain.Relationship.Fields.CHARACTERISTIC_TYPE_ID, org.snomed.snowstorm.core.data.domain.Relationship.CharacteristicType.inferred.getConceptId()))
+					.must(termQuery(org.snomed.snowstorm.core.data.domain.Relationship.Fields.CHARACTERISTIC_TYPE_ID, Concepts.INFERRED_RELATIONSHIP))
 			))
-			.withPageable(Config.PAGE_OF_ONE)
+			.withPageable(ComponentService.LARGE_PAGE)
 			.build();
 		List<org.snomed.snowstorm.core.data.domain.Relationship> relationshipsAtBranchCreation = elasticsearchOperations.search(query, org.snomed.snowstorm.core.data.domain.Relationship.class).stream().map(SearchHit::getContent).toList();
-		List<DroolsRelationship> droolsRelationships = (List<DroolsRelationship>) concept.getRelationships().stream().filter(r -> r.getAxiomId() == null).toList();
+		List<DroolsRelationship> droolsRelationships = (List<DroolsRelationship>) concept.getRelationships().stream().filter(r -> r.getAxiomId() == null && Concepts.INFERRED_RELATIONSHIP.equals(r.getCharacteristicTypeId())).toList();
 
 		if (droolsRelationships.size() != relationshipsAtBranchCreation.size()) return true;
 		for (DroolsRelationship droolsRelationship : droolsRelationships) {
-			boolean foundRelationship = false;
-			for (org.snomed.snowstorm.core.data.domain.Relationship relationship : relationshipsAtBranchCreation) {
-				if (droolsRelationship.getId().equals(relationship.getId())
-					&& droolsRelationship.getTypeId().equals(relationship.getTypeId())
-					&& ((droolsRelationship.getDestinationId() != null &&droolsRelationship.getDestinationId().equals(relationship.getDestinationId()))
-					|| (droolsRelationship.getConcreteValue() != null && droolsRelationship.getConcreteValue().equals(relationship.getConcreteValue() != null ? relationship.getConcreteValue().getValue() : null)))
-					&& droolsRelationship.isActive() == relationship.isActive()
-					&& droolsRelationship.getRelationshipGroup() == relationship.getRelationshipGroup()) {
-					foundRelationship = true;
-				}
-			}
-			if (!foundRelationship) {
-				return true;
-			}
+			if (isInferredRelationshipChanged(droolsRelationship, relationshipsAtBranchCreation)) return true;
 		}
 		return false;
 	}
+
+	private boolean isInferredRelationshipChanged(DroolsRelationship droolsRelationship, List<org.snomed.snowstorm.core.data.domain.Relationship> relationshipsAtBranchCreation) {
+		boolean foundRelationship = false;
+		for (org.snomed.snowstorm.core.data.domain.Relationship relationship : relationshipsAtBranchCreation) {
+			if (droolsRelationship.getId().equals(relationship.getId())
+				&& droolsRelationship.getTypeId().equals(relationship.getTypeId())
+				&& ((droolsRelationship.getDestinationId() != null && droolsRelationship.getDestinationId().equals(relationship.getDestinationId()))
+				|| (droolsRelationship.getConcreteValue() != null && droolsRelationship.getConcreteValue().equals(relationship.getConcreteValue() != null ? relationship.getConcreteValue().getValue() : null)))
+				&& droolsRelationship.isActive() == relationship.isActive()
+				&& droolsRelationship.getRelationshipGroup() == relationship.getRelationshipGroup()) {
+				foundRelationship = true;
+				break;
+			}
+		}
+        return !foundRelationship;
+    }
 
 	private boolean hasChangedAdditionalAxioms(org.ihtsdo.drools.domain.Concept concept, BranchCriteria branchCriteriaAtBranchCreation) {
 		// Find axiom members
@@ -179,12 +182,13 @@ public class ConceptDroolsValidationService implements org.ihtsdo.drools.service
 		boolean foundAxiom = false;
 		for (Axiom axiom : additionalAxiomsAtBranchCreation) {
 			if (droolsOntologyAxiom.getId().equals(axiom.getAxiomId()) && droolsOntologyAxiom.isActive() == axiom.isActive()) {
-				foundAxiom = true;
 				List<DroolsRelationship> droolsRelationships = (List<DroolsRelationship>) concept.getRelationships().stream().filter(r -> droolsOntologyAxiom.getId().equals(r.getAxiomId())).toList();
 				if (droolsRelationships.size() != axiom.getRelationships().size()) return true;
 				for (DroolsRelationship droolsRelationship : droolsRelationships) {
 					if (isRelationshipChanged(axiom, droolsRelationship)) return true;
 				}
+				foundAxiom = true;
+				break;
 			}
 		}
         return !foundAxiom;
@@ -199,6 +203,7 @@ public class ConceptDroolsValidationService implements org.ihtsdo.drools.service
 				&& droolsRelationship.isActive() == relationship.isActive()
 				&& droolsRelationship.getRelationshipGroup() == relationship.getRelationshipGroup()) {
 				foundRelationship = true;
+				break;
 			}
 		}
         return !foundRelationship;
