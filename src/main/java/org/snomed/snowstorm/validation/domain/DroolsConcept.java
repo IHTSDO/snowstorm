@@ -45,7 +45,7 @@ public class DroolsConcept implements org.ihtsdo.drools.domain.Concept {
 					r.setModuleId(axiom.getModuleId());
 					relationships.add(new DroolsRelationship(axiom.getAxiomId(), false, r));
 				});
-				ontologyAxioms.add(new DroolsOntologyAxiom(axiom.getId(), axiom.isActive(), Concepts.definitionStatusNames.get(Concepts.PRIMITIVE).equals(axiom.getDefinitionStatus()), conceptId, axiom.getModuleId()));
+				ontologyAxioms.add(new DroolsOntologyAxiom(axiom.getId(), axiom.getEffectiveTimeI(), axiom.isActive(), Concepts.definitionStatusNames.get(Concepts.PRIMITIVE).equals(axiom.getDefinitionStatus()), conceptId, axiom.getModuleId(), false));
 			});
 		}
 		if (concept.getGciAxioms() != null) {
@@ -55,7 +55,7 @@ public class DroolsConcept implements org.ihtsdo.drools.domain.Concept {
 					r.setActive(axiom.isActive());
 					relationships.add(new DroolsRelationship(axiom.getAxiomId(), true, r));
 				});
-				ontologyAxioms.add(new DroolsOntologyAxiom(axiom.getId(), axiom.isActive(), Concepts.definitionStatusNames.get(Concepts.PRIMITIVE).equals(axiom.getDefinitionStatus()), conceptId, axiom.getModuleId()));
+				ontologyAxioms.add(new DroolsOntologyAxiom(axiom.getId(), axiom.getEffectiveTimeI(), axiom.isActive(), Concepts.definitionStatusNames.get(Concepts.PRIMITIVE).equals(axiom.getDefinitionStatus()), conceptId, axiom.getModuleId(), true));
 			});
 		}
 	}
@@ -108,5 +108,10 @@ public class DroolsConcept implements org.ihtsdo.drools.domain.Concept {
 	@Override
 	public String getModuleId() {
 		return concept.getModuleId();
+	}
+
+	@Override
+	public String getEffectiveTime() {
+		return concept.getEffectiveTime();
 	}
 }

@@ -89,4 +89,9 @@ public class DroolsRelationship implements org.ihtsdo.drools.domain.Relationship
 	public String getModuleId() {
 		return relationship.getModuleId();
 	}
+
+	@Override
+	public String getEffectiveTime() {
+		return relationship.getEffectiveTime();
+	}
 }

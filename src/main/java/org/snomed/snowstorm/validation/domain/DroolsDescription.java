@@ -88,4 +88,9 @@ public class DroolsDescription implements Description {
 	public String getModuleId() {
 		return description.getModuleId();
 	}
+
+	@Override
+	public String getEffectiveTime() {
+		return description.getEffectiveTime();
+	}
 }
