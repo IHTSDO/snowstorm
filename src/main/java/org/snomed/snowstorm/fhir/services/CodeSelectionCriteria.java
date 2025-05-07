@@ -1,5 +1,6 @@
 package org.snomed.snowstorm.fhir.services;
 
+import org.snomed.snowstorm.fhir.domain.AndConstraints;
 import org.snomed.snowstorm.fhir.domain.ConceptConstraint;
 import org.snomed.snowstorm.fhir.domain.FHIRCodeSystemVersion;
 import org.springframework.util.CollectionUtils;
@@ -9,9 +10,9 @@ import java.util.*;
 public class CodeSelectionCriteria {
 
 	private final String valueSetUserRef;
-	private final Map<FHIRCodeSystemVersion, Set<ConceptConstraint>> inclusionConstraints;
+	private final Map<FHIRCodeSystemVersion, AndConstraints> inclusionConstraints;
 	private final Set<CodeSelectionCriteria> nestedSelections;
-	private final Map<FHIRCodeSystemVersion, Set<ConceptConstraint>> exclusionConstraints;
+	private final Map<FHIRCodeSystemVersion, AndConstraints> exclusionConstraints;
 
 	public CodeSelectionCriteria(String valueSetUserRef) {
 		this.valueSetUserRef = valueSetUserRef;
@@ -22,19 +23,19 @@ public class CodeSelectionCriteria {
 
 	public boolean isOnlyInclusionsForOneVersionAndAllSimple() {
 		return CollectionUtils.isEmpty(nestedSelections) && CollectionUtils.isEmpty(exclusionConstraints) && !CollectionUtils.isEmpty(inclusionConstraints)
-				&& inclusionConstraints.keySet().size() == 1 && inclusionConstraints.values().stream().flatMap(Collection::stream).allMatch(ConceptConstraint::isSimpleCodeSet);
+				&& inclusionConstraints.keySet().size() == 1 && inclusionConstraints.values().stream().flatMap(andConstraints -> andConstraints.constraintsFlattened().stream()).allMatch(ConceptConstraint::isSimpleCodeSet);
 	}
 
-	public Set<ConceptConstraint> addInclusion(FHIRCodeSystemVersion codeSystemVersion) {
-		return inclusionConstraints.computeIfAbsent(codeSystemVersion, v -> new HashSet<>());
+	public AndConstraints addInclusion(FHIRCodeSystemVersion codeSystemVersion) {
+		return inclusionConstraints.computeIfAbsent(codeSystemVersion, v -> new AndConstraints());
 	}
 
 	public void addNested(CodeSelectionCriteria nestedCriteria) {
 		nestedSelections.add(nestedCriteria);
 	}
 
-	public Set<ConceptConstraint> addExclusion(FHIRCodeSystemVersion codeSystemVersion) {
-		return exclusionConstraints.computeIfAbsent(codeSystemVersion, v -> new HashSet<>());
+	public AndConstraints addExclusion(FHIRCodeSystemVersion codeSystemVersion) {
+		return exclusionConstraints.computeIfAbsent(codeSystemVersion, v -> new AndConstraints());
 	}
 
 	public Set<FHIRCodeSystemVersion> gatherAllInclusionVersions() {
@@ -42,8 +43,9 @@ public class CodeSelectionCriteria {
 	}
 
 	public boolean isAnyECL() {
-		return inclusionConstraints.values().stream().flatMap(Collection::stream).anyMatch(ConceptConstraint::hasEcl) ||
-				exclusionConstraints.values().stream().flatMap(Collection::stream).anyMatch(ConceptConstraint::hasEcl) ||
+		return inclusionConstraints.values().stream()
+				.flatMap(andConstraints -> andConstraints.constraintsFlattened().stream()).anyMatch(ConceptConstraint::hasEcl) ||
+				exclusionConstraints.values().stream().flatMap(andConstraints -> andConstraints.constraintsFlattened().stream()).anyMatch(ConceptConstraint::hasEcl) ||
 				nestedSelections.stream().anyMatch(CodeSelectionCriteria::isAnyECL);
 	}
 
@@ -51,7 +53,7 @@ public class CodeSelectionCriteria {
 		return valueSetUserRef;
 	}
 
-	public Map<FHIRCodeSystemVersion, Set<ConceptConstraint>> getInclusionConstraints() {
+	public Map<FHIRCodeSystemVersion, AndConstraints> getInclusionConstraints() {
 		return inclusionConstraints;
 	}
 
@@ -59,7 +61,7 @@ public class CodeSelectionCriteria {
 		return nestedSelections;
 	}
 
-	public Map<FHIRCodeSystemVersion, Set<ConceptConstraint>> getExclusionConstraints() {
+	public Map<FHIRCodeSystemVersion, AndConstraints> getExclusionConstraints() {
 		return exclusionConstraints;
 	}
 
