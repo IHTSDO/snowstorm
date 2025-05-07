@@ -1217,16 +1217,15 @@ public class FHIRValueSetService {
 		if (codings.size() == 1) {
 			// Add response details about the coding, if there is only one
 			Coding codingA = codings.iterator().next();
-			if(codeableConcept == null) {
-				response.addParameter("code", codingA.getCodeElement());
-				if (codingA.getSystem() != null) {
-					response.addParameter("system", codingA.getSystemElement());
-				}
-			} else {
+			if(codeableConcept != null) {
 				Parameters.ParametersParameterComponent ccParameter = new Parameters.ParametersParameterComponent();
 				ccParameter.setName("codeableConcept");
 				ccParameter.setValue(codeableConcept);
 				response.addParameter(ccParameter);
+			}
+			response.addParameter("code", codingA.getCodeElement());
+			if (codingA.getSystem() != null) {
+				response.addParameter("system", codingA.getSystemElement());
 			}
 		}
 
@@ -1474,8 +1473,11 @@ public class FHIRValueSetService {
 				List<Parameters.ParametersParameterComponent> systemParameters = new ArrayList<>(response.getParameters("system"));
 				systemParameters.forEach(v -> response.removeChild("parameter", v));
 				locationExpression = "CodeableConcept.coding[0].code";
-				issues[0] = createOperationOutcomeIssueComponent(new CodeableConcept().addCoding(new Coding(TX_ISSUE_TYPE, "this-code-not-in-vs", null)).setText(format("There was no valid code provided that is in the value set '%s'", CanonicalUri.of(hapiValueSet.getUrl(), hapiValueSet.getVersion()))), OperationOutcome.IssueSeverity.INFORMATION, locationExpression, OperationOutcome.IssueType.CODEINVALID, null /* Collections.singletonList(new Extension("http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",new StringType("None_of_the_provided_codes_are_in_the_value_set_one")))*/, null);
-				issues[2] = createOperationOutcomeIssueComponent(new CodeableConcept().addCoding(new Coding(TX_ISSUE_TYPE, "not-in-vs", null)).setText(format("No valid coding was found for the value set '%s'", CanonicalUri.of(hapiValueSet.getUrl(), hapiValueSet.getVersion()))), OperationOutcome.IssueSeverity.ERROR, null, OperationOutcome.IssueType.CODEINVALID, null /* Collections.singletonList(new Extension("http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",new StringType("None_of_the_provided_codes_are_in_the_value_set_one")))*/, null);
+				issues[0] = createOperationOutcomeIssueComponent(new CodeableConcept().addCoding(new Coding(TX_ISSUE_TYPE, "this-code-not-in-vs", null)).setText(format("The provided code '%s#%s' was not found in the value set '%s'", codingA.getSystem(), codingA.getCode(), hapiValueSet.getUrl())), OperationOutcome.IssueSeverity.INFORMATION, locationExpression, OperationOutcome.IssueType.CODEINVALID, null /* Collections.singletonList(new Extension("http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",new StringType("None_of_the_provided_codes_are_in_the_value_set_one")))*/, null);
+				issues[2] = createOperationOutcomeIssueComponent(new CodeableConcept().addCoding(new Coding(TX_ISSUE_TYPE, "not-in-vs", null)).setText(format("No valid coding was found for the value set '%s'", hapiValueSet.getUrl())), OperationOutcome.IssueSeverity.ERROR, null, OperationOutcome.IssueType.CODEINVALID, null /* Collections.singletonList(new Extension("http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",new StringType("None_of_the_provided_codes_are_in_the_value_set_one")))*/, null);
+				response.addParameter(createParameterComponentWithOperationOutcomeWithIssues(Arrays.asList(issues)));
+				response.addParameter("message", format("No valid coding was found for the value set '%s'; The provided code '%s#%s' was not found in the value set '%s'",  hapiValueSet.getUrl(), codingA.getSystem(), codingA.getCode(), hapiValueSet.getUrl()));
+				return response;
 			} else if (coding != null) {
 				locationExpression = "Coding.code"; // ici
 				String details = null;
