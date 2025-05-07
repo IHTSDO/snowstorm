@@ -10,7 +10,8 @@ public class ConceptConstraint {
 
 	public enum Type{
 		INCLUDE_TERMS,
-		EXCLUDE_TERMS,
+		INCLUDE_EXACT_MATCH,
+		EXCLUDE_EXACT_MATCH,
 		MATCH_REGEX
 	}
 	private Collection<String> code;

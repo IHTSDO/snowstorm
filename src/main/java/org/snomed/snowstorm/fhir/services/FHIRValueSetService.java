@@ -60,6 +60,7 @@ import static io.kaicode.elasticvc.helper.QueryHelper.*;
 import static org.apache.commons.collections4.MapUtils.emptyIfNull;
 import static org.snomed.snowstorm.core.data.services.ReferenceSetMemberService.AGGREGATION_MEMBER_COUNTS_BY_REFERENCE_SET;
 import static org.snomed.snowstorm.core.util.CollectionUtils.orEmpty;
+import static org.snomed.snowstorm.fhir.domain.ConceptConstraint.Type.INCLUDE_EXACT_MATCH;
 import static org.snomed.snowstorm.fhir.services.FHIRHelper.*;
 import static org.snomed.snowstorm.fhir.utils.FHIRPageHelper.toPage;
 
@@ -880,12 +881,12 @@ public class FHIRValueSetService {
 
 		// Attempt to combine value set constraints to reduce the required Elasticsearch clause count.
 		// (Some LOINC nested value sets exceed the default 1024 clause limit).
-		Map<FHIRCodeSystemVersion, Set<ConceptConstraint>> inclusionConstraints = combineConstraints(codeSelectionCriteria.getInclusionConstraints());
+		Map<FHIRCodeSystemVersion, AndConstraints> inclusionConstraints = combineConstraints(codeSelectionCriteria.getInclusionConstraints());
 		Set<CodeSelectionCriteria> nestedSelections = combineConstraints(codeSelectionCriteria.getNestedSelections(), codeSelectionCriteria.getValueSetUserRef());
-		Map<FHIRCodeSystemVersion, Set<ConceptConstraint>> exclusionConstraints = codeSelectionCriteria.getExclusionConstraints();
+		Map<FHIRCodeSystemVersion, AndConstraints> exclusionConstraints = codeSelectionCriteria.getExclusionConstraints();
 
 		// Inclusions
-		for (Map.Entry<FHIRCodeSystemVersion, Set<ConceptConstraint>> versionInclusionConstraints : inclusionConstraints.entrySet()) {
+		for (Map.Entry<FHIRCodeSystemVersion, AndConstraints> versionInclusionConstraints : inclusionConstraints.entrySet()) {
 			BoolQuery.Builder versionQueryBuilder = getInclusionQueryBuilder(versionInclusionConstraints, codeSelectionCriteria.getValueSetUserRef());
 			valueSetQuery.should(versionQueryBuilder.build()._toQuery());// Must match at least one of these
 		}
@@ -897,7 +898,7 @@ public class FHIRValueSetService {
 		}
 
 		// Exclusions
-		for (Map.Entry<FHIRCodeSystemVersion, Set<ConceptConstraint>> versionExclusionConstraints : exclusionConstraints.entrySet()) {
+		for (Map.Entry<FHIRCodeSystemVersion, AndConstraints> versionExclusionConstraints : exclusionConstraints.entrySet()) {
 			BoolQuery.Builder versionQueryBuilder = getInclusionQueryBuilder(versionExclusionConstraints, codeSelectionCriteria.getValueSetUserRef());
 			valueSetQuery.mustNot(versionQueryBuilder.build()._toQuery());
 		}
@@ -905,24 +906,28 @@ public class FHIRValueSetService {
 		return valueSetQuery;
 	}
 
-	private Map<FHIRCodeSystemVersion, Set<ConceptConstraint>> combineConstraints(Map<FHIRCodeSystemVersion, Set<ConceptConstraint>> constraints) {
-		Map<FHIRCodeSystemVersion, Set<ConceptConstraint>> combinedConstraints = new HashMap<>();
+	private Map<FHIRCodeSystemVersion, AndConstraints> combineConstraints(Map<FHIRCodeSystemVersion, AndConstraints> constraints) {
+		Map<FHIRCodeSystemVersion, AndConstraints> combinedConstraints = new HashMap<>();
 		Map<FHIRCodeSystemVersion, ConceptConstraint> simpleConstraints = new HashMap<>();
-		for (Map.Entry<FHIRCodeSystemVersion, Set<ConceptConstraint>> entry : constraints.entrySet()) {
-			for (ConceptConstraint conceptConstraint : entry.getValue()) {
-				if (conceptConstraint.isSimpleCodeSet()) {
-					simpleConstraints.computeIfAbsent(entry.getKey(), k -> new ConceptConstraint(new HashSet<>())).getCode().addAll(conceptConstraint.getCode());
-				} else {
-					combinedConstraints.computeIfAbsent(entry.getKey(), k -> new HashSet<>()).add(conceptConstraint);
+		for (Map.Entry<FHIRCodeSystemVersion, AndConstraints> entry : constraints.entrySet()) {
+			AndConstraints andConstraints = entry.getValue();
+			AndConstraints newAndConstraints = new AndConstraints();
+			for (AndConstraints.OrConstraints orConstraints : andConstraints.getAndConstraints()) {
+				Set<ConceptConstraint> newOrConstraints = new HashSet<>();
+				for(ConceptConstraint conceptConstraint: orConstraints.getOrConstraints()) {
+					if (conceptConstraint.isSimpleCodeSet()) {
+						simpleConstraints.computeIfAbsent(entry.getKey(), k -> new ConceptConstraint(new HashSet<>())).getCode().addAll(conceptConstraint.getCode());
+					} else {
+						newOrConstraints.add(conceptConstraint);
+					}
 				}
+				newAndConstraints.addOrConstraints(newOrConstraints);
 			}
-			if (entry.getValue().isEmpty()) {
-				combinedConstraints.computeIfAbsent(entry.getKey(), k -> new HashSet<>());
-			}
+			combinedConstraints.put(entry.getKey(), newAndConstraints);
 		}
 
 		for (Map.Entry<FHIRCodeSystemVersion, ConceptConstraint> entry : simpleConstraints.entrySet()) {
-			combinedConstraints.computeIfAbsent(entry.getKey(), k -> new HashSet<>()).add(entry.getValue());
+			combinedConstraints.computeIfAbsent(entry.getKey(), k -> new AndConstraints()).addOrConstraints(new HashSet<>(List.of(entry.getValue())));
 		}
 
 		return combinedConstraints;
@@ -934,9 +939,9 @@ public class FHIRValueSetService {
 		for (CodeSelectionCriteria nestedSelection : nestedSelections) {
 			if (nestedSelection.isOnlyInclusionsForOneVersionAndAllSimple()) {
 				FHIRCodeSystemVersion codeSystemVersion = nestedSelection.getInclusionConstraints().keySet().iterator().next();
-				for (Set<ConceptConstraint> value : nestedSelection.getInclusionConstraints().values()) {
-					simpleInclusionConstraints.computeIfAbsent(codeSystemVersion, v -> new HashSet<>()).addAll(value);
-				}
+				nestedSelection.getInclusionConstraints().values().forEach(andConstraints -> simpleInclusionConstraints
+						.computeIfAbsent(codeSystemVersion, v -> new HashSet<>())
+						.addAll(andConstraints.constraintsFlatted()));
 			} else {
 				combinedConstraints.add(nestedSelection);
 			}
@@ -944,7 +949,7 @@ public class FHIRValueSetService {
 
 		for (Map.Entry<FHIRCodeSystemVersion, Set<ConceptConstraint>> entry : simpleInclusionConstraints.entrySet()) {
 			CodeSelectionCriteria selectionCriteria = new CodeSelectionCriteria(format("nested within %s", valueSetUserRef));
-			selectionCriteria.addInclusion(entry.getKey()).addAll(entry.getValue());
+			selectionCriteria.addInclusion(entry.getKey()).addOrConstraints(entry.getValue());
 			combinedConstraints.add(selectionCriteria);
 		}
 		
@@ -952,16 +957,22 @@ public class FHIRValueSetService {
 	}
 
 	@NotNull
-	private BoolQuery.Builder getInclusionQueryBuilder(Map.Entry<FHIRCodeSystemVersion, Set<ConceptConstraint>> versionInclusionConstraints, String valueSetUserRef) {
+	private BoolQuery.Builder getInclusionQueryBuilder(Map.Entry<FHIRCodeSystemVersion, AndConstraints> versionInclusionConstraints, String valueSetUserRef) {
 		BoolQuery.Builder versionQueryBuilder = bool().must(termQuery(FHIRConcept.Fields.CODE_SYSTEM_VERSION, versionInclusionConstraints.getKey().getId()));
 
-		BoolQuery.Builder disjunctionQueries = bool();
-		for (ConceptConstraint inclusion : versionInclusionConstraints.getValue()) {
-			BoolQuery.Builder disjunctionQueryBuilder = bool();
-			addQueryCriteria(inclusion, disjunctionQueryBuilder, valueSetUserRef);
-			disjunctionQueries.should(disjunctionQueryBuilder.build()._toQuery());// "disjunctionQueries" contains only "should" conditions, Elasticsearch forces at least one of them to match.
+		AndConstraints andConstraints = versionInclusionConstraints.getValue();
+		BoolQuery.Builder conjunctionQueries = bool();
+		for (AndConstraints.OrConstraints orConstraints: andConstraints.getAndConstraints()) {
+			BoolQuery.Builder disjunctionQueries = bool();
+			for(ConceptConstraint constraint: orConstraints.getOrConstraints()) {
+				BoolQuery.Builder disjunctionQueryBuilder = bool();
+				addQueryCriteria(constraint, disjunctionQueryBuilder, valueSetUserRef);
+				disjunctionQueries.should(disjunctionQueryBuilder.build()._toQuery());// "disjunctionQueries" contains only "should" conditions, Elasticsearch forces at least one of them to match.
+			}
+			conjunctionQueries.must(disjunctionQueries.build()._toQuery());
 		}
-		versionQueryBuilder.must(disjunctionQueries.build()._toQuery());// Concept must meet one of the conditions
+
+		versionQueryBuilder.must(conjunctionQueries.build()._toQuery());// Concept must meet the two conditions
 		return versionQueryBuilder;
 	}
 
@@ -976,8 +987,8 @@ public class FHIRValueSetService {
 		} else {
 			// Just a set of concept codes
 			Set<String> codes = new HashSet<>();
-			codeSelectionCriteria.getInclusionConstraints().values().stream().flatMap(Collection::stream).forEach(include -> codes.addAll(include.getCode()));
-			codeSelectionCriteria.getExclusionConstraints().values().stream().flatMap(Collection::stream).forEach(include -> codes.removeAll(include.getCode()));
+			codeSelectionCriteria.getInclusionConstraints().values().stream().flatMap(andConstraints -> andConstraints.constraintsFlatted().stream()).forEach(include -> codes.addAll(include.getCode()));
+			codeSelectionCriteria.getExclusionConstraints().values().stream().flatMap(andConstraints -> andConstraints.constraintsFlatted().stream()).forEach(include -> codes.removeAll(include.getCode()));
 			conceptQuery.conceptIds(codes);
 			if (activeOnly) {
 				conceptQuery.activeFilter(activeOnly);
@@ -1010,7 +1021,8 @@ public class FHIRValueSetService {
 		for (ValueSet.ConceptSetComponent include : compose.getInclude()) {
 			if (include.hasSystem()) {
 				FHIRCodeSystemVersion codeSystemVersion = codeSystemVersionProvider.get(include.getSystem(), include.getVersion());
-				collectConstraints(include, codeSystemVersion, codeSelectionCriteria.addInclusion(codeSystemVersion), activeOnly);
+				AndConstraints inclusionConstraints = codeSelectionCriteria.addInclusion(codeSystemVersion);
+				collectConstraints(include, codeSystemVersion, inclusionConstraints, activeOnly);
 			} else if (include.hasValueSet()) {
 				for (CanonicalType canonicalType : include.getValueSet()) {
 					CanonicalUri canonicalUri = CanonicalUri.fromString(canonicalType.getValueAsString());
@@ -1041,7 +1053,8 @@ public class FHIRValueSetService {
 			).collect(Collectors.toList());
 
 			for (FHIRCodeSystemVersion codeSystemVersion : includeVersionsToExcludeFrom) {
-				collectConstraints(exclude, codeSystemVersion, codeSelectionCriteria.addExclusion(codeSystemVersion), activeOnly);
+				AndConstraints exclusionConstraints = codeSelectionCriteria.addExclusion(codeSystemVersion);
+				collectConstraints(exclude, codeSystemVersion, exclusionConstraints, activeOnly);
 			}
 		}
 		return codeSelectionCriteria;
@@ -1633,7 +1646,7 @@ public class FHIRValueSetService {
 
 	private String inclusionExclusionClausesToEcl(CodeSelectionCriteria codeSelectionCriteria) {
 		StringBuilder ecl = new StringBuilder();
-		for (ConceptConstraint inclusion : codeSelectionCriteria.getInclusionConstraints().values().iterator().next()) {
+		for (ConceptConstraint inclusion : codeSelectionCriteria.getInclusionConstraints().values().iterator().next().constraintsFlatted()) {
 			if (ecl.length() > 0) {
 				ecl.append(" OR ");
 			}
@@ -1648,7 +1661,7 @@ public class FHIRValueSetService {
 		if (!codeSelectionCriteria.getExclusionConstraints().isEmpty()) {
 			// Existing ECL must be made into sub expression, because disjunction and exclusion expressions can not be mixed.
 			ecl = new StringBuilder().append("( ").append(ecl).append(" )");
-			for (ConceptConstraint exclusion : codeSelectionCriteria.getExclusionConstraints().values().iterator().next()) {
+			for (ConceptConstraint exclusion : codeSelectionCriteria.getExclusionConstraints().values().iterator().next().constraintsFlatted()) {
 				ecl.append(" MINUS ( ").append(exclusion.getEcl()).append(" )");
 			}
 		}
@@ -1700,9 +1713,14 @@ public class FHIRValueSetService {
 							versionQuery.must(regexpQuery(FHIRConcept.Fields.PROPERTIES + "." + x + ".value", Optional.ofNullable(inclusion.getProperties().get(x)).orElseGet(()->Collections.emptySet()).stream().findFirst().orElseGet(()->null)))
 					);
 					break;
-				case EXCLUDE_TERMS:
+				case INCLUDE_EXACT_MATCH:
 					inclusion.getProperties().keySet().forEach(x ->
-							versionQuery.mustNot(termsQuery(FHIRConcept.Fields.PROPERTIES + "." + x + ".value", inclusion.getProperties().get(x)))
+							versionQuery.must(termsQuery(FHIRConcept.Fields.PROPERTIES + "." + x + ".value.keyword", inclusion.getProperties().get(x)))
+					);
+					break;
+				case EXCLUDE_EXACT_MATCH:
+					inclusion.getProperties().keySet().forEach(x ->
+							versionQuery.mustNot(termsQuery(FHIRConcept.Fields.PROPERTIES + "." + x + ".value.keyword", inclusion.getProperties().get(x)))
 					);
 					break;
 				default:
@@ -1719,11 +1737,13 @@ public class FHIRValueSetService {
 		}
 	}
 
-	private void collectConstraints(ValueSet.ConceptSetComponent include, FHIRCodeSystemVersion codeSystemVersion, Set<ConceptConstraint> inclusionConstraints, boolean activeOnly) {
-
+	private void collectConstraints(ValueSet.ConceptSetComponent include, FHIRCodeSystemVersion codeSystemVersion, AndConstraints andConstraints, boolean activeOnly) {
+		Set<ConceptConstraint> inclusionConstraints = new HashSet<>();
 		if (!include.getConcept().isEmpty()) {
 			List<String> codes = include.getConcept().stream().map(ValueSet.ConceptReferenceComponent::getCode).collect(Collectors.toList());
 			inclusionConstraints.add(new ConceptConstraint(codes).setActiveOnly(activeOnly));
+			andConstraints.addOrConstraints(inclusionConstraints);
+			inclusionConstraints = new HashSet<>();
 		}
 		if (!include.getFilter().isEmpty()) {
 			for (ValueSet.ConceptSetFilterComponent filter : include.getFilter()) {
@@ -1830,7 +1850,7 @@ public class FHIRValueSetService {
 						Set<String> singleton = Collections.singleton(value);
 						Map<String, Collection<String>> properties = new HashMap<>();
 						properties.put(property,singleton);
-						inclusionConstraints.add(new ConceptConstraint().setProperties(properties).setActiveOnly(activeOnly));
+						inclusionConstraints.add(new ConceptConstraint().setProperties(properties).setType(INCLUDE_EXACT_MATCH).setActiveOnly(activeOnly));
 					} else if (op == ValueSet.FilterOperator.REGEX){
 						Set<String> singleton = Collections.singleton(value.replace(" ","\\s").replace("\\t","\\s").replace("\\n","\\s").replace("\\r","\\s").replace("\\f","\\s"));
 						if ("code".equals(property)){
@@ -1844,25 +1864,28 @@ public class FHIRValueSetService {
 						Set<String> values = Arrays.stream(value.split(",")).collect(Collectors.toSet());
 						Map<String, Collection<String>> properties = new HashMap<>();
 						properties.put(property, values);
-						inclusionConstraints.add(new ConceptConstraint().setProperties(properties).setActiveOnly(activeOnly));
+						inclusionConstraints.add(new ConceptConstraint().setProperties(properties).setType(INCLUDE_EXACT_MATCH).setActiveOnly(activeOnly));
 					} else if (op == ValueSet.FilterOperator.NOTIN){
 						Set<String> values = Arrays.stream(value.split(",")).collect(Collectors.toSet());
 						Map<String, Collection<String>> properties = new HashMap<>();
 						properties.put(property, values);
-						inclusionConstraints.add(new ConceptConstraint().setProperties(properties).setType(ConceptConstraint.Type.EXCLUDE_TERMS).setActiveOnly(activeOnly));
+						inclusionConstraints.add(new ConceptConstraint().setProperties(properties).setType(ConceptConstraint.Type.EXCLUDE_EXACT_MATCH).setActiveOnly(activeOnly));
 					}
 					else{
 						throw exception("This server does not support this ValueSet property filter on generic code systems. " +
 								"Supported filters for generic code systems are: (concept, is-a), (concept, descendant-of), (<any>, =), (concept, in), (concept, not-in).", OperationOutcome.IssueType.NOTSUPPORTED, 400);
 					}
 				}
+				andConstraints.addOrConstraints(inclusionConstraints);
+				inclusionConstraints = new HashSet<>();
 			}
 		}
-		if(activeOnly && inclusionConstraints.isEmpty()) {
+		if(activeOnly && andConstraints.isEmpty()) {
 			if (FHIRHelper.isSnomedUri(codeSystemVersion.getUrl()) || codeSystemVersion.getUrl().equals(FHIRConstants.LOINC_ORG) || codeSystemVersion.getUrl().startsWith(FHIRConstants.HL_7_ORG_FHIR_SID_ICD_10)) {
 				//do nothing
 			} else {
 				inclusionConstraints.add(new ConceptConstraint().setActiveOnly(activeOnly));
+				andConstraints.addOrConstraints(inclusionConstraints);
 			}
 		}
 	}
