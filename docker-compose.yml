@@ -29,33 +29,63 @@ services:
     #image: snomedinternational/snowstorm:latest
     build: .
     container_name: snowstorm
-    restart: always
+    #restart: always
     depends_on:
       elasticsearch:
         condition: service_healthy
-    #entrypoint: java -Xms2g -Xmx4g --add-opens java.base/java.lang=ALL-UNNAMED --add-opens=java.base/java.util=ALL-UNNAMED -cp @/app/jib-classpath-file org.snomed.snowstorm.SnowstormApplication --elasticsearch.urls=http://es:9200
-    entrypoint: java -Xms2g -Xmx4g -jar /app/snowstorm.jar --elasticsearch.urls=http://es:9200
+    entrypoint: [
+      "java",
+      #"-Xdebug", # debugging purposes
+      #"-agentlib:jdwp=transport=dt_socket,server=y,address=*:5005,suspend=n", # debugging purposes
+      "-Xms2g",
+      "-Xmx4g",
+      "--add-opens", "java.base/java.lang=ALL-UNNAMED",
+      "--add-opens", "java.base/java.util=ALL-UNNAMED",
+      "-jar", "/app/snowstorm.jar"
+    ]
+    command: [
+      "--elasticsearch.urls=http://es:9200",
+    ]
     networks:
       elastic:
         aliases:
          - snowstorm
     ports:
-      - 8080:8080
+      - "8080:8080"
+      #- "5005:5005" # debugging purposes
 
-  browser:
-    image: snomedinternational/snomedct-browser:latest
-    container_name: browser
-    depends_on:
-      - snowstorm
-    links:
-      - snowstorm:snowstorm
-    networks:
-      - elastic
-    environment:
-      - API_HOST=http://snowstorm:8080/
-    ports:
-      - 80:80
-    restart: always
+#  browser:
+#    image: snomedinternational/snomedct-browser:latest
+#    container_name: browser
+#    depends_on:
+#      - snowstorm
+#    links:
+#      - snowstorm:snowstorm
+#    networks:
+#      - elastic
+#    environment:
+#      - API_HOST=http://snowstorm:8080/
+#    ports:
+#      - "80:80"
+    #restart: always
+
+#  kibana:
+#    image: docker.elastic.co/kibana/kibana:8.11.1
+#    container_name: kibana
+#    depends_on:
+#      elasticsearch:
+#        condition: service_healthy
+#    environment:
+#      - ELASTICSEARCH_HOSTS=http://es:9200
+#      - SERVER_NAME=kibana
+#      - SERVER_HOST=0.0.0.0
+#      - XPACK_SECURITY_ENABLED=false
+#    ports:
+#      - "5601:5601"
+#    networks:
+#      elastic:
+#        aliases:
+#          - kibana
 
 
 networks:
