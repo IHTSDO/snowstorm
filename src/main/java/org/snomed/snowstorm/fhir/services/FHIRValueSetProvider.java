@@ -15,7 +15,6 @@ import org.hl7.fhir.r4.model.*;
 import org.hl7.fhir.r4.model.OperationOutcome.IssueType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.snomed.snowstorm.core.data.services.RuntimeServiceException;
 import org.snomed.snowstorm.fhir.config.FHIRConstants;
 import org.snomed.snowstorm.fhir.domain.FHIRValueSet;
 import org.snomed.snowstorm.fhir.domain.SearchFilter;
@@ -28,9 +27,6 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Component;
 import org.springframework.web.bind.annotation.RequestMethod;
 
-import java.io.File;
-import java.io.IOException;
-import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -61,8 +57,6 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 
 	@Autowired
 	private FHIRHelper fhirHelper;
-
-	public static int DEFAULT_PAGESIZE = 1_000;
 
 	@Read
 	public ValueSet getValueSet(@IdParam IdType id) {
@@ -216,7 +210,8 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 			@OperationParam(name="check-system-version") StringType checkSystemVersion,
 			@OperationParam(name="force-system-version") StringType forceSystemVersion,
 			@OperationParam(name="version") StringType version,
-			@OperationParam(name="version") CodeType property)// Invalid parameter
+			@OperationParam(name="property") CodeType property,
+			@OperationParam(name = "default-valueset-version") CanonicalType versionValueSet)// Invalid parameter
 			{
 
 		ValueSetExpansionParameters params;
@@ -226,7 +221,7 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 		} else {
 			params = FHIRValueSetProviderHelper.getValueSetExpansionParameters(id, url, valueSetVersion, context, contextDirection, filter, date, offset, count,
 					includeDesignationsType, designations, includeDefinition, activeType, excludeNested, excludeNotForUI, excludePostCoordinated, displayLanguage,
-					excludeSystem, systemVersion, checkSystemVersion, forceSystemVersion, version, property);
+					excludeSystem, systemVersion, checkSystemVersion, forceSystemVersion, version, property,versionValueSet);
 		}
 		return valueSetService.expand(params, FHIRHelper.getDisplayLanguage(params.getDisplayLanguage(), request.getHeader(ACCEPT_LANGUAGE_HEADER)));
 	}
@@ -256,35 +251,24 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 			@OperationParam(name="system-version") StringType systemVersion,
 			@OperationParam(name="check-system-version") StringType checkSystemVersion,
 			@OperationParam(name="force-system-version") StringType forceSystemVersion,
-			@OperationParam(name="version") StringType version,
-			@OperationParam(name="property") CodeType property)// Invalid parameter
+			@OperationParam(name="version") StringType version,// Invalid parameter
+			@OperationParam(name="property") CodeType property,
+			@OperationParam(name="default-valueset-version") CanonicalType versionValueSet)
 			{
 		logger.info(FHIRValueSetProviderHelper.getFullURL(request));
 		ValueSetExpansionParameters params;
 		if (request.getMethod().equals(RequestMethod.POST.name())) {
 			// HAPI doesn't populate the OperationParam values for POST, we parse the body instead.
 			List<Parameters.ParametersParameterComponent> parsed = fhirContext.newJsonParser().parseResource(Parameters.class, rawBody).getParameter();
-			handleTxResources(loadPackageService,parsed);
+			FHIRHelper.handleTxResources(loadPackageService,parsed);
 			params = FHIRValueSetProviderHelper.getValueSetExpansionParameters(null, parsed );
 		} else {
 			params = FHIRValueSetProviderHelper.getValueSetExpansionParameters(null, url, valueSetVersion, context, contextDirection, filter, date, offset, count,
 					includeDesignationsType, designations, includeDefinition, activeType, excludeNested, excludeNotForUI, excludePostCoordinated, displayLanguage,
-					excludeSystem, systemVersion, checkSystemVersion, forceSystemVersion, version, property);
+					excludeSystem, systemVersion, checkSystemVersion, forceSystemVersion, version, property, versionValueSet);
 		}
 
 		return valueSetService.expand(params,  request.getHeader(ACCEPT_LANGUAGE_HEADER));
-	}
-
-	private static void handleTxResources(FHIRLoadPackageService loadPackageService,List<Parameters.ParametersParameterComponent> parsed) {
-		List<Parameters.ParametersParameterComponent> txResources = FHIRValueSetProviderHelper.findParametersByName(parsed, "tx-resource");
-		//List<Parameters.ParametersParameterComponent> valueSets = FHIRValueSetProviderHelper.findParametersByName(parsed, "valueSet");
-		List<Resource> resources = txResources.stream().map(x -> x.getResource()).toList();
-		File npmPackage = FHIRValueSetProviderHelper.createNpmPackageFromResources(resources);
-		try {
-			loadPackageService.uploadPackageResources(npmPackage, Collections.singleton("*"),"tx-resources",false);
-		} catch (IOException e) {
-			throw new RuntimeServiceException(e);
-		}
 	}
 
 	@Operation(name="$validate-code", idempotent=true)
@@ -305,11 +289,13 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 			@OperationParam(name="date") DateTimeType date,
 			@OperationParam(name="abstract") BooleanType abstractBool,
 			@OperationParam(name="displayLanguage") String displayLanguage,
-			@OperationParam(name="system-version") String incorrectParamSystemVersion) {
+			@OperationParam(name="system-version") String incorrectParamSystemVersion,
+			@OperationParam(name="inferSystem") BooleanType inferSystem,
+			@OperationParam(name="activeOnly") BooleanType activeOnly) {
 
 		validateCodeParamHints(incorrectParamSystemVersion);
 		return valueSetService.validateCode(id.getIdPart(), url, context, valueSet, valueSetVersion, code, system, systemVersion, display, coding, codeableConcept, date, abstractBool,
-				FHIRHelper.getDisplayLanguage(displayLanguage, request.getHeader(ACCEPT_LANGUAGE_HEADER)));
+				FHIRHelper.getDisplayLanguage(displayLanguage, request.getHeader(ACCEPT_LANGUAGE_HEADER)),inferSystem, activeOnly, null);
 	}
 
 	@Operation(name="$validate-code", idempotent=true)
@@ -330,17 +316,20 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 			@OperationParam(name="date") DateTimeType date,
 			@OperationParam(name="abstract") BooleanType abstractBool,
 			@OperationParam(name="displayLanguage") String displayLanguage,
-			@OperationParam(name="system-version") String incorrectParamSystemVersion) {
+			@OperationParam(name="system-version") String incorrectParamSystemVersion,
+			@OperationParam(name="inferSystem") BooleanType inferSystem,
+			@OperationParam(name="activeOnly") BooleanType activeOnly,
+			@OperationParam(name="default-valueset-version") CanonicalType versionValueSet) {
 
 		validateCodeParamHints(incorrectParamSystemVersion);
 		logger.info(FHIRValueSetProviderHelper.getFullURL(request));
 		if (request.getMethod().equals(RequestMethod.POST.name())) {
 			// HAPI doesn't populate the OperationParam values for POST, we parse the body instead.
 			List<Parameters.ParametersParameterComponent> parsed = fhirContext.newJsonParser().parseResource(Parameters.class, rawBody).getParameter();
-			handleTxResources(loadPackageService, parsed);
+			FHIRHelper.handleTxResources(loadPackageService, parsed);
 		}
 		return valueSetService.validateCode(null, url, context, valueSet, valueSetVersion, code, system, systemVersion, display, coding, codeableConcept, date, abstractBool,
-				FHIRHelper.getDisplayLanguage(displayLanguage, request.getHeader(ACCEPT_LANGUAGE_HEADER)));
+				FHIRHelper.getDisplayLanguage(displayLanguage, request.getHeader(ACCEPT_LANGUAGE_HEADER)), inferSystem, activeOnly, versionValueSet);
 	}
 
 	private void validateCodeParamHints(String incorrectParamSystemVersion) {

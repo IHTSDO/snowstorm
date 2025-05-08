@@ -8,7 +8,6 @@ target
 /application-*.properties*
 *.log
 /resources
-*.sh
 snomed-drools-rules
 /tmp
 /local*

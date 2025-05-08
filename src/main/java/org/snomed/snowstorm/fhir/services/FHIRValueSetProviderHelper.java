@@ -31,9 +31,10 @@ class FHIRValueSetProviderHelper {
 
 	static ValueSetExpansionParameters getValueSetExpansionParameters(IdType id, final List<Parameters.ParametersParameterComponent> parametersParameterComponents) {
 		Parameters.ParametersParameterComponent valueSetParam = findParameterOrNull(parametersParameterComponents, "valueSet");
-		URI url = null;
+		URI url;
 		try {
-			url = new URI(findParameterStringOrNull(parametersParameterComponents, "url"));
+			String urlParam = findParameterStringOrNull(parametersParameterComponents, "url");
+			url = urlParam == null ? null : new URI(urlParam);
 		} catch (URISyntaxException e) {
 			throw FHIRHelper.exception("Invalid url parameter.", OperationOutcome.IssueType.INVALID, 400);
 		}
@@ -61,7 +62,8 @@ class FHIRValueSetProviderHelper {
 					findParameterCanonicalOrNull(parametersParameterComponents, "check-system-version"),
 					findParameterCanonicalOrNull(parametersParameterComponents, "force-system-version"),
 					findParameterStringOrNull(parametersParameterComponents, "version"),
-					findParameterStringOrNull(parametersParameterComponents, "property"));
+					findParameterStringOrNull(parametersParameterComponents, "property"),
+					findParameterCanonicalOrNull(parametersParameterComponents, "default-valueset-version"));
 	}
 
 	static ValueSetExpansionParameters getValueSetExpansionParameters(
@@ -87,7 +89,8 @@ class FHIRValueSetProviderHelper {
 			final StringType checkSystemVersion,
 			final StringType forceSystemVersion,
 			final StringType version,
-			final CodeType property) {
+			final CodeType property,
+			final CanonicalType versionValueSet) {
 
 		try {
 			return new ValueSetExpansionParameters(
@@ -114,7 +117,8 @@ class FHIRValueSetProviderHelper {
 					CanonicalUri.fromString(getOrNull(checkSystemVersion)),
 					CanonicalUri.fromString(getOrNull(forceSystemVersion)),
 					getOrNull(version),
-					getOrNull(property));
+					getOrNull(property),
+					CanonicalUri.fromString(getOrNull(versionValueSet)));
 		} catch (URISyntaxException e) {
 			throw  FHIRHelper.exception("Invalid url parameter.", OperationOutcome.IssueType.INVALID, 400);
 		}
@@ -123,6 +127,16 @@ class FHIRValueSetProviderHelper {
 	@Nullable
 	static String getOrNull(StringType stringType) {
 		return stringType != null ? stringType.toString() : null;
+	}
+
+	@Nullable
+	static String getOrNull(UrlType urlType) {
+		return urlType != null ? urlType.getValueAsString() : null;
+	}
+
+	@Nullable
+	static String getOrNull(CanonicalType canonicalType) {
+		return canonicalType != null ? canonicalType.getValueAsString() : null;
 	}
 
 	@Nullable

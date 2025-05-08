@@ -33,6 +33,7 @@ public interface FHIRConstants {
 	String SNOMED_INTERNATIONAL = "SNOMED International";
 	String SNOMED_URI = "http://snomed.info/sct";
 	String SNOMED_URI_UNVERSIONED = "http://snomed.info/xsct";
+	String UCUM_URI = "http://unitsofmeasure.org";
 	String UNVERSIONED = "UNVERSIONED";
 	int UNVERSIONED_SCT_VERSION = -1;
 	String VERSION = "/version/";

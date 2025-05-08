@@ -3,7 +3,6 @@ package org.snomed.snowstorm.fhir.domain;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import org.hl7.fhir.r4.model.CodeSystem;
 import org.hl7.fhir.r4.model.Enumerations;
-import org.hl7.fhir.r4.model.Extension;
 import org.joda.time.DateTime;
 import org.joda.time.format.DateTimeFormat;
 import org.joda.time.format.DateTimeFormatter;
@@ -56,12 +55,16 @@ public class FHIRCodeSystemVersion {
 	@Field(type = FieldType.Boolean)
 	private boolean compositional;
 
+	@Field(type = FieldType.Boolean)
+	private boolean experimental;
+
 	@Field(type = FieldType.Keyword)
 	private String content;
 
 	@Field(type = FieldType.Keyword)
 	private Set<String> availableLanguages;
 
+	@Field(type = FieldType.Nested)
 	private List<FHIRExtension> extensions;
 
 	@Transient
@@ -91,6 +94,7 @@ public class FHIRCodeSystemVersion {
 			this.id = codeSystem.getId().replace("CodeSystem/", "");
 		}
 		version = codeSystem.getVersion();
+		experimental = codeSystem.getExperimental();
 		date = codeSystem.getDate();
 		title = codeSystem.getTitle();
 		language = codeSystem.getLanguage();
@@ -115,10 +119,7 @@ public class FHIRCodeSystemVersion {
 		codeSystem.getConcept().stream().forEach( c->{
 			c.getDesignation().stream().forEach( d ->{
 				if (d.getLanguage()!=null){
-					if (availableLanguages == null){
-						availableLanguages = new HashSet<>();
-					}
-					availableLanguages.add(d.getLanguage());
+					getAvailableLanguages().add(d.getLanguage());
 				}
 			});
 		});
@@ -165,6 +166,11 @@ public class FHIRCodeSystemVersion {
 			content = CodeSystem.CodeSystemContentMode.COMPLETE.toCode();
 		}
 		snomedBranch = snomedCodeSystem.getBranchPath();
+		var languages = snomedCodeSystem.getLanguages();
+		if (languages != null) {
+			language = languages.containsKey("en") ? "en" : languages.values().iterator().next();
+			availableLanguages = new HashSet<>(languages.keySet());
+		}
 		this.snomedCodeSystem = snomedCodeSystem;
 	}
 
@@ -306,6 +312,10 @@ public class FHIRCodeSystemVersion {
 		this.compositional = compositional;
 	}
 
+	public boolean isExperimental() {
+		return experimental;
+	}
+
 	public String getContent() {
 		return content;
 	}
@@ -343,7 +353,7 @@ public class FHIRCodeSystemVersion {
 	}
 
 	public Set<String> getAvailableLanguages() {
-		return availableLanguages;
+		return availableLanguages == null ? new HashSet<>() : availableLanguages;
 	}
 
 	public void setAvailableLanguages(Set<String> availableLanguages) {

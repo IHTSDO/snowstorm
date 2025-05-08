@@ -3,7 +3,6 @@ package org.snomed.snowstorm.fhir.pojo;
 import org.hl7.fhir.r4.model.OperationOutcome;
 import org.hl7.fhir.r4.model.ValueSet;
 import org.snomed.snowstorm.fhir.services.FHIRHelper;
-import org.snomed.snowstorm.fhir.services.FHIRValueSetProvider;
 import org.snomed.snowstorm.rest.ControllerHelper;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
@@ -39,16 +38,17 @@ public final class ValueSetExpansionParameters {
 	private final String version;
 	private final ValueSet valueSet;
 	private final String property;
+	private final CanonicalUri versionValueSet;
 
 	public ValueSetExpansionParameters(ValueSet valueSet, boolean includeDefinition1) {
 		this(null, valueSet, null, null, null, null, null, null, null, null, null,
-				null, includeDefinition1, null, null, null, null, null, null, null, null, null, null, null);
+				null, includeDefinition1, null, null, null, null, null, null, null, null, null, null, null,null);
 	}
 
 	public ValueSetExpansionParameters(String id, ValueSet valueSet, URI url, String valueSetVersion, String context, String contextDirection, String filter, String date,
 									   Integer offset, Integer count, Boolean includeDesignations, List<String> designations, Boolean includeDefinition, Boolean activeOnly,
 									   Boolean excludeNested, Boolean excludeNotForUI, Boolean excludePostCoordinated, String displayLanguage, CanonicalUri excludeSystem, CanonicalUri systemVersion,
-									   CanonicalUri checkSystemVersion, CanonicalUri forceSystemVersion, String version, String property) {
+									   CanonicalUri checkSystemVersion, CanonicalUri forceSystemVersion, String version, String property, CanonicalUri versionValueSet) {
 
 		this.id = id;
 		this.url = url;
@@ -74,11 +74,12 @@ public final class ValueSetExpansionParameters {
 		this.version = version;
 		this.valueSet = valueSet;
 		this.property = property;
+		this.versionValueSet = versionValueSet;
 	}
 
 	public PageRequest getPageRequest(Sort sort) {
 		int offset = this.offset != null ? this.offset : 0;
-		int pageSize = this.count != null ? this.count : FHIRValueSetProvider.DEFAULT_PAGESIZE;
+		int pageSize = this.count != null ? this.count : FHIRHelper.DEFAULT_PAGESIZE;
 		if (offset % pageSize != 0) {
 			throw FHIRHelper.exception(format("Parameter 'offset' '%s' must be a multiplication of 'count' (page size) '%s'.", offset, pageSize),
 					OperationOutcome.IssueType.INVALID, 400);
@@ -181,5 +182,8 @@ public final class ValueSetExpansionParameters {
 
 	public ValueSet getValueSet() {
 		return valueSet;
+	}
+
+	public CanonicalUri getVersionValueSet() { return versionValueSet;
 	}
 }

@@ -24,6 +24,10 @@ public class FHIRCodeSystemVersionParams {
 		return FHIRHelper.isSnomedUri(codeSystem) || (id != null && id.startsWith(SCT_ID_PREFIX));
 	}
 
+	public boolean isUcum() {
+		return FHIRHelper.isUcumUri(codeSystem);
+	}
+
 	public boolean isUnversionedSnomed() {
 		return (codeSystem != null && codeSystem.startsWith(SNOMED_URI_UNVERSIONED)) || isUnversionedExpressionRepository();
 	}

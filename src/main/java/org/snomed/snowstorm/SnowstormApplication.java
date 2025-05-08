@@ -10,6 +10,8 @@ import org.snomed.snowstorm.core.data.domain.QueryConcept;
 import org.snomed.snowstorm.core.data.services.*;
 import org.snomed.snowstorm.core.rf2.RF2Type;
 import org.snomed.snowstorm.core.rf2.rf2import.ImportService;
+import org.snomed.snowstorm.core.util.CollectionUtils;
+import org.snomed.snowstorm.syndication.services.StartupSyndicationService;
 import org.springframework.beans.factory.BeanCreationException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.ApplicationArguments;
@@ -36,6 +38,7 @@ public class SnowstormApplication extends Config implements ApplicationRunner {
 	private static final String DELETE_INDICES_FLAG = "delete-indices";
 	private static final String IMPORT_ARG = "import";
 	private static final String IMPORT_FULL_ARG = "import-full";
+	private static final String SYNDICATION = "syndication";
 	private static final String EXIT = "exit";
 
 	@Autowired
@@ -52,6 +55,9 @@ public class SnowstormApplication extends Config implements ApplicationRunner {
 
 	@Autowired
 	private CodeSystemVersionService codeSystemVersionService;
+
+	@Autowired
+	private StartupSyndicationService startupSyndicationService;
 
 	private static final Logger logger = LoggerFactory.getLogger(SnowstormApplication.class);
 
@@ -75,7 +81,7 @@ public class SnowstormApplication extends Config implements ApplicationRunner {
 	}
 
 	@Override
-	public void run(ApplicationArguments applicationArguments) throws InterruptedException, ServiceException {
+	public void run(ApplicationArguments applicationArguments) throws InterruptedException, ServiceException, IOException, ReleaseImportException {
 		try {
 			boolean deleteIndices = applicationArguments.containsOption(DELETE_INDICES_FLAG);
 			if (deleteIndices) {
@@ -85,6 +91,7 @@ public class SnowstormApplication extends Config implements ApplicationRunner {
 
 			updateIndexMaxTermsSetting(QueryConcept.class);
 			updateIndexMaxTermsSettingForAllSnomedComponents();
+			updateIndexMappingFieldsLimitSetting();
 
 			codeSystemService.init();
 			referenceSetMemberService.init();
@@ -112,6 +119,9 @@ public class SnowstormApplication extends Config implements ApplicationRunner {
 
 				importEditionRF2FromDisk(releasePath, RF2Type.FULL);
 			}
+			else if (applicationArguments.containsOption(SYNDICATION)) {
+				startupSyndicationService.handleStartupSyndication(applicationArguments);
+			}
 			if (applicationArguments.containsOption(EXIT)) {
 				logger.info("Exiting application.");
 				((ConfigurableApplicationContext)applicationContext).close();
@@ -125,7 +135,11 @@ public class SnowstormApplication extends Config implements ApplicationRunner {
 		}
 	}
 
-	private String getOneValue(ApplicationArguments applicationArguments, String argName) {
+	public static String getOneValueOrDefault(ApplicationArguments applicationArguments, String argName, String defaultValue) {
+        return CollectionUtils.orEmpty(applicationArguments.getOptionValues(argName)).isEmpty() ? defaultValue : getOneValue(applicationArguments, argName);
+    }
+
+	private static String getOneValue(ApplicationArguments applicationArguments, String argName) {
 		List<String> values = applicationArguments.getOptionValues(argName);
 		if (values.size() != 1) {
 			throw new IllegalArgumentException(argName + " argument must have exactly one value");
