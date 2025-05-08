@@ -5,15 +5,14 @@ import io.kaicode.elasticvc.api.*;
 import io.kaicode.elasticvc.domain.Commit;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.snomed.snowstorm.core.data.domain.QueryConcept;
-import org.snomed.snowstorm.core.data.domain.ReferenceSetMember;
-import org.snomed.snowstorm.core.data.domain.ReferencedConceptsLookup;
+import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.repositories.ReferencedConceptsLookupRepository;
 import org.snomed.snowstorm.core.util.AggregationUtils;
 import org.snomed.snowstorm.core.util.SPathUtil;
 import org.snomed.snowstorm.ecl.ReferencedConceptsLookupService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.elasticsearch.client.elc.NativeQuery;
 import org.springframework.data.elasticsearch.client.elc.NativeQueryBuilder;
@@ -61,12 +60,14 @@ public class ReferencedConceptsLookupUpdateService extends ComponentService impl
                                                  ReferencedConceptsLookupRepository refsetConceptsLookupRepository,
                                                  ReferencedConceptsLookupService refsetConceptsLookupService,
                                                  BranchService branchService,
+                                                 ECLQueryService eclQueryService,
                                                  BranchMetadataHelper branchMetadataHelper) {
         this.versionControlHelper = versionControlHelper;
         this.elasticsearchOperations = elasticsearchOperations;
         this.refsetConceptsLookupRepository = refsetConceptsLookupRepository;
         this.refsetConceptsLookupService = refsetConceptsLookupService;
         this.branchService = branchService;
+        this.eclQueryService = eclQueryService;
         this.branchMetadataHelper = branchMetadataHelper;
     }
 
@@ -96,7 +97,7 @@ public class ReferencedConceptsLookupUpdateService extends ComponentService impl
                 versionControlHelper.getBranchCriteria(commit.getBranch()), false);
         Set<String> existingRefsetIds = existingLookups.stream().map(ReferencedConceptsLookup::getRefsetId).collect(Collectors.toSet());
         logger.debug("Lookups found for refsets {} on branch {}", existingRefsetIds, commit.getBranch().getPath());
-        existingRefsetIds.forEach(refsetId -> rebuildConceptsLookup(commit, parseLong(refsetId), false));
+        existingRefsetIds.forEach(refsetId -> rebuildConceptsLookup(commit, parseLong(refsetId), false, false));
     }
 
     private void updateOnPromotion(Commit commit) {
@@ -234,7 +235,7 @@ public class ReferencedConceptsLookupUpdateService extends ComponentService impl
         return null;
     }
 
-    public Map<String, Integer> rebuild(String branchPath, List<Long> refsetIds, boolean dryRun) {
+    public Map<String, Integer> rebuild(String branchPath, List<Long> refsetIds, boolean disableThresholdCheck, boolean dryRun) {
         if (!conceptsLookupEnabled) {
             logger.info("Concepts lookup rebuild is disabled.");
             return Collections.emptyMap();
@@ -248,7 +249,7 @@ public class ReferencedConceptsLookupUpdateService extends ComponentService impl
             }
             final Map<String, Integer> updateCounts = new HashMap<>();
             logger.info("Start rebuilding concepts lookup on branch {}", branchPath);
-            refsetIds.forEach(refsetId -> rebuildConceptsLookup(commit, refsetId, dryRun).forEach((key, value) -> updateCounts.put(refsetId + "-" + key, value))
+            refsetIds.forEach(refsetId -> rebuildConceptsLookup(commit, refsetId, disableThresholdCheck, dryRun).forEach((key, value) -> updateCounts.put(refsetId + "-" + key, value))
             );
             if (!dryRun && updateCounts.values().stream().anyMatch(updateCount -> updateCount > 0)) {
                 commit.markSuccessful();
@@ -324,12 +325,12 @@ public class ReferencedConceptsLookupUpdateService extends ComponentService impl
         return result;
     }
 
-    Map<String, Integer> rebuildConceptsLookup(Commit commit, Long refsetId, boolean dryRun) {
+    Map<String, Integer> rebuildConceptsLookup(Commit commit, Long refsetId, boolean disableThresholdCheck, boolean dryRun) {
         final Set<Long> conceptIdsToAdd = new HashSet<>();
         final Set<Long> conceptIdsToRemove = new HashSet<>();
         Map<String, Integer> updateCount = new HashMap<>();
         if (refsetId == null) {
-            throw new IllegalArgumentException("RefsetId must be provided when updating concepts lookup.");
+            throw new IllegalArgumentException("Refset Id must not be null when updating concepts lookup.");
         }
         performRebuild(commit, refsetId, conceptIdsToAdd, conceptIdsToRemove);
         if (!conceptIdsToAdd.isEmpty() || !conceptIdsToRemove.isEmpty()) {
@@ -341,6 +342,7 @@ public class ReferencedConceptsLookupUpdateService extends ComponentService impl
                         , refsetId, conceptIdsToAdd.size(), conceptsLookupGenerationThreshold);
                 return updateCount;
             }
+
             // Check if lookups have changed
             List<ReferencedConceptsLookup> existingLookupsOnBranch = existingLookups.stream()
                     .filter(lookup -> lookup.getPath().equals(commit.getBranch().getPath())).toList();
