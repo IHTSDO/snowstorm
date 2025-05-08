@@ -9,6 +9,7 @@ import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.repositories.ReferencedConceptsLookupRepository;
 import org.snomed.snowstorm.core.util.AggregationUtils;
 import org.snomed.snowstorm.core.util.SPathUtil;
+import org.snomed.snowstorm.ecl.ECLQueryService;
 import org.snomed.snowstorm.ecl.ReferencedConceptsLookupService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -53,6 +54,7 @@ public class ReferencedConceptsLookupUpdateService extends ComponentService impl
     private final ReferencedConceptsLookupService refsetConceptsLookupService;
     private final BranchService branchService;
     private final BranchMetadataHelper branchMetadataHelper;
+    private final ECLQueryService eclQueryService;
 
     @Autowired
     public ReferencedConceptsLookupUpdateService(VersionControlHelper versionControlHelper,
@@ -523,17 +525,19 @@ public class ReferencedConceptsLookupUpdateService extends ComponentService impl
 
 
     private Set<Long> getSelfOrDescendantOf(BranchCriteria branchCriteria, Set<Long> refsetIds) {
-        final Set<Long> results = new HashSet<>(refsetIds);
-        try (final SearchHitsIterator<QueryConcept> queryConceptSearchHitsIterator = elasticsearchOperations.searchForStream(new NativeQueryBuilder()
-                .withQuery(bool(b -> b
-                        .must(branchCriteria.getEntityBranchCriteria(QueryConcept.class))
-                        .must(termQuery(QueryConcept.Fields.STATED, true))
-                        .must(termsQuery(QueryConcept.Fields.ANCESTORS, refsetIds))))
-                .withSourceFilter(new FetchSourceFilter(new String[]{QueryConcept.Fields.CONCEPT_ID}, null))
-                .withPageable(LARGE_PAGE).build(), QueryConcept.class)) {
-            queryConceptSearchHitsIterator.forEachRemaining(hit -> results.add(hit.getContent().getConceptIdL()));
+        // Build self or descendant of refset concept ids
+        StringBuilder builder = new StringBuilder();
+        boolean isFirst = true;
+        for (Long refsetId : refsetIds) {
+            if (!isFirst) {
+                builder.append(" OR ");
+            }
+            builder.append("<<");
+            builder.append(refsetId);
+            isFirst = false;
         }
-        return results;
+        Page<Long> results = eclQueryService.selectConceptIds(builder.toString(), branchCriteria, false, LARGE_PAGE);
+        return new HashSet<>(results.getContent());
     }
 
 
