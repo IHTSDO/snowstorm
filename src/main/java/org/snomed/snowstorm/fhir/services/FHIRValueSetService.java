@@ -941,7 +941,7 @@ public class FHIRValueSetService {
 				FHIRCodeSystemVersion codeSystemVersion = nestedSelection.getInclusionConstraints().keySet().iterator().next();
 				nestedSelection.getInclusionConstraints().values().forEach(andConstraints -> simpleInclusionConstraints
 						.computeIfAbsent(codeSystemVersion, v -> new HashSet<>())
-						.addAll(andConstraints.constraintsFlatted()));
+						.addAll(andConstraints.constraintsFlattened()));
 			} else {
 				combinedConstraints.add(nestedSelection);
 			}
@@ -987,8 +987,8 @@ public class FHIRValueSetService {
 		} else {
 			// Just a set of concept codes
 			Set<String> codes = new HashSet<>();
-			codeSelectionCriteria.getInclusionConstraints().values().stream().flatMap(andConstraints -> andConstraints.constraintsFlatted().stream()).forEach(include -> codes.addAll(include.getCode()));
-			codeSelectionCriteria.getExclusionConstraints().values().stream().flatMap(andConstraints -> andConstraints.constraintsFlatted().stream()).forEach(include -> codes.removeAll(include.getCode()));
+			codeSelectionCriteria.getInclusionConstraints().values().stream().flatMap(andConstraints -> andConstraints.constraintsFlattened().stream()).forEach(include -> codes.addAll(include.getCode()));
+			codeSelectionCriteria.getExclusionConstraints().values().stream().flatMap(andConstraints -> andConstraints.constraintsFlattened().stream()).forEach(include -> codes.removeAll(include.getCode()));
 			conceptQuery.conceptIds(codes);
 			if (activeOnly) {
 				conceptQuery.activeFilter(activeOnly);
@@ -1648,7 +1648,7 @@ public class FHIRValueSetService {
 
 	private String inclusionExclusionClausesToEcl(CodeSelectionCriteria codeSelectionCriteria) {
 		StringBuilder ecl = new StringBuilder();
-		for (ConceptConstraint inclusion : codeSelectionCriteria.getInclusionConstraints().values().iterator().next().constraintsFlatted()) {
+		for (ConceptConstraint inclusion : codeSelectionCriteria.getInclusionConstraints().values().iterator().next().constraintsFlattened()) {
 			if (ecl.length() > 0) {
 				ecl.append(" OR ");
 			}
@@ -1663,7 +1663,7 @@ public class FHIRValueSetService {
 		if (!codeSelectionCriteria.getExclusionConstraints().isEmpty()) {
 			// Existing ECL must be made into sub expression, because disjunction and exclusion expressions can not be mixed.
 			ecl = new StringBuilder().append("( ").append(ecl).append(" )");
-			for (ConceptConstraint exclusion : codeSelectionCriteria.getExclusionConstraints().values().iterator().next().constraintsFlatted()) {
+			for (ConceptConstraint exclusion : codeSelectionCriteria.getExclusionConstraints().values().iterator().next().constraintsFlattened()) {
 				ecl.append(" MINUS ( ").append(exclusion.getEcl()).append(" )");
 			}
 		}
@@ -1740,12 +1740,12 @@ public class FHIRValueSetService {
 	}
 
 	private void collectConstraints(ValueSet.ConceptSetComponent include, FHIRCodeSystemVersion codeSystemVersion, AndConstraints andConstraints, boolean activeOnly) {
-		Set<ConceptConstraint> inclusionConstraints = new HashSet<>();
+		Set<ConceptConstraint> constraints = new HashSet<>();
 		if (!include.getConcept().isEmpty()) {
 			List<String> codes = include.getConcept().stream().map(ValueSet.ConceptReferenceComponent::getCode).collect(Collectors.toList());
-			inclusionConstraints.add(new ConceptConstraint(codes).setActiveOnly(activeOnly));
-			andConstraints.addOrConstraints(inclusionConstraints);
-			inclusionConstraints = new HashSet<>();
+			constraints.add(new ConceptConstraint(codes).setActiveOnly(activeOnly));
+			andConstraints.addOrConstraints(constraints);
+			constraints = new HashSet<>();
 		}
 		if (!include.getFilter().isEmpty()) {
 			for (ValueSet.ConceptSetFilterComponent filter : include.getFilter()) {
@@ -1764,7 +1764,7 @@ public class FHIRValueSetService {
 							if (Strings.isNullOrEmpty(value)) {
 								throw exception("Value missing for SNOMED CT ValueSet concept 'is-a' filter", OperationOutcome.IssueType.INVALID, 400);
 							}
-							inclusionConstraints.add(new ConceptConstraint().setEcl("<< " + value));
+							constraints.add(new ConceptConstraint().setEcl("<< " + value));
 						} else if (op == ValueSet.FilterOperator.IN) {
 							if (Strings.isNullOrEmpty(value)) {
 								throw exception("Value missing for SNOMED CT ValueSet concept 'in' filter.", OperationOutcome.IssueType.INVALID, 400);
@@ -1774,7 +1774,7 @@ public class FHIRValueSetService {
 							if (activeOnly) {
 								ecl += " {{ C active=true }}";
 							}
-							inclusionConstraints.add(new ConceptConstraint().setEcl(ecl));
+							constraints.add(new ConceptConstraint().setEcl(ecl));
 						} else {
 							throw exception(format("Unexpected operation '%s' for SNOMED CT ValueSet 'concept' filter.", op.toCode()), OperationOutcome.IssueType.INVALID, 400);
 						}
@@ -1783,7 +1783,7 @@ public class FHIRValueSetService {
 							if (Strings.isNullOrEmpty(value)) {
 								throw exception("Value missing for SNOMED CT ValueSet 'constraint' filter.", OperationOutcome.IssueType.INVALID, 400);
 							}
-							inclusionConstraints.add(new ConceptConstraint().setEcl(value));
+							constraints.add(new ConceptConstraint().setEcl(value));
 						} else {
 							throw exception(format("Unexpected operation '%s' for SNOMED CT ValueSet 'constraint' filter.", op.toCode()), OperationOutcome.IssueType.INVALID, 400);
 						}
@@ -1792,9 +1792,9 @@ public class FHIRValueSetService {
 							if (REFSETS_WITH_MEMBERS.equals(value)) {
 								// Concept must represent a reference set which has members in this code system version.
 								// Lookup uses a cache.
-								inclusionConstraints.add(new ConceptConstraint(findAllRefsetsWithActiveMembers(codeSystemVersion)));
+								constraints.add(new ConceptConstraint(findAllRefsetsWithActiveMembers(codeSystemVersion)));
 							} else if (value != null) {
-								inclusionConstraints.add(new ConceptConstraint().setEcl(value));
+								constraints.add(new ConceptConstraint().setEcl(value));
 							} else {
 								throw exception("Value missing for SNOMED CT ValueSet 'expression' filter.", OperationOutcome.IssueType.INVALID, 400);
 							}
@@ -1811,7 +1811,7 @@ public class FHIRValueSetService {
 						}
 					} else if ("parent".equals(property)) {
 						if (op == ValueSet.FilterOperator.EQUAL) {
-							inclusionConstraints.add(new ConceptConstraint().setEcl("<! " + value));
+							constraints.add(new ConceptConstraint().setEcl("<! " + value));
 						} else {
 							throw exception(format("Unexpected operation '%s' for SNOMED CT ValueSet 'parent' filter.", op.toCode()), OperationOutcome.IssueType.INVALID, 400);
 						}
@@ -1829,9 +1829,9 @@ public class FHIRValueSetService {
 					}
 					Set<String> values = op == ValueSet.FilterOperator.IN ? new HashSet<>(Arrays.asList(value.split(","))) : Collections.singleton(value);
 					if ("parent".equals(property)) {
-						inclusionConstraints.add(new ConceptConstraint().setParent(values));
+						constraints.add(new ConceptConstraint().setParent(values));
 					} else if ("ancestor".equals(property)) {
-						inclusionConstraints.add(new ConceptConstraint().setAncestor(values));
+						constraints.add(new ConceptConstraint().setAncestor(values));
 					} else {
 						throw exception(format("This server does not support ValueSet filter using LOINC property '%s'. " +
 								"Only parent and ancestor filters are supported for LOINC.", property), OperationOutcome.IssueType.NOTSUPPORTED, 400);
@@ -1843,51 +1843,51 @@ public class FHIRValueSetService {
 					// Generic code system
 					if ("concept".equals(property) && op == ValueSet.FilterOperator.ISA) {
 						Set<String> singleton = Collections.singleton(value);
-						inclusionConstraints.add(new ConceptConstraint(singleton).setActiveOnly(activeOnly));
-						inclusionConstraints.add(new ConceptConstraint().setAncestor(singleton));
+						constraints.add(new ConceptConstraint(singleton).setActiveOnly(activeOnly));
+						constraints.add(new ConceptConstraint().setAncestor(singleton));
 					} else if ("concept".equals(property) && op == ValueSet.FilterOperator.DESCENDENTOF) {
 						Set<String> singleton = Collections.singleton(value);
-						inclusionConstraints.add(new ConceptConstraint().setAncestor(singleton).setActiveOnly(activeOnly));
+						constraints.add(new ConceptConstraint().setAncestor(singleton).setActiveOnly(activeOnly));
 					} else if (op == ValueSet.FilterOperator.EQUAL){
 						Set<String> singleton = Collections.singleton(value);
 						Map<String, Collection<String>> properties = new HashMap<>();
 						properties.put(property,singleton);
-						inclusionConstraints.add(new ConceptConstraint().setProperties(properties).setType(INCLUDE_EXACT_MATCH).setActiveOnly(activeOnly));
+						constraints.add(new ConceptConstraint().setProperties(properties).setType(INCLUDE_EXACT_MATCH).setActiveOnly(activeOnly));
 					} else if (op == ValueSet.FilterOperator.REGEX){
 						Set<String> singleton = Collections.singleton(value.replace(" ","\\s").replace("\\t","\\s").replace("\\n","\\s").replace("\\r","\\s").replace("\\f","\\s"));
 						if ("code".equals(property)){
-							inclusionConstraints.add(new ConceptConstraint(singleton).setType(ConceptConstraint.Type.MATCH_REGEX).setActiveOnly(activeOnly));
+							constraints.add(new ConceptConstraint(singleton).setType(ConceptConstraint.Type.MATCH_REGEX).setActiveOnly(activeOnly));
 						} else {
 							Map<String, Collection<String>> properties = new HashMap<>();
 							properties.put(property, singleton);
-							inclusionConstraints.add(new ConceptConstraint().setProperties(properties).setType(ConceptConstraint.Type.MATCH_REGEX).setActiveOnly(activeOnly));
+							constraints.add(new ConceptConstraint().setProperties(properties).setType(ConceptConstraint.Type.MATCH_REGEX).setActiveOnly(activeOnly));
 						}
 					} else if (op == ValueSet.FilterOperator.IN){
 						Set<String> values = Arrays.stream(value.split(",")).collect(Collectors.toSet());
 						Map<String, Collection<String>> properties = new HashMap<>();
 						properties.put(property, values);
-						inclusionConstraints.add(new ConceptConstraint().setProperties(properties).setType(INCLUDE_EXACT_MATCH).setActiveOnly(activeOnly));
+						constraints.add(new ConceptConstraint().setProperties(properties).setType(INCLUDE_EXACT_MATCH).setActiveOnly(activeOnly));
 					} else if (op == ValueSet.FilterOperator.NOTIN){
 						Set<String> values = Arrays.stream(value.split(",")).collect(Collectors.toSet());
 						Map<String, Collection<String>> properties = new HashMap<>();
 						properties.put(property, values);
-						inclusionConstraints.add(new ConceptConstraint().setProperties(properties).setType(ConceptConstraint.Type.EXCLUDE_EXACT_MATCH).setActiveOnly(activeOnly));
+						constraints.add(new ConceptConstraint().setProperties(properties).setType(ConceptConstraint.Type.EXCLUDE_EXACT_MATCH).setActiveOnly(activeOnly));
 					}
 					else{
 						throw exception("This server does not support this ValueSet property filter on generic code systems. " +
 								"Supported filters for generic code systems are: (concept, is-a), (concept, descendant-of), (<any>, =), (concept, in), (concept, not-in).", OperationOutcome.IssueType.NOTSUPPORTED, 400);
 					}
 				}
-				andConstraints.addOrConstraints(inclusionConstraints);
-				inclusionConstraints = new HashSet<>();
+				andConstraints.addOrConstraints(constraints);
+				constraints = new HashSet<>();
 			}
 		}
 		if(activeOnly && andConstraints.isEmpty()) {
 			if (FHIRHelper.isSnomedUri(codeSystemVersion.getUrl()) || codeSystemVersion.getUrl().equals(FHIRConstants.LOINC_ORG) || codeSystemVersion.getUrl().startsWith(FHIRConstants.HL_7_ORG_FHIR_SID_ICD_10)) {
 				//do nothing
 			} else {
-				inclusionConstraints.add(new ConceptConstraint().setActiveOnly(activeOnly));
-				andConstraints.addOrConstraints(inclusionConstraints);
+				constraints.add(new ConceptConstraint().setActiveOnly(activeOnly));
+				andConstraints.addOrConstraints(constraints);
 			}
 		}
 	}

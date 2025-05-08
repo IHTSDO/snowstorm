@@ -23,7 +23,7 @@ public class CodeSelectionCriteria {
 
 	public boolean isOnlyInclusionsForOneVersionAndAllSimple() {
 		return CollectionUtils.isEmpty(nestedSelections) && CollectionUtils.isEmpty(exclusionConstraints) && !CollectionUtils.isEmpty(inclusionConstraints)
-				&& inclusionConstraints.keySet().size() == 1 && inclusionConstraints.values().stream().flatMap(andConstraints -> andConstraints.constraintsFlatted().stream()).allMatch(ConceptConstraint::isSimpleCodeSet);
+				&& inclusionConstraints.keySet().size() == 1 && inclusionConstraints.values().stream().flatMap(andConstraints -> andConstraints.constraintsFlattened().stream()).allMatch(ConceptConstraint::isSimpleCodeSet);
 	}
 
 	public AndConstraints addInclusion(FHIRCodeSystemVersion codeSystemVersion) {
@@ -44,8 +44,8 @@ public class CodeSelectionCriteria {
 
 	public boolean isAnyECL() {
 		return inclusionConstraints.values().stream()
-				.flatMap(andConstraints -> andConstraints.constraintsFlatted().stream()).anyMatch(ConceptConstraint::hasEcl) ||
-				exclusionConstraints.values().stream().flatMap(andConstraints -> andConstraints.constraintsFlatted().stream()).anyMatch(ConceptConstraint::hasEcl) ||
+				.flatMap(andConstraints -> andConstraints.constraintsFlattened().stream()).anyMatch(ConceptConstraint::hasEcl) ||
+				exclusionConstraints.values().stream().flatMap(andConstraints -> andConstraints.constraintsFlattened().stream()).anyMatch(ConceptConstraint::hasEcl) ||
 				nestedSelections.stream().anyMatch(CodeSelectionCriteria::isAnyECL);
 	}
 
