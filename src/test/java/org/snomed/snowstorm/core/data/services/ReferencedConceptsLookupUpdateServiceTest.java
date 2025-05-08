@@ -8,10 +8,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.snomed.snowstorm.AbstractTest;
-import org.snomed.snowstorm.core.data.domain.CodeSystem;
-import org.snomed.snowstorm.core.data.domain.Concepts;
-import org.snomed.snowstorm.core.data.domain.ReferenceSetMember;
-import org.snomed.snowstorm.core.data.domain.ReferencedConceptsLookup;
+import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.repositories.ReferencedConceptsLookupRepository;
 import org.snomed.snowstorm.ecl.ReferencedConceptsLookupService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -21,6 +18,7 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.snomed.snowstorm.core.data.domain.Concepts.*;
 import static org.snomed.snowstorm.core.data.domain.ReferencedConceptsLookup.Type.EXCLUDE;
 import static org.snomed.snowstorm.core.data.domain.ReferencedConceptsLookup.Type.INCLUDE;
 
@@ -60,26 +58,35 @@ class ReferencedConceptsLookupUpdateServiceTest extends AbstractTest {
     private ReferencedConceptsLookupService referencedConceptsLookupService;
     @Autowired
     private ReferencedConceptsLookupRepository referencedConceptsLookupRepository;
+    @Autowired
+    private ConceptService conceptService;
 
     @BeforeEach
-    void setUp() {
+    void setUp() throws ServiceException {
+        // Create concepts
+        List<Concept> allConcepts = new ArrayList<>();
+        allConcepts.add(new Concept(SNOMEDCT_ROOT));
+        allConcepts.add(new Concept(ISA).addRelationship(new Relationship(ISA, SNOMEDCT_ROOT)));
+        allConcepts.add(new Concept(REFSET_SIMPLE).addRelationship(new Relationship(ISA, SNOMEDCT_ROOT)));
+        allConcepts.add(new Concept(LATERALIZABLE_BODY_STRUCTURE_REFERENCE_SET).addRelationship(Concepts.ISA, REFSET_SIMPLE));
+        conceptService.batchCreate(allConcepts, MAIN);
        projectA = branchService.create("MAIN/projectA");
        taskA = branchService.create("MAIN/projectA/taskA");
     }
     @Test
     void testUpdateLookupsDuringPromotion() throws ServiceException {
         // Add one refset change on a task A
-        createMembers(taskA.getPath(), Concepts.REFSET_SIMPLE, Collections.singletonList("200001"));
+        createMembers(taskA.getPath(), REFSET_SIMPLE, Collections.singletonList("200001"));
         taskA = branchService.findLatest(taskA.getPath());
         List<ReferencedConceptsLookup> lookups = conceptsLookupService.getConceptsLookups(versionControlHelper.getBranchCriteria(taskA), false);
         // Check that the lookup is empty due to not reaching the threshold of 2
         assertEquals(0, lookups.size());
         // Add one more member
-        createMembers(taskA.getPath(), Concepts.REFSET_SIMPLE, Collections.singletonList("200002"));
+        createMembers(taskA.getPath(), REFSET_SIMPLE, Collections.singletonList("200002"));
         lookups = conceptsLookupService.getConceptsLookups(versionControlHelper.getBranchCriteria(branchService.findLatest(taskA.getPath())), true);
         assertEquals(1, lookups.size());
         assertEquals(2, lookups.get(0).getTotal());
-        assertEquals(Concepts.REFSET_SIMPLE, lookups.get(0).getRefsetId());
+        assertEquals(REFSET_SIMPLE, lookups.get(0).getRefsetId());
         assertEquals(taskA.getPath(), lookups.get(0).getPath());
         assertEquals(Set.of(200001L, 200002L), lookups.get(0).getConceptIds());
 
@@ -89,7 +96,7 @@ class ReferencedConceptsLookupUpdateServiceTest extends AbstractTest {
         lookups = conceptsLookupService.getConceptsLookups(versionControlHelper.getBranchCriteria(projectA), true);
         assertEquals(1, lookups.size());
         assertEquals(2, lookups.get(0).getTotal());
-        assertEquals(Concepts.REFSET_SIMPLE, lookups.get(0).getRefsetId());
+        assertEquals(REFSET_SIMPLE, lookups.get(0).getRefsetId());
         assertEquals(projectA.getPath(), lookups.get(0).getPath());
         assertEquals(Set.of(200001L, 200002L), lookups.get(0).getConceptIds());
         // Check that the lookup has been ended on task A after promotion
@@ -101,7 +108,7 @@ class ReferencedConceptsLookupUpdateServiceTest extends AbstractTest {
         lookups = conceptsLookupService.getConceptsLookups(versionControlHelper.getBranchCriteria(branchService.findLatest("MAIN")));
         assertEquals(1, lookups.size());
         assertEquals(2, lookups.get(0).getTotal());
-        assertEquals(Concepts.REFSET_SIMPLE, lookups.get(0).getRefsetId());
+        assertEquals(REFSET_SIMPLE, lookups.get(0).getRefsetId());
         assertEquals("MAIN", lookups.get(0).getPath());
         assertEquals(Set.of(200001L, 200002L), lookups.get(0).getConceptIds());
 
@@ -113,7 +120,7 @@ class ReferencedConceptsLookupUpdateServiceTest extends AbstractTest {
     @Test
     void testPromotionsWithDeletion() throws ServiceException {
         // Add two refset changes on a project A
-        Set<ReferenceSetMember> members = createMembers(projectA.getPath(), Concepts.REFSET_SIMPLE, List.of("200001", "200002"));
+        Set<ReferenceSetMember> members = createMembers(projectA.getPath(), REFSET_SIMPLE, List.of("200001", "200002"));
         List<ReferencedConceptsLookup> lookups = conceptsLookupService.getConceptsLookups(versionControlHelper.getBranchCriteria(branchService.findLatest(projectA.getPath())));
         assertEquals(1, lookups.size());
         // Add deletion on task B for one member
@@ -157,7 +164,7 @@ class ReferencedConceptsLookupUpdateServiceTest extends AbstractTest {
     @Test
     void testPromotionsWhenDeleteAll() throws ServiceException {
         // Add two refset changes on a project A
-        Set<ReferenceSetMember> members = createMembers(projectA.getPath(), Concepts.REFSET_SIMPLE, List.of("200001", "200002"));
+        Set<ReferenceSetMember> members = createMembers(projectA.getPath(), REFSET_SIMPLE, List.of("200001", "200002"));
         List<ReferencedConceptsLookup> lookups = conceptsLookupService.getConceptsLookups(versionControlHelper.getBranchCriteria(branchService.findLatest(projectA.getPath())));
         assertEquals(1, lookups.size());
         // Add deletion on task B for both
@@ -184,7 +191,7 @@ class ReferencedConceptsLookupUpdateServiceTest extends AbstractTest {
     @Test
     void testRebaseWithDeletion() throws ServiceException {
         // Add two refset changes on MAIN
-        Set<ReferenceSetMember> members = createMembers("MAIN", Concepts.REFSET_SIMPLE, List.of("200001", "200002"));
+        Set<ReferenceSetMember> members = createMembers("MAIN", REFSET_SIMPLE, List.of("200001", "200002"));
         // Rebase project A and task A
         branchMergeService.mergeBranchSync("MAIN", projectA.getPath(), Collections.emptyList());
         branchMergeService.mergeBranchSync(projectA.getPath(), taskA.getPath(), Collections.emptyList());
@@ -250,13 +257,13 @@ class ReferencedConceptsLookupUpdateServiceTest extends AbstractTest {
     @Test
     void testUpdateLookupsDuringRebase() throws ServiceException {
         // Add refset changes on a task A to create lookups first
-        createMembers(taskA.getPath(), Concepts.REFSET_SIMPLE, List.of("200001", "200002"));
+        createMembers(taskA.getPath(), REFSET_SIMPLE, List.of("200001", "200002"));
         // Check lookups created
         List<ReferencedConceptsLookup> lookups = conceptsLookupService.getConceptsLookups(versionControlHelper.getBranchCriteria(branchService.findLatest(taskA.getPath())));
         assertEquals(1, lookups.size());
 
         // Add refset changes on project A
-        createMembers(projectA.getPath(), Concepts.REFSET_SIMPLE, List.of("200003", "200004"));
+        createMembers(projectA.getPath(), REFSET_SIMPLE, List.of("200003", "200004"));
         lookups = conceptsLookupService.getConceptsLookups(versionControlHelper.getBranchCriteria(branchService.findLatest(projectA.getPath())));
         assertEquals(1, lookups.size());
 
@@ -279,13 +286,13 @@ class ReferencedConceptsLookupUpdateServiceTest extends AbstractTest {
     @Test
     void testUpdateLookupsDuringPromotionAndRebase() throws ServiceException {
         // Add refset changes on a task A to create lookups first
-        createMembers(taskA.getPath(), Concepts.REFSET_SIMPLE, List.of("200001", "200002"));
+        createMembers(taskA.getPath(), REFSET_SIMPLE, List.of("200001", "200002"));
         // Check lookups created
         List<ReferencedConceptsLookup> lookups = conceptsLookupService.getConceptsLookups(versionControlHelper.getBranchCriteria(branchService.findLatest(taskA.getPath())));
         assertEquals(1, lookups.size());
 
         // Add a refset change on project A and no lookups created yet
-        createMembers(projectA.getPath(), Concepts.REFSET_SIMPLE, List.of("200003", "200004"));
+        createMembers(projectA.getPath(), REFSET_SIMPLE, List.of("200003", "200004"));
         lookups = conceptsLookupService.getConceptsLookups(versionControlHelper.getBranchCriteria(branchService.findLatest(projectA.getPath())));
         assertEquals(1, lookups.size());
 
@@ -301,7 +308,7 @@ class ReferencedConceptsLookupUpdateServiceTest extends AbstractTest {
         assertEquals(1, lookups.size());
 
         // Add two more refset changes on project A
-        createMembers(projectA.getPath(), Concepts.REFSET_SIMPLE, List.of("200005", "200006"));
+        createMembers(projectA.getPath(), REFSET_SIMPLE, List.of("200005", "200006"));
 
         // Rebase task A from project A
         branchMergeService.mergeBranchSync(projectA.getPath(), taskA.getPath(), Collections.emptyList());
@@ -316,14 +323,15 @@ class ReferencedConceptsLookupUpdateServiceTest extends AbstractTest {
         // Add refset changes on MAIN
         CodeSystem main = new CodeSystem("SNOMEDCT", "MAIN");
         codeSystemService.createCodeSystem(main);
-        createMembers(MAIN, Concepts.REFSET_SIMPLE, List.of("200001", "200002"));
+        createMembers(MAIN, REFSET_SIMPLE, List.of("200001", "200002"));
         List<ReferencedConceptsLookup> lookups = conceptsLookupService.getConceptsLookups(versionControlHelper.getBranchCriteria(branchService.findLatest(MAIN)));
         assertEquals(1, lookups.size());
         codeSystemService.createVersion(main, 20250101, "20250101 release");
 
         // Create a code system branch
         CodeSystem extension = codeSystemService.createCodeSystem(new CodeSystem("SNOMEDCT-AU", "MAIN/SNOMEDCT-AU"));
-        createMembers(extension.getBranchPath(), Concepts.REFSET_SIMPLE, List.of("200003", "200004"));
+        conceptService.create(new Concept("609331003").addRelationship(Concepts.ISA, REFSET_SIMPLE), extension.getBranchPath());
+        createMembers(extension.getBranchPath(), REFSET_SIMPLE, List.of("200003", "200004"));
         createMembers(extension.getBranchPath(), "609331003", List.of("200005", "200006"));
         lookups = conceptsLookupService.getConceptsLookups(versionControlHelper.getBranchCriteria(branchService.findLatest(extension.getBranchPath())));
         // 1 for MAIN and 2 for AU
@@ -341,7 +349,7 @@ class ReferencedConceptsLookupUpdateServiceTest extends AbstractTest {
         });
 
         // Add more members and version MAIN
-        createMembers(MAIN, Concepts.REFSET_SIMPLE, List.of("200007", "200008"));
+        createMembers(MAIN, REFSET_SIMPLE, List.of("200007", "200008"));
         codeSystemService.createVersion(main, 20250201, "20250201 release");
         lookups = conceptsLookupService.getConceptsLookups(versionControlHelper.getBranchCriteria(branchService.findLatest(MAIN)));
         assertEquals(1, lookups.size());
@@ -375,8 +383,46 @@ class ReferencedConceptsLookupUpdateServiceTest extends AbstractTest {
     }
 
     @Test
+    void testExtensionUpgrade() throws ServiceException {
+        // Create an extension code system branch
+        CodeSystem main = new CodeSystem("SNOMEDCT", "MAIN");
+        codeSystemService.createCodeSystem(main);
+
+        CodeSystem extension = codeSystemService.createCodeSystem(new CodeSystem("SNOMEDCT-US", "MAIN/SNOMEDCT-US"));
+        createMembers(extension.getBranchPath(), LATERALIZABLE_BODY_STRUCTURE_REFERENCE_SET, List.of("200003"));
+        // Version extension
+        codeSystemService.createVersion(extension, 20241201, "20241201 release");
+
+        // Add members to MAIN to generate concept lookup and version
+        createMembers(MAIN, LATERALIZABLE_BODY_STRUCTURE_REFERENCE_SET, List.of("200001", "200002"));
+        List<ReferencedConceptsLookup> lookups = conceptsLookupService.getConceptsLookups(versionControlHelper.getBranchCriteria(branchService.findLatest(MAIN)));
+        assertEquals(1, lookups.size());
+        codeSystemService.createVersion(main, 20250101, "20250101 release");
+
+        // Check lookups before upgrade
+        lookups = conceptsLookupService.getConceptsLookups(versionControlHelper.getBranchCriteria(branchService.findLatest(extension.getBranchPath())));
+        assertEquals(0, lookups.size());
+        // Upgrade extension to 20250101 release
+        codeSystemUpgradeService.upgrade("upgrade_testing", extension,20250101, true);
+
+        // Check lookups after upgrade
+        lookups = conceptsLookupService.getConceptsLookups(versionControlHelper.getBranchCriteria(branchService.findLatest(extension.getBranchPath())));
+        assertEquals(2, lookups.size());
+        assertEquals(Set.of(LATERALIZABLE_BODY_STRUCTURE_REFERENCE_SET), lookups.stream().map(ReferencedConceptsLookup::getRefsetId).collect(Collectors.toSet()));
+        lookups.forEach(lookup -> {
+            if (lookup.getPath().equals(MAIN)) {
+                assertEquals(2, lookup.getTotal());
+                assertEquals(Set.of(200001L, 200002L), lookup.getConceptIds());
+            } else {
+                assertEquals(1, lookup.getTotal());
+                assertEquals(Set.of(200003L), lookup.getConceptIds());
+            }
+        });
+    }
+
+    @Test
     void testRebuildDryRun() {
-        Map<String, Integer> updateCount = conceptsLookupUpdateService.rebuild("MAIN", null, true);
+        Map<String, Integer> updateCount = conceptsLookupUpdateService.rebuild("MAIN", null, false, true);
         assertEquals(0, updateCount.size());
         Branch branch = branchService.findLatest("MAIN");
         assertFalse(branch.isLocked());
@@ -384,9 +430,21 @@ class ReferencedConceptsLookupUpdateServiceTest extends AbstractTest {
     }
 
     @Test
+    void testRebuildWhenThresholdCheckingIsDisabled() {
+        // Add one refset member on MAIN
+        createMembers("MAIN", REFSET_SIMPLE, List.of("200001"));
+       // Check no concepts lookup created
+       List<ReferencedConceptsLookup> conceptsLookups = conceptsLookupService.getConceptsLookups(versionControlHelper.getBranchCriteria(branchService.findLatest("MAIN")));
+       assertTrue(conceptsLookups.isEmpty());
+
+        Map<String, Integer> updateCount = conceptsLookupUpdateService.rebuild("MAIN", null, true, false);
+       assertEquals(1, updateCount.size());
+    }
+
+    @Test
     void testMultiplePromotions() throws ServiceException {
         // Add new refset changes on task A and promote to project A
-        Set<ReferenceSetMember> members = createMembers(taskA.getPath(), Concepts.REFSET_SIMPLE, List.of("200001", "200002"));
+        Set<ReferenceSetMember> members = createMembers(taskA.getPath(), REFSET_SIMPLE, List.of("200001", "200002"));
         branchMergeService.mergeBranchSync(taskA.getPath(), projectA.getPath(), Collections.emptyList());
         // Promote project A to MAIN
         branchMergeService.mergeBranchSync(projectA.getPath(), "MAIN", Collections.emptyList());
@@ -397,7 +455,7 @@ class ReferencedConceptsLookupUpdateServiceTest extends AbstractTest {
 
         // Add new refset changes on task B and promote to project A
         Branch taskB = branchService.create("MAIN/projectA/taskB");
-        createMembers(taskB.getPath(), Concepts.REFSET_SIMPLE, List.of("200003", "200004"));
+        createMembers(taskB.getPath(), REFSET_SIMPLE, List.of("200003", "200004"));
         branchMergeService.mergeBranchSync(taskB.getPath(), projectA.getPath(), Collections.emptyList());
 
         // Add inactivation refset changes on task C and promote to project A
@@ -442,7 +500,7 @@ class ReferencedConceptsLookupUpdateServiceTest extends AbstractTest {
     @Test
     void testPromotionWithBothTypesForSameConcepts() throws ServiceException {
         // Add new refset changes on task A and promote to project A
-        Set<ReferenceSetMember> members = createMembers(taskA.getPath(), Concepts.REFSET_SIMPLE, List.of("200001", "200002"));
+        Set<ReferenceSetMember> members = createMembers(taskA.getPath(), REFSET_SIMPLE, List.of("200001", "200002"));
         branchMergeService.mergeBranchSync(taskA.getPath(), projectA.getPath(), Collections.emptyList());
         // Promote project A to MAIN
         branchMergeService.mergeBranchSync(projectA.getPath(), "MAIN", Collections.emptyList());
@@ -453,7 +511,7 @@ class ReferencedConceptsLookupUpdateServiceTest extends AbstractTest {
 
         // Add new refset changes on task B and promote to project A
         Branch taskB = branchService.create("MAIN/projectA/taskB");
-        Set<ReferenceSetMember> unpublished = createMembers(taskB.getPath(), Concepts.REFSET_SIMPLE, List.of("200003", "200004"));
+        Set<ReferenceSetMember> unpublished = createMembers(taskB.getPath(), REFSET_SIMPLE, List.of("200003", "200004"));
         branchMergeService.mergeBranchSync(taskB.getPath(), projectA.getPath(), Collections.emptyList());
 
         // Add inactivation refset changes on task C and promote to project A
@@ -507,7 +565,7 @@ class ReferencedConceptsLookupUpdateServiceTest extends AbstractTest {
     @Test
     void testPromotionSameChangesFromDifferentTasks() throws ServiceException {
         // Add new refset changes on task A and promote to project A
-        Set<ReferenceSetMember> members = createMembers(taskA.getPath(), Concepts.REFSET_SIMPLE, List.of("200001", "200002"));
+        Set<ReferenceSetMember> members = createMembers(taskA.getPath(), REFSET_SIMPLE, List.of("200001", "200002"));
         branchMergeService.mergeBranchSync(taskA.getPath(), projectA.getPath(), Collections.emptyList());
         // Promote project A to MAIN
         branchMergeService.mergeBranchSync(projectA.getPath(), "MAIN", Collections.emptyList());
@@ -578,12 +636,12 @@ class ReferencedConceptsLookupUpdateServiceTest extends AbstractTest {
     @Test
     void testPromotionWithChangesForBothTypes() throws ServiceException {
         // Add new refset changes on task A and promote to project A
-        Set<ReferenceSetMember> members = createMembers(taskA.getPath(), Concepts.REFSET_SIMPLE, List.of("200001", "200002"));
+        Set<ReferenceSetMember> members = createMembers(taskA.getPath(), REFSET_SIMPLE, List.of("200001", "200002"));
         // Promote task A to Project A
         branchMergeService.mergeBranchSync(taskA.getPath(), projectA.getPath(), Collections.emptyList());
         // Add two more and two deletion changes in task B
         Branch taskB = branchService.create("MAIN/projectA/taskB");
-        createMembers(taskB.getPath(), Concepts.REFSET_SIMPLE, List.of("200003", "200004"));
+        createMembers(taskB.getPath(), REFSET_SIMPLE, List.of("200003", "200004"));
         taskB = branchService.findLatest(taskB.getPath());
         members.forEach(member -> {
             member.setActive(false);
@@ -614,7 +672,7 @@ class ReferencedConceptsLookupUpdateServiceTest extends AbstractTest {
     @Test
     void testRollback() {
         // Add new refset changes on task A
-        createMembers(taskA.getPath(), Concepts.REFSET_SIMPLE, List.of("200001", "200002"));
+        createMembers(taskA.getPath(), REFSET_SIMPLE, List.of("200001", "200002"));
         taskA = branchService.findLatest(taskA.getPath());
         sBranchService.rollbackCommit(taskA.getPath(),  taskA.getHeadTimestamp());
         List<ReferencedConceptsLookup> lookups = referencedConceptsLookupService.getConceptsLookups(versionControlHelper.getBranchCriteria(taskA.getPath()));
@@ -639,5 +697,85 @@ class ReferencedConceptsLookupUpdateServiceTest extends AbstractTest {
         }
         refsetMemberService.createMembers(branchPath, members);
         return members;
+    }
+    @Test
+    void testBypassThresholdCheckingForRefsetIdHavingExistingLookups() {
+        // Create a parent code system and add lookups
+        CodeSystem main = new CodeSystem("SNOMEDCT", "MAIN");
+        codeSystemService.createCodeSystem(main);
+        createMembers(MAIN, REFSET_SIMPLE, List.of("200001", "200002"));
+        List<ReferencedConceptsLookup> conceptsLookups = conceptsLookupService.getConceptsLookups(versionControlHelper.getBranchCriteria(branchService.findLatest(MAIN)));
+        assertEquals(1, conceptsLookups.size());
+
+        // Create an extension branch
+        CodeSystem extension = codeSystemService.createCodeSystem(new CodeSystem("SNOMEDCT-AU", "MAIN/SNOMEDCT-AU"));
+        // Threshold is set to 2 in application-test.properties
+        createMembers(extension.getBranchPath(), REFSET_SIMPLE, List.of("200003"));
+
+        // Verify that the threshold check was bypassed and the lookup was built
+        List<ReferencedConceptsLookup> extensionLookups = conceptsLookupService.getConceptsLookups(versionControlHelper.getChangesOnBranchCriteria(branchService.findLatest(extension.getBranchPath())));
+        assertEquals(1, extensionLookups.size());
+        assertEquals(1, extensionLookups.get(0).getTotal());
+    }
+    @Test
+    void testSkipRebuildingWhenNoLookupsFoundInParentBranch() {
+        // Create a parent code system without lookups for the refset ID
+        CodeSystem main = new CodeSystem("SNOMEDCT", "MAIN");
+        codeSystemService.createCodeSystem(main);
+        // Add one member below threshold of 2 and no concepts look will be created
+        createMembers(main.getBranchPath(), REFSET_SIMPLE, List.of("200001"));
+
+        // Create an extension branch
+        CodeSystem extension = codeSystemService.createCodeSystem(new CodeSystem("SNOMEDCT-AU", "MAIN/SNOMEDCT-AU"));
+        // Even it is over the threshold of 2 but due to parent code system hasn't generated lookups, it should not be rebuilt on extension branch either
+        createMembers(extension.getBranchPath(), REFSET_SIMPLE, List.of("200003","200004"));
+
+        // Verify that the lookup was not built
+        List<ReferencedConceptsLookup> extensionLookups = conceptsLookupService.getConceptsLookups(versionControlHelper.getBranchCriteria(branchService.findLatest(extension.getBranchPath())));
+        assertEquals(0, extensionLookups.size());
+    }
+
+    @Test
+    void testRebuildWhenAddingRefsetMembersForTheFirstTime() {
+        // Create a parent code system without lookups for the refset ID
+        CodeSystem main = new CodeSystem("SNOMEDCT", "MAIN");
+        codeSystemService.createCodeSystem(main);
+
+        // Create an extension branch
+        codeSystemService.createCodeSystem(new CodeSystem("SNOMEDCT-AU", "MAIN/SNOMEDCT-AU"));
+        Branch extensionProject = branchService.create("MAIN/SNOMEDCT-AU/ProjectA");
+        createMembers(extensionProject.getPath(), REFSET_SIMPLE, List.of("200003","200004"));
+
+        // Verify that the lookup was not built
+        List<ReferencedConceptsLookup> extensionLookups = conceptsLookupService.getConceptsLookups(versionControlHelper.getBranchCriteria(branchService.findLatest(extensionProject.getPath())));
+        assertEquals(1, extensionLookups.size());
+    }
+
+    @Test
+    void testRebuildingInExtensionForExistingRefsetMembers() throws ServiceException {
+        // Create a parent code system without lookups for the refset ID
+        CodeSystem main = new CodeSystem("SNOMEDCT", "MAIN");
+        codeSystemService.createCodeSystem(main);
+        // Add one member below threshold of 2 and no concepts look will be created
+        createMembers(main.getBranchPath(), REFSET_SIMPLE, List.of("200001"));
+
+        // Create an extension branch
+        CodeSystem extension = codeSystemService.createCodeSystem(new CodeSystem("SNOMEDCT-AU", "MAIN/SNOMEDCT-AU"));
+        // Even it is over the threshold of 2 but due to parent code system hasn't generated lookups, it should not be rebuilt on extension branch either
+        createMembers(extension.getBranchPath(), REFSET_SIMPLE, List.of("200003", "200004"));
+
+        // Verify that the lookup was not built
+        List<ReferencedConceptsLookup> conceptsLookups = conceptsLookupService.getConceptsLookups(versionControlHelper.getBranchCriteria(branchService.findLatest(extension.getBranchPath())));
+        assertEquals(0, conceptsLookups.size());
+
+        // Rebuild on MAIN to skip threshold checking
+        conceptsLookupUpdateService.rebuild(main.getBranchPath(), List.of(Long.valueOf(REFSET_SIMPLE)), true, false);
+        conceptsLookups = conceptsLookupService.getConceptsLookups(versionControlHelper.getBranchCriteria(branchService.findLatest(main.getBranchPath())));
+        assertEquals(1, conceptsLookups.size());
+
+        // Rebase on extension branch to verify that the lookup is rebuilt again
+        branchMergeService.mergeBranchSync(main.getBranchPath(), extension.getBranchPath(), Collections.emptyList());
+        conceptsLookups = conceptsLookupService.getConceptsLookups(versionControlHelper.getBranchCriteria(branchService.findLatest(extension.getBranchPath())));
+        assertEquals(2, conceptsLookups.size());
     }
 }
