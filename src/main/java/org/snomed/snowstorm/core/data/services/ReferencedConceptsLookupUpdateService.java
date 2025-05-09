@@ -242,8 +242,12 @@ public class ReferencedConceptsLookupUpdateService extends ComponentService impl
             logger.info("Concepts lookup rebuild is disabled.");
             return Collections.emptyMap();
         }
+        if (disableThresholdCheck) {
+            logger.info("Threshold checking is disabled.");
+        }
         try (Commit commit = branchService.openCommit(branchPath, branchMetadataHelper.getBranchLockMetadata("Rebuilding referenced concepts lookup."))) {
             Set<Long> allowedRefsetIds = getSelfOrDescendantOf(versionControlHelper.getBranchCriteriaIncludingOpenCommit(commit), getRefsetIdsFromConfig());
+            logger.info("Refset ids to generate lookup for: {}", refsetIdsForLookup);
             if (refsetIds == null || refsetIds.isEmpty()) {
                 refsetIds = new ArrayList<>(allowedRefsetIds);
             } else if (!allowedRefsetIds.containsAll(refsetIds)) {
@@ -373,16 +377,13 @@ public class ReferencedConceptsLookupUpdateService extends ComponentService impl
     }
 
     private boolean shouldSkipUpdate(Set<Long> conceptIdsToAdd, Set<Long> conceptIdsToRemove, boolean disableThresholdCheck, Long refsetId, Commit commit) {
-        if (disableThresholdCheck) {
-            logger.info("Threshold checking is disabled.");
-        }
-        if (!disableThresholdCheck && conceptIdsToAdd.size() < conceptsLookupGenerationThreshold && conceptIdsToRemove.size() < conceptsLookupGenerationThreshold) {
-            logger.info("Referenced concepts lookup is not updated for refset {} because changes are below the threshold of {}.", refsetId, conceptsLookupGenerationThreshold);
-            return true;
-        }
         if (!PathUtil.isRoot(commit.getBranch().getPath()) && hasReferencedMemberInParentBranch(refsetId, commit)) {
             logger.info("Parent branch has members for refset {} but no existing concepts lookup found therefore no further rebuilding is required on branch {}.",
                     refsetId, commit.getBranch().getPath());
+            return true;
+        }
+        if (!disableThresholdCheck && conceptIdsToAdd.size() < conceptsLookupGenerationThreshold && conceptIdsToRemove.size() < conceptsLookupGenerationThreshold) {
+            logger.info("Referenced concepts lookup is not updated for refset {} because changes are below the threshold of {}.", refsetId, conceptsLookupGenerationThreshold);
             return true;
         }
         return false;
