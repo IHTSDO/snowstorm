@@ -58,6 +58,9 @@ public class FHIRCodeSystemVersion {
 	@Field(type = FieldType.Boolean)
 	private boolean experimental;
 
+	@Field(type = FieldType.Boolean)
+	private boolean caseSensitive = true;
+
 	@Field(type = FieldType.Keyword)
 	private String content;
 
@@ -95,6 +98,7 @@ public class FHIRCodeSystemVersion {
 		}
 		version = codeSystem.getVersion();
 		experimental = codeSystem.getExperimental();
+		caseSensitive = codeSystem.getCaseSensitive();
 		date = codeSystem.getDate();
 		title = codeSystem.getTitle();
 		language = codeSystem.getLanguage();
@@ -314,6 +318,10 @@ public class FHIRCodeSystemVersion {
 
 	public boolean isExperimental() {
 		return experimental;
+	}
+
+	public boolean isCaseSensitive() {
+		return caseSensitive;
 	}
 
 	public String getContent() {
