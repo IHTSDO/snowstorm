@@ -30,6 +30,7 @@ public class FHIRConcept implements FHIRGraphNode {
 
 		String CODE_SYSTEM_VERSION = "codeSystemVersion";
 		String CODE = "code";
+		String CODE_LOWER = "codeLower";
 		String DISPLAY = "display";
 		String DISPLAY_LENGTH = "displayLen";
 		String PARENTS = "parents";
@@ -46,6 +47,9 @@ public class FHIRConcept implements FHIRGraphNode {
 
 	@Field(type = FieldType.Keyword)
 	private String code;
+
+	@Field(type = FieldType.Keyword)
+	private String codeLower;
 
 	private String display;
 
@@ -75,6 +79,7 @@ public class FHIRConcept implements FHIRGraphNode {
 		this.codeSystemVersion = codeSystemVersion.getId();
 
 		code = termConcept.getCode();
+		codeLower = code.toLowerCase();
 		setDisplay(termConcept.getDisplay());
 		termConcept.getProperties().stream().filter(x -> ( x.getKey().equals("inactive") && !Boolean.valueOf(x.getValue()).equals(Boolean.FALSE)) || x.getKey().equals("status") && x.getValue().equals("retired")).findFirst().ifPresentOrElse(x -> active = false, ()-> active = true);
 
@@ -107,6 +112,7 @@ public class FHIRConcept implements FHIRGraphNode {
 		this.codeSystemVersion = codeSystemVersion.getId();
 
 		code = definitionConcept.getCode();
+		codeLower = code.toLowerCase();
 		setDisplay(definitionConcept.getDisplay());
 
 		designations = definitionConcept.getDesignation().stream()
@@ -160,6 +166,7 @@ public class FHIRConcept implements FHIRGraphNode {
 	public FHIRConcept(ConceptMini snomedConceptMini, FHIRCodeSystemVersion codeSystemVersion, boolean includeDesignations) {
 		this.codeSystemVersion = codeSystemVersion.getId();
 		code = snomedConceptMini.getConceptId();
+		codeLower = code.toLowerCase();
 		TermLangPojo displayTerm = snomedConceptMini.getPt();
 		if (displayTerm == null) {
 			displayTerm = snomedConceptMini.getFsn();
@@ -218,6 +225,7 @@ public class FHIRConcept implements FHIRGraphNode {
 
 	public void setCode(String code) {
 		this.code = code;
+		codeLower = code.toLowerCase();
 	}
 
 	public String getDisplay() {
