@@ -3,7 +3,6 @@ package org.snomed.snowstorm.fhir.domain;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import org.hl7.fhir.r4.model.CodeSystem;
 import org.hl7.fhir.r4.model.Enumerations;
-import org.hl7.fhir.r4.model.Extension;
 import org.joda.time.DateTime;
 import org.joda.time.format.DateTimeFormat;
 import org.joda.time.format.DateTimeFormatter;
@@ -284,7 +283,7 @@ public class FHIRCodeSystemVersion {
 		this.publisher = publisher;
 	}
 
-	public List<Extension> getExtensions() {
+	public List<FHIRExtension> getExtensions() {
 		if (extensions == null){
 			extensions = new ArrayList<>();
 		}
