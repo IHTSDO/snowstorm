@@ -117,7 +117,7 @@ public class IdentifierComponentService extends ComponentService {
 			String defaultModuleId = metadata.getString(Config.DEFAULT_MODULE_ID_KEY);
 			identifiers.forEach(identifier -> {
 				if (identifier.getInternalIdentifierId() == null) {
-					identifier.setInternalIdentifierId(identifier.getAlternateIdentifier() + "-" + identifier.getIdentifierSchemeId());
+					identifier.setInternalIdentifierId(identifier.getAlternateIdentifier() + "-" + identifier.getIdentifierSchemaId());
 				}
 				if (identifier.getModuleId() == null) {
 					identifier.setModuleId(StringUtils.hasLength(defaultModuleId) ? defaultModuleId : Concepts.CORE_MODULE);
@@ -191,7 +191,7 @@ public class IdentifierComponentService extends ComponentService {
 			try (final SearchHitsIterator<Identifier> identifiers = elasticsearchOperations.searchForStream(queryBuilder.build(), Identifier.class)) {
 				identifiers.forEachRemaining(hit -> {
 					Identifier identifier = hit.getContent();
-					identifier.setIdentifierScheme(getConceptMini(conceptMiniMap, identifier.getIdentifierSchemeId(), languageDialects));
+					identifier.setIdentifierScheme(getConceptMini(conceptMiniMap, identifier.getIdentifierSchemaId(), languageDialects));
 
 					// Join Identifiers to concepts for loading whole concepts use case.
 					final String referencedComponentId = identifier.getReferencedComponentId();

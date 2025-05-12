@@ -107,7 +107,7 @@ public class Identifier extends SnomedComponent<Identifier> implements Identifie
 		return referencedComponentId;
 	}
 
-	public String getIdentifierSchemeId() {
+	public String getIdentifierSchemaId() {
 		return identifierSchemeId;
 	}
 
