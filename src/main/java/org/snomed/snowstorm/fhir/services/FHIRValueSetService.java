@@ -57,6 +57,7 @@ import static java.lang.Boolean.TRUE;
 import static java.lang.String.format;
 import static co.elastic.clients.elasticsearch._types.query_dsl.QueryBuilders.*;
 import static io.kaicode.elasticvc.helper.QueryHelper.*;
+import static java.util.Collections.emptyList;
 import static org.apache.commons.collections4.MapUtils.emptyIfNull;
 import static org.snomed.snowstorm.core.data.services.ReferenceSetMemberService.AGGREGATION_MEMBER_COUNTS_BY_REFERENCE_SET;
 import static org.snomed.snowstorm.core.util.CollectionUtils.orEmpty;
@@ -236,6 +237,12 @@ public class FHIRValueSetService {
 
 		if (!hapiValueSet.hasCompose()) {
 			return hapiValueSet;
+		}
+
+		List<ValueSetCycleElement> valueSetCycle = getValueSetIncludeExcludeCycle(hapiValueSet);
+		if(!valueSetCycle.isEmpty()) {
+			String message = getCyclicDiagnosticMessage(valueSetCycle);
+			throw exception(message, OperationOutcome.IssueType.PROCESSING, 400, null, new CodeableConcept(new Coding()).setText(message));
 		}
 
 		if (params.getVersionValueSet() != null){
@@ -428,6 +435,11 @@ public class FHIRValueSetService {
 			}
 		}
 
+		if(conceptsPage.getTotalElements() > pageRequest.getPageSize() && pageRequest.getPageSize() >= DEFAULT_PAGESIZE) {
+			String message = format("The operation was stopped to protect server resources, the number of resulting concepts exceeded the maximum number (%d) allowed", pageRequest.getPageSize());
+			throw exception(message, OperationOutcome.IssueType.TOOCOSTLY, 404, null, new CodeableConcept(new Coding()).setText(message));
+		}
+
 		Map<String, String> idAndVersionToUrl = allInclusionVersions.stream()
 				.collect(Collectors.toMap(FHIRCodeSystemVersion::getId, FHIRCodeSystemVersion::getUrl));
 		Map<String, String> idAndVersionToLanguage = allInclusionVersions.stream()
@@ -437,6 +449,8 @@ public class FHIRValueSetService {
 		expansion.setId(id);
 		expansion.setIdentifier("urn:uuid:"+id);
 		expansion.setTimestamp(new Date());
+		Optional.ofNullable(params.getOffset()).ifPresent(x->expansion.addParameter(new ValueSet.ValueSetExpansionParameterComponent(new StringType("offset")).setValue(new IntegerType(x))));
+		Optional.ofNullable(params.getCount()).ifPresent(x->expansion.addParameter(new ValueSet.ValueSetExpansionParameterComponent(new StringType("count")).setValue(new IntegerType(x))));
 		Optional.ofNullable(params.getActiveOnly()).ifPresent(x->expansion.addParameter(new ValueSet.ValueSetExpansionParameterComponent(new StringType("activeOnly")).setValue(new BooleanType(x))));
 		Optional.ofNullable(params.getExcludeNested()).ifPresent(x->expansion.addParameter(new ValueSet.ValueSetExpansionParameterComponent(new StringType("excludeNested")).setValue(new BooleanType(x))));
 		Optional.ofNullable(params.getIncludeDesignations()).ifPresent(x->expansion.addParameter(new ValueSet.ValueSetExpansionParameterComponent(new StringType("includeDesignations")).setValue(new BooleanType(x))));
@@ -576,7 +590,7 @@ public class FHIRValueSetService {
 					});
 
 					Optional.ofNullable(params.getProperty()).ifPresent(x ->{
-						List<FHIRProperty> properties =concept.getProperties().getOrDefault(x, Collections.emptyList());
+						List<FHIRProperty> properties =concept.getProperties().getOrDefault(x, emptyList());
 						properties.stream()
 								.findFirst()
 								.ifPresent(y-> {
@@ -661,7 +675,7 @@ public class FHIRValueSetService {
 	}
 
 	private static void setDisplayAndDesignations(ValueSet.ValueSetExpansionContainsComponent component, FHIRConcept concept, String defaultConceptLanguage, boolean includeDesignations, String displayLanguage, List<String> designationLanguages) {
-		List<String> designationLang = Optional.ofNullable(designationLanguages).orElse(Collections.emptyList()).stream().map(x -> {
+		List<String> designationLang = Optional.ofNullable(designationLanguages).orElse(emptyList()).stream().map(x -> {
 			String[] systemAndLanguage = x.split("\\|");
 			if (systemAndLanguage.length < 2){
 				return systemAndLanguage[0];
@@ -703,7 +717,7 @@ public class FHIRValueSetService {
 				designationComponent.setLanguage(designation.getLanguage());
 				designationComponent.setUse(designation.getUseCoding());
 				designationComponent.setValue(designation.getValue());
-				Optional.ofNullable(designation.getExtensions()).orElse(Collections.emptyList()).forEach(
+				Optional.ofNullable(designation.getExtensions()).orElse(emptyList()).forEach(
 						e -> {
 							designationComponent.addExtension(e.getHapi());
 						}
@@ -748,7 +762,7 @@ public class FHIRValueSetService {
 			newDesignations.addAll(noLanguage);
 			component.setDesignation(newDesignations);
 		} else {
-			component.setDesignation(Collections.emptyList());
+			component.setDesignation(emptyList());
 		}
 
 	}
@@ -1081,6 +1095,12 @@ public class FHIRValueSetService {
 		if (hapiValueSet == null) {
 			CodeableConcept detail = new CodeableConcept(new Coding(TX_ISSUE_TYPE,"not-found",null)).setText(format("A definition for the value Set '%s' could not be found",url.getValue()));
 			throw exception("message", OperationOutcome.IssueType.NOTFOUND,404,null, detail);
+		}
+
+		List<ValueSetCycleElement> valueSetCycle = getValueSetIncludeExcludeCycle(hapiValueSet);
+		if(!valueSetCycle.isEmpty()) {
+			String message = getCyclicDiagnosticMessage(valueSetCycle);
+			throw exception(message, OperationOutcome.IssueType.PROCESSING, 400, null, new CodeableConcept(new Coding()).setText(message));
 		}
 
 		Optional.ofNullable(versionValueSet).ifPresent(v->{
@@ -2003,5 +2023,70 @@ public class FHIRValueSetService {
 		} else {
 			return url;
 		}
+	}
+
+	private List<ValueSetCycleElement> getValueSetIncludeExcludeCycle(ValueSet valueSet) {
+		return getValueSetIncludeExcludeCycle(valueSet, new HashSet<>(), true);
+	}
+
+	private List<ValueSetCycleElement> getValueSetIncludeExcludeCycle(ValueSet valueSet, Set<String> visited, boolean isIncluded) {
+		if (valueSet.getCompose() == null) {
+			return Collections.emptyList();
+		}
+
+		String key = valueSet.getUrl() + "|" + valueSet.getVersion();
+		if (!visited.add(key)) {
+			// Cycle detected
+			return new ArrayList<>(List.of(new ValueSetCycleElement(isIncluded, valueSet.getUrl(), valueSet.getVersion())));
+		}
+
+		ValueSetCycleElement current = new ValueSetCycleElement(isIncluded, valueSet.getUrl(), valueSet.getVersion());
+
+		if (valueSet.getCompose().hasInclude()) {
+			var cycle = detectCycle(valueSet.getCompose().getInclude(), visited, true);
+			if (!cycle.isEmpty()) {
+				cycle.add(current);
+				return cycle;
+			}
+		}
+
+		if (valueSet.getCompose().hasExclude()) {
+			var cycle = detectCycle(valueSet.getCompose().getExclude(), visited, false);
+			if (!cycle.isEmpty()) {
+				cycle.add(current);
+				return cycle;
+			}
+		}
+
+		visited.remove(key);
+		return Collections.emptyList();
+	}
+
+	private List<ValueSetCycleElement> detectCycle(List<ValueSet.ConceptSetComponent> components, Set<String> visited, boolean isIncluded) {
+		for (var component : components) {
+			for (CanonicalType canonical : component.getValueSet()) {
+				ValueSet child = findOrInferValueSet(null, canonical.getValueAsString(), null, null);
+				if (child != null) {
+					var cycle = getValueSetIncludeExcludeCycle(child, visited, isIncluded);
+					if (!cycle.isEmpty()) {
+						return cycle;
+					}
+				}
+			}
+		}
+		return Collections.emptyList();
+	}
+
+	private String getCyclicDiagnosticMessage(List<ValueSetCycleElement> valueSetCycle) {
+		ValueSetCycleElement last = valueSetCycle.get(0);
+		String lastConstraint = (last.include() ? "including " : "excluding ") + last.getCanonicalUrlVersion();
+		StringBuilder parentPath = new StringBuilder();
+		for(int i = 1; i < valueSetCycle.size(); i++) {
+			parentPath.append(valueSetCycle.get(i).getCanonicalUrlVersion());
+			if(i < valueSetCycle.size() - 1) {
+				parentPath.append(", ");
+			}
+		}
+		return format("Cyclic reference detected when %s via [%s]", lastConstraint, parentPath);
 	}
 }
