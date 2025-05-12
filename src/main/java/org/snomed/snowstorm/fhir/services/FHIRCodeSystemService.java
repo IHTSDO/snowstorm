@@ -37,7 +37,6 @@ import java.util.*;
 
 import static java.lang.String.format;
 import static org.snomed.snowstorm.core.util.SearchAfterQueryHelper.updateQueryWithSearchAfter;
-import static org.snomed.snowstorm.fhir.services.FHIRHelper.createOperationOutcomeWithIssues;
 import static org.snomed.snowstorm.fhir.services.FHIRHelper.exception;
 import static org.snomed.snowstorm.fhir.utils.FHIRPageHelper.toPage;
 

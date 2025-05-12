@@ -1327,7 +1327,8 @@ public class FHIRValueSetService {
 		try {
 			languageDialects = ControllerHelper.parseAcceptLanguageHeader(displayLanguage);
 		} catch(IllegalArgumentException e) {
-			OperationOutcome oo = createOperationOutcomeWithIssue(null, OperationOutcome.IssueSeverity.ERROR,null, OperationOutcome.IssueType.INVALID,null,e.getMessage());
+			CodeableConcept cc = new CodeableConcept(new Coding()).setText(e.getMessage());
+			OperationOutcome oo = createOperationOutcomeWithIssue(cc, OperationOutcome.IssueSeverity.ERROR,null, OperationOutcome.IssueType.PROCESSING,null, e.getMessage());
 			throw new SnowstormFHIRServerResponseException(404, e.getMessage(),oo);
 		}
 
@@ -1393,7 +1394,7 @@ public class FHIRValueSetService {
 							return languages.isEmpty()||languages.contains(l);
 						} ).noneMatch(b ->b.equals(TRUE))){
 						CodeableConcept cc;
-						if(codeSystemVersion.getAvailableLanguages().contains(displayLanguage)){
+						if(codeSystemVersion.getAvailableLanguages().contains(displayLanguage)){ // should be true for this testcase
 							cc = new CodeableConcept(new Coding().setSystem(TX_ISSUE_TYPE).setCode(DISPLAY_COMMENT)).setText(format("'%s' is the default display; no valid Display Names found for %s#%s in the language %s", concept.getDisplay(), codingA.getSystem(), codingA.getCode(), displayLanguage));
 						} else {
 							cc = new CodeableConcept(new Coding().setSystem(TX_ISSUE_TYPE).setCode(DISPLAY_COMMENT)).setText(format("'%s' is the default display; the code system %s has no Display Names for the language %s", concept.getDisplay(), codingA.getSystem(), displayLanguage));
