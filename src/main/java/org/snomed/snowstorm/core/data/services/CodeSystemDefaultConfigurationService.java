@@ -26,6 +26,15 @@ public class CodeSystemDefaultConfigurationService {
 		}
 		return null;
 	}
+
+	public CodeSystemDefaultConfiguration findByAlternativeSchemaSctid(String alternativeSchemaSctid) {
+		for (CodeSystemDefaultConfiguration codeSystemConfiguration : configurations) {
+			if (codeSystemConfiguration.alternateSchemaSctid() != null && codeSystemConfiguration.alternateSchemaSctid().equals(alternativeSchemaSctid)) {
+				return codeSystemConfiguration;
+			}
+		}
+		return null;
+	}
 	
 	public String getDefaultModuleId(String codeSystemShortName) {
 		for (CodeSystemDefaultConfiguration codeSystemConfiguration : configurations) {
