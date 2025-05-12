@@ -12,6 +12,7 @@ public interface FHIRConstants {
 	String CODE = "code";
 	String DESIGNATION = "designation";
 	String DISPLAY = "display";
+	StringType EQUIVALENT_CONCEPT = new StringType("equivalentConcept");
 	StringType EFFECTIVE_TIME = new StringType("effectiveTime");
 	
 	static final int NOT_SET = -1;
