@@ -12,7 +12,7 @@ public interface IdentifierView {
 
 	String getReferencedComponentId();
 
-	String getIdentifierSchemeId();
+	String getIdentifierSchemaId();
 
 	boolean isActive();
 
