@@ -350,7 +350,10 @@ public class FHIRCodeSystemVersion {
 	}
 
 	public Set<String> getAvailableLanguages() {
-		return availableLanguages == null ? new HashSet<>() : availableLanguages;
+		if(availableLanguages == null) {
+			availableLanguages = new HashSet<>();
+		}
+		return availableLanguages;
 	}
 
 	public void setAvailableLanguages(Set<String> availableLanguages) {
