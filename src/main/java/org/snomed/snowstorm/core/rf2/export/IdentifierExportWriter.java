@@ -28,7 +28,7 @@ class IdentifierExportWriter extends ExportWriter<Identifier> {
 				bufferedWriter.write(TAB);
 				bufferedWriter.write(identifier.getModuleId());
 				bufferedWriter.write(TAB);
-				bufferedWriter.write(identifier.getIdentifierSchemeId());
+				bufferedWriter.write(identifier.getIdentifierSchemaId());
 				bufferedWriter.write(TAB);
 				bufferedWriter.write(identifier.getReferencedComponentId());
 				writeNewLine();
