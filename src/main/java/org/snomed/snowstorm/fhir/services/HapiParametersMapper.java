@@ -171,6 +171,7 @@ public class HapiParametersMapper implements FHIRConstants {
                             ducExt.addExtension("role", new Coding(SNOMED_URI, Concepts.ACCEPTABLE, Concepts.ACCEPTABLE_CONSTANT));
                     case Concepts.PREFERRED_CONSTANT ->
                             ducExt.addExtension("role", new Coding(SNOMED_URI, Concepts.PREFERRED, Concepts.PREFERRED_CONSTANT));
+	                default -> throw new IllegalArgumentException("Unknown acceptability: " + acceptability);
                 }
 				// Add type, this is sometimes but not always redundant to designation.use!
 				// TODO: currently it is truly redundant but as there are more alternatives for designation.use, e.g. "consumer", this is/will be needed here
@@ -189,11 +190,11 @@ public class HapiParametersMapper implements FHIRConstants {
 	private void addIdentifiers(Parameters parameters, Concept c) {
 		for (Identifier identifier: c.getIdentifiers()) {
 			//We're going to need to look up the URI for this schema, supplied via configuration until we can add these
-			//as non-definining attributes to the schema concepts
+			//as non-defining attributes to the schema concepts
 			CodeSystemDefaultConfiguration codeSystem = codeSystemDefaultConfigurationService.findByAlternativeSchemaSctid(identifier.getIdentifierSchemaId());
 			String alternateSchemaUri = codeSystem != null ? codeSystem.alternateSchemaUri() : null;
 			Coding coding = new Coding(alternateSchemaUri, identifier.getAlternateIdentifier(), null);
-			parameters.addParameter(createProperty(EQUIVALENT_CONCEPT, coding, FHIRProperty.CODING_TYPE));
+			parameters.addParameter(createProperty(FhirSctProperty.EQUIVALENT_CONCEPT, coding, FHIRProperty.CODING_TYPE));
 		}
 	}
 
@@ -201,49 +202,49 @@ public class HapiParametersMapper implements FHIRConstants {
 		Boolean sufficientlyDefined = c.getDefinitionStatusId().equals(Concepts.DEFINED);
 
 		if (c.getEffectiveTime() != null) {
-			parameters.addParameter(createProperty(EFFECTIVE_TIME, c.getEffectiveTime(), FHIRProperty.STRING_TYPE));
+			parameters.addParameter(createProperty(FhirSctProperty.EFFECTIVE_TIME, c.getEffectiveTime(), FHIRProperty.STRING_TYPE));
 		}
 		if (c.getModuleId() != null) {
-			parameters.addParameter(createProperty(MODULE_ID, c.getModuleId(), FHIRProperty.CODE_TYPE));
+			parameters.addParameter(createProperty(FhirSctProperty.MODULE_ID, c.getModuleId(), FHIRProperty.CODE_TYPE));
 		}
 
 		boolean allProperties = properties.contains(FhirSctProperty.ALL_PROPERTIES);
 
 		if (allProperties || properties.contains(FhirSctProperty.INACTVE)) {
-			parameters.addParameter(createProperty(FhirSctProperty.INACTVE.toStringType(), !c.isActive(), FHIRProperty.BOOLEAN_TYPE));
+			parameters.addParameter(createProperty(FhirSctProperty.INACTVE, !c.isActive(), FHIRProperty.BOOLEAN_TYPE));
 		}
 
 		if (allProperties || properties.contains(FhirSctProperty.SUFFICIENTLY_DEFINED)) {
-			parameters.addParameter(createProperty(FhirSctProperty.SUFFICIENTLY_DEFINED.toStringType(), sufficientlyDefined, FHIRProperty.BOOLEAN_TYPE));
+			parameters.addParameter(createProperty(FhirSctProperty.SUFFICIENTLY_DEFINED, sufficientlyDefined, FHIRProperty.BOOLEAN_TYPE));
 		}
 
 		if (allProperties || properties.contains(FhirSctProperty.NORMAL_FORM_TERSE)) {
 			Expression expression = expressionService.getExpression(c, false);
-			parameters.addParameter(createProperty(FhirSctProperty.NORMAL_FORM_TERSE.toStringType(), expression.toString(false), FHIRProperty.STRING_TYPE));
+			parameters.addParameter(createProperty(FhirSctProperty.NORMAL_FORM_TERSE, expression.toString(false), FHIRProperty.STRING_TYPE));
 		}
 
 		if (allProperties || properties.contains(FhirSctProperty.NORMAL_FORM)) {
 			Expression expression = expressionService.getExpression(c, false);
-			parameters.addParameter(createProperty(FhirSctProperty.NORMAL_FORM.toStringType(), expression.toString(true), FHIRProperty.STRING_TYPE));
+			parameters.addParameter(createProperty(FhirSctProperty.NORMAL_FORM, expression.toString(true), FHIRProperty.STRING_TYPE));
 		}
 	}
 
 	private void addParents(Parameters parameters, Concept c) {
 		List<Relationship> parentRels = c.getRelationships(true, Concepts.ISA, null, Concepts.INFERRED_RELATIONSHIP);
 		for (Relationship thisParentRel : parentRels) {
-			parameters.addParameter(createProperty(PARENT, thisParentRel.getDestinationId(), FHIRProperty.CODE_TYPE));
+			parameters.addParameter(createProperty(FhirSctProperty.PARENT, thisParentRel.getDestinationId(), FHIRProperty.CODE_TYPE));
 		}
 	}
 
 	private void addChildren(Parameters parameters, Collection<String> childIds) {
 		for (String childId : childIds) {
-			parameters.addParameter(createProperty(CHILD, childId, FHIRProperty.CODE_TYPE));
+			parameters.addParameter(createProperty(FhirSctProperty.CHILD, childId, FHIRProperty.CODE_TYPE));
 		}
 	}
 
-	private Parameters.ParametersParameterComponent createProperty(StringType propertyName, Object propertyValue, String propertyType) {
+	private Parameters.ParametersParameterComponent createProperty(FhirSctProperty propertyName, Object propertyValue, String propertyType) {
 		Parameters.ParametersParameterComponent property = new Parameters.ParametersParameterComponent().setName(PROPERTY);
-		property.addPart().setName(CODE).setValue(propertyName);
+		property.addPart().setName(CODE).setValue(propertyName.toCodeType());
 		final String propertyValueString = propertyValue == null ? "" : propertyValue.toString();
 		switch (propertyType) {
 			case FHIRProperty.CODE_TYPE:
