@@ -1156,24 +1156,70 @@ public class FHIRValueSetService {
 
 			} else if (OperationOutcome.IssueType.NOTFOUND.equals(e.getIssueCode()) && !e.getOperationOutcome().getIssue().stream().filter(i -> OperationOutcome.IssueType.NOTFOUND.equals(i.getCode())).flatMap( ex -> ex.getExtension().stream()).filter(ex -> ex.getUrl().equals("https://github.com/IHTSDO/snowstorm/available-codesystem-version")).toList().isEmpty()) {
 				Parameters response = new Parameters();
+				String theCode = coding != null ? coding.getCode() : code;
 				if(codeableConcept!=null){
 					response.addParameter("codeableConcept", codeableConcept);
-				}else if (coding != null){
-					response.addParameter("code", new CodeType(coding.getCode()));
-				}else {
-					response.addParameter("code", new CodeType(code));
+				} else {
+					response.addParameter("code", new CodeType(theCode));
 				}
-				String availableVersion = e.getOperationOutcome().getIssue().stream().flatMap(i -> i.getExtensionsByUrl("https://github.com/IHTSDO/snowstorm/available-codesystem-version").stream()).map(ext -> CanonicalUri.fromString(ext.getValue().primitiveValue()).getVersion()).filter(Objects::nonNull).findFirst().orElse("");
+				final String requestedSystem;
+				if (system!=null && system.getValue() != null){
+					requestedSystem = system.getValue();
+				} else if (coding != null && coding.getSystem() != null) {
+					requestedSystem = coding.getSystem();
+				} else {
+					requestedSystem = null;
+				}
 				CanonicalUri missing = e.getOperationOutcome().getIssue().stream().flatMap(i -> i.getExtensionsByUrl("https://github.com/IHTSDO/snowstorm/missing-codesystem-version").stream()).map(ext -> CanonicalUri.fromString(ext.getValue().primitiveValue())).findFirst().orElse(CanonicalUri.fromString(""));
-				String message = format("The CodeSystem %s version %s is unknown. Valid versions: [%s]; Unable to check whether the code is in the value set %s", missing.getSystem(), missing.getVersion(), availableVersion ,CanonicalUri.of(hapiValueSet.getUrl(),hapiValueSet.getVersion()));
-				response.addParameter("message", message);
-				response.addParameter("result", false);
-				response.addParameter("system", new UriType(missing.getSystem()));
-				response.addParameter("version", missing.getVersion());
-				CodeableConcept detail2 = new CodeableConcept(new Coding(TX_ISSUE_TYPE, "vs-invalid", null)).setText(format("Unable to check whether the code is in the value set %s",CanonicalUri.of(hapiValueSet.getUrl(), hapiValueSet.getVersion())));
+				String availableVersion = e.getOperationOutcome().getIssue().stream().flatMap(i -> i.getExtensionsByUrl("https://github.com/IHTSDO/snowstorm/available-codesystem-version").stream()).map(ext -> CanonicalUri.fromString(ext.getValue().primitiveValue()).getVersion()).filter(Objects::nonNull).findFirst().orElse(null);
+				CanonicalUri valueSetCanonical = CanonicalUri.of(hapiValueSet.getUrl(), hapiValueSet.getVersion());
+				String codeSystemWithCode = (requestedSystem != null ? requestedSystem : missing.getSystem()) + "#" + theCode;
 				OperationOutcome.OperationOutcomeIssueComponent[] issues = new OperationOutcome.OperationOutcomeIssueComponent[2];
-				issues[0] = createOperationOutcomeIssueComponent(e.getOperationOutcome().getIssueFirstRep().getDetails(),e.getOperationOutcome().getIssueFirstRep().getSeverity(),"system", e.getOperationOutcome().getIssueFirstRep().getCode(),null,null);
-				issues[1] = createOperationOutcomeIssueComponent(detail2, OperationOutcome.IssueSeverity.WARNING, null, OperationOutcome.IssueType.NOTFOUND, null, null);
+				boolean valueSetSystemMatchesRequestedSystem = hapiValueSet.getCompose().getInclude().stream().filter(ValueSet.ConceptSetComponent::hasSystem).map(ValueSet.ConceptSetComponent::getSystem).anyMatch(vsCodeSystem -> Objects.equals(vsCodeSystem, requestedSystem));
+				if(valueSetSystemMatchesRequestedSystem) {
+					String message = missing.getVersion() == null
+							? format("A definition for CodeSystem '%s' could not be found, so the code cannot be validated; Unable to check whether the code is in the value set '%s' because the code system %s was not found", requestedSystem, valueSetCanonical, requestedSystem)
+							: format("A definition for CodeSystem '%s' version '%s' could not be found, so the code cannot be validated. Valid versions: [%s]; Unable to check whether the code is in the value set '%s' because the code system %s was not found", requestedSystem, missing.getVersion(), availableVersion, valueSetCanonical, requestedSystem + "|" + missing.getVersion());
+					response.addParameter("message", message);
+					response.addParameter("result", false);
+					response.addParameter("system", new UriType(requestedSystem));
+					response.addParameter("version", missing.getVersion());
+					response.addParameter("x-caused-by-unknown-system", new CanonicalType(missing.toString()));
+					Extension e1 = new Extension("http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id");
+					e1.setValue(new StringType("UNKNOWN_CODESYSTEM_VERSION"));
+					String ccText;
+					if(availableVersion!=null){
+						if(missing.getVersion() == null) {
+							ccText = format("A definition for CodeSystem '%s' could not be found, so the code cannot be validated. Valid versions: [%s]", requestedSystem, availableVersion);
+						} else {
+							ccText = format("A definition for CodeSystem '%s' version '%s' could not be found, so the code cannot be validated. Valid versions: [%s]", requestedSystem, missing.getVersion(), availableVersion);
+						}
+					} else {
+						ccText = format("A definition for CodeSystem '%s' could not be found, so the code cannot be validated", requestedSystem);
+					}
+					CodeableConcept detail1 = new CodeableConcept(new Coding(TX_ISSUE_TYPE, "not-found", null)).setText(ccText);
+					issues[0] = createOperationOutcomeIssueComponent(detail1,OperationOutcome.IssueSeverity.ERROR,null, e.getOperationOutcome().getIssueFirstRep().getCode(), List.of(e1),null);
+					String text = format("Unable to check whether the code is in the value set '%s' because the code system %s was not found", valueSetCanonical, missing.getVersion() == null ? requestedSystem : requestedSystem + "|" + missing.getVersion());
+					CodeableConcept detail2 = new CodeableConcept(new Coding(TX_ISSUE_TYPE, "vs-invalid", null)).setText(text);
+					Extension e2 = new Extension("http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id");
+					e2.setValue(new StringType("UNABLE_TO_CHECK_IF_THE_PROVIDED_CODES_ARE_IN_THE_VALUE_SET_CS"));
+					issues[1] = createOperationOutcomeIssueComponent(detail2, OperationOutcome.IssueSeverity.WARNING, null, OperationOutcome.IssueType.NOTFOUND, List.of(e2), null);
+				} else {
+					String message = format("A definition for CodeSystem %s could not be found, so the code cannot be validated; The provided code '%s' was not found in the value set '%s'", requestedSystem, codeSystemWithCode, valueSetCanonical);
+					response.addParameter("message", message);
+					response.addParameter("result", false);
+					response.addParameter("system", new UriType(requestedSystem));
+					response.addParameter("x-unknown-system", new CanonicalType(requestedSystem));
+					Extension e1 = new Extension("http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id");
+					e1.setValue(new StringType("None_of_the_provided_codes_are_in_the_value_set_one"));
+					CodeableConcept detail1 = new CodeableConcept(new Coding(TX_ISSUE_TYPE, "not-in-vs", null)).setText(format("The provided code '%s' was not found in the value set '%s'", codeSystemWithCode, valueSetCanonical));
+					issues[0] = createOperationOutcomeIssueComponent(detail1,OperationOutcome.IssueSeverity.ERROR,"code", OperationOutcome.IssueType.CODEINVALID, List.of(e1),null);
+					String text = format("A definition for CodeSystem %s could not be found, so the code cannot be validated", requestedSystem);
+					CodeableConcept detail2 = new CodeableConcept(new Coding(TX_ISSUE_TYPE, "not-found", null)).setText(text);
+					Extension e2 = new Extension("http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id");
+					e2.setValue(new StringType("UNKNOWN_CODESYSTEM"));
+					issues[1] = createOperationOutcomeIssueComponent(detail2, OperationOutcome.IssueSeverity.ERROR, "system", OperationOutcome.IssueType.NOTFOUND, List.of(e2), null);
+				}
 				response.addParameter(createParameterComponentWithOperationOutcomeWithIssues(Arrays.asList(issues)));
 				return response;
 			} else if(OperationOutcome.IssueType.NOTFOUND.equals(e.getIssueCode()) && !e.getOperationOutcome().getIssue().stream().filter(i -> OperationOutcome.IssueType.NOTFOUND.equals(i.getCode())).flatMap( ex -> ex.getExtension().stream()).filter(ex -> ex.getUrl().equals("https://github.com/IHTSDO/snowstorm/missing-valueset")).toList().isEmpty() ){
