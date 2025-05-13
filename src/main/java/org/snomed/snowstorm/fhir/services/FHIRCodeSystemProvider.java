@@ -39,7 +39,6 @@ import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.web.bind.annotation.RequestMethod;
 
 import java.util.*;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
@@ -180,7 +179,7 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants 
 		return concat(snomedCodeSystemStream, fhirCodeSystemStream)
 				.filter(cs -> csFilter.apply(cs, fhirHelper))
 				.sorted(chainedComparator)
-				.collect(Collectors.toList());
+				.toList();
 	}
 	
 	@Read()
@@ -503,8 +502,6 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants 
 			throw exception("Uploading a SNOMED-CT code system using the FHIR API is not supported. " +
 					"Please use the Snowstorm native API to manage SNOMED-CT code systems.", IssueType.NOTSUPPORTED, 400);
 		}
-
-		FhirContext fhirContext = fhirHelper.getFhirContext();
 
 		TerminologyUploaderProvider uploaderProvider = new TerminologyUploaderProvider(fhirContext,
 				TermLoaderSvcImpl.withoutProxyCheck(new TermDeferredStorageSvc(), termCodeSystemStorage));
