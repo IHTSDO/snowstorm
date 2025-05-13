@@ -8,43 +8,23 @@ import org.hl7.fhir.r4.model.StringType;
 public interface FHIRConstants {
 
 	//Constant words and phrases 
-	StringType CHILD = new StringType("child");
+	String ACCEPT_LANGUAGE_HEADER = "Accept-Language";
 	String CODE = "code";
 	String DESIGNATION = "designation";
 	String DISPLAY = "display";
-	StringType EQUIVALENT_CONCEPT = new StringType("equivalentConcept");
-	StringType EFFECTIVE_TIME = new StringType("effectiveTime");
-	
-	static final int NOT_SET = -1;
-
 	String FHIR = "FHIR";
-
-	String LANG_EN = "en";
+	String ICD10_URI = "http://hl7.org/fhir/sid/icd-10";
 	String LANGUAGE = "language";
-	StringType MODULE_ID = new StringType("moduleId");
-	String NAME = "name";
-	String PROPERTY = "property";
-	StringType PARENT = new StringType("parent");
-	
-	String ACCEPT_LANGUAGE_HEADER = "Accept-Language";
-	int MAX_LANGUAGE_CODE_LENGTH = 5;
 	String PIPE = "\\|";
-
-	String SNOMED_EDITION = "SNOMED CT International Edition";
+	String PROPERTY = "property";
+	String SNOMED_CT = "SNOMED_CT";
 	String SNOMED_INTERNATIONAL = "SNOMED International";
 	String SNOMED_URI = "http://snomed.info/sct";
 	String SNOMED_URI_UNVERSIONED = "http://snomed.info/xsct";
 	String UNVERSIONED = "UNVERSIONED";
-	int UNVERSIONED_SCT_VERSION = -1;
 	String VERSION = "/version/";
-	String SNOMED_URI_DEFAULT_MODULE = "http://snomed.info/sct/900000000000207008";
-	String ICD10 = "ICD-10";
-	String ICD10_URI = "http://hl7.org/fhir/sid/icd-10";
-	String ICDO = "ICD-O";
-	String ICDO_URI = "http://hl7.org/fhir/sid/icd-o";
-	String MAP_INDICATOR = "?fhir_cm=";
-	String SNOMED_CT = "SNOMED_CT";
-	//String SNOMED_CONCEPTMAP = SNOMED_URI + MAP_INDICATOR;
+
+	int MAX_LANGUAGE_CODE_LENGTH = 5;
 
 	// Copied from https://www.hl7.org/fhir/snomedct.html
 	String SNOMED_VALUESET_COPYRIGHT = "This value set includes content from SNOMED CT, which is copyright © 2002+ International Health Terminology Standards Development " +
@@ -54,8 +34,6 @@ public interface FHIRConstants {
 	String LOINC_ORG = "http://loinc.org";
 	String HL_7_ORG_FHIR_SID_ICD_10 = "http://hl7.org/fhir/sid/icd-10";
 
-	enum Validation { EQUALS, STARTS_WITH }
-	
 	String MAIN = "MAIN";
 	String URL = "url";
 	String USE = "use";
@@ -68,16 +46,21 @@ public interface FHIRConstants {
 	String IMPLICIT_ECL= "?fhir_vs=ecl/";
 	
 	enum FhirSctProperty {
-		INACTVE ("inactive"),
-		SUFFICIENTLY_DEFINED("sufficientlyDefined"),
+
+		ALL_PROPERTIES("*"),
+		CHILD("child"),
+		EFFECTIVE_TIME("effectiveTime"),
+		EQUIVALENT_CONCEPT("equivalentConcept"),
+		INACTVE("inactive"),
 		MODULE_ID("moduleId"),
-		NORMAL_FORM("normalForm"),
 		NORMAL_FORM_TERSE("normalFormTerse"),
-		ALL_PROPERTIES("*");
+		NORMAL_FORM("normalForm"),
+		PARENT("parent"),
+		SUFFICIENTLY_DEFINED("sufficientlyDefined");
 
 		private final String name;
 
-		private FhirSctProperty(String s) {
+		FhirSctProperty(String s) {
 			name = s;
 		}
 
@@ -85,13 +68,13 @@ public interface FHIRConstants {
 			return name.equals(otherName);
 		}
 		
-
+		@Override
 		public String toString() {
 			return this.name;
 		}
 		
-		public StringType toStringType() {
-			return new StringType(this.name);
+		public CodeType toCodeType() {
+			return new CodeType(this.name);
 		}
 		
 		public static FhirSctProperty parse(CodeType code) {
