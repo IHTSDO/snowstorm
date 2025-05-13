@@ -5,8 +5,8 @@
 	<name>Snowstorm</name>
 	<description>SNOMED CT Terminology Server Using Elasticsearch</description>
 
-	<artifactId>snowstorm</artifactId>
-	<version>10.8.2</version>
+	<artifactId>snowstorm-x</artifactId>
+	<version>11.0.0-SNAPSHOT</version>
 	<parent>
 		<groupId>org.snomed</groupId>
 		<artifactId>snomed-parent-bom</artifactId>
