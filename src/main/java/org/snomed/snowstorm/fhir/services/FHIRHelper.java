@@ -82,8 +82,10 @@ public class FHIRHelper implements FHIRConstants {
 				.filter(parametersParameterComponent -> parametersParameterComponent.getName().equals(name))
 				.findFirst()
 				.map(param -> {
-					if (param.getValue() instanceof UrlType urlType){
-						return urlType.asStringValue();
+					if (param.getValue() instanceof UrlType){
+						return ((UrlType) param.getValue()).asStringValue();
+					} else if (param.getValue() instanceof UriType) {
+						return ((UriType) param.getValue()).asStringValue();
 					} else {
 						return param.getValue().toString();
 					}

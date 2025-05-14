@@ -997,11 +997,13 @@ public class FHIRValueSetService {
 			}
 		}
 
-		for (ValueSet.ConceptSetComponent include : compose.getInclude()) {
+		List<ValueSet.ConceptSetComponent> composeInclude = compose.getInclude();
+		for (int i = 0; i < composeInclude.size(); i++) {
+			ValueSet.ConceptSetComponent include = composeInclude.get(i);
 			if (include.hasSystem()) {
 				FHIRCodeSystemVersion codeSystemVersion = codeSystemVersionProvider.get(include.getSystem(), include.getVersion());
 				AndConstraints inclusionConstraints = codeSelectionCriteria.addInclusion(codeSystemVersion);
-				collectConstraints(include, codeSystemVersion, inclusionConstraints, activeOnly);
+				collectConstraints(valueSet, include, i, codeSystemVersion, inclusionConstraints, activeOnly, true);
 			} else if (include.hasValueSet()) {
 				for (CanonicalType canonicalType : include.getValueSet()) {
 					CanonicalUri canonicalUri = CanonicalUri.fromString(canonicalType.getValueAsString());
@@ -1024,16 +1026,18 @@ public class FHIRValueSetService {
 				throw exception("ValueSet clause has no system or nested value set", OperationOutcome.IssueType.INVARIANT, 400);
 			}
 		}
-		for (ValueSet.ConceptSetComponent exclude : compose.getExclude()) {
+		List<ValueSet.ConceptSetComponent> composeExclude = compose.getExclude();
+		for (int i = 0; i < composeExclude.size(); i++) {
+			ValueSet.ConceptSetComponent exclude = composeExclude.get(i);
 			// Apply exclude-constraint to all resolved versions from include statements
 			Set<FHIRCodeSystemVersion> codeSystemVersionsForExpansion = codeSelectionCriteria.gatherAllInclusionVersions();
 			List<FHIRCodeSystemVersion> includeVersionsToExcludeFrom = codeSystemVersionsForExpansion.stream().filter(includeVersion ->
 					includeVersion.getUrl().equals(exclude.getSystem()) && (exclude.getVersion() == null || exclude.getVersion().equals(includeVersion.getVersion()))
-			).collect(Collectors.toList());
+			).toList();
 
 			for (FHIRCodeSystemVersion codeSystemVersion : includeVersionsToExcludeFrom) {
 				AndConstraints exclusionConstraints = codeSelectionCriteria.addExclusion(codeSystemVersion);
-				collectConstraints(exclude, codeSystemVersion, exclusionConstraints, activeOnly);
+				collectConstraints(valueSet, exclude, i, codeSystemVersion, exclusionConstraints, activeOnly, false);
 			}
 		}
 		return codeSelectionCriteria;
@@ -1799,7 +1803,7 @@ public class FHIRValueSetService {
 		}
 	}
 
-	private void collectConstraints(ValueSet.ConceptSetComponent include, FHIRCodeSystemVersion codeSystemVersion, AndConstraints andConstraints, boolean activeOnly) {
+	private void collectConstraints(ValueSet valueSet, ValueSet.ConceptSetComponent include, int includeIndex, FHIRCodeSystemVersion codeSystemVersion, AndConstraints andConstraints, boolean activeOnly, boolean isInclude) {
 		Set<ConceptConstraint> constraints = new HashSet<>();
 		if (!include.getConcept().isEmpty()) {
 			List<String> codes = include.getConcept().stream().map(ValueSet.ConceptReferenceComponent::getCode).collect(Collectors.toList());
@@ -1808,10 +1812,12 @@ public class FHIRValueSetService {
 			constraints = new HashSet<>();
 		}
 		if (!include.getFilter().isEmpty()) {
-			for (ValueSet.ConceptSetFilterComponent filter : include.getFilter()) {
+			var includeFilter = include.getFilter();
+			for (int filterIndex = 0; filterIndex < includeFilter.size(); filterIndex++) {
+				ValueSet.ConceptSetFilterComponent filter = includeFilter.get(filterIndex);
 				String property = filter.getProperty();
 				ValueSet.FilterOperator op = filter.getOp();
-				String value = filter.getValue();
+				String value = getFilterValueElseThrow(filter, valueSet, include.getSystem(), property, op.toCode(), includeIndex, filterIndex, isInclude);
 				if (codeSystemVersion.isOnSnomedBranch()) {
 					// SNOMED CT filters:
 					// concept, is-a, [conceptId]
@@ -1950,6 +1956,18 @@ public class FHIRValueSetService {
 				andConstraints.addOrConstraints(constraints);
 			}
 		}
+	}
+
+	private static String getFilterValueElseThrow(ValueSet.ConceptSetFilterComponent filter, ValueSet valueSet, String system, String property, String op, int includeIndex, int filterIndex, boolean isInclude) {
+		if(filter.getValue() != null) {
+			return filter.getValue();
+		}
+		CodeableConcept cc = new CodeableConcept()
+				.setCoding(List.of(new Coding("http://hl7.org/fhir/tools/CodeSystem/tx-issue-type", "vs-invalid", null)))
+				.setText(format("The system %s filter with property = %s, op = %s has no value", system, property, op));
+		String location = format("ValueSet['%s|%s].compose.%s[%d].filter[%d].value", valueSet.getUrl(), valueSet.getVersion(), isInclude ? "include" : "exclude", includeIndex, filterIndex);
+		OperationOutcome operationOutcome = createOperationOutcomeWithIssue(cc, OperationOutcome.IssueSeverity.ERROR, location, OperationOutcome.IssueType.INVALID, null, null);
+		throw new SnowstormFHIRServerResponseException(400, "Missing filter value", operationOutcome, null);
 	}
 
 	private ValueSet createSnomedImplicitValueSet(String url) {
