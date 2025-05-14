@@ -17,7 +17,7 @@ This sample shows how to control what terminologies to load on container startup
 ```yaml
 command: [
   "--elasticsearch.urls=http://es:9200",
-  "--syndicate",
+  "--syndication",
   "--hl7",
   #"--hl7=local",
   #"--hl7=6.1.0",
