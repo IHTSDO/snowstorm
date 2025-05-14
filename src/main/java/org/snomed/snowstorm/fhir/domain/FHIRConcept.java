@@ -144,6 +144,9 @@ public class FHIRConcept implements FHIRGraphNode {
 		);
 		parents = new HashSet<>();
 		for (CodeSystem.ConceptPropertyComponent propertyComponent : definitionConcept.getProperty()) {
+			if(propertyComponent.getCode() == null) {
+				continue;
+			}
 			if (properties.get(propertyComponent.getCode())==null && !propertyComponent.getCode().contains(EXTENSION_MARKER)){
 				properties.put(propertyComponent.getCode(),new ArrayList<>());
 			}
@@ -290,10 +293,10 @@ public class FHIRConcept implements FHIRGraphNode {
 	}
 
 	private static boolean isPropertyInactive(CodeSystem.ConceptPropertyComponent x) {
-		if (x.getCode().equals("inactive")) {
+		if ("inactive".equals(x.getCode())) {
 			if (x.hasValueBooleanType() && !Boolean.valueOf(x.getValueBooleanType().getValueAsString()).equals(Boolean.FALSE)) return true;
 			if (x.hasValueCodeType() && !Boolean.valueOf(x.getValueCodeType().getValueAsString()).equals(Boolean.FALSE)) return true;
 		}
-		return x.getCode().equals("status") && x.hasValueCodeType() && x.getValueCodeType().getCode().equals("retired");
+		return "status".equals(x.getCode()) && x.hasValueCodeType() && "retired".equals(x.getValueCodeType().getCode());
 	}
 }
