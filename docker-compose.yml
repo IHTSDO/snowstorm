@@ -34,8 +34,8 @@ services:
         condition: service_healthy
     entrypoint: [
       "java",
-      #"-Xdebug", # debugging purposes
-      #"-agentlib:jdwp=transport=dt_socket,server=y,address=*:5005,suspend=n", # debugging purposes
+      "-Xdebug", # debugging purposes
+      "-agentlib:jdwp=transport=dt_socket,server=y,address=*:5005,suspend=n", # debugging purposes
       "-Xms2g",
       "-Xmx4g",
       "--add-opens", "java.base/java.lang=ALL-UNNAMED",
@@ -44,17 +44,17 @@ services:
     ]
     command: [
       "--elasticsearch.urls=http://es:9200",
-      # "--syndication", # uncomment to import below terminologies + the default ones (ISO3166 etc)
-      "--import-hl7-terminology",
-      #"--import-hl7-terminology=local",
-      #"--import-hl7-terminology=6.1.0",
-      #"--import-snomed-terminology=local",
-      "--import-snomed-terminology=http://snomed.info/sct/11000172109", # latest belgian extension (+ international edition dependency)
-      #"--import-snomed-terminology=http://snomed.info/sct/11000172109/version/20250315", # specific version
+      "--syndication", # uncomment to import below terminologies + the default ones (ISO3166 etc)
+      "--hl7",
+      #"--hl7=local",
+      #"--hl7=6.1.0",
+      #"--snomed=local",
+      "--snomed=http://snomed.info/sct/11000172109", # latest belgian extension (+ international edition dependency)
+      #"--snomed=http://snomed.info/sct/11000172109/version/20250315", # specific version
       "--extension-country-code=BE", # mandatory when loading snomed extensions
-      "--import-loinc-terminology",
-      #"--import-loinc-terminology=local",
-      #"--import-loinc-terminology=2.78",
+      "--loinc",
+      #"--loinc=local",
+      #"--loinc=2.78",
     ]
     networks:
       elastic:
@@ -62,21 +62,21 @@ services:
          - snowstorm
     ports:
       - "8080:8080"
-      #- "5005:5005" # debugging purposes
+      - "5005:5005" # debugging purposes
 
-  browser:
-    image: snomedinternational/snomedct-browser:latest
-    container_name: browser
-    depends_on:
-      - snowstorm
-    links:
-      - snowstorm:snowstorm
-    networks:
-      - elastic
-    environment:
-      - API_HOST=http://snowstorm:8080/
-    ports:
-      - "80:80"
+#  browser:
+#    image: snomedinternational/snomedct-browser:latest
+#    container_name: browser
+#    depends_on:
+#      - snowstorm
+#    links:
+#      - snowstorm:snowstorm
+#    networks:
+#      - elastic
+#    environment:
+#      - API_HOST=http://snowstorm:8080/
+#    ports:
+#      - "80:80"
     #restart: always
 
 #  kibana:
