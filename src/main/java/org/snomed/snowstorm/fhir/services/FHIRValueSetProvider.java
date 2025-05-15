@@ -289,13 +289,13 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 			@OperationParam(name="date") DateTimeType date,
 			@OperationParam(name="abstract") BooleanType abstractBool,
 			@OperationParam(name="displayLanguage") String displayLanguage,
-			@OperationParam(name="system-version") String incorrectParamSystemVersion,
+			@OperationParam(name="system-version") String systemVersionDeprecated,
 			@OperationParam(name="inferSystem") BooleanType inferSystem,
+			@OperationParam(name="lenient-display-validation") BooleanType lenientDisplayValidation,
 			@OperationParam(name="activeOnly") BooleanType activeOnly) {
 
-		validateCodeParamHints(incorrectParamSystemVersion);
-		return valueSetService.validateCode(id.getIdPart(), url, context, valueSet, valueSetVersion, code, system, systemVersion, display, coding, codeableConcept, date, abstractBool,
-				FHIRHelper.getDisplayLanguage(displayLanguage, request.getHeader(ACCEPT_LANGUAGE_HEADER)),inferSystem, activeOnly, null);
+		return valueSetService.validateCode(id.getIdPart(), url, context, valueSet, valueSetVersion, code, system, systemVersion == null ? systemVersionDeprecated : systemVersion, display, coding, codeableConcept, date, abstractBool,
+				FHIRHelper.getDisplayLanguage(displayLanguage, request.getHeader(ACCEPT_LANGUAGE_HEADER)),inferSystem, activeOnly, null, lenientDisplayValidation);
 	}
 
 	@Operation(name="$validate-code", idempotent=true)
@@ -316,24 +316,20 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 			@OperationParam(name="date") DateTimeType date,
 			@OperationParam(name="abstract") BooleanType abstractBool,
 			@OperationParam(name="displayLanguage") String displayLanguage,
-			@OperationParam(name="system-version") String incorrectParamSystemVersion,
+			@OperationParam(name="system-version") String systemVersionDeprecated,
 			@OperationParam(name="inferSystem") BooleanType inferSystem,
 			@OperationParam(name="activeOnly") BooleanType activeOnly,
+			@OperationParam(name="lenient-display-validation") BooleanType lenientDisplayValidation,
 			@OperationParam(name="default-valueset-version") CanonicalType versionValueSet) {
 
-		validateCodeParamHints(incorrectParamSystemVersion);
 		logger.info(FHIRValueSetProviderHelper.getFullURL(request));
 		if (request.getMethod().equals(RequestMethod.POST.name())) {
 			// HAPI doesn't populate the OperationParam values for POST, we parse the body instead.
 			List<Parameters.ParametersParameterComponent> parsed = fhirContext.newJsonParser().parseResource(Parameters.class, rawBody).getParameter();
 			FHIRHelper.handleTxResources(loadPackageService, parsed);
 		}
-		return valueSetService.validateCode(null, url, context, valueSet, valueSetVersion, code, system, systemVersion, display, coding, codeableConcept, date, abstractBool,
-				FHIRHelper.getDisplayLanguage(displayLanguage, request.getHeader(ACCEPT_LANGUAGE_HEADER)), inferSystem, activeOnly, versionValueSet);
-	}
-
-	private void validateCodeParamHints(String incorrectParamSystemVersion) {
-		FHIRHelper.parameterNamingHint("system-version", incorrectParamSystemVersion, "systemVersion");
+		return valueSetService.validateCode(null, url, context, valueSet, valueSetVersion, code, system, systemVersion == null ? systemVersionDeprecated : systemVersion, display, coding, codeableConcept, date, abstractBool,
+				FHIRHelper.getDisplayLanguage(displayLanguage, request.getHeader(ACCEPT_LANGUAGE_HEADER)), inferSystem, activeOnly, versionValueSet, lenientDisplayValidation);
 	}
 
 	@Override
