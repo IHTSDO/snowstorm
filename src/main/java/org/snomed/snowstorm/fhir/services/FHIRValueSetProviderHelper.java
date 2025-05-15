@@ -14,6 +14,7 @@ import org.snomed.snowstorm.fhir.pojo.ValueSetExpansionParameters;
 
 import java.io.*;
 import java.util.List;
+import java.util.Optional;
 import java.util.zip.GZIPOutputStream;
 
 import static org.snomed.snowstorm.fhir.services.FHIRHelper.*;
@@ -171,8 +172,13 @@ class FHIRValueSetProviderHelper {
 					temp.id = x.getIdPart();
 					x.getNamedProperty("url").getValues().stream().findFirst().ifPresent(y -> { temp.url = y.primitiveValue();});
 					temp.resourceType = x.getResourceType().toString();
-					temp.filename = "%s-%s.json".formatted(temp.resourceType, temp.id);
-					x.getNamedProperty("version").getValues().stream().findFirst().ifPresent(y -> { temp.version = y.primitiveValue();});
+					Optional<String> version = x.getNamedProperty("version").getValues().stream().findFirst().map(Base::primitiveValue);
+					if(version.isPresent()) {
+						temp.version = version.get();
+						temp.filename = "%s-%s-%s.json".formatted(temp.resourceType, temp.id, temp.version);
+					} else {
+						temp.filename = "%s-%s.json".formatted(temp.resourceType, temp.id);
+					}
 					tuple.indexFile = temp;
 
 					// Instantiate a new JSON parser
