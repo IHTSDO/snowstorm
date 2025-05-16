@@ -463,6 +463,38 @@ public class ReferencedConceptsLookupUpdateService extends ComponentService impl
         if (deletedCounter.get() > 0) {
             logger.info("Deleted members count: {} on branch {}", deletedCounter.get(), commit.getBranch().getPath());
         }
+        // Ignore concepts to remove when same concepts also exist in the concepts to add list
+        conceptIdsToRemove.removeAll(conceptIdsToAdd);
+        // Check whether there are any active members for referenced concept ids for the same refset in case of duplicates or mapping
+        Set<Long> componentIdsWithActiveMembers = fetchReferencedComponentIdsWithActiveMembers(refsetId, conceptIdsToRemove, commit);
+        conceptIdsToRemove.removeAll(componentIdsWithActiveMembers);
+    }
+
+    private Set<Long> fetchReferencedComponentIdsWithActiveMembers(Long refsetId, Set<Long> conceptIdsToRemove, Commit commit) {
+        if (conceptIdsToRemove.isEmpty()) {
+            return Collections.emptySet();
+        }
+        final BranchCriteria branchCriteria = versionControlHelper.getBranchCriteriaIncludingOpenCommit(commit);
+        NativeQuery memberQuery = new NativeQueryBuilder()
+                .withQuery(bool(b -> b.must(branchCriteria.getEntityBranchCriteria(ReferenceSetMember.class))
+                                .must(termQuery(REFSET_ID, refsetId))
+                                .must(termQuery(ACTIVE, true))
+                                .must(termsQuery(REFERENCED_COMPONENT_ID, conceptIdsToRemove))
+                        )
+                )
+                .withSourceFilter(new FetchSourceFilter(new String[]{REFERENCED_COMPONENT_ID, MEMBER_ID}, null))
+                .withPageable(LARGE_PAGE)
+                .build();
+        Set<Long> componentWithActiveMembers = new HashSet<>();
+        String branchPath = commit.getBranch().getPath();
+        try (final SearchHitsIterator<ReferenceSetMember> searchHitsIterator = elasticsearchOperations.searchForStream(memberQuery, ReferenceSetMember.class)) {
+            searchHitsIterator.forEachRemaining(hit -> {
+                logger.info("Concept id {} is still referenced by active member {} for refset {} when searched on branch {}",
+                        hit.getContent().getReferencedComponentId(), hit.getContent().getMemberId(), refsetId, branchPath);
+                componentWithActiveMembers.add(parseLong(hit.getContent().getReferencedComponentId()));
+            });
+        }
+        return componentWithActiveMembers;
     }
 
     private boolean lookupsChanged(List<ReferencedConceptsLookup> existingLookups, Set<Long> conceptIdsToAdd, Set<Long> conceptIdsToRemove) {
