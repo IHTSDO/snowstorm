@@ -12,6 +12,7 @@ import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.repositories.ReferencedConceptsLookupRepository;
 import org.snomed.snowstorm.ecl.ReferencedConceptsLookupService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
 
 import java.util.*;
@@ -685,15 +686,13 @@ class ReferencedConceptsLookupUpdateServiceTest extends AbstractTest {
         Set<ReferenceSetMember> members = new HashSet<>();
         for (String conceptId : referencedConcepts) {
             ReferenceSetMember member = new ReferenceSetMember();
+            member.setMemberId(UUID.randomUUID().toString());
             member.setRefsetId(refsetId);
             member.setReferencedComponentId(conceptId);
             member.setModuleId(Concepts.CORE_MODULE);
             member.setPath(branchPath);
+            member.markChanged();
             members.add(member);
-        }
-        try (Commit commit = branchService.openCommit(branchPath, "Testing")) {
-            refsetMemberService.doSaveBatchMembers(members, commit);
-            commit.markSuccessful();
         }
         refsetMemberService.createMembers(branchPath, members);
         return members;
@@ -777,5 +776,99 @@ class ReferencedConceptsLookupUpdateServiceTest extends AbstractTest {
         branchMergeService.mergeBranchSync(main.getBranchPath(), extension.getBranchPath(), Collections.emptyList());
         conceptsLookups = conceptsLookupService.getConceptsLookups(versionControlHelper.getBranchCriteria(branchService.findLatest(extension.getBranchPath())));
         assertEquals(2, conceptsLookups.size());
+    }
+
+    @Test
+    void testDuplicateRefsetMembersInactivation() throws ServiceException {
+        // Create two duplicate refset members with different member IDs
+        CodeSystem main = new CodeSystem("SNOMEDCT", "MAIN");
+        codeSystemService.createCodeSystem(main);
+        createMembers(MAIN, REFSET_SIMPLE, List.of("200001", "200001", "200002"));
+        long total = refsetMemberService.findMembers(MAIN, "200001", PageRequest.ofSize(10)).getTotalElements();
+        assertEquals(2L, total);
+
+        // Verify that the lookup remains accurate
+        List<ReferencedConceptsLookup>  lookups = conceptsLookupService.getConceptsLookups(versionControlHelper.getChangesOnBranchCriteria(branchService.findLatest(MAIN)));
+        assertEquals(1, lookups.size());
+        assertEquals(2, lookups.get(0).getTotal());
+        assertEquals(Set.of(200001L, 200002L), lookups.get(0).getConceptIds());
+
+        // Publish
+        codeSystemService.createVersion(main,20250401, "20250401 release");
+
+        // Rebase project and task
+        branchMergeService.mergeBranchSync("MAIN", projectA.getPath(), Collections.emptyList());
+        branchMergeService.mergeBranchSync(projectA.getPath(), taskA.getPath(), Collections.emptyList());
+
+        // Inactivate one of the members
+        List<ReferenceSetMember> members = refsetMemberService.findMembers(taskA.getPath(), "200001", PageRequest.ofSize(10)).stream().toList();
+        assertEquals(2, members.size());
+        ReferenceSetMember duplicate = members.stream().filter(m -> "200001".equals(m.getReferencedComponentId())).findFirst().orElseThrow();
+        duplicate.setActive(false);
+        duplicate.setPath(taskA.getPath());
+        refsetMemberService.updateMember(taskA.getPath(), duplicate);
+
+        members = refsetMemberService.findMembers(taskA.getPath(), "200001", PageRequest.ofSize(10)).stream().toList();
+        assertEquals(2, members.size());
+
+        // Verify that no lookup is generated
+        lookups = conceptsLookupService.getConceptsLookups(versionControlHelper.getChangesOnBranchCriteria(branchService.findLatest(taskA.getPath())));
+        assertEquals(0, lookups.size());
+
+        // Promote task to project
+        branchMergeService.mergeBranchSync(taskA.getPath(), projectA.getPath(), Collections.emptyList());
+        // Promote project to MAIN
+        branchMergeService.mergeBranchSync(projectA.getPath(), main.getBranchPath(), Collections.emptyList());
+
+        // Verify that the lookup remains accurate
+        lookups = conceptsLookupService.getConceptsLookups(versionControlHelper.getBranchCriteria(branchService.findLatest(MAIN)));
+        assertEquals(1, lookups.size());
+        assertEquals(2, lookups.get(0).getTotal());
+        assertEquals(Set.of(200001L, 200002L), lookups.get(0).getConceptIds());
+    }
+
+
+    @Test
+    void testDuplicateRefsetMembersDeletion() throws ServiceException {
+        // Create two duplicate refset members with different member IDs
+        CodeSystem main = new CodeSystem("SNOMEDCT", "MAIN");
+        codeSystemService.createCodeSystem(main);
+        createMembers(MAIN, REFSET_SIMPLE, List.of("200001", "200001", "200002"));
+        long total = refsetMemberService.findMembers(MAIN, "200001", PageRequest.ofSize(10)).getTotalElements();
+        assertEquals(2L, total);
+
+        // Verify that the lookup remains accurate
+        List<ReferencedConceptsLookup>  lookups = conceptsLookupService.getConceptsLookups(versionControlHelper.getChangesOnBranchCriteria(branchService.findLatest(MAIN)));
+        assertEquals(1, lookups.size());
+        assertEquals(2, lookups.get(0).getTotal());
+        assertEquals(Set.of(200001L, 200002L), lookups.get(0).getConceptIds());
+
+        // Rebase project and task
+        branchMergeService.mergeBranchSync("MAIN", projectA.getPath(), Collections.emptyList());
+        branchMergeService.mergeBranchSync(projectA.getPath(), taskA.getPath(), Collections.emptyList());
+
+        // Delete one of the members
+        List<ReferenceSetMember> members = refsetMemberService.findMembers(taskA.getPath(), "200001", PageRequest.ofSize(10)).stream().toList();
+        assertEquals(2, members.size());
+        ReferenceSetMember duplicate = members.stream().filter(m -> "200001".equals(m.getReferencedComponentId())).findFirst().orElseThrow();
+        refsetMemberService.deleteMember(taskA.getPath(), duplicate.getMemberId());
+
+        members = refsetMemberService.findMembers(taskA.getPath(), "200001", PageRequest.ofSize(10)).stream().toList();
+        assertEquals(1, members.size());
+
+        // Verify that the exclude lookup is not generated
+        lookups = conceptsLookupService.getConceptsLookups(versionControlHelper.getChangesOnBranchCriteria(branchService.findLatest(taskA.getPath())));
+        assertEquals(0, lookups.size());
+
+        // Promote task to project
+        branchMergeService.mergeBranchSync(taskA.getPath(), projectA.getPath(), Collections.emptyList());
+        // Promote project to MAIN
+        branchMergeService.mergeBranchSync(projectA.getPath(), main.getBranchPath(), Collections.emptyList());
+
+        // Verify that the lookup remains accurate
+        lookups = conceptsLookupService.getConceptsLookups(versionControlHelper.getBranchCriteria(branchService.findLatest(MAIN)));
+        assertEquals(1, lookups.size());
+        assertEquals(2, lookups.get(0).getTotal());
+        assertEquals(Set.of(200001L, 200002L), lookups.get(0).getConceptIds());
     }
 }
