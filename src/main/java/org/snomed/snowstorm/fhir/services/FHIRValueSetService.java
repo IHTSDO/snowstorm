@@ -1494,11 +1494,15 @@ public class FHIRValueSetService {
 					}
 					if (termMatch != null) {
 						response.addParameter("result", false);
-						response.addParameter("message", format("The code '%s' was found in the ValueSet and the display matched the designation with term '%s', " +
-								"however the language of the designation '%s' did not match any of the languages in the requested display language '%s'.",
-								codingA.getCode(), termMatch.getValue(), termMatch.getLanguage(), displayLanguage));
+						response.addParameter("display", concept.getDisplay());
+						String message = format("The code '%s' was found in the ValueSet and the display matched the designation with term '%s', " +
+										"however the language of the designation '%s' did not match any of the languages in the requested display language '%s'.",
+								codingA.getCode(), termMatch.getValue(), termMatch.getLanguage(), displayLanguage);
+						response.addParameter("message", message);
 						CodeableConcept cc = new CodeableConcept();
-						Parameters.ParametersParameterComponent operationOutcomeParameter = createParameterComponentWithOperationOutcomeWithIssue(cc, OperationOutcome.IssueSeverity.INFORMATION, "Coding.display", OperationOutcome.IssueType.INVALID);
+						cc.setText(message);
+						cc.addCoding(new Coding().setSystem(TX_ISSUE_TYPE).setCode("invalid-display"));
+						Parameters.ParametersParameterComponent operationOutcomeParameter = createParameterComponentWithOperationOutcomeWithIssue(cc, OperationOutcome.IssueSeverity.ERROR, coding != null ? "Coding.display" : "display", OperationOutcome.IssueType.INVALID);
 						response.addParameter(operationOutcomeParameter);
 						return response;
 					} else {
@@ -1538,7 +1542,8 @@ public class FHIRValueSetService {
 							response.addParameter("message", format(message, codingA.getDisplay(), codingA.getSystem(), codingA.getCode(), displayLanguage, concept.getDisplay()));
 							cc = new CodeableConcept(new Coding().setSystem(TX_ISSUE_TYPE).setCode("invalid-display")).setText(format(message, codingA.getDisplay(), codingA.getSystem(), codingA.getCode(), displayLanguage, concept.getDisplay()));
 						}
-						Parameters.ParametersParameterComponent operationOutcomeParameter = createParameterComponentWithOperationOutcomeWithIssue(cc, OperationOutcome.IssueSeverity.ERROR, "Coding.display", OperationOutcome.IssueType.INVALID);
+						List<Extension> extensions = List.of(new Extension("http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id", new StringType("Display_Name_for__should_be_one_of__instead_of")));
+						Parameters.ParametersParameterComponent operationOutcomeParameter = createParameterComponentWithOperationOutcomeWithIssue(cc, OperationOutcome.IssueSeverity.ERROR, coding != null ? "Coding.display" : "display", OperationOutcome.IssueType.INVALID, extensions);
 						response.addParameter(operationOutcomeParameter);
 						return response;
 					}
