@@ -1125,6 +1125,10 @@ public class FHIRValueSetService {
 					}
 				});
 
+		if(hasDisplayLanguage(hapiValueSet) && displayLanguage == null) {
+			displayLanguage = hapiValueSet.getCompose().getExtensionByUrl("http://hl7.org/fhir/tools/StructureDefinion/valueset-expansion-param").getExtensionString("value");
+		}
+
 		// Get set of codings - one of which needs to be valid
 		Set<Coding> codings = new HashSet<>();
 		if (code != null) {
@@ -1478,13 +1482,15 @@ public class FHIRValueSetService {
 					for (FHIRDesignation designation : concept.getDesignations()) {
 						if (codingADisplay.equalsIgnoreCase(designation.getValue())) {
 							termMatch = designation;
-							if (designation.getLanguage() == null || languageDialects.stream()
-										.anyMatch(languageDialect -> designation.getLanguage().equals(languageDialect.getLanguageCode()))) {
+							String designationLanguage = designation.getLanguage();
+							if (designationLanguage == null || languageDialects.stream()
+										.anyMatch(languageDialect -> designationLanguage.equals(languageDialect.getLanguageCode()))) {
 								response.addParameter("result", true);
 								response.addParameter("display", termMatch.getValue());
 								//response.addParameter("message", format("The code '%s' was found in the ValueSet and the display matched one of the designations.",codingA.getCode()));
 								return response;
-							} else if (languageDialects.isEmpty() && designation.getLanguage() != null && !LANG_EN.equals(designation.getLanguage() )){
+							} else if (languageDialects.isEmpty() && !LANG_EN.equals(designationLanguage) && (
+									(displayLanguage != null && !designationLanguage.equals(displayLanguage)) || (hapiValueSet.getLanguage() != null && !designationLanguage.equals(hapiValueSet.getLanguage())))) {
 								termMatch = null;
 							} else if (languageDialects.isEmpty()){
 								response.addParameter("result", true);
