@@ -1047,7 +1047,6 @@ public class FHIRValueSetService {
 								   String display, Coding coding, CodeableConcept codeableConcept, DateTimeType date, BooleanType abstractBool, String displayLanguage, BooleanType inferSystem, BooleanType activeOnly, CanonicalType versionValueSet, BooleanType lenientDisplayValidation) {
 
 		notSupported("context", context);
-		notSupported("valueSetVersion", valueSetVersion);
 		notSupported("date", date);
 		notSupported("abstract", abstractBool);
 
@@ -1056,7 +1055,7 @@ public class FHIRValueSetService {
 		mutuallyRequired("display", display, "code", code, "coding", coding);
 
 		// Grab value set
-		ValueSet hapiValueSet = findOrInferValueSet(id, FHIRHelper.toString(url), valueSet, null);
+		ValueSet hapiValueSet = findOrInferValueSet(id, FHIRHelper.toString(url), valueSet, valueSetVersion);
 		if (hapiValueSet == null) {
 			CodeableConcept detail = new CodeableConcept(new Coding(TX_ISSUE_TYPE,"not-found",null)).setText(format("A definition for the value Set '%s' could not be found",url.getValue()));
 			throw exception("message", OperationOutcome.IssueType.NOTFOUND,404,null, detail);
