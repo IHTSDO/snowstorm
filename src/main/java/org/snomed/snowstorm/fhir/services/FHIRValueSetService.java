@@ -1478,12 +1478,14 @@ public class FHIRValueSetService {
 					for (FHIRDesignation designation : concept.getDesignations()) {
 						if (codingADisplay.equalsIgnoreCase(designation.getValue())) {
 							termMatch = designation;
-							if (termMatch.getLanguage() == null || languageDialects.stream()
+							if (designation.getLanguage() == null || languageDialects.stream()
 										.anyMatch(languageDialect -> designation.getLanguage().equals(languageDialect.getLanguageCode()))) {
 								response.addParameter("result", true);
 								response.addParameter("display", termMatch.getValue());
 								//response.addParameter("message", format("The code '%s' was found in the ValueSet and the display matched one of the designations.",codingA.getCode()));
 								return response;
+							} else if (languageDialects.isEmpty() && designation.getLanguage() != null && !LANG_EN.equals(designation.getLanguage() )){
+								termMatch = null;
 							} else if (languageDialects.isEmpty()){
 								response.addParameter("result", true);
 								response.addParameter("display", concept.getDisplay());
@@ -1542,8 +1544,7 @@ public class FHIRValueSetService {
 							response.addParameter("message", format(message, codingA.getDisplay(), codingA.getSystem(), codingA.getCode(), displayLanguage, concept.getDisplay()));
 							cc = new CodeableConcept(new Coding().setSystem(TX_ISSUE_TYPE).setCode("invalid-display")).setText(format(message, codingA.getDisplay(), codingA.getSystem(), codingA.getCode(), displayLanguage, concept.getDisplay()));
 						}
-						List<Extension> extensions = List.of(new Extension("http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id", new StringType("Display_Name_for__should_be_one_of__instead_of")));
-						Parameters.ParametersParameterComponent operationOutcomeParameter = createParameterComponentWithOperationOutcomeWithIssue(cc, OperationOutcome.IssueSeverity.ERROR, coding != null ? "Coding.display" : "display", OperationOutcome.IssueType.INVALID, extensions);
+						Parameters.ParametersParameterComponent operationOutcomeParameter = createParameterComponentWithOperationOutcomeWithIssue(cc, OperationOutcome.IssueSeverity.ERROR, coding != null ? "Coding.display" : "display", OperationOutcome.IssueType.INVALID);
 						response.addParameter(operationOutcomeParameter);
 						return response;
 					}

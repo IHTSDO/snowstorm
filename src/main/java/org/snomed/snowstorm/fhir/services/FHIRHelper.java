@@ -161,11 +161,7 @@ public class FHIRHelper implements FHIRConstants {
 	}
 
 	static Parameters.@NotNull ParametersParameterComponent createParameterComponentWithOperationOutcomeWithIssue(CodeableConcept cc, OperationOutcome.IssueSeverity issueSeverity, String locationExpression, IssueType issueType) {
-		return createParameterComponentWithOperationOutcomeWithIssue(cc, issueSeverity, locationExpression, issueType, null);
-	}
-
-	static Parameters.@NotNull ParametersParameterComponent createParameterComponentWithOperationOutcomeWithIssue(CodeableConcept cc, OperationOutcome.IssueSeverity issueSeverity, String locationExpression, IssueType issueType, List<Extension> extensions) {
-		OperationOutcome operationOutcome = createOperationOutcomeWithIssue(cc, issueSeverity, locationExpression, issueType,extensions, null);
+		OperationOutcome operationOutcome = createOperationOutcomeWithIssue(cc, issueSeverity, locationExpression, issueType,null, null);
 		Parameters.ParametersParameterComponent operationOutcomeParameter = new Parameters.ParametersParameterComponent(new StringType("issues"));
 		operationOutcomeParameter.setResource(operationOutcome);
 		return operationOutcomeParameter;
