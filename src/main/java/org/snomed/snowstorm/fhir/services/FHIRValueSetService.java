@@ -1083,7 +1083,7 @@ public class FHIRValueSetService {
 	}
 
 	public Parameters validateCode(String id, UriType url, UriType context, ValueSet valueSet, String valueSetVersion, String code, UriType system, String systemVersion,
-								   String display, Coding coding, CodeableConcept codeableConcept, DateTimeType date, BooleanType abstractBool, String displayLanguage, BooleanType inferSystem, BooleanType activeOnly, CanonicalType versionValueSet) {
+								   String display, Coding coding, CodeableConcept codeableConcept, DateTimeType date, BooleanType abstractBool, String displayLanguage, BooleanType inferSystem, BooleanType activeOnly, CanonicalType versionValueSet, BooleanType lenientDisplayValidation) {
 
 		notSupported("context", context);
 		notSupported("date", date);
@@ -1550,7 +1550,16 @@ public class FHIRValueSetService {
 							response.addParameter("message", format(message, codingA.getDisplay(), codingA.getSystem(), codingA.getCode(), displayLanguage, concept.getDisplay()));
 							cc = new CodeableConcept(new Coding().setSystem(TX_ISSUE_TYPE).setCode("invalid-display")).setText(format(message, codingA.getDisplay(), codingA.getSystem(), codingA.getCode(), displayLanguage, concept.getDisplay()));
 						}
-						Parameters.ParametersParameterComponent operationOutcomeParameter = createParameterComponentWithOperationOutcomeWithIssue(cc, OperationOutcome.IssueSeverity.ERROR, coding != null ? "Coding.display" : "display", OperationOutcome.IssueType.INVALID);
+						OperationOutcome.IssueSeverity severity;
+						if (lenientDisplayValidation != null && lenientDisplayValidation.booleanValue()) {
+							response.setParameter("result", true);
+							severity = OperationOutcome.IssueSeverity.WARNING;
+						} else {
+							severity = OperationOutcome.IssueSeverity.ERROR;
+						}
+
+						String locationExpression = coding != null ? "Coding.display" : (codeableConcept != null ? "CodeableConcept.coding[0].display" : "display");
+						Parameters.ParametersParameterComponent operationOutcomeParameter = createParameterComponentWithOperationOutcomeWithIssue(cc, severity, locationExpression, OperationOutcome.IssueType.INVALID);
 						response.addParameter(operationOutcomeParameter);
 						return response;
 					}
