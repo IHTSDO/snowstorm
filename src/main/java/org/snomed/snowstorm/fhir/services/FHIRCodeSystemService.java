@@ -396,12 +396,13 @@ public class FHIRCodeSystemService {
 		} else {
 			String id = systemVersionParams.getId();
 			String versionParam = systemVersionParams.getVersion();
-			if (id != null) {// ID is unique, version not needed
-				version = codeSystemRepository.findById(id).orElse(null);
-			} else if (versionParam != null) {
-				version = codeSystemRepository.findByUrlAndVersion(systemVersionParams.getCodeSystem(), versionParam);
+			String urlParam = systemVersionParams.getCodeSystem();
+			if (id != null) { // version not needed if only one codeSystem possesses this id or if only latest version needed
+				version = codeSystemRepository.findFirstByCodeSystemIdOrderByVersionDesc(id).orElse(null);
+			} else if (versionParam != null && urlParam != null) {
+				version = codeSystemRepository.findByUrlAndVersion(urlParam, versionParam);
 			} else {
-				version = codeSystemRepository.findFirstByUrlOrderByVersionDesc(systemVersionParams.getCodeSystem());
+				version = codeSystemRepository.findFirstByUrlOrderByVersionDesc(urlParam);
 			}
 		}
 
@@ -484,7 +485,7 @@ public class FHIRCodeSystemService {
 	}
 
 	public Optional<FHIRCodeSystemVersion> findById(String id) {
-		return codeSystemRepository.findById(id);
+		return codeSystemRepository.findFirstByCodeSystemIdOrderByVersionDesc(id);
 	}
 
 	public void deleteCodeSystemVersion(FHIRCodeSystemVersion codeSystemVersion) {

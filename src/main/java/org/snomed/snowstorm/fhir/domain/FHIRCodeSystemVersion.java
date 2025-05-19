@@ -1,6 +1,7 @@
 package org.snomed.snowstorm.fhir.domain;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import org.apache.commons.lang3.StringUtils;
 import org.hl7.fhir.r4.model.CodeSystem;
 import org.hl7.fhir.r4.model.Enumerations;
 import org.joda.time.DateTime;
@@ -24,6 +25,9 @@ public class FHIRCodeSystemVersion {
 
 	@Id
 	private String id;
+
+	@Field(type = FieldType.Keyword)
+	private String codeSystemId;
 
 	@Field(type = FieldType.Keyword)
 	private String url;
@@ -88,15 +92,16 @@ public class FHIRCodeSystemVersion {
 	public FHIRCodeSystemVersion(CodeSystem codeSystem) {
 		url = codeSystem.getUrl();
 		String id = codeSystem.getId();
+		version = codeSystem.getVersion();
 		if (id == null) {
 			// Spec: https://build.fhir.org/resource.html#id
 			// "Ids can be up to 64 characters long, and contain any combination of upper and lowercase ASCII letters, numerals, "-" and ".""
 			id = url.replace("http://", "").replaceAll("[^a-zA-Z0-9.-]", "-");
-			this.id = id;
 		} else {
-			this.id = codeSystem.getId().replace("CodeSystem/", "");
+			id = codeSystem.getId().replace("CodeSystem/", "");
 		}
-		version = codeSystem.getVersion();
+		this.id = id + (StringUtils.isBlank(version) ? "" : ("-" + version));
+		this.codeSystemId = id;
 		experimental = codeSystem.getExperimental();
 		caseSensitive = codeSystem.getCaseSensitive();
 		date = codeSystem.getDate();
@@ -135,6 +140,7 @@ public class FHIRCodeSystemVersion {
 
 		String moduleId = snomedVersion.getCodeSystem().getUriModuleId();
 		id = FHIRCodeSystemService.SCT_ID_PREFIX + moduleId + "_" + snomedVersion.getEffectiveDate();
+		this.codeSystemId = id;
 		version = SNOMED_URI + "/" + moduleId + VERSION + snomedVersion.getEffectiveDate();
 		if (title == null) {
 			title = "SNOMED CT release " + snomedVersion.getVersion();
@@ -169,6 +175,7 @@ public class FHIRCodeSystemVersion {
 			version = SNOMED_URI_UNVERSIONED + "/" + moduleId;
 			content = CodeSystem.CodeSystemContentMode.COMPLETE.toCode();
 		}
+		this.codeSystemId = id;
 		snomedBranch = snomedCodeSystem.getBranchPath();
 		var languages = snomedCodeSystem.getLanguages();
 		if (languages != null) {
@@ -181,7 +188,7 @@ public class FHIRCodeSystemVersion {
 	public CodeSystem toHapiCodeSystem() {
 		CodeSystem codeSystem = new CodeSystem();
 		codeSystem.setExtension(Optional.ofNullable(extensions).orElse(Collections.emptyList()).stream().map(fe -> fe.getHapi()).toList());
-		codeSystem.setId(id);
+		codeSystem.setId(codeSystemId);
 		codeSystem.setUrl(url);
 		if(!"0".equals(version)) {
 			codeSystem.setVersion(version);
