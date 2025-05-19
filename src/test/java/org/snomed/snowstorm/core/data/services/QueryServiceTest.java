@@ -2,6 +2,7 @@ package org.snomed.snowstorm.core.data.services;
 
 import com.google.common.collect.Lists;
 import io.kaicode.elasticvc.api.BranchService;
+import io.kaicode.elasticvc.domain.Branch;
 import io.kaicode.elasticvc.domain.Commit;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -322,6 +323,31 @@ class QueryServiceTest extends AbstractTest {
 		results = service.search(queryBuilder, PATH, PAGE_REQUEST).getContent();
 		assertEquals(1, results.size());
 		assertEquals(PENTALOGY_OF_FALLOT, results.get(0).getConceptId());
+
+		// Add new member on a project
+		Branch projectA = branchService.create("MAIN/ProjectA");
+		Concept testConcept = new Concept("200001")
+						.addRelationship(new Relationship(ISA, DISORDER))
+						.addRelationship(new Relationship(FINDING_SITE, PULMONARY_VALVE_STRUCTURE).setGroupId(1))
+						.addRelationship(new Relationship(ASSOCIATED_MORPHOLOGY, STENOSIS).setGroupId(1))
+						.addRelationship(new Relationship(FINDING_SITE, RIGHT_VENTRICULAR_STRUCTURE).setGroupId(2))
+						.addRelationship(new Relationship(ASSOCIATED_MORPHOLOGY, HYPERTROPHY).setGroupId(2));
+		conceptService.create(testConcept, projectA.getPath());
+		createMembers(projectA.getPath(), REFSET_SIMPLE, List.of("200001"));
+		results = service.search(queryBuilder, projectA.getPath(), PAGE_REQUEST).getContent();
+		assertEquals(2, results.size());
+		List<String> actual = results.stream().map(ConceptMini::getConceptId).toList();
+		assertTrue(actual.containsAll(List.of("200001", PENTALOGY_OF_FALLOT)));
+
+		// Delete refset member for PENTALOGY_OF_FALLOT
+		Page<ReferenceSetMember> members = referenceSetMemberService.findMembers(projectA.getPath(), PENTALOGY_OF_FALLOT, PageRequest.ofSize(1));
+		assertEquals(1, members.getTotalElements());
+		ReferenceSetMember member = members.getContent().get(0);
+		referenceSetMemberService.deleteMember(projectA.getPath(), member.getMemberId());
+		results = service.search(queryBuilder, projectA.getPath(), PAGE_REQUEST).getContent();
+		assertEquals(1, results.size());
+		actual = results.stream().map(ConceptMini::getConceptId).toList();
+		assertEquals("200001", actual.get(0));
 	}
 
 
@@ -411,7 +437,6 @@ class QueryServiceTest extends AbstractTest {
 				.addRelationship(new Relationship(FINDING_SITE, RIGHT_VENTRICULAR_STRUCTURE).setGroupId(2))
 				.addRelationship(new Relationship(ASSOCIATED_MORPHOLOGY, HYPERTROPHY).setGroupId(2))
 		);
-
 		conceptService.batchCreate(allConcepts, MAIN);
 	}
 

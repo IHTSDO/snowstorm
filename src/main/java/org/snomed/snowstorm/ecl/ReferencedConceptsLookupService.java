@@ -65,8 +65,9 @@ public class ReferencedConceptsLookupService {
     }
 
     public Query constructQueryWithLookups(Collection<ReferencedConceptsLookup> lookups, String fieldName) {
-        NativeQueryBuilder queryBuilder = new NativeQueryBuilder();
-        // Build terms lookup query
+        List<Query> includeFilters = new ArrayList<>();
+        List<Query> excludeFilters = new ArrayList<>();
+
         lookups.forEach(lookup -> {
             if (lookup.getTotal() > 0) {
                 // Build the terms lookup
@@ -82,13 +83,25 @@ public class ReferencedConceptsLookupService {
                         .terms(termsQueryField -> termsQueryField.lookup(termsLookup))));
 
                 if (ReferencedConceptsLookup.Type.INCLUDE == lookup.getType()) {
-                    queryBuilder.withFilter(bool(b -> b.should(termsLookupQuery)));
+                    includeFilters.add(termsLookupQuery);
                 } else {
-                    queryBuilder.withFilter(bool(b -> b.mustNot(termsLookupQuery)));
+                    excludeFilters.add(termsLookupQuery);
                 }
             }
         });
-        return NativeQuery.builder().withFilter(queryBuilder.build().getFilter()).build().getFilter();
+
+        Query combinedQuery = Query.of(q ->
+                q.bool(b -> {
+                    if (!includeFilters.isEmpty()) {
+                        b.should(includeFilters);
+                    }
+                    if (!excludeFilters.isEmpty()) {
+                        b.mustNot(excludeFilters);
+                    }
+                    return b;
+                })
+        );
+        return NativeQuery.builder().withFilter(combinedQuery).build().getFilter();
     }
 
     public void deleteAll() {
