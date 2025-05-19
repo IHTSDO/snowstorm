@@ -107,9 +107,11 @@ public class AdminController {
                     Otherwise, the referenced concepts lookup for all configured reference sets will be rebuilt. \s
                     See ecl.concepts-lookup.refset.ids in the application.properties file more detail \s
                     To enable lookups for a reference set, you need to rebuild this on the CodeSystem branch first and rebase projects/tasks \s
-                    By default snowstorm will not generate concepts lookup when total referenced concepts is below 1000. To force it you can set the disableThresholdCheck flag to true. \s
+                    By default snowstorm will skip generating concepts lookup when total referenced concepts is below 1000. To force it you can set the disableThresholdCheck flag to true. \s
                     Setting the dryRun to true when rebuilding will log a summary of the changes required without persisting the changes.
-                    If no changes are required or dryRun is set the empty commit used to run this function will be rolled back.""")
+                    If no changes are required or dryRun is set the empty commit used to run this function will be rolled back. \s
+                    N.B. refsetIds must be self or descendant of ecl.concepts-lookup.refset.id configured in the application.properties file. \s
+                    """)
 	@PostMapping(value = "/{branch}/actions/rebuild-referenced-concepts-lookup")
 	@PreAuthorize("hasPermission('ADMIN', #branch)")
 	public UpdatedDocumentCount rebuildBranchReferencedConceptsLookups(@PathVariable String branch, @RequestParam(required = false) List<Long> refsetIds,
@@ -128,6 +130,7 @@ public class AdminController {
                     Otherwise, the referenced concepts lookup for all configured reference sets will be removed. \s
                     See ecl.concepts-lookup.refset.ids in the application.properties file more detail \s
                     To enable lookups for a reference set again, you need to rebuild them \s
+                    N.B. refsetIds must be self or descendant of ecl.concepts-lookup.refset.id configured in the application.properties file. \s
                     """)
 	@PostMapping(value = "/{branch}/actions/remove-referenced-concepts-lookup")
 	@PreAuthorize("hasPermission('ADMIN', #branch)")

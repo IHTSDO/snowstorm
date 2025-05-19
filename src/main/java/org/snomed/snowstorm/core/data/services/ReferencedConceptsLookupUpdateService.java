@@ -382,7 +382,7 @@ public class ReferencedConceptsLookupUpdateService extends ComponentService impl
                     refsetId, commit.getBranch().getPath());
             return true;
         }
-        if (!disableThresholdCheck && conceptIdsToAdd.size() < conceptsLookupGenerationThreshold && conceptIdsToRemove.size() < conceptsLookupGenerationThreshold) {
+        if (!disableThresholdCheck && Math.max(conceptIdsToAdd.size(), conceptIdsToRemove.size()) < conceptsLookupGenerationThreshold) {
             logger.info("Referenced concepts lookup is not updated for refset {} because changes are below the threshold of {}.", refsetId, conceptsLookupGenerationThreshold);
             return true;
         }
