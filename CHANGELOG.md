@@ -3,7 +3,7 @@ All notable changes to this project will be documented in this file.
 
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## 10.8.1 Release (May 2025)
+## 10.8.2 Release (May 2025)
 Maintenance release with bug fixes and general improvements.
 
 ### Features
@@ -15,6 +15,8 @@ Maintenance release with bug fixes and general improvements.
 - PIP-678 Add to "concepts-lookup" during authoring
 - PIP-700 Add configuration to optionally use "concepts-lookup" index during ECL queries
 - PIP-710 Improve performance of compound ECL "member of" query
+- PIP-772 Handle duplicate refset member inactivation when building/promoting concept lookups during authoring
+- PIP-773 Improve ECL refinement expression with member of query
 
 ### Improvements
 - MAINT-2628 Update Accept-Language header parser for language with regional dialect

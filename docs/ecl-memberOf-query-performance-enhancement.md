@@ -3,7 +3,7 @@
 
 ## Overview
 
-Starting in version `10.8.0`, Snowstorm leverages Elasticsearch [Terms Lookup](https://www.elastic.co/docs/reference/query-languages/query-dsl/query-dsl-terms-query#query-dsl-terms-lookup) to significantly improve the performance of ECL `"member of"` queries.
+Starting in version `10.8.2`, Snowstorm leverages Elasticsearch [Terms Lookup](https://www.elastic.co/docs/reference/query-languages/query-dsl/query-dsl-terms-query#query-dsl-terms-lookup) to significantly improve the performance of ECL `"member of"` queries.
 This optimization is especially effective for reference sets with large volumes of data. Instead of querying referenced concepts via the `member` index,
 Snowstorm uses a dedicated `concepts-lookup` index to efficiently retrieve referenced concept ids.
 
@@ -25,12 +25,13 @@ ECL member of query – `^447562003 | SNOMED CT to ICD-10 extended map reference
 - A new index called `concepts-lookup` is introduced.
 - For eligible refset ids, referenced concept ids are precomputed and stored in this index.
 - ECL `"member of"` queries use this index to retrieve matches efficiently.
+- Snowstorm 10.8.2 is backward compatible with existing ECL queries that use the `member` index when there are no `concepts-lookup` generated for a given reference set ID.
 
 ---
 
 ## Enabling & Disabling Concepts Lookup
 
-- Enabled by default from version `10.8.0`
+- Enabled by default from version `10.8.2`
 - Concepts lookup is only generated for refsets that are self or descendants of:
 
   - `446609009 | Simple Type Refset|`
