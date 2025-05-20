@@ -214,7 +214,9 @@ public class FHIRHelper implements FHIRConstants {
 	}
 
 	static @NotNull String createFullyQualifiedCodeString(Coding codingA) {
-		return Optional.ofNullable(codingA.getSystem()).orElse("") + "#" + codingA.getCode();
+		return Optional.ofNullable(codingA.getSystem()).orElse("")
+				+ Optional.ofNullable(codingA.getVersion()).map(version -> "|" + version).orElse("")
+				+ "#" + codingA.getCode();
 	}
 
 	public List<LanguageDialect> getLanguageDialects(List<String> designations, String acceptLanguageHeader) {
