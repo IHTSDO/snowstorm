@@ -30,6 +30,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import static java.lang.String.format;
+import static org.snomed.snowstorm.fhir.services.FHIRHelper.DEFAULT_VERSION;
 
 @Service
 public class FHIRLoadPackageService {
@@ -154,7 +155,7 @@ public class FHIRLoadPackageService {
 						OperationOutcome.IssueType.NOTSUPPORTED, 400);
 			}
 			if (fhirPackageIndexFile.getVersion() == null) {
-				fhirPackageIndexFile.version = "1";
+				fhirPackageIndexFile.version = DEFAULT_VERSION;
 			}
 		}
 		if (!importAll) {
