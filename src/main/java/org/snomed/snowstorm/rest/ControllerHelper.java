@@ -204,7 +204,7 @@ public class ControllerHelper {
 					languageCode = matcher.group(1);
 					languageReferenceSet = parseLong(matcher.group(3));
 				} else {
-					throw new IllegalArgumentException("Invalid displayLanguage: '" + value + "'.");
+					throw new IllegalArgumentException("Invalid displayLanguage: '" + value + "'");
 				}
 			}
 

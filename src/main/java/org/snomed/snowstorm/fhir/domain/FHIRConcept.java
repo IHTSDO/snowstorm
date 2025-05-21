@@ -30,6 +30,7 @@ public class FHIRConcept implements FHIRGraphNode {
 
 		String CODE_SYSTEM_VERSION = "codeSystemVersion";
 		String CODE = "code";
+		String CODE_LOWER = "codeLower";
 		String DISPLAY = "display";
 		String DISPLAY_LENGTH = "displayLen";
 		String PARENTS = "parents";
@@ -46,6 +47,9 @@ public class FHIRConcept implements FHIRGraphNode {
 
 	@Field(type = FieldType.Keyword)
 	private String code;
+
+	@Field(type = FieldType.Keyword)
+	private String codeLower;
 
 	private String display;
 
@@ -75,6 +79,7 @@ public class FHIRConcept implements FHIRGraphNode {
 		this.codeSystemVersion = codeSystemVersion.getId();
 
 		code = termConcept.getCode();
+		codeLower = code.toLowerCase();
 		setDisplay(termConcept.getDisplay());
 		//active = true;
 		termConcept.getProperties().stream().filter(x -> ( x.getKey().equals("inactive") && !Boolean.valueOf(x.getValue()).equals(Boolean.FALSE)) || x.getKey().equals("status") && x.getValue().equals("retired")).findFirst().ifPresentOrElse(x -> active = false, ()-> active = true);
@@ -108,6 +113,7 @@ public class FHIRConcept implements FHIRGraphNode {
 		this.codeSystemVersion = codeSystemVersion.getId();
 
 		code = definitionConcept.getCode();
+		codeLower = code.toLowerCase();
 		setDisplay(definitionConcept.getDisplay());
 
 		//active = true;
@@ -138,6 +144,9 @@ public class FHIRConcept implements FHIRGraphNode {
 		);
 		parents = new HashSet<>();
 		for (CodeSystem.ConceptPropertyComponent propertyComponent : definitionConcept.getProperty()) {
+			if(propertyComponent.getCode() == null) {
+				continue;
+			}
 			if (properties.get(propertyComponent.getCode())==null && !propertyComponent.getCode().contains(EXTENSION_MARKER)){
 				properties.put(propertyComponent.getCode(),new ArrayList<>());
 			}
@@ -163,6 +172,7 @@ public class FHIRConcept implements FHIRGraphNode {
 	public FHIRConcept(ConceptMini snomedConceptMini, FHIRCodeSystemVersion codeSystemVersion, boolean includeDesignations) {
 		this.codeSystemVersion = codeSystemVersion.getId();
 		code = snomedConceptMini.getConceptId();
+		codeLower = code.toLowerCase();
 		TermLangPojo displayTerm = snomedConceptMini.getPt();
 		if (displayTerm == null) {
 			displayTerm = snomedConceptMini.getFsn();
@@ -218,6 +228,7 @@ public class FHIRConcept implements FHIRGraphNode {
 
 	public void setCode(String code) {
 		this.code = code;
+		codeLower = code.toLowerCase();
 	}
 
 	public String getDisplay() {
@@ -282,10 +293,10 @@ public class FHIRConcept implements FHIRGraphNode {
 	}
 
 	private static boolean isPropertyInactive(CodeSystem.ConceptPropertyComponent x) {
-		if (x.getCode().equals("inactive")) {
+		if ("inactive".equals(x.getCode())) {
 			if (x.hasValueBooleanType() && !Boolean.valueOf(x.getValueBooleanType().getValueAsString()).equals(Boolean.FALSE)) return true;
 			if (x.hasValueCodeType() && !Boolean.valueOf(x.getValueCodeType().getValueAsString()).equals(Boolean.FALSE)) return true;
 		}
-		return x.getCode().equals("status") && x.hasValueCodeType() && x.getValueCodeType().getCode().equals("retired");
+		return "status".equals(x.getCode()) && x.hasValueCodeType() && "retired".equals(x.getValueCodeType().getCode());
 	}
 }

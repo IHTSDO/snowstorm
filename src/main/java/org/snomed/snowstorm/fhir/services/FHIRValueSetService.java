@@ -57,6 +57,7 @@ import static java.lang.Boolean.TRUE;
 import static java.lang.String.format;
 import static co.elastic.clients.elasticsearch._types.query_dsl.QueryBuilders.*;
 import static io.kaicode.elasticvc.helper.QueryHelper.*;
+import static java.util.Collections.emptyList;
 import static org.apache.commons.collections4.MapUtils.emptyIfNull;
 import static org.snomed.snowstorm.core.data.services.ReferenceSetMemberService.AGGREGATION_MEMBER_COUNTS_BY_REFERENCE_SET;
 import static org.snomed.snowstorm.core.util.CollectionUtils.orEmpty;
@@ -236,6 +237,12 @@ public class FHIRValueSetService {
 
 		if (!hapiValueSet.hasCompose()) {
 			return hapiValueSet;
+		}
+
+		List<ValueSetCycleElement> valueSetCycle = getValueSetIncludeExcludeCycle(hapiValueSet);
+		if(!valueSetCycle.isEmpty()) {
+			String message = getCyclicDiagnosticMessage(valueSetCycle);
+			throw exception(message, OperationOutcome.IssueType.PROCESSING, 400, null, new CodeableConcept(new Coding()).setText(message));
 		}
 
 		if (params.getVersionValueSet() != null){
@@ -428,6 +435,11 @@ public class FHIRValueSetService {
 			}
 		}
 
+		if(conceptsPage.getTotalElements() > pageRequest.getPageSize() && pageRequest.getPageSize() >= DEFAULT_PAGESIZE) {
+			String message = format("The operation was stopped to protect server resources, the number of resulting concepts exceeded the maximum number (%d) allowed", pageRequest.getPageSize());
+			throw exception(message, OperationOutcome.IssueType.TOOCOSTLY, 404, null, new CodeableConcept(new Coding()).setText(message));
+		}
+
 		Map<String, String> idAndVersionToUrl = allInclusionVersions.stream()
 				.collect(Collectors.toMap(FHIRCodeSystemVersion::getId, FHIRCodeSystemVersion::getUrl));
 		Map<String, String> idAndVersionToLanguage = allInclusionVersions.stream()
@@ -437,6 +449,8 @@ public class FHIRValueSetService {
 		expansion.setId(id);
 		expansion.setIdentifier("urn:uuid:"+id);
 		expansion.setTimestamp(new Date());
+		Optional.ofNullable(params.getOffset()).ifPresent(x->expansion.addParameter(new ValueSet.ValueSetExpansionParameterComponent(new StringType("offset")).setValue(new IntegerType(x))));
+		Optional.ofNullable(params.getCount()).ifPresent(x->expansion.addParameter(new ValueSet.ValueSetExpansionParameterComponent(new StringType("count")).setValue(new IntegerType(x))));
 		Optional.ofNullable(params.getActiveOnly()).ifPresent(x->expansion.addParameter(new ValueSet.ValueSetExpansionParameterComponent(new StringType("activeOnly")).setValue(new BooleanType(x))));
 		Optional.ofNullable(params.getExcludeNested()).ifPresent(x->expansion.addParameter(new ValueSet.ValueSetExpansionParameterComponent(new StringType("excludeNested")).setValue(new BooleanType(x))));
 		Optional.ofNullable(params.getIncludeDesignations()).ifPresent(x->expansion.addParameter(new ValueSet.ValueSetExpansionParameterComponent(new StringType("includeDesignations")).setValue(new BooleanType(x))));
@@ -576,7 +590,7 @@ public class FHIRValueSetService {
 					});
 
 					Optional.ofNullable(params.getProperty()).ifPresent(x ->{
-						List<FHIRProperty> properties =concept.getProperties().getOrDefault(x, Collections.emptyList());
+						List<FHIRProperty> properties =concept.getProperties().getOrDefault(x, emptyList());
 						properties.stream()
 								.findFirst()
 								.ifPresent(y-> {
@@ -661,7 +675,7 @@ public class FHIRValueSetService {
 	}
 
 	private static void setDisplayAndDesignations(ValueSet.ValueSetExpansionContainsComponent component, FHIRConcept concept, String defaultConceptLanguage, boolean includeDesignations, String displayLanguage, List<String> designationLanguages) {
-		List<String> designationLang = Optional.ofNullable(designationLanguages).orElse(Collections.emptyList()).stream().map(x -> {
+		List<String> designationLang = Optional.ofNullable(designationLanguages).orElse(emptyList()).stream().map(x -> {
 			String[] systemAndLanguage = x.split("\\|");
 			if (systemAndLanguage.length < 2){
 				return systemAndLanguage[0];
@@ -703,7 +717,7 @@ public class FHIRValueSetService {
 				designationComponent.setLanguage(designation.getLanguage());
 				designationComponent.setUse(designation.getUseCoding());
 				designationComponent.setValue(designation.getValue());
-				Optional.ofNullable(designation.getExtensions()).orElse(Collections.emptyList()).forEach(
+				Optional.ofNullable(designation.getExtensions()).orElse(emptyList()).forEach(
 						e -> {
 							designationComponent.addExtension(e.getHapi());
 						}
@@ -748,7 +762,7 @@ public class FHIRValueSetService {
 			newDesignations.addAll(noLanguage);
 			component.setDesignation(newDesignations);
 		} else {
-			component.setDesignation(Collections.emptyList());
+			component.setDesignation(emptyList());
 		}
 
 	}
@@ -961,18 +975,22 @@ public class FHIRValueSetService {
 		BoolQuery.Builder versionQueryBuilder = bool().must(termQuery(FHIRConcept.Fields.CODE_SYSTEM_VERSION, versionInclusionConstraints.getKey().getId()));
 
 		AndConstraints andConstraints = versionInclusionConstraints.getValue();
-		BoolQuery.Builder conjunctionQueries = bool();
-		for (AndConstraints.OrConstraints orConstraints: andConstraints.getAndConstraints()) {
-			BoolQuery.Builder disjunctionQueries = bool();
-			for(ConceptConstraint constraint: orConstraints.getOrConstraints()) {
-				BoolQuery.Builder disjunctionQueryBuilder = bool();
-				addQueryCriteria(constraint, disjunctionQueryBuilder, valueSetUserRef);
-				disjunctionQueries.should(disjunctionQueryBuilder.build()._toQuery());// "disjunctionQueries" contains only "should" conditions, Elasticsearch forces at least one of them to match.
+		if(!andConstraints.getAndConstraints().isEmpty()) {
+			BoolQuery.Builder conjunctionQueries = bool();
+			for (AndConstraints.OrConstraints orConstraints : andConstraints.getAndConstraints()) {
+				if (!orConstraints.getOrConstraints().isEmpty()) {
+					BoolQuery.Builder disjunctionQueries = bool();
+					for (ConceptConstraint constraint : orConstraints.getOrConstraints()) {
+						BoolQuery.Builder disjunctionQueryBuilder = bool();
+						addQueryCriteria(constraint, disjunctionQueryBuilder, valueSetUserRef);
+						disjunctionQueries.should(disjunctionQueryBuilder.build()._toQuery());// "disjunctionQueries" contains only "should" conditions, Elasticsearch forces at least one of them to match.
+					}
+					conjunctionQueries.must(disjunctionQueries.build()._toQuery());
+				}
 			}
-			conjunctionQueries.must(disjunctionQueries.build()._toQuery());
+			versionQueryBuilder.must(conjunctionQueries.build()._toQuery());// Concept must meet the two conditions
 		}
 
-		versionQueryBuilder.must(conjunctionQueries.build()._toQuery());// Concept must meet the two conditions
 		return versionQueryBuilder;
 	}
 
@@ -1018,11 +1036,13 @@ public class FHIRValueSetService {
 			}
 		}
 
-		for (ValueSet.ConceptSetComponent include : compose.getInclude()) {
+		List<ValueSet.ConceptSetComponent> composeInclude = compose.getInclude();
+		for (int i = 0; i < composeInclude.size(); i++) {
+			ValueSet.ConceptSetComponent include = composeInclude.get(i);
 			if (include.hasSystem()) {
 				FHIRCodeSystemVersion codeSystemVersion = codeSystemVersionProvider.get(include.getSystem(), include.getVersion());
 				AndConstraints inclusionConstraints = codeSelectionCriteria.addInclusion(codeSystemVersion);
-				collectConstraints(include, codeSystemVersion, inclusionConstraints, activeOnly);
+				collectConstraints(valueSet, include, i, codeSystemVersion, inclusionConstraints, activeOnly, true);
 			} else if (include.hasValueSet()) {
 				for (CanonicalType canonicalType : include.getValueSet()) {
 					CanonicalUri canonicalUri = CanonicalUri.fromString(canonicalType.getValueAsString());
@@ -1045,26 +1065,27 @@ public class FHIRValueSetService {
 				throw exception("ValueSet clause has no system or nested value set", OperationOutcome.IssueType.INVARIANT, 400);
 			}
 		}
-		for (ValueSet.ConceptSetComponent exclude : compose.getExclude()) {
+		List<ValueSet.ConceptSetComponent> composeExclude = compose.getExclude();
+		for (int i = 0; i < composeExclude.size(); i++) {
+			ValueSet.ConceptSetComponent exclude = composeExclude.get(i);
 			// Apply exclude-constraint to all resolved versions from include statements
 			Set<FHIRCodeSystemVersion> codeSystemVersionsForExpansion = codeSelectionCriteria.gatherAllInclusionVersions();
 			List<FHIRCodeSystemVersion> includeVersionsToExcludeFrom = codeSystemVersionsForExpansion.stream().filter(includeVersion ->
 					includeVersion.getUrl().equals(exclude.getSystem()) && (exclude.getVersion() == null || exclude.getVersion().equals(includeVersion.getVersion()))
-			).collect(Collectors.toList());
+			).toList();
 
 			for (FHIRCodeSystemVersion codeSystemVersion : includeVersionsToExcludeFrom) {
 				AndConstraints exclusionConstraints = codeSelectionCriteria.addExclusion(codeSystemVersion);
-				collectConstraints(exclude, codeSystemVersion, exclusionConstraints, activeOnly);
+				collectConstraints(valueSet, exclude, i, codeSystemVersion, exclusionConstraints, activeOnly, false);
 			}
 		}
 		return codeSelectionCriteria;
 	}
 
 	public Parameters validateCode(String id, UriType url, UriType context, ValueSet valueSet, String valueSetVersion, String code, UriType system, String systemVersion,
-								   String display, Coding coding, CodeableConcept codeableConcept, DateTimeType date, BooleanType abstractBool, String displayLanguage, BooleanType inferSystem, BooleanType activeOnly, CanonicalType versionValueSet) {
+								   String display, Coding coding, CodeableConcept codeableConcept, DateTimeType date, BooleanType abstractBool, String displayLanguage, BooleanType inferSystem, BooleanType activeOnly, CanonicalType versionValueSet, BooleanType lenientDisplayValidation) {
 
 		notSupported("context", context);
-		notSupported("valueSetVersion", valueSetVersion);
 		notSupported("date", date);
 		notSupported("abstract", abstractBool);
 
@@ -1073,10 +1094,16 @@ public class FHIRValueSetService {
 		mutuallyRequired("display", display, "code", code, "coding", coding);
 
 		// Grab value set
-		ValueSet hapiValueSet = findOrInferValueSet(id, FHIRHelper.toString(url), valueSet, null);
+		ValueSet hapiValueSet = findOrInferValueSet(id, FHIRHelper.toString(url), valueSet, valueSetVersion);
 		if (hapiValueSet == null) {
 			CodeableConcept detail = new CodeableConcept(new Coding(TX_ISSUE_TYPE,"not-found",null)).setText(format("A definition for the value Set '%s' could not be found",url.getValue()));
 			throw exception("message", OperationOutcome.IssueType.NOTFOUND,404,null, detail);
+		}
+
+		List<ValueSetCycleElement> valueSetCycle = getValueSetIncludeExcludeCycle(hapiValueSet);
+		if(!valueSetCycle.isEmpty()) {
+			String message = getCyclicDiagnosticMessage(valueSetCycle);
+			throw exception(message, OperationOutcome.IssueType.PROCESSING, 400, null, new CodeableConcept(new Coding()).setText(message));
 		}
 
 		Optional.ofNullable(versionValueSet).ifPresent(v->{
@@ -1098,6 +1125,10 @@ public class FHIRValueSetService {
 					}
 				});
 
+		if(hasDisplayLanguage(hapiValueSet) && displayLanguage == null) {
+			displayLanguage = hapiValueSet.getCompose().getExtensionByUrl("http://hl7.org/fhir/tools/StructureDefinion/valueset-expansion-param").getExtensionString("value");
+		}
+
 		// Get set of codings - one of which needs to be valid
 		Set<Coding> codings = new HashSet<>();
 		if (code != null) {
@@ -1114,8 +1145,18 @@ public class FHIRValueSetService {
 			throw exception("No codings provided to validate.", OperationOutcome.IssueType.INVALID, 400);
 		}
 
+		CanonicalUri defaultSystemVersion = systemVersion != null
+				? CanonicalUri.fromString(systemVersion)
+				: null;
+
 		Set<CanonicalUri> codingSystemVersions = codings.stream()
-				.map(codingA -> CanonicalUri.of(codingA.getSystem(), codingA.getVersion())).collect(Collectors.toSet());
+				.map(codingA -> {
+					String version = (codingA.getVersion() == null && defaultSystemVersion != null && defaultSystemVersion.getSystem().equals(codingA.getSystem()))
+							? defaultSystemVersion.getVersion()
+							: codingA.getVersion();
+					return CanonicalUri.of(codingA.getSystem(), version);
+				})
+				.collect(Collectors.toSet());
 
 		CodeSystemVersionProvider codeSystemVersionProvider = new CodeSystemVersionProvider(codingSystemVersions, null, null, null, codeSystemService);
 		// Collate set of inclusion and exclusion constraints for each code system version
@@ -1152,24 +1193,70 @@ public class FHIRValueSetService {
 
 			} else if (OperationOutcome.IssueType.NOTFOUND.equals(e.getIssueCode()) && !e.getOperationOutcome().getIssue().stream().filter(i -> OperationOutcome.IssueType.NOTFOUND.equals(i.getCode())).flatMap( ex -> ex.getExtension().stream()).filter(ex -> ex.getUrl().equals("https://github.com/IHTSDO/snowstorm/available-codesystem-version")).toList().isEmpty()) {
 				Parameters response = new Parameters();
+				String theCode = coding != null ? coding.getCode() : code;
 				if(codeableConcept!=null){
 					response.addParameter("codeableConcept", codeableConcept);
-				}else if (coding != null){
-					response.addParameter("code", new CodeType(coding.getCode()));
-				}else {
-					response.addParameter("code", new CodeType(code));
+				} else {
+					response.addParameter("code", new CodeType(theCode));
 				}
-				String availableVersion = e.getOperationOutcome().getIssue().stream().flatMap(i -> i.getExtensionsByUrl("https://github.com/IHTSDO/snowstorm/available-codesystem-version").stream()).map(ext -> CanonicalUri.fromString(ext.getValue().primitiveValue()).getVersion()).filter(Objects::nonNull).findFirst().orElse("");
 				CanonicalUri missing = e.getOperationOutcome().getIssue().stream().flatMap(i -> i.getExtensionsByUrl("https://github.com/IHTSDO/snowstorm/missing-codesystem-version").stream()).map(ext -> CanonicalUri.fromString(ext.getValue().primitiveValue())).findFirst().orElse(CanonicalUri.fromString(""));
-				String message = format("The CodeSystem %s version %s is unknown. Valid versions: [%s]; Unable to check whether the code is in the value set %s", missing.getSystem(), missing.getVersion(), availableVersion ,CanonicalUri.of(hapiValueSet.getUrl(),hapiValueSet.getVersion()));
-				response.addParameter("message", message);
-				response.addParameter("result", false);
-				response.addParameter("system", new UriType(missing.getSystem()));
-				response.addParameter("version", missing.getVersion());
-				CodeableConcept detail2 = new CodeableConcept(new Coding(TX_ISSUE_TYPE, "vs-invalid", null)).setText(format("Unable to check whether the code is in the value set %s",CanonicalUri.of(hapiValueSet.getUrl(), hapiValueSet.getVersion())));
+				String availableVersion = e.getOperationOutcome().getIssue().stream().flatMap(i -> i.getExtensionsByUrl("https://github.com/IHTSDO/snowstorm/available-codesystem-version").stream()).map(ext -> CanonicalUri.fromString(ext.getValue().primitiveValue()).getVersion()).filter(Objects::nonNull).findFirst().orElse(null);
+				final String requestedSystem;
+				if (system!=null && system.getValue() != null){
+					requestedSystem = system.getValue();
+				} else if (coding != null && coding.getSystem() != null) {
+					requestedSystem = coding.getSystem();
+				} else {
+					requestedSystem = missing.getSystem();
+				}
+				CanonicalUri valueSetCanonical = CanonicalUri.of(hapiValueSet.getUrl(), hapiValueSet.getVersion());
+				String codeSystemWithCode = (requestedSystem != null ? requestedSystem : missing.getSystem()) + "#" + theCode;
 				OperationOutcome.OperationOutcomeIssueComponent[] issues = new OperationOutcome.OperationOutcomeIssueComponent[2];
-				issues[0] = createOperationOutcomeIssueComponent(e.getOperationOutcome().getIssueFirstRep().getDetails(),e.getOperationOutcome().getIssueFirstRep().getSeverity(),"system", e.getOperationOutcome().getIssueFirstRep().getCode(),null,null);
-				issues[1] = createOperationOutcomeIssueComponent(detail2, OperationOutcome.IssueSeverity.WARNING, null, OperationOutcome.IssueType.NOTFOUND, null, null);
+				boolean valueSetSystemMatchesRequestedSystem = hapiValueSet.getCompose().getInclude().stream().filter(ValueSet.ConceptSetComponent::hasSystem).map(ValueSet.ConceptSetComponent::getSystem).anyMatch(vsCodeSystem -> Objects.equals(vsCodeSystem, requestedSystem));
+				if(valueSetSystemMatchesRequestedSystem) {
+					String message = missing.getVersion() == null
+							? format("A definition for CodeSystem '%s' could not be found, so the code cannot be validated; Unable to check whether the code is in the value set '%s' because the code system %s was not found", requestedSystem, valueSetCanonical, requestedSystem)
+							: format("A definition for CodeSystem '%s' version '%s' could not be found, so the code cannot be validated. Valid versions: [%s]; Unable to check whether the code is in the value set '%s' because the code system %s was not found", requestedSystem, missing.getVersion(), availableVersion, valueSetCanonical, requestedSystem + "|" + missing.getVersion());
+					response.addParameter("message", message);
+					response.addParameter("result", false);
+					response.addParameter("system", new UriType(requestedSystem));
+					response.addParameter("version", missing.getVersion());
+					response.addParameter("x-caused-by-unknown-system", new CanonicalType(missing.toString()));
+					Extension e1 = new Extension("http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id");
+					e1.setValue(new StringType("UNKNOWN_CODESYSTEM_VERSION"));
+					String ccText;
+					if(availableVersion!=null){
+						if(missing.getVersion() == null) {
+							ccText = format("A definition for CodeSystem '%s' could not be found, so the code cannot be validated. Valid versions: [%s]", requestedSystem, availableVersion);
+						} else {
+							ccText = format("A definition for CodeSystem '%s' version '%s' could not be found, so the code cannot be validated. Valid versions: [%s]", requestedSystem, missing.getVersion(), availableVersion);
+						}
+					} else {
+						ccText = format("A definition for CodeSystem '%s' could not be found, so the code cannot be validated", requestedSystem);
+					}
+					CodeableConcept detail1 = new CodeableConcept(new Coding(TX_ISSUE_TYPE, "not-found", null)).setText(ccText);
+					issues[0] = createOperationOutcomeIssueComponent(detail1,OperationOutcome.IssueSeverity.ERROR,null, e.getOperationOutcome().getIssueFirstRep().getCode(), List.of(e1),null);
+					String text = format("Unable to check whether the code is in the value set '%s' because the code system %s was not found", valueSetCanonical, missing.getVersion() == null ? requestedSystem : requestedSystem + "|" + missing.getVersion());
+					CodeableConcept detail2 = new CodeableConcept(new Coding(TX_ISSUE_TYPE, "vs-invalid", null)).setText(text);
+					Extension e2 = new Extension("http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id");
+					e2.setValue(new StringType("UNABLE_TO_CHECK_IF_THE_PROVIDED_CODES_ARE_IN_THE_VALUE_SET_CS"));
+					issues[1] = createOperationOutcomeIssueComponent(detail2, OperationOutcome.IssueSeverity.WARNING, null, OperationOutcome.IssueType.NOTFOUND, List.of(e2), null);
+				} else {
+					String message = format("A definition for CodeSystem %s could not be found, so the code cannot be validated; The provided code '%s' was not found in the value set '%s'", requestedSystem, codeSystemWithCode, valueSetCanonical);
+					response.addParameter("message", message);
+					response.addParameter("result", false);
+					response.addParameter("system", new UriType(requestedSystem));
+					response.addParameter("x-unknown-system", new CanonicalType(requestedSystem));
+					Extension e1 = new Extension("http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id");
+					e1.setValue(new StringType("None_of_the_provided_codes_are_in_the_value_set_one"));
+					CodeableConcept detail1 = new CodeableConcept(new Coding(TX_ISSUE_TYPE, "not-in-vs", null)).setText(format("The provided code '%s' was not found in the value set '%s'", codeSystemWithCode, valueSetCanonical));
+					issues[0] = createOperationOutcomeIssueComponent(detail1,OperationOutcome.IssueSeverity.ERROR,"code", OperationOutcome.IssueType.CODEINVALID, List.of(e1),null);
+					String text = format("A definition for CodeSystem %s could not be found, so the code cannot be validated", requestedSystem);
+					CodeableConcept detail2 = new CodeableConcept(new Coding(TX_ISSUE_TYPE, "not-found", null)).setText(text);
+					Extension e2 = new Extension("http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id");
+					e2.setValue(new StringType("UNKNOWN_CODESYSTEM"));
+					issues[1] = createOperationOutcomeIssueComponent(detail2, OperationOutcome.IssueSeverity.ERROR, "system", OperationOutcome.IssueType.NOTFOUND, List.of(e2), null);
+				}
 				response.addParameter(createParameterComponentWithOperationOutcomeWithIssues(Arrays.asList(issues)));
 				return response;
 			} else if(OperationOutcome.IssueType.NOTFOUND.equals(e.getIssueCode()) && !e.getOperationOutcome().getIssue().stream().filter(i -> OperationOutcome.IssueType.NOTFOUND.equals(i.getCode())).flatMap( ex -> ex.getExtension().stream()).filter(ex -> ex.getUrl().equals("https://github.com/IHTSDO/snowstorm/missing-valueset")).toList().isEmpty() ){
@@ -1263,15 +1350,18 @@ public class FHIRValueSetService {
 						issues[1] = createOperationOutcomeIssueComponent(details2, OperationOutcome.IssueSeverity.ERROR, "Coding.system", OperationOutcome.IssueType.INVALID, null, null);
 						response.addParameter("message", format("The Coding references a value set, not a code system ('%s'); The provided code '%s' was not found in the value set '%s'", codingA.getSystem(), createFullyQualifiedCodeString(codingA), CanonicalUri.of(hapiValueSet.getUrl(), hapiValueSet.getVersion())));
 					} else {
-
-
+						String systemVersionCanonical = codingA.getSystem() + (codingA.getVersion() == null ? "" : "|" + codingA.getVersion());
 						if (codeableConcept != null) {
-							String locationExpression = "CodeableConcept.coding[0].code";
-							issues[0] = createOperationOutcomeIssueComponent(new CodeableConcept().addCoding(new Coding(TX_ISSUE_TYPE, "this-code-not-in-vs", null)).setText(format("There was no valid code provided that is in the value set '%s'", CanonicalUri.of(hapiValueSet.getUrl(), hapiValueSet.getVersion()))), OperationOutcome.IssueSeverity.INFORMATION, locationExpression, OperationOutcome.IssueType.CODEINVALID, null /* Collections.singletonList(new Extension("http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",new StringType("None_of_the_provided_codes_are_in_the_value_set_one")))*/, null);
-							CodeableConcept details2 = new CodeableConcept(new Coding(TX_ISSUE_TYPE, "not-found", null)).setText(format("A definition for CodeSystem %s could not be found, so the code cannot be validated", codingA.getSystem()));
+							CanonicalUri valueSetCanonicalUri = CanonicalUri.of(hapiValueSet.getUrl(), hapiValueSet.getVersion());
+							issues[0] = createOperationOutcomeIssueComponent(new CodeableConcept().addCoding(new Coding(TX_ISSUE_TYPE, "not-in-vs", null)).setText(format("No valid coding was found for the value set '%s'", valueSetCanonicalUri)), OperationOutcome.IssueSeverity.ERROR, null, OperationOutcome.IssueType.CODEINVALID, null /* Collections.singletonList(new Extension("http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",new StringType("None_of_the_provided_codes_are_in_the_value_set_one")))*/, null);
+							String text = codingA.getVersion() == null
+									? format("A definition for CodeSystem %s could not be found, so the code cannot be validated", codingA.getSystem())
+									: format("A definition for CodeSystem '%s' version '%s' could not be found, so the code cannot be validated. Valid versions: []", codingA.getSystem(), codingA.getVersion());
+							CodeableConcept details2 = new CodeableConcept(new Coding(TX_ISSUE_TYPE, "not-found", null)).setText(text);
 							issues[1] = createOperationOutcomeIssueComponent(details2, OperationOutcome.IssueSeverity.ERROR, "CodeableConcept.coding[0].system", OperationOutcome.IssueType.NOTFOUND, null, null);
-							issues[2] = createOperationOutcomeIssueComponent(new CodeableConcept().addCoding(new Coding(TX_ISSUE_TYPE, "not-in-vs", null)).setText(format("No valid coding was found for the value set '%s'", CanonicalUri.of(hapiValueSet.getUrl(), hapiValueSet.getVersion()))), OperationOutcome.IssueSeverity.ERROR, null, OperationOutcome.IssueType.CODEINVALID, null /* Collections.singletonList(new Extension("http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",new StringType("None_of_the_provided_codes_are_in_the_value_set_one")))*/, null);
-							response.addParameter("x-unknown-system", new CanonicalType(codingA.getSystem()));
+							String textIssue2 = format("The provided code '%s|%s#%s' was not found in the value set '%s'", codingA.getSystem(), codingA.getVersion(), codingA.getCode(), valueSetCanonicalUri);
+							issues[2] = createOperationOutcomeIssueComponent(new CodeableConcept().addCoding(new Coding(TX_ISSUE_TYPE, "this-code-not-in-vs", null)).setText(textIssue2), OperationOutcome.IssueSeverity.INFORMATION, "CodeableConcept.coding[0].code", OperationOutcome.IssueType.CODEINVALID, null /* Collections.singletonList(new Extension("http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",new StringType("None_of_the_provided_codes_are_in_the_value_set_one")))*/, null);
+							response.addParameter("x-unknown-system", new CanonicalType(systemVersionCanonical));
 						} else if (coding != null) {
 							CodeableConcept details1 = new CodeableConcept(new Coding(TX_ISSUE_TYPE, "not-in-vs", null)).setText(format("The provided code '%s' was not found in the value set '%s'", createFullyQualifiedCodeString(codingA), CanonicalUri.of(hapiValueSet.getUrl(), hapiValueSet.getVersion())));
 							issues[0] = createOperationOutcomeIssueComponent(details1, OperationOutcome.IssueSeverity.ERROR, "Coding.code", OperationOutcome.IssueType.CODEINVALID, null, null);
@@ -1282,7 +1372,7 @@ public class FHIRValueSetService {
 							} else{
 								CodeableConcept details2 = new CodeableConcept(new Coding(TX_ISSUE_TYPE, "not-found", null)).setText(format("A definition for CodeSystem %s could not be found, so the code cannot be validated", codingA.getSystem()));
 								issues[1] = createOperationOutcomeIssueComponent(details2, OperationOutcome.IssueSeverity.ERROR, "Coding.system", OperationOutcome.IssueType.NOTFOUND, null, null);
-								response.addParameter("x-unknown-system", new CanonicalType(codingA.getSystem()));
+								response.addParameter("x-unknown-system", new CanonicalType(systemVersionCanonical));
 							}
 							if(codingA.getSystem()!= null && !UrlUtil.isAbsolute(codingA.getSystem())){
 								CodeableConcept details3 = new CodeableConcept(new Coding(TX_ISSUE_TYPE, "invalid-data", null)).setText("Coding.system must be an absolute reference, not a local reference");
@@ -1297,8 +1387,11 @@ public class FHIRValueSetService {
 						}
 						if(codingA.getSystem()==null){
 							response.addParameter("message", format("Coding has no system. A code with no system has no defined meaning, and it cannot be validated. A system should be provided; The provided code '%s' was not found in the value set '%s'", createFullyQualifiedCodeString(codingA), CanonicalUri.of(hapiValueSet.getUrl(), hapiValueSet.getVersion())));
-						}else {
+						} else if(codingA.getVersion() == null){
 							response.addParameter("message", format("A definition for CodeSystem %s could not be found, so the code cannot be validated; The provided code '%s' was not found in the value set '%s'", codingA.getSystem(), createFullyQualifiedCodeString(codingA), CanonicalUri.of(hapiValueSet.getUrl(), hapiValueSet.getVersion())));
+						} else {
+							CanonicalUri canonicalUriValueSet = CanonicalUri.of(hapiValueSet.getUrl(), hapiValueSet.getVersion());
+							response.addParameter("message", format("A definition for CodeSystem '%s' version '%s' could not be found, so the code cannot be validated. Valid versions: []; No valid coding was found for the value set '%s'; The provided code '%s' was not found in the value set '%s'", codingA.getSystem(), codingA.getVersion(), canonicalUriValueSet, createFullyQualifiedCodeString(codingA), canonicalUriValueSet));
 						}
 
 					}
@@ -1323,7 +1416,8 @@ public class FHIRValueSetService {
 		try {
 			languageDialects = ControllerHelper.parseAcceptLanguageHeader(displayLanguage);
 		} catch(IllegalArgumentException e) {
-			OperationOutcome oo = createOperationOutcomeWithIssue(null, OperationOutcome.IssueSeverity.ERROR,null, OperationOutcome.IssueType.INVALID,null,e.getMessage());
+			CodeableConcept cc = new CodeableConcept(new Coding()).setText(e.getMessage());
+			OperationOutcome oo = createOperationOutcomeWithIssue(cc, OperationOutcome.IssueSeverity.ERROR,null, OperationOutcome.IssueType.PROCESSING,null, e.getMessage());
 			throw new SnowstormFHIRServerResponseException(404, e.getMessage(),oo);
 		}
 
@@ -1347,6 +1441,14 @@ public class FHIRValueSetService {
 					}
 				}
 				List<OperationOutcome.OperationOutcomeIssueComponent> issues = new ArrayList<>();
+				if(!concept.getCode().equals(codingA.getCode()) && concept.getCode().equalsIgnoreCase(codingA.getCode())) {
+					response.addParameter("normalized-code", new CodeType(concept.getCode()));
+					FHIRCodeSystemVersion caseInSensitiveCodeSystem = resolvedCodeSystemVersionsMatchingCodings.stream().filter(fhirCodeSystemVersion -> !fhirCodeSystemVersion.isCaseSensitive()).findFirst().orElseThrow();
+					issues.add(createOperationOutcomeIssueComponent(
+							new CodeableConcept(new Coding(TX_ISSUE_TYPE, "code-rule",null))
+									.setText(format("The code '%s' differs from the correct code '%s' by case. Although the code system '%s' is case insensitive, implementers are strongly encouraged to use the correct case anyway", codingA.getCode(), concept.getCode(), caseInSensitiveCodeSystem.getCanonical())), OperationOutcome.IssueSeverity.INFORMATION,null, OperationOutcome.IssueType.BUSINESSRULE,null,null
+					));
+				}
 				List<ValueSet.ValueSetExpansionParameterComponent> codeSystemWarnings = collectCodeSystemSetWarnings(resolvedCodeSystemVersionsMatchingCodings);
 				codeSystemWarnings.forEach(warning -> {
 					issues.add(createOperationOutcomeIssueComponent(
@@ -1381,7 +1483,7 @@ public class FHIRValueSetService {
 							return languages.isEmpty()||languages.contains(l);
 						} ).noneMatch(b ->b.equals(TRUE))){
 						CodeableConcept cc;
-						if(codeSystemVersion.getAvailableLanguages().contains(displayLanguage)){
+						if(codeSystemVersion.getAvailableLanguages().contains(displayLanguage)){ // should be true for this testcase
 							cc = new CodeableConcept(new Coding().setSystem(TX_ISSUE_TYPE).setCode(DISPLAY_COMMENT)).setText(format("'%s' is the default display; no valid Display Names found for %s#%s in the language %s", concept.getDisplay(), codingA.getSystem(), codingA.getCode(), displayLanguage));
 						} else {
 							cc = new CodeableConcept(new Coding().setSystem(TX_ISSUE_TYPE).setCode(DISPLAY_COMMENT)).setText(format("'%s' is the default display; the code system %s has no Display Names for the language %s", concept.getDisplay(), codingA.getSystem(), displayLanguage));
@@ -1396,12 +1498,16 @@ public class FHIRValueSetService {
 					for (FHIRDesignation designation : concept.getDesignations()) {
 						if (codingADisplay.equalsIgnoreCase(designation.getValue())) {
 							termMatch = designation;
-							if (termMatch.getLanguage() == null || languageDialects.stream()
-										.anyMatch(languageDialect -> designation.getLanguage().equals(languageDialect.getLanguageCode()))) {
+							String designationLanguage = designation.getLanguage();
+							if (designationLanguage == null || languageDialects.stream()
+										.anyMatch(languageDialect -> designationLanguage.equals(languageDialect.getLanguageCode()))) {
 								response.addParameter("result", true);
 								response.addParameter("display", termMatch.getValue());
 								//response.addParameter("message", format("The code '%s' was found in the ValueSet and the display matched one of the designations.",codingA.getCode()));
 								return response;
+							} else if (languageDialects.isEmpty() && !LANG_EN.equals(designationLanguage) && (
+									(displayLanguage != null && !designationLanguage.equals(displayLanguage)) || (hapiValueSet.getLanguage() != null && !designationLanguage.equals(hapiValueSet.getLanguage())))) {
+								termMatch = null;
 							} else if (languageDialects.isEmpty()){
 								response.addParameter("result", true);
 								response.addParameter("display", concept.getDisplay());
@@ -1410,13 +1516,18 @@ public class FHIRValueSetService {
 							}
 						}
 					}
+					String locationExpression = coding != null ? "Coding.display" : (codeableConcept != null ? "CodeableConcept.coding[0].display" : "display");
 					if (termMatch != null) {
 						response.addParameter("result", false);
-						response.addParameter("message", format("The code '%s' was found in the ValueSet and the display matched the designation with term '%s', " +
-								"however the language of the designation '%s' did not match any of the languages in the requested display language '%s'.",
-								codingA.getCode(), termMatch.getValue(), termMatch.getLanguage(), displayLanguage));
+						response.addParameter("display", concept.getDisplay());
+						String message = format("The code '%s' was found in the ValueSet and the display matched the designation with term '%s', " +
+										"however the language of the designation '%s' did not match any of the languages in the requested display language '%s'.",
+								codingA.getCode(), termMatch.getValue(), termMatch.getLanguage(), displayLanguage);
+						response.addParameter("message", message);
 						CodeableConcept cc = new CodeableConcept();
-						Parameters.ParametersParameterComponent operationOutcomeParameter = createParameterComponentWithOperationOutcomeWithIssue(cc, OperationOutcome.IssueSeverity.INFORMATION, "Coding.display", OperationOutcome.IssueType.INVALID);
+						cc.setText(message);
+						cc.addCoding(new Coding().setSystem(TX_ISSUE_TYPE).setCode("invalid-display"));
+						Parameters.ParametersParameterComponent operationOutcomeParameter = createParameterComponentWithOperationOutcomeWithIssue(cc, OperationOutcome.IssueSeverity.ERROR, locationExpression, OperationOutcome.IssueType.INVALID);
 						response.addParameter(operationOutcomeParameter);
 						return response;
 					} else {
@@ -1456,7 +1567,15 @@ public class FHIRValueSetService {
 							response.addParameter("message", format(message, codingA.getDisplay(), codingA.getSystem(), codingA.getCode(), displayLanguage, concept.getDisplay()));
 							cc = new CodeableConcept(new Coding().setSystem(TX_ISSUE_TYPE).setCode("invalid-display")).setText(format(message, codingA.getDisplay(), codingA.getSystem(), codingA.getCode(), displayLanguage, concept.getDisplay()));
 						}
-						Parameters.ParametersParameterComponent operationOutcomeParameter = createParameterComponentWithOperationOutcomeWithIssue(cc, OperationOutcome.IssueSeverity.ERROR, "Coding.display", OperationOutcome.IssueType.INVALID);
+						OperationOutcome.IssueSeverity severity;
+						if (lenientDisplayValidation != null && lenientDisplayValidation.booleanValue()) {
+							response.setParameter("result", true);
+							severity = OperationOutcome.IssueSeverity.WARNING;
+						} else {
+							severity = OperationOutcome.IssueSeverity.ERROR;
+						}
+
+						Parameters.ParametersParameterComponent operationOutcomeParameter = createParameterComponentWithOperationOutcomeWithIssue(cc, severity, locationExpression, OperationOutcome.IssueType.INVALID);
 						response.addParameter(operationOutcomeParameter);
 						return response;
 					}
@@ -1465,12 +1584,6 @@ public class FHIRValueSetService {
 		}
 
 		response.addParameter("result", false);
-//		if(hapiValueSet.getCompose().getInclude().stream().filter(ValueSet.ConceptSetComponent::hasValueSet).toList().isEmpty()) {  commented because testcase indirect-validation-one and notSelectable-prop-trueUC-true etc require the version presence
-//			//maybe this is not necessary, but the current test does not allow for its presence.
-//			//this doubt is confirmed by test 'indirect-validation-one' which requires the presence of version
-//			List<Parameters.ParametersParameterComponent> versionParameters = new ArrayList<>(response.getParameters("version"));
-//			versionParameters.forEach(v -> response.removeChild("parameter", v));
-//		}
 		if(inferSystem != null && inferSystem.booleanValue()) {
 			List<Parameters.ParametersParameterComponent> systemParameters = new ArrayList<>(response.getParameters("system"));
 			systemParameters.forEach(v -> response.removeChild("parameter", v));
@@ -1478,51 +1591,43 @@ public class FHIRValueSetService {
 
 		if (codings.size() == 1) {
 			Coding codingA = codings.iterator().next();
-			String codingAVersion = codingA.getVersion();
 			OperationOutcome.OperationOutcomeIssueComponent[] issues = new OperationOutcome.OperationOutcomeIssueComponent[3];
 			final String locationExpression;
+			String message;
 			if (codeableConcept != null) {
 				List<Parameters.ParametersParameterComponent> codeParameters = new ArrayList<>(response.getParameters("code"));
 				codeParameters.forEach(v -> response.removeChild("parameter", v));
 				List<Parameters.ParametersParameterComponent> systemParameters = new ArrayList<>(response.getParameters("system"));
 				systemParameters.forEach(v -> response.removeChild("parameter", v));
 				locationExpression = "CodeableConcept.coding[0].code";
-				issues[0] = createOperationOutcomeIssueComponent(new CodeableConcept().addCoding(new Coding(TX_ISSUE_TYPE, "this-code-not-in-vs", null)).setText(format("The provided code '%s#%s' was not found in the value set '%s'", codingA.getSystem(), codingA.getCode(), hapiValueSet.getUrl())), OperationOutcome.IssueSeverity.INFORMATION, locationExpression, OperationOutcome.IssueType.CODEINVALID, null /* Collections.singletonList(new Extension("http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",new StringType("None_of_the_provided_codes_are_in_the_value_set_one")))*/, null);
-				issues[2] = createOperationOutcomeIssueComponent(new CodeableConcept().addCoding(new Coding(TX_ISSUE_TYPE, "not-in-vs", null)).setText(format("No valid coding was found for the value set '%s'", hapiValueSet.getUrl())), OperationOutcome.IssueSeverity.ERROR, null, OperationOutcome.IssueType.CODEINVALID, null /* Collections.singletonList(new Extension("http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",new StringType("None_of_the_provided_codes_are_in_the_value_set_one")))*/, null);
+				issues[0] = createOperationOutcomeIssueComponent(new CodeableConcept().addCoding(new Coding(TX_ISSUE_TYPE, "this-code-not-in-vs", null)).setText(format("The provided code '%s#%s' was not found in the value set '%s'", codingA.getSystem(), codingA.getCode(), hapiValueSet.getUrl())), OperationOutcome.IssueSeverity.INFORMATION, locationExpression, OperationOutcome.IssueType.CODEINVALID, null, null);
+				issues[2] = createOperationOutcomeIssueComponent(new CodeableConcept().addCoding(new Coding(TX_ISSUE_TYPE, "not-in-vs", null)).setText(format("No valid coding was found for the value set '%s'", hapiValueSet.getUrl())), OperationOutcome.IssueSeverity.ERROR, null, OperationOutcome.IssueType.CODEINVALID, null, null);
 				response.addParameter(createParameterComponentWithOperationOutcomeWithIssues(Arrays.asList(issues)));
 				response.addParameter("message", format("No valid coding was found for the value set '%s'; The provided code '%s#%s' was not found in the value set '%s'",  hapiValueSet.getUrl(), codingA.getSystem(), codingA.getCode(), hapiValueSet.getUrl()));
 				return response;
 			} else if (coding != null) {
-				locationExpression = "Coding.code"; // ici
-				String details = null;
-//				if (hapiValueSet.getCompose().getInclude().stream().filter(x -> x.hasValueSet()).toList().isEmpty()) { // commented because of notSelectable testcases
-//					details = format("There was no valid code provided that is in the value set '%s'", CanonicalUri.of(hapiValueSet.getUrl(), hapiValueSet.getVersion()));
-//				} else {
-					// 'indirect-validation-one'
-					details = format("The provided code '%s#%s' was not found in the value set '%s'", codingA.getSystem(), codingA.getCode(), CanonicalUri.of(hapiValueSet.getUrl(), hapiValueSet.getVersion()));
-				//}
-				issues[0] = createOperationOutcomeIssueComponent(new CodeableConcept().addCoding(new Coding(TX_ISSUE_TYPE, "not-in-vs", null)).setText(details), OperationOutcome.IssueSeverity.ERROR, locationExpression, OperationOutcome.IssueType.CODEINVALID, null /* Collections.singletonList(new Extension("http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",new StringType("None_of_the_provided_codes_are_in_the_value_set_one")))*/, null);
+				locationExpression = "Coding.code";
+				String details = format("The provided code '%s#%s' was not found in the value set '%s'", codingA.getSystem(), codingA.getCode(), CanonicalUri.of(hapiValueSet.getUrl(), hapiValueSet.getVersion()));
+				if(resolvedCodeSystemVersionsMatchingCodings.size() == 1 && codeSystemIncludesConcept(resolvedCodeSystemVersionsMatchingCodings.iterator().next(), codingA)) {
+					issues[0] = createOperationOutcomeIssueComponent(new CodeableConcept().addCoding(new Coding(TX_ISSUE_TYPE, "not-in-vs", null)).setText(details), OperationOutcome.IssueSeverity.ERROR, locationExpression, OperationOutcome.IssueType.CODEINVALID, null /* Collections.singletonList(new Extension("http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",new StringType("None_of_the_provided_codes_are_in_the_value_set_one")))*/, null);
+					message = format("The provided code '%s#%s' was not found in the value set '%s'",  codingA.getSystem(), codingA.getCode(), CanonicalUri.of(hapiValueSet.getUrl(), hapiValueSet.getVersion()));
+				} else {
+					issues[0] = createOperationOutcomeIssueComponent(new CodeableConcept().addCoding(new Coding(TX_ISSUE_TYPE, "not-in-vs", null)).setText(details), OperationOutcome.IssueSeverity.ERROR, locationExpression, OperationOutcome.IssueType.CODEINVALID, Collections.singletonList(new Extension("http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",new StringType("None_of_the_provided_codes_are_in_the_value_set_one"))), null);
+					String details2 = format("Unknown code '%s' in the CodeSystem '%s' version '%s'", codingA.getCode(), codingA.getSystem(), resolvedCodeSystemVersionsMatchingCodings.isEmpty() ? null : resolvedCodeSystemVersionsMatchingCodings.iterator().next().getVersion());
+					issues[1] = createOperationOutcomeIssueComponent(new CodeableConcept().addCoding(new Coding(TX_ISSUE_TYPE, "invalid-code", null)).setText(details2), OperationOutcome.IssueSeverity.ERROR, locationExpression, OperationOutcome.IssueType.CODEINVALID, Collections.singletonList(new Extension("http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",new StringType("Unknown_Code_in_Version"))), null);
+					message = details + "; " + details2;
+				}
 			} else {
 				locationExpression = "code";
 				issues[0] = createOperationOutcomeIssueComponent(new CodeableConcept().addCoding(new Coding(TX_ISSUE_TYPE, "not-in-vs", null)).setText(format("There was no valid code provided that is in the value set '%s'", CanonicalUri.of(hapiValueSet.getUrl(), hapiValueSet.getVersion()))), OperationOutcome.IssueSeverity.ERROR, locationExpression, OperationOutcome.IssueType.CODEINVALID, null /* Collections.singletonList(new Extension("http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",new StringType("None_of_the_provided_codes_are_in_the_value_set_one")))*/, null);
-			}
-			String message;
-//			if (hapiValueSet.getCompose().getInclude().stream().filter(x -> x.hasValueSet()).toList().isEmpty()){ // commented because of notSelectable testcases
-//				message = format("The provided code '%s' is not known to belong to the provided code system '%s'", codingA.getCode(), codingA.getSystem());
-//			} else {
 				message = format("The provided code '%s#%s' was not found in the value set '%s'",  codingA.getSystem(), codingA.getCode(), CanonicalUri.of(hapiValueSet.getUrl(), hapiValueSet.getVersion()));
-			//}
+			}
 			response.addParameter("message", message);
 
 
 			if(inferSystem != null && inferSystem.booleanValue()){
 				issues[1] = createOperationOutcomeIssueComponent(new CodeableConcept().addCoding(new Coding(TX_ISSUE_TYPE, "cannot-infer",null)).setText(message), OperationOutcome.IssueSeverity.ERROR, locationExpression, OperationOutcome.IssueType.NOTFOUND, null , null);
 			}
-//			else { // commented because testcase notSelectable-prop-trueUC-true expects a single issue
-//				if(hapiValueSet.getCompose().getInclude().stream().filter(x->x.hasValueSet()).toList().isEmpty()) {
-//					issues[1] = createOperationOutcomeIssueComponent(new CodeableConcept().addCoding(new Coding(TX_ISSUE_TYPE, "invalid-code", null)).setText(message), OperationOutcome.IssueSeverity.ERROR, locationExpression, OperationOutcome.IssueType.CODEINVALID, null , null);
-//				}
-//			}
 			Parameters.ParametersParameterComponent operationOutcomeParameter = createParameterComponentWithOperationOutcomeWithIssues(Arrays.asList(issues));
 			response.addParameter(operationOutcomeParameter);
 
@@ -1533,6 +1638,13 @@ public class FHIRValueSetService {
 			response.addParameter(operationOutcomeParameter);
 		}
 		return response;
+	}
+
+	private boolean codeSystemIncludesConcept(FHIRCodeSystemVersion codeSystem, Coding coding) {
+		BoolQuery.Builder query = bool().must(termQuery(FHIRConcept.Fields.CODE_SYSTEM_VERSION, codeSystem.getId()));
+		addCodeConstraintToQuery(coding, codeSystem.isCaseSensitive(), query);
+		List<FHIRConcept> concepts = conceptService.findConcepts(query, PAGE_OF_ONE).getContent();
+		return !concepts.isEmpty();
 	}
 
 	private SelectedDisplay selectDisplay(String system, String displayLanguage, FHIRConcept concept) {
@@ -1636,7 +1748,7 @@ public class FHIRValueSetService {
 		if (!genericVersions.isEmpty()) {
 			BoolQuery.Builder fhirConceptQuery = getFhirConceptQuery(codeSelectionCriteria, null);
 			// Add criteria to select just this code
-			fhirConceptQuery.must(termQuery(FHIRConcept.Fields.CODE, coding.getCode()));
+			addCodeConstraintToQuery(coding, genericVersions.stream().anyMatch(FHIRCodeSystemVersion::isCaseSensitive), fhirConceptQuery);
 			List<FHIRConcept> concepts = conceptService.findConcepts(fhirConceptQuery, PAGE_OF_ONE).getContent();
 			if (!concepts.isEmpty()) {
 				return concepts.get(0);
@@ -1644,6 +1756,14 @@ public class FHIRValueSetService {
 		}
 
 		return null;
+	}
+
+	private static void addCodeConstraintToQuery(Coding coding, boolean isCaseSensitive, BoolQuery.Builder fhirConceptQuery) {
+		if (isCaseSensitive) {
+			fhirConceptQuery.must(termQuery(FHIRConcept.Fields.CODE, coding.getCode()));
+		} else {
+			fhirConceptQuery.must(termQuery(FHIRConcept.Fields.CODE_LOWER, coding.getCode().toLowerCase()));
+		}
 	}
 
 	private String inclusionExclusionClausesToEcl(CodeSelectionCriteria codeSelectionCriteria) {
@@ -1739,7 +1859,7 @@ public class FHIRValueSetService {
 		}
 	}
 
-	private void collectConstraints(ValueSet.ConceptSetComponent include, FHIRCodeSystemVersion codeSystemVersion, AndConstraints andConstraints, boolean activeOnly) {
+	private void collectConstraints(ValueSet valueSet, ValueSet.ConceptSetComponent include, int includeIndex, FHIRCodeSystemVersion codeSystemVersion, AndConstraints andConstraints, boolean activeOnly, boolean isInclude) {
 		Set<ConceptConstraint> constraints = new HashSet<>();
 		if (!include.getConcept().isEmpty()) {
 			List<String> codes = include.getConcept().stream().map(ValueSet.ConceptReferenceComponent::getCode).collect(Collectors.toList());
@@ -1748,10 +1868,12 @@ public class FHIRValueSetService {
 			constraints = new HashSet<>();
 		}
 		if (!include.getFilter().isEmpty()) {
-			for (ValueSet.ConceptSetFilterComponent filter : include.getFilter()) {
+			var includeFilter = include.getFilter();
+			for (int filterIndex = 0; filterIndex < includeFilter.size(); filterIndex++) {
+				ValueSet.ConceptSetFilterComponent filter = includeFilter.get(filterIndex);
 				String property = filter.getProperty();
 				ValueSet.FilterOperator op = filter.getOp();
-				String value = filter.getValue();
+				String value = getFilterValueElseThrow(filter, valueSet, include.getSystem(), property, op.toCode(), includeIndex, filterIndex, isInclude);
 				if (codeSystemVersion.isOnSnomedBranch()) {
 					// SNOMED CT filters:
 					// concept, is-a, [conceptId]
@@ -1892,6 +2014,18 @@ public class FHIRValueSetService {
 		}
 	}
 
+	private static String getFilterValueElseThrow(ValueSet.ConceptSetFilterComponent filter, ValueSet valueSet, String system, String property, String op, int includeIndex, int filterIndex, boolean isInclude) {
+		if(filter.getValue() != null) {
+			return filter.getValue();
+		}
+		CodeableConcept cc = new CodeableConcept()
+				.setCoding(List.of(new Coding("http://hl7.org/fhir/tools/CodeSystem/tx-issue-type", "vs-invalid", null)))
+				.setText(format("The system %s filter with property = %s, op = %s has no value", system, property, op));
+		String location = format("ValueSet['%s|%s].compose.%s[%d].filter[%d].value", valueSet.getUrl(), valueSet.getVersion(), isInclude ? "include" : "exclude", includeIndex, filterIndex);
+		OperationOutcome operationOutcome = createOperationOutcomeWithIssue(cc, OperationOutcome.IssueSeverity.ERROR, location, OperationOutcome.IssueType.INVALID, null, null);
+		throw new SnowstormFHIRServerResponseException(400, "Missing filter value", operationOutcome, null);
+	}
+
 	private ValueSet createSnomedImplicitValueSet(String url) {
 		FHIRValueSetCriteria includeCriteria = new FHIRValueSetCriteria();
 		includeCriteria.setSystem(url.startsWith(SNOMED_URI_UNVERSIONED) ? SNOMED_URI_UNVERSIONED : SNOMED_URI);
@@ -1990,5 +2124,70 @@ public class FHIRValueSetService {
 		} else {
 			return url;
 		}
+	}
+
+	private List<ValueSetCycleElement> getValueSetIncludeExcludeCycle(ValueSet valueSet) {
+		return getValueSetIncludeExcludeCycle(valueSet, new HashSet<>(), true);
+	}
+
+	private List<ValueSetCycleElement> getValueSetIncludeExcludeCycle(ValueSet valueSet, Set<String> visited, boolean isIncluded) {
+		if (valueSet.getCompose() == null) {
+			return Collections.emptyList();
+		}
+
+		String key = valueSet.getUrl() + "|" + valueSet.getVersion();
+		if (!visited.add(key)) {
+			// Cycle detected
+			return new ArrayList<>(List.of(new ValueSetCycleElement(isIncluded, valueSet.getUrl(), valueSet.getVersion())));
+		}
+
+		ValueSetCycleElement current = new ValueSetCycleElement(isIncluded, valueSet.getUrl(), valueSet.getVersion());
+
+		if (valueSet.getCompose().hasInclude()) {
+			var cycle = detectCycle(valueSet.getCompose().getInclude(), visited, true);
+			if (!cycle.isEmpty()) {
+				cycle.add(current);
+				return cycle;
+			}
+		}
+
+		if (valueSet.getCompose().hasExclude()) {
+			var cycle = detectCycle(valueSet.getCompose().getExclude(), visited, false);
+			if (!cycle.isEmpty()) {
+				cycle.add(current);
+				return cycle;
+			}
+		}
+
+		visited.remove(key);
+		return Collections.emptyList();
+	}
+
+	private List<ValueSetCycleElement> detectCycle(List<ValueSet.ConceptSetComponent> components, Set<String> visited, boolean isIncluded) {
+		for (var component : components) {
+			for (CanonicalType canonical : component.getValueSet()) {
+				ValueSet child = findOrInferValueSet(null, canonical.getValueAsString(), null, null);
+				if (child != null) {
+					var cycle = getValueSetIncludeExcludeCycle(child, visited, isIncluded);
+					if (!cycle.isEmpty()) {
+						return cycle;
+					}
+				}
+			}
+		}
+		return Collections.emptyList();
+	}
+
+	private String getCyclicDiagnosticMessage(List<ValueSetCycleElement> valueSetCycle) {
+		ValueSetCycleElement last = valueSetCycle.get(0);
+		String lastConstraint = (last.include() ? "including " : "excluding ") + last.getCanonicalUrlVersion();
+		StringBuilder parentPath = new StringBuilder();
+		for(int i = 1; i < valueSetCycle.size(); i++) {
+			parentPath.append(valueSetCycle.get(i).getCanonicalUrlVersion());
+			if(i < valueSetCycle.size() - 1) {
+				parentPath.append(", ");
+			}
+		}
+		return format("Cyclic reference detected when %s via [%s]", lastConstraint, parentPath);
 	}
 }

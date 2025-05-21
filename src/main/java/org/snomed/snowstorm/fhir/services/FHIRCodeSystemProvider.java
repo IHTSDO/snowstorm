@@ -531,7 +531,7 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants 
 
 				return pMapper.validateCodeResponse(concept, displayValidOrNull, codeSystemVersion);
 			} else {
-				return pMapper.resultFalseWithMessage(code, codeSystemVersion, "The code was not found in the specified code system.");
+				return pMapper.resultFalse(code, codeSystemVersion);
 			}
 		}
 	}

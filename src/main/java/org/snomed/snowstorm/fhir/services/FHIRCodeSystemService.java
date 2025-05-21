@@ -27,6 +27,7 @@ import org.snomed.snowstorm.core.data.services.postcoordination.model.PostCoordi
 import org.snomed.snowstorm.core.pojo.LanguageDialect;
 import org.snomed.snowstorm.fhir.domain.FHIRCodeSystemVersion;
 import org.snomed.snowstorm.fhir.domain.FHIRConcept;
+import org.snomed.snowstorm.fhir.domain.FHIRExtension;
 import org.snomed.snowstorm.fhir.domain.SubsumesResult;
 import org.snomed.snowstorm.fhir.pojo.CanonicalUri;
 import org.snomed.snowstorm.fhir.pojo.ConceptAndSystemResult;
@@ -45,7 +46,6 @@ import java.util.*;
 
 import static java.lang.String.format;
 import static org.snomed.snowstorm.core.util.SearchAfterQueryHelper.updateQueryWithSearchAfter;
-import static org.snomed.snowstorm.fhir.services.FHIRHelper.createOperationOutcomeWithIssues;
 import static org.snomed.snowstorm.fhir.services.FHIRHelper.exception;
 import static org.snomed.snowstorm.fhir.utils.FHIRPageHelper.toPage;
 
@@ -349,8 +349,16 @@ public class FHIRCodeSystemService {
 	public FHIRCodeSystemVersion findCodeSystemVersionOrThrow(FHIRCodeSystemVersionParams systemVersionParams) {
 		FHIRCodeSystemVersion codeSystemVersion = findCodeSystemVersion(systemVersionParams);
 		if (codeSystemVersion == null) {
-			if(supplementExists(systemVersionParams.getCodeSystem()+(systemVersionParams.getVersion()==null?"*":format("|%s",systemVersionParams.getVersion())), systemVersionParams.getVersion()==null)){
-				String message = format("CodeSystem %s is a supplement, so can't be used as a value in Coding.system",systemVersionParams.getCodeSystem());
+			String codeSystem = systemVersionParams.getCodeSystem() + (systemVersionParams.getVersion() == null ? "*" : format("|%s", systemVersionParams.getVersion()));
+			List<FHIRCodeSystemVersion> supplements = getSupplements(codeSystem, systemVersionParams.getVersion()==null);
+			if(!supplements.isEmpty()){
+				String codeSystemWithVersionIfFound = supplements.stream()
+						.flatMap(supp -> supp.getExtensions().stream())
+						.map(FHIRExtension::getValue)
+						.filter(Objects::nonNull)
+						.filter(ext -> ext.contains(systemVersionParams.getCodeSystem()))
+						.findAny().orElse(systemVersionParams.getCodeSystem());
+				String message = format("CodeSystem %s is a supplement, so can't be used as a value in Coding.system", codeSystemWithVersionIfFound);
 				CodeableConcept cc = new CodeableConcept(new Coding("http://hl7.org/fhir/tools/CodeSystem/tx-issue-type", "invalid-data",null)).setText(message);
 				OperationOutcome oo = FHIRHelper.createOperationOutcomeWithIssue(cc, OperationOutcome.IssueSeverity.ERROR, "Coding.system", OperationOutcome.IssueType.INVALID, Collections.singletonList(new Extension("http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id", new StringType("CODESYSTEM_CS_NO_SUPPLEMENT"))), null);
 				throw new SnowstormFHIRServerResponseException(400,message,oo);
@@ -388,12 +396,13 @@ public class FHIRCodeSystemService {
 		} else {
 			String id = systemVersionParams.getId();
 			String versionParam = systemVersionParams.getVersion();
-			if (id != null) {// ID is unique, version not needed
-				version = codeSystemRepository.findById(id).orElse(null);
-			} else if (versionParam != null) {
-				version = codeSystemRepository.findByUrlAndVersion(systemVersionParams.getCodeSystem(), versionParam);
+			String urlParam = systemVersionParams.getCodeSystem();
+			if (id != null) { // version not needed if only one codeSystem possesses this id or if only latest version needed
+				version = codeSystemRepository.findFirstByCodeSystemIdOrderByVersionDesc(id).orElse(null);
+			} else if (versionParam != null && urlParam != null) {
+				version = codeSystemRepository.findByUrlAndVersion(urlParam, versionParam);
 			} else {
-				version = codeSystemRepository.findFirstByUrlOrderByVersionDesc(systemVersionParams.getCodeSystem());
+				version = codeSystemRepository.findFirstByUrlOrderByVersionDesc(urlParam);
 			}
 		}
 
@@ -476,7 +485,7 @@ public class FHIRCodeSystemService {
 	}
 
 	public Optional<FHIRCodeSystemVersion> findById(String id) {
-		return codeSystemRepository.findById(id);
+		return codeSystemRepository.findFirstByCodeSystemIdOrderByVersionDesc(id);
 	}
 
 	public void deleteCodeSystemVersion(FHIRCodeSystemVersion codeSystemVersion) {
@@ -635,6 +644,10 @@ public class FHIRCodeSystemService {
 	}
 
 	public boolean supplementExists(String value, boolean containsWildcard) {
+		return !getSupplements(value, containsWildcard).isEmpty();
+	}
+
+	public List<FHIRCodeSystemVersion> getSupplements(String value, boolean containsWildcard) {
 		NestedQuery.Builder nested = new NestedQuery.Builder();
 		BoolQuery.Builder query = new BoolQuery.Builder();
 		if(containsWildcard){
@@ -643,8 +656,7 @@ public class FHIRCodeSystemService {
 			query.filter(new TermQuery.Builder().field("extensions.value").value(value).build()._toQuery());
 		}
 		nested.path("extensions").query(query.build()._toQuery());
-		Page<FHIRCodeSystemVersion> result = find(PageRequest.of(0,100), nested.build()._toQuery());
-		return result.getTotalElements() != 0;
+		return find(PageRequest.of(0,100), nested.build()._toQuery()).toList();
 	}
 
 	public Page<FHIRCodeSystemVersion> find(PageRequest pageRequest, Query query) {
