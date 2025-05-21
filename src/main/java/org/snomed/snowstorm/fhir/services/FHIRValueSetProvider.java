@@ -292,10 +292,11 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 			@OperationParam(name="system-version") String systemVersionDeprecated,
 			@OperationParam(name="inferSystem") BooleanType inferSystem,
 			@OperationParam(name="lenient-display-validation") BooleanType lenientDisplayValidation,
+			@OperationParam(name="valueset-membership-only") BooleanType valueSetMembershipOnly,
 			@OperationParam(name="activeOnly") BooleanType activeOnly) {
 
 		return valueSetService.validateCode(id.getIdPart(), url, context, valueSet, valueSetVersion, code, system, systemVersion == null ? systemVersionDeprecated : systemVersion, display, coding, codeableConcept, date, abstractBool,
-				FHIRHelper.getDisplayLanguage(displayLanguage, request.getHeader(ACCEPT_LANGUAGE_HEADER)),inferSystem, activeOnly, null, lenientDisplayValidation);
+				FHIRHelper.getDisplayLanguage(displayLanguage, request.getHeader(ACCEPT_LANGUAGE_HEADER)),inferSystem, activeOnly, null, lenientDisplayValidation, valueSetMembershipOnly);
 	}
 
 	@Operation(name="$validate-code", idempotent=true)
@@ -320,6 +321,7 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 			@OperationParam(name="inferSystem") BooleanType inferSystem,
 			@OperationParam(name="activeOnly") BooleanType activeOnly,
 			@OperationParam(name="lenient-display-validation") BooleanType lenientDisplayValidation,
+			@OperationParam(name="valueset-membership-only") BooleanType valueSetMembershipOnly,
 			@OperationParam(name="default-valueset-version") CanonicalType versionValueSet) {
 
 		logger.info(FHIRValueSetProviderHelper.getFullURL(request));
@@ -329,7 +331,7 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 			FHIRHelper.handleTxResources(loadPackageService, parsed);
 		}
 		return valueSetService.validateCode(null, url, context, valueSet, valueSetVersion, code, system, systemVersion == null ? systemVersionDeprecated : systemVersion, display, coding, codeableConcept, date, abstractBool,
-				FHIRHelper.getDisplayLanguage(displayLanguage, request.getHeader(ACCEPT_LANGUAGE_HEADER)), inferSystem, activeOnly, versionValueSet, lenientDisplayValidation);
+				FHIRHelper.getDisplayLanguage(displayLanguage, request.getHeader(ACCEPT_LANGUAGE_HEADER)), inferSystem, activeOnly, versionValueSet, lenientDisplayValidation, valueSetMembershipOnly);
 	}
 
 	@Override
