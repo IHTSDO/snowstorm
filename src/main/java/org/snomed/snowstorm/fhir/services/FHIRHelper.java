@@ -41,6 +41,7 @@ public class FHIRHelper implements FHIRConstants {
 	public static final Pattern SNOMED_URI_MODULE_AND_VERSION_PATTERN = Pattern.compile("http://snomed.info/x?sct/(\\d+)/version/([\\d]{8})");
 	public static int DEFAULT_PAGESIZE = 1_000;
 	private static final Pattern SCT_ID_PATTERN = Pattern.compile("sct_(\\d)+_(\\d){8}");
+	public static final String DEFAULT_VERSION = "1";
 
 	@Autowired
 	private DialectConfigurationService dialectService;
