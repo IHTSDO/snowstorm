@@ -6,7 +6,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.commons.compress.archivers.ArchiveEntry;
 import org.apache.commons.compress.archivers.tar.TarArchiveInputStream;
 import org.apache.commons.compress.compressors.gzip.GzipCompressorInputStream;
-import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.hl7.fhir.instance.model.api.IBaseResource;
 import org.hl7.fhir.r4.model.CodeSystem;
@@ -31,6 +30,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import static java.lang.String.format;
+import static org.snomed.snowstorm.fhir.services.FHIRHelper.DEFAULT_VERSION;
 
 @Service
 public class FHIRLoadPackageService {
@@ -156,7 +156,7 @@ public class FHIRLoadPackageService {
 						OperationOutcome.IssueType.NOTSUPPORTED, 400);
 			}
 			if (fhirPackageIndexFile.getVersion() == null) {
-				fhirPackageIndexFile.version = "1";
+				fhirPackageIndexFile.version = DEFAULT_VERSION;
 			}
 		}
 		if (!importAll) {
