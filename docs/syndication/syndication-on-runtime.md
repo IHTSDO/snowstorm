@@ -1,12 +1,12 @@
-# 🩺 Runtime Syndication API Documentation
+# 🩺 Runtime Syndication API Guide
 
-This document outlines how to dynamically change or update clinical terminology versions in a Snowstorm-based application **after the application has fully started** and **completed the startup import process**.
+This guide explains how to **dynamically import or update clinical terminology versions** in a Snowstorm-based application **after it has fully started** and completed its initial import process.
 
 ---
 
-## 📌 Endpoint
+## 📌 API Endpoint
 
-This API endpoint enables **runtime loading of clinical terminologies**—no application restart required. It’s designed for **system administrators** who need to **import or update** terminology versions on-the-fly.
+The following endpoint allows **runtime terminology updates** without requiring a server restart. It is designed for **system administrators** who need to manage terminology data on-the-fly.
 
 ```http
 PUT /syndication/import
@@ -14,31 +14,51 @@ PUT /syndication/import
 
 ---
 
-## 📝 Description
+## 📝 Overview
 
-Invoking this endpoint triggers a **background job** that imports or updates a terminology version. It supports:
+Calling this endpoint triggers a **background job** that imports or updates a clinical terminology. It supports:
 
-- **Custom-version terminologies** (e.g., SNOMED CT, LOINC, HL7 FHIR)
-- **Fixed-version terminologies** (e.g., ISO codes, UCUM)
+* **Versioned terminologies** (e.g. SNOMED CT, LOINC, HL7 FHIR)
+* **Fixed-code terminologies** (e.g. ISO standards, UCUM)
 
-> ⚠️ **Security Notice**: A secret key (`syndicationSecret`) must be provided in the request body. This secret must match 
-> the value defined in your environment variables (see syndication-terminologies.md) to prevent unauthorized access.
-
----
-
-## 📦 Request Body
-
-The request must be in JSON format and follow the structure defined in `SyndicationImportRequest.java`.
+> ⚠️ **Security Requirement**: A `syndicationSecret` must be included in the request body. This secret must match the value configured in the application’s environment (see `syndication-terminologies.md`) to prevent unauthorized access.
 
 ---
 
-## 🧪 Custom-Version Terminologies
+## 📦 Request Format
 
-This option is ideal for terminology sources that release regular updates (e.g., monthly LOINC updates or SNOMED CT regional extensions). Downgrading to earlier versions is also supported.
+The request must be JSON-formatted and conform to the structure defined in `SyndicationImportRequest.java`.
+
+---
+
+## 🔄 Custom-Version Terminologies
+
+Use this option for terminologies that are frequently updated (e.g., SNOMED CT extensions, LOINC). You can also **downgrade** to earlier versions or load **local** files.
+
+### 📁 Local Imports
+
+To use local terminology files:
+
+1. Copy the file into the running container to the appropriate location. For example for HL7:
+
+   ```bash
+   docker cp ./hl7.terminology.r4-6.2.0.tgz snowstorm:/app/hl7
+   ```
+
+2. Use the version `"local"` in the request. The table below lists the appropriated paths and filename patterns to respect for each custom-version terminology.
+
+| Terminology | Path          | Filename Pattern                                |
+| ----------- | ------------- | ----------------------------------------------- |
+| HL7         | `/app/hl7`    | `hl7.terminology.*.tgz`                         |
+| LOINC       | `/app/loinc`  | `Loinc*.zip`                                    |
+| SNOMED CT   | `/app/snomed` | `snomed*edition*.zip` + `snomed*extension*.zip` |
+
+---
 
 ### ▶️ Examples
 
-#### LOINC - Latest Version
+#### ✅ LOINC – Latest Version
+
 ```json
 {
   "terminologyName": "loinc",
@@ -46,7 +66,8 @@ This option is ideal for terminology sources that release regular updates (e.g.,
 }
 ```
 
-#### LOINC - Specific Version (2.80)
+#### 📌 LOINC – Specific Version (2.80)
+
 ```json
 {
   "terminologyName": "loinc",
@@ -55,7 +76,18 @@ This option is ideal for terminology sources that release regular updates (e.g.,
 }
 ```
 
-#### SNOMED CT - Belgian Extension + Latest International Edition
+#### 🗂️ LOINC – Local File
+
+```json
+{
+  "terminologyName": "loinc",
+  "version": "local",
+  "syndicationSecret": "theSecret"
+}
+```
+
+#### 🌍 SNOMED CT – Latest BE Extension + International Edition
+
 ```json
 {
   "terminologyName": "snomed",
@@ -65,7 +97,8 @@ This option is ideal for terminology sources that release regular updates (e.g.,
 }
 ```
 
-#### SNOMED CT - Belgian Extension + Specific Version
+#### 📌 SNOMED CT – Specific Version
+
 ```json
 {
   "terminologyName": "snomed",
@@ -75,10 +108,32 @@ This option is ideal for terminology sources that release regular updates (e.g.,
 }
 ```
 
-#### HL7 - Latest Version
+#### 🗂️ SNOMED CT – Local Import
+
+```json
+{
+  "terminologyName": "snomed",
+  "version": "local",
+  "extensionName": "BE",
+  "syndicationSecret": "theSecret"
+}
+```
+
+#### ✅ HL7 – Latest Version
+
 ```json
 {
   "terminologyName": "hl7",
+  "syndicationSecret": "theSecret"
+}
+```
+
+#### 🗂️ HL7 – Local File
+
+```json
+{
+  "terminologyName": "hl7",
+  "version": "local",
   "syndicationSecret": "theSecret"
 }
 ```
@@ -87,36 +142,39 @@ This option is ideal for terminology sources that release regular updates (e.g.,
 
 ## 📁 Fixed-Version Terminologies
 
-This option re-imports terminology files **already present on the Docker container's file system**. It's useful when:
+For terminologies with fixed versions (e.g. ISO, UCUM), this mode re-imports the terminology **from the container’s filesystem**.
 
-- You want to re-trigger an import without restarting the app.
-- You’ve manually copied a new file version to the container during runtime or want to import the original one.
+### ✅ Use Cases
 
-> 📌 File naming convention must follow: `*-codesystem.*`  
-> Example: `bcp13-codesystem.json`, `iso3166-codesystem.json`
+* Re-import a terminology without restarting the server
+* Load a manually updated file during runtime
 
-### 📂 Example File Paths
+> 📌 **File Naming Requirement**: Filenames must follow the `*-codesystem.*` pattern (e.g. `bcp13-codesystem.json`)
 
-- `/app/atc/atc-codesystem.csv`
-- `/app/bcp13/bcp13-application-codesystem.json`
-- `/app/bcp13/bcp13-image-codesystem.json`
-- `/app/bcp47/bcp47-codesystem.json`
-- `/app/iso3166/iso3166-codesystem.json`
-- `/app/iso3166/iso3166-2-codesystem.json`
-- `/ucum/ucum-codesystem.xml`
+### 📂 File Path Examples
 
-### 🏷️ Supported Terminology Names
+| Terminology | Path           | Example Filename                    |
+| ----------- | -------------- | ----------------------------------- |
+| ATC         | `/app/atc`     | `atc-codesystem.csv`                |
+| BCP13       | `/app/bcp13`   | `bcp13-application-codesystem.json` |
+| BCP47       | `/app/bcp47`   | `bcp47-codesystem.json`             |
+| ISO3166     | `/app/iso3166` | `iso3166-codesystem.json`           |
+| ISO3166-2   | `/app/iso3166` | `iso3166-2-codesystem.json`         |
+| UCUM        | `/ucum`        | `ucum-codesystem.xml`               |
 
-| Terminology       | Value in Request |
-|-------------------|------------------|
-| BCP13             | `bcp13`          |
-| BCP47             | `bcp47`          |
-| ATC               | `atc`            |
-| ISO3166           | `iso3166`        |
-| M49               | `m49`            |
-| UCUM              | `ucum`           |
+### 🏷️ Supported Values
 
-### ▶️ Example: Import BCP13
+| Terminology | Value in Request |
+| ----------- | ---------------- |
+| ATC         | `atc`            |
+| BCP13       | `bcp13`          |
+| BCP47       | `bcp47`          |
+| ISO3166     | `iso3166`        |
+| M49         | `m49`            |
+| UCUM        | `ucum`           |
+
+### ▶️ Example: Re-import BCP13
+
 ```json
 {
   "terminologyName": "bcp13",
