@@ -59,6 +59,7 @@ import static co.elastic.clients.elasticsearch._types.query_dsl.QueryBuilders.*;
 import static io.kaicode.elasticvc.helper.QueryHelper.*;
 import static java.util.Collections.emptyList;
 import static org.apache.commons.collections4.MapUtils.emptyIfNull;
+import static org.ihtsdo.otf.RF2Constants.LANG_EN;
 import static org.snomed.snowstorm.core.data.services.ReferenceSetMemberService.AGGREGATION_MEMBER_COUNTS_BY_REFERENCE_SET;
 import static org.snomed.snowstorm.core.util.CollectionUtils.orEmpty;
 import static org.snomed.snowstorm.fhir.domain.ConceptConstraint.Type.INCLUDE_EXACT_MATCH;
