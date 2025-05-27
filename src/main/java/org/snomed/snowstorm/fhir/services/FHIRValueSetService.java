@@ -31,7 +31,6 @@ import org.snomed.snowstorm.fhir.repositories.FHIRValueSetRepository;
 import org.snomed.snowstorm.fhir.services.context.CodeSystemVersionProvider;
 import org.snomed.snowstorm.rest.ControllerHelper;
 import org.snomed.snowstorm.rest.pojo.SearchAfterPageRequest;
-import org.snomed.snowstorm.syndication.services.importers.fixedversion.ucum.UcumCodeValidationService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.*;
 import org.springframework.data.elasticsearch.client.elc.NativeQuery;
@@ -54,6 +53,7 @@ import static java.lang.Boolean.TRUE;
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
 import static org.snomed.snowstorm.config.Config.DEFAULT_LANGUAGE_CODE;
+import static org.ihtsdo.otf.RF2Constants.LANG_EN;
 import static org.snomed.snowstorm.core.data.services.ReferenceSetMemberService.AGGREGATION_MEMBER_COUNTS_BY_REFERENCE_SET;
 import static org.snomed.snowstorm.core.util.CollectionUtils.orEmpty;
 import static org.snomed.snowstorm.fhir.domain.ConceptConstraint.Type.INCLUDE_EXACT_MATCH;
@@ -122,18 +122,6 @@ public class FHIRValueSetService {
 	@Autowired
 	private ElasticsearchOperations elasticsearchOperations;
 
-<<<<<<< HEAD
-=======
-	@Autowired
-	private ExpressionRepositoryService expressionRepositoryService;
-
-	@Autowired
-	private VersionControlHelper versionControlHelper;
-
-	@Autowired
-	private UcumCodeValidationService ucumCodeValidationService;
-
->>>>>>> 41757ae9 (MAINT-2872 Log warning instead of error in case codesystem not found in validate codesystem)
 	private final Map<String, Set<String>> codeSystemVersionToRefsetsWithMembersCache = new HashMap<>();
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
