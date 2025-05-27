@@ -529,7 +529,7 @@ public class FHIRValueSetService {
 			fhirDisplayLanguage = params.getDisplayLanguage();
 			expansion.addParameter(new ValueSet.ValueSetExpansionParameterComponent(new StringType("displayLanguage")).setValue(new CodeType(fhirDisplayLanguage)));
 		} else if (hasDisplayLanguage(hapiValueSet)){
-			fhirDisplayLanguage = hapiValueSet.getCompose().getExtensionByUrl("http://hl7.org/fhir/tools/StructureDefinion/valueset-expansion-param").getExtensionString("value");
+			fhirDisplayLanguage = hapiValueSet.getCompose().getExtensionByUrl("http://hl7.org/fhir/tools/StructureDefinition/valueset-expansion-parameter").getExtensionString("value");
 			expansion.addParameter(new ValueSet.ValueSetExpansionParameterComponent(new StringType("displayLanguage")).setValue(new CodeType(fhirDisplayLanguage)));
 
 		} else if (displayLanguage != null){
@@ -672,7 +672,7 @@ public class FHIRValueSetService {
 	}
 
 	private static boolean hasDisplayLanguage(ValueSet hapiValueSet) {
-        return Optional.ofNullable(hapiValueSet.getCompose().getExtensionByUrl("http://hl7.org/fhir/tools/StructureDefinion/valueset-expansion-param")).isPresent() && "displayLanguage".equals(hapiValueSet.getCompose().getExtensionByUrl("http://hl7.org/fhir/tools/StructureDefinion/valueset-expansion-param").getExtensionString("name"));
+        return Optional.ofNullable(hapiValueSet.getCompose().getExtensionByUrl("http://hl7.org/fhir/tools/StructureDefinition/valueset-expansion-parameter")).isPresent() && "displayLanguage".equals(hapiValueSet.getCompose().getExtensionByUrl("http://hl7.org/fhir/tools/StructureDefinition/valueset-expansion-parameter").getExtensionString("name"));
 	}
 
 	private static void setDisplayAndDesignations(ValueSet.ValueSetExpansionContainsComponent component, FHIRConcept concept, String defaultConceptLanguage, boolean includeDesignations, String displayLanguage, List<String> designationLanguages) {
@@ -1127,7 +1127,7 @@ public class FHIRValueSetService {
 				});
 
 		if(hasDisplayLanguage(hapiValueSet) && displayLanguage == null) {
-			displayLanguage = hapiValueSet.getCompose().getExtensionByUrl("http://hl7.org/fhir/tools/StructureDefinion/valueset-expansion-param").getExtensionString("value");
+			displayLanguage = hapiValueSet.getCompose().getExtensionByUrl("http://hl7.org/fhir/tools/StructureDefinition/valueset-expansion-parameter").getExtensionString("value");
 		}
 
 		// Get set of codings - one of which needs to be valid
