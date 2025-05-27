@@ -1586,7 +1586,8 @@ public class FHIRValueSetService {
 						text = format("The provided code '%s#%s' was not found in the value set '%s|%s'", codingA.getSystem(), codingA.getCode(), hapiValueSet.getUrl(), hapiValueSet.getVersion());
 					}
 					issues.add(createOperationOutcomeIssueComponent(new CodeableConcept().addCoding(new Coding(TX_ISSUE_TYPE, "this-code-not-in-vs", null)).setText(text), OperationOutcome.IssueSeverity.INFORMATION, locationExpression, OperationOutcome.IssueType.CODEINVALID, null, null));
-					boolean codeSystemIncludesConcept = codeSystemIncludesConcept(resolvedCodeSystemVersionsMatchingCodings.iterator().next(), codingA);
+					FHIRCodeSystemVersion codeSystem = resolvedCodeSystemVersionsMatchingCodings.iterator().next();
+					boolean codeSystemIncludesConcept = codeSystemIncludesConcept(codeSystem, codingA);
 					if(codeSystemIncludesConcept) {
 						if(DEFAULT_VERSION.equals(hapiValueSet.getVersion())) {
 							text = format("No valid coding was found for the value set '%s'", hapiValueSet.getUrl());
@@ -1594,7 +1595,17 @@ public class FHIRValueSetService {
 							text = format("No valid coding was found for the value set '%s|%s'", hapiValueSet.getUrl(), hapiValueSet.getVersion());
 						}
 						issues.add(createOperationOutcomeIssueComponent(new CodeableConcept().addCoding(new Coding(TX_ISSUE_TYPE, "not-in-vs", null)).setText(text), OperationOutcome.IssueSeverity.ERROR, null, OperationOutcome.IssueType.CODEINVALID, null, null));
-					} else if(!(valueSetMembershipOnly != null && valueSetMembershipOnly.booleanValue())){
+					} else if (!codeSystemIncludesConcept && valueSetMembershipOnly == null) {
+						String version = codeSystem.getVersion();
+						String[] versionComponents = version.split("\\.");
+						int majorVersion = Integer.parseInt(versionComponents[0]);
+						text = "Unknown code '%s' in the CodeSystem '%s' version '%s'".formatted(codingA.getCode(), codingA.getSystem(), version);
+						issues.add(createOperationOutcomeIssueComponent(new CodeableConcept().addCoding(new Coding(TX_ISSUE_TYPE, "invalid-code", null)).setText(text), OperationOutcome.IssueSeverity.ERROR, locationExpression, OperationOutcome.IssueType.CODEINVALID, null, null));
+                        if (majorVersion < 1) {
+                            issues.add(createOperationOutcomeIssueComponent(new CodeableConcept().addCoding(new Coding(TX_ISSUE_TYPE, "invalid-code", null)).setText(text), OperationOutcome.IssueSeverity.ERROR, null, OperationOutcome.IssueType.CODEINVALID, null, null));
+                        }
+
+                    } else if(!(valueSetMembershipOnly != null && valueSetMembershipOnly.booleanValue())){
 						String details2 = format("Unknown code '%s' in the CodeSystem '%s' version '%s'", codingA.getCode(), codingA.getSystem(), resolvedCodeSystemVersionsMatchingCodings.isEmpty() ? null : resolvedCodeSystemVersionsMatchingCodings.iterator().next().getVersion());
 						issues.add(createOperationOutcomeIssueComponent(new CodeableConcept().addCoding(new Coding(TX_ISSUE_TYPE, "invalid-code", null)).setText(details2), OperationOutcome.IssueSeverity.ERROR, locationExpression, OperationOutcome.IssueType.CODEINVALID, null, null));
 					}
