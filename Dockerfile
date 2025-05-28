@@ -1,13 +1,18 @@
 # Dockerfile responsible of creating the snowstorm image. 
 # The container is dependent on elasticsearch to be up and running (e.g. on port 9200).
 
-# Use a Debian-based OpenJDK 17 image (includes apt)
-FROM openjdk:17-jdk-buster
+# Use a Ubuntu-based image (includes apt)
+FROM ubuntu:22.04
 
 # Install Nodejs and libraries necessary for puppeteer to work + utilities
-RUN curl -sL https://deb.nodesource.com/setup_18.x -o /tmp/nodesource_setup.sh &&\
+RUN apt-get update && apt-get install -y curl && \
+    curl -sL https://deb.nodesource.com/setup_18.x -o /tmp/nodesource_setup.sh && \
     bash /tmp/nodesource_setup.sh \
     && apt-get update && apt-get install -y \
+    openjdk-17-jdk \
+    python3.10 \
+    python3.10-distutils \
+    python3.10-dev  \
     net-tools \
     jq \
     unzip \
@@ -33,7 +38,11 @@ RUN curl -sL https://deb.nodesource.com/setup_18.x -o /tmp/nodesource_setup.sh &
     libxshmfence1 \
     xdg-utils \
     nodejs \
-    && rm -rf /var/lib/apt/lists/*
+    gnumeric \
+    && rm -rf /var/lib/apt/lists/* \
+    && apt-get update \
+    && apt-get install -y wget \
+    && curl -sS https://bootstrap.pypa.io/get-pip.py | python3
 
 # Set up environment variables
 ENV APP_HOME=/app
@@ -91,7 +100,15 @@ RUN ZIPBALL_URL=$(curl -s https://api.github.com/repos/ucum-org/ucum/releases/la
 ### ATC ######
 ##############
 WORKDIR $ATC_HOME
-COPY target/classes/atc/ATC_DDD_Index.csv $ATC_HOME/atc-codesystem.csv
+RUN wget https://github.com/sarrabenyahia/webscrap_health_monitoring/archive/main.zip && \
+unzip main.zip && \
+cd webscrap_health_monitoring-main && \
+pip3 install -r requirements.txt && \
+cd bs4 && \
+python3 act_ddd_script.py && \
+ssconvert ATC_DDD_Index.xlsx ATC_DDD_Index.csv && \
+mv ATC_DDD_Index.csv ../../atc-codesystem.csv && \
+cd ../.. && rm -rf main.zip  webscrap_health_monitoring-main
 
 ##############
 ### BCP13 ####
@@ -140,7 +157,7 @@ EXPOSE 8080
 # Copy Snowstorm JAR (you need to have built it first with Maven beforehand) + the entrypoint
 COPY target/snowstorm*.jar ./snowstorm.jar
 
-USER appuser
+#USER appuser
 
 # Run the app
 ENTRYPOINT ["java", "-Xms2g", "-Xmx4g", "--add-opens", "java.base/java.lang=ALL-UNNAMED", "--add-opens", "java.base/java.util=ALL-UNNAMED", "-jar", "/app/snowstorm.jar"]
