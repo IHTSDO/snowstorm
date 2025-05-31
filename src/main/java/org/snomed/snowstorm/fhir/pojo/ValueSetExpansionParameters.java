@@ -16,7 +16,7 @@ import static java.lang.String.format;
 public final class ValueSetExpansionParameters {
 
 	private final String id;
-	private final URI url;
+	private final String url;
 	private final String valueSetVersion;
 	private final String context;
 	private final String contextDirection;
@@ -44,7 +44,7 @@ public final class ValueSetExpansionParameters {
 				null, includeDefinition1, null, null, null, null, null, null, null, null, null, null);
 	}
 
-	public ValueSetExpansionParameters(String id, ValueSet valueSet, URI url, String valueSetVersion, String context, String contextDirection, String filter, String date,
+	public ValueSetExpansionParameters(String id, ValueSet valueSet, String url, String valueSetVersion, String context, String contextDirection, String filter, String date,
 									   Integer offset, Integer count, Boolean includeDesignations, List<String> designations, Boolean includeDefinition, Boolean activeOnly,
 									   Boolean excludeNested, Boolean excludeNotForUI, Boolean excludePostCoordinated, String displayLanguage, CanonicalUri excludeSystem, CanonicalUri systemVersion,
 									   CanonicalUri checkSystemVersion, CanonicalUri forceSystemVersion, String version) {
