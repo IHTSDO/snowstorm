@@ -72,6 +72,7 @@ public class FHIRCodeSystemVersionParams {
 		return "CodeSystemVersionParams{" +
 				"id='" + id + '\'' +
 				", system='" + codeSystem + '\'' +
+				", snomedModule='" + snomedModule + '\'' +
 				", version='" + version + '\'' +
 				'}';
 	}

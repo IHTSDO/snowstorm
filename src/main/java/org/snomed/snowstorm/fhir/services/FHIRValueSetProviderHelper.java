@@ -8,7 +8,6 @@ import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
 import org.apache.commons.compress.archivers.tar.TarArchiveOutputStream;
 import org.hl7.fhir.r4.model.*;
 import org.jetbrains.annotations.Nullable;
-import org.snomed.snowstorm.fhir.domain.FHIRPackageIndex;
 import org.snomed.snowstorm.fhir.domain.FHIRPackageIndexFile;
 import org.snomed.snowstorm.fhir.pojo.CanonicalUri;
 import org.snomed.snowstorm.fhir.pojo.ValueSetExpansionParameters;
@@ -17,17 +16,14 @@ import java.io.ByteArrayOutputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.net.URI;
-import java.net.URISyntaxException;
 import java.util.List;
 import java.util.zip.GZIPOutputStream;
-import java.util.zip.ZipEntry;
-import java.util.zip.ZipOutputStream;
 
 import static org.snomed.snowstorm.fhir.services.FHIRHelper.*;
 
 
 class FHIRValueSetProviderHelper {
+
 	private static FhirContext ctx;
 	static{
 		// Create a FHIR context
@@ -36,34 +32,31 @@ class FHIRValueSetProviderHelper {
 
 	static ValueSetExpansionParameters getValueSetExpansionParameters(IdType id, final List<Parameters.ParametersParameterComponent> parametersParameterComponents) {
 		Parameters.ParametersParameterComponent valueSetParam = findParameterOrNull(parametersParameterComponents, "valueSet");
-		try {
-			return new ValueSetExpansionParameters(
-					id != null ? id.getIdPart() : null,
-					valueSetParam != null ? (ValueSet) valueSetParam.getResource() : null,
-					new URI(findParameterStringOrNull(parametersParameterComponents, "url")),
-					findParameterStringOrNull(parametersParameterComponents, "valueSetVersion"),
-					findParameterStringOrNull(parametersParameterComponents, "context"),
-					findParameterStringOrNull(parametersParameterComponents, "contextDirection"),
-					findParameterStringOrNull(parametersParameterComponents, "filter"),
-					findParameterStringOrNull(parametersParameterComponents, "date"),
-					findParameterIntOrNull(parametersParameterComponents, "offset"),
-					findParameterIntOrNull(parametersParameterComponents, "count"),
-					findParameterBooleanOrNull(parametersParameterComponents, "includeDesignations"),
-					findParameterStringListOrNull(parametersParameterComponents, "designation"),
-					findParameterBooleanOrNull(parametersParameterComponents, "includeDefinition"),
-					findParameterBooleanOrNull(parametersParameterComponents, "activeOnly"),
-					findParameterBooleanOrNull(parametersParameterComponents, "excludeNested"),
-					findParameterBooleanOrNull(parametersParameterComponents, "excludeNotForUI"),
-					findParameterBooleanOrNull(parametersParameterComponents, "excludePostCoordinated"),
-					findParameterStringOrNull(parametersParameterComponents, "displayLanguage"),
-					findParameterCanonicalOrNull(parametersParameterComponents, "exclude-system"),
-					findParameterCanonicalOrNull(parametersParameterComponents, "system-version"),
-					findParameterCanonicalOrNull(parametersParameterComponents, "check-system-version"),
-					findParameterCanonicalOrNull(parametersParameterComponents, "force-system-version"),
-					findParameterStringOrNull(parametersParameterComponents, "version"));
-		} catch (URISyntaxException e) {
-			throw new RuntimeException(e);
-		}
+		return new ValueSetExpansionParameters(
+			id != null ? id.getIdPart() : null,
+			valueSetParam != null ? (ValueSet) valueSetParam.getResource() : null,
+			findParameterStringOrNull(parametersParameterComponents, "url"),
+			findParameterStringOrNull(parametersParameterComponents, "valueSetVersion"),
+			findParameterStringOrNull(parametersParameterComponents, "context"),
+			findParameterStringOrNull(parametersParameterComponents, "contextDirection"),
+			findParameterStringOrNull(parametersParameterComponents, "filter"),
+			findParameterStringOrNull(parametersParameterComponents, "date"),
+			findParameterIntOrNull(parametersParameterComponents, "offset"),
+			findParameterIntOrNull(parametersParameterComponents, "count"),
+			findParameterBooleanOrNull(parametersParameterComponents, "includeDesignations"),
+			findParameterStringListOrNull(parametersParameterComponents, "designation"),
+			findParameterBooleanOrNull(parametersParameterComponents, "includeDefinition"),
+			findParameterBooleanOrNull(parametersParameterComponents, "activeOnly"),
+			findParameterBooleanOrNull(parametersParameterComponents, "excludeNested"),
+			findParameterBooleanOrNull(parametersParameterComponents, "excludeNotForUI"),
+			findParameterBooleanOrNull(parametersParameterComponents, "excludePostCoordinated"),
+			findParameterStringOrNull(parametersParameterComponents, "displayLanguage"),
+			findParameterCanonicalOrNull(parametersParameterComponents, "exclude-system"),
+			findParameterCanonicalOrNull(parametersParameterComponents, "system-version"),
+			findParameterCanonicalOrNull(parametersParameterComponents, "check-system-version"),
+			findParameterCanonicalOrNull(parametersParameterComponents, "force-system-version"),
+			findParameterStringOrNull(parametersParameterComponents, "version")
+		);
 	}
 
 	static ValueSetExpansionParameters getValueSetExpansionParameters(
@@ -90,11 +83,10 @@ class FHIRValueSetProviderHelper {
 			final StringType forceSystemVersion,
 			final StringType version) {
 
-		try {
 			return new ValueSetExpansionParameters(
 					id != null ? id.getIdPart() : null,
 					null,
-					url != null ? new URI(url.getValueAsString()) : null,
+					url != null ? url.getValueAsString() : null,
 					valueSetVersion,
 					context,
 					contextDirection,
@@ -115,9 +107,6 @@ class FHIRValueSetProviderHelper {
 					CanonicalUri.fromString(getOrNull(checkSystemVersion)),
 					CanonicalUri.fromString(getOrNull(forceSystemVersion)),
 					getOrNull(version));
-		} catch (URISyntaxException e) {
-			throw new RuntimeException(e);
-		}
 	}
 
 	@Nullable
@@ -193,8 +182,6 @@ class FHIRValueSetProviderHelper {
 					new GZIPOutputStream(
 							baos)))
 		{
-
-
 			for (Tuple tuple : tuples) {
 				TarArchiveEntry entry = new TarArchiveEntry("package/" + tuple.indexFile.getFilename());
 				entry.setSize(tuple.string.getBytes().length);
@@ -218,20 +205,14 @@ class FHIRValueSetProviderHelper {
 			gzOut.putArchiveEntry(entry);
 			gzOut.write(index.getBytes());
 			gzOut.closeArchiveEntry();
-
-
-
 		} catch (IOException e) {
 			throw new RuntimeException(e);
 		}
-
 
 		byte[] out = baos.toByteArray();
 
 		try (FileOutputStream fop = new FileOutputStream("zipke.zip")) {
 			fop.write(out);
-		} catch (FileNotFoundException e) {
-			throw new RuntimeException(e);
 		} catch (IOException e) {
 			throw new RuntimeException(e);
 		}
