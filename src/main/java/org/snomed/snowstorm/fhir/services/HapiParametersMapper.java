@@ -1,6 +1,7 @@
 package org.snomed.snowstorm.fhir.services;
 
 import org.hl7.fhir.r4.model.*;
+import org.hl7.fhir.r4.model.CodeSystem;
 import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.domain.expression.Expression;
 import org.snomed.snowstorm.core.data.services.ExpressionService;
@@ -17,6 +18,9 @@ import org.springframework.stereotype.Service;
 import java.util.*;
 
 import static java.lang.String.format;
+import static org.hl7.fhir.r4.model.CodeSystem.CodeSystemContentMode.FRAGMENT;
+import static org.hl7.fhir.r4.model.OperationOutcome.IssueSeverity.ERROR;
+import static org.hl7.fhir.r4.model.OperationOutcome.IssueSeverity.WARNING;
 import static org.snomed.snowstorm.fhir.services.FHIRHelper.createOperationOutcomeIssueComponent;
 import static org.snomed.snowstorm.fhir.services.FHIRHelper.createParameterComponentWithOperationOutcomeWithIssues;
 import static org.snomed.snowstorm.fhir.services.FHIRValueSetService.TX_ISSUE_TYPE;
@@ -75,16 +79,24 @@ public class HapiParametersMapper implements FHIRConstants {
 
 	public Parameters resultFalse(String code, FHIRCodeSystemVersion codeSystemVersion) {
 		Parameters parameters = new Parameters();
-		parameters.addParameter("result", false);
 		parameters.addParameter("code", new CodeType(code));
 		addSystemAndVersion(parameters, codeSystemVersion);
 
 		String message = format("Unknown code '%s' in the CodeSystem '%s' version '%s'", code, codeSystemVersion.getUrl(), codeSystemVersion.getVersion());
+		OperationOutcome.IssueSeverity severity;
+		if(FRAGMENT.toCode().equals(codeSystemVersion.getContent())) {
+			severity = WARNING;
+			parameters.addParameter("result", true);
+			message = message + " - note that the code system is labeled as a fragment, so the code may be valid in some other fragment";
+		} else {
+			severity = ERROR;
+			parameters.addParameter("result", false);
+		}
 		parameters.addParameter("message", message);
 		OperationOutcome.OperationOutcomeIssueComponent[] issues = new OperationOutcome.OperationOutcomeIssueComponent[1];
 		CodeableConcept detail1 = new CodeableConcept(new Coding(TX_ISSUE_TYPE, "invalid-code", null)).setText(message);
 		List<Extension> extensions = Collections.singletonList(new Extension("http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",new StringType("Unknown_Code_in_Version")));
-		issues[0] = createOperationOutcomeIssueComponent(detail1, OperationOutcome.IssueSeverity.ERROR, null, OperationOutcome.IssueType.CODEINVALID, extensions, null);
+		issues[0] = createOperationOutcomeIssueComponent(detail1, severity, null, OperationOutcome.IssueType.CODEINVALID, extensions, null);
 		parameters.addParameter(createParameterComponentWithOperationOutcomeWithIssues(Arrays.asList(issues)));
 		return parameters;
 	}
