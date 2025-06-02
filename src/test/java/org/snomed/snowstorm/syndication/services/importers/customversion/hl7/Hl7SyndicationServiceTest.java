@@ -96,10 +96,12 @@ class Hl7SyndicationServiceTest {
     void testImportHl7Terminology_latestVersionAlreadyImported() throws IOException, ServiceException, InterruptedException {
         Path hl7File = tempDir.resolve("hl7.terminology.r4-6.2.0.tgz");
         Files.createFile(hl7File);
-        SyndicationImport importStatus = new SyndicationImport("hl7", VERSION, VERSION, COMPLETED, null);
+        SyndicationImport importStatus = new SyndicationImport("hl7", LATEST_VERSION, VERSION, COMPLETED, null);
         doReturn(importStatus).when(syndicationImportStatusService).getImportStatus(any());
-
-        var params = new SyndicationImportParams(SyndicationTerminology.HL7, LATEST_VERSION, null, true);
-        assertTrue(hl7SyndicationService.alreadyImported(params, importStatus));
+        try (var mockStatic = mockStatic(CommandUtils.class)){
+            mockStatic.when(() -> CommandUtils.getSingleLineCommandResult(anyString())).thenReturn(VERSION);
+            var params = new SyndicationImportParams(SyndicationTerminology.HL7, LATEST_VERSION, null, true);
+            assertTrue(hl7SyndicationService.alreadyImported(params, importStatus));
+        }
     }
 }
