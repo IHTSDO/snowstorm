@@ -1588,25 +1588,28 @@ public class FHIRValueSetService {
 						text = format("The provided code '%s#%s' was not found in the value set '%s|%s'", codingA.getSystem(), codingA.getCode(), hapiValueSet.getUrl(), hapiValueSet.getVersion());
 					}
 					issues.add(createOperationOutcomeIssueComponent(new CodeableConcept().addCoding(new Coding(TX_ISSUE_TYPE, "this-code-not-in-vs", null)).setText(text), OperationOutcome.IssueSeverity.INFORMATION, locationExpression, OperationOutcome.IssueType.CODEINVALID, null, null));
-					FHIRCodeSystemVersion codeSystem = resolvedCodeSystemVersionsMatchingCodings.iterator().next();
-					boolean codeSystemIncludesConcept = codeSystemIncludesConcept(codeSystem, codingA);
-					if(codeSystemIncludesConcept) {
-						if(DEFAULT_VERSION.equals(hapiValueSet.getVersion())) {
-							text = format("No valid coding was found for the value set '%s'", hapiValueSet.getUrl());
-						} else {
-							text = format("No valid coding was found for the value set '%s|%s'", hapiValueSet.getUrl(), hapiValueSet.getVersion());
-						}
-						issues.add(createOperationOutcomeIssueComponent(new CodeableConcept().addCoding(new Coding(TX_ISSUE_TYPE, "not-in-vs", null)).setText(text), OperationOutcome.IssueSeverity.ERROR, null, OperationOutcome.IssueType.CODEINVALID, null, null));
-					}
-					else if(!(valueSetMembershipOnly != null && valueSetMembershipOnly.booleanValue())){
-						String details2 = format("Unknown code '%s' in the CodeSystem '%s' version '%s'", codingA.getCode(), codingA.getSystem(), resolvedCodeSystemVersionsMatchingCodings.isEmpty() ? null : resolvedCodeSystemVersionsMatchingCodings.iterator().next().getVersion());
-						if (context == null && codings.size() < 2) {
-							text = "No valid coding was found for the value set '%s|%s'".formatted(hapiValueSet.getUrl(), hapiValueSet.getVersion());
+					Iterator<FHIRCodeSystemVersion> codeSystemIterator = resolvedCodeSystemVersionsMatchingCodings.iterator();
+					while (codeSystemIterator.hasNext()) {
+						FHIRCodeSystemVersion codeSystem = codeSystemIterator.next();
+						boolean codeSystemIncludesConcept = codeSystemIncludesConcept(codeSystem, codingA);
+						if(codeSystemIncludesConcept) {
+							if(DEFAULT_VERSION.equals(hapiValueSet.getVersion())) {
+								text = format("No valid coding was found for the value set '%s'", hapiValueSet.getUrl());
+							} else {
+								text = format("No valid coding was found for the value set '%s|%s'", hapiValueSet.getUrl(), hapiValueSet.getVersion());
+							}
 							issues.add(createOperationOutcomeIssueComponent(new CodeableConcept().addCoding(new Coding(TX_ISSUE_TYPE, "not-in-vs", null)).setText(text), OperationOutcome.IssueSeverity.ERROR, null, OperationOutcome.IssueType.CODEINVALID, null, null));
+						} else if(!(valueSetMembershipOnly != null && valueSetMembershipOnly.booleanValue())) {
+							if (context == null && codings.size() < 2) {
+								text = "No valid coding was found for the value set '%s|%s'".formatted(hapiValueSet.getUrl(), hapiValueSet.getVersion());
+								issues.add(createOperationOutcomeIssueComponent(new CodeableConcept().addCoding(new Coding(TX_ISSUE_TYPE, "not-in-vs", null)).setText(text), OperationOutcome.IssueSeverity.ERROR, null, OperationOutcome.IssueType.CODEINVALID, null, null));
 
+							}
+							String details2 = format("Unknown code '%s' in the CodeSystem '%s' version '%s'", codingA.getCode(), codingA.getSystem(), resolvedCodeSystemVersionsMatchingCodings.isEmpty() ? null : resolvedCodeSystemVersionsMatchingCodings.iterator().next().getVersion());
+							issues.add(createOperationOutcomeIssueComponent(new CodeableConcept().addCoding(new Coding(TX_ISSUE_TYPE, "invalid-code", null)).setText(details2), OperationOutcome.IssueSeverity.ERROR, locationExpression, OperationOutcome.IssueType.CODEINVALID, null, null));
 						}
-						issues.add(createOperationOutcomeIssueComponent(new CodeableConcept().addCoding(new Coding(TX_ISSUE_TYPE, "invalid-code", null)).setText(details2), OperationOutcome.IssueSeverity.ERROR, locationExpression, OperationOutcome.IssueType.CODEINVALID, null, null));
 					}
+
 					message = format("No valid coding was found for the value set '%s'; The provided code '%s#%s' was not found in the value set '%s'",  hapiValueSet.getUrl(), codingA.getSystem(), codingA.getCode(), hapiValueSet.getUrl());
 				} else if (coding != null) {
 					locationExpression = "Coding.code";
