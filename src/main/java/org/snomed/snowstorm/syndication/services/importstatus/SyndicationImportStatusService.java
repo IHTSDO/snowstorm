@@ -49,8 +49,12 @@ public class SyndicationImportStatusService {
         syndicationImportStatusDao.saveOrUpdateImportStatus(terminology.getName(), requestedVersion, actualVersion, status, exception);
     }
 
-    public List<SyndicationImport> getAllImportStatuses() {
-        return syndicationImportStatusDao.getAllImportStatuses();
+    public List<SyndicationImport> getAllImportStatuses(boolean runningOnly) {
+        List<SyndicationImport> importStatuses = syndicationImportStatusDao.getAllImportStatuses();
+        if(runningOnly) {
+            return importStatuses.stream().filter(syndicationImport -> ImportJob.ImportStatus.RUNNING.equals(syndicationImport.getStatus())).toList();
+        }
+        return importStatuses;
     }
 
     public boolean isLoincPresent() {
@@ -84,6 +88,6 @@ public class SyndicationImportStatusService {
     }
 
     public boolean isImportRunning() {
-        return getAllImportStatuses().stream().anyMatch(status -> ImportJob.ImportStatus.RUNNING.equals(status.getStatus()));
+        return !getAllImportStatuses(true).isEmpty();
     }
 }

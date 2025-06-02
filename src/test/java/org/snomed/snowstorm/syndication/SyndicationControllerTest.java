@@ -17,7 +17,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 import static org.snomed.snowstorm.syndication.constants.SyndicationConstants.LOINC_TERMINOLOGY;
 
-class SyndicationControllerUnitTest {
+class SyndicationControllerTest {
 
     private static final String SYNDICATION_SECRET = "SECRET";
     private SyndicationImportStatusService importStatusService;
@@ -34,12 +34,12 @@ class SyndicationControllerUnitTest {
     @Test
     void getSyndicationStatuses_returnsList() {
         SyndicationImport mockImport = new SyndicationImport();
-        when(importStatusService.getAllImportStatuses()).thenReturn(List.of(mockImport));
+        when(importStatusService.getAllImportStatuses(false)).thenReturn(List.of(mockImport));
 
-        List<SyndicationImport> result = controller.getSyndicationStatuses();
+        List<SyndicationImport> result = controller.getSyndicationStatuses(false);
 
         assertEquals(1, result.size());
-        verify(importStatusService, times(1)).getAllImportStatuses();
+        verify(importStatusService, times(1)).getAllImportStatuses(false);
     }
 
     @Test

@@ -102,7 +102,7 @@ class SyndicationImportStatusServiceTest {
         SyndicationImport mockStatus = new SyndicationImport(terminology, "20250301", "20250301", status, null);
         when(syndicationImportStatusDao.getAllImportStatuses()).thenReturn(List.of(mockStatus));
 
-        List<SyndicationImport> result = service.getAllImportStatuses();
+        List<SyndicationImport> result = service.getAllImportStatuses(false);
 
         assertNotNull(result);
         SyndicationImport syndicationImport = result.get(0);

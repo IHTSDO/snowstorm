@@ -31,7 +31,7 @@ public abstract class SyndicationService {
 
     protected final Logger logger = LoggerFactory.getLogger(this.getClass());
 
-    public void fetchAndImportTerminology(SyndicationImportParams params) throws IOException, ServiceException, InterruptedException {
+    public void fetchAndImportTerminology(SyndicationImportParams params) {
         String importedVersion = null;
         try {
             importStatusService.saveOrUpdateImportStatus(params.terminology(), params.version(), importedVersion, RUNNING, null);
@@ -52,7 +52,7 @@ public abstract class SyndicationService {
             }
         } catch (Exception e) {
             importStatusService.saveOrUpdateImportStatus(params.terminology(), params.version(), importedVersion, FAILED, e.getMessage());
-            throw e;
+            logger.error(e.getMessage(), e);
         }
     }
 
