@@ -1,14 +1,13 @@
 package org.snomed.snowstorm.fhir.services;
 
+import ca.uhn.fhir.jpa.entity.TermConcept;
 import ca.uhn.fhir.util.UrlUtil;
 import co.elastic.clients.elasticsearch._types.query_dsl.BoolQuery;
 import co.elastic.clients.elasticsearch._types.query_dsl.PrefixQuery;
 import com.google.common.base.Strings;
-import ca.uhn.fhir.jpa.entity.TermConcept;
 import io.kaicode.elasticvc.api.BranchCriteria;
 import io.kaicode.elasticvc.api.VersionControlHelper;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
-
 import org.apache.commons.collections4.ListUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
@@ -21,7 +20,9 @@ import org.snomed.snowstorm.core.data.domain.ConceptMini;
 import org.snomed.snowstorm.core.data.domain.Concepts;
 import org.snomed.snowstorm.core.data.domain.QueryConcept;
 import org.snomed.snowstorm.core.data.domain.ReferenceSetMember;
-import org.snomed.snowstorm.core.data.services.*;
+import org.snomed.snowstorm.core.data.services.ConceptService;
+import org.snomed.snowstorm.core.data.services.QueryService;
+import org.snomed.snowstorm.core.data.services.ReferenceSetMemberService;
 import org.snomed.snowstorm.core.data.services.identifier.IdentifierHelper;
 import org.snomed.snowstorm.core.data.services.pojo.MemberSearchRequest;
 import org.snomed.snowstorm.core.data.services.pojo.PageWithBucketAggregations;
@@ -39,10 +40,10 @@ import org.snomed.snowstorm.rest.ControllerHelper;
 import org.snomed.snowstorm.rest.pojo.SearchAfterPageRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.*;
-import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
-import org.springframework.data.elasticsearch.core.SearchHits;
 import org.springframework.data.elasticsearch.client.elc.NativeQuery;
 import org.springframework.data.elasticsearch.client.elc.NativeQueryBuilder;
+import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
+import org.springframework.data.elasticsearch.core.SearchHits;
 import org.springframework.stereotype.Service;
 
 import java.net.URLDecoder;
@@ -52,18 +53,17 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import static co.elastic.clients.elasticsearch._types.query_dsl.QueryBuilders.bool;
 import static io.kaicode.elasticvc.api.ComponentService.LARGE_PAGE;
+import static io.kaicode.elasticvc.helper.QueryHelper.*;
 import static java.lang.Boolean.TRUE;
 import static java.lang.String.format;
-import static co.elastic.clients.elasticsearch._types.query_dsl.QueryBuilders.*;
-import static io.kaicode.elasticvc.helper.QueryHelper.*;
 import static java.util.Collections.emptyList;
 import static org.apache.commons.collections4.MapUtils.emptyIfNull;
 import static org.snomed.snowstorm.core.data.services.ReferenceSetMemberService.AGGREGATION_MEMBER_COUNTS_BY_REFERENCE_SET;
 import static org.snomed.snowstorm.core.util.CollectionUtils.orEmpty;
 import static org.snomed.snowstorm.fhir.domain.ConceptConstraint.Type.INCLUDE_EXACT_MATCH;
 import static org.snomed.snowstorm.fhir.services.FHIRHelper.*;
-import static org.snomed.snowstorm.fhir.services.FHIRHelper.createOperationOutcomeIssueComponent;
 import static org.snomed.snowstorm.fhir.utils.FHIRPageHelper.toPage;
 
 @Service
@@ -1588,10 +1588,8 @@ public class FHIRValueSetService {
 						text = format("The provided code '%s#%s' was not found in the value set '%s|%s'", codingA.getSystem(), codingA.getCode(), hapiValueSet.getUrl(), hapiValueSet.getVersion());
 					}
 					issues.add(createOperationOutcomeIssueComponent(new CodeableConcept().addCoding(new Coding(TX_ISSUE_TYPE, "this-code-not-in-vs", null)).setText(text), OperationOutcome.IssueSeverity.INFORMATION, locationExpression, OperationOutcome.IssueType.CODEINVALID, null, null));
-					Iterator<FHIRCodeSystemVersion> codeSystemIterator = resolvedCodeSystemVersionsMatchingCodings.iterator();
-					while (codeSystemIterator.hasNext()) {
-						FHIRCodeSystemVersion codeSystem = codeSystemIterator.next();
-						boolean codeSystemIncludesConcept = codeSystemIncludesConcept(codeSystem, codingA);
+					Coding finalCodingA = codingA;
+					boolean codeSystemIncludesConcept = resolvedCodeSystemVersionsMatchingCodings.stream().anyMatch(codeSystem -> codeSystemIncludesConcept(codeSystem, finalCodingA));
 						if(codeSystemIncludesConcept) {
 							if(DEFAULT_VERSION.equals(hapiValueSet.getVersion())) {
 								text = format("No valid coding was found for the value set '%s'", hapiValueSet.getUrl());
@@ -1608,8 +1606,6 @@ public class FHIRValueSetService {
 							String details2 = format("Unknown code '%s' in the CodeSystem '%s' version '%s'", codingA.getCode(), codingA.getSystem(), resolvedCodeSystemVersionsMatchingCodings.isEmpty() ? null : resolvedCodeSystemVersionsMatchingCodings.iterator().next().getVersion());
 							issues.add(createOperationOutcomeIssueComponent(new CodeableConcept().addCoding(new Coding(TX_ISSUE_TYPE, "invalid-code", null)).setText(details2), OperationOutcome.IssueSeverity.ERROR, locationExpression, OperationOutcome.IssueType.CODEINVALID, null, null));
 						}
-					}
-
 					message = format("No valid coding was found for the value set '%s'; The provided code '%s#%s' was not found in the value set '%s'",  hapiValueSet.getUrl(), codingA.getSystem(), codingA.getCode(), hapiValueSet.getUrl());
 				} else if (coding != null) {
 					locationExpression = "Coding.code";
