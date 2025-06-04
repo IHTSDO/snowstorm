@@ -23,7 +23,7 @@ public class RootInterceptor extends InterceptorAdapter {
 	public boolean incomingRequestPreProcessed(HttpServletRequest request, HttpServletResponse response) {
 		try {
 			//The base URL will return a static HTML page
-			if (StringUtils.isEmpty(request.getPathInfo()) || request.getPathInfo().equals("/")) {
+			if (!"POST".equals(request.getMethod()) && (StringUtils.isEmpty(request.getPathInfo()) || request.getPathInfo().equals("/"))) {
 				response.setContentType("text/html");
 				InputStream ios = this.getClass().getResourceAsStream("/fhir/index.html");
 				if (ios == null) {
