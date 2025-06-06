@@ -38,6 +38,7 @@ import org.snomed.snowstorm.fhir.repositories.FHIRValueSetRepository;
 import org.snomed.snowstorm.fhir.services.context.CodeSystemVersionProvider;
 import org.snomed.snowstorm.rest.ControllerHelper;
 import org.snomed.snowstorm.rest.pojo.SearchAfterPageRequest;
+import org.snomed.snowstorm.syndication.services.importers.fixedversion.ucum.UcumCodeValidationService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.*;
 import org.springframework.data.elasticsearch.client.elc.NativeQuery;
@@ -60,6 +61,7 @@ import static java.lang.Boolean.TRUE;
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
 import static org.apache.commons.collections4.MapUtils.emptyIfNull;
+import static org.snomed.snowstorm.config.Config.DEFAULT_LANGUAGE_CODE;
 import static org.snomed.snowstorm.core.data.services.ReferenceSetMemberService.AGGREGATION_MEMBER_COUNTS_BY_REFERENCE_SET;
 import static org.snomed.snowstorm.core.util.CollectionUtils.orEmpty;
 import static org.snomed.snowstorm.fhir.domain.ConceptConstraint.Type.INCLUDE_EXACT_MATCH;
@@ -133,6 +135,9 @@ public class FHIRValueSetService {
 
 	@Autowired
 	private VersionControlHelper versionControlHelper;
+
+	@Autowired
+	private UcumCodeValidationService ucumCodeValidationService;
 
 	private final Map<String, Set<String>> codeSystemVersionToRefsetsWithMembersCache = new HashMap<>();
 
@@ -830,7 +835,12 @@ public class FHIRValueSetService {
 						od.ifPresentOrElse(x ->{
 							x.setValue(rd.getValue());
 							rd.getExtension().forEach(x::addExtension);
-						},()-> component.addDesignation(rd));
+						}, ()-> {
+							if(rd.getLanguage() == null) {
+								rd.setLanguage(DEFAULT_LANGUAGE_CODE);
+							}
+							component.addDesignation(rd);
+						});
 					}
 			);
 			reference.getExtension().forEach(
@@ -1301,6 +1311,11 @@ public class FHIRValueSetService {
 				}
 			}).toList();
 		}
+
+		if(possibleSystems.size() == 1 && UCUM_URI.equals(possibleSystems.get(0))) {
+			return ucumCodeValidationService.validateCodeWithValueSet(code, valueSet);
+		}
+
 		Set<FHIRCodeSystemVersion> resolvedCodeSystemVersionsMatchingCodings = new HashSet<>();
 		boolean systemMatch = false;
 		for (Coding codingA : codings) {
