@@ -423,6 +423,20 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants 
 					parameters.addParameter("result",false);
 					parameters.addParameter("system",new UriType(codeSystemParams.getCodeSystem()));
 					return parameters;
+				} else if(e.getOperationOutcome().getIssue().stream().anyMatch(i -> OperationOutcome.IssueType.NOTFOUND.equals(i.getCode()) && i.getLocation().stream().anyMatch(location -> "Coding.system".equals(location.toString())))){
+					Parameters parameters = new Parameters();
+					parameters.addParameter("code", new CodeType(code));
+					String text = format("A definition for CodeSystem '%s' could not be found, so the code cannot be validated", codeSystemParams.getCodeSystem());
+					OperationOutcome operationOutcome = e.getOperationOutcome();
+					OperationOutcome.OperationOutcomeIssueComponent issue = operationOutcome.getIssue().get(0);
+					issue.setSeverity(OperationOutcome.IssueSeverity.WARNING);
+					issue.getDetails().setText(text);
+					operationOutcome.setIssue(List.of(issue));
+					parameters.addParameter(new Parameters.ParametersParameterComponent(new StringType("issues")).setResource(operationOutcome));
+					parameters.addParameter("message", text);
+					parameters.addParameter("result",true);
+					parameters.addParameter("system",new UriType(codeSystemParams.getCodeSystem()));
+					return parameters;
 				} else {
 					throw e;
 				}
