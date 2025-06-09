@@ -49,7 +49,7 @@ http://localhost:8080/fhir/ValueSet/$expand?url=http://snomed.info/sct?fhir_vs=e
 
 ## POST Method Request Example(s)
 
-#### Expansion with filter operation using ECL
+#### Expansion with filter operation 
 
 ```
 curl --request POST 'http://localhost:8080/fhir/ValueSet/$expand' \
@@ -64,6 +64,7 @@ curl --request POST 'http://localhost:8080/fhir/ValueSet/$expand' \
                 "compose": {
                     "include": [
                         {
+                            "system" : "http://snomed.info/sct",
                             "filter": [
                                 {
                                     "property": "concept",
@@ -78,7 +79,7 @@ curl --request POST 'http://localhost:8080/fhir/ValueSet/$expand' \
         },
         {
             "name": "system-version",
-            "valueString": "http://snomed.info/sct/900000000000207008/version/20200731"
+            "valueString": "http://snomed.info/sct|http://snomed.info/sct/900000000000207008"
         },
         {
             "name": "displayLanguage",
@@ -86,11 +87,11 @@ curl --request POST 'http://localhost:8080/fhir/ValueSet/$expand' \
         },
         {
             "name": "offset",
-            "valueString": "1"
+            "valueInteger": "0"
         },
         {
             "name": "count",
-            "valueString": "5"
+            "valueInteger": "5"
         }
     ]
 }'
