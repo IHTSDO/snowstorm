@@ -14,6 +14,14 @@ http://localhost:8080/fhir/ValueSet/gps/$validate-code?coding=http://snomed.info
 
 ## POST Method Request Example(s)
 
+#### By passing a previously saved JSON file
+```
+curl --request POST 'http://localhost:8080/fhir/ValueSet/$validate-code' \
+--header 'Content-Type: application/json' \
+--data @validate_code.json
+```
+
+#### By passing JSON inline
 ```
 curl --request POST 'http://localhost:8080/fhir/ValueSet/$validate-code' \
 --header 'Content-Type: application/json' \
@@ -46,14 +54,6 @@ curl --request POST 'http://localhost:8080/fhir/ValueSet/$validate-code' \
                     ]
                 }
             }
-        },
-        {
-            "name": "system-version",
-            "valueString": "http://snomed.info/sct|http://snomed.info/sct/900000000000207008"
-        },
-        {
-            "name": "displayLanguage",
-            "valueString": "en-GB"
         }
     ]
 }'
