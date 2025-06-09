@@ -205,6 +205,12 @@ public class FHIRHelper implements FHIRConstants {
 
 	static void handleTxResources(FHIRLoadPackageService loadPackageService, List<Parameters.ParametersParameterComponent> parsed) {
 		List<Parameters.ParametersParameterComponent> txResources = FHIRValueSetProviderHelper.findParametersByName(parsed, "tx-resource");
+		//The uploadPackageResources call will fail if we're running in read-only mode,
+		//so avoid making this call if there are no tx-resources referenced.
+		if (txResources.isEmpty()) {
+			return;
+		}
+
 		List<Resource> resources = txResources.stream().map(x -> x.getResource()).toList();
 		File npmPackage = FHIRValueSetProviderHelper.createNpmPackageFromResources(resources);
 		try {
