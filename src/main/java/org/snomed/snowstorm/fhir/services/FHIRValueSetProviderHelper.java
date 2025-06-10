@@ -8,6 +8,8 @@ import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
 import org.apache.commons.compress.archivers.tar.TarArchiveOutputStream;
 import org.hl7.fhir.r4.model.*;
 import org.jetbrains.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.core.data.services.RuntimeServiceException;
 import org.snomed.snowstorm.fhir.domain.FHIRPackageIndexFile;
 import org.snomed.snowstorm.fhir.pojo.CanonicalUri;
@@ -22,8 +24,10 @@ import java.util.zip.GZIPOutputStream;
 
 import static org.snomed.snowstorm.fhir.services.FHIRHelper.*;
 
-
 class FHIRValueSetProviderHelper {
+
+	private static final Logger LOGGER = LoggerFactory.getLogger(FHIRValueSetProviderHelper.class);
+
 	private static FhirContext ctx;
 	static{
 		// Create a FHIR context
@@ -32,17 +36,10 @@ class FHIRValueSetProviderHelper {
 
 	static ValueSetExpansionParameters getValueSetExpansionParameters(IdType id, final List<Parameters.ParametersParameterComponent> parametersParameterComponents) {
 		Parameters.ParametersParameterComponent valueSetParam = findParameterOrNull(parametersParameterComponents, "valueSet");
-		URI url;
-		try {
-			String urlParam = findParameterStringOrNull(parametersParameterComponents, "url");
-			url = urlParam == null ? null : new URI(urlParam);
-		} catch (URISyntaxException e) {
-			throw FHIRHelper.exception("Invalid url parameter.", OperationOutcome.IssueType.INVALID, 400);
-		}
 		return new ValueSetExpansionParameters(
 					id != null ? id.getIdPart() : null,
 					valueSetParam != null ? (ValueSet) valueSetParam.getResource() : null,
-					url,
+					findParameterStringOrNull(parametersParameterComponents, "url"),
 					findParameterStringOrNull(parametersParameterComponents, "valueSetVersion"),
 					findParameterStringOrNull(parametersParameterComponents, "context"),
 					findParameterStringOrNull(parametersParameterComponents, "contextDirection"),
@@ -93,11 +90,10 @@ class FHIRValueSetProviderHelper {
 			final CodeType property,
 			final CanonicalType versionValueSet) {
 
-		try {
 			return new ValueSetExpansionParameters(
 					id != null ? id.getIdPart() : null,
 					null,
-					url != null ? new URI(url.getValueAsString()) : null,
+					url != null ? url.getValueAsString() : null,
 					valueSetVersion,
 					context,
 					contextDirection,
@@ -120,9 +116,6 @@ class FHIRValueSetProviderHelper {
 					getOrNull(version),
 					getOrNull(property),
 					CanonicalUri.fromString(getOrNull(versionValueSet)));
-		} catch (URISyntaxException e) {
-			throw  FHIRHelper.exception("Invalid url parameter.", OperationOutcome.IssueType.INVALID, 400);
-		}
 	}
 
 	@Nullable
