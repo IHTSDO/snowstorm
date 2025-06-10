@@ -73,7 +73,8 @@ ENV PUPPETEER_CACHE_DIR=$APP_HOME/.cache/puppeteer
 
 ### 📒 ATC
 
-- Copies `ATC_DDD_Index.csv` into the container renamed to `atc-codesystem.csv`
+- Uses a web scraper to download the ATC terminology to a xlsx file.
+- Converts the file from xlsx to csv and renames it to `atc-codesystem.csv`.
 
 ### 📓 BCP13
 
