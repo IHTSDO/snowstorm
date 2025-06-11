@@ -71,7 +71,6 @@ public class HapiRestfulServlet extends RestfulServer {
 				applicationContext.getBean(FHIRConceptMapProvider.class),
 				applicationContext.getBean(FHIRMedicationProvider.class),
 				applicationContext.getBean(FHIRBundleProvider.class),
-				applicationContext.getBean(FHIRStructureDefinitionProvider.class));
 				applicationContext.getBean(FHIRStructureDefinitionProvider.class)
 		);
 
