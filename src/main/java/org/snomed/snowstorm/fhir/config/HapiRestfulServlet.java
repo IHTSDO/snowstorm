@@ -16,50 +16,50 @@ import jakarta.servlet.ServletException;
 
 public class HapiRestfulServlet extends RestfulServer {
 
-	private static final long serialVersionUID = 1L;
-	private final BuildProperties buildProperties;
-	private final FHIRCodeSystemService codeSystemService;
+    private static final long serialVersionUID = 1L;
+    private final BuildProperties buildProperties;
+    private final FHIRCodeSystemService codeSystemService;
 
-	private final Logger logger = LoggerFactory.getLogger(getClass());
+    private final Logger logger = LoggerFactory.getLogger(getClass());
 
-	public HapiRestfulServlet(BuildProperties buildProperties, FHIRCodeSystemService codeSystemService) {
-		this.buildProperties = buildProperties;
-		this.codeSystemService = codeSystemService;
-	}
+    public HapiRestfulServlet(BuildProperties buildProperties, FHIRCodeSystemService codeSystemService) {
+        this.buildProperties = buildProperties;
+        this.codeSystemService = codeSystemService;
+    }
 
-	/**
-	 * The initialize method is automatically called when the servlet is starting up, so it can be used to configure the
-	 * servlet to define resource providers, or set up configuration, interceptors, etc.
-	 */
-	@Override
-	protected void initialize() throws ServletException {
-		final WebApplicationContext applicationContext =
-				WebApplicationContextUtils.getWebApplicationContext(this.getServletContext());
+    /**
+     * The initialize method is automatically called when the servlet is starting up, so it can be used to configure the
+     * servlet to define resource providers, or set up configuration, interceptors, etc.
+     */
+    @Override
+    protected void initialize() throws ServletException {
+        final WebApplicationContext applicationContext =
+                WebApplicationContextUtils.getWebApplicationContext(this.getServletContext());
 
-		setDefaultResponseEncoding(EncodingEnum.JSON);
+        setDefaultResponseEncoding(EncodingEnum.JSON);
 
-		final FhirContext fhirContext = applicationContext.getBean(FhirContext.class);
-		final LenientErrorHandler delegateHandler = new LenientErrorHandler();
-		fhirContext.setParserErrorHandler(new StrictErrorHandler() {
-			@Override
-			public void unknownAttribute(IParseLocation theLocation, String theAttributeName) {
-				delegateHandler.unknownAttribute(theLocation, theAttributeName);
-			}
+        final FhirContext fhirContext = applicationContext.getBean(FhirContext.class);
+        final LenientErrorHandler delegateHandler = new LenientErrorHandler();
+        fhirContext.setParserErrorHandler(new StrictErrorHandler() {
+            @Override
+            public void unknownAttribute(IParseLocation theLocation, String theAttributeName) {
+                delegateHandler.unknownAttribute(theLocation, theAttributeName);
+            }
 
-			@Override
-			public void unknownElement(IParseLocation theLocation, String theElementName) {
-				delegateHandler.unknownElement(theLocation, theElementName);
-			}
+            @Override
+            public void unknownElement(IParseLocation theLocation, String theElementName) {
+                delegateHandler.unknownElement(theLocation, theElementName);
+            }
 
-			@Override
-			public void unknownReference(IParseLocation theLocation, String theReference) {
-				delegateHandler.unknownReference(theLocation, theReference);
-			}
-		});
-		setFhirContext(fhirContext);
+            @Override
+            public void unknownReference(IParseLocation theLocation, String theReference) {
+                delegateHandler.unknownReference(theLocation, theReference);
+            }
+        });
+        setFhirContext(fhirContext);
 
-		FHIRHelper fhirHelper = applicationContext.getBean(FHIRHelper.class);
-		fhirHelper.setFhirContext(fhirContext);
+        FHIRHelper fhirHelper = applicationContext.getBean(FHIRHelper.class);
+        fhirHelper.setFhirContext(fhirContext);
 
 		/*
 		 * The servlet defines any number of resource providers, and configures itself to use them by calling
@@ -70,16 +70,17 @@ public class HapiRestfulServlet extends RestfulServer {
 				applicationContext.getBean(FHIRValueSetProvider.class),
 				applicationContext.getBean(FHIRConceptMapProvider.class),
 				applicationContext.getBean(FHIRMedicationProvider.class),
+				applicationContext.getBean(FHIRBundleProvider.class),
 				applicationContext.getBean(FHIRStructureDefinitionProvider.class)
 		);
 
 		registerProvider(applicationContext.getBean(FHIRVersionsOperationProvider.class));
 
-		setServerConformanceProvider(new FHIRTerminologyCapabilitiesProvider(this, buildProperties, codeSystemService));
+        setServerConformanceProvider(new FHIRTerminologyCapabilitiesProvider(this, buildProperties, codeSystemService));
 
-		// Register interceptors
-		registerInterceptor(new RootInterceptor());
+        // Register interceptors
+        registerInterceptor(new RootInterceptor());
 
-		logger.info("FHIR Resource providers and interceptors registered");
-	}
+        logger.info("FHIR Resource providers and interceptors registered");
+    }
 }
