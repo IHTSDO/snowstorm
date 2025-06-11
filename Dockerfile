@@ -60,6 +60,7 @@ ENV PUPPETEER_CACHE_DIR=$APP_HOME/.cache/puppeteer
 ### LOINC ###
 #############
 WORKDIR $LOINC_HOME
+RUN mkdir -p ./terminologyFiles
 # Download latest version of the tool that will assist performing the LOINC import + puppeteer for downloading the LOINC file
 RUN curl -fsSL $(curl -s https://api.github.com/repos/hapifhir/hapi-fhir/releases/latest | jq -r '.assets[] | select(.name | endswith("cli.zip")).browser_download_url') -o hapi-fhir-cli.zip && \
     unzip hapi-fhir-cli.zip && \
@@ -68,25 +69,27 @@ RUN curl -fsSL $(curl -s https://api.github.com/repos/hapifhir/hapi-fhir/release
 # Copy puppeteer script to image
 COPY download_loinc.mjs $LOINC_HOME/download_loinc.mjs
 # For local testing of loinc imports
-#COPY Loinc_*-sample*.zip $LOINC_HOME/
+#COPY Loinc_*-sample*.zip $LOINC_HOME/terminologyFiles
 
 #############
 #### HL7 ####
 #############
 WORKDIR $HL7_HOME
+RUN mkdir -p ./terminologyFiles
 # (Optional) For local testing of hl7 imports
-#COPY hl7.terminology.*-sample*.tgz $HL7_HOME/
+#COPY hl7.terminology.*-sample*.tgz $HL7_HOME/terminologyFiles
 
 ##############
 ### SNOMED ###
 ##############
 WORKDIR $SNOMED_HOME
+RUN mkdir -p ./terminologyFiles
 # For local testing of snomed imports
-#COPY snomed-edition*-sample*.zip $SNOMED_HOME/
-#COPY snomed-extension*-sample*.zip $SNOMED_HOME/
+#COPY snomed-edition*-sample*.zip $SNOMED_HOME/terminologyFiles
+#COPY snomed-extension*-sample*.zip $SNOMED_HOME/terminologyFiles
 
 ##############
-### UCUM ###
+#### UCUM ####
 ##############
 WORKDIR $UCUM_HOME
 RUN ZIPBALL_URL=$(curl -s https://api.github.com/repos/ucum-org/ucum/releases/latest | jq -r '.zipball_url') && \

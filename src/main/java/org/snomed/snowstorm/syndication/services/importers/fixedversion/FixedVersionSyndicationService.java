@@ -12,6 +12,7 @@ import org.snomed.snowstorm.fhir.services.FHIRConceptService;
 import org.snomed.snowstorm.syndication.models.domain.SyndicationImportParams;
 import org.snomed.snowstorm.syndication.services.importers.SyndicationService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -30,6 +31,10 @@ public abstract class FixedVersionSyndicationService extends SyndicationService 
 
     @Autowired
     private FHIRConceptService fhirConceptService;
+
+    @Value("${syndication.root-directory:/app}")
+    private String syndicationRootDirectory;
+
     protected String directory;
     protected String codeSystemFilePattern;
 
@@ -37,7 +42,7 @@ public abstract class FixedVersionSyndicationService extends SyndicationService 
 
     @PostConstruct
     public void init() {
-        this.directory = "/app/" + getCodeSystemName();
+        this.directory = syndicationRootDirectory + "/" + getCodeSystemName();
         this.codeSystemFilePattern = getCodeSystemName() + "*-codesystem.*";
     }
 
