@@ -48,7 +48,7 @@ public class AtcSyndicationService extends FixedVersionSyndicationService {
     @Override
     protected void importTerminology(SyndicationImportParams params, List<File> files) throws ServiceException {
         CodeSystem codeSystem = new CodeSystem();
-        codeSystem.setUrl("http://whocc.no/atc");
+        codeSystem.setUrl("http://www.whocc.no/atc");
         codeSystem.setName("ATC/DDD index");
         codeSystem.setVersion(DEFAULT_VERSION);
         codeSystem.setConcept(readConceptsFromFile(files));
