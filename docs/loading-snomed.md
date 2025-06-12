@@ -29,13 +29,13 @@ Once Snowstorm is running, you will need to start the import process by creating
 
 and then click on 'Execute' and then note the id of the import as you will need it for the next step (it will look something like - _d0b30d96-3714-443e-99a5-2f282b1f1b0_).
 
-You now need to upload the file. You can do this through the swagger interface at the *imports/archive* end point, but the following will allow you to run it using curl to do this from the command line (*this example uses the January 2018 release file*):
+You now need to upload the SNOMED release zip file. You can do this through the swagger interface at the *imports/archive* end point, but the following will allow you to run it using curl to do this from the command line (*this example uses the January 2025 release*):
 
 ```bash
-curl -X POST --header 'Content-Type: multipart/form-data' --header 'Accept: application/json' -F file=@SnomedCT_InternationalRF2_PRODUCTION_20180131T120000Z.zip 'http://localhost:8080/imports/<import id>/archive'
+curl -X POST --header 'Content-Type: multipart/form-data' --header 'Accept: application/json' -F file=@SnomedCT_InternationalRF2_PRODUCTION_20250101T120000Z.zip 'http://localhost:8080/imports/<import id>/archive'
 ```
 
-You can watch the log to see how this is progressing, or simply to the import endpoint - http://\<ip address>:8080/imports/\<import id> . This can take between 20-60 minutes depending on the performance of your machine.
+You can watch the log to see how this is progressing, or simply to the import endpoint - http://\<ip address>:8080/imports/\<import id> . This can take between 30-60 minutes depending on the performance of your machine.
 
 ### Via Command line
 
@@ -47,13 +47,15 @@ This will take between 30-60 minutes depending on the performance of your machin
 
 ## Generated Delta File Warning
 **-latest-state flag must be used when generating delta files!**  
-Since Janurary 2022 the International Edition no longer contains RF2 delta files. There is a [tool to generate delta files](https://github.com/IHTSDO/delta-generator-tool) if they are required. If using this tool then the `-latest-state` flag **must** be used in the delta-generator-tool to prevent multiple states of components existing at the same time within Snowstorm. Alternatively simply import the new release using the SNAPSHOT import type when updating a code system. Using a Snapshot import is slightly slower than a delta but will result in the same outcome.
+Since Janurary 2022 the International Edition no longer contains RF2 delta files. There is a [tool to generate delta files](https://github.com/IHTSDO/delta-generator-tool) but we recommend using snapshot files with Snowstorm. If using the delta tool then the `-latest-state` flag **must** be used in the delta-generator-tool to prevent multiple states of components existing at the same time within Snowstorm. 
+
+We recommend importing releases into Snowstorm using the SNAPSHOT import type. Importing using Snapshot now has about the same performance as using a Delta, and has the same outcome.
  
-## Loading Release Full Files
+## Loading Release Full (History) Files
 
-It's possible to load the RF2 **Full** files which gives you access to all previous releases of SNOMED CT in addition to the current content. However, this will  take longer (*last run took 2h15 on an m5.xlarge AWS instance with 4 vCPU and 16GB Memory*), but will not have an impact to the performance.
+It's possible to load the RF2 **Full** files which gives you access to all previous releases of SNOMED CT in addition to the current content. However, this will  take longer (*last run took 2h15 on an m5.xlarge AWS instance with 4 vCPU and 16GB Memory*), but will not have an impact to the performance. It is very unlikely you will need to import the Full files. We recommend using the Snapshot files, they include all the active and inactive content of SNOMED CT.
 
-Simply replace the `--import` argument above with `--import-full` or the `type` with `FULL` within Swagger.
+To import the full type on the command line replace the `--import` argument above with `--import-full`, or if using the API use `type` = `FULL`.
 
 ## Stopping After Loading
 
