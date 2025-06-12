@@ -14,7 +14,7 @@ public enum SyndicationTerminology {
     LOINC(LOINC_TERMINOLOGY, false, true, false),
     HL7(HL_7_TERMINOLOGY, false, true, false),
     SNOMED(SNOMED_TERMINOLOGY, false, true, false),
-    ATC(ATC_CODESYSTEM, true, true, false),
+    ATC(ATC_CODESYSTEM, false, true, false),
     UCUM(UCUM_CODESYSTEM, true, true, true),
     BCP13(BCP13_CODESYSTEM,  true, true, false),
     BCP47(BCP47_CODESYSTEM, true, true, false),

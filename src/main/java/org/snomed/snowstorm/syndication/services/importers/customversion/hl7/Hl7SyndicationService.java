@@ -59,9 +59,7 @@ public class Hl7SyndicationService extends SyndicationService {
     @Override
     protected void importTerminology(SyndicationImportParams params, List<File> files) throws IOException {
         importHl7Package(files.get(0));
-        if (params.isLoincImportIncluded()) {
-            deleteConflictingHl7CodeSystem();
-        }
+        deleteConflictingCodeSystems(params.isLoincImportIncluded());
     }
 
     private Optional<File> downloadHl7File(String version) throws IOException, InterruptedException {
@@ -80,11 +78,18 @@ public class Hl7SyndicationService extends SyndicationService {
         loadPackageService.uploadPackageResources(file, Set.of("*"), fileName, false);
     }
 
-    private void deleteConflictingHl7CodeSystem() {
-        FHIRCodeSystemVersionParams codeSystemVersionParams = new FHIRCodeSystemVersionParams("http://loinc.org");
-        codeSystemVersionParams.setId("v3-loinc");
+    private void deleteConflictingCodeSystems(boolean loincImportIncluded) {
+        if(loincImportIncluded) {
+            FHIRCodeSystemVersionParams codeSystemVersionParams = new FHIRCodeSystemVersionParams("http://loinc.org");
+            codeSystemVersionParams.setId("v3-loinc");
+            FHIRCodeSystemVersion codeSystemVersion = fhirCodeSystemService.findCodeSystemVersion(codeSystemVersionParams);
+            if (codeSystemVersion != null && "not-present".equals(codeSystemVersion.getContent())) {
+                fhirCodeSystemService.deleteCodeSystemVersion(codeSystemVersion);
+            }
+        }
+        FHIRCodeSystemVersionParams codeSystemVersionParams = new FHIRCodeSystemVersionParams("http://www.whocc.no/atc");
         FHIRCodeSystemVersion codeSystemVersion = fhirCodeSystemService.findCodeSystemVersion(codeSystemVersionParams);
-        if (codeSystemVersion != null) {
+        if (codeSystemVersion != null && "not-present".equals(codeSystemVersion.getContent())) {
             fhirCodeSystemService.deleteCodeSystemVersion(codeSystemVersion);
         }
     }
