@@ -10,9 +10,6 @@ RUN apt-get update && apt-get install -y curl && \
     bash /tmp/nodesource_setup.sh \
     && apt-get update && apt-get install -y \
     openjdk-17-jdk \
-    python3.10 \
-    python3.10-distutils \
-    python3.10-dev  \
     net-tools \
     jq \
     unzip \
@@ -38,11 +35,8 @@ RUN apt-get update && apt-get install -y curl && \
     libxshmfence1 \
     xdg-utils \
     nodejs \
-    gnumeric \
-    && rm -rf /var/lib/apt/lists/* \
-    && apt-get update \
-    && apt-get install -y wget \
-    && curl -sS https://bootstrap.pypa.io/get-pip.py | python3
+    wget \
+    && rm -rf /var/lib/apt/lists/*
 
 # Set up environment variables
 ENV APP_HOME=/app
@@ -103,15 +97,10 @@ RUN ZIPBALL_URL=$(curl -s https://api.github.com/repos/ucum-org/ucum/releases/la
 ### ATC ######
 ##############
 WORKDIR $ATC_HOME
-RUN wget https://github.com/sarrabenyahia/webscrap_health_monitoring/archive/main.zip && \
+RUN wget https://github.com/ehealthplatformstandards/atc-terminology-publisher/archive/main.zip && \
 unzip main.zip && \
-cd webscrap_health_monitoring-main && \
-pip3 install -r requirements.txt && \
-cd bs4 && \
-python3 act_ddd_script.py && \
-ssconvert ATC_DDD_Index.xlsx ATC_DDD_Index.csv && \
-mv ATC_DDD_Index.csv ../../atc-codesystem.csv && \
-cd ../.. && rm -rf main.zip  webscrap_health_monitoring-main
+mv atc-terminology-publisher-main/atc-codesystem.csv ./ && \
+rm -rf main.zip atc-terminology-publisher-main
 
 ##############
 ### BCP13 ####

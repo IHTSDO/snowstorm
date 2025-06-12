@@ -50,8 +50,7 @@ They are automatically imported during the application startup when the syndicat
 
 ### ATC
 
-- 🌐 Source: File `atc-codesystem.csv` obtained via webscraper from [atcddd.fhi.no](https://atcddd.fhi.no/atc_ddd_index/) during the Docker image creation.
-- 🔗 Webscraper Repo: [Webscrap Health Monitoring](https://github.com/sarrabenyahia/webscrap_health_monitoring)
+- 🌐 Source: File `atc-codesystem.csv` obtained from [atc-terminology-publisher](https://github.com/ehealthplatformstandards/atc-terminology-publisher) during the Docker image creation.
 - 📜 License: Usage must comply with the Norwegian Medicines Agency’s terms (FHI).
 
 ### BCP13
