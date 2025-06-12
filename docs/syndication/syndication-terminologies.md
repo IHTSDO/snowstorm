@@ -44,14 +44,22 @@ These terminologies can be loaded in three different ways:
 ---
 
 ## Fixed-version Terminologies and codesystems
-The below codesystems are all already stored on the docker image. 
+Except for ATC, all below codesystems are already stored on the docker image. 
 It ensures maximum stability, since they don't need to be fetched during the app runtime.
-They are automatically imported during the application startup when the syndication flag is used (see syndication-with-docker.md):
+They are all automatically imported during the application startup when the syndication and the ATC flags are used (see syndication-with-docker.md):
 
 ### ATC
 
-- 🌐 Source: File `atc-codesystem.csv` obtained from [atc-terminology-publisher](https://github.com/ehealthplatformstandards/atc-terminology-publisher) during the Docker image creation.
-- 📜 License: Usage must comply with the Norwegian Medicines Agency’s terms (FHI).
+* 🌐 Source: [ATC/DDD Index](https://atcddd.fhi.no/) — maintained by the [WHO Collaborating Centre for Drug Statistics Methodology](https://www.fhi.no/en/hn/atcddd/).
+* ⚖️ **Copyright & Terms of Use**: See the official [copyright & disclaimer](https://atcddd.fhi.no/copyright_disclaimer/).
+  * **Important**: Use of this material requires attribution and must comply with the WHO Centre’s conditions.
+  * Commercial redistribution and modification are **not permitted**.
+* 🛠 **Import Instructions**:
+
+  * The terminology will only be imported **if** the `atc` application argument is set.
+  * It must point to a valid ATC terminology URL (e.g., `https://raw.githubusercontent.com/ehealthplatformstandards/atc-terminology-publisher/main/atc-codesystem.csv`).
+  * ✅ **You are responsible** for ensuring your use case complies with the licensing terms before using or distributing this file.
+
 
 ### BCP13
 

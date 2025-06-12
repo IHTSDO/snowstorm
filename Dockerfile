@@ -97,10 +97,6 @@ RUN ZIPBALL_URL=$(curl -s https://api.github.com/repos/ucum-org/ucum/releases/la
 ### ATC ######
 ##############
 WORKDIR $ATC_HOME
-RUN wget https://github.com/ehealthplatformstandards/atc-terminology-publisher/archive/main.zip && \
-unzip main.zip && \
-mv atc-terminology-publisher-main/atc-codesystem.csv ./ && \
-rm -rf main.zip atc-terminology-publisher-main
 
 ##############
 ### BCP13 ####
