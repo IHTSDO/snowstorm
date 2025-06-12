@@ -49,7 +49,7 @@ services:
     command: [
       "--elasticsearch.urls=http://es:9200",
       "--syndication", # uncomment to import below terminologies + the default ones (ISO3166 etc)
-      #"--atc=https://raw.githubusercontent.com/group/repo/main/atc-codesystem.csv", # ensure the copyright is respected for your use-case before enabling (https://atcddd.fhi.no/copyright_disclaimer/)
+      #"--atc=https://raw.githubusercontent.com/ehealthplatformstandards/atc-terminology-publisher/main/atc-codesystem.csv", # ensure the copyright is respected for your use-case before enabling (https://atcddd.fhi.no/copyright_disclaimer/)
       "--hl7",
       #"--hl7=local",
       #"--hl7=6.1.0",
