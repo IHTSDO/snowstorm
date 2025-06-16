@@ -189,7 +189,7 @@ public class FHIRValueSetService {
 
 		// Expand to validate
 		ValueSet.ValueSetExpansionComponent originalExpansion = valueSet.getExpansion();
-		expand(new ValueSetExpansionParameters(valueSet, true), null);
+		expand(new ValueSetExpansionParameters(valueSet, true, true), null);
 		valueSet.setExpansion(originalExpansion);
 		return createOrUpdateValuesetWithoutExpandValidation(valueSet);
 	}
@@ -396,7 +396,7 @@ public class FHIRValueSetService {
 			}
 		}
 
-		if(conceptsPage.getTotalElements() > pageRequest.getPageSize() && pageRequest.getPageSize() >= DEFAULT_PAGESIZE) {
+		if (expansionRequestExceedsLimits(conceptsPage, pageRequest, params)) {
 			String message = format("The operation was stopped to protect server resources, the number of resulting concepts exceeded the maximum number (%d) allowed", pageRequest.getPageSize());
 			throw exception(message, OperationOutcome.IssueType.TOOCOSTLY, 404, null, new CodeableConcept(new Coding()).setText(message));
 		}
@@ -589,6 +589,11 @@ public class FHIRValueSetService {
 		return hapiValueSet;
 
 
+	}
+
+	private boolean expansionRequestExceedsLimits(Page<FHIRConcept> conceptsPage, PageRequest pageRequest, ValueSetExpansionParameters params) {
+		int maximumPageSize = params.getAllowMaximumSizeExpansion() ? MAXIMUM_PAGESIZE : DEFAULT_PAGESIZE;
+		return conceptsPage.getTotalElements() > pageRequest.getPageSize() && pageRequest.getPageSize() >= maximumPageSize;
 	}
 
 	private List<ValueSet.ValueSetExpansionParameterComponent> collectCodeSystemSetWarnings(Set<FHIRCodeSystemVersion> codeSystems) {

@@ -58,7 +58,8 @@ class FHIRValueSetProviderHelper {
 			findParameterCanonicalOrNull(parametersParameterComponents, "force-system-version"),
 			findParameterStringOrNull(parametersParameterComponents, "version"),
 			findParameterStringOrNull(parametersParameterComponents, "property"),
-			findParameterCanonicalOrNull(parametersParameterComponents, "default-valueset-version")
+			findParameterCanonicalOrNull(parametersParameterComponents, "default-valueset-version"),
+			false
 		);
 	}
 
@@ -113,7 +114,8 @@ class FHIRValueSetProviderHelper {
 					CanonicalUri.fromString(getOrNull(forceSystemVersion)),
 					getOrNull(version),
 					getOrNull(property),
-					CanonicalUri.fromString(getOrNull(versionValueSet))
+					CanonicalUri.fromString(getOrNull(versionValueSet)),
+		false
 			);
 	}
 

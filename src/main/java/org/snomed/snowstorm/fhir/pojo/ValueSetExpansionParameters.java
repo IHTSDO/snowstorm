@@ -38,16 +38,17 @@ public final class ValueSetExpansionParameters {
 	private final ValueSet valueSet;
 	private final String property;
 	private final CanonicalUri versionValueSet;
+	private final Boolean allowMaximumSizeExpansion;
 
-	public ValueSetExpansionParameters(ValueSet valueSet, boolean includeDefinition1) {
+	public ValueSetExpansionParameters(ValueSet valueSet, boolean includeDefinition1, boolean allowMaximumSizeExpansion) {
 		this(null, valueSet, null, null, null, null, null, null, null, null, null,
-				null, includeDefinition1, null, null, null, null, null, null, null, null, null, null, null,null);
+				null, includeDefinition1, null, null, null, null, null, null, null, null, null, null, null,null, allowMaximumSizeExpansion);
 	}
 
 	public ValueSetExpansionParameters(String id, ValueSet valueSet, String url, String valueSetVersion, String context, String contextDirection, String filter, String date,
 									   Integer offset, Integer count, Boolean includeDesignations, List<String> designations, Boolean includeDefinition, Boolean activeOnly,
 									   Boolean excludeNested, Boolean excludeNotForUI, Boolean excludePostCoordinated, String displayLanguage, CanonicalUri excludeSystem, CanonicalUri systemVersion,
-									   CanonicalUri checkSystemVersion, CanonicalUri forceSystemVersion, String version, String property, CanonicalUri versionValueSet) {
+									   CanonicalUri checkSystemVersion, CanonicalUri forceSystemVersion, String version, String property, CanonicalUri versionValueSet, Boolean allowMaximumSizeExpansion) {
 
 		this.id = id;
 		this.url = url;
@@ -74,6 +75,7 @@ public final class ValueSetExpansionParameters {
 		this.valueSet = valueSet;
 		this.property = property;
 		this.versionValueSet = versionValueSet;
+		this.allowMaximumSizeExpansion = allowMaximumSizeExpansion;
 	}
 
 	public PageRequest getPageRequest(Sort sort) {
@@ -184,5 +186,9 @@ public final class ValueSetExpansionParameters {
 	}
 
 	public CanonicalUri getVersionValueSet() { return versionValueSet;
+	}
+
+	public Boolean getAllowMaximumSizeExpansion() {
+		return allowMaximumSizeExpansion;
 	}
 }
