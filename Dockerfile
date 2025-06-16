@@ -41,6 +41,7 @@ RUN apt-get update && apt-get install -y curl && \
 # Set up environment variables
 ENV APP_HOME=/app
 ENV HAPI_FHIR=$APP_HOME/hapi
+ENV ICPC2=$APP_HOME/icpc2
 ENV ICD10=$APP_HOME/icd10
 ENV SNOMED_HOME=$APP_HOME/snomed
 ENV LOINC_HOME=$APP_HOME/loinc
@@ -59,6 +60,12 @@ WORKDIR $HAPI_FHIR
 RUN curl -fsSL $(curl -s https://api.github.com/repos/hapifhir/hapi-fhir/releases/latest | jq -r '.assets[] | select(.name | endswith("cli.zip")).browser_download_url') -o hapi-fhir-cli.zip && \
     unzip hapi-fhir-cli.zip && \
     rm hapi-fhir-cli.zip
+
+#############
+### ICPC2 ###
+#############
+WORKDIR $ICPC2
+RUN mkdir -p ./terminologyFiles
 
 #############
 ### ICD10 ###
