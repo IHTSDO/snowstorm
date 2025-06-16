@@ -121,7 +121,7 @@ public class FHIRLoadPackageService {
 				valueSetService.createOrUpdateValuesetWithoutExpandValidation(valueSet);
 				if (testValueSets) {
 					try {
-						valueSetService.expand(new ValueSetExpansionParameters(valueSet, true), null);
+						valueSetService.expand(new ValueSetExpansionParameters(valueSet, true, true), null);
 					} catch (SnowstormFHIRServerResponseException e) {
 						logger.warn("Failed to expand ValueSet {}, {}", valueSet.getUrl(), e.getMessage());
 					}
