@@ -2,6 +2,7 @@ package org.snomed.snowstorm.syndication.constants;
 
 public class SyndicationConstants {
 
+    public static final String ICD10_TERMINOLOGY = "icd10";
     public static final String LOINC_TERMINOLOGY = "loinc";
     public static final String HL_7_TERMINOLOGY = "hl7";
     public static final String SNOMED_TERMINOLOGY = "snomed";

@@ -40,6 +40,8 @@ RUN apt-get update && apt-get install -y curl && \
 
 # Set up environment variables
 ENV APP_HOME=/app
+ENV HAPI_FHIR=$APP_HOME/hapi
+ENV ICD10=$APP_HOME/icd10
 ENV SNOMED_HOME=$APP_HOME/snomed
 ENV LOINC_HOME=$APP_HOME/loinc
 ENV HL7_HOME=$APP_HOME/hl7
@@ -51,15 +53,24 @@ ENV ISO3166_HOME=$APP_HOME/iso3166
 ENV PUPPETEER_CACHE_DIR=$APP_HOME/.cache/puppeteer
 
 #############
+# HAPI_FHIR #
+#############
+WORKDIR $HAPI_FHIR
+RUN curl -fsSL $(curl -s https://api.github.com/repos/hapifhir/hapi-fhir/releases/latest | jq -r '.assets[] | select(.name | endswith("cli.zip")).browser_download_url') -o hapi-fhir-cli.zip && \
+    unzip hapi-fhir-cli.zip && \
+    rm hapi-fhir-cli.zip
+
+#############
+### ICD10 ###
+#############
+WORKDIR $ICD10
+RUN mkdir -p ./terminologyFiles
+
+#############
 ### LOINC ###
 #############
 WORKDIR $LOINC_HOME
-RUN mkdir -p ./terminologyFiles
-# Download latest version of the tool that will assist performing the LOINC import + puppeteer for downloading the LOINC file
-RUN curl -fsSL $(curl -s https://api.github.com/repos/hapifhir/hapi-fhir/releases/latest | jq -r '.assets[] | select(.name | endswith("cli.zip")).browser_download_url') -o hapi-fhir-cli.zip && \
-    unzip hapi-fhir-cli.zip && \
-    rm hapi-fhir-cli.zip && \
-    npm i puppeteer
+RUN mkdir -p ./terminologyFiles && npm i puppeteer
 # Copy puppeteer script to image
 COPY download_loinc.mjs $LOINC_HOME/download_loinc.mjs
 # For local testing of loinc imports
