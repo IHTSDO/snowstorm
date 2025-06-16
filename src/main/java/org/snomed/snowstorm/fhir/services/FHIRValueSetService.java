@@ -1883,6 +1883,7 @@ public class FHIRValueSetService {
 				if (codeSystemVersion.isOnSnomedBranch()) {
 					// SNOMED CT filters:
 					// concept, is-a, [conceptId]
+					// concept, descendent-of, [conceptId]
 					// concept, in, [refset]
 					// constraint, =, [ECL]
 					// expression, =, Refsets - special case to deal with '?fhir_vs=refset'. Matches the Ontoserver compose for these, not part of the spec but at least consistent.
@@ -1893,6 +1894,11 @@ public class FHIRValueSetService {
 								throw exception("Value missing for SNOMED CT ValueSet concept 'is-a' filter", OperationOutcome.IssueType.INVALID, 400);
 							}
 							constraints.add(new ConceptConstraint().setEcl("<< " + value));
+						} else if (op == ValueSet.FilterOperator.DESCENDENTOF) {
+							if (Strings.isNullOrEmpty(value)) {
+								throw exception("Value missing for SNOMED CT ValueSet concept 'is-a' filter", OperationOutcome.IssueType.INVALID, 400);
+							}
+							constraints.add(new ConceptConstraint().setEcl("< " + value));
 						} else if (op == ValueSet.FilterOperator.IN) {
 							if (Strings.isNullOrEmpty(value)) {
 								throw exception("Value missing for SNOMED CT ValueSet concept 'in' filter.", OperationOutcome.IssueType.INVALID, 400);
