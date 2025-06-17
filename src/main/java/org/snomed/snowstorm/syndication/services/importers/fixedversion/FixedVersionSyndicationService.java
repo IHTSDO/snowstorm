@@ -47,7 +47,7 @@ public abstract class FixedVersionSyndicationService extends SyndicationService 
     }
 
     @Override
-    protected List<File> fetchTerminologyPackages(SyndicationImportParams params) throws IOException {
+    protected List<File> fetchTerminologyPackages(SyndicationImportParams params) throws IOException, ServiceException {
         return findFiles(directory, codeSystemFilePattern);
     }
 
