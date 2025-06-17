@@ -43,6 +43,7 @@ ENV APP_HOME=/app
 ENV HAPI_FHIR=$APP_HOME/hapi
 ENV ICPC2=$APP_HOME/icpc2
 ENV ICD10=$APP_HOME/icd10
+ENV ICD10_BE=$APP_HOME/icd10be
 ENV SNOMED_HOME=$APP_HOME/snomed
 ENV LOINC_HOME=$APP_HOME/loinc
 ENV HL7_HOME=$APP_HOME/hl7
@@ -61,17 +62,22 @@ RUN curl -fsSL $(curl -s https://api.github.com/repos/hapifhir/hapi-fhir/release
     unzip hapi-fhir-cli.zip && \
     rm hapi-fhir-cli.zip
 
+WORKDIR $APP_HOME
+
 #############
 ### ICPC2 ###
 #############
-WORKDIR $ICPC2
-RUN mkdir -p ./terminologyFiles
+RUN mkdir -p $ICPC2/terminologyFiles
 
 #############
 ### ICD10 ###
 #############
-WORKDIR $ICD10
-RUN mkdir -p ./terminologyFiles
+RUN mkdir -p $ICD10/terminologyFiles
+
+################
+### ICD10_BE ###
+################
+RUN mkdir -p $ICD10_BE/terminologyFiles
 
 #############
 ### LOINC ###
