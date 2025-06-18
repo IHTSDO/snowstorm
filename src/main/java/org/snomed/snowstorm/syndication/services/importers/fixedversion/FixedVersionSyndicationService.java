@@ -5,10 +5,6 @@ import ca.uhn.fhir.parser.JsonParser;
 import jakarta.annotation.PostConstruct;
 import org.hl7.fhir.r4.model.CodeSystem;
 import org.snomed.snowstorm.core.data.services.ServiceException;
-import org.snomed.snowstorm.fhir.domain.FHIRCodeSystemVersion;
-import org.snomed.snowstorm.fhir.pojo.FHIRCodeSystemVersionParams;
-import org.snomed.snowstorm.fhir.services.FHIRCodeSystemService;
-import org.snomed.snowstorm.fhir.services.FHIRConceptService;
 import org.snomed.snowstorm.syndication.models.domain.SyndicationImportParams;
 import org.snomed.snowstorm.syndication.services.importers.SyndicationService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -25,12 +21,6 @@ public abstract class FixedVersionSyndicationService extends SyndicationService 
 
     @Autowired
     private FhirContext fhirContext;
-
-    @Autowired
-    private FHIRCodeSystemService codeSystemService;
-
-    @Autowired
-    private FHIRConceptService fhirConceptService;
 
     @Value("${syndication.root-directory:/app}")
     private String syndicationRootDirectory;
@@ -58,16 +48,6 @@ public abstract class FixedVersionSyndicationService extends SyndicationService 
             CodeSystem codeSystem = (CodeSystem) jsonParser.parseResource(new FileInputStream(file));
             saveCodeSystemAndConcepts(codeSystem);
         }
-    }
-
-    protected void saveCodeSystemAndConcepts(CodeSystem codeSystem) throws ServiceException {
-        FHIRCodeSystemVersion existing = codeSystemService.findCodeSystemVersion(new FHIRCodeSystemVersionParams(codeSystem.getUrl()).setVersion(codeSystem.getVersion()));
-        if (existing != null) {
-            logger.info("Deleting existing CodeSystem and concepts for url:{}, version:{}", existing.getUrl(), existing.getVersion());
-            codeSystemService.deleteCodeSystemVersion(existing);
-        }
-        FHIRCodeSystemVersion codeSystemVersion = codeSystemService.createUpdate(codeSystem);
-        fhirConceptService.saveAllConceptsOfCodeSystemVersion(codeSystem.getConcept(), codeSystemVersion);
     }
 
     @Override

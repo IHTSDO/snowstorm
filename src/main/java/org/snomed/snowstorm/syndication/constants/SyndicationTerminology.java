@@ -4,6 +4,7 @@ import static org.snomed.snowstorm.syndication.constants.SyndicationConstants.AT
 import static org.snomed.snowstorm.syndication.constants.SyndicationConstants.BCP13_CODESYSTEM;
 import static org.snomed.snowstorm.syndication.constants.SyndicationConstants.BCP47_CODESYSTEM;
 import static org.snomed.snowstorm.syndication.constants.SyndicationConstants.HL_7_TERMINOLOGY;
+import static org.snomed.snowstorm.syndication.constants.SyndicationConstants.ICD10_BE_TERMINOLOGY;
 import static org.snomed.snowstorm.syndication.constants.SyndicationConstants.ICD10_TERMINOLOGY;
 import static org.snomed.snowstorm.syndication.constants.SyndicationConstants.ICPC2_TERMINOLOGY;
 import static org.snomed.snowstorm.syndication.constants.SyndicationConstants.ISO3166_CODESYSTEM;
@@ -15,6 +16,7 @@ import static org.snomed.snowstorm.syndication.constants.SyndicationConstants.UC
 public enum SyndicationTerminology {
     ICPC2(ICPC2_TERMINOLOGY, false, true, false),
     ICD10(ICD10_TERMINOLOGY, false, true, false),
+    ICD10_BE(ICD10_BE_TERMINOLOGY, false, true, false),
     LOINC(LOINC_TERMINOLOGY, false, true, false),
     HL7(HL_7_TERMINOLOGY, false, true, false),
     SNOMED(SNOMED_TERMINOLOGY, false, true, false),

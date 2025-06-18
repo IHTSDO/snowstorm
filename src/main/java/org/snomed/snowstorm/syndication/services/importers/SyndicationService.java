@@ -1,8 +1,13 @@
 package org.snomed.snowstorm.syndication.services.importers;
 
+import org.hl7.fhir.r4.model.CodeSystem;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.core.data.services.ServiceException;
+import org.snomed.snowstorm.fhir.domain.FHIRCodeSystemVersion;
+import org.snomed.snowstorm.fhir.pojo.FHIRCodeSystemVersionParams;
+import org.snomed.snowstorm.fhir.services.FHIRCodeSystemService;
+import org.snomed.snowstorm.fhir.services.FHIRConceptService;
 import org.snomed.snowstorm.syndication.services.importstatus.SyndicationImportStatusService;
 import org.snomed.snowstorm.syndication.models.domain.SyndicationImportParams;
 import org.snomed.snowstorm.syndication.models.data.SyndicationImport;
@@ -28,6 +33,12 @@ public abstract class SyndicationService {
 
     @Autowired
     protected SyndicationImportStatusService importStatusService;
+
+    @Autowired
+    private FHIRCodeSystemService codeSystemService;
+
+    @Autowired
+    private FHIRConceptService fhirConceptService;
 
     protected final Logger logger = LoggerFactory.getLogger(this.getClass());
 
@@ -86,7 +97,17 @@ public abstract class SyndicationService {
         return false;
     }
 
-    protected String getLocalPackageIdentifier(List<File> localPackages) {
+    protected void saveCodeSystemAndConcepts(CodeSystem codeSystem) throws ServiceException {
+        FHIRCodeSystemVersion existing = codeSystemService.findCodeSystemVersion(new FHIRCodeSystemVersionParams(codeSystem.getUrl()).setVersion(codeSystem.getVersion()));
+        if (existing != null) {
+            logger.info("Deleting existing CodeSystem and concepts for url:{}, version:{}", existing.getUrl(), existing.getVersion());
+            codeSystemService.deleteCodeSystemVersion(existing);
+        }
+        FHIRCodeSystemVersion codeSystemVersion = codeSystemService.createUpdate(codeSystem);
+        fhirConceptService.saveAllConceptsOfCodeSystemVersion(codeSystem.getConcept(), codeSystemVersion);
+    }
+
+    private String getLocalPackageIdentifier(List<File> localPackages) {
         if(CollectionUtils.isEmpty(localPackages)) {
             return null;
         }

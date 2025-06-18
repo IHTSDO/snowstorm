@@ -74,7 +74,7 @@ public class Icpc2SyndicationService extends FixedVersionSyndicationService {
         saveCodeSystemAndConcepts(codeSystem);
     }
 
-    public static List<CodeSystem.ConceptDefinitionComponent> readConceptsFromFile(File codeSystem) throws ServiceException {
+    private static List<CodeSystem.ConceptDefinitionComponent> readConceptsFromFile(File codeSystem) throws ServiceException {
         List<CodeSystem.ConceptDefinitionComponent> concepts = new ArrayList<>();
 
         try (BufferedReader reader = new BufferedReader(new InputStreamReader(new FileInputStream(codeSystem), StandardCharsets.UTF_8))) {
