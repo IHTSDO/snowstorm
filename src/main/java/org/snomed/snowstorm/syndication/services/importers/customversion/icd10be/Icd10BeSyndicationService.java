@@ -176,7 +176,7 @@ public class Icd10BeSyndicationService extends SyndicationService {
                 }
 
                 if(isClinicalModification) {
-                    if(code.length() > 3) {
+                    if(code.length() > 3 && code.charAt(3) != '.') {
                         code = code.substring(0, 3) + "." + code.substring(3);
                     }
                     cmConcepts.put(code, makeConcept(code, en, fr, nl));
