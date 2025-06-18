@@ -131,7 +131,7 @@ public class Icd10BeSyndicationService extends SyndicationService {
         Map<String, CodeSystem.ConceptDefinitionComponent> cmConcepts = new HashMap<>();
         Map<String, CodeSystem.ConceptDefinitionComponent> procedureCodeConcepts = new HashMap<>();
 
-        boolean isProcedureConcepts = false;
+        boolean isClinicalModification = true;
 
         IOUtils.setByteArrayMaxOverride(200 * 1024 * 1024); // increased from 100 to 200 MB
 
@@ -172,15 +172,16 @@ public class Icd10BeSyndicationService extends SyndicationService {
                 if (code == null || code.isBlank()) continue;
 
                 if(FIRST_PROCEDURECODE.equals(code)) {
-                    isProcedureConcepts = true;
+                    isClinicalModification = false;
                 }
 
-                CodeSystem.ConceptDefinitionComponent concept = makeConcept(code, en, fr, nl);
-
-                if(isProcedureConcepts) {
-                    procedureCodeConcepts.put(code, concept);
+                if(isClinicalModification) {
+                    if(code.length() > 3) {
+                        code = code.substring(0, 3) + "." + code.substring(3);
+                    }
+                    cmConcepts.put(code, makeConcept(code, en, fr, nl));
                 } else {
-                    cmConcepts.put(code, concept);
+                    procedureCodeConcepts.put(code, makeConcept(code, en, fr, nl));
                 }
             }
 
