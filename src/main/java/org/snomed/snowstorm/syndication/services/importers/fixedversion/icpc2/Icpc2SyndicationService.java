@@ -15,19 +15,27 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
 import static java.util.Collections.singletonList;
 import static org.snomed.snowstorm.syndication.constants.SyndicationConstants.ICPC2_TERMINOLOGY;
+import static org.snomed.snowstorm.syndication.constants.SyndicationConstants.LOCAL_VERSION;
+import static org.snomed.snowstorm.syndication.utils.FileUtils.findFile;
 
 @Service(ICPC2_TERMINOLOGY)
 public class Icpc2SyndicationService extends FixedVersionSyndicationService {
 
     @Value("${syndication.icpc2.zipFileUrl}")
     private String zipFileUrl;
+
+    @Value("${syndication.icpc2.working-directory}")
+    private String workingDirectory;
 
     @Value("${syndication.icpc2.fileName}")
     private String fileName;
@@ -37,14 +45,20 @@ public class Icpc2SyndicationService extends FixedVersionSyndicationService {
 
     @Override
     protected List<File> fetchTerminologyPackages(SyndicationImportParams params) throws IOException, ServiceException {
+        Optional<File> file = LOCAL_VERSION.equals(params.version())
+                ? findFile(workingDirectory, codeSystemFilePattern)
+                : downloadIcpc2();
+        return singletonList(file.orElseThrow(() -> new ServiceException("Icpc2 terminology file not found, cannot be imported")));
+    }
+
+    private Optional<File> downloadIcpc2() throws ServiceException {
         try {
             try (ZipInputStream zipInputStream = new ZipInputStream(new URL(zipFileUrl).openStream())) {
                 ZipEntry entry;
                 while ((entry = zipInputStream.getNextEntry()) != null) {
                     if (fileName.equals(entry.getName())) {
 
-                        File tempFile = File.createTempFile("icpc2-title", ".txt");
-                        tempFile.deleteOnExit();
+                        File tempFile = Files.createTempFile(Paths.get(workingDirectory), "icpc2-temp", "-codesystem.txt").toFile();
 
                         try (FileOutputStream out = new FileOutputStream(tempFile)) {
                             byte[] buffer = new byte[4096];
@@ -54,14 +68,14 @@ public class Icpc2SyndicationService extends FixedVersionSyndicationService {
                             }
                         }
 
-                        return singletonList(tempFile);
+                        return Optional.of(tempFile);
                     }
                 }
             }
         } catch (IOException e) {
             throw new ServiceException("Failed to download Icpc2 terminology file", e);
         }
-        throw new ServiceException("Failed to download Icpc2 terminology file: file not found");
+        return Optional.empty();
     }
 
     @Override

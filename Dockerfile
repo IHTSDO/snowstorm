@@ -169,7 +169,7 @@ EXPOSE 8080
 # Copy Snowstorm JAR (you need to have built it first with Maven beforehand) + the entrypoint
 COPY target/snowstorm*.jar ./snowstorm.jar
 
-#USER appuser
+USER appuser
 
 # Run the app
 ENTRYPOINT ["java", "-Xms2g", "-Xmx4g", "--add-opens", "java.base/java.lang=ALL-UNNAMED", "--add-opens", "java.base/java.util=ALL-UNNAMED", "-jar", "/app/snowstorm.jar"]

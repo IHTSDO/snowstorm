@@ -38,8 +38,8 @@ services:
       #- /mnt/ssd/snomed:/app/snomed/terminologyFiles
     entrypoint: [
       "java",
-      "-Xdebug", # debugging purposes
-      "-agentlib:jdwp=transport=dt_socket,server=y,address=*:5005,suspend=n", # debugging purposes
+      #"-Xdebug", # debugging purposes
+      #"-agentlib:jdwp=transport=dt_socket,server=y,address=*:5005,suspend=n", # debugging purposes
       "-Xms2g",
       "-Xmx4g",
       "--add-opens", "java.base/java.lang=ALL-UNNAMED",
@@ -51,18 +51,21 @@ services:
       "--syndication", # uncomment to import below terminologies + the default ones (ISO3166 etc)
       #"--atc=https://raw.githubusercontent.com/ehealthplatformstandards/atc-terminology-publisher/main/atc-codesystem.csv", # ensure the copyright is respected for your use-case before enabling (https://atcddd.fhi.no/copyright_disclaimer/)
       #"--icd10-be",
+      #"--icd10-be=2023", # see available years on https://www.health.belgium.be/fr/sante/organisation-des-soins-de-sante/hopitaux/systemes-denregistrement/icd-10-be/publications#reflist
+      #"--icd10-be=local", # filename format *.xlsx
       #"--icpc2",
+      #"--icpc2=local",
       #"--icd10",
       #"--icd10=2019", # see available years on https://icdcdn.who.int/icd10/index.html
-      #"--icd10=local", # filename format icd10*.xml.zip
-      "--hl7",
-      #"--hl7=local",
+      #"--icd10=local", # filename format *.zip
+      #"--hl7",
+      #"--hl7=local", # filename format hl7.terminology.*.tgz
       #"--hl7=6.1.0",
       #"--snomed=local",
-      "--snomed=http://snomed.info/sct/11000172109", # latest belgian extension (+ international edition dependency)
+      #"--snomed=http://snomed.info/sct/11000172109", # latest belgian extension (+ international edition dependency)
       #"--snomed=http://snomed.info/sct/11000172109/version/20250315", # specific version
       "--extension-country-code=BE", # mandatory when loading snomed extensions
-      "--loinc",
+      #"--loinc",
       #"--loinc=local",
       #"--loinc=2.78",
     ]
@@ -72,7 +75,7 @@ services:
          - snowstorm
     ports:
       - "8080:8080"
-      - "5005:5005" # debugging purposes
+      #- "5005:5005" # debugging purposes
 
 #  browser:
 #    image: snomedinternational/snomedct-browser:latest

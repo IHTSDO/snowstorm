@@ -20,7 +20,7 @@ It is optimized for **runtime loading** and **modular configuration**, giving yo
 ### ✅ Base Image
 
 ```Dockerfile
-FROM openjdk:17-jdk-buster
+FROM ubuntu:22.04
 ```
 
 ### 🌐 Installed Tools & Dependencies
@@ -35,6 +35,10 @@ FROM openjdk:17-jdk-buster
 
 ```Dockerfile
 ENV APP_HOME=/app
+ENV HAPI_FHIR=$APP_HOME/hapi
+ENV ICPC2=$APP_HOME/icpc2
+ENV ICD10=$APP_HOME/icd10
+ENV ICD10_BE=$APP_HOME/icd10be
 ENV SNOMED_HOME=$APP_HOME/snomed
 ENV LOINC_HOME=$APP_HOME/loinc
 ENV HL7_HOME=$APP_HOME/hl7
