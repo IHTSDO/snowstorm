@@ -40,6 +40,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.data.elasticsearch.core.IndexOperations;
 import org.springframework.data.elasticsearch.repository.config.EnableElasticsearchRepositories;
+import org.springframework.jms.core.JmsTemplate;
 import org.springframework.jms.support.converter.MappingJackson2MessageConverter;
 import org.springframework.jms.support.converter.MessageConverter;
 import org.springframework.jms.support.converter.MessageType;
@@ -105,6 +106,12 @@ public abstract class Config extends ElasticsearchConfig {
 	@Value("${search.term.maximumLength}")
 	private int searchTermMaximumLength;
 
+	@Value("${jms.queue.prefix}")
+	private String jmsQueuePrefix;
+
+	@Autowired
+	private JmsTemplate jmsTemplate;
+
 	@Autowired
 	private DomainEntityConfiguration domainEntityConfiguration;
 
@@ -168,6 +175,7 @@ public abstract class Config extends ElasticsearchConfig {
 		branchService.addCommitListener(commitServiceHookClient);
 		branchService.addCommitListener(traceabilityLogService);
 		branchService.addCommitListener(BranchMetadataHelper::clearTransientMetadata);
+		branchService.addCommitListener(commit -> jmsTemplate.convertAndSend(jmsQueuePrefix + ".branch.change", commit));
 		branchService.addCommitListener(commit ->
 			logger.info("Completed commit on {} in {} seconds.", commit.getBranch().getPath(), secondsDuration(commit.getTimepoint())));
 
