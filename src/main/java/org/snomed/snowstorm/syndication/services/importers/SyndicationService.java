@@ -74,7 +74,7 @@ public abstract class SyndicationService {
         }
         String terminologyName = params.terminology().getName();
         if (syndicationImport != null && syndicationImport.getStatus() == COMPLETED && isNotBlank(syndicationImport.getActualVersion())) {
-            if (syndicationImport.getActualVersion().equals(params.version())) {
+            if (syndicationImport.getActualVersion().equals(params.version()) || this instanceof FixedVersionSyndicationService) {
                 return true;
             }
             if(LOCAL_VERSION.equals(params.version())) {
