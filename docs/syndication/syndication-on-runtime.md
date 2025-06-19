@@ -34,6 +34,7 @@ The request must be JSON-formatted and conform to the structure defined in `Synd
 ## 🔄 Custom-Version Terminologies
 
 Use this option for terminologies that are frequently updated (e.g., SNOMED CT extensions, LOINC). You can also **downgrade** to earlier versions or load **local** files.
+If the specified version is detected to already have been imported, the import won't be triggered.
 
 ### 📁 Local Imports
 
@@ -145,11 +146,13 @@ To use local terminology files:
 ## 📁 Fixed-Version Terminologies
 
 For terminologies with fixed versions (e.g. ISO, UCUM), this mode (re-)imports the terminology **from the container’s filesystem**.
+In case of ATC, this will fetch the latest version via a URL and then do the import.
+Note that for these terminologies, an import will be triggered in any case, even if the corresponding terminology file hasn't changed.
 
 ### ✅ Use Cases
 
-* Re-import a terminology without restarting the server
-* Load a manually updated file during runtime
+* Re-import a Fixed-Version terminology without restarting the server
+* Load a manually updated file during the container runtime and launch the import.
 
 > 📌 **File Naming Requirement**: Filenames must follow the `*-codesystem.*` pattern (e.g. `bcp13-codesystem.json`)
 > 

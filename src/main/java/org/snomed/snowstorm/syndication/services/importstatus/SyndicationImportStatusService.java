@@ -9,6 +9,7 @@ import org.snomed.snowstorm.syndication.models.requestDto.SyndicationImportReque
 import org.snomed.snowstorm.syndication.services.importers.SyndicationService;
 import org.snomed.snowstorm.syndication.constants.SyndicationTerminology;
 import org.snomed.snowstorm.syndication.models.data.SyndicationImport;
+import org.snomed.snowstorm.syndication.services.importers.fixedversion.FixedVersionSyndicationService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -73,7 +74,7 @@ public class SyndicationImportStatusService {
         );
         SyndicationImport status = getImportStatus(params.terminology());
         SyndicationService service = syndicationServices.get(params.terminology().getName());
-        if (service.alreadyImported(params, status)) {
+        if (!(service instanceof FixedVersionSyndicationService) && service.alreadyImported(params, status)) {
             return true;
         }
         logger.info("Update terminology using the following syndication parameters: {}", params);
