@@ -80,14 +80,17 @@ public class Hl7SyndicationService extends SyndicationService {
 
     private void deleteConflictingCodeSystems(boolean loincImportIncluded) {
         if(loincImportIncluded) {
-            FHIRCodeSystemVersionParams codeSystemVersionParams = new FHIRCodeSystemVersionParams("http://loinc.org");
-            codeSystemVersionParams.setId("v3-loinc");
-            FHIRCodeSystemVersion codeSystemVersion = fhirCodeSystemService.findCodeSystemVersion(codeSystemVersionParams);
-            if (codeSystemVersion != null && "not-present".equals(codeSystemVersion.getContent())) {
-                fhirCodeSystemService.deleteCodeSystemVersion(codeSystemVersion);
-            }
+            deleteCodeSystem("http://loinc.org", "v3-loinc");
         }
-        FHIRCodeSystemVersionParams codeSystemVersionParams = new FHIRCodeSystemVersionParams("http://www.whocc.no/atc");
+        deleteCodeSystem("http://www.whocc.no/atc", null);
+        deleteCodeSystem("http://hl7.org/fhir/sid/icd-10-cm", null);
+    }
+
+    private void deleteCodeSystem(String url, String id) {
+        FHIRCodeSystemVersionParams codeSystemVersionParams = new FHIRCodeSystemVersionParams(url);
+        if(id != null) {
+            codeSystemVersionParams.setId(id);
+        }
         FHIRCodeSystemVersion codeSystemVersion = fhirCodeSystemService.findCodeSystemVersion(codeSystemVersionParams);
         if (codeSystemVersion != null && "not-present".equals(codeSystemVersion.getContent())) {
             fhirCodeSystemService.deleteCodeSystemVersion(codeSystemVersion);
