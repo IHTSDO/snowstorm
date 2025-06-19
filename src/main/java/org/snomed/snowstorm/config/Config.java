@@ -2,6 +2,7 @@ package org.snomed.snowstorm.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.Lists;
+import com.google.gson.JsonObject;
 import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.api.VersionControlHelper;
 import org.elasticsearch.client.Request;
@@ -47,6 +48,8 @@ import org.springframework.jms.support.converter.MessageType;
 import org.springframework.scheduling.annotation.EnableAsync;
 
 import jakarta.annotation.PostConstruct;
+import org.springframework.util.StringUtils;
+
 import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.ExecutorService;
@@ -105,6 +108,9 @@ public abstract class Config extends ElasticsearchConfig {
 
 	@Value("${search.term.maximumLength}")
 	private int searchTermMaximumLength;
+
+	@Value("${snowstorm.branch-change.message.enabled}" )
+	private boolean jmsMessageEnabled;
 
 	@Value("${jms.queue.prefix}")
 	private String jmsQueuePrefix;
@@ -175,7 +181,13 @@ public abstract class Config extends ElasticsearchConfig {
 		branchService.addCommitListener(commitServiceHookClient);
 		branchService.addCommitListener(traceabilityLogService);
 		branchService.addCommitListener(BranchMetadataHelper::clearTransientMetadata);
-		branchService.addCommitListener(commit -> jmsTemplate.convertAndSend(jmsQueuePrefix + ".branch.change", commit));
+		branchService.addCommitListener(commit -> {
+			if (jmsMessageEnabled && commit.getBranch() != null && StringUtils.hasLength(commit.getBranch().getPath()))  {
+				JsonObject jmsObject = new JsonObject();
+				jmsObject.addProperty("branch", commit.getBranch().getPath());
+				jmsTemplate.convertAndSend(jmsQueuePrefix + ".branch.change", jmsObject);
+			}
+		});
 		branchService.addCommitListener(commit ->
 			logger.info("Completed commit on {} in {} seconds.", commit.getBranch().getPath(), secondsDuration(commit.getTimepoint())));
 
