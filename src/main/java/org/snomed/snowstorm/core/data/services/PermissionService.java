@@ -1,5 +1,6 @@
 package org.snomed.snowstorm.core.data.services;
 
+import com.google.gson.JsonObject;
 import io.kaicode.elasticvc.domain.Branch;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -11,6 +12,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
+import org.springframework.jms.core.JmsTemplate;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.context.SecurityContext;
@@ -41,6 +43,12 @@ public class PermissionService {
 
 	@Value("${ims-security.roles.enabled}")
 	private boolean rolesEnabled;
+
+	@Value("${jms.queue.prefix}")
+	private String jmsQueuePrefix;
+
+	@Autowired
+	private JmsTemplate jmsTemplate;
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
@@ -167,6 +175,10 @@ public class PermissionService {
 			byGlobalPathAndRole.ifPresent(record -> repository.delete(record));
 			permissionServiceCache.clearCache();
 		}
+
+		JsonObject jmsObject = new JsonObject();
+		jmsObject.addProperty("branch", branch);
+		jmsTemplate.convertAndSend(jmsQueuePrefix + ".role.change", jmsObject);
 	}
 
 	private Optional<PermissionRecord> findByGlobalPathAndRole(boolean global, String branch, String role) {
