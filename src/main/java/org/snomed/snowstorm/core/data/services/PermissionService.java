@@ -1,7 +1,7 @@
 package org.snomed.snowstorm.core.data.services;
 
-import com.google.gson.JsonObject;
 import io.kaicode.elasticvc.domain.Branch;
+import jakarta.annotation.PostConstruct;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.core.data.domain.security.PermissionRecord;
@@ -19,7 +19,6 @@ import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
-import jakarta.annotation.PostConstruct;
 import java.util.*;
 
 @Service
@@ -180,8 +179,8 @@ public class PermissionService {
 		}
 
 		if (jmsMessageEnabled) {
-			JsonObject jmsObject = new JsonObject();
-			jmsObject.addProperty("branch", branch);
+			Map<String, String> jmsObject = new HashMap<>();
+			jmsObject.put("branch", branch);
 			jmsTemplate.convertAndSend(jmsQueuePrefix + ".role.change", jmsObject);
 		}
 	}

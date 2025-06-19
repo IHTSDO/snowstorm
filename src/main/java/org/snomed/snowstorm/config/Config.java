@@ -2,9 +2,10 @@ package org.snomed.snowstorm.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.Lists;
-import com.google.gson.JsonObject;
 import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.api.VersionControlHelper;
+import io.kaicode.elasticvc.domain.Commit;
+import jakarta.annotation.PostConstruct;
 import org.elasticsearch.client.Request;
 import org.modelmapper.ModelMapper;
 import org.slf4j.Logger;
@@ -46,9 +47,6 @@ import org.springframework.jms.support.converter.MappingJackson2MessageConverter
 import org.springframework.jms.support.converter.MessageConverter;
 import org.springframework.jms.support.converter.MessageType;
 import org.springframework.scheduling.annotation.EnableAsync;
-
-import jakarta.annotation.PostConstruct;
-import org.springframework.util.StringUtils;
 
 import java.io.IOException;
 import java.util.*;
@@ -182,9 +180,12 @@ public abstract class Config extends ElasticsearchConfig {
 		branchService.addCommitListener(traceabilityLogService);
 		branchService.addCommitListener(BranchMetadataHelper::clearTransientMetadata);
 		branchService.addCommitListener(commit -> {
-			if (jmsMessageEnabled && commit.getBranch() != null && StringUtils.hasLength(commit.getBranch().getPath()))  {
-				JsonObject jmsObject = new JsonObject();
-				jmsObject.addProperty("branch", commit.getBranch().getPath());
+			if (jmsMessageEnabled)  {
+				Map<String, String> jmsObject = new HashMap<>();
+				jmsObject.put("branch", commit.getBranch().getPath());
+				if (commit.getCommitType() == Commit.CommitType.PROMOTION) {
+					jmsObject.put("sourceBranch", commit.getSourceBranchPath());
+				}
 				jmsTemplate.convertAndSend(jmsQueuePrefix + ".branch.change", jmsObject);
 			}
 		});
