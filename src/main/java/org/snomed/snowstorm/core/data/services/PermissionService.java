@@ -44,6 +44,9 @@ public class PermissionService {
 	@Value("${ims-security.roles.enabled}")
 	private boolean rolesEnabled;
 
+	@Value("${snowstorm.branch-change.message.enabled}" )
+	private boolean jmsMessageEnabled;
+
 	@Value("${jms.queue.prefix}")
 	private String jmsQueuePrefix;
 
@@ -176,9 +179,11 @@ public class PermissionService {
 			permissionServiceCache.clearCache();
 		}
 
-		JsonObject jmsObject = new JsonObject();
-		jmsObject.addProperty("branch", branch);
-		jmsTemplate.convertAndSend(jmsQueuePrefix + ".role.change", jmsObject);
+		if (jmsMessageEnabled) {
+			JsonObject jmsObject = new JsonObject();
+			jmsObject.addProperty("branch", branch);
+			jmsTemplate.convertAndSend(jmsQueuePrefix + ".role.change", jmsObject);
+		}
 	}
 
 	private Optional<PermissionRecord> findByGlobalPathAndRole(boolean global, String branch, String role) {
