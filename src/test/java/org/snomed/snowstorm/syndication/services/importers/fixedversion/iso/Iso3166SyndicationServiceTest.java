@@ -52,7 +52,7 @@ class Iso3166SyndicationServiceTest {
     void setUp() {
         MockitoAnnotations.openMocks(this);
         service.init();
-        params = new SyndicationImportParams(SyndicationTerminology.ISO3166, LOCAL_VERSION, null, false);
+        params = new SyndicationImportParams(SyndicationTerminology.ISO3166, LOCAL_VERSION, null);
     }
 
     @Test

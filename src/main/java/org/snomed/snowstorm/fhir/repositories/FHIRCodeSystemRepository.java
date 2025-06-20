@@ -3,6 +3,7 @@ package org.snomed.snowstorm.fhir.repositories;
 import org.snomed.snowstorm.fhir.domain.FHIRCodeSystemVersion;
 import org.springframework.data.elasticsearch.repository.ElasticsearchRepository;
 
+import java.util.List;
 import java.util.Optional;
 
 public interface FHIRCodeSystemRepository extends ElasticsearchRepository<FHIRCodeSystemVersion, String> {
@@ -12,4 +13,6 @@ public interface FHIRCodeSystemRepository extends ElasticsearchRepository<FHIRCo
 	FHIRCodeSystemVersion findByUrlAndVersion(String systemUrl, String version);
 
 	Optional<FHIRCodeSystemVersion> findFirstByCodeSystemIdOrderByVersionDesc(String codeSystemId);
+
+	List<FHIRCodeSystemVersion> findByUrlAndContent(String url, String content);
 }
