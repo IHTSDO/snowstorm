@@ -27,6 +27,7 @@ import org.snomed.snowstorm.ecl.validation.ECLPreprocessingService;
 import org.snomed.snowstorm.fhir.config.FHIRConceptMapImplicitConfig;
 import org.snomed.snowstorm.mrcm.MRCMLoader;
 import org.snomed.snowstorm.mrcm.MRCMUpdateService;
+import org.snomed.snowstorm.core.data.services.AdditionalDependencyUpdateService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.actuate.autoconfigure.jdbc.DataSourceHealthContributorAutoConfiguration;
@@ -165,6 +166,9 @@ public abstract class Config extends ElasticsearchConfig {
 	@Autowired
 	private ReferencedConceptsLookupUpdateService refsetConceptsLookupUpdateService;
 
+	@Autowired
+	private AdditionalDependencyUpdateService moduleDependencyUpdateService;
+
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
 	@PostConstruct
@@ -186,6 +190,7 @@ public abstract class Config extends ElasticsearchConfig {
 		branchService.addCommitListener(multiSearchService);
 		branchService.addCommitListener(eclPreprocessingService);
 		branchService.addCommitListener(commitServiceHookClient);
+		branchService.addCommitListener(moduleDependencyUpdateService);
 		branchService.addCommitListener(traceabilityLogService);
 		branchService.addCommitListener(BranchMetadataHelper::clearTransientMetadata);
 		branchService.addCommitListener(commit -> {
