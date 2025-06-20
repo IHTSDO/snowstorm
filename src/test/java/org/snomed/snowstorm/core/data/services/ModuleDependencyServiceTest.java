@@ -14,6 +14,7 @@ import org.springframework.data.domain.Page;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.snomed.snowstorm.core.data.domain.Concepts.*;
@@ -649,4 +650,70 @@ class ModuleDependencyServiceTest extends AbstractTest {
 		assertEquals("20250102", mdrs.getAdditionalField(ReferenceSetMember.MDRSFields.SOURCE_EFFECTIVE_TIME));
 		assertEquals("20250201", mdrs.getAdditionalField(ReferenceSetMember.MDRSFields.TARGET_EFFECTIVE_TIME));
 	}
+
+
+	@Test
+	void getCodeSystemBranchByModuleId() {
+		// Create International CodeSystem
+		CodeSystem main = codeSystemService.createCodeSystem(new CodeSystem("SNOMEDCT", "MAIN"));
+		// Add MDRS
+		ReferenceSetMember coreMdrs = new ReferenceSetMember();
+		coreMdrs.setModuleId(CORE_MODULE);
+		coreMdrs.setReferencedComponentId(MODEL_MODULE);
+		coreMdrs.setActive(true);
+		coreMdrs.setRefsetId(Concepts.MODULE_DEPENDENCY_REFERENCE_SET);
+		coreMdrs.setAdditionalField(ReferenceSetMember.MDRSFields.SOURCE_EFFECTIVE_TIME, "");
+		coreMdrs.setAdditionalField(ReferenceSetMember.MDRSFields.TARGET_EFFECTIVE_TIME, "");
+		referenceSetMemberService.createMember("MAIN", coreMdrs);
+		// Version MAIN here to avoid unpublished content from MAIN is being saved by extension during versioning
+		codeSystemService.createVersion(main, 20250101, "20250321 International release");
+
+		// Create LOINC CodeSystem
+		CodeSystem loincCodeSystem = codeSystemService.createCodeSystem(new CodeSystem("SNOMEDCT-LOINC", "MAIN/SNOMEDCT-LOINC"));
+		// Add MDRS
+		final String LOINC_MODULE = "11010000107";
+		ReferenceSetMember mdrs = new ReferenceSetMember();
+		mdrs.setModuleId(LOINC_MODULE);
+		mdrs.setReferencedComponentId(CORE_MODULE);
+		mdrs.setActive(true);
+		mdrs.setRefsetId(Concepts.MODULE_DEPENDENCY_REFERENCE_SET);
+		mdrs.setAdditionalField(ReferenceSetMember.MDRSFields.SOURCE_EFFECTIVE_TIME, "");
+		mdrs.setAdditionalField(ReferenceSetMember.MDRSFields.TARGET_EFFECTIVE_TIME, "20250101");
+		referenceSetMemberService.createMember(loincCodeSystem.getBranchPath(), mdrs);
+
+		// Version LOINC
+		codeSystemService.createVersion(loincCodeSystem, 20250321, "20250321 loinc release");
+
+		// Create an extension CodeSystem
+		CodeSystem codeSystem = codeSystemService.createCodeSystem(new CodeSystem("SNOMEDCT-XX", "MAIN/SNOMEDCT-XX"));
+
+		// Create MDRS
+		final String extensionModuleId = "2011000195101";
+		mdrs = new ReferenceSetMember();
+		mdrs.setModuleId(extensionModuleId);
+		mdrs.setReferencedComponentId(CORE_MODULE);
+		mdrs.setActive(true);
+		mdrs.setRefsetId(Concepts.MODULE_DEPENDENCY_REFERENCE_SET);
+		mdrs.setAdditionalField(ReferenceSetMember.MDRSFields.SOURCE_EFFECTIVE_TIME, "");
+		mdrs.setAdditionalField(ReferenceSetMember.MDRSFields.TARGET_EFFECTIVE_TIME, "20250101");
+		referenceSetMemberService.createMember(codeSystem.getBranchPath(), mdrs);
+
+		// Additional dependency
+		mdrs = new ReferenceSetMember();
+		mdrs.setModuleId(extensionModuleId);
+
+		mdrs.setReferencedComponentId(LOINC_MODULE);
+		mdrs.setActive(true);
+		mdrs.setRefsetId(Concepts.MODULE_DEPENDENCY_REFERENCE_SET);
+		mdrs.setAdditionalField(ReferenceSetMember.MDRSFields.SOURCE_EFFECTIVE_TIME, "");
+		mdrs.setAdditionalField(ReferenceSetMember.MDRSFields.TARGET_EFFECTIVE_TIME, "20250321");
+		referenceSetMemberService.createMember(codeSystem.getBranchPath(), mdrs);
+
+		Map<String, String> results = mdService.getCodeSystemBranchByModuleId(Set.of(CORE_MODULE, MODEL_MODULE, LOINC_MODULE, extensionModuleId));
+		assertEquals(3, results.size());
+		assertEquals("MAIN", results.get(CORE_MODULE));
+		assertEquals("MAIN/SNOMEDCT-LOINC", results.get(LOINC_MODULE));
+		assertEquals("MAIN/SNOMEDCT-XX", results.get(extensionModuleId));
+	}
+
 }

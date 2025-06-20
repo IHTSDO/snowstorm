@@ -1,5 +1,7 @@
 package org.snomed.snowstorm.core.data.services;
 
+import co.elastic.clients.elasticsearch._types.SortOptions;
+import co.elastic.clients.elasticsearch._types.SortOrder;
 import io.kaicode.elasticvc.api.*;
 import io.kaicode.elasticvc.domain.Branch;
 import org.slf4j.Logger;
@@ -17,6 +19,7 @@ import java.util.*;
 import static co.elastic.clients.elasticsearch._types.query_dsl.QueryBuilders.bool;
 import static io.kaicode.elasticvc.helper.QueryHelper.*;
 import static io.kaicode.elasticvc.helper.QueryHelper.termQuery;
+import static org.snomed.snowstorm.core.data.domain.SnomedComponent.Fields.START;
 
 @Service
 public class ModuleDependencyService extends ComponentService {
@@ -217,5 +220,26 @@ public class ModuleDependencyService extends ComponentService {
 		} catch (BranchNotFoundException | IllegalArgumentException e) {
 			return null;
 		}
+	}
+
+	public Map<String, String> getCodeSystemBranchByModuleId(Set<String> moduleIds) {
+		// Fetch the CodeSystem branch for a given module id using module dependency reference set
+		Map<String, String> results = new HashMap<>();
+
+		try (SearchHitsIterator<ReferenceSetMember> hits = elasticsearchOperations.searchForStream(new NativeQueryBuilder()
+				.withQuery(bool(bq -> bq
+						.must(termQuery(SnomedComponent.Fields.ACTIVE, true))
+						.mustNot(existsQuery(SnomedComponent.Fields.END))
+						.must(termsQuery(SnomedComponent.Fields.MODULE_ID, moduleIds))
+						.must(termQuery(ReferenceSetMember.Fields.REFSET_ID, Concepts.MODULE_DEPENDENCY_REFERENCE_SET)))
+				).withSort(SortOptions.of(s -> s.field(f -> f.field(START).order(SortOrder.Desc))))
+				.withPageable(LARGE_PAGE)
+				.build(), ReferenceSetMember.class)) {
+			// Skip MDRS entries that have been imported into MAIN previously such as derivative products
+			// Sorting by start date in descending order
+			hits.forEachRemaining(hit -> results.putIfAbsent(hit.getContent().getModuleId(), hit.getContent().getPath())
+			);
+		}
+		return results;
 	}
 }
