@@ -70,7 +70,7 @@ Notes on import behaviour:
 ## Examples
 Use Postman to try out FHIR API calls.
 
-[![Run in Postman](https://run.pstmn.io/button.svg)](https://documenter.getpostman.com/view/1181409/UzXKVdhM)
+[![Run in Postman](https://run.pstmn.io/button.svg)](https://www.postman.com/interstellar-zodiac-547386/workspace/snowstorm/collection/26915017-3595144a-f8c8-4922-bff6-87a9ee3561e2?action=share&creator=6085828&active-environment=6085828-da421b12-f69b-43b4-8729-34e796af8fd8)
 
 Some of the HTTP requests are in the [fhir-requests.http](fhir-requests.http) file.
 
