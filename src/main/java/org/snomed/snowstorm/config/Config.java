@@ -183,7 +183,8 @@ public abstract class Config extends ElasticsearchConfig {
 			if (jmsMessageEnabled)  {
 				Map<String, String> jmsObject = new HashMap<>();
 				jmsObject.put("branch", commit.getBranch().getPath());
-				if (commit.getCommitType() == Commit.CommitType.PROMOTION) {
+				if (Commit.CommitType.PROMOTION == commit.getCommitType()
+					|| Commit.CommitType.REBASE == commit.getCommitType()) {
 					jmsObject.put("sourceBranch", commit.getSourceBranchPath());
 				}
 				jmsTemplate.convertAndSend(jmsQueuePrefix + ".branch.change", jmsObject);
