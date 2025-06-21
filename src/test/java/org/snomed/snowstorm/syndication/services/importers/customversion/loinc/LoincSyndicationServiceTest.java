@@ -46,7 +46,7 @@ class LoincSyndicationServiceTest {
             mockStatic.when(() -> FileUtils.findFile("/tmp", "loinc.zip"))
                     .thenReturn(Optional.of(new File("loinc.zip")));
 
-            loincSyndicationService.fetchAndImportTerminology(new SyndicationImportParams(SyndicationTerminology.LOINC, LOCAL_VERSION, null, false));
+            loincSyndicationService.fetchAndImportTerminology(new SyndicationImportParams(SyndicationTerminology.LOINC, LOCAL_VERSION, null));
 
             mockStatic.verify(() -> FileUtils.findFile("/tmp", "loinc.zip"), times(1));
         }
@@ -61,7 +61,7 @@ class LoincSyndicationServiceTest {
             mockFileUtils.when(() -> FileUtils.findFile("/tmp", "loinc.zip"))
                     .thenReturn(Optional.of(new File("loinc.zip")));
 
-            loincSyndicationService.fetchAndImportTerminology(new SyndicationImportParams(SyndicationTerminology.LOINC, LATEST, null, false));
+            loincSyndicationService.fetchAndImportTerminology(new SyndicationImportParams(SyndicationTerminology.LOINC, LATEST, null));
 
             mockFileUtils.verify(() -> FileUtils.findFile("/tmp", "loinc.zip"), times(1));
             mockStatic.verify(() -> CommandUtils.waitForProcessTermination(any(), any()), times(2));
@@ -77,7 +77,7 @@ class LoincSyndicationServiceTest {
             mockStatic.when(() -> FileUtils.findFile("/tmp", "loinc.zip"))
                     .thenReturn(Optional.empty());
 
-            assertThrows(ServiceException.class, () -> loincSyndicationService.fetchAndImportTerminology(new SyndicationImportParams(SyndicationTerminology.LOINC, "2.80", null, false)));
+            assertThrows(ServiceException.class, () -> loincSyndicationService.fetchAndImportTerminology(new SyndicationImportParams(SyndicationTerminology.LOINC, "2.80", null)));
             mockStatic.verify(() -> CommandUtils.waitForProcessTermination(any(), any()), times(1));
         }
     }

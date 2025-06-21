@@ -81,7 +81,7 @@ public class Icpc2SyndicationService extends FixedVersionSyndicationService {
     @Override
     protected void importTerminology(SyndicationImportParams params, List<File> files) throws IOException, ServiceException {
         CodeSystem codeSystem = new CodeSystem();
-        codeSystem.setUrl("http://terminology.hl7.org/CodeSystem/icpc2E");
+        codeSystem.setUrl("http://hl7.org/fhir/sid/icpc-2");
         codeSystem.setName("ICPC2-english-edition");
         codeSystem.setVersion(DEFAULT_VERSION);
         codeSystem.setConcept(readConceptsFromFile(files.get(0)));
