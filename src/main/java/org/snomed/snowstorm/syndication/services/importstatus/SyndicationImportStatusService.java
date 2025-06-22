@@ -69,8 +69,7 @@ public class SyndicationImportStatusService {
         var params = new SyndicationImportParams(
                 SyndicationTerminology.fromName(request.terminologyName()),
                 isBlank(request.version()) ? LATEST_VERSION : request.version(),
-                request.extensionName(),
-                isLoincPresent()
+                request.extensionName()
         );
         SyndicationImport status = getImportStatus(params.terminology());
         SyndicationService service = syndicationServices.get(params.terminology().getName());

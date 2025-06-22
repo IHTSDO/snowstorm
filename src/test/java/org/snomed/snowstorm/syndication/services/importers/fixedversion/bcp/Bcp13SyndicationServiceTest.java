@@ -44,7 +44,7 @@ class Bcp13SyndicationServiceTest {
             writer.write("Image and more particularly a GIF,image/gif\n");
         }
 
-        SyndicationImportParams params = new SyndicationImportParams(SyndicationTerminology.BCP13, null, null, false);
+        SyndicationImportParams params = new SyndicationImportParams(SyndicationTerminology.BCP13, null, null);
         service.importTerminology(params, Collections.singletonList(tempCsv));
 
         Mockito.verify(codeSystemService).createUpdate(Mockito.any());
@@ -58,14 +58,14 @@ class Bcp13SyndicationServiceTest {
             writer.write("display,code\n");
         }
 
-        SyndicationImportParams params = new SyndicationImportParams(SyndicationTerminology.BCP13, null, null, false);
+        SyndicationImportParams params = new SyndicationImportParams(SyndicationTerminology.BCP13, null, null);
         assertDoesNotThrow(() -> service.importTerminology(params, Collections.singletonList(tempCsv)));
     }
 
     @Test
     void testReadConceptsFromFile_withInvalidFile_shouldThrowServiceException() {
         File invalidFile = new File("nonexistent.csv");
-        SyndicationImportParams params = new SyndicationImportParams(SyndicationTerminology.BCP13, null, null, false);
+        SyndicationImportParams params = new SyndicationImportParams(SyndicationTerminology.BCP13, null, null);
 
         ServiceException exception = assertThrows(ServiceException.class,
                 () -> service.importTerminology(params, Collections.singletonList(invalidFile)));

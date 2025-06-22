@@ -410,6 +410,10 @@ public class FHIRCodeSystemService {
 		return version;
 	}
 
+	public List<FHIRCodeSystemVersion> findNotPresentCodeSystemVersion(String url) {
+		return codeSystemRepository.findByUrlAndContent(url, "not-present");
+	}
+
 	public FHIRCodeSystemVersion getSnomedVersionOrThrow(FHIRCodeSystemVersionParams params) {
 		if (!params.isSnomed()) {
 			throw exception("Failed to find SNOMED branch for non SCT code system.", OperationOutcome.IssueType.CONFLICT, 500);

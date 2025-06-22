@@ -32,7 +32,6 @@ public class StartupSyndicationService {
     private final Logger logger = LoggerFactory.getLogger(getClass());
 
     public void handleStartupSyndication(ApplicationArguments applicationArguments) throws IOException, ServiceException, InterruptedException {
-        boolean isLoincIncluded = applicationArguments.containsOption(LOINC.getName());
         String extensionName = getOneValueOrDefault(applicationArguments, EXTENSION_COUNTRY_CODE, null);
         for (SyndicationTerminology terminology : SyndicationTerminology.values()) {
             if (terminology.importByDefault() || applicationArguments.containsOption(terminology.getName())) {
@@ -42,7 +41,7 @@ public class StartupSyndicationService {
                     throw new IllegalStateException("No service found for terminology: " + terminology);
                 }
                 logger.info("Triggering import for: {} with version: {}", terminology, version);
-                var params = new SyndicationImportParams(terminology, version, extensionName, isLoincIncluded);
+                var params = new SyndicationImportParams(terminology, version, extensionName);
                 SyndicationImport status = importStatusService.getImportStatus(params.terminology());
                 if (service.alreadyImported(params, status)) {
                     logger.info("Terminology {} version {} has already been imported", params.terminology().getName(), status.getActualVersion());
