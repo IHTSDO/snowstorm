@@ -21,6 +21,7 @@ import org.snomed.snowstorm.fhir.pojo.CanonicalUri;
 import org.snomed.snowstorm.fhir.pojo.FHIRCodeSystemVersionParams;
 import org.snomed.snowstorm.rest.ControllerHelper;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Component;
 
@@ -141,9 +142,18 @@ public class FHIRHelper implements FHIRConstants {
 	}
 
 	public static void readOnlyCheck(boolean readOnlyMode) {
+		readOnlyCheck(readOnlyMode, null);
+	}
+
+	public static void readOnlyCheck(boolean readOnlyMode, String attemptedAction) {
 		if (readOnlyMode) {
-			logger.info("Write operation not permitted, the server is in read-only mode.");
-			throw exception("Write operation not permitted.", IssueType.FORBIDDEN, 401);
+			String msg = "Write operation not permitted";
+			if (attemptedAction != null) {
+				msg += ", while attempting to " + attemptedAction + ".";
+			}
+			msg += " The server is in read-only mode.";
+			logger.info(msg);
+			throw exception(msg, IssueType.FORBIDDEN, 401);
 		}
 	}
 
@@ -212,12 +222,46 @@ public class FHIRHelper implements FHIRConstants {
 			return;
 		}
 
-		List<Resource> resources = txResources.stream().map(x -> x.getResource()).toList();
-		File npmPackage = FHIRValueSetProviderHelper.createNpmPackageFromResources(resources);
-		try {
-			loadPackageService.uploadPackageResources(npmPackage, Collections.singleton("*"),"tx-resources",false);
-		} catch (IOException e) {
-			throw new RuntimeServiceException(e);
+		List<Resource> resources = txResources.stream()
+				.map(Parameters.ParametersParameterComponent::getResource)
+				.toList();
+		//If the server is in read-only mode, we will not be able to upload the requested resources.
+		//See if we already have them, or throw an exception.
+		if (loadPackageService.isReadOnlyMode()) {
+			veryifyTxResourcesExist(loadPackageService, resources);
+		} else {
+			File npmPackage = FHIRValueSetProviderHelper.createNpmPackageFromResources(resources);
+			try {
+				loadPackageService.uploadPackageResources(npmPackage, Collections.singleton("*"), "tx-resources", false);
+			} catch (IOException e) {
+				throw new RuntimeServiceException(e);
+			}
+		}
+	}
+
+	private static void veryifyTxResourcesExist(FHIRLoadPackageService loadPackageService, List<Resource> resources) {
+		StringBuilder missingResources = new StringBuilder();
+		for (Resource resource : resources) {
+			if (resource instanceof MetadataResource metadateResource) {
+				String resourceUrl = metadateResource.getUrl();
+				if (resourceUrl == null || resourceUrl.isEmpty()) {
+					throw exception("Resource URL is not defined for " + resource.fhirType() + ".", IssueType.INVARIANT, 400);
+				}
+				if (!loadPackageService.verifyResourceExists(resourceUrl)) {
+					if (missingResources.isEmpty()) {
+						missingResources.append(resourceUrl);
+					} else {
+						missingResources.append(", ").append(resourceUrl);
+					}
+				}
+			} else {
+				throw exception("Resource type '" + resource.fhirType() + "' is not supported for tx-resources in read-only mode.", IssueType.NOTSUPPORTED, 400);
+			}
+		}
+
+		if (!missingResources.isEmpty()) {
+			String msg = format("The following resources are not locally available, and cannot be obtained as this server has been configured to read-only mode: %s", missingResources);
+			throw exception(msg, IssueType.NOTFOUND, 404);
 		}
 	}
 
