@@ -36,15 +36,11 @@ public class LoincSyndicationService extends SyndicationService {
         return singletonList(file.orElseThrow(() -> new ServiceException("Loinc terminology file not found, cannot be imported")));
     }
 
-    /**
-     * Will import the loinc terminology. If a loinc terminology file is already present on the filesystem, it will use it.
-     * Else, it will download the latest version or version @param version if specified
-     */
     @Override
     protected void importTerminology(SyndicationImportParams params, List<File> files) throws IOException, InterruptedException {
         String fileName = files.get(0).getName();
         Process process = new ProcessBuilder(
-                "./hapi-fhir-cli", "upload-terminology",
+                "../../hapi/hapi-fhir-cli", "upload-terminology",
                 "-d", fileName,
                 "-v", "r4",
                 "-t", "http://localhost:8080/fhir",
@@ -56,7 +52,7 @@ public class LoincSyndicationService extends SyndicationService {
     }
 
     private Optional<File> downloadLoincZip(String version) throws IOException, InterruptedException {
-        Process process = new ProcessBuilder("node", "./download_loinc.mjs", LATEST_VERSION.equals(version) ? "" : version)
+        Process process = new ProcessBuilder("node", "../download_loinc.mjs", LATEST_VERSION.equals(version) ? "" : version)
                 .directory(new File(workingDirectory))
                 .start();
 

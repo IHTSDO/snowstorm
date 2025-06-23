@@ -1,8 +1,6 @@
 package org.snomed.snowstorm.syndication.services.importers.customversion.hl7;
 
 import org.snomed.snowstorm.core.data.services.ServiceException;
-import org.snomed.snowstorm.fhir.domain.FHIRCodeSystemVersion;
-import org.snomed.snowstorm.fhir.pojo.FHIRCodeSystemVersionParams;
 import org.snomed.snowstorm.fhir.services.FHIRCodeSystemService;
 import org.snomed.snowstorm.fhir.services.FHIRLoadPackageService;
 import org.snomed.snowstorm.syndication.services.importers.SyndicationService;
@@ -54,14 +52,11 @@ public class Hl7SyndicationService extends SyndicationService {
     /**
      * Will import the hl7 terminology. If a hl7 terminology file is already present on the filesystem, it will use it.
      * Else, it will download the latest version or version @param version if specified.
-     * If the LOINC terminology is supposed to be used as well, a conflicting codeSystem imported through hl7 must be removed ( see <a href="https://github.com/IHTSDO/snowstorm/issues/609"></a>)
      */
     @Override
     protected void importTerminology(SyndicationImportParams params, List<File> files) throws IOException {
         importHl7Package(files.get(0));
-        if (params.isLoincImportIncluded()) {
-            deleteConflictingHl7CodeSystem();
-        }
+        deleteConflictingCodeSystems();
     }
 
     private Optional<File> downloadHl7File(String version) throws IOException, InterruptedException {
@@ -80,13 +75,16 @@ public class Hl7SyndicationService extends SyndicationService {
         loadPackageService.uploadPackageResources(file, Set.of("*"), fileName, false);
     }
 
-    private void deleteConflictingHl7CodeSystem() {
-        FHIRCodeSystemVersionParams codeSystemVersionParams = new FHIRCodeSystemVersionParams("http://loinc.org");
-        codeSystemVersionParams.setId("v3-loinc");
-        FHIRCodeSystemVersion codeSystemVersion = fhirCodeSystemService.findCodeSystemVersion(codeSystemVersionParams);
-        if (codeSystemVersion != null) {
-            fhirCodeSystemService.deleteCodeSystemVersion(codeSystemVersion);
-        }
+    private void deleteConflictingCodeSystems() {
+        deleteNoContentCodeSystems("http://loinc.org");
+        deleteNoContentCodeSystems("http://loinc.org");
+        deleteNoContentCodeSystems("http://www.whocc.no/atc");
+        deleteNoContentCodeSystems("http://hl7.org/fhir/sid/icd-10-cm");
+        deleteNoContentCodeSystems("http://hl7.org/fhir/sid/icpc-2");
+    }
+
+    private void deleteNoContentCodeSystems(String url) {
+        fhirCodeSystemService.findNotPresentCodeSystemVersion(url).forEach(fhirCodeSystemService::deleteCodeSystemVersion);
     }
 
     @Override

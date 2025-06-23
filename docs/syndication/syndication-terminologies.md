@@ -41,18 +41,35 @@ These terminologies can be loaded in three different ways:
 - 🌐 Source: [Simplifier.net HL7 Terminology](https://simplifier.net/packages/hl7.terminology)
 - 📜 License: Creative commons (free to use and modify, see [License](https://terminology.hl7.org/license.html))
 
+### ICD10 terminology
+- ⏱️ Import Time: ~1 min
+- 🌐 Source: [World Health Organization (WHO)](https://icdcdn.who.int/icd10/index.html)
+- 📜 License: WHO ICD‑10 license (often free for non-commercial purposes)
+
+### ICD10-BE terminology
+- 📦 Contains ICD10-CM and ICD-10-PCS codes along with Dutch and French translations
+- ⏱️ Import Time: ~1 min
+- 🌐 Source: [FPS Health](https://www.health.belgium.be/fr/sante/organisation-des-soins-de-sante/hopitaux/systemes-denregistrement/icd-10-be/publications#reflist)
+- 📜 License: WHO ICD‑10 license (often free for non-commercial purposes) + Belgian authorization to reproduce or integrate ICD‑10‑BE codes or data
 ---
 
 ## Fixed-version Terminologies and codesystems
-The below codesystems are all already stored on the docker image. 
+Except for ATC and ICPC-2, all below codesystems are already stored on the docker image. 
 It ensures maximum stability, since they don't need to be fetched during the app runtime.
-They are automatically imported during the application startup when the syndication flag is used (see syndication-with-docker.md):
+They are all automatically imported during the application startup when the syndication and the ATC flags are used (see syndication-with-docker.md):
 
 ### ATC
 
-- 🌐 Source: File `ATC_DDD_Index.csv` obtained via webscraper from [atcddd.fhi.no](https://atcddd.fhi.no/atc_ddd_index/).
-- 🔗 Webscraper Repo: [Webscrap Health Monitoring](https://github.com/sarrabenyahia/webscrap_health_monitoring)
-- 📜 License: Usage must comply with the Norwegian Medicines Agency’s terms (FHI).
+* 🌐 Source: [ATC/DDD Index](https://atcddd.fhi.no/) — maintained by the [WHO Collaborating Centre for Drug Statistics Methodology](https://www.fhi.no/en/hn/atcddd/).
+* ⚖️ **Copyright & Terms of Use**: See the official [copyright & disclaimer](https://atcddd.fhi.no/copyright_disclaimer/).
+  * **Important**: Use of this material requires attribution and must comply with the WHO Centre’s conditions.
+  * Commercial redistribution and modification are **not permitted**.
+* 🛠 **Import Instructions**:
+
+  * The terminology will only be imported **if** the `atc` application argument is set.
+  * It must point to a valid ATC terminology URL (e.g., `https://raw.githubusercontent.com/ehealthplatformstandards/atc-terminology-publisher/main/atc-codesystem.csv`).
+  * ✅ **You are responsible** for ensuring your use case complies with the licensing terms before using or distributing this file.
+
 
 ### BCP13
 
@@ -74,6 +91,11 @@ They are automatically imported during the application startup when the syndicat
 - 🌐 Source: [UCUM GitHub Repository](https://github.com/ucum-org/ucum)
 - 💡 The codesystem file actually represents a grammar, that can generate an infinite amount of valid codes.  
 - 📜 License: Freely available under the UCUM Terms (open access for non-commercial use).
+
+### ICPC-2
+
+- 🌐 Source: [Norwegian Directorate of Health](https://www.helsedirektoratet.no/digitalisering-og-e-helse/helsefaglige-kodeverk/icpc/icpc-2e--english-version)
+- 📜 License: The non-commercial user is free to use ICPC-2e. If ICPC-2e is to be used for commercial purposes or in national/local coding systems, it will be necessary to negotiate with Wonca about user fees. In that case, please contact the CEO of Wonca (ceo@wonca.com.sg).
 
 ## Environment Variables
 If loading SNOMED and LOINC, make sure their credentials are accessible by Snowstorm as environment variables.

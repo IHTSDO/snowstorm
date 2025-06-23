@@ -9,6 +9,7 @@ import org.snomed.snowstorm.syndication.models.requestDto.SyndicationImportReque
 import org.snomed.snowstorm.syndication.services.importers.SyndicationService;
 import org.snomed.snowstorm.syndication.constants.SyndicationTerminology;
 import org.snomed.snowstorm.syndication.models.data.SyndicationImport;
+import org.snomed.snowstorm.syndication.services.importers.fixedversion.FixedVersionSyndicationService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -49,8 +50,12 @@ public class SyndicationImportStatusService {
         syndicationImportStatusDao.saveOrUpdateImportStatus(terminology.getName(), requestedVersion, actualVersion, status, exception);
     }
 
-    public List<SyndicationImport> getAllImportStatuses() {
-        return syndicationImportStatusDao.getAllImportStatuses();
+    public List<SyndicationImport> getAllImportStatuses(boolean runningOnly) {
+        List<SyndicationImport> importStatuses = syndicationImportStatusDao.getAllImportStatuses();
+        if(runningOnly) {
+            return importStatuses.stream().filter(syndicationImport -> ImportJob.ImportStatus.RUNNING.equals(syndicationImport.getStatus())).toList();
+        }
+        return importStatuses;
     }
 
     public boolean isLoincPresent() {
@@ -64,12 +69,11 @@ public class SyndicationImportStatusService {
         var params = new SyndicationImportParams(
                 SyndicationTerminology.fromName(request.terminologyName()),
                 isBlank(request.version()) ? LATEST_VERSION : request.version(),
-                request.extensionName(),
-                isLoincPresent()
+                request.extensionName()
         );
         SyndicationImport status = getImportStatus(params.terminology());
         SyndicationService service = syndicationServices.get(params.terminology().getName());
-        if (service.alreadyImported(params, status)) {
+        if (!(service instanceof FixedVersionSyndicationService) && service.alreadyImported(params, status)) {
             return true;
         }
         logger.info("Update terminology using the following syndication parameters: {}", params);
@@ -84,6 +88,6 @@ public class SyndicationImportStatusService {
     }
 
     public boolean isImportRunning() {
-        return getAllImportStatuses().stream().anyMatch(status -> ImportJob.ImportStatus.RUNNING.equals(status.getStatus()));
+        return !getAllImportStatuses(true).isEmpty();
     }
 }

@@ -5,13 +5,10 @@ import ca.uhn.fhir.parser.JsonParser;
 import jakarta.annotation.PostConstruct;
 import org.hl7.fhir.r4.model.CodeSystem;
 import org.snomed.snowstorm.core.data.services.ServiceException;
-import org.snomed.snowstorm.fhir.domain.FHIRCodeSystemVersion;
-import org.snomed.snowstorm.fhir.pojo.FHIRCodeSystemVersionParams;
-import org.snomed.snowstorm.fhir.services.FHIRCodeSystemService;
-import org.snomed.snowstorm.fhir.services.FHIRConceptService;
 import org.snomed.snowstorm.syndication.models.domain.SyndicationImportParams;
 import org.snomed.snowstorm.syndication.services.importers.SyndicationService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -25,11 +22,9 @@ public abstract class FixedVersionSyndicationService extends SyndicationService 
     @Autowired
     private FhirContext fhirContext;
 
-    @Autowired
-    private FHIRCodeSystemService codeSystemService;
+    @Value("${syndication.root-directory:/app}")
+    private String syndicationRootDirectory;
 
-    @Autowired
-    private FHIRConceptService fhirConceptService;
     protected String directory;
     protected String codeSystemFilePattern;
 
@@ -37,12 +32,12 @@ public abstract class FixedVersionSyndicationService extends SyndicationService 
 
     @PostConstruct
     public void init() {
-        this.directory = "/app/" + getCodeSystemName();
+        this.directory = syndicationRootDirectory + "/" + getCodeSystemName();
         this.codeSystemFilePattern = getCodeSystemName() + "*-codesystem.*";
     }
 
     @Override
-    protected List<File> fetchTerminologyPackages(SyndicationImportParams params) throws IOException {
+    protected List<File> fetchTerminologyPackages(SyndicationImportParams params) throws IOException, ServiceException {
         return findFiles(directory, codeSystemFilePattern);
     }
 
@@ -53,16 +48,6 @@ public abstract class FixedVersionSyndicationService extends SyndicationService 
             CodeSystem codeSystem = (CodeSystem) jsonParser.parseResource(new FileInputStream(file));
             saveCodeSystemAndConcepts(codeSystem);
         }
-    }
-
-    protected void saveCodeSystemAndConcepts(CodeSystem codeSystem) throws ServiceException {
-        FHIRCodeSystemVersion existing = codeSystemService.findCodeSystemVersion(new FHIRCodeSystemVersionParams(codeSystem.getUrl()).setVersion(codeSystem.getVersion()));
-        if (existing != null) {
-            logger.info("Deleting existing CodeSystem and concepts for url:{}, version:{}", existing.getUrl(), existing.getVersion());
-            codeSystemService.deleteCodeSystemVersion(existing);
-        }
-        FHIRCodeSystemVersion codeSystemVersion = codeSystemService.createUpdate(codeSystem);
-        fhirConceptService.saveAllConceptsOfCodeSystemVersion(codeSystem.getConcept(), codeSystemVersion);
     }
 
     @Override

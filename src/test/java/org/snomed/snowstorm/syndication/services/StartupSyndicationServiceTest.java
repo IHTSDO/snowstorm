@@ -95,7 +95,6 @@ class StartupSyndicationServiceTest {
         SyndicationImportParams params = captor.getValue();
         assertEquals("6.2.0", params.version());
         assertEquals("US", params.extensionName());
-        assertTrue(params.isLoincImportIncluded());
     }
 
     @Test

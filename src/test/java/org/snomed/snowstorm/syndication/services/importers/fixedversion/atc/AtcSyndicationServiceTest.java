@@ -46,7 +46,7 @@ class AtcSyndicationServiceTest {
             writer.write("A,,Alimentary tract,B,,Blood,C,,Cardiovascular,D,,Dermatologicals,E,Endocrine\n");
         }
 
-        SyndicationImportParams params = new SyndicationImportParams(SyndicationTerminology.ATC, null, null, false);
+        SyndicationImportParams params = new SyndicationImportParams(SyndicationTerminology.ATC, null, null);
         service.importTerminology(params, Collections.singletonList(tempCsv));
 
         Mockito.verify(codeSystemService).createUpdate(Mockito.any());
@@ -60,14 +60,14 @@ class AtcSyndicationServiceTest {
             writer.write("L1_CODE,L1_href,L1_NAME,L2_CODE,L2_href,L2_NAME,L3_CODE,L3_href,L3_NAME,L4_CODE,L4_href,L4_NAME,L5_CODE,L5_NAME\n");
         }
 
-        SyndicationImportParams params = new SyndicationImportParams(SyndicationTerminology.ATC, null, null, false);
+        SyndicationImportParams params = new SyndicationImportParams(SyndicationTerminology.ATC, null, null);
         assertDoesNotThrow(() -> service.importTerminology(params, Collections.singletonList(tempCsv)));
     }
 
     @Test
     void testReadConceptsFromFile_withInvalidFile_shouldThrowServiceException() {
         File invalidFile = new File("nonexistent.csv");
-        SyndicationImportParams params = new SyndicationImportParams(SyndicationTerminology.ATC, null, null, false);
+        SyndicationImportParams params = new SyndicationImportParams(SyndicationTerminology.ATC, null, null);
 
         ServiceException exception = assertThrows(ServiceException.class,
                 () -> service.importTerminology(params, Collections.singletonList(invalidFile)));

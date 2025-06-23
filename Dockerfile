@@ -1,13 +1,15 @@
 # Dockerfile responsible of creating the snowstorm image. 
 # The container is dependent on elasticsearch to be up and running (e.g. on port 9200).
 
-# Use a Debian-based OpenJDK 17 image (includes apt)
-FROM openjdk:17-jdk-buster
+# Use a Ubuntu-based image (includes apt)
+FROM ubuntu:22.04
 
 # Install Nodejs and libraries necessary for puppeteer to work + utilities
-RUN curl -sL https://deb.nodesource.com/setup_18.x -o /tmp/nodesource_setup.sh &&\
+RUN apt-get update && apt-get install -y curl && \
+    curl -sL https://deb.nodesource.com/setup_18.x -o /tmp/nodesource_setup.sh && \
     bash /tmp/nodesource_setup.sh \
     && apt-get update && apt-get install -y \
+    openjdk-17-jdk \
     net-tools \
     jq \
     unzip \
@@ -33,10 +35,15 @@ RUN curl -sL https://deb.nodesource.com/setup_18.x -o /tmp/nodesource_setup.sh &
     libxshmfence1 \
     xdg-utils \
     nodejs \
+    wget \
     && rm -rf /var/lib/apt/lists/*
 
 # Set up environment variables
 ENV APP_HOME=/app
+ENV HAPI_FHIR=$APP_HOME/hapi
+ENV ICPC2=$APP_HOME/icpc2
+ENV ICD10=$APP_HOME/icd10
+ENV ICD10_BE=$APP_HOME/icd10be
 ENV SNOMED_HOME=$APP_HOME/snomed
 ENV LOINC_HOME=$APP_HOME/loinc
 ENV HL7_HOME=$APP_HOME/hl7
@@ -48,36 +55,59 @@ ENV ISO3166_HOME=$APP_HOME/iso3166
 ENV PUPPETEER_CACHE_DIR=$APP_HOME/.cache/puppeteer
 
 #############
+# HAPI_FHIR #
+#############
+WORKDIR $HAPI_FHIR
+RUN curl -fsSL $(curl -s https://api.github.com/repos/hapifhir/hapi-fhir/releases/latest | jq -r '.assets[] | select(.name | endswith("cli.zip")).browser_download_url') -o hapi-fhir-cli.zip && \
+    unzip hapi-fhir-cli.zip && \
+    rm hapi-fhir-cli.zip
+
+WORKDIR $APP_HOME
+
+#############
+### ICPC2 ###
+#############
+RUN mkdir -p $ICPC2/terminologyFiles
+
+#############
+### ICD10 ###
+#############
+RUN mkdir -p $ICD10/terminologyFiles
+
+################
+### ICD10_BE ###
+################
+RUN mkdir -p $ICD10_BE/terminologyFiles
+
+#############
 ### LOINC ###
 #############
 WORKDIR $LOINC_HOME
-# Download latest version of the tool that will assist performing the LOINC import + puppeteer for downloading the LOINC file
-RUN curl -fsSL $(curl -s https://api.github.com/repos/hapifhir/hapi-fhir/releases/latest | jq -r '.assets[] | select(.name | endswith("cli.zip")).browser_download_url') -o hapi-fhir-cli.zip && \
-    unzip hapi-fhir-cli.zip && \
-    rm hapi-fhir-cli.zip && \
-    npm i puppeteer
+RUN mkdir -p ./terminologyFiles && npm i puppeteer
 # Copy puppeteer script to image
 COPY download_loinc.mjs $LOINC_HOME/download_loinc.mjs
 # For local testing of loinc imports
-#COPY Loinc_*-sample*.zip $LOINC_HOME/
+#COPY Loinc_*-sample*.zip $LOINC_HOME/terminologyFiles
 
 #############
 #### HL7 ####
 #############
 WORKDIR $HL7_HOME
+RUN mkdir -p ./terminologyFiles
 # (Optional) For local testing of hl7 imports
-#COPY hl7.terminology.*-sample*.tgz $HL7_HOME/
+#COPY hl7.terminology.*-sample*.tgz $HL7_HOME/terminologyFiles
 
 ##############
 ### SNOMED ###
 ##############
 WORKDIR $SNOMED_HOME
+RUN mkdir -p ./terminologyFiles
 # For local testing of snomed imports
-#COPY snomed-edition*-sample*.zip $SNOMED_HOME/
-#COPY snomed-extension*-sample*.zip $SNOMED_HOME/
+#COPY snomed-edition*-sample*.zip $SNOMED_HOME/terminologyFiles
+#COPY snomed-extension*-sample*.zip $SNOMED_HOME/terminologyFiles
 
 ##############
-### UCUM ###
+#### UCUM ####
 ##############
 WORKDIR $UCUM_HOME
 RUN ZIPBALL_URL=$(curl -s https://api.github.com/repos/ucum-org/ucum/releases/latest | jq -r '.zipball_url') && \
@@ -91,7 +121,6 @@ RUN ZIPBALL_URL=$(curl -s https://api.github.com/repos/ucum-org/ucum/releases/la
 ### ATC ######
 ##############
 WORKDIR $ATC_HOME
-COPY target/classes/atc/ATC_DDD_Index.csv $ATC_HOME/atc-codesystem.csv
 
 ##############
 ### BCP13 ####

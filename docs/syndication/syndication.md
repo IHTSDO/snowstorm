@@ -16,5 +16,5 @@ The following documentation pages each describe a specific aspect of the syndica
 - 🔐 **Never commit** `.env` files or credentials to version control repositories.
 - 📉 Imports are triggered **only if** the requested version has not yet been imported successfully.
 - 🔎 Use the `GET /syndication/status` endpoint to **monitor import progress** and **troubleshoot errors**.
-- 💡 The provided `docker-compose.yml` file is intended as an **example configuration** and may need to be adapted for production use.
+- 💡 The provided `docker-compose.yml` file is intended as an **example configuration** and may need to be adapted for production use. You could for example define an external download location for Snomed using a bind mount.
 

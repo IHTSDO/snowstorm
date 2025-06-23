@@ -9,6 +9,5 @@ import org.snomed.snowstorm.syndication.constants.SyndicationTerminology;
  *                              Hl7: latest, local, 6.2.0, 6.1.0, ...
  *                              Snomed: http ://snomed.info/sct/11000172109/, local, http ://snomed.info/sct/11000172109/version/20250315, ...
  * @param extensionName         specific to Snomed, e.g. "BE"
- * @param isLoincImportIncluded whether the loinc terminology is used as well.
  */
-public record SyndicationImportParams(SyndicationTerminology terminology, String version, String extensionName, boolean isLoincImportIncluded) {}
+public record SyndicationImportParams(SyndicationTerminology terminology, String version, String extensionName) {}
