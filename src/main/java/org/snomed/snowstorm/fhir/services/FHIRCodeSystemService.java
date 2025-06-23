@@ -343,9 +343,9 @@ public class FHIRCodeSystemService {
 				CodeableConcept cc = new CodeableConcept(new Coding("http://hl7.org/fhir/tools/CodeSystem/tx-issue-type", "invalid-data",null)).setText(message);
 				OperationOutcome oo = FHIRHelper.createOperationOutcomeWithIssue(cc, OperationOutcome.IssueSeverity.ERROR, "Coding.system", OperationOutcome.IssueType.INVALID, Collections.singletonList(new Extension("http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id", new StringType("CODESYSTEM_CS_NO_SUPPLEMENT"))), null);
 				throw new SnowstormFHIRServerResponseException(400,message,oo);
-			}else {
+			} else {
 				FHIRCodeSystemVersion other = findCodeSystemVersion(new FHIRCodeSystemVersionParams(systemVersionParams.getCodeSystem()));
-				String message = format("The CodeSystem %s version %s is unknown. Valid versions: [%s]", systemVersionParams.getCodeSystem(), systemVersionParams.getVersion(), other==null?"":other.getVersion());
+				String message = format("The CodeSystem %s version %s is unknown to this server. Valid versions: [%s]", systemVersionParams.getCodeSystem(), systemVersionParams.getVersion(), other==null?"":other.getVersion());
 				CodeableConcept cc = new CodeableConcept(new Coding("http://hl7.org/fhir/tools/CodeSystem/tx-issue-type", "not-found",null)).setText(message);
 				OperationOutcome oo = FHIRHelper.createOperationOutcomeWithIssue(cc, OperationOutcome.IssueSeverity.ERROR, "Coding.system", OperationOutcome.IssueType.NOTFOUND, Arrays.asList(new Extension("https://github.com/IHTSDO/snowstorm/missing-codesystem-version", new CanonicalType(CanonicalUri.of(systemVersionParams.getCodeSystem(), systemVersionParams.getVersion()).toString())),new Extension("https://github.com/IHTSDO/snowstorm/available-codesystem-version", new CanonicalType(other==null?"":other.getCanonical()))), null);
 				throw new SnowstormFHIRServerResponseException(400,message,oo);
@@ -535,15 +535,20 @@ public class FHIRCodeSystemService {
 	}
 
 	public List<FHIRCodeSystemVersion> getSupplements(String value, boolean containsWildcard) {
-		NestedQuery.Builder nested = new NestedQuery.Builder();
-		BoolQuery.Builder query = new BoolQuery.Builder();
-		if(containsWildcard){
-			query.filter(new WildcardQuery.Builder().field("extensions.value").value(value).build()._toQuery());
-		} else {
-			query.filter(new TermQuery.Builder().field("extensions.value").value(value).build()._toQuery());
+		try {
+			NestedQuery.Builder nested = new NestedQuery.Builder();
+			BoolQuery.Builder query = new BoolQuery.Builder();
+			if (containsWildcard) {
+				query.filter(new WildcardQuery.Builder().field("extensions.value").value(value).build()._toQuery());
+			} else {
+				query.filter(new TermQuery.Builder().field("extensions.value").value(value).build()._toQuery());
+			}
+			nested.path("extensions").query(query.build()._toQuery());
+			return find(PageRequest.of(0, 100), nested.build()._toQuery()).toList();
+		} catch (Exception e) {
+			logger.error("Failed to find supplements for value: {}", value, e);
+			return Collections.emptyList();
 		}
-		nested.path("extensions").query(query.build()._toQuery());
-		return find(PageRequest.of(0,100), nested.build()._toQuery()).toList();
 	}
 
 	public Page<FHIRCodeSystemVersion> find(PageRequest pageRequest, Query query) {
