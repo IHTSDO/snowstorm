@@ -207,7 +207,7 @@ public class FHIRValueSetService {
 
 		// Expand to validate
 		ValueSet.ValueSetExpansionComponent originalExpansion = valueSet.getExpansion();
-		expand(new ValueSetExpansionParameters(valueSet, true), null);
+		expand(new ValueSetExpansionParameters(valueSet, true, true), null);
 		valueSet.setExpansion(originalExpansion);
 		return createOrUpdateValuesetWithoutExpandValidation(valueSet);
 	}
@@ -272,7 +272,7 @@ public class FHIRValueSetService {
 		// Collate set of inclusion and exclusion constraints for each code system version
 		CodeSelectionCriteria codeSelectionCriteria = generateInclusionExclusionConstraints(hapiValueSet, codeSystemVersionProvider, activeOnly, true);
 
-		// Restrict expansion of ValueSets with multiple code system versions if any are SNOMED CT, to simplify pagination.
+		// Restrict the expansion of ValueSets with multiple code system versions if any are SNOMED CT, to simplify pagination.
 		Set<FHIRCodeSystemVersion> allInclusionVersions = codeSelectionCriteria.gatherAllInclusionVersions();
 		boolean isSnomed = allInclusionVersions.stream().anyMatch(FHIRCodeSystemVersion::isOnSnomedBranch);
 		if (isSnomed) {
@@ -442,7 +442,7 @@ public class FHIRValueSetService {
 			}
 		}
 
-		if(conceptsPage.getTotalElements() > pageRequest.getPageSize() && pageRequest.getPageSize() >= DEFAULT_PAGESIZE) {
+		if (expansionRequestExceedsLimits(conceptsPage, pageRequest, params)) {
 			String message = format("The operation was stopped to protect server resources, the number of resulting concepts exceeded the maximum number (%d) allowed", pageRequest.getPageSize());
 			throw exception(message, OperationOutcome.IssueType.TOOCOSTLY, 404, null, new CodeableConcept(new Coding()).setText(message));
 		}
@@ -635,6 +635,11 @@ public class FHIRValueSetService {
 		return hapiValueSet;
 
 
+	}
+
+	private boolean expansionRequestExceedsLimits(Page<FHIRConcept> conceptsPage, PageRequest pageRequest, ValueSetExpansionParameters params) {
+		int maximumPageSize = params.getAllowMaximumSizeExpansion() ? MAXIMUM_PAGESIZE : DEFAULT_PAGESIZE;
+		return conceptsPage.getTotalElements() > pageRequest.getPageSize() && pageRequest.getPageSize() >= maximumPageSize;
 	}
 
 	private List<ValueSet.ValueSetExpansionParameterComponent> collectCodeSystemSetWarnings(Set<FHIRCodeSystemVersion> codeSystems) {
@@ -1799,14 +1804,25 @@ public class FHIRValueSetService {
 
 	private String inclusionExclusionClausesToEcl(CodeSelectionCriteria codeSelectionCriteria) {
 		StringBuilder ecl = new StringBuilder();
-		for (ConceptConstraint inclusion : codeSelectionCriteria.getInclusionConstraints().values().iterator().next().constraintsFlattened()) {
-			if (ecl.length() > 0) {
-				ecl.append(" OR ");
+		if (!codeSelectionCriteria.getInclusionConstraints().isEmpty()) {
+			for (ConceptConstraint inclusion : codeSelectionCriteria.getInclusionConstraints().values().iterator().next().constraintsFlattened()) {
+				if (!ecl.isEmpty()) {
+					ecl.append(" OR ");
+				}
+				ecl.append("( ").append(toEcl(inclusion)).append(" )");
 			}
-			ecl.append("( ").append(toEcl(inclusion)).append(" )");
 		}
 
-		if (ecl.length() == 0) {
+		if (!codeSelectionCriteria.getNestedSelections().isEmpty()) {
+			for (CodeSelectionCriteria nestedSelection : codeSelectionCriteria.getNestedSelections()) {
+				if (!ecl.isEmpty()) {
+					ecl.append(" OR ");
+				}
+				ecl.append("( ").append(inclusionExclusionClausesToEcl(nestedSelection)).append(" )");
+			}
+		}
+
+		if (ecl.isEmpty()) {
 			// This may be impossible because ValueSet.compose.include cardinality is 1..*
 			ecl.append("*");
 		}
@@ -1908,6 +1924,7 @@ public class FHIRValueSetService {
 				if (codeSystemVersion.isOnSnomedBranch()) {
 					// SNOMED CT filters:
 					// concept, is-a, [conceptId]
+					// concept, descendent-of, [conceptId]
 					// concept, in, [refset]
 					// constraint, =, [ECL]
 					// expression, =, Refsets - special case to deal with '?fhir_vs=refset'. Matches the Ontoserver compose for these, not part of the spec but at least consistent.
@@ -1918,6 +1935,11 @@ public class FHIRValueSetService {
 								throw exception("Value missing for SNOMED CT ValueSet concept 'is-a' filter", OperationOutcome.IssueType.INVALID, 400);
 							}
 							constraints.add(new ConceptConstraint().setEcl("<< " + value));
+						} else if (op == ValueSet.FilterOperator.DESCENDENTOF) {
+							if (Strings.isNullOrEmpty(value)) {
+								throw exception("Value missing for SNOMED CT ValueSet concept 'is-a' filter", OperationOutcome.IssueType.INVALID, 400);
+							}
+							constraints.add(new ConceptConstraint().setEcl("< " + value));
 						} else if (op == ValueSet.FilterOperator.IN) {
 							if (Strings.isNullOrEmpty(value)) {
 								throw exception("Value missing for SNOMED CT ValueSet concept 'in' filter.", OperationOutcome.IssueType.INVALID, 400);
