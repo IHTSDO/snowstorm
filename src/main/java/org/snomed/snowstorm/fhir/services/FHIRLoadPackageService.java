@@ -17,6 +17,7 @@ import org.snomed.snowstorm.core.data.services.ServiceException;
 import org.snomed.snowstorm.fhir.domain.FHIRCodeSystemVersion;
 import org.snomed.snowstorm.fhir.domain.FHIRPackageIndex;
 import org.snomed.snowstorm.fhir.domain.FHIRPackageIndexFile;
+import org.snomed.snowstorm.fhir.domain.FHIRValueSet;
 import org.snomed.snowstorm.fhir.pojo.FHIRCodeSystemVersionParams;
 import org.snomed.snowstorm.fhir.pojo.ValueSetExpansionParameters;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -26,6 +27,7 @@ import org.springframework.stereotype.Service;
 import java.io.*;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -64,7 +66,7 @@ public class FHIRLoadPackageService {
 		List<FHIRPackageIndexFile> filesToImport = index.getFiles().stream()
 				.filter(file -> (importAll && supportedResourceTypes.contains(file.getResourceType())) ||
 						(!importAll && resourceUrlsToImport.contains(file.getUrl())))
-				.collect(Collectors.toList());
+				.toList();
 		validateResources(filesToImport, resourceUrlsToImport, importAll, supportedResourceTypes);
 		logger.info("Importing {} resources, found within index of package {}.{}", filesToImport.size(), submittedFileName,
 				testValueSets ? " Each value set will be expanded and any issues logged as warning." : "");
@@ -187,4 +189,16 @@ public class FHIRLoadPackageService {
 		throw FHIRHelper.exception(format("File '%s' not found within package.", archiveEntryName), OperationOutcome.IssueType.NOTFOUND, 401);
 	}
 
+	public boolean isReadOnlyMode() {
+		return readOnlyMode;
+	}
+
+	public boolean verifyResourceExists(String resourceUrl) {
+		FHIRCodeSystemVersion codeSystemVersion = codeSystemService.findCodeSystemVersion(new FHIRCodeSystemVersionParams(resourceUrl));
+		if (codeSystemVersion != null) {
+			return true;
+		}
+		Optional<FHIRValueSet> valueSet = valueSetService.findLatestByUrl(resourceUrl);
+		return valueSet.isPresent();
+	}
 }
