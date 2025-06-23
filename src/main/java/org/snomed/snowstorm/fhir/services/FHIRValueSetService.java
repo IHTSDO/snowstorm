@@ -256,7 +256,7 @@ public class FHIRValueSetService {
 		// Collate set of inclusion and exclusion constraints for each code system version
 		CodeSelectionCriteria codeSelectionCriteria = generateInclusionExclusionConstraints(hapiValueSet, codeSystemVersionProvider, activeOnly, true);
 
-		// Restrict expansion of ValueSets with multiple code system versions if any are SNOMED CT, to simplify pagination.
+		// Restrict the expansion of ValueSets with multiple code system versions if any are SNOMED CT, to simplify pagination.
 		Set<FHIRCodeSystemVersion> allInclusionVersions = codeSelectionCriteria.gatherAllInclusionVersions();
 		boolean isSnomed = allInclusionVersions.stream().anyMatch(FHIRCodeSystemVersion::isOnSnomedBranch);
 		if (isSnomed) {
@@ -1779,14 +1779,25 @@ public class FHIRValueSetService {
 
 	private String inclusionExclusionClausesToEcl(CodeSelectionCriteria codeSelectionCriteria) {
 		StringBuilder ecl = new StringBuilder();
-		for (ConceptConstraint inclusion : codeSelectionCriteria.getInclusionConstraints().values().iterator().next().constraintsFlattened()) {
-			if (ecl.length() > 0) {
-				ecl.append(" OR ");
+		if (!codeSelectionCriteria.getInclusionConstraints().isEmpty()) {
+			for (ConceptConstraint inclusion : codeSelectionCriteria.getInclusionConstraints().values().iterator().next().constraintsFlattened()) {
+				if (!ecl.isEmpty()) {
+					ecl.append(" OR ");
+				}
+				ecl.append("( ").append(toEcl(inclusion)).append(" )");
 			}
-			ecl.append("( ").append(toEcl(inclusion)).append(" )");
 		}
 
-		if (ecl.length() == 0) {
+		if (!codeSelectionCriteria.getNestedSelections().isEmpty()) {
+			for (CodeSelectionCriteria nestedSelection : codeSelectionCriteria.getNestedSelections()) {
+				if (!ecl.isEmpty()) {
+					ecl.append(" OR ");
+				}
+				ecl.append("( ").append(inclusionExclusionClausesToEcl(nestedSelection)).append(" )");
+			}
+		}
+
+		if (ecl.isEmpty()) {
 			// This may be impossible because ValueSet.compose.include cardinality is 1..*
 			ecl.append("*");
 		}
