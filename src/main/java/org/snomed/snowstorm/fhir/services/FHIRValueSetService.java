@@ -918,12 +918,17 @@ public class FHIRValueSetService {
 						throw exception(format("This server does not support ValueSet filter using LOINC property '%s'. " +
 								"Only parent and ancestor filters are supported for LOINC.", property), OperationOutcome.IssueType.NOTSUPPORTED, 400);
 					}
-				} else if (codeSystemVersion.getUrl().startsWith("http://hl7.org/fhir/sid/icd-10")) {
-					// Spec says there are no filters for ICD-9 and 10.
-					throw exception("This server does not expect any ValueSet property filters for ICD-10.", OperationOutcome.IssueType.NOTSUPPORTED, 400);
-				} else {
+				} 
+				// else if (codeSystemVersion.getUrl().startsWith("http://hl7.org/fhir/sid/icd-10")) {
+				// 	// Spec says there are no filters for ICD-9 and 10.
+				// 	throw exception("This server does not expect any ValueSet property filters for ICD-10.", OperationOutcome.IssueType.NOTSUPPORTED, 400);
+				// } 
+				else {
 					// Generic code system
-					if ("concept".equals(property) && op == ValueSet.FilterOperator.ISA) {
+					if ("concept".equals(property) && op == ValueSet.FilterOperator.EQUAL) {
+						Set<String> singleton = Collections.singleton(value);
+						inclusionConstraints.add(new ConceptConstraint(singleton));
+					} else if ("concept".equals(property) && op == ValueSet.FilterOperator.ISA) {
 						Set<String> singleton = Collections.singleton(value);
 						inclusionConstraints.add(new ConceptConstraint(singleton));
 						inclusionConstraints.add(new ConceptConstraint().setAncestor(singleton));
