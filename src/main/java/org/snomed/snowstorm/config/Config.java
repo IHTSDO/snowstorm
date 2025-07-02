@@ -7,10 +7,12 @@ import io.kaicode.elasticvc.api.VersionControlHelper;
 import io.kaicode.elasticvc.domain.Commit;
 import jakarta.annotation.PostConstruct;
 import org.elasticsearch.client.Request;
+import org.ihtsdo.otf.resourcemanager.ResourceManager;
 import org.modelmapper.ModelMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.langauges.ecl.ECLQueryBuilder;
+import org.snomed.module.storage.ModuleStorageCoordinator;
 import org.snomed.snowstorm.core.data.domain.Concepts;
 import org.snomed.snowstorm.core.data.domain.SnomedComponent;
 import org.snomed.snowstorm.core.data.services.*;
@@ -38,6 +40,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.PropertySource;
+import org.springframework.core.io.ResourceLoader;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.data.elasticsearch.core.IndexOperations;
@@ -303,6 +306,16 @@ public abstract class Config extends ElasticsearchConfig {
 	@Bean
 	public ModelMapper modelMapper() {
 		return new ModelMapper();
+	}
+
+	@Bean
+	public ModuleStorageCoordinator moduleStorageCoordinator(@Autowired ModuleStorageResourceConfig moduleStorageResourceConfig, @Autowired ResourceLoader cloudResourceLoader, @Value("${snowstorm.environment.shortname}") final String envShortname) {
+		ResourceManager resourceManager = new ResourceManager(moduleStorageResourceConfig, cloudResourceLoader);
+		return switch (envShortname) {
+			case "prod" -> ModuleStorageCoordinator.initProd(resourceManager);
+			case "uat" -> ModuleStorageCoordinator.initUat(resourceManager);
+			default -> ModuleStorageCoordinator.initDev(resourceManager);
+		};
 	}
 
 	protected void updateIndexMaxTermsSettingForAllSnomedComponents() {
