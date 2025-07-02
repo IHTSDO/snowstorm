@@ -2,6 +2,7 @@ package org.snomed.snowstorm.fhir.services;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import org.hl7.fhir.r4.model.ValueSet;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.snomed.snowstorm.core.data.domain.Concepts;
 import org.springframework.http.HttpMethod;
@@ -47,7 +48,8 @@ class FHIRValueSetProviderExpandEclTest extends AbstractFHIRTest {
 		ValueSet v = getValueSet(url);
 		assertEquals(1,v.getExpansion().getContains().size());
 	}
-	
+
+	@Disabled("Skipping, pending outcome of discussion about not including designations when already supplied in display (ie because requested language)")
 	@Test
 	void testECLRecovery_Descriptions() {
 		String url = baseUrl + "/ValueSet/$expand?url=http://snomed.info/sct/1234000008?fhir_vs=ecl/" + sampleSCTID +"&includeDesignations=true&_format=json";

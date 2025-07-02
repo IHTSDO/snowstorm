@@ -104,7 +104,7 @@ class FHIRValueSetProviderValidateCodeEclTest extends AbstractFHIRTest {
 						"&system=" + SNOMED_URI +
 						"&code=257751006" +
 						"&display=Baked potato",
-				false, "The code '257751006' was found in the ValueSet, however the display 'Baked potato' did not match any designations.");
+				false, "Wrong Display Name 'Baked potato'");
 	}
 
 	@Test

@@ -704,8 +704,7 @@ public class FHIRValueSetService {
 		String requestedLanguage = determineRequestedLanguage(defaultConceptLanguage, weightedLanguages, languageToDesignation.keySet(), languageToVarieties);
 		if (requestedLanguage == null) {
 			component.setDisplay(null);
-		}
-		else if(includeDesignations) {  // "act-class" test case from "tho" test group is expecting the "display" field to be in the expansion, not the one in "designation". Param "includeDesignations" not present for this test case
+		} else if (includeDesignations) {  // "act-class" test case from "tho" test group is expecting the "display" field to be in the expansion, not the one in "designation". Param "includeDesignations" not present for this test case
 			component.setDisplay(languageToDesignation.get(requestedLanguage).getValue());
 		}
 
