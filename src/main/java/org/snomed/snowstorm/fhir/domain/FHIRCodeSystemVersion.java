@@ -126,7 +126,6 @@ public class FHIRCodeSystemVersion {
 		String moduleId = snomedCodeSystem.getUriModuleId();
 		content = CodeSystem.CodeSystemContentMode.COMPLETE.toCode();
 		if (unversioned) {
-			url = SNOMED_URI_UNVERSIONED;
 			id = FHIRCodeSystemService.SCT_ID_PREFIX + moduleId + "_" + UNVERSIONED;
 			url = SNOMED_URI_UNVERSIONED;
 			version = SNOMED_URI_UNVERSIONED + "/" + moduleId;

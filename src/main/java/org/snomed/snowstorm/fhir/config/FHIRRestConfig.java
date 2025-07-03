@@ -7,8 +7,6 @@ import ca.uhn.fhir.rest.server.interceptor.ResponseHighlighterInterceptor;
 import org.hl7.fhir.instance.model.api.IBaseConformance;
 import org.hl7.fhir.r4.model.CapabilityStatement;
 import org.hl7.fhir.r4.model.StringType;
-import org.hl7.fhir.r4.model.TerminologyCapabilities;
-import org.snomed.snowstorm.core.data.services.CodeSystemService;
 import org.snomed.snowstorm.fhir.services.FHIRCodeSystemService;
 import org.snomed.snowstorm.fhir.services.FHIRLoadPackageServlet;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -23,7 +21,6 @@ import org.springframework.context.annotation.Lazy;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.util.ArrayList;
-import java.util.List;
 
 @Configuration
 public class FHIRRestConfig {
@@ -62,7 +59,7 @@ public class FHIRRestConfig {
 	public ServletRegistrationBean<FHIRLoadPackageServlet> addBundleServlet() throws IOException {
 		ServletRegistrationBean<FHIRLoadPackageServlet> registrationBean = new ServletRegistrationBean<>(new FHIRLoadPackageServlet(), "/fhir-admin/load-package");
 		registrationBean.setMultipartConfig(
-				new MultipartConfigElement(Files.createTempDirectory("fhir-bundle-upload").toFile().getAbsolutePath(), MB_IN_BYTES * 200, MB_IN_BYTES * 200, 0));
+				new MultipartConfigElement(Files.createTempDirectory("fhir-bundle-upload").toFile().getAbsolutePath(), MB_IN_BYTES * 200L, MB_IN_BYTES * 200L, 0));
 		return registrationBean;
 	}
 
