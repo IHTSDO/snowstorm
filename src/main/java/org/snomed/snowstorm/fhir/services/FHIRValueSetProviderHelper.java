@@ -13,9 +13,9 @@ import org.snomed.snowstorm.fhir.pojo.CanonicalUri;
 import org.snomed.snowstorm.fhir.pojo.ValueSetExpansionParameters;
 
 import java.io.ByteArrayOutputStream;
-import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.util.List;
 import java.util.zip.GZIPOutputStream;
 
@@ -28,6 +28,10 @@ class FHIRValueSetProviderHelper {
 	static{
 		// Create a FHIR context
 		ctx = FhirContext.forR4();
+	}
+
+	private FHIRValueSetProviderHelper() {
+		// Prevent instantiation
 	}
 
 	static ValueSetExpansionParameters getValueSetExpansionParameters(IdType id, final List<Parameters.ParametersParameterComponent> parametersParameterComponents) {
@@ -144,8 +148,8 @@ class FHIRValueSetProviderHelper {
 	public static byte[] createNpmPackageFromResources(List<Resource> resources) {
 
 		class Tuple{
-			public FHIRPackageIndexFile indexFile;
-			public String string;
+			FHIRPackageIndexFile indexFile;
+			String string;
 		}
 
 		List<Tuple> tuples = resources.stream().map(x -> {
@@ -191,7 +195,7 @@ class FHIRValueSetProviderHelper {
 			}
 
 			class FHIRIndex{
-				public List<FHIRPackageIndexFile> files;
+				List<FHIRPackageIndexFile> files;
 			}
 
 			FHIRIndex fi = new FHIRIndex();
@@ -206,7 +210,7 @@ class FHIRValueSetProviderHelper {
 			gzOut.write(index.getBytes());
 			gzOut.closeArchiveEntry();
 		} catch (IOException e) {
-			throw new RuntimeException(e);
+			throw new UncheckedIOException(e);
 		}
 
 		byte[] out = baos.toByteArray();
@@ -214,7 +218,7 @@ class FHIRValueSetProviderHelper {
 		try (FileOutputStream fop = new FileOutputStream("zipke.zip")) {
 			fop.write(out);
 		} catch (IOException e) {
-			throw new RuntimeException(e);
+			throw new UncheckedIOException(e);
 		}
 
 		return out;
