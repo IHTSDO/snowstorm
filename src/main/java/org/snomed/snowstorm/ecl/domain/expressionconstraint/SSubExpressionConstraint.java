@@ -1,12 +1,13 @@
 package org.snomed.snowstorm.ecl.domain.expressionconstraint;
 
 import co.elastic.clients.elasticsearch._types.query_dsl.BoolQuery;
-import co.elastic.clients.elasticsearch._types.query_dsl.Query;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import io.kaicode.elasticvc.api.BranchCriteria;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 import it.unimi.dsi.fastutil.longs.LongLinkedOpenHashSet;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.snomed.langauges.ecl.domain.ConceptReference;
 import org.snomed.langauges.ecl.domain.expressionconstraint.ExpressionConstraint;
 import org.snomed.langauges.ecl.domain.expressionconstraint.SubExpressionConstraint;
@@ -14,6 +15,7 @@ import org.snomed.langauges.ecl.domain.filter.*;
 import org.snomed.langauges.ecl.domain.refinement.Operator;
 import org.snomed.snowstorm.core.data.domain.Concepts;
 import org.snomed.snowstorm.core.data.domain.QueryConcept;
+import org.snomed.snowstorm.core.data.domain.ReferencedConceptsLookup;
 import org.snomed.snowstorm.ecl.ConceptSelectorHelper;
 import org.snomed.snowstorm.ecl.ECLContentService;
 import org.snomed.snowstorm.ecl.deserializer.ECLModelDeserializer;
@@ -25,6 +27,7 @@ import org.springframework.data.domain.PageRequest;
 
 import java.util.*;
 import java.util.function.Consumer;
+import java.util.stream.Collectors;
 
 import static com.google.common.collect.Sets.newHashSet;
 import static java.lang.Long.parseLong;
@@ -34,6 +37,7 @@ import static org.snomed.snowstorm.core.util.CollectionUtils.orEmpty;
 
 public class SSubExpressionConstraint extends SubExpressionConstraint implements SExpressionConstraint {
 
+	private final Logger logger = LoggerFactory.getLogger(SSubExpressionConstraint.class);
 	@SuppressWarnings("unused")
 	// For JSON
 	private SSubExpressionConstraint() {
@@ -351,27 +355,67 @@ public class SSubExpressionConstraint extends SubExpressionConstraint implements
                     );
             case memberOf -> {
                 // ^
-				Query termsLookupFilter = null;
-				if (conceptSelector.isConceptsLookupEnabled()) {
-					termsLookupFilter = conceptSelector.getTermsLookupFilterForMemberOfECL(branchCriteria, conceptIds);
-				}
-				if (termsLookupFilter == null || (getMemberFilterConstraints() != null && !getMemberFilterConstraints().isEmpty())) {
-					Set<Long> conceptIdsInReferenceSet = conceptSelector.findConceptIdsInReferenceSet(conceptIds, getMemberFilterConstraints(), refinementBuilder);
-					queryBuilder.filter(termsQuery(QueryConcept.Fields.CONCEPT_ID, conceptIdsInReferenceSet));
-					return conceptIdsInReferenceSet;
-				} else {
-					if (refinementBuilder.shouldPrefetchMemberOfQueryResults() != null && refinementBuilder.shouldPrefetchMemberOfQueryResults()) {
-						return conceptSelector.getConceptIdsFromLookup(branchCriteria, conceptIds);
-					} else {
-						// Use concept lookup as part of filter query instead of returning concept ids
-						queryBuilder.filter(termsLookupFilter);
-					}
-				}
+				return handleMemberOf(conceptIds, refinementBuilder, queryBuilder, conceptSelector, branchCriteria);
             }
         }
 		return null;
 	}
 
+
+	private Set<Long> handleMemberOf(Collection<Long> conceptIds, RefinementBuilder refinementBuilder, BoolQuery.Builder queryBuilder, ECLContentService conceptSelector, BranchCriteria branchCriteria) {
+		// Skip concepts lookup if disabled or use member filter constraints
+		if (!conceptSelector.isConceptsLookupEnabled() || hasMemberFilterConstraints()) {
+			return findReferencedConceptIds(conceptIds, refinementBuilder, queryBuilder, conceptSelector);
+		}
+		List<ReferencedConceptsLookup> lookups = conceptSelector.getConceptsLookups(branchCriteria, conceptIds);
+		Set<Long> refsetIdsWithLookup = lookups.stream().map(ReferencedConceptsLookup::getRefsetId).map(Long::parseLong).collect(Collectors.toSet());
+
+		if (conceptIds.size() == refsetIdsWithLookup.size()) {
+			return handleQueryWithFullLookup(conceptIds, refinementBuilder, queryBuilder, conceptSelector, branchCriteria);
+		} else {
+			return handleQueryWithPartialOrNoLookup(conceptIds, refsetIdsWithLookup, refinementBuilder, queryBuilder, conceptSelector, branchCriteria);
+		}
+	}
+
+	private boolean hasMemberFilterConstraints() {
+		return getMemberFilterConstraints() != null && !getMemberFilterConstraints().isEmpty();
+	}
+
+	private Set<Long> findReferencedConceptIds(Collection<Long> conceptIds, RefinementBuilder refinementBuilder, BoolQuery.Builder queryBuilder, ECLContentService conceptSelector) {
+		// Use member service instead of lookups
+		Set<Long> filteredIds = conceptSelector.findConceptIdsInReferenceSet(conceptIds, getMemberFilterConstraints(), refinementBuilder);
+		queryBuilder.filter(termsQuery(QueryConcept.Fields.CONCEPT_ID, filteredIds));
+		return filteredIds;
+	}
+
+	private Set<Long> handleQueryWithFullLookup(Collection<Long> conceptIds, RefinementBuilder refinementBuilder, BoolQuery.Builder queryBuilder, ECLContentService conceptSelector, BranchCriteria branchCriteria) {
+		if (Boolean.TRUE.equals(refinementBuilder.shouldPrefetchMemberOfQueryResults())) {
+			Set<Long> conceptsFromLookup= conceptSelector.getConceptIdsFromLookup(branchCriteria, conceptIds);
+			queryBuilder.filter(termsQuery(QueryConcept.Fields.CONCEPT_ID, conceptsFromLookup));
+			return conceptsFromLookup;
+		} else {
+			queryBuilder.filter(conceptSelector.getTermsLookupFilterForMemberOfECL(branchCriteria, conceptIds));
+			return null;
+		}
+	}
+
+	private Set<Long> handleQueryWithPartialOrNoLookup(Collection<Long> conceptIds, Set<Long> refsetIdsWithLookup, RefinementBuilder refinementBuilder, BoolQuery.Builder queryBuilder, ECLContentService conceptSelector, BranchCriteria branchCriteria) {
+		if (refsetIdsWithLookup.isEmpty()) {
+			// No Lookups found
+			return findReferencedConceptIds(conceptIds, refinementBuilder, queryBuilder, conceptSelector);
+		}
+		if (Boolean.TRUE.equals(refinementBuilder.shouldPrefetchMemberOfQueryResults())) {
+			Set<Long> results = new HashSet<>(conceptSelector.getConceptIdsFromLookup(branchCriteria, refsetIdsWithLookup));
+			List<Long> refsetIdsWithoutLookup = new ArrayList<>(conceptIds);
+			refsetIdsWithoutLookup.removeAll(refsetIdsWithLookup);
+			results.addAll(conceptSelector.findConceptIdsInReferenceSet(refsetIdsWithoutLookup, getMemberFilterConstraints(), refinementBuilder));
+			queryBuilder.filter(termsQuery(QueryConcept.Fields.CONCEPT_ID, results));
+			return results;
+		} else {
+			logger.info("Not all reference set ids have lookups, so use the member service to fetch referenced concepts instead");
+			return findReferencedConceptIds(conceptIds, refinementBuilder, queryBuilder, conceptSelector);
+		}
+	}
 	private Set<Long> retrieveAllAncestors(Collection<Long> conceptIds, BranchCriteria branchCriteria, boolean stated, ECLContentService eclContentService) {
 		return eclContentService.findAncestorIdsAsUnion(branchCriteria, stated, conceptIds);
 	}

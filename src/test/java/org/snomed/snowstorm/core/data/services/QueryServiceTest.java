@@ -28,7 +28,6 @@ import static org.snomed.snowstorm.core.data.domain.Concepts.*;
 @ExtendWith(SpringExtension.class)
 @ContextConfiguration(classes = TestConfig.class)
 class QueryServiceTest extends AbstractTest {
-
 	@Autowired
 	private QueryService service;
 
@@ -58,6 +57,8 @@ class QueryServiceTest extends AbstractTest {
 	private static final String STENOSIS = "415582006";
 	private static final String HYPERTROPHY = "56246009";
 	private static final String RIGHT_VENTRICULAR_STRUCTURE = "53085002";
+	private static final String LATERALITY_REFSET = "703870008";
+	private static final String QUALIFIER_VALUE = "362981000";
 
 	private Concept root;
 	private Concept pizza_2;
@@ -350,7 +351,33 @@ class QueryServiceTest extends AbstractTest {
 		assertEquals("200001", actual.get(0));
 	}
 
+	@Test
+	void testNestedMemberOfQueryWithPartialLookupAvailable() throws ServiceException {
+		createConcepts();
+		createMembers(MAIN, REFSET_SIMPLE, List.of(STENOSIS, HYPERTROPHY));
+		createMembers(MAIN, LATERALITY_REFSET, List.of(RIGHT_VENTRICULAR_STRUCTURE));
+		QueryService.ConceptQueryBuilder queryBuilder = service.createQueryBuilder(false).activeFilter(true);
+		String ecl = "^(<<446609009)";
+		queryBuilder.ecl(ecl);
+		List<ConceptMini> results = service.search(queryBuilder, PATH, PAGE_REQUEST).getContent();
+		assertEquals(3, results.size());
 
+		ecl = "^" + LATERALITY_REFSET;
+		queryBuilder.ecl(ecl);
+		results = service.search(queryBuilder, PATH, PAGE_REQUEST).getContent();
+		assertEquals(1, results.size());
+
+		ecl = "^(<<446609009):116676008 |Associated morphology (attribute)|=*";
+		queryBuilder.ecl(ecl);
+		results = service.search(queryBuilder, PATH, PAGE_REQUEST).getContent();
+		assertEquals(0, results.size());
+
+		ecl = "^(<<446609009):272741003=*";
+		queryBuilder.ecl(ecl);
+		results = service.search(queryBuilder, PATH, PAGE_REQUEST).getContent();
+		assertEquals(1, results.size());
+	}
+	
 	@Test
 	void testDotNotationEclWithMemberOf() throws ServiceException {
 		createConcepts();
@@ -417,6 +444,10 @@ class QueryServiceTest extends AbstractTest {
 		allConcepts.add(new Concept(BODY_STRUCTURE).addRelationship(new Relationship(ISA, SNOMEDCT_ROOT)));
 		allConcepts.add(new Concept(CLINICAL_FINDING).addRelationship(new Relationship(ISA, SNOMEDCT_ROOT)));
 		allConcepts.add(new Concept(DISORDER).addRelationship(new Relationship(ISA, CLINICAL_FINDING)));
+		allConcepts.add(new Concept(LATERALITY_REFSET).addRelationship(new Relationship(ISA, REFSET_SIMPLE)));
+		allConcepts.add(new Concept(LATERALITY).addRelationship(new Relationship(ISA, CONCEPT_MODEL_OBJECT_ATTRIBUTE)));
+		allConcepts.add(new Concept(QUALIFIER_VALUE).addRelationship(new Relationship(ISA, SNOMEDCT_ROOT)));
+		allConcepts.add(new Concept(RIGHT).addRelationship(new Relationship(ISA, QUALIFIER_VALUE)));
 
 		allConcepts.add(new Concept(RIGHT_VENTRICULAR_STRUCTURE)
 				.addFSN("Right cardiac ventricular structure (body structure)")
