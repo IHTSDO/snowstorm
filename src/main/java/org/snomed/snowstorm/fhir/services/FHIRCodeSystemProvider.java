@@ -245,7 +245,7 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants 
 
 		mutuallyExclusive("code", code, "coding", coding);
 		notSupported("date", date);
-		FHIRCodeSystemVersionParams codeSystemVersion = fhirHelper.getCodeSystemVersionParams(system, version, coding);
+		FHIRCodeSystemVersionParams codeSystemVersion = FHIRHelper.getCodeSystemVersionParams(system, version, coding);
 		return lookup(codeSystemVersion, fhirHelper.recoverCode(code, coding), displayLanguage, request.getHeader(ACCEPT_LANGUAGE_HEADER), propertiesType);
 	}
 	

@@ -23,7 +23,8 @@ import java.util.stream.Collectors;
 @Document(indexName = "#{@indexNameProvider.indexName('description')}", createIndex = false)
 public class Description extends SnomedComponent<Description> implements SnomedComponentWithInactivationIndicator, SnomedComponentWithAssociations {
 
-	private static final Pattern TAG_PATTERN = Pattern.compile(".+ \\((.+)\\)");
+	//Previous pattern ".+ \\((.+)\\)" vulnerable to polynomial runtime due to backtracking
+	private static final Pattern TAG_PATTERN = Pattern.compile(".*? \\(([^()]+)\\)");
 
 	public interface Fields extends SnomedComponent.Fields {
 		String DESCRIPTION_ID = "descriptionId";
