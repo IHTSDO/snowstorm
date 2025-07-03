@@ -10,8 +10,6 @@ import org.hl7.fhir.r4.model.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.info.BuildProperties;
-import org.springframework.web.context.WebApplicationContext;
-import org.springframework.web.context.support.WebApplicationContextUtils;
 
 import java.util.Arrays;
 import java.util.Date;
@@ -37,8 +35,6 @@ public class FHIRTerminologyCapabilitiesProvider extends ServerCapabilityStateme
 	@Metadata(cacheMillis = 0)
 	public IBaseConformance getMetadataResource(HttpServletRequest request, RequestDetails requestDetails) {
 		logger.info(requestDetails.getCompleteUrl());
-		final WebApplicationContext applicationContext =
-				WebApplicationContextUtils.getWebApplicationContext(request.getServletContext());
 		if ("terminology".equals(request.getParameter("mode"))) {
 			FHIRTerminologyCapabilities tc = new FHIRTerminologyCapabilities().withDefaults(this.buildProperties,this.codeSystemService);
 			tc.setVersion(buildProperties.getVersion());

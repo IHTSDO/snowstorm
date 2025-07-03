@@ -8,7 +8,6 @@ import org.snomed.snowstorm.rest.ControllerHelper;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 
-import java.net.URI;
 import java.util.List;
 
 import static java.lang.String.format;
@@ -90,7 +89,7 @@ public final class ValueSetExpansionParameters {
 	}
 
 	public String getUrl() {
-		return url==null?null:url.toString();
+		return url;
 	}
 
 	public String getValueSetVersion() {
