@@ -19,6 +19,7 @@ import java.util.Collection;
 import java.util.List;
 
 import static co.elastic.clients.elasticsearch._types.query_dsl.QueryBuilders.bool;
+import static io.kaicode.elasticvc.api.ComponentService.LARGE_PAGE;
 import static io.kaicode.elasticvc.helper.QueryHelper.termsQuery;
 
 @Service
@@ -57,7 +58,7 @@ public class ReferencedConceptsLookupService {
         if (!includeConceptIds) {
             queryBuilder.withSourceFilter(new FetchSourceFilter(null, new String[]{ReferencedConceptsLookup.Fields.CONCEPT_IDS}));
         }
-        queryBuilder.withPageable(Pageable.ofSize(1000));
+        queryBuilder.withPageable(LARGE_PAGE);
         SearchHits<ReferencedConceptsLookup> refsetConceptsLookupSearchHits = elasticsearchOperations.search(queryBuilder.build(), ReferencedConceptsLookup.class);
         List<ReferencedConceptsLookup> results = new ArrayList<>();
         refsetConceptsLookupSearchHits.forEach(hit -> results.add(hit.getContent()));
