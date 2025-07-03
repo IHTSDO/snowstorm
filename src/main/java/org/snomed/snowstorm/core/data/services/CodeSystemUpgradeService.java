@@ -134,6 +134,11 @@ public class CodeSystemUpgradeService {
 		return newJobId;
 	}
 
+	public void upgrade(String codeSystemShortname, Integer newDependantVersion, boolean contentAutomations) throws ServiceException {
+		final String newJobId = createJob(codeSystemShortname, newDependantVersion);
+		this.upgrade(newJobId, codeSystemService.findOrThrow(codeSystemShortname), newDependantVersion, contentAutomations);
+	}
+
 	@PreAuthorize("hasPermission('ADMIN', #codeSystem.branchPath)")
 	public synchronized void upgrade(String id, CodeSystem codeSystem, Integer newDependantVersion, boolean contentAutomations) throws  ServiceException {
 		CodeSystemUpgradeJob job = null;
