@@ -354,12 +354,6 @@ public class CodeSystemService {
 		return codeSystems;
 	}
 
-	private String getParentUriModule(CodeSystem codeSystem, List<CodeSystem> allCodeSystems) {
-		String parentPath = PathUtil.getParentPath(codeSystem.getBranchPath());
-		Optional<CodeSystem> parent = allCodeSystems.stream().filter(parentCandidate -> parentCandidate.getBranchPath().equals(parentPath)).findFirst();
-		return parent.map(CodeSystem::getUriModuleId).orElse(null);
-	}
-
 	@Cacheable("code-system-branches")
 	public List<String> findAllCodeSystemBranchesUsingCache() {
 		return repository.findAll(PageRequest.of(0, 1000, Sort.by(CodeSystem.Fields.SHORT_NAME))).getContent().stream().map(CodeSystem::getBranchPath).sorted().collect(toList());
