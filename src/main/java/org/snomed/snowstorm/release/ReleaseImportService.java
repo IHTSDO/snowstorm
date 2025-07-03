@@ -51,7 +51,6 @@ public class ReleaseImportService {
 
     private final CodeSystemRepository codeSystemRepository;
 
-
     @Autowired
     public ReleaseImportService(BranchService branchService, SBranchService sBranchService, IntegrityService integrityService, DailyBuildService dailyBuildService, ImportService importService, ReleaseResourceConfig releaseResourceConfig, ResourceLoader resourceLoader, ModuleStorageCoordinator moduleStorageCoordinator, CodeSystemService codeSystemService, CodeSystemUpgradeService codeSystemUpgradeService, CodeSystemRepository codeSystemRepository) {
         this.branchService = branchService;
@@ -152,30 +151,33 @@ public class ReleaseImportService {
             }
         } catch (ModuleStorageCoordinatorException.OperationFailedException |
                  ModuleStorageCoordinatorException.InvalidArgumentsException |
-                 ModuleStorageCoordinatorException.ResourceNotFoundException | ServiceException e) {
+                 ModuleStorageCoordinatorException.ResourceNotFoundException e) {
             throw new ServiceException("Failed to upgrade the code system " + codeSystem.getShortName(), e);
         }
     }
 
-    private String getNewReleaseFilenameIfExists(CodeSystem codeSystem) throws ServiceException {
+    private String getNewReleaseFilenameIfExists(CodeSystem codeSystem) {
         Map<Integer, String> effectiveTimeToArchiveFilenameMap = new HashMap<>();
         Set<String> releaseArchiveFilenames = resourceManager.doListFilenames(codeSystem.getShortName());
         logger.debug("Found total release: {} for code system {}", releaseArchiveFilenames.size(), codeSystem.getShortName());
         List<CodeSystemVersion> codeSystemVersions = this.codeSystemService.findAllVersions(codeSystem.getShortName(), true, true);
+        CodeSystemVersion latestCodeSystemVersion = null;
         if (codeSystemVersions.isEmpty()) {
-            throw new ServiceException("No versions found for code system " + codeSystem.getShortName());
+            logger.warn("No versions found for code system {}", codeSystem.getShortName());
+        } else {
+            latestCodeSystemVersion = codeSystemVersions.get(codeSystemVersions.size() - 1);
         }
-        CodeSystemVersion latestCodeSystemVersion = codeSystemVersions.get(codeSystemVersions.size() - 1);
         for (String filename : releaseArchiveFilenames) {
-            if (filename != null && filename.startsWith(codeSystem.getShortName() + "/") && filename.endsWith(".zip")) {
-                // Strip off file separators
-                if (filename.contains("/")) {
-                    filename = filename.substring(filename.lastIndexOf("/") + 1);
-                }
-                // Check the new release effective time after the latest version
-                if (isAfterLatestVersion(filename, latestCodeSystemVersion.getEffectiveDate())) {
-                    effectiveTimeToArchiveFilenameMap.put(getEffectiveTimeFromFilename(filename), filename);
-                }
+            if (filename == null || !filename.startsWith(codeSystem.getShortName() + "/") || !filename.endsWith(".zip"))
+                continue;
+            
+            // Strip off file separators
+            if (filename.contains("/")) {
+                filename = filename.substring(filename.lastIndexOf("/") + 1);
+            }
+            // Check the new release effective time after the latest version
+            if (latestCodeSystemVersion == null || isAfterLatestVersion(filename, latestCodeSystemVersion.getEffectiveDate())) {
+                effectiveTimeToArchiveFilenameMap.put(getEffectiveTimeFromFilename(filename), filename);
             }
         }
 
