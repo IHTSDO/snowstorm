@@ -81,6 +81,9 @@ public class ECLContentService {
 	@Value("${ecl.concepts-lookup.enabled}")
 	private boolean conceptsLookupEnabled;
 
+	@Value("${ecl.concepts-lookup.max.refset-ids:1000}")
+	private int conceptsLookupMaxRefsetIds;
+
 	private SExpressionConstraint historyMaxECL;
 
 	private static final List<Long> HISTORY_PROFILE_MIN = Collections.singletonList(parseLong(Concepts.REFSET_SAME_AS_ASSOCIATION));
@@ -384,6 +387,9 @@ public class ECLContentService {
 	}
 
 	public Set<Long> getConceptIdsFromLookup(BranchCriteria branchCriteria, Collection<Long> refsetIds) {
+		if (refsetIds == null || refsetIds.isEmpty()) {
+			return Collections.emptySet();
+		}
 		List<ReferencedConceptsLookup> lookUps = refsetConceptsLookupService.getConceptsLookups(branchCriteria, refsetIds, true);
 		Set<Long> conceptIds = new HashSet<>();
 		Set<Long> toExclude = new HashSet<>();
@@ -399,31 +405,40 @@ public class ECLContentService {
 	}
 
 	public List<ReferencedConceptsLookup> getConceptsLookups(BranchCriteria branchCriteria, Collection<Long> refsetIds) {
-		List<ReferencedConceptsLookup> lookups = refsetConceptsLookupService.getConceptsLookups(branchCriteria, refsetIds, false);
-		logger.info("Found concepts lookups {} for refset ids {} on branch {}", lookups, refsetIds, branchCriteria.getBranchPath());
-		return lookups;
+		if (isConceptsLookupEnabled()) {
+			List<ReferencedConceptsLookup> lookups = refsetConceptsLookupService.getConceptsLookups(branchCriteria, refsetIds, false);
+			logConceptLookUps(lookups, refsetIds, branchCriteria.getBranchPath());
+			return lookups;
+		}
+		return Collections.emptyList();
 	}
 
 	public Query getTermsLookupFilterForMemberOfECL(BranchCriteria branchCriteria, Collection<Long> refsetIds) {
-
 		if (refsetIds.isEmpty()) {
 			return null;
 		}
-		// Limit the number of refset Ids to do lookup to prevent performance issues
-		// Throw TooCostlyException if the number of refsetIds is too large
-		if (refsetIds.size() > 10) {
-			throw new TooCostlyException("Too many refset IDs to to terms lookup got " + refsetIds.size() + " expected less than 10.");
+		// Limit the number of refset Ids to prevent performance issues
+		// Throw TooCostlyException if the number of refset Ids is too large
+		if (refsetIds.size() > conceptsLookupMaxRefsetIds) {
+			throw new TooCostlyException("Too many refset IDs for a single query." +
+					" Got " + refsetIds.size() + " but expected maximum of " + conceptsLookupMaxRefsetIds + ".");
 		}
 		// Get the refset concepts lookups with the concept ids
 		List<ReferencedConceptsLookup> lookups = refsetConceptsLookupService.getConceptsLookups(branchCriteria, refsetIds, false);
 		if (lookups.isEmpty()) {
 			return null;
 		}
-		logger.info("Found concepts lookups {} for refset ids {}", lookups, refsetIds);
-
+		logConceptLookUps(lookups, refsetIds, branchCriteria.getBranchPath());
 		return refsetConceptsLookupService.constructQueryWithLookups(lookups, QueryConcept.Fields.CONCEPT_ID);
 	}
 
+	private void logConceptLookUps(List<ReferencedConceptsLookup> lookups, Collection<Long> refsetIds, String path) {
+		if (refsetIds.size() < 10) {
+			logger.info("Found concepts lookups {} for refset ids {}", lookups, refsetIds);
+		} else {
+			logger.info("Found {} concepts lookups for {} refset ids on branch {}", lookups.size(), refsetIds.size(), path);
+		}
+	}
 	public List<Long> findRelationshipDestinationIdsWithLookup(Collection<ReferencedConceptsLookup> conceptsLookups, List<Long> attributeTypeIds, BranchCriteria branchCriteria, boolean stated) {
 		if (!stated) {
 			// Use relationships - it's faster
