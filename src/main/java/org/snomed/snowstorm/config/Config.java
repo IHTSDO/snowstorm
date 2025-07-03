@@ -71,9 +71,7 @@ import static java.lang.Long.parseLong;
 				"org.snomed.snowstorm.fhir.repositories"
 		})
 @EnableConfigurationProperties
-@PropertySources({
-		@PropertySource(value = "classpath:application.properties", encoding = "UTF-8")
-})
+@PropertySource(value = "classpath:application.properties", encoding = "UTF-8")
 @EnableAsync
 public abstract class Config extends ElasticsearchConfig {
 

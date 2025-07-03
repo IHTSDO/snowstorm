@@ -28,6 +28,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.bind.annotation.RequestMethod;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
@@ -261,13 +262,12 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 			// HAPI doesn't populate the OperationParam values for POST, we parse the body instead.
 			List<Parameters.ParametersParameterComponent> parsed = fhirContext.newJsonParser().parseResource(Parameters.class, rawBody).getParameter();
 			List<Parameters.ParametersParameterComponent> txResources = FHIRValueSetProviderHelper.findParametersByName(parsed, "tx-resource");
-			//List<Parameters.ParametersParameterComponent> valueSets = FHIRValueSetProviderHelper.findParametersByName(parsed, "valueSet");
 			List<Resource> resources = txResources.stream().map(x -> x.getResource()).toList();
 			byte[] npmPackage = FHIRValueSetProviderHelper.createNpmPackageFromResources(resources);
 			try {
 				loadPackageService.uploadPackageResources(npmPackage, Collections.singleton("*"),"tx-resources",true);
 			} catch (IOException e) {
-				throw new RuntimeException(e);
+				throw new UncheckedIOException("Failed to read package from resources", e);
 			}
 			params = FHIRValueSetProviderHelper.getValueSetExpansionParameters(null, parsed );
 		} else {
