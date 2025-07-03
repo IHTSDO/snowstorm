@@ -264,7 +264,7 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants 
 
 		mutuallyExclusive("code", code, "coding", coding);
 		notSupported("date", date);
-		notSupported("system", system, " when id is already specified in the URL.");
+		notSupported(PARAM_SYSTEM, system, " when id is already specified in the URL.");
 		notSupported("version", version, " when id is already specified in the URL.");
 		FHIRCodeSystemVersionParams codeSystemVersion = getCodeSystemVersionParams(id, system, version, coding);
 		return lookup(codeSystemVersion, fhirHelper.recoverCode(code, coding), displayLanguage, request.getHeader(ACCEPT_LANGUAGE_HEADER), propertiesType);
@@ -315,7 +315,6 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants 
 
 		notSupported("codeSystem", codeSystem);
 		notSupported("date", date);
-		//notSupported("displayLanguage", displayLanguage);
 		mutuallyExclusive("code", code, "coding", coding);
 		mutuallyRequired("display", display, "code", code, "coding", coding);
 		FHIRCodeSystemVersionParams codeSystemParams = getCodeSystemVersionParams(null, url, version, coding);
