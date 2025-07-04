@@ -4,7 +4,6 @@ import ca.uhn.fhir.jpa.entity.TermConcept;
 import ca.uhn.fhir.jpa.entity.TermConceptDesignation;
 import ca.uhn.fhir.jpa.entity.TermConceptParentChildLink;
 import ca.uhn.fhir.jpa.entity.TermConceptProperty;
-import org.apache.thrift.Option;
 import org.hl7.fhir.r4.model.CodeSystem;
 import org.snomed.snowstorm.core.data.domain.ConceptMini;
 import org.snomed.snowstorm.core.data.domain.Description;
@@ -25,6 +24,8 @@ import static org.snomed.snowstorm.fhir.config.FHIRConstants.SNOMED_URI;
 @Document(indexName = "#{@indexNameProvider.indexName('fhir-concept')}", createIndex = false)
 public class FHIRConcept implements FHIRGraphNode {
 
+	public static final String EXTENSION_MARKER = "://";
+
 	public interface Fields {
 
 		String CODE_SYSTEM_VERSION = "codeSystemVersion";
@@ -34,6 +35,7 @@ public class FHIRConcept implements FHIRGraphNode {
 		String PARENTS = "parents";
 		String ANCESTORS = "ancestors";
 		String PROPERTIES = "properties";
+		String EXTENSIONS = "extensions";
 	}
 	@Id
 	// Internal ID
@@ -51,7 +53,7 @@ public class FHIRConcept implements FHIRGraphNode {
 	private Integer displayLen;
 
 	@Transient
-	private  boolean active;
+	private Boolean active;
 
 	@Field(type = FieldType.Keyword)
 	private Set<String> parents;
@@ -63,8 +65,10 @@ public class FHIRConcept implements FHIRGraphNode {
 
 	private Map<String, List<FHIRProperty>> properties;
 
+	private Map<String, List<FHIRProperty>> extensions;
+
 	public FHIRConcept() {
-		active = true;
+		active = null;
 	}
 
 	public FHIRConcept(TermConcept termConcept, FHIRCodeSystemVersion codeSystemVersion) {
@@ -72,7 +76,6 @@ public class FHIRConcept implements FHIRGraphNode {
 
 		code = termConcept.getCode();
 		setDisplay(termConcept.getDisplay());
-		//active = true;
 		termConcept.getProperties().stream().filter(x -> x.getKey().equals("status") && x.getValue().equals("retired")).findFirst().ifPresentOrElse(x -> active = false, ()-> active = true);
 
 		designations = new ArrayList<>();
@@ -82,8 +85,14 @@ public class FHIRConcept implements FHIRGraphNode {
 
 		properties = new HashMap<>();
 		for (TermConceptProperty property : termConcept.getProperties()) {
-			properties.computeIfAbsent(property.getKey(), (i) -> new ArrayList<>())
+			properties.computeIfAbsent(property.getKey(), i -> new ArrayList<>())
 					.add(new FHIRProperty(property));
+		}
+
+		extensions = new HashMap<>();
+		for (TermConceptProperty extension : termConcept.getProperties().stream().filter(p -> p.getKey().contains(EXTENSION_MARKER)).toList()) {
+			extensions.computeIfAbsent(extension.getKey(), (i) -> new ArrayList<>())
+					.add(new FHIRProperty(extension));
 		}
 
 		parents = new HashSet<>();
@@ -100,8 +109,6 @@ public class FHIRConcept implements FHIRGraphNode {
 		code = definitionConcept.getCode();
 		setDisplay(definitionConcept.getDisplay());
 
-		//active = true;
-
 		designations = definitionConcept.getDesignation().stream()
 				.map(FHIRDesignation::new)
 				.collect(Collectors.toList());
@@ -112,6 +119,20 @@ public class FHIRConcept implements FHIRGraphNode {
 				.filter(FHIRConcept::isPropertyInactive)
 				.findFirst().ifPresentOrElse(x -> active = false, ()-> active = true);
 		properties.put("inactive",Collections.singletonList(new FHIRProperty("inactive",null,Boolean.toString(!isActive()),FHIRProperty.BOOLEAN)));
+		extensions = new HashMap<>();
+		definitionConcept.getExtension().forEach(
+				e ->{
+					Optional.ofNullable(extensions.get(e.getUrl())).ifPresentOrElse(list ->{
+						list.add(new FHIRProperty(e.getUrl(), null,e.getValue().primitiveValue(), FHIRProperty.typeToFHIRPropertyType(e.getValue())));
+
+					}, ()->{
+						List<FHIRProperty> list = new ArrayList<>();
+						list.add(new FHIRProperty(e.getUrl(), null,e.getValue().primitiveValue(), FHIRProperty.typeToFHIRPropertyType(e.getValue())));
+						extensions.put(e.getUrl(), list);
+					});
+
+				}
+		);
 		parents = new HashSet<>();
 		for (CodeSystem.ConceptPropertyComponent propertyComponent : definitionConcept.getProperty()) {
 			properties.computeIfAbsent(propertyComponent.getCode(), k -> new ArrayList<>()).add(new FHIRProperty(propertyComponent));
@@ -151,6 +172,9 @@ public class FHIRConcept implements FHIRGraphNode {
 				designations.add(designation);
 			}
 		}
+
+		properties = new HashMap<>();
+		properties.put("inactive",Collections.singletonList(new FHIRProperty("inactive",null,Boolean.toString(!isActive()),FHIRProperty.BOOLEAN)));
 	}
 
 	@Override
@@ -196,6 +220,10 @@ public class FHIRConcept implements FHIRGraphNode {
 	}
 
 	public boolean isActive() {
+		if (active == null){
+			List<FHIRProperty> props = properties.get("inactive");
+			active = ( props == null || props.isEmpty() || !props.stream().map(x -> Boolean.valueOf(x.getValue())).distinct().allMatch(Boolean.TRUE::equals));
+		}
 		return active;
 	}
 

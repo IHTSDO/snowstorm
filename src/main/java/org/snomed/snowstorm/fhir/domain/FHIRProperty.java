@@ -10,6 +10,8 @@ public class FHIRProperty {
 	public static final String CODING = "CODING";
 	public static final String CODE = "CODE";
 	public static final String BOOLEAN = "BOOLEAN";
+	public static final String INTEGER = "INTEGER";
+	public static final String DECIMAL = "DECIMAL";
 
 	private String code;
 	private String display;
@@ -51,6 +53,26 @@ public class FHIRProperty {
 			value = propertyComponent.getValueBooleanType().getValueAsString();
 			type = BOOLEAN;
 		}
+	}
+
+	static String typeToFHIRPropertyType(Type value) {
+		String fhirPropertyType;
+		if (value instanceof CodeType) {
+			fhirPropertyType = CODE;
+		} else if (value instanceof StringType){
+			fhirPropertyType = STRING;
+		} else if (value instanceof Coding) {
+			fhirPropertyType = CODING;
+		} else if (value instanceof BooleanType) {
+			fhirPropertyType = BOOLEAN;
+		} else if (value instanceof IntegerType) {
+			fhirPropertyType = INTEGER;
+		} else if (value instanceof DecimalType) {
+			fhirPropertyType = DECIMAL;
+		}else {
+			throw new IllegalArgumentException("unknown FHIRProperty type");
+		}
+		return fhirPropertyType;
 	}
 
 	public Type toHapiValue(String systemVersionUrl) {
