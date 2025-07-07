@@ -67,7 +67,7 @@ public class CodeSystemUpgradeService {
 	@Value("${snowstorm.rest-api.readonly}")
 	private boolean isReadOnly;
 
-	@Value("${snowstorm.codesystem-version.message.enabled}")
+	@Value("${snowstorm.codesystem-upgrade.message.enabled}")
 	private boolean jmsMessageEnabled;
 
 	@Value("${jms.queue.prefix}")
