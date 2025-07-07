@@ -261,9 +261,10 @@ public class CodeSystemController {
 	@Operation(summary = "Start new authoring cycle for given code system")
 	@PostMapping(value = "/{shortName}/new-authoring-cycle")
 	@PreAuthorize("hasPermission('ADMIN', 'global')")
-	public void startNewAuthoringCycle(@PathVariable String shortName) {
+	public void startNewAuthoringCycle(@PathVariable String shortName, @RequestParam(required = false) String newEffectiveTime) {
 		CodeSystem codeSystem = ControllerHelper.throwIfNotFound("Code System", codeSystemService.find(shortName));
 		codeSystemService.updateCodeSystemBranchMetadata(codeSystem);
+		codeSystemService.notifyCodeSystemNewAuthoringCycle(codeSystem, newEffectiveTime);
 		moduleDependencyService.clearSourceAndTargetEffectiveTimes(codeSystem.getBranchPath());
 	}
 
