@@ -39,6 +39,7 @@ import org.springframework.data.util.Pair;
 import org.springframework.jms.core.JmsTemplate;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
@@ -112,7 +113,10 @@ public class CodeSystemService {
 	private boolean latestVersionCanBeInternalRelease;
 
 	@Value("${snowstorm.codesystem-version.message.enabled}")
-	private boolean jmsMessageEnabled;
+	private boolean jmsCodeSystemVersionMessageEnabled;
+
+	@Value("${snowstorm.codesystem-start-new-cycle.message.enabled}")
+	private boolean jmsCodeSystemNewAuthoringCycleMessageEnabled;
 
 	// Cache to prevent expensive aggregations. Entry per branch. Expires if there is a new commit.
 	private final ConcurrentHashMap<String, Pair<Date, CodeSystem>> contentInformationCache = new ConcurrentHashMap<>();
@@ -254,7 +258,7 @@ public class CodeSystemService {
 
 		logger.info("Versioning complete.");
 
-		if (jmsMessageEnabled) {
+		if (jmsCodeSystemVersionMessageEnabled) {
 			Map<String, String> payload = new HashMap<>();
 			payload.put("codeSystemShortName", codeSystem.getShortName());
 			payload.put("codeSystemBranchPath", codeSystem.getBranchPath());
@@ -678,6 +682,26 @@ public class CodeSystemService {
 		}
 		branchService.updateMetadata(branchPath, branchMetadata);
 	}
+
+    public void notifyCodeSystemNewAuthoringCycle(CodeSystem codeSystem, String newEffectiveTime){
+        if (jmsCodeSystemNewAuthoringCycleMessageEnabled) {
+            String branchPath = codeSystem.getBranchPath();
+            Branch branch = branchService.findBranchOrThrow(branchPath);
+            Metadata branchMetadata = branch.getMetadata();
+            Map<String, String> payload = new HashMap<>();
+            payload.put("codeSystemShortName", codeSystem.getShortName());
+            payload.put("codeSystemBranchPath", codeSystem.getBranchPath());
+            payload.put(PREVIOUS_PACKAGE, String.valueOf(branchMetadata.getString(PREVIOUS_PACKAGE)));
+            payload.put(DEPENDENCY_PACKAGE, String.valueOf(branchMetadata.getString(DEPENDENCY_PACKAGE)));
+            if (StringUtils.hasLength(newEffectiveTime)) {
+                payload.put("newEffectiveTime", newEffectiveTime);
+            }
+
+            String topicDestination = jmsQueuePrefix + ".code-system.new-authoring-cycle";
+            logger.info("Sending JMS Topic - destination {}, payload {}...", topicDestination, payload);
+            jmsTemplate.convertAndSend(new ActiveMQTopic(topicDestination), payload);
+        }
+    }
 
 	/**
 	 * Return versioned Branches for the given CodeSystem, where each Branch was versioned within the given time range.
