@@ -81,9 +81,6 @@ public class ECLContentService {
 	@Value("${ecl.concepts-lookup.enabled}")
 	private boolean conceptsLookupEnabled;
 
-	@Value("${ecl.concepts-lookup.max.refset-ids:1000}")
-	private int conceptsLookupMaxRefsetIds;
-
 	private SExpressionConstraint historyMaxECL;
 
 	private static final List<Long> HISTORY_PROFILE_MIN = Collections.singletonList(parseLong(Concepts.REFSET_SAME_AS_ASSOCIATION));
@@ -413,22 +410,15 @@ public class ECLContentService {
 		return Collections.emptyList();
 	}
 
-	public Query getTermsLookupFilterForMemberOfECL(BranchCriteria branchCriteria, Collection<Long> refsetIds) {
-		if (refsetIds.isEmpty()) {
+	public Query getTermsLookupFilterForMemberOfECL(BranchCriteria branchCriteria, Long refsetId) {
+		if (refsetId == null) {
 			return null;
 		}
-		// Limit the number of refset Ids to prevent performance issues
-		// Throw TooCostlyException if the number of refset Ids is too large
-		if (refsetIds.size() > conceptsLookupMaxRefsetIds) {
-			throw new TooCostlyException("Too many refset IDs for a single query." +
-					" Got " + refsetIds.size() + " but expected maximum of " + conceptsLookupMaxRefsetIds + ".");
-		}
-		// Get the refset concepts lookups with the concept ids
-		List<ReferencedConceptsLookup> lookups = refsetConceptsLookupService.getConceptsLookups(branchCriteria, refsetIds, false);
+		List<ReferencedConceptsLookup> lookups = refsetConceptsLookupService.getConceptsLookups(branchCriteria, List.of(refsetId), false);
 		if (lookups.isEmpty()) {
 			return null;
 		}
-		logConceptLookUps(lookups, refsetIds, branchCriteria.getBranchPath());
+		logConceptLookUps(lookups, List.of(refsetId), branchCriteria.getBranchPath());
 		return refsetConceptsLookupService.constructQueryWithLookups(lookups, QueryConcept.Fields.CONCEPT_ID);
 	}
 
