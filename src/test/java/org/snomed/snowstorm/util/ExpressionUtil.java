@@ -14,7 +14,7 @@ import java.util.stream.Collectors;
 
 public class ExpressionUtil {
 
-	public static ECLQueryBuilder eclQueryBuilder = new ECLQueryBuilder(new SECLObjectFactory());
+	public static ECLQueryBuilder eclQueryBuilder = new ECLQueryBuilder(new SECLObjectFactory(100000));
 
 	static final Comparator<SubExpressionConstraint> EXPRESSION_CONSTRAINT_COMPARATOR_BY_CONCEPT_ID = Comparator
 			.comparing(SubExpressionConstraint::getConceptId, Comparator.nullsFirst(String::compareTo));

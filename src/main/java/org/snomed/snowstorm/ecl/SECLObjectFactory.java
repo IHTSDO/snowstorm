@@ -19,6 +19,12 @@ import java.util.List;
 
 public class SECLObjectFactory extends ECLObjectFactory {
 
+	private final int maxTermsCount;
+
+	public SECLObjectFactory(int maxTermsCount) {
+		this.maxTermsCount = maxTermsCount;
+	}
+
 	@Override
 	protected RefinedExpressionConstraint getRefinedExpressionConstraint(SubExpressionConstraint subExpressionConstraint, EclRefinement eclRefinement) {
 		return new SRefinedExpressionConstraint(subExpressionConstraint, eclRefinement);
@@ -36,7 +42,7 @@ public class SECLObjectFactory extends ECLObjectFactory {
 
 	@Override
 	protected SubExpressionConstraint getSubExpressionConstraint(Operator operator) {
-		return new SSubExpressionConstraint(operator);
+		return new SSubExpressionConstraint(operator, maxTermsCount);
 	}
 
 	@Override
