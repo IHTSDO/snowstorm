@@ -293,7 +293,7 @@ public abstract class Config extends ElasticsearchConfig {
 
 	@Bean
 	public ECLQueryBuilder eclQueryBuilder() {
-		return new ECLQueryBuilder(new SECLObjectFactory());
+		return new ECLQueryBuilder(new SECLObjectFactory(indexMaxTermsCount));
 	}
 
 	@Bean // Serialize message content to json using TextMessage

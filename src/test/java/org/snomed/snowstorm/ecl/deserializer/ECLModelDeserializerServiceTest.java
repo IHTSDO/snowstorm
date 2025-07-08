@@ -19,7 +19,7 @@ class ECLModelDeserializerServiceTest {
 	private final ObjectMapper objectMapper;
 
 	public ECLModelDeserializerServiceTest() {
-		eclQueryBuilder = new ECLQueryBuilder(new SECLObjectFactory());
+		eclQueryBuilder = new ECLQueryBuilder(new SECLObjectFactory(1000));
 		objectMapper = new ObjectMapper();
 		objectMapper.setSerializationInclusion(JsonInclude.Include.NON_NULL);
 		eclModelDeserializerService = new ECLModelDeserializerService();

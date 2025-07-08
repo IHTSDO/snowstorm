@@ -38,14 +38,18 @@ import static org.snomed.snowstorm.core.util.CollectionUtils.orEmpty;
 public class SSubExpressionConstraint extends SubExpressionConstraint implements SExpressionConstraint {
 
 	private final Logger logger = LoggerFactory.getLogger(SSubExpressionConstraint.class);
+
+	private int maxTermsCount;
+
 	@SuppressWarnings("unused")
 	// For JSON
 	private SSubExpressionConstraint() {
-		this(null);
+		super(null);
 	}
 
-	public SSubExpressionConstraint(Operator operator) {
+	public SSubExpressionConstraint(Operator operator, int maxTermsCount) {
 		super(operator);
+		this.maxTermsCount = maxTermsCount;
 	}
 
 	@Override
@@ -167,7 +171,7 @@ public class SSubExpressionConstraint extends SubExpressionConstraint implements
 	}
 
 	private SSubExpressionConstraint cloneWithoutFiltersOrSupplements() {
-		SSubExpressionConstraint clone = new SSubExpressionConstraint(operator);
+		SSubExpressionConstraint clone = new SSubExpressionConstraint(operator, maxTermsCount);
 		clone.setConceptId(conceptId);
 		clone.setTerm(term);
 		clone.setWildcard(wildcard);
@@ -277,6 +281,11 @@ public class SSubExpressionConstraint extends SubExpressionConstraint implements
 				SubRefinementBuilder filterRefinementBuilder = new SubRefinementBuilder(refinementBuilder, filterQueryBuilder);
 				filterRefinementBuilder.setShouldPrefetchMemberOfQueryResults(true);
 				Set<Long> results = applyConceptCriteriaWithOperator(conceptIds, operator, filterRefinementBuilder);
+				if (results != null && results.size() > maxTermsCount) {
+					String message = String.format("Your nested query %s matched too many results (%s) which exceeds the system limit of %s terms. Try narrowing your search.",
+							operator.getText() + ((SExpressionConstraint) nestedExpressionConstraint).toEclString(), results.size(), maxTermsCount);
+					throw new IllegalArgumentException(message);
+				}
 				queryBuilder.filter(filterQueryBuilder.build()._toQuery());
 				return results;
 			} else {
@@ -389,12 +398,12 @@ public class SSubExpressionConstraint extends SubExpressionConstraint implements
 	}
 
 	private Set<Long> handleQueryWithFullLookup(Collection<Long> conceptIds, RefinementBuilder refinementBuilder, BoolQuery.Builder queryBuilder, ECLContentService conceptSelector, BranchCriteria branchCriteria) {
-		if (Boolean.TRUE.equals(refinementBuilder.shouldPrefetchMemberOfQueryResults())) {
+		if (Boolean.TRUE.equals(refinementBuilder.shouldPrefetchMemberOfQueryResults()) || conceptIds.size() > 1) {
 			Set<Long> conceptsFromLookup= conceptSelector.getConceptIdsFromLookup(branchCriteria, conceptIds);
 			queryBuilder.filter(termsQuery(QueryConcept.Fields.CONCEPT_ID, conceptsFromLookup));
 			return conceptsFromLookup;
 		} else {
-			queryBuilder.filter(conceptSelector.getTermsLookupFilterForMemberOfECL(branchCriteria, conceptIds));
+			queryBuilder.filter(conceptSelector.getTermsLookupFilterForMemberOfECL(branchCriteria, conceptIds.iterator().next()));
 			return null;
 		}
 	}
