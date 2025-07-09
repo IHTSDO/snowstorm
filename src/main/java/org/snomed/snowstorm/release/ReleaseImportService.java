@@ -27,6 +27,7 @@ import java.util.*;
 
 @Service
 public class ReleaseImportService {
+    public static final String PATH_SEPARATOR = "/";
     private final Logger logger = LoggerFactory.getLogger(getClass());
 
     private static final String LOCK_MESSAGE = "Branch locked for new release import.";
@@ -105,7 +106,7 @@ public class ReleaseImportService {
 
             logger.info("start release import for code system {}", codeSystem.getShortName());
             String importId = importService.createJob(RF2Type.SNAPSHOT, codeSystem.getBranchPath(), true, false);
-            try (InputStream releaseStream = resourceManager.readResourceStreamOrNullIfNotExists(codeSystem.getShortName() + "/" + releaseFilename)) {
+            try (InputStream releaseStream = resourceManager.readResourceStreamOrNullIfNotExists(codeSystem.getShortName() + PATH_SEPARATOR + releaseFilename)) {
                 importService.importArchive(importId, releaseStream);
             } catch (Exception e) {
                 sBranchService.rollbackCommit(codeSystem.getBranchPath(), branchHeadTimestamp);
@@ -158,7 +159,7 @@ public class ReleaseImportService {
 
     private String getNewReleaseFilenameIfExists(CodeSystem codeSystem) {
         Map<Integer, String> effectiveTimeToArchiveFilenameMap = new HashMap<>();
-        Set<String> releaseArchiveFilenames = resourceManager.doListFilenames(codeSystem.getShortName());
+        Set<String> releaseArchiveFilenames = resourceManager.doListFilenames(codeSystem.getShortName() + PATH_SEPARATOR);
         logger.debug("Found total release: {} for code system {}", releaseArchiveFilenames.size(), codeSystem.getShortName());
         List<CodeSystemVersion> codeSystemVersions = this.codeSystemService.findAllVersions(codeSystem.getShortName(), true, true);
         CodeSystemVersion latestCodeSystemVersion = null;
@@ -168,12 +169,12 @@ public class ReleaseImportService {
             latestCodeSystemVersion = codeSystemVersions.get(codeSystemVersions.size() - 1);
         }
         for (String filename : releaseArchiveFilenames) {
-            if (filename == null || !filename.startsWith(codeSystem.getShortName() + "/") || !filename.endsWith(".zip"))
+            if (filename == null || !filename.endsWith(".zip"))
                 continue;
             
             // Strip off file separators
-            if (filename.contains("/")) {
-                filename = filename.substring(filename.lastIndexOf("/") + 1);
+            if (filename.contains(PATH_SEPARATOR)) {
+                filename = filename.substring(filename.lastIndexOf(PATH_SEPARATOR) + 1);
             }
             // Check the new release effective time after the latest version
             if (latestCodeSystemVersion == null || isAfterLatestVersion(filename, latestCodeSystemVersion.getEffectiveDate())) {
