@@ -67,6 +67,7 @@ public class ReleaseImportService {
     }
 
     public void performScheduledImport(CodeSystem codeSystem) throws ServiceException {
+        logger.info("Start performing scheduled import for code system {}", codeSystem.getShortName());
         String branchPath = codeSystem.getBranchPath();
         Branch codeSystemBranch = branchService.findBranchOrThrow(branchPath);
         if (codeSystemBranch.isLocked()) {
@@ -84,7 +85,7 @@ public class ReleaseImportService {
         if (releaseFilename == null) {
             return;
         }
-        logger.info("New release package {} found for {} ", releaseFilename, codeSystem.getShortName());
+        logger.info("New release package {} found for code system {} ", releaseFilename, codeSystem.getShortName());
         // Lock branch immediately to stop other instances performing daily build/importing a new release
         branchService.lockBranch(codeSystem.getBranchPath(), LOCK_MESSAGE);
         boolean dailyBuildAvailable = codeSystem.isDailyBuildAvailable();
@@ -104,7 +105,7 @@ public class ReleaseImportService {
             // Upgrade code system if needed
             performCodeSystemUpgradeIfNeeded(codeSystem, releaseFilename, branchHeadTimestamp);
 
-            logger.info("start release import for code system {}", codeSystem.getShortName());
+            logger.info("Start release import for code system {}", codeSystem.getShortName());
             String importId = importService.createJob(RF2Type.SNAPSHOT, codeSystem.getBranchPath(), true, false);
             try (InputStream releaseStream = resourceManager.readResourceStreamOrNullIfNotExists(codeSystem.getShortName() + PATH_SEPARATOR + releaseFilename)) {
                 importService.importArchive(importId, releaseStream);
@@ -138,6 +139,7 @@ public class ReleaseImportService {
                 if (!CollectionUtils.isEmpty(dependencies)) {
                     ModuleMetadata dependency = dependencies.get(0);
                     if (dependency.getEffectiveTime() <= codeSystem.getDependantVersionEffectiveTime()) return;
+                    logger.info("Upgrade the code system {} with dependency version {}", codeSystem.getShortName(), dependency.getEffectiveTime());
                     codeSystemUpgradeService.upgrade(codeSystem.getShortName(), dependency.getEffectiveTime(), false); // Use the method upgrade(String,Integer,boolean) to bypass the security check
                     Branch extensionBranch = branchService.findLatest(codeSystem.getShortName());
                     IntegrityIssueReport integrityReport = integrityService.findChangedComponentsWithBadIntegrityNotFixed(extensionBranch);
