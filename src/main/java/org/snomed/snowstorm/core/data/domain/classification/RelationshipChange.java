@@ -8,9 +8,9 @@ import org.springframework.data.annotation.Transient;
 import org.springframework.data.elasticsearch.annotations.Document;
 import org.springframework.data.elasticsearch.annotations.Field;
 import org.springframework.data.elasticsearch.annotations.FieldType;
-import org.springframework.data.elasticsearch.annotations.Setting;
 
 import java.io.Serializable;
+import java.util.UUID;
 
 @Document(indexName = "#{@indexNameProvider.indexName('classification-relationship-change')}", createIndex = false)
 public class RelationshipChange {
@@ -18,7 +18,6 @@ public class RelationshipChange {
 	public interface Fields {
 		String SOURCE_ID = "sourceId";
 		String INTERNAL_ID = "internalId";
-		String GROUP = "group";
 	}
 
 	@Id
@@ -82,6 +81,7 @@ public class RelationshipChange {
 		this.group = group;
 		this.typeId = typeId;
 		this.modifierId = modifierId;
+		this.internalId = UUID.randomUUID().toString();
 	}
 
 	public boolean isConcrete() {
