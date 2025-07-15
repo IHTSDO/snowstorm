@@ -418,7 +418,7 @@ public class ClassificationService {
 							if (changesBatch.isEmpty()) {
 								break;
 							}
-
+							logger.info("Processing relationship changes in batch of {} for classification {}", changesBatch.size(), classification.getId());
 							// Group changes by concept
 							Map<Long, List<RelationshipChange>> conceptToChangeMap = new Long2ObjectOpenHashMap<>();
 							for (RelationshipChange relationshipChange : changesBatch) {
@@ -734,7 +734,7 @@ public class ClassificationService {
 		}
 
 		if (!relationshipChanges.isEmpty()) {
-			logger.info("Saving {} classification relationship changes total.", numberFormat.format(relationshipChanges.size()));
+			logger.info("Saving {} classification relationship changes...", numberFormat.format(relationshipChanges.size()));
 			int chunkSize = 10_000;
 			List<List<RelationshipChange>> partition = Lists.partition(relationshipChanges, chunkSize);
 			for (List<RelationshipChange> changes : partition) {
