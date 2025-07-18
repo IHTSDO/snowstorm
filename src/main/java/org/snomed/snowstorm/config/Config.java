@@ -100,6 +100,7 @@ public abstract class Config extends ElasticsearchConfig {
 	public static final String EXPECTED_EXTENSION_MODULES = "expectedExtensionModules";
 	public static final String DEPENDENCY_PACKAGE = "dependencyPackage";
 	public static final String REQUIRED_LANGUAGE_REFSETS = "requiredLanguageRefsets";
+	public static final String CNC_ENABLED = "cncEnabled";
 
 	@Value("${elasticsearch.index.max.terms.count}")
 	private int indexMaxTermsCount;
