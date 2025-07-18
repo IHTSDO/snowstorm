@@ -58,6 +58,11 @@ public class UpgradeInactivationService {
 		}
 		String branchPath = codeSystem.getBranchPath();
 		logger.info("Start auto description inactivation for inactive concepts for code system {} on branch {}", codeSystem.getShortName(), branchPath);
+		if (!enabled(branchPath)) {
+			logger.info("Skipping auto description inactivation for inactive concepts for code system {} on branch {}", codeSystem.getShortName(), branchPath);
+			return;
+		}
+
 		BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(branchPath);
 		// find inactive concept ids
 		NativeQuery inactiveConceptQuery = new NativeQueryBuilder()
@@ -292,5 +297,28 @@ public class UpgradeInactivationService {
 		}
 
 		return expectedExtensionModules;
+	}
+
+	private boolean enabled(String branchPath) {
+		Branch branch = getBranchNullable(branchPath);
+		if (branch == null) {
+			return false;
+		}
+
+		Metadata metadata = branch.getMetadata();
+		if (metadata == null || metadata.size() == 0) {
+			return false;
+		}
+
+		String cncEnabled = metadata.containsKey(Config.CNC_ENABLED) ? metadata.getString(Config.CNC_ENABLED) : null;
+		return cncEnabled == null || "true".equalsIgnoreCase(cncEnabled);
+	}
+
+	private Branch getBranchNullable(String branchPath) {
+		try {
+			return branchService.findBranchOrThrow(branchPath, true);
+		} catch (Exception e) {
+			return null;
+		}
 	}
 }
