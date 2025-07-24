@@ -692,7 +692,6 @@ public class CodeSystemService {
             payload.put("codeSystemShortName", codeSystem.getShortName());
             payload.put("codeSystemBranchPath", codeSystem.getBranchPath());
             payload.put(PREVIOUS_PACKAGE, String.valueOf(branchMetadata.getString(PREVIOUS_PACKAGE)));
-            payload.put(DEPENDENCY_PACKAGE, String.valueOf(branchMetadata.getString(DEPENDENCY_PACKAGE)));
             if (StringUtils.hasLength(newEffectiveTime)) {
                 payload.put("newEffectiveTime", newEffectiveTime);
             }
