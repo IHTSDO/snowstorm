@@ -264,8 +264,8 @@ public class CodeSystemController {
 	public void startNewAuthoringCycle(@PathVariable String shortName, @RequestParam(required = false) String newEffectiveTime) {
 		CodeSystem codeSystem = ControllerHelper.throwIfNotFound("Code System", codeSystemService.find(shortName));
 		codeSystemService.updateCodeSystemBranchMetadata(codeSystem);
-		codeSystemService.notifyCodeSystemNewAuthoringCycle(codeSystem, newEffectiveTime);
 		moduleDependencyService.clearSourceAndTargetEffectiveTimes(codeSystem.getBranchPath());
+		codeSystemService.notifyCodeSystemNewAuthoringCycle(codeSystem, newEffectiveTime);
 	}
 
 	private CodeSystem joinUserPermissionsInfo(CodeSystem codeSystem) {
