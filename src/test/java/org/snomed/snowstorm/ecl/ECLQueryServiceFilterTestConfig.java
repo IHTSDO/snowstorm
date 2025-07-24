@@ -29,7 +29,7 @@ public class ECLQueryServiceFilterTestConfig extends ECLQueryTestConfig {
 
 		List<Concept> allConcepts = new ArrayList<>();
 
-		allConcepts.add(new Concept(DISORDER).addDescription(new Description("Disease(disorder)")).addRelationship(new Relationship(ISA, SNOMEDCT_ROOT)));
+		allConcepts.add(new Concept(DISORDER).addDescription(new Description("803980011", "Disease(disorder)")).addRelationship(new Relationship(ISA, SNOMEDCT_ROOT)));
 		allConcepts.addAll(newMetadataConcepts(DEF_STATUS, MODULE, PREFERRED, ACCEPTABLE, FSN, SYNONYM, TEXT_DEFINITION, "46011000052107"));
 		allConcepts.add(new Concept(CORE_MODULE).addRelationship(new Relationship(ISA, MODULE)));
 		allConcepts.add(new Concept(MODULE_A).addRelationship(new Relationship(ISA, MODULE)));

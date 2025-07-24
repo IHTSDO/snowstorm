@@ -40,6 +40,7 @@ public class ECLModelDeserializerService {
 		module.addDeserializer(ActiveFilter.class, new GenericJsonDeserializer<>(SActiveFilter.class));
 		module.addDeserializer(TermFilter.class, new GenericJsonDeserializer<>(STermFilter.class));
 		module.addDeserializer(DescriptionTypeFilter.class, new GenericJsonDeserializer<>(SDescriptionTypeFilter.class));
+		module.addDeserializer(DescriptionIdFilter.class, new GenericJsonDeserializer<>(SDescriptionIdFilter.class));
 		module.addDeserializer(LanguageFilter.class, new GenericJsonDeserializer<>(SLanguageFilter.class));
 		module.addDeserializer(DialectAcceptability.class, new GenericJsonDeserializer<>(SDialectAcceptability.class));
 		module.addDeserializer(MemberFilterConstraint.class, new GenericJsonDeserializer<>(SMemberFilterConstraint.class));

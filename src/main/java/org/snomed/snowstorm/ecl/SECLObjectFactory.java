@@ -121,6 +121,11 @@ public class SECLObjectFactory extends ECLObjectFactory {
 	}
 
 	@Override
+	public DescriptionIdFilter getDescriptionIdFilter(String text) {
+		return new SDescriptionIdFilter(text);
+	}
+
+	@Override
 	public LanguageFilter getLanguageFilter(String text) {
 		return new SLanguageFilter(text);
 	}

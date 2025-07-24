@@ -58,6 +58,13 @@ public class SDescriptionFilterConstraint extends DescriptionFilterConstraint {
 			((SActiveFilter) activeFilter).toString(buffer);
 		}
 
+		for (DescriptionIdFilter idFilter : orEmpty(getIdFilters())) {
+			if (f++ > 0) {
+				buffer.append(",");
+			}
+			((SDescriptionIdFilter) idFilter).toString(buffer);
+		}
+
 		buffer.append(" }}");
 	}
 }

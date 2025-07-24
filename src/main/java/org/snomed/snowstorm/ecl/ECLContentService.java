@@ -243,6 +243,9 @@ public class ECLContentService {
 
 		// Active filters
 		applyActiveFilters(descriptionFilter.getActiveFilters(), masterDescriptionQuery);
+		
+		// Apply description id filters
+		applyDescriptionIdFilters(descriptionFilter.getIdFilters(), masterDescriptionQuery);
 
 		List<TermFilter> termFilters = orEmpty(descriptionFilter.getTermFilters());
 		List<LanguageFilter> languageFilters = orEmpty(descriptionFilter.getLanguageFilters());
@@ -304,6 +307,26 @@ public class ECLContentService {
 			String effectiveTimeField = SnomedComponent.Fields.EFFECTIVE_TIME;
 			addNumericConstraint(operator, effectiveTimeField, effectiveTimes, boolBuilder);
 			componentFilterQuery.must(boolBuilder.build()._toQuery());
+		}
+	}
+
+	private void applyDescriptionIdFilters(List<DescriptionIdFilter> idFilters, BoolQuery.Builder masterDescriptionQuery) {
+		idFilters = orEmpty(idFilters);
+		if (!idFilters.isEmpty()) {
+			BoolQuery.Builder boolBuilder = bool();
+			for (DescriptionIdFilter idFilter : idFilters) {
+				Set<String> ids = idFilter.getDescriptionIds();
+				BoolQuery.Builder shouldBuilder = bool();
+				for (String id : ids) {
+					shouldBuilder.should(termQuery(Description.Fields.DESCRIPTION_ID, id));
+				}
+				if (idFilter.getBooleanComparisonOperator().equals("=")) {
+					boolBuilder.must(shouldBuilder.build()._toQuery());
+				} else {
+					boolBuilder.mustNot(shouldBuilder.build()._toQuery());
+				}
+			}
+			masterDescriptionQuery.must(boolBuilder.build()._toQuery());
 		}
 	}
 

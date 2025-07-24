@@ -3,6 +3,14 @@ All notable changes to this project will be documented in this file.
 
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+
+## Current Dev
+
+### Features
+- ISTO-135 ECL 2.1 support.
+  - Adds Description ID filters
+
+
 ## 10.8.2 Release (May 2025)
 Maintenance release with bug fixes and general improvements.
 

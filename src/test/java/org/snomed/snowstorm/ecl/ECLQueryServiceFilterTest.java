@@ -138,6 +138,30 @@ class ECLQueryServiceFilterTest {
 	}
 
 	@Test
+	void testDescriptionIdFilters() {
+		String ecl = "* {{ D id = 803980011 }}";
+		assertEquals(newHashSet("64572001"), select(ecl));
+
+		ecl = "64572001 {{ D id = 803980011 }}";
+		assertEquals(newHashSet("64572001"), select(ecl));
+
+		ecl = "64572001 {{ D id = 803980011, id != 803980011 }}";
+		assertEquals(newHashSet(), select(ecl));
+
+		ecl = "64572001 {{ D id = (803980011 703980011) }}";
+		assertEquals(newHashSet("64572001"), select(ecl));
+
+		ecl = "64572001 {{ D id = (803980011 703980011), id != (803980011 703980011) }}";
+		assertEquals(newHashSet(), select(ecl));
+
+		ecl = "64572001 {{ D id = (703980011 903980011) }}";
+		assertEquals(newHashSet(), select(ecl));
+
+		ecl = "64572001 {{ D id != 803980011 }}";
+		assertEquals(newHashSet(), select(ecl));
+	}
+
+	@Test
 	void testDescriptionTypeFilters() {
 		// type syn
 		String ecl = "< 64572001 |Disease| {{ term = \"hjärt\", language = sv, type = syn }}";

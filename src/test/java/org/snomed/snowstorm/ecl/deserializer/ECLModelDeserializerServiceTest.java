@@ -235,6 +235,8 @@ class ECLModelDeserializerServiceTest {
 		assertConversionTest("^ 816080008 |International Patient Summary| {{ D active = 1 }}",
 				"^ 816080008 |International Patient Summary| {{ D active = true }}");
 		assertConversionTest("^ 816080008 |International Patient Summary| {{ D active = false }}");
+		assertConversionTest("64572001 |Disease| {{ D id = 803980011 }}");
+		assertConversionTest("64572001 |Disease| {{ D id = (803980011 903980011) }}");
 
 		// Member filters
 		assertConversionTest("^ 447562003 |ICD-10 complex map reference set| {{ M mapTarget = \"J45.9\" }}");
