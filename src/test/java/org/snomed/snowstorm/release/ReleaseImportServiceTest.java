@@ -44,7 +44,7 @@ class ReleaseImportServiceTest extends AbstractTest {
     }
 
     @Test
-    void testPerformScheduledImport() throws ServiceException {
+    void testPerformScheduledImport() {
         CodeSystem cs = codeSystemService.find("SNOMEDCT");
         Assertions.assertNotNull(cs);
         Assertions.assertEquals("SNOMEDCT", cs.getShortName());

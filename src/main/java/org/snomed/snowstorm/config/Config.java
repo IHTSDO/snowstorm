@@ -310,7 +310,7 @@ public abstract class Config extends ElasticsearchConfig {
 	}
 
 	@Bean
-	public ModuleStorageCoordinator moduleStorageCoordinator(@Autowired ModuleStorageResourceConfig moduleStorageResourceConfig, @Autowired ResourceLoader cloudResourceLoader, @Value("${snowstorm.environment.shortname}") final String envShortname) {
+	public ModuleStorageCoordinator moduleStorageCoordinator(@Autowired ModuleStorageResourceConfig moduleStorageResourceConfig, @Autowired ResourceLoader cloudResourceLoader, @Value("${module.storage.environment.shortname}") final String envShortname) {
 		ResourceManager resourceManager = new ResourceManager(moduleStorageResourceConfig, cloudResourceLoader);
 		return switch (envShortname) {
 			case "prod" -> ModuleStorageCoordinator.initProd(resourceManager);
