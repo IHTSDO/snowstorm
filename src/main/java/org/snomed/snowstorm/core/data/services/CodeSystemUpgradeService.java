@@ -61,18 +61,6 @@ public class CodeSystemUpgradeService {
 	@Autowired
 	private ModuleDependencyService moduleDependencyService;
 
-	@Autowired
-	private JmsTemplate jmsTemplate;
-
-	@Value("${snowstorm.rest-api.readonly}")
-	private boolean isReadOnly;
-
-	@Value("${snowstorm.codesystem-upgrade.message.enabled}")
-	private boolean jmsMessageEnabled;
-
-	@Value("${jms.queue.prefix}")
-	private String jmsQueuePrefix;
-
 	private static final Map<String, CodeSystemUpgradeJob> upgradeJobMap = new HashMap<>();
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
@@ -222,18 +210,6 @@ public class CodeSystemUpgradeService {
 			updateBranchMetaData(branchPath, newParentVersion, extensionBranch, integrityReport.isEmpty());
 			if (job != null) {
 				job.setStatus(CodeSystemUpgradeJob.UpgradeStatus.COMPLETED);
-			}
-
-			if (jmsMessageEnabled) {
-				Map<String, String> payload = new HashMap<>();
-				payload.put("codeSystemShortName", codeSystem.getShortName());
-				payload.put("codeSystemBranchPath", codeSystem.getBranchPath());
-				payload.put(DEPENDENCY_PACKAGE, newParentVersion.getReleasePackage());
-				payload.put(DEPENDENCY_RELEASE, String.valueOf(newParentVersion.getEffectiveDate()));
-
-				String topicDestination = jmsQueuePrefix + ".upgrade.complete";
-				logger.info("Sending JMS Topic - destination {}, payload {}...", topicDestination, payload);
-				jmsTemplate.convertAndSend(new ActiveMQTopic(topicDestination), payload);
 			}
 
 			upgradedSuccessfully = true;
