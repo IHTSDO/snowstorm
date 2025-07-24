@@ -16,6 +16,7 @@ import org.snomed.snowstorm.core.data.services.*;
 import org.snomed.snowstorm.core.data.services.pojo.IntegrityIssueReport;
 import org.snomed.snowstorm.core.rf2.RF2Type;
 import org.snomed.snowstorm.core.rf2.rf2import.ImportService;
+import org.snomed.snowstorm.core.rf2.rf2import.RF2ImportConfiguration;
 import org.snomed.snowstorm.dailybuild.DailyBuildService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.ResourceLoader;
@@ -42,7 +43,9 @@ public class ReleaseImportService {
 
     private final ImportService importService;
 
-    private final ResourceManager resourceManager;
+    private final ResourceManager releaseResourceManager;
+
+    private final ResourceManager internalReleaseResourceManager;
 
     private final ModuleStorageCoordinator moduleStorageCoordinator;
 
@@ -53,20 +56,21 @@ public class ReleaseImportService {
     private final CodeSystemRepository codeSystemRepository;
 
     @Autowired
-    public ReleaseImportService(BranchService branchService, SBranchService sBranchService, IntegrityService integrityService, DailyBuildService dailyBuildService, ImportService importService, ReleaseResourceConfig releaseResourceConfig, ResourceLoader resourceLoader, ModuleStorageCoordinator moduleStorageCoordinator, CodeSystemService codeSystemService, CodeSystemUpgradeService codeSystemUpgradeService, CodeSystemRepository codeSystemRepository) {
+    public ReleaseImportService(BranchService branchService, SBranchService sBranchService, IntegrityService integrityService, DailyBuildService dailyBuildService, ImportService importService, ReleaseResourceConfig releaseResourceConfig, InternalReleaseResourceConfig internalReleaseResourceConfig, ResourceLoader resourceLoader, ModuleStorageCoordinator moduleStorageCoordinator, CodeSystemService codeSystemService, CodeSystemUpgradeService codeSystemUpgradeService, CodeSystemRepository codeSystemRepository) {
         this.branchService = branchService;
         this.sBranchService = sBranchService;
         this.integrityService = integrityService;
         this.dailyBuildService = dailyBuildService;
         this.importService = importService;
-        this.resourceManager = new ResourceManager(releaseResourceConfig, resourceLoader);
+        this.releaseResourceManager = new ResourceManager(releaseResourceConfig, resourceLoader);
+        this.internalReleaseResourceManager = new ResourceManager(internalReleaseResourceConfig, resourceLoader);
         this.moduleStorageCoordinator = moduleStorageCoordinator;
         this.codeSystemService = codeSystemService;
         this.codeSystemUpgradeService = codeSystemUpgradeService;
         this.codeSystemRepository = codeSystemRepository;
     }
 
-    public void performScheduledImport(CodeSystem codeSystem) throws ServiceException {
+    public void performScheduledImport(CodeSystem codeSystem) {
         logger.info("Start performing scheduled import for code system {}", codeSystem.getShortName());
         String branchPath = codeSystem.getBranchPath();
         Branch codeSystemBranch = branchService.findBranchOrThrow(branchPath);
@@ -74,14 +78,38 @@ public class ReleaseImportService {
             logger.info("Scheduled release import is skipped as branch {} is already locked.", branchPath);
             return;
         }
-        // check any new release package
-        String releaseFilename = getNewReleaseFilenameIfExists(codeSystem);
 
-        // perform rollback and import
-        performReleaseSnapshotImport(codeSystem, releaseFilename);
+        performInternalReleaseImport(codeSystem);
+        performPubicReleaseImport(codeSystem);
     }
 
-    private void performReleaseSnapshotImport(CodeSystem codeSystem, String releaseFilename) throws ServiceException {
+    private void performPubicReleaseImport(CodeSystem codeSystem) {
+        try {
+            logger.info("Performing public release import");
+            // check any new release package
+            String releaseFilename = getNewReleaseFilenameIfExists(this.releaseResourceManager, codeSystem);
+
+            // perform rollback and import
+            performReleaseSnapshotImport(this.releaseResourceManager, codeSystem, releaseFilename, false);
+        } catch (Exception e) {
+            logger.error("Failed to import the public release package", e);
+        }
+    }
+
+    private void performInternalReleaseImport(CodeSystem codeSystem) {
+        try {
+            logger.info("Performing internal release import");
+            // check any new release package
+            String releaseFilename = getNewReleaseFilenameIfExists(this.internalReleaseResourceManager, codeSystem);
+
+            // perform rollback and import
+            performReleaseSnapshotImport(this.internalReleaseResourceManager, codeSystem, releaseFilename, true);
+        } catch (Exception e) {
+            logger.error("Failed to import the internal release package", e);
+        }
+    }
+
+    private void performReleaseSnapshotImport(ResourceManager resourceManager, CodeSystem codeSystem, String releaseFilename, boolean internalRelease) throws ServiceException {
         if (releaseFilename == null) {
             return;
         }
@@ -106,7 +134,12 @@ public class ReleaseImportService {
             performCodeSystemUpgradeIfNeeded(codeSystem, releaseFilename, branchHeadTimestamp);
 
             logger.info("Start release import for code system {}", codeSystem.getShortName());
-            String importId = importService.createJob(RF2Type.SNAPSHOT, codeSystem.getBranchPath(), true, false);
+            RF2ImportConfiguration importConfiguration = new RF2ImportConfiguration(RF2Type.SNAPSHOT, codeSystem.getBranchPath());
+            importConfiguration.setCreateCodeSystemVersion(true);
+            importConfiguration.setInternalRelease(internalRelease);
+            importConfiguration.setClearEffectiveTimes(false);
+
+            String importId = importService.createJob(importConfiguration);
             try (InputStream releaseStream = resourceManager.readResourceStreamOrNullIfNotExists(codeSystem.getShortName() + PATH_SEPARATOR + releaseFilename)) {
                 importService.importArchive(importId, releaseStream);
             } catch (Exception e) {
@@ -159,7 +192,7 @@ public class ReleaseImportService {
         }
     }
 
-    private String getNewReleaseFilenameIfExists(CodeSystem codeSystem) {
+    private String getNewReleaseFilenameIfExists(ResourceManager resourceManager, CodeSystem codeSystem) {
         Map<Integer, String> effectiveTimeToArchiveFilenameMap = new HashMap<>();
         Set<String> releaseArchiveFilenames = resourceManager.doListFilenames(codeSystem.getShortName() + PATH_SEPARATOR);
         logger.debug("Found total release: {} for code system {}", releaseArchiveFilenames.size(), codeSystem.getShortName());
