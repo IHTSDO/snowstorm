@@ -82,7 +82,7 @@ public class ModuleDependencyService extends ComponentService {
 			membersUpdated.add(referenceSetMember.getMemberId());
 		}
 
-		LOGGER.error("{} MDRS entries prepared for new authoring cycle for {}:{}", membersUpdated.size(), branchPath, membersUpdated);
+		LOGGER.info("{} MDRS entries prepared for new authoring cycle for {}:{}", membersUpdated.size(), branchPath, membersUpdated);
 		return true;
 	}
 
@@ -127,7 +127,7 @@ public class ModuleDependencyService extends ComponentService {
 			membersUpdated.add(referenceSetMember.getMemberId());
 		}
 
-		LOGGER.error("{} MDRS entries prepared for versioning for {}:{}", membersUpdated.size(), branchPath, membersUpdated);
+		LOGGER.info("{} MDRS entries prepared for versioning for {}:{}", membersUpdated.size(), branchPath, membersUpdated);
 		return true;
 	}
 
@@ -180,7 +180,7 @@ public class ModuleDependencyService extends ComponentService {
 			membersUpdated.add(referenceSetMember.getMemberId());
 		}
 
-		LOGGER.error("{} MDRS entries prepared for upgrading for {}:{}", membersUpdated.size(), branchPath, membersUpdated);
+		LOGGER.info("{} MDRS entries prepared for upgrading for {}:{}", membersUpdated.size(), branchPath, membersUpdated);
 		return true;
 	}
 
