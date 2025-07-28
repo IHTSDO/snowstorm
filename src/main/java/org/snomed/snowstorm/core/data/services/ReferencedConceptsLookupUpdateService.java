@@ -535,7 +535,7 @@ public class ReferencedConceptsLookupUpdateService extends ComponentService impl
                         .must(termsQuery("_id", refsetMemberDeletionsToProcess))
                         .must(termQuery(REFSET_ID, refsetId))))
                 .withSourceFilter(new FetchSourceFilter(new String[]{MEMBER_ID, REFERENCED_COMPONENT_ID}, null))
-                .withPageable(Pageable.ofSize(refsetMemberDeletionsToProcess.size()))
+                .withPageable(LARGE_PAGE)
                 .build();
         SearchHits<ReferenceSetMember> referenceSetMemberSearchHits = elasticsearchOperations.search(query, ReferenceSetMember.class);
         referenceSetMemberSearchHits.forEach(hit -> referenceSetMembers.add(hit.getContent()));
