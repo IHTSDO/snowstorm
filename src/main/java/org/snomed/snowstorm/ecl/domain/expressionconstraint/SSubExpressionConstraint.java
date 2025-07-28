@@ -175,6 +175,9 @@ public class SSubExpressionConstraint extends SubExpressionConstraint implements
 		clone.setConceptId(conceptId);
 		clone.setTerm(term);
 		clone.setWildcard(wildcard);
+		clone.setAltIdentifier(altIdentifier);
+		clone.setAltIdentifierSchemeAlias(getAltIdentifierSchemeAlias());
+		clone.setAltIdentifierCode(getAltIdentifierCode());
 		clone.setNestedExpressionConstraint(nestedExpressionConstraint);
 		clone.setMemberFieldsToReturn(getMemberFieldsToReturn());
 		clone.setReturnAllMemberFields(isReturnAllMemberFields());
@@ -486,6 +489,9 @@ public class SSubExpressionConstraint extends SubExpressionConstraint implements
 		}
 		if (conceptId != null) {
 			buffer.append(conceptId);
+		}
+		if (isAltIdentifier()) {
+			buffer.append(getAltIdentifierSchemeAlias()).append("#").append(getAltIdentifierCode());
 		}
 		if (term != null) {
 			buffer.append(" |").append(term).append("|");

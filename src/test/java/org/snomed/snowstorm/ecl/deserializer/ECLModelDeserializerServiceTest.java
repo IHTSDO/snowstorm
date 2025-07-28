@@ -58,6 +58,12 @@ class ECLModelDeserializerServiceTest {
 		assertConversionTest("> *");
 		assertConversionTest(">! *");
 		assertConversionTest("^ *");
+		assertConversionTest("!!> *");
+		assertConversionTest("!!< *");
+
+		// Alt identifier
+		assertConversionTest("< LOINC#54486-6");
+
 
 		// # Attributes
 		assertConversionTest("< 19829001 |Disorder of lung| : 116676008 |Associated morphology| = 79654002 |Edema|");
