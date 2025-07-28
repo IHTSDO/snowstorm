@@ -174,6 +174,27 @@ abstract class AbstractECLQueryServiceTest {
 	}
 
 	@Test
+	void selectTop() {
+		assertEquals(
+				Sets.newHashSet(BLEEDING, PENTALOGY_OF_FALLOT),
+				strings(selectConceptIds("!!> (%s OR %s OR %s)".formatted(BLEEDING, BLEEDING_SKIN, PENTALOGY_OF_FALLOT)))
+		);
+
+		assertEquals(
+				Sets.newHashSet(CLINICAL_FINDING, BODY_STRUCTURE),
+				strings(selectConceptIds("!!> ^*"))
+		);
+	}
+
+	@Test
+	void selectBottom() {
+		assertEquals(
+				Sets.newHashSet(BLEEDING_SKIN, PENTALOGY_OF_FALLOT),
+				strings(selectConceptIds("!!< (%s OR %s OR %s)".formatted(BLEEDING, BLEEDING_SKIN, PENTALOGY_OF_FALLOT)))
+		);
+	}
+
+	@Test
 	void selectByAttributeType() {
 		assertEquals(
 				Sets.newHashSet(),

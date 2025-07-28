@@ -1,6 +1,7 @@
 package org.snomed.snowstorm.ecl;
 
 import com.google.common.collect.Sets;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -84,6 +85,19 @@ class ECLQueryServiceStatedAxiomTest extends AbstractECLQueryServiceTest {
 		// Member of any reference set
 		// All concepts with axioms are members
 		assertEquals(allConceptIds.stream().filter(id -> !id.equals(Concepts.SNOMEDCT_ROOT)).collect(Collectors.toSet()), strings(selectConceptIds("^*")));
+	}
+
+	@Test
+	void selectTop() {
+		Assertions.assertEquals(
+				Sets.newHashSet(BLEEDING, PENTALOGY_OF_FALLOT),
+				strings(selectConceptIds("!!> (%s OR %s OR %s)".formatted(BLEEDING, BLEEDING_SKIN, PENTALOGY_OF_FALLOT)))
+		);
+
+		Assertions.assertEquals(
+				Sets.newHashSet("123037004,71388002,24028007,900000000000441003,404684003,116680003".split(",")),
+				strings(selectConceptIds("!!> ^*"))
+		);
 	}
 
 	protected Collection<Long> selectConceptIds(String ecl) {

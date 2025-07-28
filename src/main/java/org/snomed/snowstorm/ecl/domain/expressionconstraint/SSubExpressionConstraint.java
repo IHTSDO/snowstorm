@@ -363,9 +363,34 @@ public class SSubExpressionConstraint extends SubExpressionConstraint implements
                                     .should(termsQuery(QueryConcept.Fields.CONCEPT_ID, conceptIds)))
                     );
             case memberOf -> {
-                // ^
+				// ^
 				return handleMemberOf(conceptIds, refinementBuilder, queryBuilder, conceptSelector, branchCriteria);
-            }
+			}
+			case top -> {
+				if (conceptIds.isEmpty()) {
+					queryBuilder.must(termQuery(QueryConcept.Fields.CONCEPT_ID, ConceptSelectorHelper.MISSING_LONG.toString()));
+				}
+				// >!!
+				// Example:
+				// - ECL: >!!(1,2,3)
+				// - Is equal to ECL: (1,2,3) MINUS < (1,2,3)
+				// - The set of concepts, minus concepts that have ancestors in the set
+				queryBuilder.must(termsQuery(QueryConcept.Fields.CONCEPT_ID, conceptIds));
+				queryBuilder.mustNot(termsQuery(QueryConcept.Fields.ANCESTORS, conceptIds));
+			}
+			case bottom -> {
+				if (conceptIds.isEmpty()) {
+					queryBuilder.must(termQuery(QueryConcept.Fields.CONCEPT_ID, ConceptSelectorHelper.MISSING_LONG.toString()));
+				}
+				// <!!
+				// Example:
+				// - ECL: <!!(1,2,3)
+				// - Is equal to ECL: (1,2,3) MINUS > (1,2,3)
+				// - The set of concepts, minus concepts that have descendants in the set
+				queryBuilder.must(termsQuery(QueryConcept.Fields.CONCEPT_ID, conceptIds));
+				queryBuilder.mustNot(termsQuery(QueryConcept.Fields.CONCEPT_ID, retrieveAllAncestors(conceptIds, branchCriteria, stated, conceptSelector)));
+			}
+            default -> throw new UnsupportedOperationException("Unsupported operator: " + operator);
         }
 		return null;
 	}
