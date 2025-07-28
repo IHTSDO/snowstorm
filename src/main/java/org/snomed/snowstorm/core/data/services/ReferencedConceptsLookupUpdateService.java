@@ -15,6 +15,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.elasticsearch.UncategorizedElasticsearchException;
 import org.springframework.data.elasticsearch.client.elc.NativeQuery;
 import org.springframework.data.elasticsearch.client.elc.NativeQueryBuilder;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
@@ -449,11 +450,11 @@ public class ReferencedConceptsLookupUpdateService extends ComponentService impl
             });
         }
         // Check deleted members
-        Set<String> memberReplaced = commit.getBranch().getVersionsReplaced().getOrDefault(ReferenceSetMember.class.getSimpleName(), new HashSet<>());
-        memberReplaced.addAll(commit.getEntityVersionsReplaced()
+        Set<String> membersReplaced = commit.getBranch().getVersionsReplaced().getOrDefault(ReferenceSetMember.class.getSimpleName(), new HashSet<>());
+        membersReplaced.addAll(commit.getEntityVersionsReplaced()
                 .getOrDefault(ReferenceSetMember.class.getSimpleName(), Collections.emptySet()));
 
-        Set<ReferenceSetMember> changedMembers = getChangedMembersFromVersionReplaced(memberReplaced, refsetId);
+        Set<ReferenceSetMember> changedMembers = getChangedMembersFromVersionReplaced(membersReplaced, refsetId);
         final AtomicInteger deletedCounter = new AtomicInteger();
         changedMembers.forEach(referenceSetMember -> {
             if (!memberIds.contains(referenceSetMember.getMemberId())) {
@@ -526,20 +527,26 @@ public class ReferencedConceptsLookupUpdateService extends ComponentService impl
     }
 
     private Set<ReferenceSetMember> getChangedMembersFromVersionReplaced(Set<String> refsetMemberDeletionsToProcess, Long refsetId) {
-        if (refsetMemberDeletionsToProcess.isEmpty()) {
-            return Collections.emptySet();
+            if (refsetMemberDeletionsToProcess.isEmpty()) {
+                return Collections.emptySet();
+            }
+            Set<ReferenceSetMember> referenceSetMembers = new HashSet<>();
+            NativeQuery query = new NativeQueryBuilder()
+                    .withQuery(bool(b -> b
+                            .must(termsQuery("_id", refsetMemberDeletionsToProcess))
+                            .must(termQuery(REFSET_ID, refsetId))))
+                    .withSourceFilter(new FetchSourceFilter(new String[]{MEMBER_ID, REFERENCED_COMPONENT_ID}, null))
+                    .withPageable(Pageable.ofSize(refsetMemberDeletionsToProcess.size()))
+                    .build();
+        try {
+            SearchHits<ReferenceSetMember> referenceSetMemberSearchHits = elasticsearchOperations.search(query, ReferenceSetMember.class);
+            referenceSetMemberSearchHits.forEach(hit -> referenceSetMembers.add(hit.getContent()));
+            return referenceSetMembers;
+        } catch (UncategorizedElasticsearchException e) {
+            String msg = "Failed to fetch deleted reference set members for refset " + refsetId;
+            logger.warn("{} via ES _id using query {}", msg, query);
+            throw new IllegalStateException(msg, e);
         }
-        Set<ReferenceSetMember> referenceSetMembers = new HashSet<>();
-        NativeQuery query = new NativeQueryBuilder()
-                .withQuery(bool(b -> b
-                        .must(termsQuery("_id", refsetMemberDeletionsToProcess))
-                        .must(termQuery(REFSET_ID, refsetId))))
-                .withSourceFilter(new FetchSourceFilter(new String[]{MEMBER_ID, REFERENCED_COMPONENT_ID}, null))
-                .withPageable(Pageable.ofSize(refsetMemberDeletionsToProcess.size()))
-                .build();
-        SearchHits<ReferenceSetMember> referenceSetMemberSearchHits = elasticsearchOperations.search(query, ReferenceSetMember.class);
-        referenceSetMemberSearchHits.forEach(hit -> referenceSetMembers.add(hit.getContent()));
-        return referenceSetMembers;
     }
 
     private Set<Long> getReferencedConceptsForRefsetId(BranchCriteria criteria, final Long refsetId) {
