@@ -3,6 +3,29 @@ All notable changes to this project will be documented in this file.
 
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 10.9.0 Release (July 2025)
+Maintenance release with bug fixes and general improvements.
+
+### Features
+- MAINT-2845 Send Branch changes to queue
+- RAP-160 Automatically download from S3 bucket to start importing CodeSystem version
+- MAINT-2739 Disable creation of CNC Inactivation Indicators per branch
+
+### Improvements
+- VAL-485 Include inferred Relationships when validating Concept
+- MAINT-2821 Add LOINC, NUVA and NPU CodeSystem configuration
+- MAINT-2901 Improve pagination logic when saving large classification results
+- PIP-854 Add Chile and Jamaica to CodeSystem configuration
+
+### Fixes
+- RAP-33 Rename ReferenceSet `AssociationReference` to `Association`
+- MAINT-2024 Allow export with null `ReferenceSetMember.moduleId` field
+- MAINT-2827 Allow import to complete when running locally
+- MAINT-2865 Remove hardcoded limit size for `memberOf` ECL query
+- MAINT-2870 Improve `memberOf` ECL query to not require `ReferencedConceptsLookup`
+- MAINT-2853 Fix logging level when updating MDRS
+- MAINT-2908 Fix the result window is too large issue when building concepts lookup during delta import
+
 ## 10.8.2 Release (May 2025)
 Maintenance release with bug fixes and general improvements.
 
