@@ -155,11 +155,10 @@ public class ControllerHelper {
 	}
 	
 	public static List<LanguageDialect> parseAcceptLanguageHeaderWithDefaultFallback(String acceptLanguageHeader) {
-		List<LanguageDialect> languageDialects = parseAcceptLanguageHeader(acceptLanguageHeader);
+		List<LanguageDialect> languageDialects = new ArrayList<>(parseAcceptLanguageHeader(acceptLanguageHeader));
 		languageDialects.addAll(DEFAULT_LANGUAGE_DIALECTS);
 		return languageDialects;
 	}
-
 
 	public static List<Pair<LanguageDialect, Double>> parseAcceptLanguageHeaderWithWeights(String acceptLanguageHeader, boolean wildcard){
 		// en-ie-x-21000220103;q=0.8,en-US;q=0.5
@@ -168,7 +167,7 @@ public class ControllerHelper {
 		if (acceptLanguageHeader == null) {
 			acceptLanguageHeader = "";
 		}
-		Double weight;
+		double weight;
 		acceptLanguageHeader = acceptLanguageHeader.replaceAll("\\s+", "");
 		String[] acceptLanguageList = acceptLanguageHeader.toLowerCase().split(",");
 		for (String acceptLanguage : acceptLanguageList) {
@@ -192,8 +191,8 @@ public class ControllerHelper {
 				languageCode = value;
 			} else {
 
-				Matcher matcher = LANGUAGE_PATTERN.matcher(value);
-				if (matcher.matches()) {
+				Matcher matcher;
+				if ((matcher = LANGUAGE_PATTERN.matcher(value)).matches()) {
 					languageCode = matcher.group(1);
 				} else if ((matcher = LANGUAGE_AND_REFSET_PATTERN.matcher(value)).matches()) {
 					languageCode = matcher.group(1);
@@ -221,7 +220,10 @@ public class ControllerHelper {
 	}
 
 	public static List<LanguageDialect> parseAcceptLanguageHeader(String acceptLanguageHeader) {
-		return parseAcceptLanguageHeaderWithWeights(acceptLanguageHeader,false).stream().map(x -> x.getLeft()).toList();
+		return parseAcceptLanguageHeaderWithWeights(acceptLanguageHeader,false)
+				.stream()
+				.map(Pair::getLeft)
+				.toList();
 	}
 
 	static void validatePageSize(long offset, int limit) {
