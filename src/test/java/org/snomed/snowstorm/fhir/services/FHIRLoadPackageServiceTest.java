@@ -7,6 +7,7 @@ import org.hl7.fhir.r4.model.ValueSet;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.snomed.snowstorm.fhir.domain.FHIRCodeSystemVersion;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
@@ -21,6 +22,8 @@ import java.util.Collections;
 import static org.junit.jupiter.api.Assertions.*;
 
 class FHIRLoadPackageServiceTest extends AbstractFHIRTest {
+
+	private static final String TEST_CODE_SYSTEM_ID = "device-status-reason-0.1.0";
 
 	@Autowired
 	private FHIRLoadPackageService service;
@@ -51,19 +54,19 @@ class FHIRLoadPackageServiceTest extends AbstractFHIRTest {
 
 	@AfterEach
 	public void testAfter() {
-		valueSetRepository.deleteById("device-status-reason");
-		codeSystemRepository.deleteById("device-status-reason");
+		valueSetRepository.deleteById(TEST_CODE_SYSTEM_ID);
+		codeSystemRepository.deleteById(TEST_CODE_SYSTEM_ID);
 	}
 
 	@Test
 	void uploadPackageResources() throws IOException {
-		assertFalse(codeSystemRepository.findById("device-status-reason").isPresent());
-		assertFalse(valueSetRepository.findById("device-status-reason").isPresent());
+		assertFalse(codeSystemRepository.findById(TEST_CODE_SYSTEM_ID).isPresent());
+		assertFalse(valueSetRepository.findById(TEST_CODE_SYSTEM_ID).isPresent());
 
 		service.uploadPackageResources(packageFile, Collections.singleton("*"), packageFile.getName(), true);
 
-		assertTrue(codeSystemRepository.findById("device-status-reason").isPresent());
-		assertTrue(valueSetRepository.findById("device-status-reason").isPresent());
+		assertTrue(codeSystemRepository.findById("device-status-reason-0.1.0").isPresent());
+		assertNotNull(codeSystemRepository.findByUrlAndVersion("http://terminology.hl7.org/CodeSystem/device-status-reason", "0.1.0"));
 
 		// Expand imported implicit value set, that includes codes from imported code system
 		//
