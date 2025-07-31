@@ -7,6 +7,7 @@ import org.hl7.fhir.r4.model.ValueSet;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.snomed.snowstorm.fhir.domain.FHIRCodeSystemVersion;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
@@ -62,8 +63,8 @@ class FHIRLoadPackageServiceTest extends AbstractFHIRTest {
 
 		service.uploadPackageResources(packageFile, Collections.singleton("*"), packageFile.getName(), true);
 
-		assertTrue(codeSystemRepository.findById("device-status-reason").isPresent());
-		assertTrue(valueSetRepository.findById("device-status-reason").isPresent());
+		assertTrue(codeSystemRepository.findById("device-status-reason-0.1.0").isPresent());
+		assertNotNull(codeSystemRepository.findByUrlAndVersion("http://terminology.hl7.org/CodeSystem/device-status-reason", "0.1.0"));
 
 		// Expand imported implicit value set, that includes codes from imported code system
 		//
