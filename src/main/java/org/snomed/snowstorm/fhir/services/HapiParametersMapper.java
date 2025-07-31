@@ -1,7 +1,10 @@
 package org.snomed.snowstorm.fhir.services;
 
 import org.hl7.fhir.r4.model.*;
-import org.snomed.snowstorm.core.data.domain.*;
+import org.snomed.snowstorm.core.data.domain.Concept;
+import org.snomed.snowstorm.core.data.domain.Concepts;
+import org.snomed.snowstorm.core.data.domain.Description;
+import org.snomed.snowstorm.core.data.domain.Relationship;
 import org.snomed.snowstorm.core.data.domain.expression.Expression;
 import org.snomed.snowstorm.core.data.services.ExpressionService;
 import org.snomed.snowstorm.core.pojo.LanguageDialect;
@@ -73,7 +76,7 @@ public class HapiParametersMapper implements FHIRConstants {
 	public Parameters conceptNotFound(String code, FHIRCodeSystemVersion codeSystemVersion, String message) {
 		Parameters parameters = new Parameters();
 		parameters.addParameter("result", false);
-		parameters.addParameter("code", code);
+		parameters.addParameter("code", new CodeType(code));
 		addSystemAndVersion(parameters, codeSystemVersion);
 
 		parameters.addParameter("message", message);
@@ -84,7 +87,7 @@ public class HapiParametersMapper implements FHIRConstants {
 			Set<FhirSctProperty> properties, List<LanguageDialect> designations) {
 
 		Parameters parameters = new Parameters();
-		parameters.addParameter("code", concept.getConceptId());
+		parameters.addParameter("code", new CodeType(concept.getConceptId()));
 		parameters.addParameter("display", fhirHelper.getPreferredTerm(concept, designations));
 		parameters.addParameter("name", codeSystem.getTitle());
 		addSystemAndVersion(parameters, codeSystem);
@@ -143,7 +146,7 @@ public class HapiParametersMapper implements FHIRConstants {
 	public Parameters validateCodeResponse(FHIRConcept concept, boolean displayValidOrNull, FHIRCodeSystemVersion codeSystemVersion) {
 		Parameters parameters = new Parameters();
 		parameters.addParameter("result", displayValidOrNull);
-		parameters.addParameter("code", concept.getCode());
+		parameters.addParameter("code", new CodeType(concept.getCode()));
 		addSystemAndVersion(parameters, codeSystemVersion);
 		if (!displayValidOrNull) {
 			parameters.addParameter("message", "The code exists but the display is not valid.");
@@ -221,7 +224,7 @@ public class HapiParametersMapper implements FHIRConstants {
 
 	private Parameters.ParametersParameterComponent createProperty(StringType propertyName, Object propertyValue, boolean isCode) {
 		Parameters.ParametersParameterComponent property = new Parameters.ParametersParameterComponent().setName(PROPERTY);
-		property.addPart().setName(CODE).setValue(propertyName);
+		property.addPart().setName(CODE).setValue(new CodeType(propertyName.toString()));
 		final String propertyValueString = propertyValue == null ? "" : propertyValue.toString();
 		if (isCode) {
 			property.addPart().setName(VALUE).setValue(new CodeType(propertyValueString));
