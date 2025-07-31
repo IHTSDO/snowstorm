@@ -82,7 +82,7 @@ public abstract class Config extends ElasticsearchConfig {
 	public static final List<String> DEFAULT_LANGUAGE_CODES = Collections.singletonList(DEFAULT_LANGUAGE_CODE);
 
 	public static final String DEFAULT_ACCEPT_LANG_HEADER = "en-X-" + Concepts.US_EN_LANG_REFSET + ",en-X-" + Concepts.GB_EN_LANG_REFSET + ",en";
-	public static final List<LanguageDialect> DEFAULT_LANGUAGE_DIALECTS = Lists.newArrayList(
+	public static final List<LanguageDialect> DEFAULT_LANGUAGE_DIALECTS = List.of(
 			new LanguageDialect("en", parseLong(Concepts.US_EN_LANG_REFSET)),
 			new LanguageDialect("en", parseLong(Concepts.GB_EN_LANG_REFSET)),
 			new LanguageDialect("en", null)
