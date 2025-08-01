@@ -2,6 +2,7 @@ package org.snomed.snowstorm.core.data.services;
 
 import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.domain.Branch;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.snomed.snowstorm.AbstractTest;
@@ -9,15 +10,15 @@ import org.snomed.snowstorm.config.Config;
 import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.domain.review.MergeReview;
 import org.snomed.snowstorm.core.data.domain.review.MergeReviewConceptVersions;
+import org.snomed.snowstorm.core.data.services.pojo.CodeSystemUpgradeJob;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
 
 import java.util.*;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.*;
 import static org.snomed.snowstorm.core.data.domain.Concepts.*;
 import static org.snomed.snowstorm.core.data.domain.review.ReviewStatus.PENDING;
-import static org.snomed.snowstorm.core.data.services.CodeSystemService.SNOMEDCT;
 
 @ExtendWith(SpringExtension.class)
 class CodeSystemUpgradeServiceTest extends AbstractTest {
@@ -37,21 +38,33 @@ class CodeSystemUpgradeServiceTest extends AbstractTest {
     private CodeSystemUpgradeService codeSystemUpgradeService;
 
     @Autowired
+    private ReferenceSetMemberService referenceSetMemberService;
+
+    @Autowired
     private CodeSystemService codeSystemService;
 
-    @Test
-    void testNoDuplicateCNCMembersCreatedAfterUpgrade() throws ServiceException, InterruptedException {
+    @Autowired
+    private ModuleDependencyService moduleDependencyService;
+
+    private CodeSystem MAIN;
+    private CodeSystem extension;
+    private CodeSystem LOINC;
+
+    @BeforeEach
+    void setup() {
+        MAIN = new CodeSystem("SNOMEDCT", "MAIN");
+        codeSystemService.createCodeSystem(MAIN);
+    }
+
+
+        @Test
+        void testNoDuplicateCNCMembersCreatedAfterUpgrade() throws ServiceException, InterruptedException {
         String intMain = "MAIN";
         String extMain = "MAIN/SNOMEDCT-XX";
         Map<String, String> intPreferred = Map.of(US_EN_LANG_REFSET, descriptionAcceptabilityNames.get(PREFERRED), GB_EN_LANG_REFSET, descriptionAcceptabilityNames.get(PREFERRED));
         Map<String, String> intAcceptable = Map.of(US_EN_LANG_REFSET, descriptionAcceptabilityNames.get(PREFERRED), GB_EN_LANG_REFSET, descriptionAcceptabilityNames.get(ACCEPTABLE));
         String ci = "CASE_INSENSITIVE";
         Concept concept;
-        CodeSystem codeSystem;
-
-        // Create International CodeSystem
-        codeSystemService.createCodeSystem(new CodeSystem(SNOMEDCT, Branch.MAIN));
-
         // Create root Concept
         conceptService.create(new Concept(Concepts.SNOMEDCT_ROOT), Branch.MAIN);
 
@@ -64,11 +77,10 @@ class CodeSystemUpgradeServiceTest extends AbstractTest {
         String vehicleId = concept.getConceptId();
 
         // Version International
-        codeSystem = codeSystemService.find("SNOMEDCT");
-        codeSystemService.createVersion(codeSystem, 20220131, "20220131");
+        codeSystemService.createVersion(MAIN, 20220131, "20220131");
 
         // Create Extension
-        codeSystemService.createCodeSystem(new CodeSystem("SNOMEDCT-XX", extMain));
+        CodeSystem extension = codeSystemService.createCodeSystem(new CodeSystem("SNOMEDCT-XX", extMain));
         concept = conceptService.create(
                 new Concept()
                         .addDescription(new Description("Extension default module").setTypeId(FSN).setCaseSignificance(ci).setAcceptabilityMap(intPreferred))
@@ -109,12 +121,10 @@ class CodeSystemUpgradeServiceTest extends AbstractTest {
         conceptService.update(concept, intMain);
 
         // Version International for February
-        codeSystem = codeSystemService.find("SNOMEDCT");
-        codeSystemService.createVersion(codeSystem, 20220228, "20220228");
+        codeSystemService.createVersion(MAIN, 20220228, "20220228");
 
         // Upgrade Extension to use February
-        codeSystem = codeSystemService.find("SNOMEDCT-XX");
-        codeSystemUpgradeService.upgrade(null, codeSystem, 20220228, true);
+        codeSystemUpgradeService.upgrade(null, extension, 20220228, true);
 
         // Rebase Extension project
         MergeReview review = getMergeReviewInCurrentState(extMain, extProject);
@@ -142,12 +152,10 @@ class CodeSystemUpgradeServiceTest extends AbstractTest {
         assertEquals(1, mapCNCByTerm.get("Car").size());
 
         // Version International for March
-        codeSystem = codeSystemService.find("SNOMEDCT");
-        codeSystemService.createVersion(codeSystem, 20220331, "20220331");
+        codeSystemService.createVersion(MAIN, 20220331, "20220331");
 
         // Upgrade Extension to use March
-        codeSystem = codeSystemService.find("SNOMEDCT-XX");
-        codeSystemUpgradeService.upgrade(null, codeSystem, 20220331, true);
+        codeSystemUpgradeService.upgrade(null, extension, 20220331, true);
 
         // Assert CNC on Extension
         concept = conceptService.find(vehicleId, extMain);
@@ -157,6 +165,117 @@ class CodeSystemUpgradeServiceTest extends AbstractTest {
         assertEquals(1, mapCNCByTerm.get("Vehicle").size());
         assertEquals(1, mapCNCByTerm.get("Vehicle (vehicle)").size());
         assertEquals(1, mapCNCByTerm.get("Car").size());
+    }
+
+    @Test
+    void upgradeAllowed_whenAllDependenciesCompatible() throws ServiceException {
+        setUpAdditionalDependencies();
+        // Version MAIN
+        codeSystemService.createVersion(MAIN, 20250101, "International Jan 2025");
+        // Upgrade LOINC to 20250101 and version
+        codeSystemUpgradeService.upgrade(null, LOINC, 20250101, true);
+        codeSystemService.createVersion(LOINC, 20250201, "LOINC Jan 2025");
+        CodeSystemUpgradeJob job = new CodeSystemUpgradeJob(extension.getShortName(), 20250101);
+        assertDoesNotThrow(() -> codeSystemUpgradeService.preUpgradeChecks(extension, 20250101, job));
+    }
+
+    @Test
+    void upgradeBlocked_whenMissingAdditionalDependency() {
+        setUpAdditionalDependencies();
+        // Version MAIN
+        codeSystemService.createVersion(MAIN, 20250101, "International Jan 2025");
+        // Upgrade should be blocked
+        CodeSystemUpgradeJob job = new CodeSystemUpgradeJob(extension.getShortName(), 20250101);
+        IllegalStateException ex = assertThrows(IllegalStateException.class,
+                () -> codeSystemUpgradeService.preUpgradeChecks(extension, 20250101, job));
+        String expected = "Upgrade blocked: The following dependent code system does not have a release based on the requested International version (20250101): SNOMEDCT-LOINC.";
+        assertEquals(expected, ex.getMessage());
+    }
+
+    @Test
+    void upgradeBlocked_withRecommendation() throws ServiceException {
+       setUpAdditionalDependencies();
+        // Version MAIN
+        codeSystemService.createVersion(MAIN, 20250101, "International Jan 2025");
+
+        codeSystemService.createVersion(MAIN, 20250201, "International Feb 2025");
+        // Upgrade LOINC to 20250201 and version
+        codeSystemUpgradeService.upgrade(null, LOINC, 20250201, true);
+        codeSystemService.createVersion(LOINC, 20250301, "LOINC March 2025");
+
+        CodeSystemUpgradeJob job = new CodeSystemUpgradeJob(extension.getShortName(), 20250101);
+        IllegalStateException ex = assertThrows(IllegalStateException.class,
+                () -> codeSystemUpgradeService.preUpgradeChecks(extension, 20250101, job));
+        String expected = "The requested International version (20250101) is not compatible with all additional dependencies." +
+                " However you could try upgrading to 20250201 which is compatible with all dependencies.";
+        assertEquals(expected, ex.getMessage());
+    }
+
+    @Test
+    void upgradeAllowed_whenNoAdditionalDependencies() {
+        // Version MAIN for 20241101
+        codeSystemService.createVersion(MAIN, 20241101, "International 20241101");        // Setup: Extension only depends on International (no additional dependencies)
+        CodeSystem simpleExtension = new CodeSystem("SNOMEDCT-SIMPLE", "MAIN/SNOMEDCT-SIMPLE");
+        simpleExtension.setDependantVersionEffectiveTime(20241101);
+        codeSystemService.createCodeSystem(simpleExtension);
+        createMDRS("22020000206", "MAIN/SNOMEDCT-SIMPLE", CORE_MODULE, "20241101");
+
+        // Version MAIN
+        codeSystemService.createVersion(MAIN, 20250101, "International Jan 2025");
+
+        CodeSystemUpgradeJob job = new CodeSystemUpgradeJob(simpleExtension.getShortName(), 20250101);
+        assertDoesNotThrow(() -> codeSystemUpgradeService.preUpgradeChecks(simpleExtension, 20250101, job));
+    }
+
+    @Test
+    void upgradeBlocked_withMultipleAdditionalDependencies() throws ServiceException {
+        setUpAdditionalDependencies();
+        
+        // Create a third dependency
+        CodeSystem thirdDep = new CodeSystem("SNOMEDCT-THIRD", "MAIN/SNOMEDCT-THIRD");
+        codeSystemService.createCodeSystem(thirdDep);
+        createMDRS("33030000309", "MAIN/SNOMEDCT-THIRD", CORE_MODULE, "20241101");
+        
+        // Create version for third dependency that is NOT compatible with 20250101
+        // This version depends on 20241201, not 20250101
+        codeSystemService.createVersion(thirdDep, 20241201, "SNOMEDCT-THIRD 20241201");
+        
+        // Add third dependency to extension
+        createMDRS("22020000206", "MAIN/SNOMEDCT-EXT", "33030000309", "20241201");
+
+        // Version MAIN
+        codeSystemService.createVersion(MAIN, 20250101, "International Jan 2025");
+
+        // Only upgrade LOINC to 20250101, leave third dependency incompatible
+        codeSystemUpgradeService.upgrade(null, LOINC, 20250101, true);
+        codeSystemService.createVersion(LOINC, 20250201, "LOINC Jan 2025");
+
+        // Now try to upgrade extension to 20250101 - should fail because third dependency is not compatible
+        CodeSystemUpgradeJob job = new CodeSystemUpgradeJob(extension.getShortName(), 20250101);
+        IllegalStateException ex = assertThrows(IllegalStateException.class,
+                () -> codeSystemUpgradeService.preUpgradeChecks(extension, 20250101, job));
+
+        String expected = "Upgrade blocked: The following dependent code system does not have a release based on the requested International version (20250101): SNOMEDCT-THIRD.";
+        assertEquals(expected, ex.getMessage());
+    }
+
+    private void setUpAdditionalDependencies() {
+        createMDRS(CORE_MODULE, MAIN.getBranchPath(), MODEL_MODULE, null);
+        codeSystemService.createVersion(MAIN, 20241101, "International November release 2024");
+
+        // Create Additional code system and version
+        LOINC = new CodeSystem("SNOMEDCT-LOINC", "MAIN/SNOMEDCT-LOINC");
+        codeSystemService.createCodeSystem(LOINC);
+        createMDRS("11010000107", "MAIN/SNOMEDCT-LOINC", CORE_MODULE, "20241101");
+        codeSystemService.createVersion(LOINC, 20241201, "LOINC December 2024");
+
+        // Create Extension code system
+        extension = new CodeSystem("SNOMEDCT-EXT", "MAIN/SNOMEDCT-EXT");
+        extension.setDependantVersionEffectiveTime(20241101);
+        codeSystemService.createCodeSystem(extension);
+        createMDRS("22020000206", "MAIN/SNOMEDCT-EXT", CORE_MODULE, "20241101");
+        // Additional dependency on LOINC module
+        createMDRS("22020000206", "MAIN/SNOMEDCT-EXT", "11010000107", "20241201");
     }
 
     private void inactivate(Concept concept, String inactivationIndicator) {
@@ -193,5 +312,20 @@ class CodeSystemUpgradeServiceTest extends AbstractTest {
             cumulativeWait++;
         }
         return review;
+    }
+
+    private void createMDRS(String moduleId, String branchPath, String referencedComponentId, String targetEffectiveTime) {
+        ReferenceSetMember mdrs = new ReferenceSetMember();
+        mdrs.setModuleId(moduleId);
+        mdrs.setReferencedComponentId(referencedComponentId);
+        mdrs.setActive(true);
+        mdrs.setRefsetId(Concepts.MODULE_DEPENDENCY_REFERENCE_SET);
+        mdrs.setAdditionalField(ReferenceSetMember.MDRSFields.SOURCE_EFFECTIVE_TIME, "");
+        if (targetEffectiveTime != null) {
+            mdrs.setAdditionalField(ReferenceSetMember.MDRSFields.TARGET_EFFECTIVE_TIME, targetEffectiveTime);
+        } else {
+            mdrs.setAdditionalField(ReferenceSetMember.MDRSFields.TARGET_EFFECTIVE_TIME, "");
+        }
+        referenceSetMemberService.createMember(branchPath, mdrs);
     }
 }
