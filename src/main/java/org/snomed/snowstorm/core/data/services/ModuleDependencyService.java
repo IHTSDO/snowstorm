@@ -15,10 +15,12 @@ import org.springframework.data.elasticsearch.core.SearchHitsIterator;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
+import java.util.stream.Collectors;
 
 import static co.elastic.clients.elasticsearch._types.query_dsl.QueryBuilders.bool;
 import static io.kaicode.elasticvc.helper.QueryHelper.*;
 import static io.kaicode.elasticvc.helper.QueryHelper.termQuery;
+import static org.snomed.snowstorm.core.data.domain.SnomedComponent.Fields.ACTIVE;
 import static org.snomed.snowstorm.core.data.domain.SnomedComponent.Fields.START;
 
 @Service
@@ -241,5 +243,38 @@ public class ModuleDependencyService extends ComponentService {
 			);
 		}
 		return results;
+	}
+
+	/**
+	 * Returns the set of all dependency code systems
+	 */
+	public Set<CodeSystem> getAllDependentCodeSystems(CodeSystem codeSystem) {
+		BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(codeSystem.getBranchPath());
+		Set<ReferenceSetMember> allMdrsMembers = fetchMdrsMembers(branchCriteria);
+		Set<String> moduleIds = allMdrsMembers.stream().map(ReferenceSetMember::getReferencedComponentId).collect(Collectors.toSet());
+		Map<String, String> codeSystemBranchByModuleId = getCodeSystemBranchByModuleId(moduleIds);
+		Set<CodeSystem> results = new HashSet<>();
+		codeSystemBranchByModuleId.values().forEach(codeSystemBranch -> {
+			CodeSystem cs = codeSystemService.findClosestCodeSystemUsingAnyBranch(codeSystemBranch, false);
+			results.add(cs);
+		});
+		return results;
+	}
+
+
+	public Set<ReferenceSetMember> fetchMdrsMembers(BranchCriteria criteria) {
+		Set<ReferenceSetMember> members = new HashSet<>();
+		try (var searchResults = elasticsearchOperations.searchForStream(
+				new NativeQueryBuilder()
+						.withQuery(bool(b -> b
+								.must(criteria.getEntityBranchCriteria(ReferenceSetMember.class))
+								.must(termQuery(ACTIVE, true))
+								.must(termQuery(ReferenceSetMember.Fields.REFSET_ID, Concepts.MODULE_DEPENDENCY_REFERENCE_SET)))
+						)
+						.withPageable(LARGE_PAGE)
+						.build(), ReferenceSetMember.class)) {
+			searchResults.forEachRemaining(hit -> members.add(hit.getContent()));
+		}
+		return members;
 	}
 }

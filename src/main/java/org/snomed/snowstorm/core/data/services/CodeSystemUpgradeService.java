@@ -21,6 +21,7 @@ import org.springframework.stereotype.Service;
 import java.util.*;
 import java.util.Map.Entry;
 import java.util.concurrent.ExecutorService;
+import java.util.stream.Collectors;
 
 import static org.snomed.snowstorm.core.data.services.BranchMetadataHelper.INTERNAL_METADATA_KEY;
 import static org.snomed.snowstorm.core.data.services.BranchMetadataKeys.DEPENDENCY_PACKAGE;
@@ -57,6 +58,9 @@ public class CodeSystemUpgradeService {
 
 	@Autowired
 	private ModuleDependencyService moduleDependencyService;
+
+	@Autowired
+	private CodeSystemVersionService codeSystemVersionService;
 
 	private static final Map<String, CodeSystemUpgradeJob> upgradeJobMap = new HashMap<>();
 
@@ -130,45 +134,8 @@ public class CodeSystemUpgradeService {
 		if (id != null) {
 			job = getJob(id);
 		}
-		// Pre checks
-		String branchPath = codeSystem.getBranchPath();
-		String parentPath = PathUtil.getParentPath(branchPath);
-		if (parentPath == null) {
-			String errorMessage = "The root Code System can not be upgraded.";
-			if (job != null) {
-				job.setStatus(CodeSystemUpgradeJob.UpgradeStatus.FAILED);
-				job.setErrorMessage(errorMessage);
-			}
-			throw new IllegalArgumentException(errorMessage);
-		}
-		if (codeSystem.getDependantVersionEffectiveTime() != null && newDependantVersion.compareTo(codeSystem.getDependantVersionEffectiveTime()) <= 0) {
-			String errorMessage = "The new dependant version must be after the current dependant version.";
-			if (job != null) {
-				job.setStatus(CodeSystemUpgradeJob.UpgradeStatus.FAILED);
-				job.setErrorMessage(errorMessage);
-			}
-			throw new IllegalStateException(errorMessage);
-		}
-		CodeSystem parentCodeSystem = codeSystemService.findOneByBranchPath(parentPath);
-		if (parentCodeSystem == null) {
-			String errorMessage = String.format("The Code System to be upgraded must be on a branch which is the direct child of another Code System. " +
-					"There is no Code System on parent branch '%s'.", parentPath);
-			if (job != null) {
-				job.setStatus(CodeSystemUpgradeJob.UpgradeStatus.FAILED);
-				job.setErrorMessage(errorMessage);
-			}
-			throw new IllegalStateException(errorMessage);
-		}
-		CodeSystemVersion newParentVersion = codeSystemService.findVersion(parentCodeSystem.getShortName(), newDependantVersion);
-		if (newParentVersion == null) {
-			String errorMessage = String.format("Parent Code System %s has no version with effectiveTime '%s'.", parentCodeSystem.getShortName(), newDependantVersion);
-			if (job != null) {
-				job.setStatus(CodeSystemUpgradeJob.UpgradeStatus.FAILED);
-				job.setErrorMessage(errorMessage);
-			}
-			throw new IllegalArgumentException(errorMessage);
-		}
-		// Checks complete
+		// preUpgrade checks
+		UpgradePreCheckResult result = preUpgradeChecks(codeSystem, newDependantVersion, job);
 
 		// Disable daily build during upgrade
 		boolean dailyBuildAvailable = codeSystem.isDailyBuildAvailable();
@@ -182,10 +149,15 @@ public class CodeSystemUpgradeService {
 			dailyBuildService.rollbackDailyBuildContent(codeSystem);
 		}
 		boolean upgradedSuccessfully = false;
+		String branchPath = codeSystem.getBranchPath();
 		try {
+			CodeSystemVersion newParentVersion = result.getNewParentVersion();
 			Branch newParentVersionBranch = branchService.findLatest(newParentVersion.getBranchPath());
 			Date newParentBaseTimepoint = newParentVersionBranch.getBase();
-			logger.info("Running upgrade of {} to {} version {}.", codeSystem, parentCodeSystem, newDependantVersion);
+			logger.info("Running upgrade of {} to {} version {}.", codeSystem, result.getParentCodeSystem(), newDependantVersion);
+
+			String parentPath = result.getParentCodeSystem().getBranchPath();
+			CodeSystem parentCodeSystem = result.getParentCodeSystem();
 			branchMergeService.rebaseToSpecificTimepointAndRemoveDuplicateContent(parentPath, newParentBaseTimepoint, branchPath, String.format("Upgrading extension to %s@%s.", parentPath, newParentVersion.getVersion()));
 			logger.info("Completed rebase of {} to {} version {}.", codeSystem, parentCodeSystem, newDependantVersion);
 
@@ -226,6 +198,142 @@ public class CodeSystemUpgradeService {
 			}
 
 			logger.info("Upgrade {} on {}", upgradedSuccessfully?"completed":"unsuccessful", branchPath);
+		}
+	}
+
+
+	UpgradePreCheckResult preUpgradeChecks(CodeSystem codeSystem, Integer newDependantVersion, CodeSystemUpgradeJob job) {
+		String branchPath = codeSystem.getBranchPath();
+		String parentPath = PathUtil.getParentPath(branchPath);
+		if (parentPath == null) {
+			String errorMessage = "The root Code System can not be upgraded.";
+			if (job != null) {
+				job.setStatus(CodeSystemUpgradeJob.UpgradeStatus.FAILED);
+				job.setErrorMessage(errorMessage);
+			}
+			throw new IllegalArgumentException(errorMessage);
+		}
+		if (codeSystem.getDependantVersionEffectiveTime() != null && newDependantVersion.compareTo(codeSystem.getDependantVersionEffectiveTime()) <= 0) {
+			String errorMessage = "The new dependant version must be after the current dependant version.";
+			if (job != null) {
+				job.setStatus(CodeSystemUpgradeJob.UpgradeStatus.FAILED);
+				job.setErrorMessage(errorMessage);
+			}
+			throw new IllegalStateException(errorMessage);
+		}
+		CodeSystem parentCodeSystem = codeSystemService.findOneByBranchPath(parentPath);
+		if (parentCodeSystem == null) {
+			String errorMessage = String.format("The Code System to be upgraded must be on a branch which is the direct child of another Code System. " +
+					"There is no Code System on parent branch '%s'.", parentPath);
+			if (job != null) {
+				job.setStatus(CodeSystemUpgradeJob.UpgradeStatus.FAILED);
+				job.setErrorMessage(errorMessage);
+			}
+			throw new IllegalStateException(errorMessage);
+		}
+		CodeSystemVersion newParentVersion = codeSystemService.findVersion(parentCodeSystem.getShortName(), newDependantVersion);
+		if (newParentVersion == null) {
+			String errorMessage = String.format("Parent Code System %s has no version with effectiveTime '%s'.", parentCodeSystem.getShortName(), newDependantVersion);
+			if (job != null) {
+				job.setStatus(CodeSystemUpgradeJob.UpgradeStatus.FAILED);
+				job.setErrorMessage(errorMessage);
+			}
+			throw new IllegalArgumentException(errorMessage);
+		}
+		// Additional dependency checks
+		performAdditionalDependencyCheck(codeSystem, newDependantVersion, job, parentCodeSystem);
+		return new UpgradePreCheckResult(newParentVersion, parentCodeSystem);
+	}
+
+	private void performAdditionalDependencyCheck(CodeSystem codeSystem, Integer newDependantVersion, CodeSystemUpgradeJob job, CodeSystem parentCodeSystem) {
+		// Get additional dependencies directly using the existing method
+		Set<CodeSystem> dependentCodeSystems = moduleDependencyService.getAllDependentCodeSystems(codeSystem);
+		Set<CodeSystem> additionalCodeSystems = dependentCodeSystems.stream().filter(additional -> !additional.equals(parentCodeSystem)).collect(Collectors.toSet());
+		
+		List<String> missingDeps = new ArrayList<>();
+		Integer currentDependantVersion = codeSystem.getDependantVersionEffectiveTime();
+		Map<CodeSystem, Set<Integer>> possibleUpgradeVersions = new HashMap<>();
+
+		for (CodeSystem additional : additionalCodeSystems) {
+			List<CodeSystemVersion> depVersions = codeSystemService.findAllVersions(additional.getShortName(), true, true);
+			depVersions.forEach(codeSystemVersionService::populateDependantVersion);
+
+			depVersions.stream()
+					.map(CodeSystemVersion::getDependantVersionEffectiveTime)
+					.filter(Objects::nonNull)
+					.forEach(depIntVersion -> {
+						if (currentDependantVersion == null || depIntVersion > currentDependantVersion) {
+							possibleUpgradeVersions.computeIfAbsent(additional, k -> new HashSet<>()).add(depIntVersion);
+						}
+					});
+
+			boolean foundCompatible = depVersions.stream()
+					.map(CodeSystemVersion::getDependantVersionEffectiveTime)
+					.anyMatch(depIntVersion -> depIntVersion != null && depIntVersion.equals(newDependantVersion));
+
+			if (!foundCompatible) {
+				missingDeps.add(additional.getShortName());
+			}
+		}
+
+		if (!missingDeps.isEmpty()) {
+			// Check if there are any versionsToRecommend
+			Set<Integer> versionsToRecommend = findCommonVersions(additionalCodeSystems, possibleUpgradeVersions);
+			if (versionsToRecommend.isEmpty()) {
+				throwUpgradeBlockedException(newDependantVersion, missingDeps, job);
+			} else {
+				recommendCompatibleVersion(newDependantVersion, versionsToRecommend, additionalCodeSystems, job);
+			}
+		}
+	}
+
+
+	Set<Integer> findCommonVersions(Set<CodeSystem> additionalCodeSystems, Map<CodeSystem, Set<Integer>> possibleUpgradeVersions) {
+		Set<Integer> common = new HashSet<>();
+		if (!possibleUpgradeVersions.keySet().containsAll(additionalCodeSystems)) {
+			return common;
+		}
+		for (Set<Integer> versions : possibleUpgradeVersions.values()) {
+			if (common.isEmpty()) {
+				common.addAll(versions);
+			} else {
+				common.retainAll(versions);
+			}
+			if (common.isEmpty()) {
+				break;
+			}
+		}
+		return common;
+	}
+
+	private void throwUpgradeBlockedException(Integer newDependantVersion, List<String> missingDeps, CodeSystemUpgradeJob job) {
+		String errorMessage = "Upgrade blocked: The following dependent code system does not have a release based on the requested International version ("
+				+ newDependantVersion + "): " + String.join(", ", missingDeps) + ".";
+		if (job != null) {
+			job.setStatus(CodeSystemUpgradeJob.UpgradeStatus.FAILED);
+			job.setErrorMessage(errorMessage);
+		}
+		throw new IllegalStateException(errorMessage);
+	}
+
+	private void recommendCompatibleVersion(Integer newDependantVersion, Set<Integer> possibleUpgradeVersions, Set<CodeSystem> additionalCodeSystems, CodeSystemUpgradeJob job) {
+		for (Integer possibleVersion : possibleUpgradeVersions) {
+			boolean compatible = additionalCodeSystems.stream().allMatch(additional -> {
+				List<CodeSystemVersion> depVersions = codeSystemService.findAllVersions(additional.getShortName(), true, true);
+				depVersions.forEach(codeSystemVersionService::populateDependantVersion);
+				return depVersions.stream()
+						.map(CodeSystemVersion::getDependantVersionEffectiveTime)
+						.anyMatch(depIntVersion -> depIntVersion != null && depIntVersion.equals(possibleVersion));
+			});
+			if (compatible) {
+				String errorMessage = "The requested International version (" + newDependantVersion +
+						") is not compatible with all additional dependencies. However you could try upgrading to " + possibleVersion + " which is compatible with all dependencies.";
+				if (job != null) {
+					job.setStatus(CodeSystemUpgradeJob.UpgradeStatus.FAILED);
+					job.setErrorMessage(errorMessage);
+				}
+				throw new IllegalStateException(errorMessage);
+			}
 		}
 	}
 
@@ -271,4 +379,14 @@ public class CodeSystemUpgradeService {
 			}
 		}
 	}
+
+	record UpgradePreCheckResult(CodeSystemVersion newParentVersion, CodeSystem parentCodeSystem) {
+    public CodeSystemVersion getNewParentVersion() {
+        return newParentVersion;
+    }
+
+    public CodeSystem getParentCodeSystem() {
+        return parentCodeSystem;
+    }
+}
 }
