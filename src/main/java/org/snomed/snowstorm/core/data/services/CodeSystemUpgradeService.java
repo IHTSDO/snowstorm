@@ -306,9 +306,10 @@ public class CodeSystemUpgradeService {
 		return common;
 	}
 
-	private void throwUpgradeBlockedException(Integer newDependantVersion, List<String> missingDeps, CodeSystemUpgradeJob job) {
-		String errorMessage = "Upgrade blocked: The following dependent code system does not have a release based on the requested International version ("
-				+ newDependantVersion + "): " + String.join(", ", missingDeps) + ".";
+	private void throwUpgradeBlockedException(Integer newDependantVersion, List<String> missingDependencyCodeSystems, CodeSystemUpgradeJob job) {
+		String errorMessage = String.format("No compatible release found for dependent code system %s with the requested International version %s." +
+						" Please wait for a compatible release before proceeding.",
+				String.join(", ", missingDependencyCodeSystems), newDependantVersion);
 		if (job != null) {
 			job.setStatus(CodeSystemUpgradeJob.UpgradeStatus.FAILED);
 			job.setErrorMessage(errorMessage);
@@ -326,8 +327,8 @@ public class CodeSystemUpgradeService {
 						.anyMatch(depIntVersion -> depIntVersion != null && depIntVersion.equals(possibleVersion));
 			});
 			if (compatible) {
-				String errorMessage = "The requested International version (" + newDependantVersion +
-						") is not compatible with all additional dependencies. However you could try upgrading to " + possibleVersion + " which is compatible with all dependencies.";
+				String errorMessage = String.format("Version %s of the International release isn’t compatible with all additional dependencies. " +
+						"Try upgrading to %s, which is fully compatible.", newDependantVersion, possibleVersion);
 				if (job != null) {
 					job.setStatus(CodeSystemUpgradeJob.UpgradeStatus.FAILED);
 					job.setErrorMessage(errorMessage);

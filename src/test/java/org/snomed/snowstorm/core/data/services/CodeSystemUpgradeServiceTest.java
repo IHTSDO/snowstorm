@@ -43,9 +43,6 @@ class CodeSystemUpgradeServiceTest extends AbstractTest {
     @Autowired
     private CodeSystemService codeSystemService;
 
-    @Autowired
-    private ModuleDependencyService moduleDependencyService;
-
     private CodeSystem MAIN;
     private CodeSystem extension;
     private CodeSystem LOINC;
@@ -188,7 +185,8 @@ class CodeSystemUpgradeServiceTest extends AbstractTest {
         CodeSystemUpgradeJob job = new CodeSystemUpgradeJob(extension.getShortName(), 20250101);
         IllegalStateException ex = assertThrows(IllegalStateException.class,
                 () -> codeSystemUpgradeService.preUpgradeChecks(extension, 20250101, job));
-        String expected = "Upgrade blocked: The following dependent code system does not have a release based on the requested International version (20250101): SNOMEDCT-LOINC.";
+        String expected = "No compatible release found for dependent code system SNOMEDCT-LOINC with the requested International version 20250101." +
+                " Please wait for a compatible release before proceeding.";
         assertEquals(expected, ex.getMessage());
     }
 
@@ -206,15 +204,17 @@ class CodeSystemUpgradeServiceTest extends AbstractTest {
         CodeSystemUpgradeJob job = new CodeSystemUpgradeJob(extension.getShortName(), 20250101);
         IllegalStateException ex = assertThrows(IllegalStateException.class,
                 () -> codeSystemUpgradeService.preUpgradeChecks(extension, 20250101, job));
-        String expected = "The requested International version (20250101) is not compatible with all additional dependencies." +
-                " However you could try upgrading to 20250201 which is compatible with all dependencies.";
+        String expected = "Version 20250101 of the International release isn’t compatible with all additional dependencies." +
+                " Try upgrading to 20250201, which is fully compatible.";
+
         assertEquals(expected, ex.getMessage());
     }
 
     @Test
     void upgradeAllowed_whenNoAdditionalDependencies() {
         // Version MAIN for 20241101
-        codeSystemService.createVersion(MAIN, 20241101, "International 20241101");        // Setup: Extension only depends on International (no additional dependencies)
+        codeSystemService.createVersion(MAIN, 20241101, "International 20241101");
+        // Setup: Extension only depends on International (no additional dependencies)
         CodeSystem simpleExtension = new CodeSystem("SNOMEDCT-SIMPLE", "MAIN/SNOMEDCT-SIMPLE");
         simpleExtension.setDependantVersionEffectiveTime(20241101);
         codeSystemService.createCodeSystem(simpleExtension);
@@ -255,7 +255,8 @@ class CodeSystemUpgradeServiceTest extends AbstractTest {
         IllegalStateException ex = assertThrows(IllegalStateException.class,
                 () -> codeSystemUpgradeService.preUpgradeChecks(extension, 20250101, job));
 
-        String expected = "Upgrade blocked: The following dependent code system does not have a release based on the requested International version (20250101): SNOMEDCT-THIRD.";
+        String expected = "No compatible release found for dependent code system SNOMEDCT-THIRD with the requested International version 20250101. " +
+                "Please wait for a compatible release before proceeding.";
         assertEquals(expected, ex.getMessage());
     }
 
@@ -321,11 +322,8 @@ class CodeSystemUpgradeServiceTest extends AbstractTest {
         mdrs.setActive(true);
         mdrs.setRefsetId(Concepts.MODULE_DEPENDENCY_REFERENCE_SET);
         mdrs.setAdditionalField(ReferenceSetMember.MDRSFields.SOURCE_EFFECTIVE_TIME, "");
-        if (targetEffectiveTime != null) {
-            mdrs.setAdditionalField(ReferenceSetMember.MDRSFields.TARGET_EFFECTIVE_TIME, targetEffectiveTime);
-        } else {
-            mdrs.setAdditionalField(ReferenceSetMember.MDRSFields.TARGET_EFFECTIVE_TIME, "");
-        }
+        targetEffectiveTime = Objects.requireNonNullElse(targetEffectiveTime, "");
+        mdrs.setAdditionalField(ReferenceSetMember.MDRSFields.TARGET_EFFECTIVE_TIME, targetEffectiveTime);
         referenceSetMemberService.createMember(branchPath, mdrs);
     }
 }
