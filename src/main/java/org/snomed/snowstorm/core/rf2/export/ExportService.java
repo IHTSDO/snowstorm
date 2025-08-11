@@ -128,7 +128,7 @@ public class ExportService {
 	}
 
 	public File exportRF2ArchiveFile(String branchPath, String filenameEffectiveDate, RF2Type exportType, boolean forClassification) throws ExportException {
-		return exportRF2ArchiveFile(branchPath, filenameEffectiveDate, exportType, forClassification, false, null, null, null, true, new HashSet<>(), null);
+		return exportRF2ArchiveFile(branchPath, filenameEffectiveDate, exportType, forClassification, false, null, null, new HashSet<>(), true, new HashSet<>(), null);
 	}
 
 	public void exportRF2ArchiveAsync(ExportConfiguration exportConfiguration) {
