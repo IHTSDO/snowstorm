@@ -67,7 +67,7 @@ public class ExportService {
 		this.sBranchService = sBranchService;
 	}
 
-	private final Set<String> refsetTypesRequiredForClassification = Sets.newHashSet(Concepts.REFSET_MRCM_ATTRIBUTE_DOMAIN, Concepts.OWL_EXPRESSION_TYPE_REFERENCE_SET);
+	private final Set<String> refsetTypesRequiredForClassification = Sets.newHashSet(Concepts.REFSET_MRCM_ATTRIBUTE_DOMAIN, Concepts.OWL_EXPRESSION_TYPE_REFERENCE_SET, Concepts.MODULE_DEPENDENCY_REFERENCE_SET);
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
