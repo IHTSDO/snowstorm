@@ -7,7 +7,9 @@ import io.kaicode.elasticvc.domain.Branch;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.core.data.domain.*;
+import org.snomed.snowstorm.core.data.domain.CodeSystemVersion;
 import org.snomed.snowstorm.core.util.SPathUtil;
+import io.kaicode.elasticvc.api.PathUtil;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.data.elasticsearch.client.elc.NativeQueryBuilder;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
@@ -120,6 +122,8 @@ public class ModuleDependencyService extends ComponentService {
 
 		List<String> membersUpdated = new ArrayList<>();
 		String effectiveTime = String.valueOf(effectiveTimeI);
+
+
 		for (ReferenceSetMember referenceSetMember : referenceSetMembers) {
 			referenceSetMember.setAdditionalField(ReferenceSetMember.MDRSFields.SOURCE_EFFECTIVE_TIME, effectiveTime);
 
@@ -175,18 +179,58 @@ public class ModuleDependencyService extends ComponentService {
 
 		List<String> membersUpdated = new ArrayList<>();
 		String effectiveTime = String.valueOf(effectiveTimeI);
+		Map<String, String> moduleToTargetEffectiveTime = getAdditionalDependentModuleToTargetEffectiveTime(effectiveTimeI, codeSystem.get());
+
 		for (ReferenceSetMember referenceSetMember : referenceSetMembers) {
 			boolean dependingOnOwnModule = modules.contains(referenceSetMember.getReferencedComponentId());
 			if (!dependingOnOwnModule) {
-				referenceSetMember.setAdditionalField(ReferenceSetMember.MDRSFields.TARGET_EFFECTIVE_TIME, effectiveTime);
+				referenceSetMember.setAdditionalField(ReferenceSetMember.MDRSFields.TARGET_EFFECTIVE_TIME,
+						moduleToTargetEffectiveTime.getOrDefault(referenceSetMember.getReferencedComponentId(), effectiveTime));
 			}
-
 			referenceSetMember = referenceSetMemberService.updateMember(branchPath, referenceSetMember);
 			membersUpdated.add(referenceSetMember.getMemberId());
 		}
 
 		LOGGER.info("{} MDRS entries prepared for upgrading for {}:{}", membersUpdated.size(), branchPath, membersUpdated);
 		return true;
+	}
+
+	private Map<String, String> getAdditionalDependentModuleToTargetEffectiveTime(Integer effectiveTimeI, CodeSystem codeSystem) {
+		Set<CodeSystem> dependentCodeSystems = getAllDependentCodeSystems(codeSystem);
+		// For additional dependent CodeSystems (separate from parent CodeSystem), we need to use the
+		// effectiveTimeI as the dependent effective time to find the corresponding release effective time
+		// for the additional CodeSystem to ensure proper upgrade coordination
+
+		// Get parent CodeSystem path to filter out parent dependencies
+		String parentPath = PathUtil.getParentPath(codeSystem.getBranchPath());
+		Optional<CodeSystem> parentCodeSystem = codeSystemService.findByBranchPath(parentPath);
+
+		// Filter out parent CodeSystem to get only additional dependent CodeSystems
+		Set<CodeSystem> additionalDependentCodeSystems = dependentCodeSystems.stream()
+				.filter(cs -> parentCodeSystem.isEmpty() || !cs.getShortName().equals(parentCodeSystem.get().getShortName()))
+				.collect(Collectors.toSet());
+
+		// Create a map of module ID to target effective time for additional dependent CodeSystems
+		Map<String, String> moduleToTargetEffectiveTime = new HashMap<>();
+		for (CodeSystem additionalCS : additionalDependentCodeSystems) {
+			// For additional dependent CodeSystems, we need to find the version that has the same
+			// dependent effective time as the provided effectiveTimeI
+			List<CodeSystemVersion> versions = codeSystemService.findAllVersions(additionalCS.getShortName(), true, true);
+			for (CodeSystemVersion version : versions) {
+				// Check if this version has the same dependent effective time as the target
+				if (effectiveTimeI.equals(version.getDependantVersionEffectiveTime())) {
+					String targetTime = String.valueOf(version.getEffectiveDate());
+
+					// Map the module IDs that belong to this CodeSystem to the target effective time
+					Set<String> codeSystemModules = sBranchService.getModules(additionalCS.getBranchPath());
+					for (String moduleId : codeSystemModules) {
+						moduleToTargetEffectiveTime.put(moduleId, targetTime);
+					}
+					break; // Found the matching version, no need to check others
+				}
+			}
+		}
+		return moduleToTargetEffectiveTime;
 	}
 
 	private List<ReferenceSetMember> getMDRSEntries(BranchCriteria branchCriteria, List<String> ancestry, Set<String> modules) {
@@ -255,8 +299,11 @@ public class ModuleDependencyService extends ComponentService {
 		Map<String, String> codeSystemBranchByModuleId = getCodeSystemBranchByModuleId(moduleIds);
 		Set<CodeSystem> results = new HashSet<>();
 		codeSystemBranchByModuleId.values().forEach(codeSystemBranch -> {
-			CodeSystem cs = codeSystemService.findClosestCodeSystemUsingAnyBranch(codeSystemBranch, false);
-			results.add(cs);
+			// Skip if the code system branch is the same as the current code system branch due to internal module dependency
+			if (!codeSystemBranch.equals(codeSystem.getBranchPath())) {
+				CodeSystem cs = codeSystemService.findClosestCodeSystemUsingAnyBranch(codeSystemBranch, false);
+				results.add(cs);
+			}
 		});
 		return results;
 	}
