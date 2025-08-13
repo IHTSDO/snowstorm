@@ -32,41 +32,44 @@ public class CodeSystemUpgradeService {
 	private static final long ONE_HOUR_IN_MILLI_SEC = 3600 * 1000;
 	private static final long ONE_DAY_IN_MILLI_SEC = 24 * ONE_HOUR_IN_MILLI_SEC;
 
-	@Autowired
-	private CodeSystemService codeSystemService;
-
-	@Autowired
-	private BranchService branchService;
-
-	@Autowired
-	private BranchMergeService branchMergeService;
-
-	@Autowired
-	private CodeSystemRepository codeSystemRepository;
-
-	@Autowired
-	private DailyBuildService dailyBuildService;
-
-	@Autowired
-	private IntegrityService integrityService;
-
-	@Autowired
-	private UpgradeInactivationService upgradeInactivationService;
-
-	@Autowired
-	private ExecutorService executorService;
-
-	@Autowired
-	private ModuleDependencyService moduleDependencyService;
-
-	@Autowired
-	private CodeSystemVersionService codeSystemVersionService;
+	private final CodeSystemService codeSystemService;
+	private final BranchService branchService;
+	private final BranchMergeService branchMergeService;
+	private final CodeSystemRepository codeSystemRepository;
+	private final DailyBuildService dailyBuildService;
+	private final IntegrityService integrityService;
+	private final UpgradeInactivationService upgradeInactivationService;
+	private final ExecutorService executorService;
+	private final ModuleDependencyService moduleDependencyService;
+	private final CodeSystemVersionService codeSystemVersionService;
 
 	private static final Map<String, CodeSystemUpgradeJob> upgradeJobMap = new HashMap<>();
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
-	public CodeSystemUpgradeService() {
+	@Autowired
+	public CodeSystemUpgradeService(
+			CodeSystemService codeSystemService,
+			BranchService branchService,
+			BranchMergeService branchMergeService,
+			CodeSystemRepository codeSystemRepository,
+			DailyBuildService dailyBuildService,
+			IntegrityService integrityService,
+			UpgradeInactivationService upgradeInactivationService,
+			ExecutorService executorService,
+			ModuleDependencyService moduleDependencyService,
+			CodeSystemVersionService codeSystemVersionService) {
+		this.codeSystemService = codeSystemService;
+		this.branchService = branchService;
+		this.branchMergeService = branchMergeService;
+		this.codeSystemRepository = codeSystemRepository;
+		this.dailyBuildService = dailyBuildService;
+		this.integrityService = integrityService;
+		this.upgradeInactivationService = upgradeInactivationService;
+		this.executorService = executorService;
+		this.moduleDependencyService = moduleDependencyService;
+		this.codeSystemVersionService = codeSystemVersionService;
+		
 		Timer timer = new Timer();
 
 		// Schedules the specified task for repeated fixed-delay execution
