@@ -260,6 +260,29 @@ class CodeSystemUpgradeServiceTest extends AbstractTest {
         assertEquals(expected, ex.getMessage());
     }
 
+    @Test
+    void upgradeSuccessful_withAdditionalCodeSystemDependencies() throws ServiceException {
+        setUpAdditionalDependencies();
+
+        // Version MAIN
+        codeSystemService.createVersion(MAIN, 20250101, "International Jan 2025");
+
+        // Upgrade all dependencies to be compatible with 20250101
+        codeSystemUpgradeService.upgrade(null, LOINC, 20250101, true);
+        codeSystemService.createVersion(LOINC, 20250201, "LOINC Jan 2025");
+
+        // Now upgrade extension to 20250101 - should succeed because all dependencies are compatible
+        CodeSystemUpgradeJob job = new CodeSystemUpgradeJob(extension.getShortName(), 20250101);
+        assertDoesNotThrow(() -> codeSystemUpgradeService.preUpgradeChecks(extension, 20250101, job));
+        
+        // Perform the actual upgrade
+        assertDoesNotThrow(() -> codeSystemUpgradeService.upgrade(null, extension, 20250101, true));
+        
+        // Verify extension was upgraded successfully
+        CodeSystem upgradedExtension = codeSystemService.find(extension.getShortName());
+        assertEquals(20250101, upgradedExtension.getDependantVersionEffectiveTime());
+    }
+
     private void setUpAdditionalDependencies() {
         createMDRS(CORE_MODULE, MAIN.getBranchPath(), MODEL_MODULE, null);
         codeSystemService.createVersion(MAIN, 20241101, "International November release 2024");
@@ -267,6 +290,8 @@ class CodeSystemUpgradeServiceTest extends AbstractTest {
         // Create Additional code system and version
         LOINC = new CodeSystem("SNOMEDCT-LOINC", "MAIN/SNOMEDCT-LOINC");
         codeSystemService.createCodeSystem(LOINC);
+        addExpectedModule(LOINC.getBranchPath(), "11010000107");
+
         createMDRS("11010000107", "MAIN/SNOMEDCT-LOINC", CORE_MODULE, "20241101");
         codeSystemService.createVersion(LOINC, 20241201, "LOINC December 2024");
 
@@ -274,6 +299,7 @@ class CodeSystemUpgradeServiceTest extends AbstractTest {
         extension = new CodeSystem("SNOMEDCT-EXT", "MAIN/SNOMEDCT-EXT");
         extension.setDependantVersionEffectiveTime(20241101);
         codeSystemService.createCodeSystem(extension);
+        addExpectedModule(extension.getBranchPath(), "22020000206");
         createMDRS("22020000206", "MAIN/SNOMEDCT-EXT", CORE_MODULE, "20241101");
         // Additional dependency on LOINC module
         createMDRS("22020000206", "MAIN/SNOMEDCT-EXT", "11010000107", "20241201");
@@ -289,6 +315,12 @@ class CodeSystemUpgradeServiceTest extends AbstractTest {
                 relationship.setActive(false);
             }
         }
+    }
+
+    private void addExpectedModule(String codeSystemBranchPath, String moduleId) {
+        HashMap<String, Object> metaData = new HashMap<>();
+        metaData.put(BranchMetadataKeys.EXPECTED_EXTENSION_MODULES, List.of(moduleId));
+        branchService.updateMetadata(codeSystemBranchPath, metaData);
     }
 
     private Map<String, Collection<ReferenceSetMember>> mapCNCByTerm(Concept concept) {
