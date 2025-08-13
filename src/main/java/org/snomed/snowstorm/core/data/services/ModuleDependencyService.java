@@ -35,14 +35,19 @@ public class ModuleDependencyService extends ComponentService {
 	private final ElasticsearchOperations elasticsearchOperations;
 	private final VersionControlHelper versionControlHelper;
 	private final SBranchService sBranchService;
+	private final CodeSystemVersionService codeSystemVersionService;
 
-	public ModuleDependencyService(BranchService branchService, CodeSystemService codeSystemService, @Lazy ReferenceSetMemberService referenceSetMemberService, ElasticsearchOperations elasticsearchOperations, VersionControlHelper versionControlHelper, SBranchService sBranchService) {
+	public ModuleDependencyService(BranchService branchService, CodeSystemService codeSystemService,
+								   @Lazy ReferenceSetMemberService referenceSetMemberService, ElasticsearchOperations elasticsearchOperations,
+								   VersionControlHelper versionControlHelper, SBranchService sBranchService,
+								   CodeSystemVersionService codeSystemVersionService) {
 		this.branchService = branchService;
 		this.codeSystemService = codeSystemService;
 		this.referenceSetMemberService = referenceSetMemberService;
 		this.elasticsearchOperations = elasticsearchOperations;
 		this.versionControlHelper = versionControlHelper;
 		this.sBranchService = sBranchService;
+		this.codeSystemVersionService = codeSystemVersionService;
 	}
 
 	/**
@@ -216,6 +221,7 @@ public class ModuleDependencyService extends ComponentService {
 			// For additional dependent CodeSystems, we need to find the version that has the same
 			// dependent effective time as the provided effectiveTimeI
 			List<CodeSystemVersion> versions = codeSystemService.findAllVersions(additionalCS.getShortName(), true, true);
+			versions.forEach(codeSystemVersionService::populateDependantVersion);
 			for (CodeSystemVersion version : versions) {
 				// Check if this version has the same dependent effective time as the target
 				if (effectiveTimeI.equals(version.getDependantVersionEffectiveTime())) {
@@ -229,6 +235,10 @@ public class ModuleDependencyService extends ComponentService {
 					break; // Found the matching version, no need to check others
 				}
 			}
+		}
+		if (!additionalDependentCodeSystems.isEmpty()) {
+			LOGGER.info("Found additional dependent CodeSystems: {}", additionalDependentCodeSystems.stream().map(CodeSystem::getShortName).collect(Collectors.toSet()));
+			moduleToTargetEffectiveTime.forEach((moduleId, targetTime) -> LOGGER.info("Module ID: {}, Target Effective Time: {}", moduleId, targetTime));
 		}
 		return moduleToTargetEffectiveTime;
 	}
