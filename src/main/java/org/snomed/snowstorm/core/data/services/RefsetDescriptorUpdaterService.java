@@ -115,13 +115,13 @@ public class RefsetDescriptorUpdaterService implements CommitListener {
 		String moduleId = conceptService.find(branchCriteria, branchPath, List.of(conceptIdS), DEFAULT_LANGUAGE_DIALECTS).iterator().next().getModuleId();
 
 		// Find entry in RefSet for parent
-		Long parentId = queryService.findParentIds(branchCriteria, true, List.of(conceptIdL)).iterator().next();
+		Long parentId = queryService.findParentIdsAsUnion(branchCriteria, true, List.of(conceptIdL)).iterator().next();
 		memberSearchRequest.referencedComponentId(String.valueOf(parentId));
 		membersExisting = referenceSetMemberService.findMembers(branchCriteria, memberSearchRequest, PAGE_REQUEST);
 
 		// Find entry in RefSet for grandparent
 		if (membersExisting == null || membersExisting.isEmpty()) {
-			Iterator<Long> iterator = queryService.findParentIds(branchCriteria, true, List.of(parentId)).iterator();
+			Iterator<Long> iterator = queryService.findParentIdsAsUnion(branchCriteria, true, List.of(parentId)).iterator();
 			if (iterator.hasNext()) {
 				Long grandparentId = iterator.next();
 				String grandParentIdS = String.valueOf(grandparentId);
