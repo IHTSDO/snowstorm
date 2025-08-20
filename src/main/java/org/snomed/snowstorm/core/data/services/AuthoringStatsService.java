@@ -174,10 +174,11 @@ public class AuthoringStatsService {
 		BranchCriteria selectionBranchCriteria = unpromotedChangesOnly ? versionControlHelper.getChangesOnBranchCriteria(branch) : allContentBranchCriteria;
 
 		Query query = getNewDescriptionCriteria(selectionBranchCriteria).withPageable(LARGE_PAGE).build();
-		return elasticsearchOperations.search(query, Description.class)
-				.get().map(SearchHit::getContent)
-				.map(DescriptionMicro::new)
-				.collect(Collectors.toList());
+		try (SearchHitsIterator<Description> stream = elasticsearchOperations.searchForStream(query, Description.class)) {
+			return stream.stream().map(SearchHit::getContent)
+					.map(DescriptionMicro::new)
+					.toList();
+		}
 	}
 
 	public List<ConceptMicro> getInactivatedConcepts(String branch, List<LanguageDialect> languageDialects) {

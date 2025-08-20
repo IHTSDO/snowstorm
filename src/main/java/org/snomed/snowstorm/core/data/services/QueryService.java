@@ -361,20 +361,6 @@ public class QueryService implements ApplicationContextAware {
 		return findAncestorIds(versionControlHelper.getBranchCriteria(path), path, stated, conceptId);
 	}
 
-	public Set<Long> findParentIds(BranchCriteria branchCriteria, boolean stated, Collection<Long> conceptIds) {
-		final NativeQuery searchQuery = new NativeQueryBuilder()
-				.withQuery(bool(b -> b
-						.must(branchCriteria.getEntityBranchCriteria(QueryConcept.class))
-						.must(termsQuery(QueryConcept.Fields.CONCEPT_ID, conceptIds))
-						.must(termQuery(QueryConcept.Fields.STATED, stated)))
-				)
-				.withPageable(PAGE_OF_ONE)
-				.build();
-		List<QueryConcept> concepts = elasticsearchOperations.search(searchQuery, QueryConcept.class)
-				.stream().map(SearchHit::getContent).toList();
-		return concepts.isEmpty() ? Collections.emptySet() : concepts.stream().flatMap(queryConcept -> queryConcept.getParents().stream()).collect(Collectors.toSet());
-	}
-
 	public Set<Long> findAncestorIds(BranchCriteria branchCriteria, String path, boolean stated, String conceptId) {
 		final NativeQuery searchQuery = new NativeQueryBuilder()
 				.withQuery(bool(b -> b
@@ -441,8 +427,9 @@ public class QueryService implements ApplicationContextAware {
 				.withPageable(LARGE_PAGE)
 				.withSort(SortOptions.of(sb -> sb.field(fs -> fs.field(QueryConcept.Fields.CONCEPT_ID))))// This could be anything
 				.build();
-		SearchHits<QueryConcept> searchHits = elasticsearchOperations.search(searchQuery, QueryConcept.class);
-		return searchHits.stream().map(SearchHit::getContent).map(QueryConcept::getConceptIdL).collect(Collectors.toSet());
+		try (SearchHitsIterator<QueryConcept> searchHits = elasticsearchOperations.searchForStream(searchQuery, QueryConcept.class)) {
+			return searchHits.stream().map(SearchHit::getContent).map(QueryConcept::getConceptIdL).collect(Collectors.toSet());
+		}
 	}
 
 	public Set<Long> findChildrenIdsAsUnion(BranchCriteria branchCriteria, boolean stated, Collection<Long> conceptIds) {
@@ -456,8 +443,9 @@ public class QueryService implements ApplicationContextAware {
 				.withPageable(LARGE_PAGE)
 				.withSort(SortOptions.of(sb -> sb.field(fs -> fs.field(QueryConcept.Fields.CONCEPT_ID))))// This could be anything
 				.build();
-		SearchHits<QueryConcept> searchHits = elasticsearchOperations.search(searchQuery, QueryConcept.class);
-		return searchHits.stream().map(SearchHit::getContent).map(QueryConcept::getConceptIdL).collect(Collectors.toSet());
+		try (SearchHitsIterator<QueryConcept> searchHits = elasticsearchOperations.searchForStream(searchQuery, QueryConcept.class)) {
+			return searchHits.stream().map(SearchHit::getContent).map(QueryConcept::getConceptIdL).collect(Collectors.toSet());
+		}
 	}
 
 	/**

@@ -281,9 +281,12 @@ public class ReferenceSetMemberService extends ComponentService {
 		Query query = bool(b -> b
 				.must(branchCriteria.getEntityBranchCriteria(ReferenceSetMember.class))
 				.must(termsQuery(ReferenceSetMember.Fields.MEMBER_ID, uuids)));
-		return elasticsearchOperations.search(new NativeQueryBuilder().withQuery(query).withPageable(LARGE_PAGE).build(), ReferenceSetMember.class)
-				.stream()
-				.map(SearchHit::getContent).collect(Collectors.toList());
+		NativeQuery nativeQuery = new NativeQueryBuilder().withQuery(query).withPageable(LARGE_PAGE).build();
+		try (SearchHitsIterator<ReferenceSetMember> stream = elasticsearchOperations.searchForStream(nativeQuery, ReferenceSetMember.class)) {
+			return stream
+					.stream()
+					.map(SearchHit::getContent).toList();
+		}
 	}
 
 	public List<ReferenceSetMember> findMembers(String branch, Collection<String> uuids) {
@@ -335,11 +338,11 @@ public class ReferenceSetMemberService extends ComponentService {
 				.must(termsQuery(ReferenceSetMember.Fields.MEMBER_ID, uuids))))
 				.withPageable(PageRequest.of(0, uuids.size()))
 				.build();
-		List<ReferenceSetMember> matches = elasticsearchOperations.search(query, ReferenceSetMember.class).stream().map(SearchHit::getContent).collect(Collectors.toList());
+		List<ReferenceSetMember> matches = elasticsearchOperations.search(query, ReferenceSetMember.class).stream().map(SearchHit::getContent).toList();
 		if (matches.size() != uuids.size()) {
-			List<String> matchedIds = matches.stream().map(ReferenceSetMember::getMemberId).collect(Collectors.toList());
+			List<String> matchedIds = matches.stream().map(ReferenceSetMember::getMemberId).toList();
 			Set<String> missingIds = new HashSet<>(uuids);
-			missingIds.removeAll(matchedIds);
+			matchedIds.forEach(missingIds::remove);
 			throw new NotFoundException(String.format("%s reference set members not found on branch %s: %s", missingIds.size(), branch, missingIds));
 		}
 
