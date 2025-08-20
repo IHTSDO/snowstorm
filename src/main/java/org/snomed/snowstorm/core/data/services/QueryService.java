@@ -402,13 +402,14 @@ public class QueryService implements ApplicationContextAware {
 				)
 				.withPageable(LARGE_PAGE)
 				.build();
-		final List<QueryConcept> concepts = elasticsearchOperations.search(searchQuery, QueryConcept.class)
-				.stream().map(SearchHit::getContent).toList();
-		Set<Long> allAncestors = new HashSet<>();
-		for (QueryConcept concept : concepts) {
-			allAncestors.addAll(concept.getAncestors());
+		try (SearchHitsIterator<QueryConcept> stream = elasticsearchOperations.searchForStream(searchQuery, QueryConcept.class)) {
+			final List<QueryConcept> concepts = stream.stream().map(SearchHit::getContent).toList();
+			Set<Long> allAncestors = new HashSet<>();
+			for (QueryConcept concept : concepts) {
+				allAncestors.addAll(concept.getAncestors());
+			}
+			return allAncestors;
 		}
-		return allAncestors;
 	}
 
 	public Set<Long> findParentIdsAsUnion(BranchCriteria branchCriteria, boolean stated, Collection<Long> conceptId) {
