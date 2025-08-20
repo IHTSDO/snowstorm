@@ -308,6 +308,8 @@ public class ConceptChangeHelper {
         Set<String> conceptsReplacedOnBranch = getConceptsByInternalIds(branchService.findLatest(branchPath).getVersionsReplaced(Concept.class));
 
         // Find deleted Concepts that only existed on this Branch, i.e. there are no versionsReplaced entries.
+        // XXX No page size is set. Only the first small page (10?) will be returned.
+        // XXX This file uses space indentation instead of tabs.
         Set<String> conceptsEndedOnBranch = elasticsearchOperations
                 .search(new NativeQueryBuilder()
                         .withQuery(
