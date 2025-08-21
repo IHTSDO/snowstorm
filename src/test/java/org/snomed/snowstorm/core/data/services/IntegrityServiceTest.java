@@ -8,10 +8,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.snomed.snowstorm.AbstractTest;
 import org.snomed.snowstorm.TestConfig;
-import org.snomed.snowstorm.core.data.domain.CodeSystem;
-import org.snomed.snowstorm.core.data.domain.Concept;
-import org.snomed.snowstorm.core.data.domain.ConcreteValue;
-import org.snomed.snowstorm.core.data.domain.Relationship;
+import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.services.classification.BranchClassificationStatusService;
 import org.snomed.snowstorm.core.data.services.pojo.IntegrityIssueReport;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -22,6 +19,7 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.snomed.snowstorm.core.data.domain.Concepts.CORE_MODULE;
 import static org.snomed.snowstorm.core.data.domain.Concepts.ISA;
 import static org.snomed.snowstorm.core.data.services.BranchMetadataHelper.INTERNAL_METADATA_KEY;
 import static org.snomed.snowstorm.core.data.services.IntegrityService.INTEGRITY_ISSUE_METADATA_KEY;
@@ -53,6 +51,11 @@ class IntegrityServiceTest extends AbstractTest {
 
 	@Autowired
 	private CodeSystemService codeSystemService;
+
+	@Autowired
+	private CodeSystemUpgradeService codeSystemUpgradeService;
+    @Autowired
+    private ReferenceSetMemberService referenceSetMemberService;
 
 	@Test
 	/*
@@ -375,5 +378,106 @@ class IntegrityServiceTest extends AbstractTest {
 		} catch (Exception e) {
 			fail("Shouldn't throw exception");
 		}
+	}
+
+	@Test
+	void testIntegrityReportWithAdditionalCodeSystemDependency() throws Exception {
+		// Create a concept in MAIN module
+		conceptService.create(new Concept(ISA), "MAIN");
+
+		// Version on MAIN
+		CodeSystem main = new CodeSystem("SNOMEDCT", "MAIN");
+		codeSystemService.createCodeSystem(main);
+		codeSystemService.createVersion(main, 20250101, "SNOMEDCT 20250101 release");
+
+		// Create LOINC code system as an additional dependency
+		CodeSystem loinc = new CodeSystem("SNOMEDCT-LOINC", "MAIN/SNOMEDCT-LOINC");
+		codeSystemService.createCodeSystem(loinc);
+		conceptService.create(new Concept("11010000107"), loinc.getBranchPath());
+		Metadata metadata = new Metadata();
+		metadata.putString("defaultModuleId", "11010000107");
+		branchService.updateMetadata(loinc.getBranchPath(), metadata);
+
+		// Create LOINC MDRS
+		referenceSetMemberService.createMember(loinc.getBranchPath(), constructMDRS("11010000107", CORE_MODULE,20250101));
+
+		// Create a concept in LOINC module
+		conceptService.create(new Concept("11010000120"), "MAIN/SNOMEDCT-LOINC");
+
+		// Version the LOINC code system
+		codeSystemService.createVersion(loinc, 20250201, "LOINC 2025-02-01 release");
+
+		// Create extension code system that depends on both MAIN and LOINC
+		CodeSystem extension = new CodeSystem("SNOMEDCT-EXT", "MAIN/SNOMEDCT-EXT");
+		codeSystemService.createCodeSystem(extension);
+
+		metadata = new Metadata();
+		metadata.putString("defaultModuleId", "22010000108");
+		branchService.updateMetadata(extension.getBranchPath(), metadata);
+
+		// Add additional dependency on LOINC version in branch metadata
+		referenceSetMemberService.createMember(extension.getBranchPath(), constructMDRS("22010000108", "11010000107",20250201));
+
+		Metadata branchMetadata = branchService.findLatest(extension.getBranchPath()).getMetadata();
+		assertTrue(branchMetadata.containsKey("vc.additional-dependent-branches"), "Additional code system dependency should be updated in branch metadata");
+
+		assertEquals(List.of("MAIN/SNOMEDCT-LOINC/2025-02-01"), branchMetadata.getList("vc.additional-dependent-branches"));
+
+		// Create a concept in the extension that references the LOINC concept
+		Concept conceptReferenceLoinc = new Concept("220100001");
+		conceptReferenceLoinc.addRelationship(new Relationship(ISA, "11010000120").setInferred(false));
+		conceptService.create(conceptReferenceLoinc, extension.getBranchPath());
+
+		// Run integrity check on the extension branch - should be clean initially
+		IntegrityIssueReport initialReport = integrityService.findChangedComponentsWithBadIntegrityNotFixed(branchService.findLatest(extension.getBranchPath()));
+		assertTrue(initialReport.isEmpty(), "Initial integrity check should be clean");
+
+		// Inactivate the concept in the MAIN code system
+		conceptService.update(new Concept(ISA).setActive(false), "MAIN");
+
+		// Version the MAIN code system again with the inactive concept
+		codeSystemService.createVersion(main, 20250201, "SNOMEDCT 2025-02-01 release");
+
+		// Now inactivate the LOINC concept in the LOINC code system
+		codeSystemUpgradeService.upgrade(null, loinc, 20250201, true);
+		conceptService.update(new Concept("11010000120").setActive(false), loinc.getBranchPath());
+		
+		// Version the LOINC code system again with the inactive concept
+		codeSystemService.createVersion(loinc, 20250301, "LOINC 2025-03-01 release");
+
+		// Now update extension to the latest International and LOINC version to trigger integrity issues
+		codeSystemUpgradeService.upgrade(null, extension,20250201, true);
+
+		// Assert additional code system dependency is updated in branch metadata
+		branchMetadata = branchService.findLatest(extension.getBranchPath()).getMetadata();
+		assertEquals(List.of("MAIN/SNOMEDCT-LOINC/2025-03-01"), branchMetadata.getList("vc.additional-dependent-branches"));
+
+		// Check concept 11010000107 is inactive after upgrade
+		Concept afterUpgrade = conceptService.find("11010000120", branchService.findLatest(extension.getBranchPath()).getPath());
+		assertFalse(afterUpgrade.isActive(), "Concept 11010000120 should be inactive after upgrade");
+
+		// Check integrity issues on the extension branch
+		assertEquals("true", branchMetadata.getMapOrCreate(INTERNAL_METADATA_KEY).get(IntegrityService.INTEGRITY_ISSUE_METADATA_KEY));
+
+		// Verify that the extension branch now has integrity issues
+		IntegrityIssueReport integrityReport = integrityService.findChangedComponentsWithBadIntegrityNotFixed(branchService.findLatest(extension.getBranchPath()));
+		
+		// Should have integrity issues due to inactive LOINC concept
+		assertNotNull(integrityReport.getRelationshipsWithMissingOrInactiveDestination());
+		assertEquals(1, integrityReport.getRelationshipsWithMissingOrInactiveDestination().size());
+		assertEquals(1, integrityReport.getRelationshipsWithMissingOrInactiveType().size());
+
+		// The relationship pointing to inactive LOINC concept should be flagged
+		Long badRelationshipId = integrityReport.getRelationshipsWithMissingOrInactiveDestination().keySet().iterator().next();
+		assertEquals(Long.valueOf("11010000120"), integrityReport.getRelationshipsWithMissingOrInactiveDestination().get(badRelationshipId));
+		assertEquals(Long.valueOf(ISA), integrityReport.getRelationshipsWithMissingOrInactiveType().get(badRelationshipId));
+	}
+
+	private ReferenceSetMember constructMDRS(String moduleId, String dependantModuleId, Integer targetEffectiveTime) {
+		ReferenceSetMember mdrs = new ReferenceSetMember(moduleId, Concepts.MODULE_DEPENDENCY_REFERENCE_SET, dependantModuleId);
+		if (targetEffectiveTime != null) {
+			mdrs.setAdditionalField("targetEffectiveTime", targetEffectiveTime.toString());
+		}
+		return mdrs;
 	}
 }
