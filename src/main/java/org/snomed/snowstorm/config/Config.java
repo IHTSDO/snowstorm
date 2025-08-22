@@ -168,7 +168,12 @@ public abstract class Config extends ElasticsearchConfig {
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
 	@PostConstruct
-	public void configureCommitListeners() {
+	public void configureListeners(){
+		this.configureCommitListeners();
+		this.configureBranchSaveListeners();
+	}
+
+	private void configureCommitListeners() {
 		// Commit listeners will be called in this order
 		branchService.addCommitListener(mrcmLoader);
 		branchService.addCommitListener(conceptDefinitionStatusUpdateService);
@@ -199,6 +204,16 @@ public abstract class Config extends ElasticsearchConfig {
 
 		// Push configured term constraints into static field
 		DescriptionCriteria.configure(searchTermMinimumLength, searchTermMaximumLength);
+	}
+
+	private void configureBranchSaveListeners() {
+		branchService.addBranchSaveListener(branch -> {
+			if (jmsMessageEnabled)  {
+				Map<String, String> jmsObject = new HashMap<>();
+				jmsObject.put("branch", branch.getPath());
+				jmsTemplate.convertAndSend(jmsQueuePrefix + ".branch.change", jmsObject);
+			}
+		});
 	}
 	
 	private String secondsDuration(Date timepoint) {
