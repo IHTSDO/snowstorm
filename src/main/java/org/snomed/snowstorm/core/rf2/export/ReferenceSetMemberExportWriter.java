@@ -59,7 +59,7 @@ class ReferenceSetMemberExportWriter extends ExportWriter<ReferenceSetMember> {
 			bufferedWriter.write(TAB);
 			String value = member.getAdditionalField(extraField);
 
-			if (value == null) {
+			if (value == null || value.isEmpty()) {
 				value = "";
 
 				if (ReferenceSetMember.MDRSFields.SOURCE_EFFECTIVE_TIME.equals(extraField) || ReferenceSetMember.MDRSFields.TARGET_EFFECTIVE_TIME.equals(extraField)) {
