@@ -99,6 +99,36 @@ public class ModuleDependencyService extends ComponentService {
 	}
 
 	/**
+	 * Creates Module Dependency Reference Set (MDRS) entries for new dependencies.
+	 * Each module in the current code system will have MDRS entries linking to each module in the dependency code systems.
+	 *
+	 * @param currentCodeSystem The code system that is adding new dependencies
+	 * @param additionalCodeSystem List of code systems to add as new dependencies
+	 * @param currentDependantVersion The current dependent version effective time
+	 * @throws IllegalStateException if the current code system has no modules configured
+	 */
+	public void createMDRSEntriesForAdditionalDependency(String holdingModule, CodeSystem currentCodeSystem, CodeSystem additionalCodeSystem, Integer currentDependantVersion) throws ServiceException {
+		Map<String, String> moduleToTargetEffectiveTimeMap = getAdditionalDependentModuleToTargetEffectiveTime(currentDependantVersion, additionalCodeSystem);
+		// Need to fetch the default module id
+		additionalCodeSystem = codeSystemService.findClosestCodeSystemUsingAnyBranch(additionalCodeSystem.getBranchPath(), true);
+		if (additionalCodeSystem.getDefaultModuleId() == null) {
+			throw new ServiceException(String.format("Dependency code system %s has no default module configured.", additionalCodeSystem.getShortName()));
+		}
+		ReferenceSetMember mdrsEntry = new ReferenceSetMember();
+		mdrsEntry.setModuleId(holdingModule);
+		mdrsEntry.setRefsetId(Concepts.MODULE_DEPENDENCY_REFERENCE_SET);
+		mdrsEntry.setReferencedComponentId(additionalCodeSystem.getDefaultModuleId());
+		mdrsEntry.setActive(true);
+
+		if (currentDependantVersion != null) {
+			mdrsEntry.setAdditionalField(ReferenceSetMember.MDRSFields.SOURCE_EFFECTIVE_TIME, null);
+			mdrsEntry.setAdditionalField(ReferenceSetMember.MDRSFields.TARGET_EFFECTIVE_TIME, moduleToTargetEffectiveTimeMap.getOrDefault(additionalCodeSystem.getDefaultModuleId(), String.valueOf(currentDependantVersion)));
+		}
+		referenceSetMemberService.createMember(currentCodeSystem.getBranchPath(), mdrsEntry);
+		LOGGER.info("Successfully created MDRS entry {} for additional code system {} on {}", mdrsEntry, additionalCodeSystem, currentCodeSystem.getShortName());
+	}
+
+	/**
 	 * In preparation for versioning, set the sourceEffectiveTime and, optionally, the targetEffectiveTime
 	 * of the relevant ReferenceSetMembers.
 	 *
