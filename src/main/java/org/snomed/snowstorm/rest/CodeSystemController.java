@@ -33,9 +33,9 @@ import static java.lang.Boolean.TRUE;
 import static org.snomed.snowstorm.core.data.services.CodeSystemService.SNOMEDCT;
 import static org.snomed.snowstorm.rest.ImportController.CODE_SYSTEM_INTERNAL_RELEASE_FLAG_README;
 import org.springframework.http.HttpStatus;
-import java.util.HashSet;
 import java.util.Set;
 import java.util.ArrayList;
+import java.util.stream.Collectors;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -428,14 +428,15 @@ public class CodeSystemController {
 	 * Builds a complete set of dependencies by combining current dependencies with additional ones.
 	 */
 	private Set<CodeSystem> buildCompleteDependencySet(CodeSystem currentCodeSystem, List<CodeSystem> additionalCodeSystems) {
-		// Get current dependencies
-		Set<CodeSystem> currentDependencies = moduleDependencyService.getAllDependentCodeSystems(currentCodeSystem);
-		
-		// Combine with additional code systems
-		Set<CodeSystem> allDependenciesToCheck = new HashSet<>(currentDependencies);
-		allDependenciesToCheck.addAll(additionalCodeSystems);
-		
-		return allDependenciesToCheck;
+		// Get current dependencies excluding SNOMEDCT
+		Set<CodeSystem> currentDependencies = moduleDependencyService.getAllDependentCodeSystems(currentCodeSystem)
+				.stream()
+				.filter(dependency -> !SNOMEDCT.equals(dependency.getShortName()))
+				.collect(Collectors.toSet());
+
+		// Combine current dependencies with additional code systems
+		currentDependencies.addAll(additionalCodeSystems);
+		return currentDependencies;
 	}
 
 
