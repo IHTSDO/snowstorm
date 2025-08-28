@@ -251,63 +251,34 @@ public class CodeSystemUpgradeService {
 	private void performAdditionalDependencyCheck(CodeSystem codeSystem, Integer newDependantVersion, CodeSystemUpgradeJob job, CodeSystem parentCodeSystem) {
 		// Get additional dependencies directly using the existing method
 		Set<CodeSystem> dependentCodeSystems = moduleDependencyService.getAllDependentCodeSystems(codeSystem);
-		Set<CodeSystem> additionalCodeSystems = dependentCodeSystems.stream().filter(additional -> !additional.equals(parentCodeSystem)).collect(Collectors.toSet());
+		Set<CodeSystem> additionalCodeSystems = dependentCodeSystems.stream()
+			.filter(additional -> !additional.equals(parentCodeSystem))
+			.collect(Collectors.toSet());
 		
-		List<String> missingDeps = new ArrayList<>();
-		Integer currentDependantVersion = codeSystem.getDependantVersionEffectiveTime();
-		Map<CodeSystem, Set<Integer>> possibleUpgradeVersions = new HashMap<>();
-
-		for (CodeSystem additional : additionalCodeSystems) {
-			List<CodeSystemVersion> depVersions = codeSystemService.findAllVersions(additional.getShortName(), true, true);
-			depVersions.forEach(codeSystemVersionService::populateDependantVersion);
-
-			depVersions.stream()
-					.map(CodeSystemVersion::getDependantVersionEffectiveTime)
-					.filter(Objects::nonNull)
-					.forEach(depIntVersion -> {
-						if (currentDependantVersion == null || depIntVersion > currentDependantVersion) {
-							possibleUpgradeVersions.computeIfAbsent(additional, k -> new HashSet<>()).add(depIntVersion);
-						}
-					});
-
-			boolean foundCompatible = depVersions.stream()
-					.map(CodeSystemVersion::getDependantVersionEffectiveTime)
-					.anyMatch(depIntVersion -> depIntVersion != null && depIntVersion.equals(newDependantVersion));
-
-			if (!foundCompatible) {
-				missingDeps.add(additional.getShortName());
-			}
+		if (additionalCodeSystems.isEmpty()) {
+			return; // No additional dependencies to check
 		}
-
-		if (!missingDeps.isEmpty()) {
-			// Check if there are any versionsToRecommend
-			Set<Integer> versionsToRecommend = findCommonVersions(additionalCodeSystems, possibleUpgradeVersions);
-			if (versionsToRecommend.isEmpty()) {
-				throwUpgradeBlockedException(newDependantVersion, missingDeps, job);
-			} else {
-				recommendCompatibleVersion(newDependantVersion, versionsToRecommend, additionalCodeSystems, job);
-			}
+		
+		// Use the existing findCompatibleVersions method
+		List<Integer> compatibleVersions = codeSystemVersionService.findCompatibleVersions(additionalCodeSystems, newDependantVersion);
+		
+		if (compatibleVersions.isEmpty()) {
+			// No compatible versions found - upgrade is blocked
+			List<String> missingDeps = additionalCodeSystems.stream()
+				.map(CodeSystem::getShortName)
+				.toList();
+			throwUpgradeBlockedException(newDependantVersion, missingDeps, job);
+		}
+		
+		// Check if the requested version is compatible
+		if (!compatibleVersions.contains(newDependantVersion)) {
+			// Requested version not compatible, but there are other compatible versions
+			recommendCompatibleVersion(newDependantVersion, compatibleVersions, additionalCodeSystems, job);
 		}
 	}
 
 
-	Set<Integer> findCommonVersions(Set<CodeSystem> additionalCodeSystems, Map<CodeSystem, Set<Integer>> possibleUpgradeVersions) {
-		Set<Integer> common = new HashSet<>();
-		if (!possibleUpgradeVersions.keySet().containsAll(additionalCodeSystems)) {
-			return common;
-		}
-		for (Set<Integer> versions : possibleUpgradeVersions.values()) {
-			if (common.isEmpty()) {
-				common.addAll(versions);
-			} else {
-				common.retainAll(versions);
-			}
-			if (common.isEmpty()) {
-				break;
-			}
-		}
-		return common;
-	}
+
 
 	private void throwUpgradeBlockedException(Integer newDependantVersion, List<String> missingDependencyCodeSystems, CodeSystemUpgradeJob job) {
 		String errorMessage = String.format("No compatible release found for dependent code system %s with the requested International version %s." +
@@ -320,7 +291,7 @@ public class CodeSystemUpgradeService {
 		throw new IllegalStateException(errorMessage);
 	}
 
-	private void recommendCompatibleVersion(Integer newDependantVersion, Set<Integer> possibleUpgradeVersions, Set<CodeSystem> additionalCodeSystems, CodeSystemUpgradeJob job) {
+	private void recommendCompatibleVersion(Integer newDependantVersion, List<Integer> possibleUpgradeVersions, Set<CodeSystem> additionalCodeSystems, CodeSystemUpgradeJob job) {
 		for (Integer possibleVersion : possibleUpgradeVersions) {
 			boolean compatible = additionalCodeSystems.stream().allMatch(additional -> {
 				List<CodeSystemVersion> depVersions = codeSystemService.findAllVersions(additional.getShortName(), true, true);
