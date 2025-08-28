@@ -255,8 +255,8 @@ class CodeSystemUpgradeServiceTest extends AbstractTest {
         IllegalStateException ex = assertThrows(IllegalStateException.class,
                 () -> codeSystemUpgradeService.preUpgradeChecks(extension, 20250101, job));
 
-        String expected = "No compatible release found for dependent code system SNOMEDCT-THIRD with the requested International version 20250101. " +
-                "Please wait for a compatible release before proceeding.";
+        String expected = "No compatible release found for dependent code system SNOMEDCT-THIRD, SNOMEDCT-LOINC with the requested International version 20250101." +
+                " Please wait for a compatible release before proceeding.";
         assertEquals(expected, ex.getMessage());
     }
 
