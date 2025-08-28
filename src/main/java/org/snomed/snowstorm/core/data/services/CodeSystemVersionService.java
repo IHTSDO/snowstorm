@@ -15,10 +15,9 @@ import org.springframework.data.elasticsearch.core.SearchHit;
 import org.springframework.data.elasticsearch.client.elc.NativeQueryBuilder;
 import org.springframework.stereotype.Component;
 
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
 
 import static co.elastic.clients.elasticsearch._types.query_dsl.QueryBuilders.bool;
 import static io.kaicode.elasticvc.helper.QueryHelper.termQuery;
@@ -133,4 +132,41 @@ public class CodeSystemVersionService {
     private String buildKeyForCache(CodeSystemVersion codeSystemVersion, long headTimestamp) {
         return codeSystemVersion.getShortName() + "_" + codeSystemVersion.getEffectiveDate() + "_" + headTimestamp;
     }
+
+
+    /**
+     * Find compatible versions across all codeSystems for a given target dependent version
+     */
+    public List<Integer> findCompatibleVersions(Set<CodeSystem> codeSystems, Integer targetDependantVersion) {
+        if (codeSystems.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        Set<Integer> commonCompatibleVersions = null;
+
+        for (CodeSystem dependency : codeSystems) {
+            // Get all versions of this dependency
+            List<CodeSystemVersion> depVersions = codeSystemService.findAllVersions(dependency.getShortName(), true, true);
+            depVersions.forEach(this::populateDependantVersion);
+
+            // Find versions that are compatible with the target dependent version
+            Set<Integer> compatibleVersions = depVersions.stream()
+                    .map(CodeSystemVersion::getDependantVersionEffectiveTime)
+                    .filter(Objects::nonNull)
+                    .filter(depVersion -> depVersion >= targetDependantVersion)
+                    .collect(Collectors.toSet());
+
+            if (commonCompatibleVersions == null) {
+                commonCompatibleVersions = new HashSet<>(compatibleVersions);
+            } else {
+                commonCompatibleVersions.retainAll(compatibleVersions);
+            }
+
+            if (commonCompatibleVersions.isEmpty()) {
+                break; // No common versions found
+            }
+        }
+        return commonCompatibleVersions != null ? commonCompatibleVersions.stream().sorted().toList() : Collections.emptyList();
+    }
+
 }
