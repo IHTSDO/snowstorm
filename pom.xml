@@ -166,6 +166,12 @@
 		<dependency>
 			<groupId>ca.uhn.hapi.fhir</groupId>
 			<artifactId>hapi-fhir-server</artifactId>
+			<exclusions>
+				<exclusion>
+					<groupId>org.eclipse.angus</groupId>
+					<artifactId>angus-mail</artifactId>
+				</exclusion>
+			</exclusions>
 		</dependency>
 		<dependency>
 			<groupId>ca.uhn.hapi.fhir</groupId>
