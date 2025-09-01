@@ -255,7 +255,9 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 			@OperationParam(name="property") CodeType property,
 			@OperationParam(name="default-valueset-version") CanonicalType versionValueSet)
 			{
-		logger.info(FHIRValueSetProviderHelper.getFullURL(request));
+		if (logger.isInfoEnabled()) {
+			logger.info(FHIRValueSetProviderHelper.getFullURL(request));
+		}
 		ValueSetExpansionParameters params;
 		if (request.getMethod().equals(RequestMethod.POST.name())) {
 			// HAPI doesn't populate the OperationParam values for POST, we parse the body instead.
@@ -295,6 +297,7 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 			@OperationParam(name="valueset-membership-only") BooleanType valueSetMembershipOnly,
 			@OperationParam(name="activeOnly") BooleanType activeOnly) {
 
+		validateCodeParamHints(systemVersionDeprecated);
 		return valueSetService.validateCode(id.getIdPart(), url, context, valueSet, valueSetVersion, code, system, systemVersion == null ? systemVersionDeprecated : systemVersion, display, coding, codeableConcept, date, abstractBool,
 				FHIRHelper.getDisplayLanguage(displayLanguage, request.getHeader(ACCEPT_LANGUAGE_HEADER)),inferSystem, activeOnly, null, lenientDisplayValidation, valueSetMembershipOnly);
 	}
@@ -324,7 +327,9 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 			@OperationParam(name="valueset-membership-only") BooleanType valueSetMembershipOnly,
 			@OperationParam(name="default-valueset-version") CanonicalType versionValueSet) {
 
-		logger.info(FHIRValueSetProviderHelper.getFullURL(request));
+		if (logger.isInfoEnabled()) {
+			logger.info(FHIRValueSetProviderHelper.getFullURL(request));
+		}
 		if (request.getMethod().equals(RequestMethod.POST.name())) {
 			// HAPI doesn't populate the OperationParam values for POST, we parse the body instead.
 			List<Parameters.ParametersParameterComponent> parsed = fhirContext.newJsonParser().parseResource(Parameters.class, rawBody).getParameter();
@@ -332,6 +337,10 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 		}
 		return valueSetService.validateCode(null, url, context, valueSet, valueSetVersion, code, system, systemVersion == null ? systemVersionDeprecated : systemVersion, display, coding, codeableConcept, date, abstractBool,
 				FHIRHelper.getDisplayLanguage(displayLanguage, request.getHeader(ACCEPT_LANGUAGE_HEADER)), inferSystem, activeOnly, versionValueSet, lenientDisplayValidation, valueSetMembershipOnly);
+	}
+
+	private void validateCodeParamHints(String incorrectParamSystemVersion) {
+		FHIRHelper.parameterNamingHint("system-version", incorrectParamSystemVersion, "systemVersion");
 	}
 
 	@Override
