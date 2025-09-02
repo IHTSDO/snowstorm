@@ -6,7 +6,8 @@ import java.util.regex.Pattern;
 
 public class ConcreteValueRangeConstraint {
 	private static final Pattern TYPE_CONSTRAINT_PATTERN = Pattern.compile("([a-z]{3})(\\(.*\\))");
-	private static final Pattern NUMERIC_RANGE_PATTERN = Pattern.compile("(.*)(\\.\\.)(.*)");
+	//Improved Numeric Range Pattern previously "(.*)(\\.\\.)(.*)") as per https://chatgpt.com/share/68b6efe8-abc0-800d-85d0-1e294ab7f4f4
+	private static final Pattern NUMERIC_RANGE_PATTERN = Pattern.compile("([^.]*)\\.\\.([^.]*)");
 	public static final String OR_OPERATOR = "\\s";
 	public static final String AND_OPERATOR = ",";
 	public static final String HASH_SYMBOL = "#";

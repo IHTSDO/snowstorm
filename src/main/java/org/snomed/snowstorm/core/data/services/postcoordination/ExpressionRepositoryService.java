@@ -14,7 +14,6 @@ import org.snomed.snowstorm.core.data.services.NotFoundException;
 import org.snomed.snowstorm.core.data.services.ReferenceSetMemberService;
 import org.snomed.snowstorm.core.data.services.ServiceException;
 import org.snomed.snowstorm.core.data.services.identifier.IdentifierSource;
-import org.snomed.snowstorm.core.data.services.identifier.LocalRandomIdentifierSource;
 import org.snomed.snowstorm.core.data.services.pojo.MemberSearchRequest;
 import org.snomed.snowstorm.core.data.services.postcoordination.model.ComparableExpression;
 import org.snomed.snowstorm.core.util.TimerUtil;
@@ -35,6 +34,8 @@ import static java.lang.String.format;
 
 @Service
 public class ExpressionRepositoryService {
+
+	public static final String POSTCOORDINATED_EXPRESSION_PARTITION_ID = "16";
 
 	@Autowired
 	private ExpressionParser expressionParser;
@@ -97,7 +98,7 @@ public class ExpressionRepositoryService {
 	public PostCoordinatedExpression createExpression(String branch, String closeToUserForm, String moduleId) throws ServiceException {
 		final PostCoordinatedExpression postCoordinatedExpression = parseValidateAndTransformExpression(branch, closeToUserForm);
 
-		List<Long> expressionIds = identifierSource.reserveIds(0, LocalRandomIdentifierSource.POSTCOORDINATED_EXPRESSION_PARTITION_ID, 1);
+		List<Long> expressionIds = identifierSource.reserveIds(0, POSTCOORDINATED_EXPRESSION_PARTITION_ID, 1);
 		String expressionId = expressionIds.get(0).toString();
 		postCoordinatedExpression.setId(expressionId);
 

@@ -251,7 +251,7 @@ public abstract class Config extends ElasticsearchConfig {
 			@Autowired ElasticsearchOperations elasticsearchOperations) {
 
 		if (cisApiUrl.equals("local-random") || cisApiUrl.equals("local")) {// local is the legacy name
-			return new LocalRandomIdentifierSource(elasticsearchOperations);
+			throw new IllegalArgumentException("Suppoer for local-random (local) identifier source has been removed. Please use local-sequential or a CIS server.");
 		} else if (cisApiUrl.equals("local-sequential")) {
 			return new LocalSequentialIdentifierSource(elasticsearchOperations);
 		} else {
