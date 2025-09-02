@@ -191,7 +191,7 @@ class FHIRValueSetProviderExpandEclTest extends AbstractFHIRTest {
 
 	@Test
 	void testECLWithDesignationUseContextExpansion() throws JsonProcessingException {
-		String url = baseUrl + "/ValueSet/$expand?url=http://snomed.info/sct?fhir_vs=ecl/257751006&includeDesignations=true&_format=json";
+		String url = baseUrl + "/ValueSet/$expand?url=http://snomed.info/sct?fhir_vs=ecl/257751006&includeDesignations=true&_format=json";  //&displayLanguage=en-US
 		ValueSet valueSet = getValueSet(url);
 		assertEquals(1, valueSet.getExpansion().getContains().size());
 		List<ValueSet.ConceptReferenceDesignationComponent> designations = valueSet.getExpansion().getContains().get(0).getDesignation();
