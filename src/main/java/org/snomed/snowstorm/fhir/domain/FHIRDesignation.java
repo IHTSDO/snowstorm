@@ -20,11 +20,10 @@ public class FHIRDesignation {
 	private String use;
 	private String value;
 
-
-
 	private List<FHIRExtension> extensions;
 
 	public FHIRDesignation() {
+		// Default constructor needed for Spring Data / Jackson
 	}
 
 	public FHIRDesignation(TermConceptDesignation designation) {
