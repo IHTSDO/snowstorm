@@ -2,12 +2,12 @@ package org.snomed.snowstorm.core.data.services.postcoordination;
 
 import org.junit.jupiter.api.Test;
 import org.snomed.snowstorm.core.data.services.ServiceException;
-import org.snomed.snowstorm.core.data.services.identifier.LocalRandomIdentifierSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.snomed.snowstorm.core.data.services.postcoordination.ExpressionRepositoryService.POSTCOORDINATED_EXPRESSION_PARTITION_ID;
 
 class ExpressionRepositoryServiceTest extends AbstractExpressionTest {
 
@@ -21,7 +21,7 @@ class ExpressionRepositoryServiceTest extends AbstractExpressionTest {
 		PostCoordinatedExpression expression = expressionRepository.createExpression(branch, "83152002 |Oophorectomy|", "");
 		String expressionId = expression.getId();
 		System.out.println("Expression ID is " + expressionId);
-		assertEquals("16", LocalRandomIdentifierSource.POSTCOORDINATED_EXPRESSION_PARTITION_ID);
+		assertEquals("16", POSTCOORDINATED_EXPRESSION_PARTITION_ID);
 		assertEquals("16", expressionId.substring(expressionId.length() - 3, expressionId.length() - 1));
 
 		// Single concept
