@@ -330,6 +330,8 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 		if (logger.isInfoEnabled()) {
 			logger.info(FHIRValueSetProviderHelper.getFullURL(request));
 		}
+		validateCodeParamHints(systemVersionDeprecated);
+
 		if (request.getMethod().equals(RequestMethod.POST.name())) {
 			// HAPI doesn't populate the OperationParam values for POST, we parse the body instead.
 			List<Parameters.ParametersParameterComponent> parsed = fhirContext.newJsonParser().parseResource(Parameters.class, rawBody).getParameter();
@@ -339,8 +341,8 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 				FHIRHelper.getDisplayLanguage(displayLanguage, request.getHeader(ACCEPT_LANGUAGE_HEADER)), inferSystem, activeOnly, versionValueSet, lenientDisplayValidation, valueSetMembershipOnly);
 	}
 
-	private void validateCodeParamHints(String incorrectParamSystemVersion) {
-		FHIRHelper.parameterNamingHint("system-version", incorrectParamSystemVersion, "systemVersion");
+	private void validateCodeParamHints(String systemVersionDeprecated) {
+		FHIRHelper.parameterNamingHint("system-version", systemVersionDeprecated, "systemVersion");
 	}
 
 	@Override
