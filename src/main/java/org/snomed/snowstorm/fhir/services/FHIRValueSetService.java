@@ -32,6 +32,7 @@ import org.snomed.snowstorm.fhir.services.context.CodeSystemVersionProvider;
 import org.snomed.snowstorm.rest.ControllerHelper;
 import org.snomed.snowstorm.rest.pojo.SearchAfterPageRequest;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.*;
 import org.springframework.data.elasticsearch.client.elc.NativeQuery;
 import org.springframework.data.elasticsearch.client.elc.NativeQueryBuilder;
@@ -65,6 +66,9 @@ public class FHIRValueSetService {
 
 	public static final String TX_ISSUE_TYPE = "http://hl7.org/fhir/tools/CodeSystem/tx-issue-type";
 	public static final String DISPLAY_COMMENT = "display-comment";
+
+	@Value("${fhir.default.langDialectCode}")
+	private String defaultLangDialectCode;
 
 	private class SelectedDisplay{
 		public Boolean languageAvailable;
@@ -220,6 +224,12 @@ public class FHIRValueSetService {
 		notSupported("excludeNotForUI", params.getExcludeNotForUI());
 		notSupported("excludePostCoordinated", params.getExcludePostCoordinated());
 		notSupported("version", params.getVersion());// Not part of the FHIR API spec but requested under MAINT-1363
+
+		//Do we have any sort of diplay language set?  Use the default if not, to ensure at least some display value is set.
+		//Discuss Config.DEFAULT_LANGUAGE_CODE currently 'en'
+		if (displayLanguage == null && params.getDisplayLanguage() == null) {
+			displayLanguage = defaultLangDialectCode;
+		}
 
 		ValueSet hapiValueSet = findOrInferValueSet(params.getId(), params.getUrl(), params.getValueSet(), params.getValueSetVersion());
 		if (hapiValueSet == null) {
@@ -650,19 +660,19 @@ public class FHIRValueSetService {
 			}
 
 		}).toList();
-		Map<String, ValueSet.ConceptReferenceDesignationComponent> languageToDesignation = new HashMap<>();
+		Map<String, List<ValueSet.ConceptReferenceDesignationComponent>> languageToDesignation = new HashMap<>();
 		Map<String, List<Locale>> languageToVarieties = new HashMap<>();
 		List<Pair<LanguageDialect, Double>> weightedLanguages = ControllerHelper.parseAcceptLanguageHeaderWithWeights(displayLanguage,true);
 		Locale defaultLocale = Locale.forLanguageTag(defaultConceptLanguage);;
 		languageToVarieties.put(defaultLocale.getLanguage(), new ArrayList<>());
 		languageToVarieties.get(defaultLocale.getLanguage()).add(defaultLocale);
 
-		languageToDesignation.put(defaultConceptLanguage, new ValueSet.ConceptReferenceDesignationComponent().setValue(component.getDisplay())
-				.setLanguage(defaultConceptLanguage) );
+	//	languageToDesignation.put(defaultConceptLanguage, new ValueSet.ConceptReferenceDesignationComponent().setValue(component.getDisplay())
+	//			.setLanguage(defaultConceptLanguage) );
 
 		List<ValueSet.ConceptReferenceDesignationComponent> noLanguage = new ArrayList<>();
 
-		for (ValueSet.ConceptReferenceDesignationComponent designation : component.getDesignation()){
+		for (ValueSet.ConceptReferenceDesignationComponent designation : component.getDesignation()) {
 			if (designation.getLanguage()==null) {
 				noLanguage.add(designation);
 			} else {
@@ -672,56 +682,59 @@ public class FHIRValueSetService {
 					languageToVarieties.put(designationLocale.getLanguage(), allVarieties);
 				}
 				languageToVarieties.get(designationLocale.getLanguage()).add(designationLocale);
-				languageToDesignation.put(designation.getLanguage(), designation);
+				languageToDesignation.computeIfAbsent(designation.getLanguage(), k -> new ArrayList<>())
+					.add(designation);
 			}
-
 		}
 
-
-			for (FHIRDesignation designation : concept.getDesignations()) {
-				ValueSet.ConceptReferenceDesignationComponent designationComponent = new ValueSet.ConceptReferenceDesignationComponent();
-				designationComponent.setLanguage(designation.getLanguage());
-				designationComponent.setUse(designation.getUseCoding());
-				designationComponent.setValue(designation.getValue());
-				Optional.ofNullable(designation.getExtensions()).orElse(emptyList()).forEach(
-						e -> {
-							designationComponent.addExtension(e.getHapi());
-						}
-				);
-				if (designation.getLanguage()==null) {
-					noLanguage.add(designationComponent);
-				} else {
-					Locale designationLocale = Locale.forLanguageTag(designation.getLanguage());
-					if (languageToVarieties.get(designationLocale.getLanguage()) == null) {
-						List<Locale> allVarieties = new ArrayList<>();
-						languageToVarieties.put(designationLocale.getLanguage(), allVarieties);
+		for (FHIRDesignation designation : concept.getDesignations()) {
+			ValueSet.ConceptReferenceDesignationComponent designationComponent = new ValueSet.ConceptReferenceDesignationComponent();
+			designationComponent.setLanguage(designation.getLanguage());
+			designationComponent.setUse(designation.getUseCoding());
+			designationComponent.setValue(designation.getValue());
+			Optional.ofNullable(designation.getExtensions()).orElse(emptyList()).forEach(
+					e -> {
+						designationComponent.addExtension(e.getHapi());
 					}
-					languageToVarieties.get(designationLocale.getLanguage()).add(designationLocale);
-					languageToDesignation.put(designation.getLanguage(), designationComponent);
+			);
+			if (designation.getLanguage()==null) {
+				noLanguage.add(designationComponent);
+			} else {
+				Locale designationLocale = Locale.forLanguageTag(designation.getLanguage());
+				if (languageToVarieties.get(designationLocale.getLanguage()) == null) {
+					List<Locale> allVarieties = new ArrayList<>();
+					languageToVarieties.put(designationLocale.getLanguage(), allVarieties);
 				}
+				languageToVarieties.get(designationLocale.getLanguage()).add(designationLocale);
+				languageToDesignation.computeIfAbsent(designation.getLanguage(), k -> new ArrayList<>())
+						.add(designationComponent);
 			}
+		}
 
 		String requestedLanguage = determineRequestedLanguage(defaultConceptLanguage, weightedLanguages, languageToDesignation.keySet(), languageToVarieties);
 		if (requestedLanguage == null) {
 			component.setDisplay(null);
-		} else if (includeDesignations) {  // "act-class" test case from "tho" test group is expecting the "display" field to be in the expansion, not the one in "designation". Param "includeDesignations" not present for this test case
-			component.setDisplay(languageToDesignation.get(requestedLanguage).getValue());
+		} else if (includeDesignations) {
+			// "act-class" test case from "tho" test group is expecting the "display" field to be in
+			// the expansion, not the one in "designation".
+			// Param "includeDesignations" not present for this test case
+
+			//TODO Can't pull out a random designation.  We need to work out what the appropriate langrefset
+			//is, and find that preferred term
+			String displayTerm = languageToDesignation.get(requestedLanguage).stream()
+							.filter(d -> d.getUse() != null && d.getUse().getSystem().equals(FHIRConstants.HL7_DESIGNATION_USAGE))
+									.findFirst()
+											.orElse(new ValueSet.ConceptReferenceDesignationComponent()).getValue();
+			component.setDisplay(displayTerm);
 		}
 
 		if (includeDesignations) {
 			List<ValueSet.ConceptReferenceDesignationComponent> newDesignations = new ArrayList<>();
-			for (Map.Entry<String, ValueSet.ConceptReferenceDesignationComponent> entry : languageToDesignation.entrySet() ){
-
-				if (!entry.getKey().equals(requestedLanguage)) {
-					if (entry.getKey().equals(defaultConceptLanguage)) {
-						entry.getValue().setUse(new Coding("http://terminology.hl7.org/CodeSystem/designation-usage", "display", null));
+			for (Map.Entry<String, List<ValueSet.ConceptReferenceDesignationComponent>> entry : languageToDesignation.entrySet()) {
+				for (ValueSet.ConceptReferenceDesignationComponent designation : entry.getValue()) {
+					if (designationLang.isEmpty() || designationLang.contains(designation.getLanguage())) {
+						newDesignations.add(designation);
 					}
-
-
-					if(designationLang.isEmpty() || designationLang.contains(entry.getValue().getLanguage())) {
-						newDesignations.add(entry.getValue());
-					}
-
 				}
 			}
 			newDesignations.addAll(noLanguage);

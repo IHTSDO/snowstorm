@@ -168,7 +168,7 @@ public class FHIRConcept implements FHIRGraphNode {
 		code = snomedConceptMini.getConceptId();
 		codeLower = code.toLowerCase();
 		TermLangPojo displayTerm = snomedConceptMini.getPt();
-		if (displayTerm == null) {
+		if (displayTerm == null || displayTerm.getTerm() == null) {
 			displayTerm = snomedConceptMini.getFsn();
 			if (displayTerm == null) {
 				displayTerm = new TermLangPojo(code, "en");
