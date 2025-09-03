@@ -79,13 +79,13 @@ public final class ValueSetExpansionParameters {
 	}
 
 	public PageRequest getPageRequest(Sort sort) {
-		int offset = this.offset != null ? this.offset : 0;
+		int offsetInt = this.offset != null ? this.offset : 0;
 		int pageSize = this.count != null ? this.count : FHIRHelper.DEFAULT_PAGESIZE;
-		if (offset % pageSize != 0) {
-			throw FHIRHelper.exception(format("Parameter 'offset' '%s' must be a multiplication of 'count' (page size) '%s'.", offset, pageSize),
+		if (offsetInt % pageSize != 0) {
+			throw FHIRHelper.exception(format("Parameter 'offset' '%s' must be a multiplication of 'count' (page size) '%s'.", offsetInt, pageSize),
 					OperationOutcome.IssueType.INVALID, 400);
 		}
-		return ControllerHelper.getPageRequest(offset, pageSize, sort);
+		return ControllerHelper.getPageRequest(offsetInt, pageSize, sort);
 
 	}
 
@@ -188,7 +188,7 @@ public final class ValueSetExpansionParameters {
 	public CanonicalUri getVersionValueSet() { return versionValueSet;
 	}
 
-	public Boolean getAllowMaximumSizeExpansion() {
+	public boolean getAllowMaximumSizeExpansionAsBoolean() {
 		return allowMaximumSizeExpansion;
 	}
 }

@@ -220,7 +220,7 @@ public class FHIRConceptMapService {
 				.filter(group -> targetSystem == null || group.getTarget().equals(targetSystem))
 				.toList();
 		BoolQuery.Builder query = bool()
-				.must(termsQuery(FHIRMapElement.Fields.GROUP_ID, groups.stream().map(FHIRConceptMapGroup::getGroupId).collect(Collectors.toList())))
+				.must(termsQuery(FHIRMapElement.Fields.GROUP_ID, groups.stream().map(FHIRConceptMapGroup::getGroupId).toList()))
 				.must(termQuery(FHIRMapElement.Fields.CODE, coding.getCode()));
 		NativeQueryBuilder queryBuilder = new NativeQueryBuilder()
 				.withQuery(query.build()._toQuery())
@@ -289,7 +289,7 @@ public class FHIRConceptMapService {
 				})
 				.filter(Objects::nonNull)
 				.filter(element -> element.getTarget().get(0).getCode() != null)
-				.collect(Collectors.toList());
+				.toList();
 
 		// Grab target display terms
 		if (!mapTargetsByCode.isEmpty()) {
@@ -356,6 +356,6 @@ public class FHIRConceptMapService {
 	@NotNull
 	private <T> List<T> searchForList(NativeQueryBuilder queryBuilder, Class<T> clazz) {
 		return elasticsearchOperations.search(queryBuilder.build(), clazz).stream()
-				.map(SearchHit::getContent).collect(Collectors.toList());
+				.map(SearchHit::getContent).toList();
 	}
 }

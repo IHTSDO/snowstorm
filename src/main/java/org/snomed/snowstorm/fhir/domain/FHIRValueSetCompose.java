@@ -49,16 +49,14 @@ public class FHIRValueSetCompose {
 		if (this.isInactive()!=null) {
 			hapiCompose.setInactive(this.isInactive());
 		}
-		for (FHIRValueSetCriteria include : orEmpty(getInclude())) {
-			hapiCompose.addInclude(include.getHapi());
+		for (FHIRValueSetCriteria includeCriteria : orEmpty(getInclude())) {
+			hapiCompose.addInclude(includeCriteria.getHapi());
 		}
-		for (FHIRValueSetCriteria exclude : orEmpty(getExclude())) {
-			hapiCompose.addExclude(exclude.getHapi());
+		for (FHIRValueSetCriteria excludeCriteria : orEmpty(getExclude())) {
+			hapiCompose.addExclude(excludeCriteria.getHapi());
 		}
 
-		orEmpty(extensions).forEach( ext ->{
-			hapiCompose.addExtension(ext.getHapi());
-		});
+		orEmpty(extensions).forEach( ext -> hapiCompose.addExtension(ext.getHapi()));
 		return hapiCompose;
 	}
 
