@@ -22,7 +22,7 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-public class FHIRValueSetProviderExpandGenericTest extends AbstractFHIRTest {
+class FHIRValueSetProviderExpandGenericTest extends AbstractFHIRTest {
 
 	@Autowired
 	private FHIRConceptService conceptService;
@@ -33,7 +33,7 @@ public class FHIRValueSetProviderExpandGenericTest extends AbstractFHIRTest {
 	private FHIRCodeSystemVersion codeSystemVersion;
 
 	@BeforeEach
-	public void testSetup() throws IOException, ServiceException {
+	void testSetup() throws IOException, ServiceException {
 		// Create generic code system for tests
 		File codeSystemFile = new File("src/test/resources/dummy-fhir-content/hl7/CodeSystem-v3-ContextControl.json");
 		assertTrue(codeSystemFile.isFile());
@@ -76,7 +76,7 @@ public class FHIRValueSetProviderExpandGenericTest extends AbstractFHIRTest {
 	}
 
 	@AfterEach
-	public void testAfter() {
+	void testAfter() {
 		// Delete the value set
 		ResponseEntity<String> response = restTemplate.exchange(baseUrl + "/ValueSet?url=http://example.com/fhir/vs/sex&version=0.1", HttpMethod.DELETE, null, String.class);
 		assertEquals(HttpStatus.NO_CONTENT, response.getStatusCode(), response.getBody());
@@ -86,7 +86,7 @@ public class FHIRValueSetProviderExpandGenericTest extends AbstractFHIRTest {
 	}
 
 	@Test
-	public void testExpandUsingHierarchy() {
+	void testExpandUsingHierarchy() {
 		HttpEntity<String> expandRequest = new HttpEntity<>("""
                 {
                 	"resourceType": "Parameters",
@@ -120,7 +120,7 @@ public class FHIRValueSetProviderExpandGenericTest extends AbstractFHIRTest {
 	}
 
 	@Test
-	public void testExpandUsingHierarchyWithExclude() {
+	void testExpandUsingHierarchyWithExclude() {
 		HttpEntity<String> expandRequest = new HttpEntity<>("""
                 {
                 	"resourceType": "Parameters",
@@ -163,7 +163,7 @@ public class FHIRValueSetProviderExpandGenericTest extends AbstractFHIRTest {
 	}
 
 	@Test
-	public void testExpandIncludesOtherValueSet() {
+	void testExpandIncludesOtherValueSet() {
 		HttpEntity<String> expandRequest = new HttpEntity<>("""
                 {
                 	"resourceType": "Parameters",
