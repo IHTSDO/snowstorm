@@ -14,7 +14,7 @@ public class ConceptConstraint {
 		EXCLUDE_EXACT_MATCH,
 		MATCH_REGEX
 	}
-	private Collection<String> code;
+	private Collection<String> codes;
 	private Set<String> parent;// ECL used instead for SNOMED
 	private Set<String> ancestor;
 	private Boolean activeOnly;
@@ -34,12 +34,12 @@ public class ConceptConstraint {
 	public ConceptConstraint() {
 	}
 
-	public ConceptConstraint(Collection<String> code) {
-		this.code = code;
+	public ConceptConstraint(Collection<String> codes) {
+		this.codes = codes;
 	}
 
 	public boolean isSimpleCodeSet() {
-		return CollectionUtils.isEmpty(parent) && CollectionUtils.isEmpty(ancestor) && ecl == null && !CollectionUtils.isEmpty(code) && getType()== INCLUDE_TERMS && activeOnly == null;
+		return CollectionUtils.isEmpty(parent) && CollectionUtils.isEmpty(ancestor) && ecl == null && !CollectionUtils.isEmpty(codes) && getType()== INCLUDE_TERMS && activeOnly == null;
 	}
 
 	public ConceptConstraint setParent(Set<String> parent) {
@@ -61,8 +61,13 @@ public class ConceptConstraint {
 		return ecl != null;
 	}
 
-	public Collection<String> getCode() {
-		return code;
+	public Collection<String> getCodes() {
+		return codes;
+	}
+
+	public ConceptConstraint setCodes(Set<String> codes) {
+		this.codes = codes;
+		return this;
 	}
 
 	public Set<String> getParent() {
@@ -92,12 +97,12 @@ public class ConceptConstraint {
 		if (this == o) return true;
 		if (o == null || getClass() != o.getClass()) return false;
 		ConceptConstraint that = (ConceptConstraint) o;
-		return Objects.equals(code, that.code) && Objects.equals(parent, that.parent) && Objects.equals(ancestor, that.ancestor) && Objects.equals(ecl, that.ecl) && Objects.equals(properties, that.properties) && type == that.type && Objects.equals(activeOnly, that.activeOnly);
+		return Objects.equals(codes, that.codes) && Objects.equals(parent, that.parent) && Objects.equals(ancestor, that.ancestor) && Objects.equals(ecl, that.ecl) && Objects.equals(properties, that.properties) && type == that.type && Objects.equals(activeOnly, that.activeOnly);
 	}
 
 	@Override
 	public int hashCode() {
-		return Objects.hash(code, parent, ancestor, ecl, properties, type, activeOnly);
+		return Objects.hash(codes, parent, ancestor, ecl, properties, type, activeOnly);
 	}
 
 	public Type getType() {

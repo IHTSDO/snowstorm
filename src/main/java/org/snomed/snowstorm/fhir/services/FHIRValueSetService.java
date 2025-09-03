@@ -70,6 +70,7 @@ public class FHIRValueSetService implements FHIRConstants {
 	public static final String DISPLAY_COMMENT = "display-comment";
 	public static final String SUPPLEMENT_NOT_EXIST = "Supplement %s does not exist.";
 	public static final String TX_ISSUE_TYPE = "http://hl7.org/fhir/tools/CodeSystem/tx-issue-type";
+	public static final String UNEXPECTED_OPERATION_QUOTE = "Unexpected operation '";
 	public static final String USED_SUPPLEMENT = "used-supplement";
 
 	public static final String INVALID_CODE ="invalid-code";
@@ -99,7 +100,7 @@ public class FHIRValueSetService implements FHIRConstants {
 	@Value("${fhir.default.langDialectCode}")
 	private String defaultLangDialectCode;
 
-	private class SelectedDisplay {
+	private static class SelectedDisplay {
 		Boolean languageAvailable;
 		String selectedLanguage;
 		String selectedDisplayValue;
@@ -278,10 +279,11 @@ public class FHIRValueSetService implements FHIRConstants {
 		}
 
 		if (params.getVersionValueSet() != null){
-			CanonicalType fixVersion = hapiValueSet.getCompose().getInclude().stream().filter(x -> x.hasValueSet()).flatMap(x -> x.getValueSet().stream()).filter(x -> x.getValueAsString().equals(params.getVersionValueSet().getSystem())).findFirst().orElse(null);
-			if(fixVersion!=null) {
-				fixVersion.setValueAsString(params.getVersionValueSet().toString());
-			}
+			hapiValueSet.getCompose().getInclude().stream()
+					.filter(ValueSet.ConceptSetComponent::hasValueSet).flatMap(x -> x.getValueSet().stream())
+					.filter(x -> x.getValueAsString().equals(params.getVersionValueSet().getSystem()))
+					.findFirst()
+					.ifPresent(fixVersion -> fixVersion.setValueAsString(params.getVersionValueSet().toString()));
 		}
 
 		String filter = params.getFilter();
@@ -480,14 +482,17 @@ public class FHIRValueSetService implements FHIRConstants {
 		collectCodeSystemSetWarnings(allInclusionVersions).forEach(expansion::addParameter);
 		collectValueSetWarnings(codeSelectionCriteria).forEach(expansion::addParameter);
 
-		hapiValueSet.getCompose().getInclude().stream().filter(x -> x.hasValueSet()).flatMap(x -> x.getValueSet().stream()).forEach(x ->{
-			CanonicalUri uri = CanonicalUri.fromString(x.getValueAsString());
-			if (uri.getVersion()==null){
-				Optional<FHIRValueSet> latest = findLatestByUrl(uri.getSystem());
-				uri = CanonicalUri.of(uri.getSystem(), latest.flatMap(v -> Optional.ofNullable(v.getVersion())).orElse(null));
-			}
-			expansion.addParameter(new ValueSet.ValueSetExpansionParameterComponent(new StringType("used-valueset")).setValue(new UriType(uri.toString())));
-			expansion.addParameter(new ValueSet.ValueSetExpansionParameterComponent(new StringType(VERSION)).setValue(new UriType(uri.toString())));
+		hapiValueSet.getCompose().getInclude().stream()
+				.filter(ValueSet.ConceptSetComponent::hasValueSet)
+				.flatMap(x -> x.getValueSet().stream())
+				.forEach(x ->{
+					CanonicalUri uri = CanonicalUri.fromString(x.getValueAsString());
+					if (uri.getVersion()==null){
+						Optional<FHIRValueSet> latest = findLatestByUrl(uri.getSystem());
+						uri = CanonicalUri.of(uri.getSystem(), latest.flatMap(v -> Optional.ofNullable(v.getVersion())).orElse(null));
+					}
+					expansion.addParameter(new ValueSet.ValueSetExpansionParameterComponent(new StringType("used-valueset")).setValue(new UriType(uri.toString())));
+					expansion.addParameter(new ValueSet.ValueSetExpansionParameterComponent(new StringType(VERSION)).setValue(new UriType(uri.toString())));
 		});
 
 		allInclusionVersions.forEach(codeSystemVersion -> 
@@ -515,9 +520,7 @@ public class FHIRValueSetService implements FHIRConstants {
 
 
 		Optional.ofNullable(params.getProperty()).ifPresent( x ->{
-					if ("alternateCode".equals(x)){
-						//do nothing
-					} else {
+					if (!"alternateCode".equals(x)){
 						addPropertyToExpansion(x, getUrlForProperty(x), expansion);
 					}
 				}
@@ -549,38 +552,37 @@ public class FHIRValueSetService implements FHIRConstants {
 							.setInactiveElement(concept.isActive() ? null : new BooleanType(true))
 							.setDisplay(concept.getDisplay());
 
-					concept.getProperties().entrySet().forEach( p -> {
-						if (p.getKey().equals("status")){
-							p.getValue().stream()
+					concept.getProperties().forEach((key, value) -> {
+						if (key.equals("status")) {
+							value.stream()
 									.filter(x -> x.getValue().equals("retired") || x.getValue().equals("deprecated"))
 									.findFirst()
-									.ifPresent(x-> 
-										//component.setAbstract(true); // testcase inactive-expand doesn't expect abstract in the response
-										component.setInactive(true));
-						} else if (p.getKey().equals("notSelectable") || p.getKey().equals("not-selectable")) {
-							p.getValue().stream()
+									.ifPresent(x ->
+											//component.setAbstract(true); // testcase inactive-expand doesn't expect abstract in the response
+											component.setInactive(true));
+						} else if (key.equals("notSelectable") || key.equals("not-selectable")) {
+							value.stream()
 									.filter(val -> val.getValue().equals("true"))
 									.findFirst()
 									.ifPresent(y -> component.setAbstract(true));
-						}
-						else if (p.getKey().equals("http://hl7.org/fhir/StructureDefinition/itemWeight")){
-							p.getValue().stream()
+						} else if (key.equals("http://hl7.org/fhir/StructureDefinition/itemWeight")) {
+							value.stream()
 									.findFirst()
-									.ifPresent(y-> {
+									.ifPresent(y -> {
 										addPropertyToContains(WEIGHT, component, y.toHapiValue(null));
 										addPropertyToExpansion(WEIGHT, "http://hl7.org/fhir/concept-properties#itemWeight", expansion);
 									});
-						} else if (p.getKey().equals("http://hl7.org/fhir/StructureDefinition/codesystem-label")){
-							p.getValue().stream()
+						} else if (key.equals("http://hl7.org/fhir/StructureDefinition/codesystem-label")) {
+							value.stream()
 									.findFirst()
-									.ifPresent(y-> {
+									.ifPresent(y -> {
 										addPropertyToContains(LABEL, component, y.toHapiValue(null));
 										addPropertyToExpansion(LABEL, "http://hl7.org/fhir/concept-properties#label", expansion);
 									});
-						} else if (p.getKey().equals("http://hl7.org/fhir/StructureDefinition/codesystem-conceptOrder")){
-							p.getValue().stream()
+						} else if (key.equals("http://hl7.org/fhir/StructureDefinition/codesystem-conceptOrder")) {
+							value.stream()
 									.findFirst()
-									.ifPresent(y-> {
+									.ifPresent(y -> {
 										addPropertyToContains(ORDER, component, new DecimalType(y.toHapiValue(null).primitiveValue()));
 										addPropertyToExpansion(ORDER, "http://hl7.org/fhir/concept-properties#order", expansion);
 									});
@@ -599,7 +601,7 @@ public class FHIRValueSetService implements FHIRConstants {
 					setDisplayAndDesignations(component, concept, idAndVersionToLanguage.getOrDefault(concept.getCodeSystemVersion(), "en"), includeDesignations, fhirDisplayLanguage, params.getDesignations());
 					return component;
 		})
-				.collect(Collectors.toList()));
+				.toList());
 		expansion.setOffset(conceptsPage.getNumber() * conceptsPage.getSize());
 		expansion.setTotal((int) conceptsPage.getTotalElements());
 		hapiValueSet.setExpansion(expansion);
@@ -670,94 +672,88 @@ public class FHIRValueSetService implements FHIRConstants {
         return Optional.ofNullable(hapiValueSet.getCompose().getExtensionByUrl(HL7_SD_VS_EXPANSION_PARAMETER)).isPresent() && DISPLAY_LANGUAGE.equals(hapiValueSet.getCompose().getExtensionByUrl(HL7_SD_VS_EXPANSION_PARAMETER).getExtensionString("name"));
 	}
 
-	private static void setDisplayAndDesignations(ValueSet.ValueSetExpansionContainsComponent component, FHIRConcept concept, String defaultConceptLanguage, boolean includeDesignations, String displayLanguage, List<String> designationLanguages) {
-		List<String> designationLang = Optional.ofNullable(designationLanguages).orElse(emptyList()).stream().map(x -> {
-			String[] systemAndLanguage = x.split("\\|");
-			if (systemAndLanguage.length < 2){
-				return systemAndLanguage[0];
-			} else {
-				return systemAndLanguage[1];
-			}
+	private static void setDisplayAndDesignations(ValueSet.ValueSetExpansionContainsComponent component,
+	                                              FHIRConcept concept,
+	                                              String defaultConceptLanguage,
+	                                              boolean includeDesignations,
+	                                              String displayLanguage,
+	                                              List<String> designationLanguages) {
 
-		}).toList();
-		Map<String, List<ValueSet.ConceptReferenceDesignationComponent>> languageToDesignation = new HashMap<>();
+		// Parse requested designation languages
+		List<String> designationLang = Optional.ofNullable(designationLanguages)
+				.orElse(emptyList())
+				.stream()
+				.map(x -> {
+					String[] parts = x.split("\\|");
+					return parts.length < 2 ? parts[0] : parts[1];
+				})
+				.toList();
+
 		Map<String, List<Locale>> languageToVarieties = new HashMap<>();
-		List<Pair<LanguageDialect, Double>> weightedLanguages = ControllerHelper.parseAcceptLanguageHeaderWithWeights(displayLanguage,true);
 		Locale defaultLocale = Locale.forLanguageTag(defaultConceptLanguage);
-		languageToVarieties.put(defaultLocale.getLanguage(), new ArrayList<>());
-		languageToVarieties.get(defaultLocale.getLanguage()).add(defaultLocale);
+		languageToVarieties.put(defaultLocale.getLanguage(), new ArrayList<>(List.of(defaultLocale)));
 
-		List<ValueSet.ConceptReferenceDesignationComponent> noLanguage = new ArrayList<>();
+		// Convert component and concept designations to ValueSetDesignationComponents
+		List<ValueSet.ConceptReferenceDesignationComponent> allDesignations = Stream.concat(
+				component.getDesignation().stream(),
+				concept.getDesignations().stream()
+						.map(d -> {
+							ValueSet.ConceptReferenceDesignationComponent c = new ValueSet.ConceptReferenceDesignationComponent();
+							c.setLanguage(d.getLanguage());
+							c.setUse(d.getUseCoding());
+							c.setValue(d.getValue());
+							Optional.ofNullable(d.getExtensions()).orElse(emptyList())
+									.forEach(e -> c.addExtension(e.getHapi()));
+							return c;
+						})
+		).toList();
 
-		for (ValueSet.ConceptReferenceDesignationComponent designation : component.getDesignation()) {
-			if (designation.getLanguage()==null) {
-				noLanguage.add(designation);
-			} else {
-				Locale designationLocale = Locale.forLanguageTag(designation.getLanguage());
-				if (languageToVarieties.get(designationLocale.getLanguage()) == null) {
-					List<Locale> allVarieties = new ArrayList<>();
-					languageToVarieties.put(designationLocale.getLanguage(), allVarieties);
-				}
-				languageToVarieties.get(designationLocale.getLanguage()).add(designationLocale);
-				languageToDesignation.computeIfAbsent(designation.getLanguage(), k -> new ArrayList<>())
-					.add(designation);
-			}
-		}
+		// Group by language and populate locales
+		Map<String, List<ValueSet.ConceptReferenceDesignationComponent>> languageToDesignation =
+				allDesignations.stream()
+						.collect(Collectors.groupingBy(d -> {
+							if (d.getLanguage() != null) {
+								Locale locale = Locale.forLanguageTag(d.getLanguage());
+								languageToVarieties.computeIfAbsent(locale.getLanguage(), k -> new ArrayList<>()).add(locale);
+							}
+							return d.getLanguage();
+						}));
 
-		for (FHIRDesignation designation : concept.getDesignations()) {
-			ValueSet.ConceptReferenceDesignationComponent designationComponent = new ValueSet.ConceptReferenceDesignationComponent();
-			designationComponent.setLanguage(designation.getLanguage());
-			designationComponent.setUse(designation.getUseCoding());
-			designationComponent.setValue(designation.getValue());
-			Optional.ofNullable(designation.getExtensions()).orElse(emptyList()).forEach(
-					e -> designationComponent.addExtension(e.getHapi()));
-			if (designation.getLanguage()==null) {
-				noLanguage.add(designationComponent);
-			} else {
-				Locale designationLocale = Locale.forLanguageTag(designation.getLanguage());
-				if (languageToVarieties.get(designationLocale.getLanguage()) == null) {
-					List<Locale> allVarieties = new ArrayList<>();
-					languageToVarieties.put(designationLocale.getLanguage(), allVarieties);
-				}
-				languageToVarieties.get(designationLocale.getLanguage()).add(designationLocale);
-				languageToDesignation.computeIfAbsent(designation.getLanguage(), k -> new ArrayList<>())
-						.add(designationComponent);
-			}
-		}
+		// Handle designations with no language
+		List<ValueSet.ConceptReferenceDesignationComponent> noLanguage =
+				allDesignations.stream()
+						.filter(d -> d.getLanguage() == null)
+						.toList();
 
+		// Determine requested language and set display
+		List<Pair<LanguageDialect, Double>> weightedLanguages = ControllerHelper.parseAcceptLanguageHeaderWithWeights(displayLanguage, true);
 		String requestedLanguage = determineRequestedLanguage(defaultConceptLanguage, weightedLanguages, languageToDesignation.keySet(), languageToVarieties);
+
 		if (requestedLanguage == null) {
 			component.setDisplay(null);
 		} else if (includeDesignations) {
-			// "act-class" test case from "tho" test group is expecting the DISPLAY field to be in
-			// the expansion, not the one in "designation".
-			// Param "includeDesignations" not present for this test case
-
-			//TODO Can't pull out a random designation.  We need to work out what the appropriate langrefset
-			//is, and find that preferred term
-			String displayTerm = languageToDesignation.get(requestedLanguage).stream()
-							.filter(d -> d.getUse() != null && d.getUse().getSystem().equals(FHIRConstants.HL7_DESIGNATION_USAGE))
-									.findFirst()
-											.orElse(new ValueSet.ConceptReferenceDesignationComponent()).getValue();
+			String displayTerm = languageToDesignation.getOrDefault(requestedLanguage, emptyList()).stream()
+					.filter(d -> d.getUse() != null && FHIRConstants.HL7_DESIGNATION_USAGE.equals(d.getUse().getSystem()))
+					.findFirst()
+					.orElse(new ValueSet.ConceptReferenceDesignationComponent())
+					.getValue();
 			component.setDisplay(displayTerm);
 		}
 
+		// Set component designations based on requested languages
 		if (includeDesignations) {
-			List<ValueSet.ConceptReferenceDesignationComponent> newDesignations = new ArrayList<>();
-			for (Map.Entry<String, List<ValueSet.ConceptReferenceDesignationComponent>> entry : languageToDesignation.entrySet()) {
-				for (ValueSet.ConceptReferenceDesignationComponent designation : entry.getValue()) {
-					if (designationLang.isEmpty() || designationLang.contains(designation.getLanguage())) {
-						newDesignations.add(designation);
-					}
-				}
-			}
+			List<ValueSet.ConceptReferenceDesignationComponent> newDesignations = languageToDesignation.values().stream()
+					.flatMap(List::stream)
+					.filter(d -> designationLang.isEmpty() || designationLang.contains(d.getLanguage()))
+					.collect(Collectors.toList());
+
 			newDesignations.addAll(noLanguage);
 			component.setDesignation(newDesignations);
 		} else {
 			component.setDesignation(emptyList());
 		}
-
 	}
+
 
 	private static String determineRequestedLanguage(String defaultConceptLanguage, List<Pair<LanguageDialect, Double>> weightedLanguages, Set<String> availableVarieties, Map<String, List<Locale>> languageToVarieties) {
 		List<Pair<LanguageDialect,Double>> allowedLanguages = new ArrayList<>(weightedLanguages.stream().filter(x -> (x.getRight()>0d)).toList());
@@ -933,7 +929,7 @@ public class FHIRValueSetService implements FHIRConstants {
 				Set<ConceptConstraint> newOrConstraints = new HashSet<>();
 				for(ConceptConstraint conceptConstraint: orConstraints.getOrConstraints()) {
 					if (conceptConstraint.isSimpleCodeSet()) {
-						simpleConstraints.computeIfAbsent(entry.getKey(), k -> new ConceptConstraint(new HashSet<>())).getCode().addAll(conceptConstraint.getCode());
+						simpleConstraints.computeIfAbsent(entry.getKey(), k -> new ConceptConstraint(new HashSet<>())).getCodes().addAll(conceptConstraint.getCodes());
 					} else {
 						newOrConstraints.add(conceptConstraint);
 					}
@@ -1008,8 +1004,8 @@ public class FHIRValueSetService implements FHIRConstants {
 		} else {
 			// Just a set of concept codes
 			Set<String> codes = new HashSet<>();
-			codeSelectionCriteria.getInclusionConstraints().values().stream().flatMap(andConstraints -> andConstraints.constraintsFlattened().stream()).forEach(include -> codes.addAll(include.getCode()));
-			codeSelectionCriteria.getExclusionConstraints().values().stream().flatMap(andConstraints -> andConstraints.constraintsFlattened().stream()).forEach(include -> codes.removeAll(include.getCode()));
+			codeSelectionCriteria.getInclusionConstraints().values().stream().flatMap(andConstraints -> andConstraints.constraintsFlattened().stream()).forEach(include -> codes.addAll(include.getCodes()));
+			codeSelectionCriteria.getExclusionConstraints().values().stream().flatMap(andConstraints -> andConstraints.constraintsFlattened().stream()).forEach(include -> codes.removeAll(include.getCodes()));
 			conceptQuery.conceptIds(codes);
 			if (activeOnly) {
 				conceptQuery.activeFilter(activeOnly);
@@ -1849,7 +1845,7 @@ public class FHIRValueSetService implements FHIRConstants {
 		if (inclusion.hasEcl()) {
 			return inclusion.getEcl();
 		}
-		return String.join(" OR ", inclusion.getCode());
+		return String.join(" OR ", inclusion.getCodes());
 	}
 
 	private void addQueryCriteria(ConceptConstraint inclusion, BoolQuery.Builder versionQuery, String valueSetUserRef) {
@@ -1857,13 +1853,13 @@ public class FHIRValueSetService implements FHIRConstants {
 			versionQuery.mustNot(termsQuery(FHIRConcept.Fields.PROPERTIES + ".inactive.value", Collections.singleton(Boolean.toString(inclusion.isActiveOnly()))));
 		}
 
-		if (inclusion.getCode() != null) {
+		if (inclusion.getCodes() != null) {
 			switch(inclusion.getType()){
 				case MATCH_REGEX:
-					versionQuery.must(regexpQuery(FHIRConcept.Fields.CODE, inclusion.getCode().stream().findFirst().orElseGet(()->null)));
+					versionQuery.must(regexpQuery(FHIRConcept.Fields.CODE, inclusion.getCodes().stream().findFirst().orElseGet(()->null)));
 					break;
 				default:
-					versionQuery.must(termsQuery(FHIRConcept.Fields.CODE, inclusion.getCode()));
+					versionQuery.must(termsQuery(FHIRConcept.Fields.CODE, inclusion.getCodes()));
 			}
 
 		} else if (inclusion.getParent() != null) {
@@ -1914,166 +1910,201 @@ public class FHIRValueSetService implements FHIRConstants {
 		}
 	}
 
-	private void collectConstraints(ValueSet valueSet, ValueSet.ConceptSetComponent include, int includeIndex, FHIRCodeSystemVersion codeSystemVersion, AndConstraints andConstraints, boolean activeOnly, boolean isInclude) {
-		Set<ConceptConstraint> constraints = new HashSet<>();
-		if (!include.getConcept().isEmpty()) {
-			List<String> codes = include.getConcept().stream().map(ValueSet.ConceptReferenceComponent::getCode).toList();
-			constraints.add(new ConceptConstraint(codes).setActiveOnly(activeOnly));
-			andConstraints.addOrConstraints(constraints);
-			constraints = new HashSet<>();
-		}
-		if (!include.getFilter().isEmpty()) {
-			var includeFilter = include.getFilter();
-			for (int filterIndex = 0; filterIndex < includeFilter.size(); filterIndex++) {
-				ValueSet.ConceptSetFilterComponent filter = includeFilter.get(filterIndex);
-				String property = filter.getProperty();
-				ValueSet.FilterOperator op = filter.getOp();
-				String value = getFilterValueElseThrow(filter, valueSet, include.getSystem(), property, op.toCode(), includeIndex, filterIndex, isInclude);
-				if (codeSystemVersion.isOnSnomedBranch()) {
-					// SNOMED CT filters:
-					// concept, is-a, [conceptId]
-					// concept, descendent-of, [conceptId]
-					// concept, in, [refset]
-					// constraint, =, [ECL]
-					// expression, =, Refsets - special case to deal with '?fhir_vs=refset'. Matches the Ontoserver compose for these, not part of the spec but at least consistent.
-					// expressions, =, true/false
-					if (CONCEPT.equals(property)) {
-						if (op == ValueSet.FilterOperator.ISA) {
-							if (Strings.isNullOrEmpty(value)) {
-								throw exception("Value missing for SNOMED CT ValueSet concept 'is-a' filter", OperationOutcome.IssueType.INVALID, 400);
-							}
-							constraints.add(new ConceptConstraint().setEcl("<< " + value));
-						} else if (op == ValueSet.FilterOperator.DESCENDENTOF) {
-							if (Strings.isNullOrEmpty(value)) {
-								throw exception("Value missing for SNOMED CT ValueSet concept 'is-a' filter", OperationOutcome.IssueType.INVALID, 400);
-							}
-							constraints.add(new ConceptConstraint().setEcl("< " + value));
-						} else if (op == ValueSet.FilterOperator.IN) {
-							if (Strings.isNullOrEmpty(value)) {
-								throw exception("Value missing for SNOMED CT ValueSet concept 'in' filter.", OperationOutcome.IssueType.INVALID, 400);
-							}
-							// Concept must be in the specified refset
-							String ecl = "^ " + value;
-							if (activeOnly) {
-								ecl += " {{ C active=true }}";
-							}
-							constraints.add(new ConceptConstraint().setEcl(ecl));
-						} else {
-							throw exception(format("Unexpected operation '%s' for SNOMED CT ValueSet 'concept' filter.", op.toCode()), OperationOutcome.IssueType.INVALID, 400);
-						}
-					} else if ("constraint".equals(property)) {
-						if (op == ValueSet.FilterOperator.EQUAL) {
-							if (Strings.isNullOrEmpty(value)) {
-								throw exception("Value missing for SNOMED CT ValueSet 'constraint' filter.", OperationOutcome.IssueType.INVALID, 400);
-							}
-							constraints.add(new ConceptConstraint().setEcl(value));
-						} else {
-							throw exception(format("Unexpected operation '%s' for SNOMED CT ValueSet 'constraint' filter.", op.toCode()), OperationOutcome.IssueType.INVALID, 400);
-						}
-					} else if ("expression".equals(property)) {
-						if (op == ValueSet.FilterOperator.EQUAL) {
-							if (REFSETS_WITH_MEMBERS.equals(value)) {
-								// Concept must represent a reference set which has members in this code system version.
-								// Lookup uses a cache.
-								constraints.add(new ConceptConstraint(findAllRefsetsWithActiveMembers(codeSystemVersion)));
-							} else if (value != null) {
-								constraints.add(new ConceptConstraint().setEcl(value));
-							} else {
-								throw exception("Value missing for SNOMED CT ValueSet 'expression' filter.", OperationOutcome.IssueType.INVALID, 400);
-							}
-						} else {
-							throw exception(format("Unexpected operation '%s' for SNOMED CT ValueSet 'expression' filter.", op.toCode()), OperationOutcome.IssueType.INVALID, 400);
-						}
-					} else if ("expressions".equals(property)) {
-						if (op == ValueSet.FilterOperator.EQUAL) {
-							if ("true".equalsIgnoreCase(value)) {
-								throw exception("This server does not yet support SNOMED CT ValueSets with expressions.", OperationOutcome.IssueType.INVALID,	400);
-							}// else false, which has no effect.
-						} else {
-							throw exception(format("Unexpected operation '%s' for SNOMED CT ValueSet 'expressions' flag.", op.toCode()), OperationOutcome.IssueType.INVALID, 400);
-						}
-					} else if ("parent".equals(property)) {
-						if (op == ValueSet.FilterOperator.EQUAL) {
-							constraints.add(new ConceptConstraint().setEcl("<! " + value));
-						} else {
-							throw exception(format("Unexpected operation '%s' for SNOMED CT ValueSet 'parent' filter.", op.toCode()), OperationOutcome.IssueType.INVALID, 400);
-						}
-					} else {
-						throw exception(format("Unexpected property '%s' for SNOMED CT ValueSet filter.", property), OperationOutcome.IssueType.INVALID, 400);
-					}
-				} else if (codeSystemVersion.getUrl().equals(FHIRConstants.LOINC_ORG)) {
-					// LOINC filters:
-					// parent/ancestor, =/in, [partCode]
-					// [property], =/regex, [value] - not supported
-					// copyright, =, LOINC/3rdParty - not supported
+	private void collectConstraints(ValueSet valueSet, ValueSet.ConceptSetComponent include, int includeIndex,
+	                                FHIRCodeSystemVersion codeSystemVersion, AndConstraints andConstraints,
+	                                boolean activeOnly, boolean isInclude) {
 
-					if (Strings.isNullOrEmpty(value)) {
-						throw exception("Value missing for LOINC ValueSet filter", OperationOutcome.IssueType.INVALID, 400);
-					}
-					Set<String> values = op == ValueSet.FilterOperator.IN ? new HashSet<>(Arrays.asList(value.split(","))) : Collections.singleton(value);
-					if ("parent".equals(property)) {
-						constraints.add(new ConceptConstraint().setParent(values));
-					} else if ("ancestor".equals(property)) {
-						constraints.add(new ConceptConstraint().setAncestor(values));
-					} else {
-						throw exception(format("This server does not support ValueSet filter using LOINC property '%s'. " +
-								"Only parent and ancestor filters are supported for LOINC.", property), OperationOutcome.IssueType.NOTSUPPORTED, 400);
-					}
-				} else if (codeSystemVersion.getUrl().startsWith(FHIRConstants.HL_7_ORG_FHIR_SID_ICD_10)) {
-					// Spec says there are no filters for ICD-9 and 10.
-					throw exception("This server does not expect any ValueSet property filters for ICD-10.", OperationOutcome.IssueType.NOTSUPPORTED, 400);
-				} else {
-					// Generic code system
-					if (CONCEPT.equals(property) && op == ValueSet.FilterOperator.ISA) {
-						Set<String> singleton = Collections.singleton(value);
-						constraints.add(new ConceptConstraint(singleton).setActiveOnly(activeOnly));
-						constraints.add(new ConceptConstraint().setAncestor(singleton));
-					} else if (CONCEPT.equals(property) && op == ValueSet.FilterOperator.DESCENDENTOF) {
-						Set<String> singleton = Collections.singleton(value);
-						constraints.add(new ConceptConstraint().setAncestor(singleton).setActiveOnly(activeOnly));
-					} else if (op == ValueSet.FilterOperator.EQUAL){
-						Set<String> singleton = Collections.singleton(value);
-						Map<String, Collection<String>> properties = new HashMap<>();
-						properties.put(property,singleton);
-						constraints.add(new ConceptConstraint().setProperties(properties).setType(INCLUDE_EXACT_MATCH).setActiveOnly(activeOnly));
-					} else if (op == ValueSet.FilterOperator.REGEX){
-						Set<String> singleton = Collections.singleton(value.replace(" ","\\s").replace("\\t","\\s").replace("\\n","\\s").replace("\\r","\\s").replace("\\f","\\s"));
-						if (CODE.equals(property)){
-							constraints.add(new ConceptConstraint(singleton).setType(ConceptConstraint.Type.MATCH_REGEX).setActiveOnly(activeOnly));
-						} else {
-							Map<String, Collection<String>> properties = new HashMap<>();
-							properties.put(property, singleton);
-							constraints.add(new ConceptConstraint().setProperties(properties).setType(ConceptConstraint.Type.MATCH_REGEX).setActiveOnly(activeOnly));
-						}
-					} else if (op == ValueSet.FilterOperator.IN){
-						Set<String> values = Arrays.stream(value.split(",")).collect(Collectors.toSet());
-						Map<String, Collection<String>> properties = new HashMap<>();
-						properties.put(property, values);
-						constraints.add(new ConceptConstraint().setProperties(properties).setType(INCLUDE_EXACT_MATCH).setActiveOnly(activeOnly));
-					} else if (op == ValueSet.FilterOperator.NOTIN){
-						Set<String> values = Arrays.stream(value.split(",")).collect(Collectors.toSet());
-						Map<String, Collection<String>> properties = new HashMap<>();
-						properties.put(property, values);
-						constraints.add(new ConceptConstraint().setProperties(properties).setType(ConceptConstraint.Type.EXCLUDE_EXACT_MATCH).setActiveOnly(activeOnly));
-					}
-					else{
-						throw exception("This server does not support this ValueSet property filter on generic code systems. " +
-								"Supported filters for generic code systems are: (concept, is-a), (concept, descendant-of), (<any>, =), (concept, in), (concept, not-in).", OperationOutcome.IssueType.NOTSUPPORTED, 400);
-					}
-				}
-				andConstraints.addOrConstraints(constraints);
-				constraints = new HashSet<>();
-			}
-		}
-		if(activeOnly && andConstraints.isEmpty()) {
-			if (FHIRHelper.isSnomedUri(codeSystemVersion.getUrl()) || codeSystemVersion.getUrl().equals(FHIRConstants.LOINC_ORG) || codeSystemVersion.getUrl().startsWith(FHIRConstants.HL_7_ORG_FHIR_SID_ICD_10)) {
-				//do nothing
-			} else {
-				constraints.add(new ConceptConstraint().setActiveOnly(activeOnly));
-				andConstraints.addOrConstraints(constraints);
-			}
+		// 1. Handle explicit concepts
+		collectConceptConstraintsFromInclude(include, activeOnly, andConstraints);
+
+		// 2. Handle filters
+		collectConstraintsFromFilters(valueSet, include, includeIndex, codeSystemVersion, andConstraints, activeOnly, isInclude);
+
+		// 3. Apply generic activeOnly fallback
+		if (activeOnly && andConstraints.isEmpty() && isGenericConstraintApplicable(codeSystemVersion)) {
+			ConceptConstraint constraint = new ConceptConstraint().setActiveOnly(activeOnly);
+			andConstraints.addOrConstraints(Set.of(constraint));
 		}
 	}
+
+// --- Helpers ---
+
+	private void collectConceptConstraintsFromInclude(ValueSet.ConceptSetComponent include,
+	                                                  boolean activeOnly, AndConstraints andConstraints) {
+		if (!include.getConcept().isEmpty()) {
+			Set<String> codes = include.getConcept().stream()
+					.map(ValueSet.ConceptReferenceComponent::getCode)
+					.collect(Collectors.toSet());
+			ConceptConstraint constraint = new ConceptConstraint(codes).setActiveOnly(activeOnly);
+			andConstraints.addOrConstraints(Set.of(constraint));
+		}
+	}
+
+	private void collectConstraintsFromFilters(ValueSet valueSet, ValueSet.ConceptSetComponent include, int includeIndex,
+	                                           FHIRCodeSystemVersion codeSystemVersion, AndConstraints andConstraints,
+	                                           boolean activeOnly, boolean isInclude) {
+		List<ValueSet.ConceptSetFilterComponent> filters = include.getFilter();
+		for (int filterIndex = 0; filterIndex < filters.size(); filterIndex++) {
+			ValueSet.ConceptSetFilterComponent filter = filters.get(filterIndex);
+			String value = getFilterValueElseThrow(filter, valueSet, include.getSystem(),
+					filter.getProperty(), filter.getOp().toCode(), includeIndex, filterIndex, isInclude);
+
+			Set<ConceptConstraint> constraints = switch (getCodeSystemType(codeSystemVersion)) {
+				case SNOMED -> handleSnomedFilter(filter.getProperty(), filter.getOp(), value, codeSystemVersion, activeOnly);
+				case LOINC -> handleLoincFilter(filter.getProperty(), filter.getOp(), value);
+				case ICD -> handleICDFilter(filter.getProperty());
+				default -> handleGenericFilter(filter.getProperty(), filter.getOp(), value, activeOnly);
+			};
+
+			andConstraints.addOrConstraints(constraints);
+		}
+	}
+
+	private boolean isGenericConstraintApplicable(FHIRCodeSystemVersion codeSystemVersion) {
+		return !(FHIRHelper.isSnomedUri(codeSystemVersion.getUrl()) ||
+				codeSystemVersion.getUrl().equals(FHIRConstants.LOINC_ORG) ||
+				codeSystemVersion.getUrl().startsWith(FHIRConstants.HL_7_ORG_FHIR_SID_ICD_10));
+	}
+
+	private enum CodeSystemType { SNOMED, LOINC, ICD, GENERIC }
+
+	private CodeSystemType getCodeSystemType(FHIRCodeSystemVersion version) {
+		if (version.isOnSnomedBranch()) return CodeSystemType.SNOMED;
+		if (version.getUrl().equals(FHIRConstants.LOINC_ORG)) return CodeSystemType.LOINC;
+		if (version.getUrl().startsWith(FHIRConstants.HL_7_ORG_FHIR_SID_ICD_10)) return CodeSystemType.ICD;
+		return CodeSystemType.GENERIC;
+	}
+
+	// --- SNOMED helpers ---
+	private Set<ConceptConstraint> handleSnomedFilter(String property, ValueSet.FilterOperator op, String value,
+	                                                  FHIRCodeSystemVersion version, boolean activeOnly) {
+		if (Strings.isNullOrEmpty(value)) {
+			throw exception("Value missing for SNOMED CT ValueSet filter '" + property + "'",
+					OperationOutcome.IssueType.INVALID, 400);
+		}
+		return switch (property) {
+			case "concept" -> handleSnomedConceptOperator(op, value, activeOnly);
+			case "constraint" -> handleSnomedConstraintOperator(op, value);
+			case "expression" -> handleSnomedExpressionOperator(op, value, version);
+			case "expressions" -> handleSnomedExpressionsFlag(op, value);
+			case "parent" -> handleSnomedParentFilter(op, value);
+			default -> throw exception("Unexpected property '" + property + "' for SNOMED CT ValueSet filter.",
+					OperationOutcome.IssueType.INVALID, 400);
+		};
+	}
+
+	private Set<ConceptConstraint> handleSnomedConceptOperator(ValueSet.FilterOperator op, String value, boolean activeOnly) {
+		return switch (op) {
+			case ISA -> Set.of(new ConceptConstraint().setEcl("<< " + value));
+			case DESCENDENTOF -> Set.of(new ConceptConstraint().setEcl("< " + value));
+			case IN -> {
+				String ecl = "^ " + value + (activeOnly ? " {{ C active=true }}" : "");
+				yield Set.of(new ConceptConstraint().setEcl(ecl));
+			}
+			default -> throw exception(UNEXPECTED_OPERATION_QUOTE + op.toCode() + "' for SNOMED CT ValueSet 'concept' filter.",
+					OperationOutcome.IssueType.INVALID, 400);
+		};
+	}
+
+	private Set<ConceptConstraint> handleSnomedConstraintOperator(ValueSet.FilterOperator op, String value) {
+		if (op != ValueSet.FilterOperator.EQUAL) {
+			throw exception(UNEXPECTED_OPERATION_QUOTE + op.toCode() + "' for SNOMED CT ValueSet 'constraint' filter.",
+					OperationOutcome.IssueType.INVALID, 400);
+		}
+		return Set.of(new ConceptConstraint().setEcl(value));
+	}
+
+	private Set<ConceptConstraint> handleSnomedExpressionOperator(ValueSet.FilterOperator op, String value, FHIRCodeSystemVersion version) {
+		if (op != ValueSet.FilterOperator.EQUAL) {
+			throw exception(UNEXPECTED_OPERATION_QUOTE + op.toCode() + "' for SNOMED CT ValueSet 'expression' filter.",
+					OperationOutcome.IssueType.INVALID, 400);
+		}
+		if (REFSETS_WITH_MEMBERS.equals(value)) {
+			return Set.of(new ConceptConstraint(findAllRefsetsWithActiveMembers(version)));
+		} else {
+			return Set.of(new ConceptConstraint().setEcl(value));
+		}
+	}
+
+	private Set<ConceptConstraint> handleSnomedExpressionsFlag(ValueSet.FilterOperator op, String value) {
+		if (op != ValueSet.FilterOperator.EQUAL) {
+			throw exception(UNEXPECTED_OPERATION_QUOTE + op.toCode() + "' for SNOMED CT ValueSet 'expressions' flag.",
+					OperationOutcome.IssueType.INVALID, 400);
+		}
+		if ("true".equalsIgnoreCase(value)) {
+			throw exception("This server does not yet support SNOMED CT ValueSets with expressions.",
+					OperationOutcome.IssueType.INVALID, 400);
+		}
+		return Collections.emptySet();
+	}
+
+	private Set<ConceptConstraint> handleSnomedParentFilter(ValueSet.FilterOperator op, String value) {
+		if (op != ValueSet.FilterOperator.EQUAL) {
+			throw exception(UNEXPECTED_OPERATION_QUOTE + op.toCode() + "' for SNOMED CT ValueSet 'parent' filter.",
+					OperationOutcome.IssueType.INVALID, 400);
+		}
+		return Set.of(new ConceptConstraint().setEcl("<! " + value));
+	}
+
+	// --- LOINC helpers ---
+	private Set<ConceptConstraint> handleLoincFilter(String property, ValueSet.FilterOperator op, String value) {
+		if (Strings.isNullOrEmpty(value)) {
+			throw exception("Value missing for LOINC ValueSet filter", OperationOutcome.IssueType.INVALID, 400);
+		}
+		Set<String> values = op == ValueSet.FilterOperator.IN ? new HashSet<>(Arrays.asList(value.split(","))) : Set.of(value);
+
+		return switch (property) {
+			case "parent" -> Set.of(new ConceptConstraint().setParent(values));
+			case "ancestor" -> Set.of(new ConceptConstraint().setAncestor(values));
+			default -> throw exception("This server does not support ValueSet filter using LOINC property '" + property + "'. Only parent and ancestor supported.", OperationOutcome.IssueType.NOTSUPPORTED, 400);
+		};
+	}
+
+	// --- ICD helper ---
+	private Set<ConceptConstraint> handleICDFilter(String property) {
+		throw exception("This server does not expect any ValueSet property filters for ICD-10.", OperationOutcome.IssueType.NOTSUPPORTED, 400);
+	}
+
+	// --- Generic helper ---
+	private Set<ConceptConstraint> handleGenericFilter(String property, ValueSet.FilterOperator op, String value, boolean activeOnly) {
+		Set<String> singleton = Set.of(value);
+		ConceptConstraint constraint = new ConceptConstraint().setActiveOnly(activeOnly);
+
+		switch (op) {
+			case ISA -> {
+				constraint.setCodes(singleton);
+				ConceptConstraint ancestorConstraint = new ConceptConstraint().setActiveOnly(activeOnly).setAncestor(singleton);
+				return Set.of(constraint, ancestorConstraint);
+			}
+			case DESCENDENTOF -> {
+				constraint.setAncestor(singleton);
+				return Set.of(constraint);
+			}
+			case EQUAL -> {
+				Map<String, Collection<String>> props = Map.of(property, singleton);
+				constraint.setProperties(props).setType(INCLUDE_EXACT_MATCH);
+				return Set.of(constraint);
+			}
+			case REGEX -> {
+				Set<String> regexSet = Set.of(value.replaceAll("\\s","\\\\s"));
+				if (CODE.equals(property)) constraint.setCodes(regexSet).setType(ConceptConstraint.Type.MATCH_REGEX);
+				else constraint.setProperties(Map.of(property, regexSet)).setType(ConceptConstraint.Type.MATCH_REGEX);
+				return Set.of(constraint);
+			}
+			case IN -> {
+				Map<String, Collection<String>> props = Map.of(property, new HashSet<>(Arrays.asList(value.split(","))));
+				constraint.setProperties(props).setType(INCLUDE_EXACT_MATCH);
+				return Set.of(constraint);
+			}
+			case NOTIN -> {
+				Map<String, Collection<String>> props = Map.of(property, new HashSet<>(Arrays.asList(value.split(","))));
+				constraint.setProperties(props).setType(ConceptConstraint.Type.EXCLUDE_EXACT_MATCH);
+				return Set.of(constraint);
+			}
+			default -> throw exception("This server does not support this ValueSet property filter on generic code systems.", OperationOutcome.IssueType.NOTSUPPORTED, 400);
+		}
+	}
+
 
 	private static String getFilterValueElseThrow(ValueSet.ConceptSetFilterComponent filter, ValueSet valueSet, String system, String property, String op, int includeIndex, int filterIndex, boolean isInclude) {
 		if(filter.getValue() != null) {
