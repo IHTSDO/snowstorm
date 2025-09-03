@@ -18,6 +18,7 @@ import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.fhir.config.FHIRConstants;
 import org.snomed.snowstorm.fhir.domain.FHIRValueSet;
 import org.snomed.snowstorm.fhir.domain.SearchFilter;
+import org.snomed.snowstorm.fhir.pojo.FHIRCodeValidationRequest;
 import org.snomed.snowstorm.fhir.pojo.ValueSetExpansionParameters;
 import org.snomed.snowstorm.fhir.repositories.FHIRValueSetRepository;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -51,6 +52,9 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 
 	@Autowired
 	private FHIRValueSetService valueSetService;
+
+	@Autowired
+	private FHIRValueSetFinderService valueSetFinderService;
 
 	@Autowired
 	private FhirContext fhirContext;
@@ -97,7 +101,7 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 		} else {
 			FHIRHelper.required("url", url);
 			FHIRHelper.required("version", version);
-			valueSetService.find(url.getValueAsString(), version).ifPresent(vs -> {
+			valueSetFinderService.find(url.getValueAsString(), version).ifPresent(vs -> {
 				valuesetRepository.deleteById(vs.getId());
 				outcome.setId(new IdType("ValueSet", vs.getId(), version));
 			});
@@ -298,8 +302,26 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 			@OperationParam(name="activeOnly") BooleanType activeOnly) {
 
 		validateCodeParamHints(systemVersionDeprecated);
-		return valueSetService.validateCode(id.getIdPart(), url, context, valueSet, valueSetVersion, code, system, systemVersion == null ? systemVersionDeprecated : systemVersion, display, coding, codeableConcept, date, abstractBool,
-				FHIRHelper.getDisplayLanguage(displayLanguage, request.getHeader(ACCEPT_LANGUAGE_HEADER)),inferSystem, activeOnly, null, lenientDisplayValidation, valueSetMembershipOnly);
+		FHIRCodeValidationRequest codeValidationRequest = new FHIRCodeValidationRequest()
+			.withId(id == null ? null : id.getIdPart())
+			.withUrl(url)
+			.withContext(context)
+			.withValueSet(valueSet)
+			.withValueSetVersion(valueSetVersion)
+			.withCode(code)
+			.withSystem(system)
+			.withSystemVersion(systemVersion == null ? systemVersionDeprecated : systemVersion)
+			.withDisplay(display)
+			.withCoding(coding)
+			.withCodeableConcept(codeableConcept)
+			.withDate(date)
+			.withAbstractBool(abstractBool)
+			.withDisplayLanguage(FHIRHelper.getDisplayLanguage(displayLanguage, request.getHeader(ACCEPT_LANGUAGE_HEADER)))
+			.withInferSystem(inferSystem)
+			.withActiveOnly(activeOnly)
+			.withLenientDisplayValidation(lenientDisplayValidation)
+			.withValueSetMembershipOnly(valueSetMembershipOnly);
+		return valueSetService.validateCode(codeValidationRequest);
 	}
 
 	@Operation(name="$validate-code", idempotent=true)
@@ -337,8 +359,27 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 			List<Parameters.ParametersParameterComponent> parsed = fhirContext.newJsonParser().parseResource(Parameters.class, rawBody).getParameter();
 			FHIRHelper.handleTxResources(loadPackageService, parsed);
 		}
-		return valueSetService.validateCode(null, url, context, valueSet, valueSetVersion, code, system, systemVersion == null ? systemVersionDeprecated : systemVersion, display, coding, codeableConcept, date, abstractBool,
-				FHIRHelper.getDisplayLanguage(displayLanguage, request.getHeader(ACCEPT_LANGUAGE_HEADER)), inferSystem, activeOnly, versionValueSet, lenientDisplayValidation, valueSetMembershipOnly);
+		FHIRCodeValidationRequest codeValidationRequest = new FHIRCodeValidationRequest()
+			.withUrl(url)
+			.withContext(context)
+			.withValueSet(valueSet)
+			.withValueSetVersion(valueSetVersion)
+			.withCode(code)
+			.withSystem(system)
+			.withSystemVersion(systemVersion == null ? systemVersionDeprecated : systemVersion)
+			.withDisplay(display)
+			.withCoding(coding)
+			.withCodeableConcept(codeableConcept)
+			.withDate(date)
+			.withAbstractBool(abstractBool)
+			.withDisplayLanguage(FHIRHelper.getDisplayLanguage(displayLanguage, request.getHeader(ACCEPT_LANGUAGE_HEADER)))
+			.withInferSystem(inferSystem)
+			.withActiveOnly(activeOnly)
+			.withVersionValueSet(versionValueSet)
+			.withLenientDisplayValidation(lenientDisplayValidation)
+			.withValueSetMembershipOnly(valueSetMembershipOnly);
+
+		return valueSetService.validateCode(codeValidationRequest);
 	}
 
 	private void validateCodeParamHints(String systemVersionDeprecated) {

@@ -50,6 +50,9 @@ public class FHIRLoadPackageService {
 	private FHIRValueSetService valueSetService;
 
 	@Autowired
+	private FHIRValueSetFinderService valueSetFinderService;
+
+	@Autowired
 	private FHIRConceptService fhirConceptService;
 
 	@Autowired
@@ -198,7 +201,7 @@ public class FHIRLoadPackageService {
 		if (codeSystemVersion != null) {
 			return true;
 		}
-		Optional<FHIRValueSet> valueSet = valueSetService.findLatestByUrl(resourceUrl);
+		Optional<FHIRValueSet> valueSet = valueSetFinderService.findLatestByUrl(resourceUrl);
 		return valueSet.isPresent();
 	}
 }
