@@ -251,7 +251,7 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants 
 			@OperationParam(name="displayLanguage") String displayLanguage,
 			@OperationParam(name="property") List<CodeType> propertiesType ) {
 
-		mutuallyExclusive("code", code, "coding", coding);
+		mutuallyExclusive(CODE, code, CODING, coding);
 		notSupported("date", date);
 		FHIRCodeSystemVersionParams codeSystemVersion = FHIRHelper.getCodeSystemVersionParams(system, version, coding);
 		return lookup(codeSystemVersion, fhirHelper.recoverCode(code, coding), displayLanguage, request.getHeader(ACCEPT_LANGUAGE_HEADER), propertiesType);
@@ -270,10 +270,10 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants 
 			@OperationParam(name="displayLanguage") String displayLanguage,
 			@OperationParam(name="property") List<CodeType> propertiesType ) {
 
-		mutuallyExclusive("code", code, "coding", coding);
-		notSupported("date", date);
+		mutuallyExclusive(CODE, code, CODING, coding);
+		notSupported(DATE, date);
 		notSupported(PARAM_SYSTEM, system, " when id is already specified in the URL.");
-		notSupported("version", version, " when id is already specified in the URL.");
+		notSupported(VERSION, version, " when id is already specified in the URL.");
 		FHIRCodeSystemVersionParams codeSystemVersion = getCodeSystemVersionParams(id, system, version, coding);
 		return lookup(codeSystemVersion, fhirHelper.recoverCode(code, coding), displayLanguage, request.getHeader(ACCEPT_LANGUAGE_HEADER), propertiesType);
 	}
@@ -396,18 +396,18 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants 
 				}
 			}
 			Parameters parameters = new Parameters();
-			parameters.addParameter("result", result);
+			parameters.addParameter(RESULT, result);
 			if (concept != null) {
-				parameters.addParameter("inactive", !concept.isActive());
+				parameters.addParameter(INACTIVE, !concept.isActive());
 			}
 			if (message != null) {
-				parameters.addParameter("message", message);
+				parameters.addParameter(MESSAGE, message);
 			}
 			if (displayOut != null) {
-				parameters.addParameter("display", displayOut);
+				parameters.addParameter(DISPLAY, displayOut);
 			}
-			parameters.addParameter("system", codeSystemVersion.getUrl());
-			parameters.addParameter("version", codeSystemVersion.getVersion());
+			parameters.addParameter(SYSTEM, codeSystemVersion.getUrl());
+			parameters.addParameter(VERSION, codeSystemVersion.getVersion());
 			return parameters;
 		} else {
 			FHIRCodeSystemVersion codeSystemVersion = null;
@@ -416,11 +416,11 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants 
 			} catch(SnowstormFHIRServerResponseException e) {
 				if (isSupplementAsCodeSystemException(e)){
 					Parameters parameters = new Parameters();
-					parameters.addParameter("code", new CodeType(code));
+					parameters.addParameter(CODE, new CodeType(code));
 					parameters.addParameter(new Parameters.ParametersParameterComponent(new StringType("issues")).setResource(e.getOperationOutcome()));
-					parameters.addParameter("message",e.getMessage());
-					parameters.addParameter("result",false);
-					parameters.addParameter("system",new UriType(codeSystemParams.getCodeSystem()));
+					parameters.addParameter(MESSAGE ,e.getMessage());
+					parameters.addParameter(RESULT,false);
+					parameters.addParameter(PARAM_SYSTEM, new UriType(codeSystemParams.getCodeSystem()));
 					return parameters;
 				} else if(e.getOperationOutcome().getIssue().stream().anyMatch(i -> OperationOutcome.IssueType.NOTFOUND.equals(i.getCode()) && i.getLocation().stream().anyMatch(location -> "Coding.system".equals(location.toString())))){
 					Parameters parameters = new Parameters();
@@ -432,9 +432,9 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants 
 					issue.getDetails().setText(text);
 					operationOutcome.setIssue(List.of(issue));
 					parameters.addParameter(new Parameters.ParametersParameterComponent(new StringType("issues")).setResource(operationOutcome));
-					parameters.addParameter("message", text);
-					parameters.addParameter("result",true);
-					parameters.addParameter("system",new UriType(codeSystemParams.getCodeSystem()));
+					parameters.addParameter(MESSAGE, text);
+					parameters.addParameter(RESULT,true);
+					parameters.addParameter(PARAM_SYSTEM, new UriType(codeSystemParams.getCodeSystem()));
 					return parameters;
 				} else {
 					throw e;
@@ -529,18 +529,18 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants 
 		String codeA = fhirHelper.recoverCode(codeAParam, codingA);
 		String codeB = fhirHelper.recoverCode(codeBParam, codingB);
 		if (codeA.equals(codeB) && fhirCodeSystemService.conceptExistsOrThrow(codeA, codeSystemVersion)) {
-			return pMapper.singleOutValue("outcome", "equivalent", codeSystemVersion);
+			return pMapper.singleOutValue(OUTCOME, "equivalent", codeSystemVersion);
 		}
 
 		// Test for A subsumes B, then B subsumes A
 		if (graphService.subsumes(codeA, codeB, codeSystemVersion)) {
-			return pMapper.singleOutValue("outcome", "subsumes", codeSystemVersion);
+			return pMapper.singleOutValue(OUTCOME, "subsumes", codeSystemVersion);
 		} else if (graphService.subsumes(codeB, codeA, codeSystemVersion)) {
-			return pMapper.singleOutValue("outcome", "subsumed-by", codeSystemVersion);
+			return pMapper.singleOutValue(OUTCOME, "subsumed-by", codeSystemVersion);
 		}
 		fhirCodeSystemService.conceptExistsOrThrow(codeA, codeSystemVersion);
 		fhirCodeSystemService.conceptExistsOrThrow(codeB, codeSystemVersion);
-		return pMapper.singleOutValue("outcome", "not-subsumed", codeSystemVersion);
+		return pMapper.singleOutValue(OUTCOME, "not-subsumed", codeSystemVersion);
 	}
 
 	@Override

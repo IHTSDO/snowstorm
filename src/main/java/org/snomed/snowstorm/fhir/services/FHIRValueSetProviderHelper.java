@@ -172,7 +172,7 @@ class FHIRValueSetProviderHelper {
 					Tuple tuple = new Tuple();
 					FHIRPackageIndexFile temp = new FHIRPackageIndexFile();
 					temp.id = x.getIdPart();
-					x.getNamedProperty("url").getValues().stream().findFirst().ifPresent(y -> { temp.url = y.primitiveValue();});
+					x.getNamedProperty("url").getValues().stream().findFirst().ifPresent(y ->  temp.url = y.primitiveValue());
 					temp.resourceType = x.getResourceType().toString();
 					Optional<String> version = x.getNamedProperty("version").getValues().stream().findFirst().map(Base::primitiveValue);
 					if(version.isPresent()) {
@@ -212,7 +212,7 @@ class FHIRValueSetProviderHelper {
 				}
 
 				class FHIRIndex {
-					public List<FHIRPackageIndexFile> files;
+					List<FHIRPackageIndexFile> files;
 				}
 
 				FHIRIndex fi = new FHIRIndex();
