@@ -228,7 +228,7 @@ public class FHIRHelper implements FHIRConstants {
 		//If the server is in read-only mode, we will not be able to upload the requested resources.
 		//See if we already have them, or throw an exception.
 		if (loadPackageService.isReadOnlyMode()) {
-			veryifyTxResourcesExist(loadPackageService, resources);
+			verifyTxResourcesExist(loadPackageService, resources);
 		} else {
 			File npmPackage = FHIRValueSetProviderHelper.createNpmPackageFromResources(resources);
 			try {
@@ -239,31 +239,38 @@ public class FHIRHelper implements FHIRConstants {
 		}
 	}
 
-	private static void veryifyTxResourcesExist(FHIRLoadPackageService loadPackageService, List<Resource> resources) {
-		StringBuilder missingResources = new StringBuilder();
-		for (Resource resource : resources) {
-			if (resource instanceof MetadataResource metadateResource) {
-				String resourceUrl = metadateResource.getUrl();
-				if (resourceUrl == null || resourceUrl.isEmpty()) {
-					throw exception("Resource URL is not defined for " + resource.fhirType() + ".", IssueType.INVARIANT, 400);
-				}
-				if (!loadPackageService.verifyResourceExists(resourceUrl)) {
-					if (missingResources.isEmpty()) {
-						missingResources.append(resourceUrl);
-					} else {
-						missingResources.append(", ").append(resourceUrl);
-					}
-				}
-			} else {
-				throw exception("Resource type '" + resource.fhirType() + "' is not supported for tx-resources in read-only mode.", IssueType.NOTSUPPORTED, 400);
-			}
-		}
+	private static void verifyTxResourcesExist(FHIRLoadPackageService loadPackageService, List<Resource> resources) {
+		List<String> missingResources = resources.stream()
+				.map(resource -> validateAndGetUrl(loadPackageService, resource))
+				.filter(Objects::nonNull)
+				.toList();
 
 		if (!missingResources.isEmpty()) {
-			String msg = format("The following resources are not locally available, and cannot be obtained as this server has been configured to read-only mode: %s", missingResources);
+			String msg = String.format(
+					"The following resources are not locally available, and cannot be obtained as this server has been configured to read-only mode: %s",
+					String.join(", ", missingResources));
 			throw exception(msg, IssueType.NOTFOUND, 404);
 		}
 	}
+
+	private static String validateAndGetUrl(FHIRLoadPackageService loadPackageService, Resource resource) {
+		if (!(resource instanceof MetadataResource metadataResource)) {
+			throw exception("Resource type '" + resource.fhirType() + "' is not supported for tx-resources in read-only mode.",
+					IssueType.NOTSUPPORTED, 400);
+		}
+
+		String resourceUrl = metadataResource.getUrl();
+		if (resourceUrl == null || resourceUrl.isEmpty()) {
+			throw exception("Resource URL is not defined for " + resource.fhirType() + ".", IssueType.INVARIANT, 400);
+		}
+
+		if (!loadPackageService.verifyResourceExists(resourceUrl)) {
+			return resourceUrl;
+		}
+
+		return null;
+	}
+
 
 	static @NotNull String createFullyQualifiedCodeString(Coding codingA) {
 		return Optional.ofNullable(codingA.getSystem()).orElse("")
