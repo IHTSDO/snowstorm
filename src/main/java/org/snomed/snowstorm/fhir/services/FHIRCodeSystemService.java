@@ -81,89 +81,106 @@ public class FHIRCodeSystemService {
 		}
 
 		if (codeSystem.getContent() == CodeSystem.CodeSystemContentMode.SUPPLEMENT) {
-			return handleSupplement(codeSystem, fhirCodeSystemVersion);
+			return createUpdateForSupplement(codeSystem, fhirCodeSystemVersion);
 		} else {// Not Supplement
-			// Check not SNOMED id
-			if (fhirCodeSystemVersion.getId().startsWith(SCT_ID_PREFIX)) {
-				throw exception(format("Code System id prefix '%s' is reserved for SNOMED CT code systems. " +
-						"Please create and import these via the native API.", SCT_ID_PREFIX), OperationOutcome.IssueType.NOTSUPPORTED, 400);
-			}
-			// Check not SNOMED URL
-			if (FHIRHelper.isSnomedUri(fhirCodeSystemVersion.getUrl())) {
-				throw exception(format("Code System url '%s' is reserved for SNOMED CT code systems. " +
-						"Please create and import these via the native API or mark the code system as a supplement.",
-								fhirCodeSystemVersion.getUrl()), OperationOutcome.IssueType.NOTSUPPORTED, 400);
-			}
-
-			if (fhirCodeSystemVersion.getVersion() == null) {
-				fhirCodeSystemVersion.setVersion("0");
-			}
-
-			wrap(fhirCodeSystemVersion);
-			logger.debug("Saving fhir code system '{}'.", fhirCodeSystemVersion.getId());
-
-			FHIRCodeSystemVersion existingCodeSystem = codeSystemRepository.findByUrlAndVersion(fhirCodeSystemVersion.getUrl(), fhirCodeSystemVersion.getVersion());
-			if (existingCodeSystem != null) {
-				// Prevent changing the id
-				if (codeSystem.getId() != null && !codeSystem.getIdElement().getIdPart().equals(existingCodeSystem.getId())) {
-					throw exception("A CodeSystem with the same URL and version already exists but with a different id. To change the id please delete the existing CodeSystem first.",
-							OperationOutcome.IssueType.INVARIANT, 400);
-				}
-				codeSystemRepository.delete(existingCodeSystem);
-			}
-			codeSystemRepository.save(fhirCodeSystemVersion);
-			return fhirCodeSystemVersion;
+			return createUpdateForNotSupplement(codeSystem, fhirCodeSystemVersion);
 		}
 	}
 
-	private @NotNull FHIRCodeSystemVersion handleSupplement(CodeSystem codeSystem, FHIRCodeSystemVersion fhirCodeSystemVersion) throws ServiceException {
-		// Attempt to process SNOMED CT code system supplement / expression repository
+	private @NotNull FHIRCodeSystemVersion createUpdateForNotSupplement(CodeSystem codeSystem, FHIRCodeSystemVersion fhirCodeSystemVersion) {
+		// Check not SNOMED id
+		if (fhirCodeSystemVersion.getId().startsWith(SCT_ID_PREFIX)) {
+			throw exception(format("Code System id prefix '%s' is reserved for SNOMED CT code systems. " +
+					"Please create and import these via the native API.", SCT_ID_PREFIX), OperationOutcome.IssueType.NOTSUPPORTED, 400);
+		}
+		// Check not SNOMED URL
+		if (FHIRHelper.isSnomedUri(fhirCodeSystemVersion.getUrl())) {
+			throw exception(format("Code System url '%s' is reserved for SNOMED CT code systems. " +
+					"Please create and import these via the native API or mark the code system as a supplement.",
+							fhirCodeSystemVersion.getUrl()), OperationOutcome.IssueType.NOTSUPPORTED, 400);
+		}
 
-		/*
-		 * Validation
-		 */
-		// if not SNOMED
+		if (fhirCodeSystemVersion.getVersion() == null) {
+			fhirCodeSystemVersion.setVersion("0");
+		}
+
+		wrap(fhirCodeSystemVersion);
+		logger.debug("Saving fhir code system '{}'.", fhirCodeSystemVersion.getId());
+
+		FHIRCodeSystemVersion existingCodeSystem = codeSystemRepository.findByUrlAndVersion(fhirCodeSystemVersion.getUrl(), fhirCodeSystemVersion.getVersion());
+		if (existingCodeSystem != null) {
+			// Prevent changing the id
+			if (codeSystem.getId() != null && !codeSystem.getIdElement().getIdPart().equals(existingCodeSystem.getId())) {
+				throw exception("A CodeSystem with the same URL and version already exists but with a different id. To change the id please delete the existing CodeSystem first.",
+						OperationOutcome.IssueType.INVARIANT, 400);
+			}
+			codeSystemRepository.delete(existingCodeSystem);
+		}
+		codeSystemRepository.save(fhirCodeSystemVersion);
+		return fhirCodeSystemVersion;
+	}
+
+	private @NotNull FHIRCodeSystemVersion createUpdateForSupplement(CodeSystem codeSystem, FHIRCodeSystemVersion fhirCodeSystemVersion) throws ServiceException {
+		// Attempt to process SNOMED CT code system supplement / expression repository
 		if (!FHIRHelper.isSnomedUri(fhirCodeSystemVersion.getUrl())) {
 			return handleNotSnomedSupplement(codeSystem, fhirCodeSystemVersion);
 		}
-
-		return handleSnomedSupplement(codeSystem, fhirCodeSystemVersion);
+		return handleSnomedSupplement(codeSystem);
 	}
 
-	private @NotNull FHIRCodeSystemVersion handleSnomedSupplement(CodeSystem codeSystem, FHIRCodeSystemVersion fhirCodeSystemVersion) throws ServiceException {
-		// if no dependency
-		if (!codeSystem.hasSupplements()) {
-			throw exception("SNOMED CT CodeSystem supplements must declare which SNOMED CT edition and version they supplement " +
-					"using the 'supplements' property.", OperationOutcome.IssueType.INVARIANT, 400);
-		}
-		// Check dependency is SNOMED
-		FHIRCodeSystemVersionParams dependencyParams = FHIRHelper.getCodeSystemVersionParams(CanonicalUri.fromString(codeSystem.getSupplements()));
-		if (!dependencyParams.isSnomed() || dependencyParams.isUnversionedSnomed()
-				|| dependencyParams.isUnspecifiedReleasedSnomed() || dependencyParams.getVersion() == null) {
-			throw exception(format("The CodeSystem supplement must be a canonical URL with the SNOMED CT code system and a version using the SNOMED CT URI standard to " +
-							"quote a specific version of a specific edition. For example: http://snomed.info/sct|http://snomed.info/sct/900000000000207008/version/%s0131",
-					new GregorianCalendar().get(Calendar.YEAR)), OperationOutcome.IssueType.INVARIANT, 400);
-		}
+	private @NotNull FHIRCodeSystemVersion handleSnomedSupplement(CodeSystem codeSystem) {
+
+		validateHasSupplements(codeSystem);
+
+		FHIRCodeSystemVersionParams dependencyParams = parseAndValidateDependency(codeSystem);
+
 		// Check dependency exists
 		FHIRCodeSystemVersion dependantVersion = getSnomedVersionOrThrow(dependencyParams);
 
-		// Does the requested code system already exist?
+		// Validate requested code system params
 		FHIRCodeSystemVersionParams existingCodeSystemParams = FHIRHelper.getCodeSystemVersionParams(codeSystem.getUrl(), codeSystem.getVersion());
+		String snomedModule = validateSnomedModule(existingCodeSystemParams);
+
+		// Ensure no duplicate
+		ensureNoExistingCodeSystem(snomedModule);
+
+		// Create new code system supplement
+		org.snomed.snowstorm.core.data.domain.CodeSystem newCodeSystem =
+				buildNewSupplementCodeSystem(dependantVersion.getSnomedCodeSystem(), snomedModule);
+
+		org.snomed.snowstorm.core.data.domain.CodeSystem savedCodeSystem =
+				snomedCodeSystemService.createCodeSystem(newCodeSystem);
+
+		return new FHIRCodeSystemVersion(savedCodeSystem, true);
+	}
+
+	private void validateHasSupplements(CodeSystem codeSystem) {
+		if (!codeSystem.hasSupplements()) {
+			throw exception("SNOMED CT CodeSystem supplements must declare which SNOMED CT edition and version they supplement " +
+							"using the 'supplements' property.",
+					OperationOutcome.IssueType.INVARIANT, 400);
+		}
+	}
+
+	private FHIRCodeSystemVersionParams parseAndValidateDependency(CodeSystem codeSystem) {
+		FHIRCodeSystemVersionParams dependencyParams =
+				FHIRHelper.getCodeSystemVersionParams(CanonicalUri.fromString(codeSystem.getSupplements()));
+		if (!dependencyParams.isSnomed()
+				|| dependencyParams.isUnversionedSnomed()
+				|| dependencyParams.isUnspecifiedReleasedSnomed()
+				|| dependencyParams.getVersion() == null) {
+			throw exception(format("The CodeSystem supplement must be a canonical URL with the SNOMED CT code system and a version using the SNOMED CT URI standard to " +
+									"quote a specific version of a specific edition. For example: http://snomed.info/sct|http://snomed.info/sct/900000000000207008/version/%s0131",
+							new GregorianCalendar().get(Calendar.YEAR)),
+					OperationOutcome.IssueType.INVARIANT, 400);
+		}
+		return dependencyParams;
+	}
+
+	private String validateSnomedModule(FHIRCodeSystemVersionParams existingCodeSystemParams) {
 		String snomedModule = existingCodeSystemParams.getSnomedModule();
-		if (!IdentifierHelper.isConceptId(snomedModule) || snomedModule.length() < 10) {// Long format concept identifier including namespace.
-			Long suggestedModuleConceptId = null;
-			if (snomedModule != null && snomedModule.length() == 7) {
-				// The module id is actually a SNOMED CT namespace... generate concept id that could be used
-				int namespace = Integer.parseInt(snomedModule);
-				try {
-					List<Long> conceptIds = identifierSource.reserveIds(namespace, IdentifierService.EXTENSION_CONCEPT_PARTITION_ID, 1);
-					if (!conceptIds.isEmpty()) {
-						suggestedModuleConceptId = conceptIds.get(0);
-					}
-				} catch (ServiceException e) {
-					logger.warn("Failed to generate a concept id using assumed namespace '{}'", namespace, e);
-				}
-			}
+		if (!IdentifierHelper.isConceptId(snomedModule) || snomedModule.length() < 10) {
+			Long suggestedModuleConceptId = tryGenerateSuggestedModuleId(snomedModule);
 			if (suggestedModuleConceptId != null) {
 				throw exception(format("The URL of this SNOMED CT CodeSystem supplement must have a version that follows the SNOMED CT URI standard and includes a module id." +
 										" If a namespace was given in the version URL then the module id '%s' could be used." +
@@ -175,29 +192,57 @@ public class FHIRCodeSystemService {
 						OperationOutcome.IssueType.INVARIANT, 400);
 			}
 		}
-		org.snomed.snowstorm.core.data.domain.CodeSystem existingCodeSystem = snomedCodeSystemService.findByUriModule(snomedModule);
+		return snomedModule;
+	}
+
+	private Long tryGenerateSuggestedModuleId(String snomedModule) {
+		if (snomedModule != null && snomedModule.length() == 7) {
+			int namespace = Integer.parseInt(snomedModule);
+			try {
+				List<Long> conceptIds = identifierSource.reserveIds(namespace, IdentifierService.EXTENSION_CONCEPT_PARTITION_ID, 1);
+				if (!conceptIds.isEmpty()) {
+					return conceptIds.get(0);
+				}
+			} catch (ServiceException e) {
+				logger.warn("Failed to generate a concept id using assumed namespace '{}'", namespace, e);
+			}
+		}
+		return null;
+	}
+
+	private void ensureNoExistingCodeSystem(String snomedModule) {
+		org.snomed.snowstorm.core.data.domain.CodeSystem existingCodeSystem =
+				snomedCodeSystemService.findByUriModule(snomedModule);
 		if (existingCodeSystem != null) {
 			throw exception("A code system supplement with the same URL and version already exists. Updating SNOMED CT code system supplements is not yet supported.",
 					OperationOutcome.IssueType.NOTSUPPORTED, 400);
 		}
+	}
 
-		org.snomed.snowstorm.core.data.domain.CodeSystem newCodeSystem = new org.snomed.snowstorm.core.data.domain.CodeSystem();
-		org.snomed.snowstorm.core.data.domain.CodeSystem dependentCodeSystem = dependantVersion.getSnomedCodeSystem();
+	private org.snomed.snowstorm.core.data.domain.CodeSystem buildNewSupplementCodeSystem(
+			org.snomed.snowstorm.core.data.domain.CodeSystem dependentCodeSystem,
+			String snomedModule) {
+
+		org.snomed.snowstorm.core.data.domain.CodeSystem newCodeSystem =
+				new org.snomed.snowstorm.core.data.domain.CodeSystem();
+
 		String shortName = dependentCodeSystem.getShortName() + "-EXP";
 		newCodeSystem.setShortName(shortName);
 
-		// Append 2,3,4 etc to the short name to ensure uniqueness
+		// Append 2,3,4 etc to ensure uniqueness
 		int a = 2;
 		while (snomedCodeSystemService.find(newCodeSystem.getShortName()) != null) {
 			newCodeSystem.setShortName(shortName + a);
 			a++;
 		}
+
 		newCodeSystem.setName("SNOMED CT Postcoordinated Expression Repository");
 		newCodeSystem.setBranchPath(String.join("/", dependentCodeSystem.getBranchPath(), newCodeSystem.getShortName()));
 		newCodeSystem.setUriModuleId(snomedModule);
-		org.snomed.snowstorm.core.data.domain.CodeSystem savedCodeSystem = snomedCodeSystemService.createCodeSystem(newCodeSystem);
-		return new FHIRCodeSystemVersion(savedCodeSystem, true);
+
+		return newCodeSystem;
 	}
+
 
 	private @NotNull FHIRCodeSystemVersion handleNotSnomedSupplement(CodeSystem supplement, FHIRCodeSystemVersion fhirCodeSystemVersion) throws ServiceException {
 		// if no dependency
@@ -226,125 +271,181 @@ public class FHIRCodeSystemService {
 	}
 
 	public @NotNull CodeSystem addSupplementToCodeSystem(CodeSystem codeSystem, FHIRCodeSystemVersion dependentVersion) {
-		CodeSystem newCodeSystem = codeSystemRepository.findByUrlAndVersion(dependentVersion.getUrl(), dependentVersion.getVersion()).toHapiCodeSystem();
+		CodeSystem newCodeSystem = fetchCodeSystem(dependentVersion);
+
+		List<FHIRConcept> conceptsList = fetchAllConcepts(dependentVersion);
+
+		FHIRGraphBuilder graphBuilder = buildHierarchyGraph(dependentVersion, conceptsList);
+
+		List<CodeSystem.ConceptDefinitionComponent> conceptComponents = buildConceptComponents(conceptsList, dependentVersion);
+
+		linkParentChildRelationships(conceptComponents, graphBuilder);
+
+		// Keep only root nodes
+		conceptComponents = conceptComponents.stream()
+				.filter(x -> graphBuilder.getNodeParents(x.getCode()).isEmpty())
+				.toList();
+
+		newCodeSystem.setConcept(conceptComponents);
+
+		mergeExistingConcepts(codeSystem, newCodeSystem);
+
+		return newCodeSystem;
+	}
+
+// -------------------- Helpers --------------------
+
+	private CodeSystem fetchCodeSystem(FHIRCodeSystemVersion dependentVersion) {
+		return codeSystemRepository
+				.findByUrlAndVersion(dependentVersion.getUrl(), dependentVersion.getVersion())
+				.toHapiCodeSystem();
+	}
+
+	private List<FHIRConcept> fetchAllConcepts(FHIRCodeSystemVersion dependentVersion) {
 		Page<FHIRConcept> conceptsPage = conceptService.findConcepts(dependentVersion.getId(), PageRequest.of(0, PAGESIZE));
 		List<FHIRConcept> conceptsList = new ArrayList<>();
-		for(int x = 0; x < conceptsPage.getTotalPages(); x++){
+
+		for (int x = 0; x < conceptsPage.getTotalPages(); x++) {
 			conceptsList.addAll(conceptsPage.getContent());
 			conceptsPage = conceptService.findConcepts(dependentVersion.getId(), PageRequest.of(x, PAGESIZE));
 		}
+		return conceptsList;
+	}
+
+	private FHIRGraphBuilder buildHierarchyGraph(FHIRCodeSystemVersion dependentVersion, List<FHIRConcept> conceptsList) {
 		FHIRGraphBuilder graphBuilder = new FHIRGraphBuilder();
 		if (Objects.isNull(dependentVersion.getHierarchyMeaning()) || "is-a".equals(dependentVersion.getHierarchyMeaning())) {
-			// Record transitive closure of concepts for subsumption testing
 			for (FHIRConcept concept : conceptsList) {
 				for (String parentCode : concept.getParents()) {
 					graphBuilder.addParent(concept.getCode(), parentCode);
 				}
 			}
 		}
+		return graphBuilder;
+	}
 
-
-		List<CodeSystem.ConceptDefinitionComponent> concepts = conceptsList.stream().map(concept -> {
+	private List<CodeSystem.ConceptDefinitionComponent> buildConceptComponents(List<FHIRConcept> conceptsList, FHIRCodeSystemVersion dependentVersion) {
+		return conceptsList.stream()
+				.map(concept -> {
 					CodeSystem.ConceptDefinitionComponent component = new CodeSystem.ConceptDefinitionComponent();
-					List<CodeSystem.ConceptDefinitionDesignationComponent> designations = concept.getDesignations().stream().map(fd -> {
-						CodeSystem.ConceptDefinitionDesignationComponent cd = new CodeSystem.ConceptDefinitionDesignationComponent();
-						cd.setLanguage(fd.getLanguage());
-						if (StringUtils.isNotEmpty(fd.getUse())) cd.setUse(fd.getUseCoding());
-						cd.setValue(fd.getValue());
-						fd.getExtensions().forEach( fhirExtension -> cd.addExtension(fhirExtension.getHapi()));
-						return cd;
-					}).toList();
+
+					List<CodeSystem.ConceptDefinitionDesignationComponent> designations = concept.getDesignations().stream()
+							.map(fd -> {
+								CodeSystem.ConceptDefinitionDesignationComponent cd = new CodeSystem.ConceptDefinitionDesignationComponent();
+								cd.setLanguage(fd.getLanguage());
+								if (StringUtils.isNotEmpty(fd.getUse())) cd.setUse(fd.getUseCoding());
+								cd.setValue(fd.getValue());
+								fd.getExtensions().forEach(fhirExtension -> cd.addExtension(fhirExtension.getHapi()));
+								return cd;
+							}).toList();
+
 					concept.getProperties().forEach((key, value) -> value.forEach(p -> {
 						CodeSystem.ConceptPropertyComponent propertyComponent = new CodeSystem.ConceptPropertyComponent();
 						propertyComponent.setCode(p.getCode());
 						propertyComponent.setValue(p.toHapiValue(dependentVersion.getUrl()));
 						component.addProperty(propertyComponent);
 					}));
+
 					concept.getExtensions().forEach((key, value) -> value.forEach(e -> {
 						Extension t = new Extension();
 						t.setUrl(e.getCode());
 						t.setValue(e.toHapiValue(null));
 						component.addExtension(t);
 					}));
+
 					component.setDesignation(designations)
 							.setCode(concept.getCode())
 							.setDisplay(concept.getDisplay())
 							.setId(concept.getId());
-					return component;
-				})
-				.toList();
 
-		List<CodeSystem.ConceptDefinitionComponent> finalConcepts = concepts;
-		concepts.forEach(x -> {
+					return component;
+				}).toList();
+	}
+
+	private void linkParentChildRelationships(List<CodeSystem.ConceptDefinitionComponent> conceptComponents, FHIRGraphBuilder graphBuilder) {
+		List<CodeSystem.ConceptDefinitionComponent> finalConcepts = conceptComponents;
+		conceptComponents.forEach(x -> {
 			Collection<String> children = graphBuilder.getNodeChildren(x.getCode());
-			List<CodeSystem.ConceptDefinitionComponent> toAdd = finalConcepts.stream().filter(y -> children.contains(y.getCode())).toList();
+			List<CodeSystem.ConceptDefinitionComponent> toAdd = finalConcepts.stream()
+					.filter(y -> children.contains(y.getCode()))
+					.toList();
 			toAdd.forEach(x::addConcept);
 		});
+	}
 
-		concepts = concepts.stream().filter(x -> graphBuilder.getNodeParents(x.getCode()).isEmpty()).toList();
-		newCodeSystem.setConcept(concepts);
+	private void mergeExistingConcepts(CodeSystem originalCodeSystem, CodeSystem newCodeSystem) {
+		List<CodeSystem.ConceptDefinitionComponent> modifiedConceptDefinitions = newCodeSystem.getConcept().stream()
+				.map(conceptToUpdate -> {
+					Optional<CodeSystem.ConceptDefinitionComponent> match = originalCodeSystem.getConcept().stream()
+							.filter(y -> y.getCode().equals(conceptToUpdate.getCode()))
+							.findFirst();
+					match.ifPresent(existing -> {
+						try {
+							existing.getExtension().forEach(conceptToUpdate::addExtension);
+							existing.getProperty().forEach(conceptToUpdate::addProperty);
 
-		List<CodeSystem.ConceptDefinitionComponent> modifiedConceptDefinitions = newCodeSystem.getConcept().stream().map(conceptDefinitionToUpdate -> {
-			Optional<CodeSystem.ConceptDefinitionComponent> match = codeSystem.getConcept().stream().filter(y -> y.getCode().equals(conceptDefinitionToUpdate.getCode())).findFirst();
-			if (match.isPresent()) {
-				try {
-					match.get().getExtension().forEach(conceptDefinitionToUpdate::addExtension);
-					match.get().getProperty().forEach(conceptDefinitionToUpdate::addProperty);
-					List<CodeSystem.ConceptDefinitionDesignationComponent> newList = new ArrayList<>(conceptDefinitionToUpdate.getDesignation());
-					newList.addAll(match.get().getDesignation());
-					conceptDefinitionToUpdate.setDesignation(newList);
-				} catch (RuntimeException e){
-					logger.error("Recoverable error while merging supplement concepts to CodeSystem {}", codeSystem, e);
-				}
-
-			}
-			return conceptDefinitionToUpdate;
-		}).toList();
+							List<CodeSystem.ConceptDefinitionDesignationComponent> newList = new ArrayList<>(conceptToUpdate.getDesignation());
+							newList.addAll(existing.getDesignation());
+							conceptToUpdate.setDesignation(newList);
+						} catch (RuntimeException e) {
+							logger.error("Recoverable error while merging supplement concepts to CodeSystem {}", originalCodeSystem, e);
+						}
+					});
+					return conceptToUpdate;
+				}).toList();
 
 		newCodeSystem.setConcept(modifiedConceptDefinitions);
-		return newCodeSystem;
 	}
+
 
 	public FHIRCodeSystemVersion findCodeSystemVersionOrThrow(FHIRCodeSystemVersionParams systemVersionParams) {
 		FHIRCodeSystemVersion codeSystemVersion = findCodeSystemVersion(systemVersionParams);
 		if (codeSystemVersion == null) {
-			String codeSystem = systemVersionParams.getCodeSystem() + (systemVersionParams.getVersion() == null ? "*" : format("|%s", systemVersionParams.getVersion()));
-			List<FHIRCodeSystemVersion> supplements = getSupplements(codeSystem, systemVersionParams.getVersion()==null);
-			if(!supplements.isEmpty()){
-				String codeSystemWithVersionIfFound = supplements.stream()
-						.flatMap(supp -> supp.getExtensions().stream())
-						.map(FHIRExtension::getValue)
-						.filter(Objects::nonNull)
-						.filter(ext -> ext.contains(systemVersionParams.getCodeSystem()))
-						.findAny().orElse(systemVersionParams.getCodeSystem());
-				String message = format("CodeSystem %s is a supplement, so can't be used as a value in Coding.system", codeSystemWithVersionIfFound);
-				CodeableConcept cc = new CodeableConcept(new Coding("http://hl7.org/fhir/tools/CodeSystem/tx-issue-type", "invalid-data",null)).setText(message);
-				OperationOutcome oo = FHIRHelper.createOperationOutcomeWithIssue(cc, OperationOutcome.IssueSeverity.ERROR, "Coding.system", OperationOutcome.IssueType.INVALID, Collections.singletonList(new Extension("http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id", new StringType("CODESYSTEM_CS_NO_SUPPLEMENT"))), null);
-				throw new SnowstormFHIRServerResponseException(400,message,oo);
-			} else {
-				FHIRCodeSystemVersion other = findCodeSystemVersion(new FHIRCodeSystemVersionParams(systemVersionParams.getCodeSystem()));
-				String message = format("The CodeSystem %s version %s is unknown to this server. Valid versions: [%s]", systemVersionParams.getCodeSystem(), systemVersionParams.getVersion(), other==null?"":other.getVersion());
-				CodeableConcept cc = new CodeableConcept(new Coding("http://hl7.org/fhir/tools/CodeSystem/tx-issue-type", "not-found",null)).setText(message);
-				OperationOutcome oo = FHIRHelper.createOperationOutcomeWithIssue(cc, OperationOutcome.IssueSeverity.ERROR, "Coding.system", OperationOutcome.IssueType.NOTFOUND, Arrays.asList(new Extension("https://github.com/IHTSDO/snowstorm/missing-codesystem-version", new CanonicalType(CanonicalUri.of(systemVersionParams.getCodeSystem(), systemVersionParams.getVersion()).toString())),new Extension("https://github.com/IHTSDO/snowstorm/available-codesystem-version", new CanonicalType(other==null?"":other.getCanonical()))), null);
-				throw new SnowstormFHIRServerResponseException(400,message,oo);
-			}
+			throwExceptionForMissingCodeSystemVersion(systemVersionParams);
 		}
 
 		if (systemVersionParams.getId() != null) {
-			// Crosscheck version found by id against any other system params
-			String requestedCodeSystemUrl = systemVersionParams.getCodeSystem();
-			if (requestedCodeSystemUrl != null && !requestedCodeSystemUrl.equals(codeSystemVersion.getUrl())) {
-				throw exception(String.format("The requested system URL '%s' does not match the URL '%s' of the code system found using identifier '%s'.",
-						requestedCodeSystemUrl, codeSystemVersion.getUrl(), codeSystemVersion.getId()), OperationOutcome.IssueType.INVALID, 400);
-			}
-			String requestedVersion = systemVersionParams.getVersion();
-			if (requestedVersion != null && !requestedVersion.isEmpty() && !requestedVersion.equals(codeSystemVersion.getVersion())) {
-				throw exception(String.format("The requested version '%s' does not match the version '%s' of the code system found using identifier '%s'.",
-						requestedVersion, codeSystemVersion.getVersion(), codeSystemVersion.getId()), OperationOutcome.IssueType.INVALID, 400);
-			}
+			verifySystemVersionParams(systemVersionParams, codeSystemVersion);
 		}
 
 		return codeSystemVersion;
+	}
+
+	private static void verifySystemVersionParams(FHIRCodeSystemVersionParams systemVersionParams, FHIRCodeSystemVersion codeSystemVersion) {
+		// Crosscheck version found by id against any other system params
+		String requestedCodeSystemUrl = systemVersionParams.getCodeSystem();
+		if (requestedCodeSystemUrl != null && !requestedCodeSystemUrl.equals(codeSystemVersion.getUrl())) {
+			throw exception(String.format("The requested system URL '%s' does not match the URL '%s' of the code system found using identifier '%s'.",
+					requestedCodeSystemUrl, codeSystemVersion.getUrl(), codeSystemVersion.getId()), OperationOutcome.IssueType.INVALID, 400);
+		}
+		String requestedVersion = systemVersionParams.getVersion();
+		if (requestedVersion != null && !requestedVersion.isEmpty() && !requestedVersion.equals(codeSystemVersion.getVersion())) {
+			throw exception(String.format("The requested version '%s' does not match the version '%s' of the code system found using identifier '%s'.",
+					requestedVersion, codeSystemVersion.getVersion(), codeSystemVersion.getId()), OperationOutcome.IssueType.INVALID, 400);
+		}
+	}
+
+	private void throwExceptionForMissingCodeSystemVersion(FHIRCodeSystemVersionParams systemVersionParams) {
+		String codeSystem = systemVersionParams.getCodeSystem() + (systemVersionParams.getVersion() == null ? "*" : format("|%s", systemVersionParams.getVersion()));
+		List<FHIRCodeSystemVersion> supplements = getSupplements(codeSystem, systemVersionParams.getVersion()==null);
+		if(!supplements.isEmpty()){
+			String codeSystemWithVersionIfFound = supplements.stream()
+					.flatMap(supp -> supp.getExtensions().stream())
+					.map(FHIRExtension::getValue)
+					.filter(Objects::nonNull)
+					.filter(ext -> ext.contains(systemVersionParams.getCodeSystem()))
+					.findAny().orElse(systemVersionParams.getCodeSystem());
+			String message = format("CodeSystem %s is a supplement, so can't be used as a value in Coding.system", codeSystemWithVersionIfFound);
+			CodeableConcept cc = new CodeableConcept(new Coding("http://hl7.org/fhir/tools/CodeSystem/tx-issue-type", "invalid-data",null)).setText(message);
+			OperationOutcome oo = FHIRHelper.createOperationOutcomeWithIssue(cc, OperationOutcome.IssueSeverity.ERROR, "Coding.system", OperationOutcome.IssueType.INVALID, Collections.singletonList(new Extension("http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id", new StringType("CODESYSTEM_CS_NO_SUPPLEMENT"))), null);
+			throw new SnowstormFHIRServerResponseException(400,message,oo);
+		} else {
+			FHIRCodeSystemVersion other = findCodeSystemVersion(new FHIRCodeSystemVersionParams(systemVersionParams.getCodeSystem()));
+			String message = format("The CodeSystem %s version %s is unknown to this server. Valid versions: [%s]", systemVersionParams.getCodeSystem(), systemVersionParams.getVersion(), other==null?"":other.getVersion());
+			CodeableConcept cc = new CodeableConcept(new Coding("http://hl7.org/fhir/tools/CodeSystem/tx-issue-type", "not-found",null)).setText(message);
+			OperationOutcome oo = FHIRHelper.createOperationOutcomeWithIssue(cc, OperationOutcome.IssueSeverity.ERROR, "Coding.system", OperationOutcome.IssueType.NOTFOUND, Arrays.asList(new Extension("https://github.com/IHTSDO/snowstorm/missing-codesystem-version", new CanonicalType(CanonicalUri.of(systemVersionParams.getCodeSystem(), systemVersionParams.getVersion()).toString())),new Extension("https://github.com/IHTSDO/snowstorm/available-codesystem-version", new CanonicalType(other==null?"":other.getCanonical()))), null);
+			throw new SnowstormFHIRServerResponseException(400,message,oo);
+		}
 	}
 
 	public FHIRCodeSystemVersion findCodeSystemVersion(FHIRCodeSystemVersionParams systemVersionParams) {
@@ -371,48 +472,61 @@ public class FHIRCodeSystemService {
 
 	public FHIRCodeSystemVersion getSnomedVersionOrThrow(FHIRCodeSystemVersionParams params) {
 		if (!params.isSnomed()) {
-			throw exception("Failed to find SNOMED branch for non SCT code system.", OperationOutcome.IssueType.CONFLICT, 500);
+			throw exception("Failed to find SNOMED branch for non SCT code system.",
+					OperationOutcome.IssueType.CONFLICT, 500);
 		}
 
-		org.snomed.snowstorm.core.data.domain.CodeSystem snomedCodeSystem;
-		String snomedModule = params.getSnomedModule();
-		if (snomedModule != null) {
-			snomedCodeSystem = snomedCodeSystemService.findByUriModule(snomedModule);
-		} else {
-			// Use root code system
-			snomedCodeSystem = snomedCodeSystemService.find(CodeSystemService.SNOMEDCT);
-		}
-		if (snomedCodeSystem == null) {
-			throw exception(format("The requested CodeSystem %s was not found.", params.toDiagnosticString()), OperationOutcome.IssueType.NOTFOUND, 404);
-		}
+		org.snomed.snowstorm.core.data.domain.CodeSystem snomedCodeSystem = resolveSnomedCodeSystem(params);
+
 		if (params.isUnversionedSnomed()) {
-			// Use working branch
 			return new FHIRCodeSystemVersion(snomedCodeSystem, true);
 		} else {
-			String shortName = snomedCodeSystem.getShortName();
-			String version = params.getVersion();
-			CodeSystemVersion snomedVersion;
-			if (version == null) {
-				// Use the latest published branch
-				snomedVersion = snomedCodeSystemService.findLatestVisibleVersion(shortName);
-				if (snomedVersion == null) {
-					// Fall back to any imported version
-					snomedVersion = snomedCodeSystemService.findLatestImportedVersion(shortName);
-				}
-				if (snomedVersion == null) {
-					throw exception(format("The latest version of the requested CodeSystem %s was not found.", params.toDiagnosticString()),
-							OperationOutcome.IssueType.NOTFOUND, 404);
-				}
-			} else {
-				snomedVersion = snomedCodeSystemService.findVersion(shortName, Integer.parseInt(version));
-				if (snomedVersion == null) {
-					throw exception(format("The requested CodeSystem version %s was not found.", params.toDiagnosticString()), OperationOutcome.IssueType.NOTFOUND, 404);
-				}
-			}
-			snomedVersion.setCodeSystem(snomedCodeSystem);
-			return new FHIRCodeSystemVersion(snomedVersion);
+			return new FHIRCodeSystemVersion(resolveSnomedVersion(snomedCodeSystem, params));
 		}
 	}
+
+	private org.snomed.snowstorm.core.data.domain.CodeSystem resolveSnomedCodeSystem(FHIRCodeSystemVersionParams params) {
+		String snomedModule = params.getSnomedModule();
+		org.snomed.snowstorm.core.data.domain.CodeSystem snomedCodeSystem = (snomedModule != null)
+				? snomedCodeSystemService.findByUriModule(snomedModule)
+				: snomedCodeSystemService.find(CodeSystemService.SNOMEDCT);
+
+		if (snomedCodeSystem == null) {
+			throw exception(format("The requested CodeSystem %s was not found.", params.toDiagnosticString()),
+					OperationOutcome.IssueType.NOTFOUND, 404);
+		}
+		return snomedCodeSystem;
+	}
+
+	private CodeSystemVersion resolveSnomedVersion(org.snomed.snowstorm.core.data.domain.CodeSystem snomedCodeSystem,
+	                                               FHIRCodeSystemVersionParams params) {
+		String shortName = snomedCodeSystem.getShortName();
+		String version = params.getVersion();
+		CodeSystemVersion snomedVersion;
+
+		if (version == null) {
+			snomedVersion = snomedCodeSystemService.findLatestVisibleVersion(shortName);
+			if (snomedVersion == null) {
+				snomedVersion = snomedCodeSystemService.findLatestImportedVersion(shortName);
+			}
+			if (snomedVersion == null) {
+				throw exception(format("The latest version of the requested CodeSystem %s was not found.",
+								params.toDiagnosticString()),
+						OperationOutcome.IssueType.NOTFOUND, 404);
+			}
+		} else {
+			snomedVersion = snomedCodeSystemService.findVersion(shortName, Integer.parseInt(version));
+			if (snomedVersion == null) {
+				throw exception(format("The requested CodeSystem version %s was not found.",
+								params.toDiagnosticString()),
+						OperationOutcome.IssueType.NOTFOUND, 404);
+			}
+		}
+
+		snomedVersion.setCodeSystem(snomedCodeSystem);
+		return snomedVersion;
+	}
+
 
 	private void wrap(FHIRCodeSystemVersion fhirCodeSystemVersion) {
 		if (fhirCodeSystemVersion.getVersion() == null) {

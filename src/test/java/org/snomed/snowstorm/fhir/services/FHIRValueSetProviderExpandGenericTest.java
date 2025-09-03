@@ -98,7 +98,8 @@ public class FHIRValueSetProviderExpandGenericTest extends AbstractFHIRTest {
                 					"compose": {
                 						"include": [
                 							{
-                								"system": "http://terminology.hl7.org/CodeSystem/v3-ContextControl",								"filter": [
+                								"system": "http://terminology.hl7.org/CodeSystem/v3-ContextControl",
+                								"filter": [
                 									{
                 										"property": "concept",
                 										"op": "is-a",
