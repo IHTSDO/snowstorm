@@ -28,7 +28,7 @@ public class FHIRRestConfig {
 		HapiRestfulServlet hapiServlet = new HapiRestfulServlet(buildProperties, codeSystemService);
 
 		ServletRegistrationBean<HapiRestfulServlet> servletRegistrationBean = new ServletRegistrationBean<>(hapiServlet, "/fhir/*");
-		hapiServlet.setServerName("SnowstormX FHIR Server");
+		hapiServlet.setServerName("Snowstorm FHIR Server");
 		hapiServlet.setServerVersion(buildProperties != null ? buildProperties.getVersion() : "development");
 		hapiServlet.setDefaultResponseEncoding(EncodingEnum.JSON);
 

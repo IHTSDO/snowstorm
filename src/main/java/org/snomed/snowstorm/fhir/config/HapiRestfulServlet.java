@@ -17,10 +17,13 @@ import jakarta.servlet.ServletException;
 public class HapiRestfulServlet extends RestfulServer {
 
     private static final long serialVersionUID = 1L;
-    private final BuildProperties buildProperties;
-    private final FHIRCodeSystemService codeSystemService;
 
-    private final Logger logger = LoggerFactory.getLogger(getClass());
+
+    private final transient BuildProperties buildProperties;
+
+	private final transient FHIRCodeSystemService codeSystemService;
+
+    private final transient Logger logger = LoggerFactory.getLogger(getClass());
 
     public HapiRestfulServlet(BuildProperties buildProperties, FHIRCodeSystemService codeSystemService) {
         this.buildProperties = buildProperties;
@@ -35,6 +38,10 @@ public class HapiRestfulServlet extends RestfulServer {
     protected void initialize() throws ServletException {
         final WebApplicationContext applicationContext =
                 WebApplicationContextUtils.getWebApplicationContext(this.getServletContext());
+
+		if (applicationContext == null) {
+			throw new IllegalStateException("Failed to recover web application context while initializing HAPI FHIR servlet");
+		}
 
         setDefaultResponseEncoding(EncodingEnum.JSON);
 

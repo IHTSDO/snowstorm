@@ -3,26 +3,48 @@ package org.snomed.snowstorm.fhir.config;
 import java.util.*;
 
 import org.hl7.fhir.r4.model.CodeType;
-import org.hl7.fhir.r4.model.StringType;
 
 public interface FHIRConstants {
 
 	//Constant words and phrases 
 	String ACCEPT_LANGUAGE_HEADER = "Accept-Language";
+	String ACTIVE = "active";
 	String CODE = "code";
+	String CODING = "coding";
+	String CODING_CODE = "coding.code";
+	String CODING_DISPLAY = "coding.display";
+	String CODING_SYSTEM = "coding.system";
+	String CODEABLE_CONCEPT = "codeableConcept";
+	String CONCEPT = "concept";
+	String DATE = "date";
 	String DESIGNATION = "designation";
 	String DISPLAY = "display";
+	String DISPLAY_LANGUAGE = "displayLanguage";
 	String FHIR = "FHIR";
 	String ICD10_URI = "http://hl7.org/fhir/sid/icd-10";
+	String INACTIVE = "inactive";
 	String LANGUAGE = "language";
+	String MAIN = "MAIN";
+	String MESSAGE = "message";
+	String NOT_IN_VS = "not-in-vs";
+	String OUTCOME = "outcome";
 	String PIPE = "\\|";
+	String PARAMETER = "parameter";
 	String PROPERTY = "property";
+	String RESULT = "result";
 	String SNOMED_CT = "SNOMED_CT";
 	String SNOMED_INTERNATIONAL = "SNOMED International";
 	String SNOMED_URI = "http://snomed.info/sct";
 	String SNOMED_URI_UNVERSIONED = "http://snomed.info/xsct";
+	String SYSTEM = "system";
 	String UNVERSIONED = "UNVERSIONED";
-	String VERSION = "/version/";
+	String URL = "url";
+	String USE = "use";
+	String VALUE = "value";
+	String VALUE_BOOLEAN = "valueBoolean";
+	String VALUE_STRING = "valueString";
+	String VERSION = "version";
+	String VERSION_SLASH = "/version/";
 
 	int MAX_LANGUAGE_CODE_LENGTH = 5;
 
@@ -34,16 +56,10 @@ public interface FHIRConstants {
 	String LOINC_ORG = "http://loinc.org";
 	String HL_7_ORG_FHIR_SID_ICD_10 = "http://hl7.org/fhir/sid/icd-10";
 
-	String MAIN = "MAIN";
-	String URL = "url";
-	String USE = "use";
-	String VALUE = "value";
-	String VALUE_BOOLEAN = "valueBoolean";
-	String VALUE_STRING = "valueString";
-	
-	String IMPLICIT_ISA = "?fhir_vs=isa/";
-	String IMPLICIT_REFSET = "?fhir_vs=refset/";
-	String IMPLICIT_ECL= "?fhir_vs=ecl/";
+	String FHIR_VS = "?fhir_vs";
+	String IMPLICIT_ISA = FHIR_VS + "=isa/";
+	String IMPLICIT_REFSET = FHIR_VS + "=refset/";
+	String IMPLICIT_ECL= FHIR_VS + "=ecl/";
 	
 	enum FhirSctProperty {
 

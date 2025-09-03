@@ -62,7 +62,7 @@ public class FHIRConceptService {
 
 		Collection<FHIRConcept> concepts = allTermConcepts.stream()
 				.map(termConcept -> new FHIRConcept(termConcept, codeSystemVersion))
-				.collect(Collectors.toList());
+				.toList();
 
 		saveAllConceptsOfCodeSystemVersion(codeSystemVersion, codeSystemVersion.getId(), concepts);
 	}
@@ -76,15 +76,15 @@ public class FHIRConceptService {
 
 		List<FHIRConcept> concepts = allConcepts.stream()
 				.map(definitionConcept -> new FHIRConcept(definitionConcept, codeSystemVersion))
-				.collect(Collectors.toList());
+				.toList();
 		saveAllConceptsOfCodeSystemVersion(codeSystemVersion, codeSystemVersion.getId(), concepts);
 	}
 
 	private void collectChildren(CodeSystem.ConceptDefinitionComponent parent, Set<CodeSystem.ConceptDefinitionComponent> allConcepts) {
 		allConcepts.add(parent);
 		for (CodeSystem.ConceptDefinitionComponent child : orEmpty(parent.getConcept())) {
-			parent.addProperty(new CodeSystem.ConceptPropertyComponent(new CodeType("child"), new CodeType(child.getCode())));
-			child.addProperty(new CodeSystem.ConceptPropertyComponent(new CodeType("parent"), new CodeType(parent.getCode())));
+			parent.addProperty(new CodeSystem.ConceptPropertyComponent(new CodeType(CHILD), new CodeType(child.getCode())));
+			child.addProperty(new CodeSystem.ConceptPropertyComponent(new CodeType(PARENT), new CodeType(parent.getCode())));
 			collectChildren(child, allConcepts);
 		}
 	}
@@ -110,26 +110,24 @@ public class FHIRConceptService {
 					.collect(Collectors.toMap(FHIRConcept::getCode, FHIRConcept::getDisplay));
 			for (FHIRConcept concept : concepts) {
 				Map<String, List<FHIRProperty>> properties = concept.getProperties();
+
 				Collection<String> parents = graphBuilder.getNodeParents(concept.getCode());
-				if (!properties.containsKey(PARENT)) {
-					properties.put(PARENT, parents.stream().map(parent -> new FHIRProperty(PARENT, conceptDisplayMap.get(parent), parent, "CODING"))
-							.collect(Collectors.toList()));
-				}
+				properties.computeIfAbsent(PARENT, k -> parents.stream()
+					.map(parent -> new FHIRProperty(PARENT, conceptDisplayMap.get(parent), parent, "CODING"))
+					.toList());
+
 				Collection<String> children = graphBuilder.getNodeChildren(concept.getCode());
-				if (!properties.containsKey(CHILD)) {
-					properties.put(CHILD, children.stream().map(child -> new FHIRProperty(CHILD, conceptDisplayMap.get(child), child, "CODING"))
-							.collect(Collectors.toList()));
-				}
+				properties.computeIfAbsent(CHILD, k -> children.stream()
+					.map(child -> new FHIRProperty(CHILD, conceptDisplayMap.get(child), child, "CODING"))
+					.toList());
 			}
 		}
 
 		Set<String> props = new HashSet<>();
 		//treat extensions as properties, until better solution...
-		concepts.forEach(concept ->{
-			concept.getExtensions().forEach((key,value)->{
-				concept.getProperties().put(key,value);
-			});
-		});
+		concepts.forEach(concept ->
+			concept.getExtensions().forEach((key,value)->
+				concept.getProperties().put(key,value)));
 
 		concepts.stream()
 				.filter(concept -> concept.getProperties() != null)
@@ -174,7 +172,7 @@ public class FHIRConceptService {
 			// Deleting by query often seems to exceed the default 30 second query timeout so we will page through them...
 			Page<FHIRConcept> codesToDelete = conceptRepository.findByCodeSystemVersion(idWithVersion, PageRequest.of(0, DELETE_BATCH_SIZE));
 			while (!codesToDelete.isEmpty()) {
-				conceptRepository.deleteByCodeSystemVersionAndCodeIn(idWithVersion, codesToDelete.getContent().stream().map(FHIRConcept::getCode).collect(Collectors.toList()));
+				conceptRepository.deleteByCodeSystemVersionAndCodeIn(idWithVersion, codesToDelete.getContent().stream().map(FHIRConcept::getCode).toList());
 				codesToDelete = conceptRepository.findByCodeSystemVersion(idWithVersion, PageRequest.of(0, DELETE_BATCH_SIZE));
 			}
 		}
