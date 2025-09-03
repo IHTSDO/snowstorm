@@ -24,10 +24,11 @@ import static org.snomed.snowstorm.fhir.config.FHIRConstants.SNOMED_URI;
 @Document(indexName = "#{@indexNameProvider.indexName('fhir-concept')}", createIndex = false)
 public class FHIRConcept implements FHIRGraphNode {
 
+	private static final String INACTIVE = "inactive";
+
 	public static final String EXTENSION_MARKER = "://";
 
 	public interface Fields {
-
 		String CODE_SYSTEM_VERSION = "codeSystemVersion";
 		String CODE = "code";
 		String CODE_LOWER = "codeLower";
@@ -38,6 +39,7 @@ public class FHIRConcept implements FHIRGraphNode {
 		String PROPERTIES = "properties";
 		String EXTENSIONS = "extensions";
 	}
+
 	@Id
 	// Internal ID
 	private String id;
@@ -81,7 +83,7 @@ public class FHIRConcept implements FHIRGraphNode {
 		code = termConcept.getCode();
 		codeLower = code.toLowerCase();
 		setDisplay(termConcept.getDisplay());
-		termConcept.getProperties().stream().filter(x -> ( x.getKey().equals("inactive") && !Boolean.valueOf(x.getValue()).equals(Boolean.FALSE)) || x.getKey().equals("status") && x.getValue().equals("retired")).findFirst().ifPresentOrElse(x -> active = false, ()-> active = true);
+		termConcept.getProperties().stream().filter(x -> ( x.getKey().equals(INACTIVE) && !Boolean.valueOf(x.getValue()).equals(Boolean.FALSE)) || x.getKey().equals("status") && x.getValue().equals("retired")).findFirst().ifPresentOrElse(x -> active = false, ()-> active = true);
 
 		designations = new ArrayList<>();
 		for (TermConceptDesignation designation : termConcept.getDesignations()) {
@@ -124,20 +126,17 @@ public class FHIRConcept implements FHIRGraphNode {
 		definitionConcept.getProperty().stream()
 				.filter(FHIRConcept::isPropertyInactive)
 				.findFirst().ifPresentOrElse(x -> active = false, ()-> active = true);
-		properties.put("inactive",Collections.singletonList(new FHIRProperty("inactive",null,Boolean.toString(!isActive()),FHIRProperty.BOOLEAN_TYPE)));
+		properties.put(INACTIVE,Collections.singletonList(new FHIRProperty(INACTIVE,null,Boolean.toString(!isActive()),FHIRProperty.BOOLEAN_TYPE)));
 		extensions = new HashMap<>();
 		definitionConcept.getExtension().forEach(
-				e ->{
-					Optional.ofNullable(extensions.get(e.getUrl())).ifPresentOrElse(list ->{
-						list.add(new FHIRProperty(e.getUrl(), null,e.getValue().primitiveValue(), FHIRProperty.typeToFHIRPropertyType(e.getValue())));
-
-					}, ()->{
+				e ->
+					Optional.ofNullable(extensions.get(e.getUrl())).ifPresentOrElse(list ->
+						list.add(new FHIRProperty(e.getUrl(), null,e.getValue().primitiveValue(), FHIRProperty.typeToFHIRPropertyType(e.getValue()))),
+					 ()->{
 						List<FHIRProperty> list = new ArrayList<>();
 						list.add(new FHIRProperty(e.getUrl(), null,e.getValue().primitiveValue(), FHIRProperty.typeToFHIRPropertyType(e.getValue())));
 						extensions.put(e.getUrl(), list);
-					});
-
-				}
+					})
 		);
 		parents = new HashSet<>();
 		for (CodeSystem.ConceptPropertyComponent propertyComponent : definitionConcept.getProperty()) {
@@ -195,7 +194,7 @@ public class FHIRConcept implements FHIRGraphNode {
 		}
 
 		properties = new HashMap<>();
-		properties.put("inactive",Collections.singletonList(new FHIRProperty("inactive",null,Boolean.toString(!isActive()),FHIRProperty.BOOLEAN_TYPE)));
+		properties.put(INACTIVE,Collections.singletonList(new FHIRProperty(INACTIVE,null,Boolean.toString(!isActive()),FHIRProperty.BOOLEAN_TYPE)));
 	}
 
 	@Override
@@ -243,7 +242,7 @@ public class FHIRConcept implements FHIRGraphNode {
 
 	public boolean isActive() {
 		if (active == null){
-			List<FHIRProperty> props = properties.get("inactive");
+			List<FHIRProperty> props = properties.get(INACTIVE);
 			active = ( props == null || props.isEmpty() || !props.stream().map(x -> Boolean.valueOf(x.getValue())).distinct().allMatch(Boolean.TRUE::equals));
 		}
 		return active;
@@ -296,7 +295,7 @@ public class FHIRConcept implements FHIRGraphNode {
 	}
 
 	private static boolean isPropertyInactive(CodeSystem.ConceptPropertyComponent x) {
-		if (x.getCode().equals("inactive")) {
+		if (x.getCode().equals(INACTIVE)) {
 			if (x.hasValueBooleanType() && !Boolean.valueOf(x.getValueBooleanType().getValueAsString()).equals(Boolean.FALSE)) return true;
 			if (x.hasValueCodeType() && !Boolean.valueOf(x.getValueCodeType().getValueAsString()).equals(Boolean.FALSE)) return true;
 		}

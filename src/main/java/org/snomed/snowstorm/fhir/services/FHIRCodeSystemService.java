@@ -68,6 +68,7 @@ public class FHIRCodeSystemService {
 	private IdentifierSource identifierSource;
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
+
 	@Autowired
 	private CodeSystemVersionRepository codeSystemVersionRepository;
 
@@ -214,21 +215,14 @@ public class FHIRCodeSystemService {
 
 		CodeSystem updatedCodeSystem = codeSystemRepository.findByUrlAndVersion(dependentVersion.getUrl(), dependentVersion.getVersion()).toHapiCodeSystem();
 
-		List<Extension> extensions = new ArrayList<Extension>(supplement.getExtension());
+		List<Extension> extensions = new ArrayList<>(supplement.getExtension());
 		Extension supExt = new Extension();
 		supExt.setUrl("https://github.com/IHTSDO/snowstorm/codesystem-supplement");
 		supExt.setValue(new CanonicalType(fhirCodeSystemVersion.getCanonical()));
 		extensions.add(supExt);
 		extensions.addAll(updatedCodeSystem.getExtension());
 		updatedCodeSystem.setExtension(extensions);
-
-		//deleteCodeSystemVersion(dependentVersion);
-
-		FHIRCodeSystemVersion updatedDependentVersion = createUpdate(updatedCodeSystem);
-
-
-
-        return updatedDependentVersion;
+        return createUpdate(updatedCodeSystem);
 	}
 
 	public @NotNull CodeSystem addSupplementToCodeSystem(CodeSystem codeSystem, FHIRCodeSystemVersion dependentVersion) {
@@ -257,29 +251,21 @@ public class FHIRCodeSystemService {
 						cd.setLanguage(fd.getLanguage());
 						if (StringUtils.isNotEmpty(fd.getUse())) cd.setUse(fd.getUseCoding());
 						cd.setValue(fd.getValue());
-						fd.getExtensions().forEach( fhirExtension -> {
-							cd.addExtension(fhirExtension.getHapi());
-						});
+						fd.getExtensions().forEach( fhirExtension -> cd.addExtension(fhirExtension.getHapi()));
 						return cd;
 					}).toList();
-					concept.getProperties().entrySet().stream().forEach(entry -> {
-
-						entry.getValue().stream().forEach(p -> {
-							CodeSystem.ConceptPropertyComponent propertyComponent = new CodeSystem.ConceptPropertyComponent();
-							propertyComponent.setCode(p.getCode());
-							propertyComponent.setValue(p.toHapiValue(dependentVersion.getUrl()));
-							component.addProperty(propertyComponent);
-						});
-
-					});
-					concept.getExtensions().entrySet().stream().forEach( entry ->{
-						entry.getValue().stream().forEach(e -> {
-							Extension t = new Extension();
-							t.setUrl(e.getCode());
-							t.setValue(e.toHapiValue(null));
-							component.addExtension(t);
-						});
-					});
+					concept.getProperties().forEach((key, value) -> value.forEach(p -> {
+						CodeSystem.ConceptPropertyComponent propertyComponent = new CodeSystem.ConceptPropertyComponent();
+						propertyComponent.setCode(p.getCode());
+						propertyComponent.setValue(p.toHapiValue(dependentVersion.getUrl()));
+						component.addProperty(propertyComponent);
+					}));
+					concept.getExtensions().forEach((key, value) -> value.forEach(e -> {
+						Extension t = new Extension();
+						t.setUrl(e.getCode());
+						t.setValue(e.toHapiValue(null));
+						component.addExtension(t);
+					}));
 					component.setDesignation(designations)
 							.setCode(concept.getCode())
 							.setDisplay(concept.getDisplay())
@@ -289,17 +275,14 @@ public class FHIRCodeSystemService {
 				.toList();
 
 		List<CodeSystem.ConceptDefinitionComponent> finalConcepts = concepts;
-		concepts.stream().forEach(x ->{
-
+		concepts.forEach(x -> {
 			Collection<String> children = graphBuilder.getNodeChildren(x.getCode());
 			List<CodeSystem.ConceptDefinitionComponent> toAdd = finalConcepts.stream().filter(y -> children.contains(y.getCode())).toList();
-			toAdd.stream().forEach(z -> x.addConcept(z));
+			toAdd.forEach(x::addConcept);
 		});
 
 		concepts = concepts.stream().filter(x -> graphBuilder.getNodeParents(x.getCode()).isEmpty()).toList();
-
 		newCodeSystem.setConcept(concepts);
-
 
 		List<CodeSystem.ConceptDefinitionComponent> modifiedConceptDefinitions = newCodeSystem.getConcept().stream().map(conceptDefinitionToUpdate -> {
 			Optional<CodeSystem.ConceptDefinitionComponent> match = codeSystem.getConcept().stream().filter(y -> y.getCode().equals(conceptDefinitionToUpdate.getCode())).findFirst();
@@ -307,12 +290,11 @@ public class FHIRCodeSystemService {
 				try {
 					match.get().getExtension().forEach(conceptDefinitionToUpdate::addExtension);
 					match.get().getProperty().forEach(conceptDefinitionToUpdate::addProperty);
-					List<CodeSystem.ConceptDefinitionDesignationComponent> newList = new ArrayList<>();
-					newList.addAll(conceptDefinitionToUpdate.getDesignation());
-					match.get().getDesignation().forEach( des ->	newList.add(des));
+					List<CodeSystem.ConceptDefinitionDesignationComponent> newList = new ArrayList<>(conceptDefinitionToUpdate.getDesignation());
+					newList.addAll(match.get().getDesignation());
 					conceptDefinitionToUpdate.setDesignation(newList);
 				} catch (RuntimeException e){
-					System.out.println("bla");
+					logger.error("Recoverable error while merging supplement concepts to CodeSystem {}", codeSystem, e);
 				}
 
 			}
@@ -321,10 +303,6 @@ public class FHIRCodeSystemService {
 
 		newCodeSystem.setConcept(modifiedConceptDefinitions);
 		return newCodeSystem;
-	}
-
-	private static boolean isSnomedCodeSystemVersionId(String id) {
-		return id.startsWith(SCT_ID_PREFIX);
 	}
 
 	public FHIRCodeSystemVersion findCodeSystemVersionOrThrow(FHIRCodeSystemVersionParams systemVersionParams) {
@@ -559,9 +537,7 @@ public class FHIRCodeSystemService {
 		searchQuery.setTrackTotalHits(true);
 		updateQueryWithSearchAfter(searchQuery, pageRequest);
 
-		logger.info("QUERY:"+searchQuery.getQuery().toString());
-
+		logger.debug("QUERY: {}", searchQuery.getQuery());
 		return toPage(elasticsearchOperations.search(searchQuery, FHIRCodeSystemVersion.class), pageRequest);
-
 	}
 }
