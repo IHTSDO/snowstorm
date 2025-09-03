@@ -1,7 +1,6 @@
 package org.snomed.snowstorm.fhir.services;
 
 import org.hl7.fhir.r4.model.*;
-import org.hl7.fhir.r4.model.CodeSystem;
 import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.domain.Identifier;
 import org.snomed.snowstorm.core.data.domain.expression.Expression;
@@ -54,20 +53,20 @@ public class HapiParametersMapper implements FHIRConstants {
 
 	public Parameters resultFalse(String code, FHIRCodeSystemVersion codeSystemVersion) {
 		Parameters parameters = new Parameters();
-		parameters.addParameter("code", new CodeType(code));
+		parameters.addParameter(CODE, new CodeType(code));
 		addSystemAndVersion(parameters, codeSystemVersion);
 
 		String message = format("Unknown code '%s' in the CodeSystem '%s' version '%s'", code, codeSystemVersion.getUrl(), codeSystemVersion.getVersion());
 		OperationOutcome.IssueSeverity severity;
 		if(FRAGMENT.toCode().equals(codeSystemVersion.getContent())) {
 			severity = WARNING;
-			parameters.addParameter("result", true);
+			parameters.addParameter(RESULT, true);
 			message = message + " - note that the code system is labeled as a fragment, so the code may be valid in some other fragment";
 		} else {
 			severity = ERROR;
-			parameters.addParameter("result", false);
+			parameters.addParameter(RESULT, false);
 		}
-		parameters.addParameter("message", message);
+		parameters.addParameter(MESSAGE, message);
 		OperationOutcome.OperationOutcomeIssueComponent[] issues = new OperationOutcome.OperationOutcomeIssueComponent[1];
 		CodeableConcept detail1 = new CodeableConcept(new Coding(TX_ISSUE_TYPE, "invalid-code", null)).setText(message);
 		List<Extension> extensions = Collections.singletonList(new Extension("http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",new StringType("Unknown_Code_in_Version")));
@@ -83,15 +82,14 @@ public class HapiParametersMapper implements FHIRConstants {
 		Concept concept = conceptAndSystemResult.concept();
 
 		Parameters parameters = new Parameters();
-		parameters.addParameter("code", concept.getConceptId());
-		parameters.addParameter("display", fhirHelper.getPreferredTerm(concept, designations));
+		parameters.addParameter(CODE, concept.getConceptId());
+		parameters.addParameter(DISPLAY, fhirHelper.getPreferredTerm(concept, designations));
 		Optional.ofNullable(conceptAndSystemResult.codeSystemVersion().getName()).ifPresent(x->parameters.addParameter("name", x));
-		//Optional.ofNullable(codeSystem.getTitle()).ifPresent(x->parameters.addParameter("title", x));
 		addSystemAndVersion(parameters, conceptAndSystemResult.codeSystemVersion());
 		parameters.addParameter("name", codeSystemVersion.getTitle());
 		addSystemAndVersion(parameters, codeSystemVersion);
-		parameters.addParameter("active", concept.isActive());
-		parameters.addParameter("inactive", !concept.isActive());
+		parameters.addParameter(ACTIVE, concept.isActive());
+		parameters.addParameter(INACTIVE, !concept.isActive());
 		addProperties(parameters, concept, properties);
 		addDesignations(parameters, concept);
 		addParents(parameters, concept);
@@ -101,18 +99,17 @@ public class HapiParametersMapper implements FHIRConstants {
 	}
 
 	private void addSystemAndVersion(Parameters parameters, FHIRCodeSystemVersion codeSystem) {
-		parameters.addParameter("system", new UriType(codeSystem.getUrl()));
-		parameters.addParameter("version", codeSystem.getVersion());
+		parameters.addParameter(SYSTEM, new UriType(codeSystem.getUrl()));
+		parameters.addParameter(VERSION, codeSystem.getVersion());
 	}
 
 	public Parameters mapToFHIR(FHIRCodeSystemVersion codeSystemVersion, FHIRConcept concept) {
 		Parameters parameters = new Parameters();
 		Optional.of(codeSystemVersion.getName()).ifPresent(x->parameters.addParameter("name", x));
-		//Optional.of(codeSystemVersion.getTitle()).ifPresent(x->parameters.addParameter("title", x));
-		parameters.addParameter("system", new UriType(codeSystemVersion.getUrl()));
-		parameters.addParameter("version", codeSystemVersion.getVersion());
-		parameters.addParameter("display", concept.getDisplay());
-		parameters.addParameter("code", new CodeType(concept.getCode()));
+		parameters.addParameter(SYSTEM, new UriType(codeSystemVersion.getUrl()));
+		parameters.addParameter(VERSION, codeSystemVersion.getVersion());
+		parameters.addParameter(DISPLAY, concept.getDisplay());
+		parameters.addParameter(CODE, new CodeType(concept.getCode()));
 
 		for (Map.Entry<String, List<FHIRProperty>> property : concept.getProperties().entrySet()) {
 			for (FHIRProperty propertyValue : property.getValue()) {
@@ -148,13 +145,13 @@ public class HapiParametersMapper implements FHIRConstants {
 
 	public Parameters validateCodeResponse(FHIRConcept concept, boolean displayValidOrNull, FHIRCodeSystemVersion codeSystemVersion) {
 		Parameters parameters = new Parameters();
-		parameters.addParameter("result", displayValidOrNull);
-		parameters.addParameter("code", new CodeType(concept.getCode()));
+		parameters.addParameter(RESULT, displayValidOrNull);
+		parameters.addParameter(CODE, new CodeType(concept.getCode()));
 		addSystemAndVersion(parameters, codeSystemVersion);
 		if (!displayValidOrNull) {
-			parameters.addParameter("message", "The code exists but the display is not valid.");
+			parameters.addParameter(MESSAGE, "The code exists but the display is not valid.");
 		}
-		parameters.addParameter("display", concept.getDisplay());
+		parameters.addParameter(DISPLAY, concept.getDisplay());
 		return parameters;
 	}
 

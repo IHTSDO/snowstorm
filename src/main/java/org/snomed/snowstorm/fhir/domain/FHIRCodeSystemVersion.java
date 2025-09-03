@@ -88,17 +88,17 @@ public class FHIRCodeSystemVersion {
 
 	public FHIRCodeSystemVersion(CodeSystem codeSystem) {
 		url = codeSystem.getUrl();
-		String id = codeSystem.getId();
+		String provisionalId = codeSystem.getId();
 		version = codeSystem.getVersion();
-		if (id == null) {
+		if (provisionalId == null) {
 			// Spec: https://build.fhir.org/resource.html#id
 			// "Ids can be up to 64 characters long, and contain any combination of upper and lowercase ASCII letters, numerals, "-" and ".""
-			id = url.replace("http://", "").replaceAll("[^a-zA-Z0-9.-]", "-");
+			provisionalId = url.replace("http://", "").replaceAll("[^a-zA-Z0-9.-]", "-");
 		} else {
-			id = codeSystem.getId().replace("CodeSystem/", "");
+			provisionalId = codeSystem.getId().replace("CodeSystem/", "");
 		}
-		this.id = id + (StringUtils.isBlank(version) ? "" : ("-" + version));
-		this.codeSystemId = id;
+		this.id = provisionalId + (StringUtils.isBlank(version) ? "" : ("-" + version));
+		this.codeSystemId = provisionalId;
 		experimental = codeSystem.getExperimental();
 		caseSensitive = codeSystem.getCaseSensitive();
 		date = codeSystem.getDate();
@@ -108,11 +108,11 @@ public class FHIRCodeSystemVersion {
 			title = title.replace(" Code System", "");
 		}
 		name = codeSystem.getName();
-		Enumerations.PublicationStatus status = codeSystem.getStatus();
-		this.status = status != null ? status.toCode() : Enumerations.PublicationStatus.ACTIVE.toCode();
+		Enumerations.PublicationStatus codeSystemStatus = codeSystem.getStatus();
+		this.status = codeSystemStatus != null ? codeSystemStatus.toCode() : Enumerations.PublicationStatus.ACTIVE.toCode();
 		publisher = codeSystem.getPublisher();
-		CodeSystem.CodeSystemHierarchyMeaning hierarchyMeaning = codeSystem.getHierarchyMeaning();
-		this.hierarchyMeaning = hierarchyMeaning != null ? hierarchyMeaning.toCode() : null;
+		CodeSystem.CodeSystemHierarchyMeaning codeSystemHierarchyMeaning = codeSystem.getHierarchyMeaning();
+		this.hierarchyMeaning = codeSystemHierarchyMeaning != null ? codeSystemHierarchyMeaning.toCode() : null;
 		compositional = codeSystem.getCompositional();
 		CodeSystem.CodeSystemContentMode codeSystemContent = codeSystem.getContent();
 		content = codeSystemContent != null ? codeSystemContent.toCode() : null;
@@ -122,13 +122,13 @@ public class FHIRCodeSystemVersion {
 			}
 			extensions.add(new FHIRExtension(e));
 		});
-		codeSystem.getConcept().stream().forEach( c->{
+		codeSystem.getConcept().stream().forEach( c->
 			c.getDesignation().stream().forEach( d ->{
 				if (d.getLanguage()!=null){
 					getAvailableLanguages().add(d.getLanguage());
 				}
-			});
-		});
+			})
+		);
 	}
 
 	public FHIRCodeSystemVersion(CodeSystemVersion snomedVersion) {
@@ -138,7 +138,7 @@ public class FHIRCodeSystemVersion {
 		String moduleId = snomedVersion.getCodeSystem().getUriModuleId();
 		id = FHIRCodeSystemService.SCT_ID_PREFIX + moduleId + "_" + snomedVersion.getEffectiveDate();
 		this.codeSystemId = id;
-		version = SNOMED_URI + "/" + moduleId + VERSION + snomedVersion.getEffectiveDate();
+		version = SNOMED_URI + "/" + moduleId + VERSION_SLASH + snomedVersion.getEffectiveDate();
 		if (title == null) {
 			title = "SNOMED CT release " + snomedVersion.getVersion();
 		}
@@ -199,7 +199,7 @@ public class FHIRCodeSystemVersion {
 			codeSystem.setContent(CodeSystem.CodeSystemContentMode.fromCode(content));
 		}
 		if (snomedCodeSystem != null && snomedCodeSystem.getParentUriModuleId() != null) {
-			String supplements = SNOMED_URI + "|" + SNOMED_URI + "/" + snomedCodeSystem.getParentUriModuleId() + VERSION + snomedCodeSystem.getDependantVersionEffectiveTime();
+			String supplements = SNOMED_URI + "|" + SNOMED_URI + "/" + snomedCodeSystem.getParentUriModuleId() + VERSION_SLASH + snomedCodeSystem.getDependantVersionEffectiveTime();
 			codeSystem.setSupplements(supplements);
 		}
 		return codeSystem;
@@ -215,7 +215,7 @@ public class FHIRCodeSystemVersion {
 
 	public boolean isVersionMatch(String requestedVersion) {
 		if (requestedVersion == null || requestedVersion.equals(version)) return true;
-		return FHIRHelper.isSnomedUri(getUrl()) && version.substring(0, version.indexOf(VERSION)).equals(requestedVersion);
+		return FHIRHelper.isSnomedUri(getUrl()) && version.substring(0, version.indexOf(VERSION_SLASH)).equals(requestedVersion);
 	}
 
 	public String getCanonical() {

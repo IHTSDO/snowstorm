@@ -10,12 +10,8 @@ import org.springframework.data.annotation.Id;
 import org.springframework.data.elasticsearch.annotations.Document;
 import org.springframework.data.elasticsearch.annotations.Field;
 import org.springframework.data.elasticsearch.annotations.FieldType;
-import org.springframework.data.elasticsearch.annotations.Setting;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
 
 import static org.snomed.snowstorm.core.util.CollectionUtils.orEmpty;
 
@@ -131,12 +127,10 @@ public class FHIRValueSet {
 		valueSet.setDescription(description);
 		valueSet.setPurpose(purpose);
 		valueSet.setCopyright(copyright);
-
 		valueSet.setCompose(compose.getHapi());
-
-		Optional.ofNullable(extensions).orElse(Collections.emptyList()).forEach( fe -> {
-			valueSet.addExtension(fe.getHapi());
-		});
+		Optional.ofNullable(extensions)
+				.orElse(Collections.emptyList())
+				.forEach( fe -> valueSet.addExtension(fe.getHapi()));
 		return valueSet;
 	}
 
