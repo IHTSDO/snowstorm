@@ -20,8 +20,8 @@ public class FHIRTerminologyCapabilities extends TerminologyCapabilities impleme
 
 	private static final long serialVersionUID = 1L;
 
-	public static final String CAPABILITY_TITLE = "SnowstormX Terminology Capability Statement";
-	public static final String CAPABILITY_MAIL = "implementation@snomed.org";
+	public static final String CAPABILITY_TITLE = "Snowstorm Terminology Capability Statement";
+	public static final String CAPABILITY_MAIL = "support@snomed.org";
 
 	public FHIRTerminologyCapabilities withDefaults(BuildProperties buildProperties, FHIRCodeSystemService codeSystemService) {
 		setContact();
