@@ -336,6 +336,11 @@ public abstract class Config extends ElasticsearchConfig {
 		};
 	}
 
+	@Bean
+	public PermissionService permissionService() {
+		return new PermissionService();
+	}
+
 	protected void updateIndexMaxTermsSettingForAllSnomedComponents() {
 		for (Class<? extends SnomedComponent> componentClass : domainEntityConfiguration.getComponentTypeRepositoryMap().keySet()) {
 			updateIndexMaxTermsSetting(componentClass);

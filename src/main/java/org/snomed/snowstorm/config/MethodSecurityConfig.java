@@ -3,6 +3,8 @@ package org.snomed.snowstorm.config;
 import io.kaicode.rest.util.branchpathrewrite.BranchPathUriUtil;
 import org.snomed.snowstorm.core.data.services.PermissionService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.config.BeanDefinition;
+import org.springframework.beans.factory.config.BeanFactoryPostProcessor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Lazy;
@@ -20,6 +22,7 @@ import java.io.Serializable;
 public class MethodSecurityConfig extends GlobalMethodSecurityConfiguration {
 
 	@Autowired
+	@Lazy
 	private PermissionEvaluator permissionEvaluator;
 
 	@Override
@@ -36,14 +39,32 @@ public class MethodSecurityConfig extends GlobalMethodSecurityConfiguration {
 			@Override
 			public boolean hasPermission(Authentication authentication, Object role, Object branchObject) {
 				if (branchObject == null) {
-					throw new SecurityException("Branch path is null, can not ascertain roles.");
+					throw new SecurityException("Branch path is null, cannot ascertain roles.");
 				}
-				return permissionService.userHasRoleOnBranch((String) role, BranchPathUriUtil.decodePath((String) branchObject), authentication);
+				return permissionService.userHasRoleOnBranch(
+						(String) role,
+						BranchPathUriUtil.decodePath((String) branchObject),
+						authentication
+				);
 			}
 
 			@Override
-			public boolean hasPermission(Authentication authentication, Serializable serializable, String s, Object o) {
+			public boolean hasPermission(Authentication authentication, Serializable targetId, String targetType, Object permission) {
 				return false;
+			}
+		};
+	}
+
+	@Bean
+	public static BeanFactoryPostProcessor infrastructureRoleSetter() {
+		return beanFactory -> {
+			if (beanFactory.containsBeanDefinition("permissionEvaluator")) {
+				beanFactory.getBeanDefinition("permissionEvaluator")
+						.setRole(BeanDefinition.ROLE_INFRASTRUCTURE);
+			}
+			if (beanFactory.containsBeanDefinition("methodSecurityConfig")) {
+				beanFactory.getBeanDefinition("methodSecurityConfig")
+						.setRole(BeanDefinition.ROLE_INFRASTRUCTURE);
 			}
 		};
 	}
