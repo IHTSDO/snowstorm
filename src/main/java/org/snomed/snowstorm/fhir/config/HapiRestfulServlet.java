@@ -12,12 +12,9 @@ import org.springframework.boot.info.BuildProperties;
 import org.springframework.web.context.WebApplicationContext;
 import org.springframework.web.context.support.WebApplicationContextUtils;
 
-import jakarta.servlet.ServletException;
-
 public class HapiRestfulServlet extends RestfulServer {
 
     private static final long serialVersionUID = 1L;
-
 
     private final transient BuildProperties buildProperties;
 
@@ -35,7 +32,7 @@ public class HapiRestfulServlet extends RestfulServer {
      * servlet to define resource providers, or set up configuration, interceptors, etc.
      */
     @Override
-    protected void initialize() throws ServletException {
+    protected void initialize() {
         final WebApplicationContext applicationContext =
                 WebApplicationContextUtils.getWebApplicationContext(this.getServletContext());
 
@@ -90,4 +87,5 @@ public class HapiRestfulServlet extends RestfulServer {
 
         logger.info("FHIR Resource providers and interceptors registered");
     }
+
 }
