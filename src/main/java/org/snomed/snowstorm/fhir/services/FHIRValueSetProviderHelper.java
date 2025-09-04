@@ -7,6 +7,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
 import org.apache.commons.compress.archivers.tar.TarArchiveOutputStream;
 import org.hl7.fhir.r4.model.*;
+import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.snomed.snowstorm.fhir.domain.FHIRPackageIndexFile;
 import org.snomed.snowstorm.fhir.pojo.CanonicalUri;
@@ -161,39 +162,28 @@ class FHIRValueSetProviderHelper {
 		}
 	}
 
-	public static File createNpmPackageFromResources(List<Resource> resources) {
+	private static class FileWithContents {
+		FHIRPackageIndexFile indexFile;
+		String content;
+	}
 
-		class Tuple{
-			FHIRPackageIndexFile indexFile;
-			String string;
+	private static class FHIRIndex {
+		private List<FHIRPackageIndexFile> files;
+
+		public List<FHIRPackageIndexFile> getFiles() {
+			return files;
 		}
 
-		List<Tuple> tuples = resources.stream().map(x -> {
-					Tuple tuple = new Tuple();
-					FHIRPackageIndexFile temp = new FHIRPackageIndexFile();
-					temp.id = x.getIdPart();
-					x.getNamedProperty("url").getValues().stream().findFirst().ifPresent(y ->  temp.url = y.primitiveValue());
-					temp.resourceType = x.getResourceType().toString();
-					Optional<String> version = x.getNamedProperty("version").getValues().stream().findFirst().map(Base::primitiveValue);
-					if(version.isPresent()) {
-						temp.version = version.get();
-						temp.filename = "%s-%s-%s.json".formatted(temp.resourceType, temp.id, temp.version);
-					} else {
-						temp.filename = "%s-%s.json".formatted(temp.resourceType, temp.id);
-					}
-					tuple.indexFile = temp;
+		public void setFiles(List<FHIRPackageIndexFile> files) {
+			this.files = files;
+		}
+	}
 
-					// Instantiate a new JSON parser
-					IParser parser = ctx.newJsonParser();
+	public static File createNpmPackageFromResources(List<Resource> resources) {
 
-					// Serialize it
-            		tuple.string = parser.encodeResourceToString(x);
+		List<FileWithContents> allFilesWithContents = getAllFilesWithContents(resources);
 
-					return tuple;
-				}
-		).toList();
-
-        try {
+		try {
             File npmPackage = File.createTempFile("tx-resources-",".tgz");
             npmPackage.deleteOnExit();
 			FileOutputStream fop = new FileOutputStream(npmPackage);
@@ -202,30 +192,7 @@ class FHIRValueSetProviderHelper {
 			TarArchiveOutputStream tarArchiveOutputStream = new TarArchiveOutputStream(gzipOutputStream);
 
 			try {
-
-				for (Tuple tuple : tuples) {
-					TarArchiveEntry entry = new TarArchiveEntry("package/" + tuple.indexFile.getFilename());
-					entry.setSize(tuple.string.getBytes().length);
-					tarArchiveOutputStream.putArchiveEntry(entry);
-					tarArchiveOutputStream.write(tuple.string.getBytes());
-					tarArchiveOutputStream.closeArchiveEntry();
-				}
-
-				class FHIRIndex {
-					List<FHIRPackageIndexFile> files;
-				}
-
-				FHIRIndex fi = new FHIRIndex();
-				fi.files = tuples.stream().map(x -> x.indexFile).toList();
-				ObjectMapper mapper = new ObjectMapper();
-				String index = mapper.writeValueAsString(fi);
-
-				TarArchiveEntry entry = new TarArchiveEntry("package/.index.json");
-				entry.setSize(index.getBytes().length);
-
-				tarArchiveOutputStream.putArchiveEntry(entry);
-				tarArchiveOutputStream.write(index.getBytes());
-				tarArchiveOutputStream.closeArchiveEntry();
+				addContentToArchive(allFilesWithContents, tarArchiveOutputStream);
 			} finally {
 				tarArchiveOutputStream.finish();
 				tarArchiveOutputStream.close();
@@ -234,9 +201,57 @@ class FHIRValueSetProviderHelper {
 				fop.close();
 			}
 			return npmPackage;
-
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         }
+	}
+
+	private static void addContentToArchive(List<FileWithContents> allFilesWithContents, TarArchiveOutputStream tarArchiveOutputStream) throws IOException {
+		for (FileWithContents tuple : allFilesWithContents) {
+			TarArchiveEntry entry = new TarArchiveEntry("package/" + tuple.indexFile.getFilename());
+			entry.setSize(tuple.content.getBytes().length);
+			tarArchiveOutputStream.putArchiveEntry(entry);
+			tarArchiveOutputStream.write(tuple.content.getBytes());
+			tarArchiveOutputStream.closeArchiveEntry();
+		}
+
+		FHIRIndex fi = new FHIRIndex();
+		fi.setFiles(allFilesWithContents.stream().map(x -> x.indexFile).toList());
+		ObjectMapper mapper = new ObjectMapper();
+		String index = mapper.writeValueAsString(fi);
+
+		TarArchiveEntry entry = new TarArchiveEntry("package/.index.json");
+		entry.setSize(index.getBytes().length);
+
+		tarArchiveOutputStream.putArchiveEntry(entry);
+		tarArchiveOutputStream.write(index.getBytes());
+		tarArchiveOutputStream.closeArchiveEntry();
+	}
+
+	private static @NotNull List<FileWithContents> getAllFilesWithContents(List<Resource> resources) {
+		return resources.stream().map(resource -> {
+					FileWithContents fileWithContents = new FileWithContents();
+					FHIRPackageIndexFile temp = new FHIRPackageIndexFile();
+					temp.id = resource.getIdPart();
+					resource.getNamedProperty("url").getValues().stream().findFirst().ifPresent(y ->  temp.url = y.primitiveValue());
+					temp.resourceType = resource.getResourceType().toString();
+					Optional<String> version = resource.getNamedProperty("version").getValues().stream().findFirst().map(Base::primitiveValue);
+					if(version.isPresent()) {
+						temp.version = version.get();
+						temp.filename = "%s-%s-%s.json".formatted(temp.resourceType, temp.id, temp.version);
+					} else {
+						temp.filename = "%s-%s.json".formatted(temp.resourceType, temp.id);
+					}
+					fileWithContents.indexFile = temp;
+
+					// Instantiate a new JSON parser
+					IParser parser = ctx.newJsonParser();
+
+					// Serialize it
+            		fileWithContents.content = parser.encodeResourceToString(resource);
+
+					return fileWithContents;
+				}
+		).toList();
 	}
 }
