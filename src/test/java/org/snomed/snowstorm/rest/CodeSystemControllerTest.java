@@ -745,7 +745,8 @@ class CodeSystemControllerTest extends AbstractTest {
     @Test
     void getAllDependencies_ShouldReturnDependencies_WhenDependenciesExist() throws ServiceException {
         //given
-        givenCodeSystemExists("SNOMEDCT-TEST", "MAIN/SNOMEDCT-TEST", 20200731);
+        CodeSystem testCodeSystem = givenCodeSystemExists("SNOMEDCT-TEST", "MAIN/SNOMEDCT-TEST", 20200731);
+        givenMRDSEntryExists(testCodeSystem.getBranchPath(), "22010000108", CORE_MODULE, String.valueOf(20200731));
 
         CodeSystem loinc = givenCodeSystemExists("SNOMEDCT-LOINC", "MAIN/SNOMEDCT-LOINC", 20200731);
         givenMRDSEntryExists(loinc.getBranchPath(), "11010000107", CORE_MODULE, String.valueOf(20200731));
