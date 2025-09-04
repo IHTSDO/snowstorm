@@ -335,7 +335,7 @@ public class ModuleDependencyService extends ComponentService {
 	 * Returns the set of all dependency code systems
 	 */
 	public Set<CodeSystem> getAllDependentCodeSystems(CodeSystem codeSystem) {
-		BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(codeSystem.getBranchPath());
+		BranchCriteria branchCriteria = versionControlHelper.getChangesOnBranchCriteria(codeSystem.getBranchPath());
 		Set<ReferenceSetMember> allMdrsMembers = fetchMdrsMembers(branchCriteria);
 		Set<String> moduleIds = allMdrsMembers.stream().map(ReferenceSetMember::getReferencedComponentId).collect(Collectors.toSet());
 		Map<String, String> codeSystemBranchByModuleId = getCodeSystemBranchByModuleId(moduleIds);
@@ -368,7 +368,7 @@ public class ModuleDependencyService extends ComponentService {
 	}
 
 	public List<DependencyInfo> getAllDependencies(CodeSystem currentCodeSystem) {
-		BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(currentCodeSystem.getBranchPath());
+		BranchCriteria branchCriteria = versionControlHelper.getChangesOnBranchCriteria(currentCodeSystem.getBranchPath());
 		Set<ReferenceSetMember> allMdrsMembers = fetchMdrsMembers(branchCriteria);
 		
 		// Map ReferencedComponentId to target effective time
