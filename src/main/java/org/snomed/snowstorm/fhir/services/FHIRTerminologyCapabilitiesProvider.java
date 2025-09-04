@@ -7,8 +7,6 @@ import ca.uhn.fhir.rest.server.provider.ServerCapabilityStatementProvider;
 import jakarta.servlet.http.HttpServletRequest;
 import org.hl7.fhir.instance.model.api.IBaseConformance;
 import org.hl7.fhir.r4.model.*;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.boot.info.BuildProperties;
 
 import java.util.Arrays;
@@ -21,7 +19,6 @@ import java.util.Date;
  * See https://github.com/jamesagnew/hapi-fhir/issues/1681
  */
 public class FHIRTerminologyCapabilitiesProvider extends ServerCapabilityStatementProvider {
-	private final Logger logger = LoggerFactory.getLogger(getClass());
 
 	private final BuildProperties buildProperties;
 	private final FHIRCodeSystemService codeSystemService;
@@ -34,7 +31,6 @@ public class FHIRTerminologyCapabilitiesProvider extends ServerCapabilityStateme
 
 	@Metadata(cacheMillis = 0)
 	public IBaseConformance getMetadataResource(HttpServletRequest request, RequestDetails requestDetails) {
-		logger.info(requestDetails.getCompleteUrl());
 		if ("terminology".equals(request.getParameter("mode"))) {
 			FHIRTerminologyCapabilities tc = new FHIRTerminologyCapabilities().withDefaults(this.buildProperties,this.codeSystemService);
 			tc.setVersion(buildProperties.getVersion());
