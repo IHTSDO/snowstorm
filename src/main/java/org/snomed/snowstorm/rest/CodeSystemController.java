@@ -16,6 +16,7 @@ import org.snomed.snowstorm.extension.ExtensionAdditionalLanguageRefsetUpgradeSe
 import org.snomed.snowstorm.rest.pojo.CodeSystemUpdateRequest;
 import org.snomed.snowstorm.rest.pojo.CodeSystemUpgradeRequest;
 import org.snomed.snowstorm.rest.pojo.CreateCodeSystemVersionRequest;
+import org.snomed.snowstorm.rest.pojo.DependencyInfo;
 import org.snomed.snowstorm.rest.pojo.ItemsPage;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
@@ -284,11 +285,28 @@ public class CodeSystemController {
 		codeSystemService.notifyCodeSystemNewAuthoringCycle(codeSystem, newEffectiveTime);
 	}
 
-	@Operation(summary = "Returns all compatible dependent versions for a given extension code system, with the current dependent version as the baseline",
+	@Operation(summary = "Get compatible dependent versions for code system dependencies",
 			description = """
-			- Always includes the current version (if still compatible).
-			- If with parameters are provided, returns the compatible versions across both current and additional dependencies.
-			- Restriction: {shortName} and any with code systems must not be SNOMEDCT
+			Retrieves all compatible versions for dependencies of the specified code system, using the current 
+			dependent version as the baseline for compatibility checking.
+			
+			**Functionality:**
+			- Returns versions that are compatible across all current dependencies
+			- If additional code systems are specified via the 'with' parameter, includes them in compatibility checking
+			- Always includes the current version if it remains compatible
+			- Uses the findCompatibleVersions logic to determine version compatibility
+			
+			**Parameters:**
+			- shortName: The code system to check dependencies for
+			- with: Optional comma-separated list of additional code systems to include in compatibility checking
+			
+			**Restrictions:**
+			- The main code system (shortName) must not be SNOMEDCT
+			- Any additional code systems in the 'with' parameter must not be SNOMEDCT
+			
+			**Response:**
+			- Returns a map with 'compatibleVersions' key containing a list of compatible version strings
+			- Versions are returned in a format suitable for dependency management
 			""")
 	@GetMapping(value = "/{shortName}/dependencies/compatible-versions")
 	public ResponseEntity<Map<String, List<String>>> getCompatibleDependentVersions(
@@ -325,12 +343,39 @@ public class CodeSystemController {
 		return ResponseEntity.ok(response);
 	}
 
-	@Operation(summary = "Adds a single additional code system as a dependency to the current code system.",
+	@Operation(summary = "Add a code system dependency to the current code system",
 			description = """
-			- holdingModule identifies the module that links the current code system with the new dependency.
-			- Returns only standard HTTP status codes (e.g., 201 Created on success, 400 Bad Request on failure).
-			- with must be only one code system.
-			- Restriction: {shortName} and any with code systems must not be SNOMEDCT
+			Adds a single additional code system as a dependency to the specified code system by creating 
+			Module Dependency Reference Set (MDRS) entries that establish the dependency relationship.
+			
+			**Functionality:**
+			- Creates MDRS entries linking the current code system to the additional dependency
+			- Uses the holdingModule to establish the dependency relationship
+			- Validates compatibility between the current and additional code systems
+			- Prevents duplicate dependencies from being added
+			
+			**Parameters:**
+			- shortName: The code system to add the dependency to
+			- holdingModule: The module ID that will link the current code system with the new dependency
+			- with: The short name of the code system to add as a dependency (single code system only)
+			
+			**Business Rules:**
+			- The main code system (shortName) must not be SNOMEDCT
+			- The additional code system (with) must not be SNOMEDCT
+			- The additional code system must not already be a dependency
+			- The additional code system must exist and be valid
+			- Compatibility is checked before adding the dependency
+			
+			**Response:**
+			- 201 Created: Dependency successfully added
+			- 400 Bad Request: Invalid parameters, duplicate dependency, or business rule violation
+			- 404 Not Found: Code system not found
+			- 500 Internal Server Error: Unexpected error during processing
+			
+			**MDRS Creation:**
+			- Creates ReferenceSetMember entries with MODULE_DEPENDENCY_REFERENCE_SET refsetId
+			- Sets TARGET_EFFECTIVE_TIME based on the additional code system's version
+			- Links the holdingModule to the dependency's default module
 			""")
 	@PostMapping(value = "/{shortName}/dependencies")
 	@PreAuthorize("hasPermission('ADMIN', 'global')")
@@ -387,6 +432,52 @@ public class CodeSystemController {
 		return ResponseEntity.status(HttpStatus.CREATED).body("Additional dependency added successfully: " + additionalCodeSystem);
 	}
 
+
+	@Operation(summary = "Retrieve all existing dependencies for the given code system",
+			description = """
+			Retrieves all existing dependencies for the specified code system, including version information
+			from Module Dependency Reference Set (MDRS) entries.
+			
+			**Response Format:**
+			- Returns a list of dependency objects containing code system short name and version
+			- Version information is retrieved from MDRS TARGET_EFFECTIVE_TIME field
+			- If no MDRS entry exists for a dependency, version is marked as "Unknown"
+			
+			**Special Cases:**
+			- For SNOMEDCT: Returns an empty list as it is the root code system with no dependencies
+			- For non-existent code systems: Returns 404 Not Found
+			- For system errors: Returns 500 Internal Server Error
+			
+			**Example Response:**
+			```json
+			[
+			  {
+			    "codeSystem": "SNOMEDCT-LOINC",
+			    "version": "20250901"
+			  }
+			]
+			```
+			""")
+	@GetMapping(value = "/{shortName}/dependencies")
+	public ResponseEntity<List<DependencyInfo>> getAllDependencies(@PathVariable String shortName) {
+		CodeSystem currentCodeSystem = findCodeSystemOrThrow(shortName);
+		
+		// SNOMEDCT has no dependencies, return empty list
+		if (SNOMEDCT.equalsIgnoreCase(shortName)) {
+			return ResponseEntity.ok(Collections.emptyList());
+		}
+
+		try {
+			// Get all dependencies
+			List<DependencyInfo> dependencies = moduleDependencyService.getAllDependencies(currentCodeSystem);
+			return ResponseEntity.ok(dependencies);
+		} catch (Exception e) {
+			logger.error("Failed to retrieve dependencies for code system {}: {}", shortName, e.getMessage(), e);
+			return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+		}
+	}
+
+
 	/**
 	 * Finds a code system by short name or throws NotFoundException if not found.
 	 */
@@ -438,6 +529,7 @@ public class CodeSystemController {
 		currentDependencies.addAll(additionalCodeSystems);
 		return currentDependencies;
 	}
+
 
 
 
