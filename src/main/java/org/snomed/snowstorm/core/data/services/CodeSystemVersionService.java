@@ -133,7 +133,6 @@ public class CodeSystemVersionService {
         return codeSystemVersion.getShortName() + "_" + codeSystemVersion.getEffectiveDate() + "_" + headTimestamp;
     }
 
-
     /**
      * Find compatible versions across all codeSystems for a given target dependent version
      */
@@ -169,4 +168,14 @@ public class CodeSystemVersionService {
         return commonCompatibleVersions != null ? commonCompatibleVersions.stream().sorted().toList() : Collections.emptyList();
     }
 
+    public CodeSystemVersion findVersionByCodeSystemAndDependentVersion(String shortName, Integer dependentVersion, boolean includeFutureVersions, boolean includeInternalReleases) {
+       List<CodeSystemVersion> allVersionsInDescendingOrder = codeSystemService.findAllVersions(shortName, false, includeFutureVersions, includeInternalReleases);
+       for (CodeSystemVersion version : allVersionsInDescendingOrder) {
+           populateDependantVersion(version);
+           if (dependentVersion.equals(version.getDependantVersionEffectiveTime())) {
+               return version;
+           }
+       }
+       return null;
+    }
 }

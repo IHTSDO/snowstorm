@@ -12,13 +12,16 @@ import org.snomed.snowstorm.config.Config;
 import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.services.*;
 import org.snomed.snowstorm.core.data.services.pojo.MemberSearchRequest;
+import org.snomed.snowstorm.rest.pojo.DependencyInfo;
 import org.snomed.snowstorm.rest.pojo.ItemsPage;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.boot.test.web.server.LocalServerPort;
+import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
 import org.springframework.test.context.ActiveProfiles;
 
@@ -27,6 +30,7 @@ import java.util.*;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.snomed.snowstorm.core.data.domain.Concepts.*;
 import static org.snomed.snowstorm.core.data.domain.Concepts.MODULE;
+import static org.snomed.snowstorm.core.data.domain.ReferenceSetMember.MDRSFields.TARGET_EFFECTIVE_TIME;
 
 
 @ActiveProfiles("test")
@@ -396,6 +400,7 @@ class CodeSystemControllerTest extends AbstractTest {
         //given
         //International created and versioned several times.
         givenCodeSystemExists("SNOMEDCT", "MAIN");
+        givenMRDSEntryExists("MAIN", CORE_MODULE, MODEL_MODULE, null);
         givenCodeSystemVersionExists("SNOMEDCT", 20190131, "2019 January.");
         givenCodeSystemVersionExists("SNOMEDCT", 20190731, "2019 July.");
         givenCodeSystemVersionExists("SNOMEDCT", 20200131, "2020 January.");
@@ -413,6 +418,19 @@ class CodeSystemControllerTest extends AbstractTest {
         givenCodeSystemUpgraded("SNOMEDCT-DM", 20200731);
         givenCodeSystemVersionExists("SNOMEDCT-DM", 20200813, "2020 August.", 20200731);
         givenCodeSystemUpgraded("SNOMEDCT-DM", 20210131); //Upgraded but not yet released.
+    }
+
+    private void givenMRDSEntryExists(String branchPath, String moduleId, String referencedComponentId, String targetEffectiveTime) throws ServiceException {
+
+        ReferenceSetMember mdrs = new ReferenceSetMember();
+        mdrs.setModuleId(moduleId);
+        mdrs.setReferencedComponentId(referencedComponentId);
+        mdrs.setActive(true);
+        mdrs.setRefsetId(Concepts.MODULE_DEPENDENCY_REFERENCE_SET);
+        mdrs.setAdditionalField(ReferenceSetMember.MDRSFields.SOURCE_EFFECTIVE_TIME, "");
+        targetEffectiveTime = Objects.requireNonNullElse(targetEffectiveTime, "");
+        mdrs.setAdditionalField(TARGET_EFFECTIVE_TIME, targetEffectiveTime);
+        referenceSetMemberService.createMember(branchPath, mdrs);
     }
 
     private void givenCodeSystemExists(String shortName, String branchPath) {
@@ -678,12 +696,9 @@ class CodeSystemControllerTest extends AbstractTest {
         // Create a test code system with a compatible version
         givenCodeSystemExists("SNOMEDCT-TEST", "MAIN/SNOMEDCT-TEST", 20200731);
         CodeSystem loinc = givenCodeSystemExists("SNOMEDCT-LOINC", "MAIN/SNOMEDCT-LOINC",20200731);
-        codeSystemService.createVersion(loinc, 20200831, "LOINC 2020831 release");
-
         String holdingModule = givenModuleExists("MAIN/SNOMEDCT-TEST", "holding module for SNOMEDCT-LOINC");
-
-        String loincModule = givenModuleExists("MAIN/SNOMEDCT-LOINC", "LOINC default module");
-        branchService.updateMetadata(loinc.getBranchPath(), Map.of(Config.DEFAULT_MODULE_ID_KEY, loincModule));
+        givenMRDSEntryExists(loinc.getBranchPath(), "11010000107", CORE_MODULE, String.valueOf(20200731));
+        codeSystemService.createVersion(loinc, 20200831, "LOINC 2020831 release");
 
         String requestUrl = addAdditionalCodeSystemDependency("SNOMEDCT-TEST", holdingModule, "SNOMEDCT-LOINC");
 
@@ -699,5 +714,105 @@ class CodeSystemControllerTest extends AbstractTest {
                 new MemberSearchRequest().referenceSet(MODULE_DEPENDENCY_REFERENCE_SET).module(holdingModule), PageRequest.ofSize(10));
         assertNotNull(results);
         assertEquals(1, results.getTotalElements());
+        ReferenceSetMember mdrs = results.getContent().iterator().next();
+        assertEquals(holdingModule, mdrs.getModuleId());
+        assertEquals("11010000107", mdrs.getReferencedComponentId());
+        assertEquals("20200831", mdrs.getAdditionalField(TARGET_EFFECTIVE_TIME));
+
     }
+
+    @Test
+    void getAllDependencies_ShouldReturnEmptyList_WhenNoDependencies() {
+        //given
+        givenCodeSystemExists("SNOMEDCT-TEST", "MAIN/SNOMEDCT-TEST", 20200731);
+
+        //when
+        ResponseEntity<List<DependencyInfo>> response =
+                testRestTemplate.exchange(
+                        "http://localhost:" + port + "/codesystems/SNOMEDCT-TEST/dependencies",
+                        HttpMethod.GET,
+                        null,
+                        new ParameterizedTypeReference<>() {}
+                );
+
+        //then
+        assertEquals(200, response.getStatusCode().value());
+        assertNotNull(response.getBody());
+        List<DependencyInfo> dependencies = response.getBody();
+        assertTrue(dependencies.isEmpty());
+    }
+
+    @Test
+    void getAllDependencies_ShouldReturnDependencies_WhenDependenciesExist() throws ServiceException {
+        //given
+        givenCodeSystemExists("SNOMEDCT-TEST", "MAIN/SNOMEDCT-TEST", 20200731);
+
+        CodeSystem loinc = givenCodeSystemExists("SNOMEDCT-LOINC", "MAIN/SNOMEDCT-LOINC", 20200731);
+        givenMRDSEntryExists(loinc.getBranchPath(), "11010000107", CORE_MODULE, String.valueOf(20200731));
+
+        codeSystemService.createVersion(loinc, 20200831, "LOINC 20200831 release");
+        
+        String holdingModule = givenModuleExists("MAIN/SNOMEDCT-TEST", "holding module for SNOMEDCT-LOINC");
+
+        // Add the dependency
+        String requestUrl = addAdditionalCodeSystemDependency("SNOMEDCT-TEST", holdingModule, "SNOMEDCT-LOINC");
+        testRestTemplate.postForEntity(requestUrl, null, String.class);
+
+        //when
+        ResponseEntity<List<DependencyInfo>> response =
+                testRestTemplate.exchange(
+                        "http://localhost:" + port + "/codesystems/SNOMEDCT-TEST/dependencies",
+                        HttpMethod.GET,
+                        null,
+                        new ParameterizedTypeReference<>() {}
+                );
+
+        //then
+        assertEquals(200, response.getStatusCode().value());
+        assertNotNull(response.getBody());
+        List<DependencyInfo> dependencies = response.getBody();
+        assertEquals(2, dependencies.size());
+
+        DependencyInfo dependency = dependencies.get(0);
+        assertEquals("SNOMEDCT", dependency.codeSystem());
+        assertEquals("20200731", dependency.version());
+        dependency = dependencies.get(1);
+        assertEquals("SNOMEDCT-LOINC", dependency.codeSystem());
+        assertEquals("20200831", dependency.version());
+    }
+
+    @Test
+    void getAllDependencies_ShouldReturnEmptyList_WhenSNOMEDCT() {
+        //given - SNOMEDCT already exists from test setup
+
+        //when
+        ResponseEntity<List<DependencyInfo>> response =
+                testRestTemplate.exchange(
+                        "http://localhost:" + port + "/codesystems/SNOMEDCT/dependencies",
+                        HttpMethod.GET,
+                        null,
+                        new ParameterizedTypeReference<>() {}
+                );
+        //then
+        assertEquals(200, response.getStatusCode().value());
+        assertNotNull(response.getBody());
+        List<DependencyInfo> dependencies = response.getBody();
+        assertTrue(dependencies.isEmpty());
+    }
+
+    @Test
+    void getAllDependencies_ShouldReturnNotFound_WhenCodeSystemDoesNotExist() {
+        //when
+        ResponseEntity<String> response =
+                testRestTemplate.exchange(
+                        "http://localhost:" + port + "/codesystems/NONEXISTENT/dependencies",
+                        HttpMethod.GET,
+                        null,
+                        String.class
+                );
+
+        //then
+        assertEquals(404, response.getStatusCode().value());
+    }
+
 }
