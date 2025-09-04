@@ -553,7 +553,7 @@ public class CodeSystemService {
 		return findAllVersions(shortName, true, includeFutureVersions, includeInternalReleases);
 	}
 
-	private List<CodeSystemVersion> findAllVersions(String shortName, boolean ascOrder, boolean includeFutureVersions, boolean includeInternalReleases) {
+	public List<CodeSystemVersion> findAllVersions(String shortName, boolean ascOrder, boolean includeFutureVersions, boolean includeInternalReleases) {
 		List<CodeSystemVersion> content;
 		if (ascOrder) {
 			content = versionRepository.findByShortNameOrderByEffectiveDate(shortName, LARGE_PAGE).getContent();
@@ -564,7 +564,7 @@ public class CodeSystemService {
 		return content.stream()
 				.filter(version -> includeFutureVersions || (codeSystemsWithVersionVisibleAfterPublishedDate.contains(shortName) ? version.getEffectiveDate() < todaysEffectiveTime : version.getEffectiveDate() <= todaysEffectiveTime))
 				.filter(version -> includeInternalReleases || !version.isInternalRelease())
-				.collect(toList());
+				.toList();
 	}
 
 	public CodeSystemVersion findLatestImportedVersion(String shortName) {

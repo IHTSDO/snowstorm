@@ -15,6 +15,7 @@ import org.springframework.data.elasticsearch.client.elc.NativeQueryBuilder;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.data.elasticsearch.core.SearchHitsIterator;
 import org.springframework.stereotype.Service;
+import org.snomed.snowstorm.rest.pojo.DependencyInfo;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -103,26 +104,27 @@ public class ModuleDependencyService extends ComponentService {
 	 * Each module in the current code system will have MDRS entries linking to each module in the dependency code systems.
 	 *
 	 * @param currentCodeSystem The code system that is adding new dependencies
-	 * @param additionalCodeSystem List of code systems to add as new dependencies
+	 * @param additionalCodeSystem The additional Code System to add
 	 * @param currentDependantVersion The current dependent version effective time
 	 * @throws IllegalStateException if the current code system has no modules configured
 	 */
 	public void createMDRSEntriesForAdditionalDependency(String holdingModule, CodeSystem currentCodeSystem, CodeSystem additionalCodeSystem, Integer currentDependantVersion) throws ServiceException {
-		Map<String, String> moduleToTargetEffectiveTimeMap = getAdditionalDependentModuleToTargetEffectiveTime(currentDependantVersion, additionalCodeSystem);
 		// Need to fetch the default module id
 		additionalCodeSystem = codeSystemService.findClosestCodeSystemUsingAnyBranch(additionalCodeSystem.getBranchPath(), true);
 		if (additionalCodeSystem.getDefaultModuleId() == null) {
 			throw new ServiceException(String.format("Dependency code system %s has no default module configured.", additionalCodeSystem.getShortName()));
 		}
+		CodeSystemVersion codeSystemVersion = codeSystemVersionService.findVersionByCodeSystemAndDependentVersion(additionalCodeSystem.getShortName(), currentDependantVersion, true, true);
+
 		ReferenceSetMember mdrsEntry = new ReferenceSetMember();
 		mdrsEntry.setModuleId(holdingModule);
 		mdrsEntry.setRefsetId(Concepts.MODULE_DEPENDENCY_REFERENCE_SET);
 		mdrsEntry.setReferencedComponentId(additionalCodeSystem.getDefaultModuleId());
 		mdrsEntry.setActive(true);
+		mdrsEntry.setAdditionalField(ReferenceSetMember.MDRSFields.SOURCE_EFFECTIVE_TIME, null);
 
-		if (currentDependantVersion != null) {
-			mdrsEntry.setAdditionalField(ReferenceSetMember.MDRSFields.SOURCE_EFFECTIVE_TIME, null);
-			mdrsEntry.setAdditionalField(ReferenceSetMember.MDRSFields.TARGET_EFFECTIVE_TIME, moduleToTargetEffectiveTimeMap.getOrDefault(additionalCodeSystem.getDefaultModuleId(), String.valueOf(currentDependantVersion)));
+		if (codeSystemVersion != null) {
+			mdrsEntry.setAdditionalField(ReferenceSetMember.MDRSFields.TARGET_EFFECTIVE_TIME, String.valueOf(codeSystemVersion.getEffectiveDate()));
 		}
 		referenceSetMemberService.createMember(currentCodeSystem.getBranchPath(), mdrsEntry);
 		LOGGER.info("Successfully created MDRS entry {} for additional code system {} on {}", mdrsEntry, additionalCodeSystem, currentCodeSystem.getShortName());
@@ -363,5 +365,40 @@ public class ModuleDependencyService extends ComponentService {
 			searchResults.forEachRemaining(hit -> members.add(hit.getContent()));
 		}
 		return members;
+	}
+
+	public List<DependencyInfo> getAllDependencies(CodeSystem currentCodeSystem) {
+		BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(currentCodeSystem.getBranchPath());
+		Set<ReferenceSetMember> allMdrsMembers = fetchMdrsMembers(branchCriteria);
+		
+		// Map ReferencedComponentId to target effective time
+		Map<String, String> moduleIdToTargetEffectiveTime = allMdrsMembers.stream()
+			.collect(Collectors.toMap(
+				ReferenceSetMember::getReferencedComponentId,
+				member -> member.getAdditionalField(ReferenceSetMember.MDRSFields.TARGET_EFFECTIVE_TIME),
+				(existing, replacement) -> existing // Handle duplicate keys by keeping existing value
+			));
+		
+		Set<String> moduleIds = allMdrsMembers.stream().map(ReferenceSetMember::getReferencedComponentId).collect(Collectors.toSet());
+
+		Map<String, String> codeSystemBranchByModuleId = getCodeSystemBranchByModuleId(moduleIds);
+		Set<DependencyInfo> results = new HashSet<>();
+		codeSystemBranchByModuleId.values().forEach(codeSystemBranch -> {
+			if (!codeSystemBranch.equals(currentCodeSystem.getBranchPath())) {
+				CodeSystem cs = codeSystemService.findClosestCodeSystemUsingAnyBranch(codeSystemBranch, false);
+				// Find the module ID for this code system and get the target effective time
+				String moduleId = codeSystemBranchByModuleId.entrySet().stream()
+					.filter(entry -> entry.getValue().equals(codeSystemBranch))
+					.map(Map.Entry::getKey)
+					.findFirst()
+					.orElse(null);
+				
+				String targetEffectiveTime = moduleId != null ? 
+					moduleIdToTargetEffectiveTime.getOrDefault(moduleId, "Unknown") : "Unknown";
+				
+				results.add(new DependencyInfo(cs.getShortName(), targetEffectiveTime));
+			}
+		});
+		return new ArrayList<>(results);
 	}
 }
