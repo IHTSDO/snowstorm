@@ -373,6 +373,7 @@ public class ModuleDependencyService extends ComponentService {
 		
 		// Map ReferencedComponentId to target effective time
 		Map<String, String> moduleIdToTargetEffectiveTime = allMdrsMembers.stream()
+			.filter(member -> member.getAdditionalField(ReferenceSetMember.MDRSFields.TARGET_EFFECTIVE_TIME) != null)
 			.collect(Collectors.toMap(
 				ReferenceSetMember::getReferencedComponentId,
 				member -> member.getAdditionalField(ReferenceSetMember.MDRSFields.TARGET_EFFECTIVE_TIME),

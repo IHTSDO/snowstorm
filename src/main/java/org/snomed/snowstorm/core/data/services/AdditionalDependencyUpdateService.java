@@ -70,7 +70,12 @@ public class AdditionalDependencyUpdateService extends ComponentService implemen
         Map<String, String> moduleToTime = new HashMap<>();
         members.stream()
                 .filter(ReferenceSetMember::isActive)
-                .forEach(member -> moduleToTime.put(member.getReferencedComponentId(), member.getAdditionalField(ReferenceSetMember.MDRSFields.TARGET_EFFECTIVE_TIME)));
+                .forEach(member -> {
+                    String effectiveTime = member.getAdditionalField(ReferenceSetMember.MDRSFields.TARGET_EFFECTIVE_TIME);
+                    if (effectiveTime != null && !effectiveTime.trim().isEmpty()) {
+                        moduleToTime.put(member.getReferencedComponentId(), effectiveTime);
+                    }
+                });
         return moduleToTime;
     }
 
@@ -79,7 +84,10 @@ public class AdditionalDependencyUpdateService extends ComponentService implemen
         Set<String> dependentBranches = new HashSet<>();
         codeSystemsByModule.forEach((module, branch) -> {
             if (!"MAIN".equals(branch)) {
-                dependentBranches.add(branch + PathUtil.SEPARATOR + formatEffectiveTime(moduleToEffectiveTime.get(module)));
+                String effectiveTime = moduleToEffectiveTime.get(module);
+                if (effectiveTime != null && !effectiveTime.trim().isEmpty()) {
+                    dependentBranches.add(branch + PathUtil.SEPARATOR + formatEffectiveTime(effectiveTime));
+                }
             }
         });
         return dependentBranches;
@@ -94,6 +102,9 @@ public class AdditionalDependencyUpdateService extends ComponentService implemen
     }
 
    private static String formatEffectiveTime(String effectiveTime) {
+        if (effectiveTime == null || effectiveTime.trim().isEmpty()) {
+            throw new IllegalArgumentException("Effective time cannot be null or empty");
+        }
         DateTimeFormatter inputFormat = DateTimeFormatter.ofPattern("yyyyMMdd");
         DateTimeFormatter outputFormat = DateTimeFormatter.ofPattern("yyyy-MM-dd");
         LocalDate date = LocalDate.parse(effectiveTime, inputFormat);
