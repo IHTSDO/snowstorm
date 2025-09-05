@@ -141,31 +141,41 @@ public class CodeSystemVersionService {
             return Collections.emptyList();
         }
 
-        Set<Integer> commonCompatibleVersions = null;
+        return codeSystems.stream()
+                .map(dependency -> getCompatibleVersionsForDependency(dependency, targetDependantVersion))
+                .reduce(this::intersectSets)
+                .orElse(Collections.emptySet())
+                .stream()
+                .sorted()
+                .toList();
+    }
 
-        for (CodeSystem dependency : codeSystems) {
-            // Get all versions of this dependency
-            List<CodeSystemVersion> depVersions = codeSystemService.findAllVersions(dependency.getShortName(), true, true);
-            depVersions.forEach(this::populateDependantVersion);
+    private Set<Integer> getCompatibleVersionsForDependency(CodeSystem dependency, Integer targetDependantVersion) {
+        List<CodeSystemVersion> versions = codeSystemService.findAllVersionsAfterEffectiveTime(
+                dependency.getShortName(), targetDependantVersion, true, true);
+        
+        return versions.stream()
+                .map(version -> getVersionValue(version, dependency.getShortName()))
+                .filter(Objects::nonNull)
+                .filter(versionValue -> versionValue >= targetDependantVersion)
+                .collect(Collectors.toSet());
+    }
 
-            // Find versions that are compatible with the target dependent version
-            Set<Integer> compatibleVersions = depVersions.stream()
-                    .map(CodeSystemVersion::getDependantVersionEffectiveTime)
-                    .filter(Objects::nonNull)
-                    .filter(depVersion -> depVersion >= targetDependantVersion)
-                    .collect(Collectors.toSet());
-
-            if (commonCompatibleVersions == null) {
-                commonCompatibleVersions = new HashSet<>(compatibleVersions);
-            } else {
-                commonCompatibleVersions.retainAll(compatibleVersions);
+    private Integer getVersionValue(CodeSystemVersion version, String shortName) {
+        if (SNOMEDCT.equals(shortName)) {
+            return version.getEffectiveDate();
+        } else {
+            if (version.getDependantVersionEffectiveTime() == null) {
+                populateDependantVersion(version);
             }
-
-            if (commonCompatibleVersions.isEmpty()) {
-                break; // No common versions found
-            }
+            return version.getDependantVersionEffectiveTime();
         }
-        return commonCompatibleVersions != null ? commonCompatibleVersions.stream().sorted().toList() : Collections.emptyList();
+    }
+
+    private Set<Integer> intersectSets(Set<Integer> set1, Set<Integer> set2) {
+        Set<Integer> result = new HashSet<>(set1);
+        result.retainAll(set2);
+        return result;
     }
 
     public CodeSystemVersion findVersionByCodeSystemAndDependentVersion(String shortName, Integer dependentVersion, boolean includeFutureVersions, boolean includeInternalReleases) {
