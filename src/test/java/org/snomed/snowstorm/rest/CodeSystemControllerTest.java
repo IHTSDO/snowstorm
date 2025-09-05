@@ -581,6 +581,30 @@ class CodeSystemControllerTest extends AbstractTest {
 
     @Test
     @SuppressWarnings("unchecked")
+    void getCompatibleDependentVersions_ShouldReturnDependentVersions_WhenNoWithParameter() throws ServiceException {
+        //given
+        // Create a code system with dependencies
+        CodeSystem test = givenCodeSystemExists("SNOMEDCT-TEST", "MAIN/SNOMEDCT-TEST", 20200731);
+        String defaultModule = givenModuleExists(test.getBranchPath(), "Test CodeSystem default Module");
+        givenMRDSEntryExists(test.getBranchPath(), defaultModule, CORE_MODULE, String.valueOf(20200731));
+
+        String requestUrl = getCompatibleDependentVersions("SNOMEDCT-TEST");
+
+        //when
+        Map<String, Object> response = testRestTemplate.getForObject(requestUrl, Map.class);
+
+        //then
+        assertNotNull(response);
+        List<String> compatibleVersions = (List<String>) response.get("compatibleVersions");
+        assertNotNull(compatibleVersions);
+        // Should return compatible versions based on existing dependencies (without additional 'with' parameter)
+        assertInstanceOf(List.class, compatibleVersions);
+        // The response should contain the compatible versions for the existing dependencies
+        assertFalse(compatibleVersions.isEmpty(), "Should return compatible versions for SNOMEDCT");
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
     void getCompatibleDependentVersions_ShouldReturnCompatibleVersions_WithAdditionalCodeSystems() {
         //given
         givenCodeSystemExists("SNOMEDCT-TEST", "MAIN/SNOMEDCT-TEST", 20210131);
