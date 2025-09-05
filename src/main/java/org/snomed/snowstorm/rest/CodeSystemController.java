@@ -330,8 +330,6 @@ public class CodeSystemController {
 			return ResponseEntity.ok(response);
 		}
 
-
-		
 		// Get all dependencies to check (current + additional)
 		Set<CodeSystem> allDependenciesToCheck = buildCompleteDependencySet(currentCodeSystem, additionalCodeSystems);
 		
@@ -408,7 +406,7 @@ public class CodeSystemController {
 		}
 		
 		// Get all dependencies to check (current + new)
-		Set<CodeSystem> allDependenciesToCheck = buildCompleteDependencySet(currentCodeSystem, List.of(additionalCodeSystem));
+		Set<CodeSystem> allDependenciesToCheck = buildAdditionalDependencySet(currentCodeSystem, List.of(additionalCodeSystem));
 		
 		// Find compatible versions and validate current version is compatible
 		List<Integer> compatibleVersions = codeSystemVersionService.findCompatibleVersions(allDependenciesToCheck, currentDependantVersion);
@@ -519,6 +517,17 @@ public class CodeSystemController {
 	 * Builds a complete set of dependencies by combining current dependencies with additional ones.
 	 */
 	private Set<CodeSystem> buildCompleteDependencySet(CodeSystem currentCodeSystem, List<CodeSystem> additionalCodeSystems) {
+		// Get current dependencies including SNOMEDCT
+		Set<CodeSystem> currentDependencies = moduleDependencyService.getAllDependentCodeSystems(currentCodeSystem);
+		// Combine current dependencies with additional code systems
+		currentDependencies.addAll(additionalCodeSystems);
+		return currentDependencies;
+	}
+
+	/**
+	 * Builds a set of additional dependencies only by combining current dependencies with additional ones.
+	 */
+	private Set<CodeSystem> buildAdditionalDependencySet(CodeSystem currentCodeSystem, List<CodeSystem> additionalCodeSystems) {
 		// Get current dependencies excluding SNOMEDCT
 		Set<CodeSystem> currentDependencies = moduleDependencyService.getAllDependentCodeSystems(currentCodeSystem)
 				.stream()
@@ -529,9 +538,6 @@ public class CodeSystemController {
 		currentDependencies.addAll(additionalCodeSystems);
 		return currentDependencies;
 	}
-
-
-
 
 	private CodeSystem joinUserPermissionsInfo(CodeSystem codeSystem) {
 		joinUserPermissionsInfo(Collections.singleton(codeSystem));
