@@ -11,5 +11,7 @@ public interface CodeSystemVersionRepository extends ElasticsearchRepository<Cod
 
 	Page<CodeSystemVersion> findByShortNameOrderByEffectiveDateDesc(String shortName, Pageable pageRequest);
 
+	Page<CodeSystemVersion> findByShortNameAndEffectiveDateGreaterThanEqualOrderByEffectiveDate(String shortName, Integer effectiveDate, Pageable pageRequest);
+
 	CodeSystemVersion findOneByShortNameAndEffectiveDate(String shortName, Integer effectiveDate);
 }
