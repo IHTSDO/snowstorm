@@ -567,6 +567,18 @@ public class CodeSystemService {
 				.toList();
 	}
 
+	/**
+	 * Find all versions of a code system with effective date greater than or equal to the given effective time
+	 */
+	public List<CodeSystemVersion> findAllVersionsAfterEffectiveTime(String shortName, Integer effectiveTime, boolean includeFutureVersions, boolean includeInternalReleases) {
+		List<CodeSystemVersion> content = versionRepository.findByShortNameAndEffectiveDateGreaterThanEqualOrderByEffectiveDate(shortName, effectiveTime, LARGE_PAGE).getContent();
+		int todaysEffectiveTime = DateUtil.getTodaysEffectiveTime();
+		return content.stream()
+				.filter(version -> includeFutureVersions || (codeSystemsWithVersionVisibleAfterPublishedDate.contains(shortName) ? version.getEffectiveDate() < todaysEffectiveTime : version.getEffectiveDate() <= todaysEffectiveTime))
+				.filter(version -> includeInternalReleases || !version.isInternalRelease())
+				.toList();
+	}
+
 	public CodeSystemVersion findLatestImportedVersion(String shortName) {
 		List<CodeSystemVersion> versions = findAllVersions(shortName, false, true, true);
 		if (versions != null && !versions.isEmpty()) {
