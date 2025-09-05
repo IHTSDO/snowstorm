@@ -385,29 +385,29 @@ public class CodeSystemController {
 		CodeSystem currentCodeSystem = findCodeSystemOrThrow(shortName);
 
 		if (with == null || with.trim().isEmpty()) {
-			return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Invalid code system: " + with);
+			return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("{\"error\": \"Invalid code system: " + with + "\"}");
 		}
 		CodeSystem additionalCodeSystem = findCodeSystemOrThrow(with);
 		if (SNOMEDCT.equalsIgnoreCase(shortName) || SNOMEDCT.equalsIgnoreCase(additionalCodeSystem.getShortName())) {
 			return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-					.body("SNOMEDCT cannot be used as an additional dependency or as the extension code system.");
+					.body("{\"error\": \"SNOMEDCT cannot be used as an additional dependency or as the extension code system.\"}");
 		}
 
 		// Check whether additional dependency exists already
 		if (moduleDependencyService.getAllDependentCodeSystems(currentCodeSystem).contains(additionalCodeSystem)) {
 			return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-					.body("Additional code system dependency cannot be added because it exists already.");
+					.body("{\"error\": \"Additional code system dependency cannot be added because it exists already.\"}");
 		}
 		// Check compatibility with current dependent version
 		Integer currentDependantVersion = currentCodeSystem.getDependantVersionEffectiveTime();
 		if (currentDependantVersion == null) {
 			return ResponseEntity.status(HttpStatus.CONFLICT)
-					.body(String.format("Cannot add any additional code system as current code system %s has no dependent version set", currentCodeSystem.getShortName()));
+					.body("{\"error\": \"Cannot add any additional code system as current code system " + currentCodeSystem.getShortName() + " has no dependent version set\"}");
 		}
 		
 		// Get all dependencies to check (current + new)
 		Set<CodeSystem> allDependenciesToCheck = buildAdditionalDependencySet(currentCodeSystem, List.of(additionalCodeSystem));
-		
+
 		// Find compatible versions and validate current version is compatible
 		List<Integer> compatibleVersions = codeSystemVersionService.findCompatibleVersions(allDependenciesToCheck, currentDependantVersion);
 		if (!compatibleVersions.contains(currentDependantVersion)) {
@@ -416,7 +416,7 @@ public class CodeSystemController {
 			if (!compatibleVersions.isEmpty()) {
 				errorMsg += String.format(" Upgrade %s to %s and try again.", currentCodeSystem.getShortName(), compatibleVersions);
 			}
-			return ResponseEntity.status(HttpStatus.CONFLICT).body(errorMsg);
+			return ResponseEntity.status(HttpStatus.CONFLICT).body("{\"error\": \"" + errorMsg + "\"}");
 		}
 		
 		// Create MDRS entries for additional dependency
@@ -425,9 +425,9 @@ public class CodeSystemController {
 		} catch (Exception e) {
 			logger.error("Failed to create MDRS entries for new dependencies: {}", e.getMessage(), e);
 			return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-					.body("Failed to add additional dependency on : " + additionalCodeSystem.getShortName() + " with error: " + e.getMessage());
+					.body("{\"error\": \"Failed to add additional dependency on : " + additionalCodeSystem.getShortName() + " with error: " + e.getMessage() + "\"}");
 		}
-		return ResponseEntity.status(HttpStatus.CREATED).body("Additional dependency added successfully: " + additionalCodeSystem);
+		return ResponseEntity.status(HttpStatus.CREATED).body("{\"message\": \"Additional dependency added successfully: " + additionalCodeSystem.getShortName() + "\"}");
 	}
 
 

@@ -688,7 +688,7 @@ class CodeSystemControllerTest extends AbstractTest {
         //then
         assertEquals(409, response.getStatusCode().value());
         assertNotNull(response.getBody());
-        assertEquals("Cannot add additional code system SNOMEDCT-LOINC because no compatible releases were found with current dependent version (20200731).",
+        assertEquals("{\"error\": \"Cannot add additional code system SNOMEDCT-LOINC because no compatible releases were found with current dependent version (20200731).\"}",
                 response.getBody());
     }
 
@@ -710,8 +710,8 @@ class CodeSystemControllerTest extends AbstractTest {
         //then
         assertEquals(409, response.getStatusCode().value());
         assertNotNull(response.getBody());
-        assertEquals("Cannot add additional code system SNOMEDCT-LOINC because no compatible releases were found with " +
-                        "current dependent version (20200731). Upgrade SNOMEDCT-TEST to [20210131] and try again.", response.getBody());
+        assertEquals("{\"error\": \"Cannot add additional code system SNOMEDCT-LOINC because no compatible releases were found with current dependent version (20200731)." +
+                " Upgrade SNOMEDCT-TEST to [20210131] and try again.\"}", response.getBody());
     }
 
     @Test
@@ -732,7 +732,7 @@ class CodeSystemControllerTest extends AbstractTest {
         //then
         assertEquals(201, response.getStatusCode().value());
         assertNotNull(response.getBody());
-        assertEquals("Additional dependency added successfully: SNOMEDCT-LOINC", response.getBody());
+        assertEquals("{\"message\": \"Additional dependency added successfully: SNOMEDCT-LOINC\"}", response.getBody());
         // Check MRDS entries created on SNOMEDCT-TEST
         Page<ReferenceSetMember> results = referenceSetMemberService.findMembers("MAIN/SNOMEDCT-TEST",
                 new MemberSearchRequest().referenceSet(MODULE_DEPENDENCY_REFERENCE_SET).module(holdingModule), PageRequest.ofSize(10));
