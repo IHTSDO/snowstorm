@@ -14,6 +14,7 @@ public class FHIRProperty {
 	public static final String BOOLEAN_TYPE = "BOOLEAN";
 	public static final String INTEGER_TYPE = "INTEGER";
 	public static final String DECIMAL_TYPE = "DECIMAL";
+	public static final String ID_TYPE = "ID";
 
 	protected static final String[] URLS = {"http://hl7.org/fhir/StructureDefinition/itemWeight",
 			"http://hl7.org/fhir/StructureDefinition/codesystem-label",
@@ -91,8 +92,10 @@ public class FHIRProperty {
 			fhirPropertyType = INTEGER_TYPE;
 		} else if (value instanceof DecimalType) {
 			fhirPropertyType = DECIMAL_TYPE;
-		}else {
-			throw new IllegalArgumentException("unknown FHIRProperty type");
+		} else if (value instanceof IdType) {
+			fhirPropertyType = ID_TYPE;
+		} else {
+			throw new IllegalArgumentException("Unknown FHIRProperty type: " + value.getClass().getName());
 		}
 		return fhirPropertyType;
 	}

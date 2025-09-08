@@ -65,12 +65,14 @@ public class FHIRValueSetCriteria {
 		for (String code : orEmpty(codes)) {
 			ValueSet.ConceptReferenceComponent component = new ValueSet.ConceptReferenceComponent();
 			component.setCode(code);
-			conceptReferences.stream().filter(x -> code.equals(x.getCode()))
-					.forEach(x -> {
-						Optional.ofNullable(x.getExtensions()).orElse(Collections.emptyList()).forEach(ext ->component.addExtension(ext.getHapi()));
-						Optional.ofNullable(x.getDesignations()).orElse(Collections.emptyList()).forEach(d ->component.addDesignation(d.getHapi()));
-					}
-				);
+			if (conceptReferences != null) {
+				conceptReferences.stream().filter(x -> code.equals(x.getCode()))
+						.forEach(x -> {
+									Optional.ofNullable(x.getExtensions()).orElse(Collections.emptyList()).forEach(ext -> component.addExtension(ext.getHapi()));
+									Optional.ofNullable(x.getDesignations()).orElse(Collections.emptyList()).forEach(d -> component.addDesignation(d.getHapi()));
+								}
+						);
+			}
 			hapiConceptSet.addConcept(component);
 		}
 		for (FHIRValueSetFilter filter : orEmpty(getFilter())) {

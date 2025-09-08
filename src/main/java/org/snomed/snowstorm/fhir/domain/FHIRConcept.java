@@ -128,16 +128,19 @@ public class FHIRConcept implements FHIRGraphNode {
 				.findFirst().ifPresentOrElse(x -> active = false, ()-> active = true);
 		properties.put(INACTIVE,Collections.singletonList(new FHIRProperty(INACTIVE,null,Boolean.toString(!isActive()),FHIRProperty.BOOLEAN_TYPE)));
 		extensions = new HashMap<>();
-		definitionConcept.getExtension().forEach(
-				e ->
-					Optional.ofNullable(extensions.get(e.getUrl())).ifPresentOrElse(list ->
-						list.add(new FHIRProperty(e.getUrl(), null,e.getValue().primitiveValue(), FHIRProperty.typeToFHIRPropertyType(e.getValue()))),
-					 ()->{
-						List<FHIRProperty> list = new ArrayList<>();
-						list.add(new FHIRProperty(e.getUrl(), null,e.getValue().primitiveValue(), FHIRProperty.typeToFHIRPropertyType(e.getValue())));
-						extensions.put(e.getUrl(), list);
-					})
-		);
+		CodeSystem.ConceptDefinitionComponent debugDefinitionConcept = definitionConcept;
+		definitionConcept.getExtension().forEach(e -> {
+			String url = e.getUrl();
+			if (e.getValue() != null) {
+				FHIRProperty property = new FHIRProperty(
+						url,
+						null,
+						e.getValue().primitiveValue(),
+						FHIRProperty.typeToFHIRPropertyType(e.getValue())
+				);
+				extensions.computeIfAbsent(url, k -> new ArrayList<>()).add(property);
+			}
+		});
 		parents = new HashSet<>();
 		for (CodeSystem.ConceptPropertyComponent propertyComponent : definitionConcept.getProperty()) {
 			if (properties.get(propertyComponent.getCode())==null && !propertyComponent.getCode().contains(EXTENSION_MARKER)){

@@ -105,7 +105,7 @@ public class FHIRCodeSystemService {
 		}
 
 		wrap(fhirCodeSystemVersion);
-		logger.debug("Saving fhir code system '{}'.", fhirCodeSystemVersion.getId());
+		logger.debug("Updating FHIR code system '{}'.", fhirCodeSystemVersion.getId());
 
 		FHIRCodeSystemVersion existingCodeSystem = codeSystemRepository.findByUrlAndVersion(fhirCodeSystemVersion.getUrl(), fhirCodeSystemVersion.getVersion());
 		if (existingCodeSystem != null) {
