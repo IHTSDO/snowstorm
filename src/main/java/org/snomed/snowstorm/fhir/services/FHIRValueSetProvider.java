@@ -221,7 +221,8 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 		ValueSetExpansionParameters params;
 		if (request.getMethod().equals(RequestMethod.POST.name())) {
 			// HAPI doesn't populate the OperationParam values for POST, we parse the body instead.
-			params = FHIRValueSetProviderHelper.getValueSetExpansionParameters(id, fhirContext.newJsonParser().parseResource(Parameters.class, rawBody).getParameter());
+			Parameters postParams = fhirContext.newJsonParser().parseResource(Parameters.class, rawBody);
+			params = FHIRValueSetProviderHelper.getValueSetExpansionParameters(id, postParams.getParameter());
 		} else {
 			params = FHIRValueSetProviderHelper.getValueSetExpansionParameters(id, url, valueSetVersion, context, contextDirection, filter, date, offset, count,
 					includeDesignationsType, designations, includeDefinition, activeType, excludeNested, excludeNotForUI, excludePostCoordinated, displayLanguage,
