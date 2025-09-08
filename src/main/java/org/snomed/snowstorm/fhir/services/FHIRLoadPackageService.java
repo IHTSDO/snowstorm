@@ -74,8 +74,14 @@ public class FHIRLoadPackageService {
 		logger.info("Importing {} resources, found within index of package {}.{}", filesToImport.size(), submittedFileName,
 				testValueSets ? " Each value set will be expanded and any issues logged as warning." : "");
 
+		importCodeSystems(packageFile, filesToImport, jsonParser);
+		importValueSets(packageFile, testValueSets, filesToImport, jsonParser);
+		logger.info("Completed import of package {}.", submittedFileName);
+	}
+
+	private void importCodeSystems(File packageFile, List<FHIRPackageIndexFile> filesToImport, JsonParser jsonParser) throws IOException {
 		// Import all code systems
-		for (FHIRPackageIndexFile indexFileToImport : filesToImport.stream().filter(file -> file.getResourceType().equals("CodeSystem")).collect(Collectors.toList())) {
+		for (FHIRPackageIndexFile indexFileToImport : filesToImport.stream().filter(file -> file.getResourceType().equals("CodeSystem")).toList()) {
 			String filename = indexFileToImport.getFilename();
 			String id = indexFileToImport.getId();
 			String url = indexFileToImport.getUrl();
@@ -111,9 +117,11 @@ public class FHIRLoadPackageService {
 				}
 			}
 		}
+	}
 
+	private void importValueSets(File packageFile, boolean testValueSets, List<FHIRPackageIndexFile> filesToImport, JsonParser jsonParser) throws IOException {
 		// Import all value sets
-		for (FHIRPackageIndexFile indexFileToImport : filesToImport.stream().filter(file -> file.getResourceType().equals("ValueSet")).collect(Collectors.toList())) {
+		for (FHIRPackageIndexFile indexFileToImport : filesToImport.stream().filter(file -> file.getResourceType().equals("ValueSet")).toList()) {
 			String filename = indexFileToImport.getFilename();
 			String id = indexFileToImport.getId();
 			String url = indexFileToImport.getUrl();
@@ -133,8 +141,6 @@ public class FHIRLoadPackageService {
 				}
 			}
 		}
-
-		logger.info("Completed import of package {}.", submittedFileName);
 	}
 
 	private List<CodeSystem.ConceptDefinitionComponent> getConcepts(CodeSystem codeSystem, FHIRCodeSystemVersion version) {
@@ -145,11 +151,6 @@ public class FHIRLoadPackageService {
 			CodeSystem newCodeSystem = codeSystemService.addSupplementToCodeSystem(codeSystem, version);
 			concepts = newCodeSystem.getConcept();
 		}
-
-
-
-
-
 		return concepts;
 	}
 

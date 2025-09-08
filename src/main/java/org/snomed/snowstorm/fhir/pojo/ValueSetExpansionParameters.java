@@ -86,7 +86,6 @@ public final class ValueSetExpansionParameters {
 					OperationOutcome.IssueType.INVALID, 400);
 		}
 		return ControllerHelper.getPageRequest(offsetInt, pageSize, sort);
-
 	}
 
 	public String getId() {
@@ -127,6 +126,10 @@ public final class ValueSetExpansionParameters {
 
 	public Boolean getIncludeDesignations() {
 		return includeDesignations;
+	}
+
+	public boolean getIncludeDesignationsAsBool() {
+		return includeDesignations != null && includeDesignations;
 	}
 
 	public List<String> getDesignations() {

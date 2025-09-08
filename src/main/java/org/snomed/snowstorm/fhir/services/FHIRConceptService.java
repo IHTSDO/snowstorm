@@ -168,7 +168,7 @@ public class FHIRConceptService {
 		Page<FHIRConcept> existingConcepts = conceptRepository.findByCodeSystemVersion(idWithVersion, PageRequest.of(0, 1));
 		long totalExisting = existingConcepts.getTotalElements();
 		if (totalExisting > 0) {
-			logger.info("Deleting {} existing concepts for this code system version {}", totalExisting, idWithVersion);
+			logger.info("Deleting {} existing concepts for code system version: {}", totalExisting, idWithVersion);
 			// Deleting by query often seems to exceed the default 30 second query timeout so we will page through them...
 			Page<FHIRConcept> codesToDelete = conceptRepository.findByCodeSystemVersion(idWithVersion, PageRequest.of(0, DELETE_BATCH_SIZE));
 			while (!codesToDelete.isEmpty()) {

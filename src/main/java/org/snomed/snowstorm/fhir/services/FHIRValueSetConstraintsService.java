@@ -320,7 +320,7 @@ public class FHIRValueSetConstraintsService implements FHIRConstants {
 				return Set.of(constraint);
 			}
 			case REGEX -> {
-				Set<String> regexSet = Set.of(value.replaceAll("\\s","\\\\s"));
+				Set<String> regexSet = Set.of(normalizeRegexWhitespspace(value));
 				if (CODE.equals(property)) constraint.setCodes(regexSet).setType(ConceptConstraint.Type.MATCH_REGEX);
 				else constraint.setProperties(Map.of(property, regexSet)).setType(ConceptConstraint.Type.MATCH_REGEX);
 				return Set.of(constraint);
@@ -337,6 +337,12 @@ public class FHIRValueSetConstraintsService implements FHIRConstants {
 			}
 			default -> throw exception("This server does not support this ValueSet property filter on generic code systems.", OperationOutcome.IssueType.NOTSUPPORTED, 400);
 		}
+	}
+
+	private String normalizeRegexWhitespspace(String value) {
+		//Lucene doesn't like looking for tabs, newlines, so we'll just turn any checks for these into a general check for 'whitespace'
+		//We could squish these back up, but leaving them potentially like \\s\\s\\s gives a clue as to what happened here
+		return value.replace(" ","\\s").replace("\\t","\\s").replace("\\n","\\s").replace("\\r","\\s").replace("\\f","\\s");
 	}
 
 	private Set<String> findAllRefsetsWithActiveMembers(FHIRCodeSystemVersion codeSystemVersion) {
