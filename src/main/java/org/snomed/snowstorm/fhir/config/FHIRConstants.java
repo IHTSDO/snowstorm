@@ -11,9 +11,9 @@ public interface FHIRConstants {
 	String ACTIVE = "active";
 	String CODE = "code";
 	String CODING = "coding";
-	String CODING_CODE = "coding.code";
-	String CODING_DISPLAY = "coding.display";
-	String CODING_SYSTEM = "coding.system";
+	String CODING_CODE = "Coding.code";
+	String CODING_DISPLAY = "Coding.display";
+	String CODING_SYSTEM = "Coding.system";
 	String CODEABLE_CONCEPT = "codeableConcept";
 	String CONCEPT = "concept";
 	String DATE = "date";
