@@ -7,6 +7,7 @@ import ca.uhn.fhir.rest.api.EncodingEnum;
 import ca.uhn.fhir.rest.server.RestfulServer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.snomed.snowstorm.fhir.exceptions.ElasticsearchExceptionInterceptor;
 import org.snomed.snowstorm.fhir.services.*;
 import org.springframework.boot.info.BuildProperties;
 import org.springframework.web.context.WebApplicationContext;
@@ -84,6 +85,8 @@ public class HapiRestfulServlet extends RestfulServer {
 
         // Register interceptors
         registerInterceptor(new RootInterceptor());
+
+	    registerInterceptor(new ElasticsearchExceptionInterceptor());
 
         logger.info("FHIR Resource providers and interceptors registered");
     }
