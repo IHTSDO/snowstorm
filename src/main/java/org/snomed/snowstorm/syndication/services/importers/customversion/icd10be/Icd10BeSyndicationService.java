@@ -1,11 +1,16 @@
 package org.snomed.snowstorm.syndication.services.importers.customversion.icd10be;
 
-import org.apache.poi.ss.usermodel.Cell;
-import org.apache.poi.ss.usermodel.Row;
-import org.apache.poi.ss.usermodel.Sheet;
-import org.apache.poi.ss.usermodel.Workbook;
-import org.apache.poi.util.IOUtils;
-import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+import org.apache.poi.openxml4j.exceptions.OpenXML4JException;
+import org.apache.poi.openxml4j.opc.PackageAccess;
+import org.apache.poi.xssf.model.SharedStrings;
+import org.apache.poi.xssf.model.StylesTable;
+import org.apache.poi.openxml4j.opc.OPCPackage;
+import org.apache.poi.xssf.eventusermodel.XSSFReader;
+import org.apache.poi.xssf.eventusermodel.XSSFSheetXMLHandler;
+import org.apache.poi.ss.usermodel.*;
+
+import org.xml.sax.InputSource;
+import org.xml.sax.SAXException;
 import org.hl7.fhir.r4.model.CodeSystem;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
@@ -16,9 +21,10 @@ import org.snomed.snowstorm.syndication.models.domain.SyndicationImportParams;
 import org.snomed.snowstorm.syndication.services.importers.SyndicationService;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.xml.sax.XMLReader;
+import org.xml.sax.helpers.XMLReaderFactory;
 
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -28,9 +34,7 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.file.Files;
 import java.nio.file.Paths;
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -47,7 +51,6 @@ import static org.snomed.snowstorm.syndication.utils.FileUtils.findFile;
 @Service(ICD10_BE_TERMINOLOGY)
 public class Icd10BeSyndicationService extends SyndicationService {
 
-    public static final String FIRST_PROCEDURECODE = "001";
     @Value("${syndication.icd10be.working-directory}")
     private String workingDirectory;
 
@@ -130,102 +133,46 @@ public class Icd10BeSyndicationService extends SyndicationService {
     private List<List<CodeSystem.ConceptDefinitionComponent>> readConceptsFromFile(File file) throws ServiceException {
         Map<String, CodeSystem.ConceptDefinitionComponent> cmConcepts = new HashMap<>();
         Map<String, CodeSystem.ConceptDefinitionComponent> procedureCodeConcepts = new HashMap<>();
+        final boolean[] isClinicalModification = {true};
 
-        boolean isClinicalModification = true;
+        try (OPCPackage pkg = OPCPackage.open(file, PackageAccess.READ)) {
+            XSSFReader reader = new XSSFReader(pkg);
+            SharedStrings sst = reader.getSharedStringsTable();
+            StylesTable styles = reader.getStylesTable();
+            DataFormatter formatter = new DataFormatter();
 
-        IOUtils.setByteArrayMaxOverride(200 * 1024 * 1024); // increased from 100 to 200 MB
+            XSSFReader.SheetIterator iter = (XSSFReader.SheetIterator) reader.getSheetsData();
+            boolean sheetFound = false;
 
-        try (FileInputStream fis = new FileInputStream(file);
-             Workbook workbook = new XSSFWorkbook(fis)) {
-
-            Sheet sheet = workbook.getSheetAt(1);
-            Iterator<Row> rowIterator = sheet.iterator();
-
-            int codeIdx = -1, frIdx = -1, nlIdx = -1, enIdx = -1;
-
-            if (rowIterator.hasNext()) {
-                Row header = rowIterator.next();
-                for (Cell cell : header) {
-                    String value = cell.getStringCellValue().trim();
-                    switch (value) {
-                        case "ICDCODE" -> codeIdx = cell.getColumnIndex();
-                        case "ICDTXTFR" -> frIdx = cell.getColumnIndex();
-                        case "ICDTXTNL" -> nlIdx = cell.getColumnIndex();
-                        case "ICDTXTEN" -> enIdx = cell.getColumnIndex();
-                    }
-                }
-            }
-
-            if (codeIdx == -1 || frIdx == -1 || nlIdx == -1 || enIdx == -1) {
-                throw new IllegalStateException("One or more required columns not found.");
-            }
-
-            logger.info("Importing ICD10 BE codes from {}", file.getAbsolutePath());
-
-            while (rowIterator.hasNext()) {
-                Row row = rowIterator.next();
-                String code = getString(row.getCell(codeIdx));
-                String fr = getString(row.getCell(frIdx));
-                String nl = getString(row.getCell(nlIdx));
-                String en = getString(row.getCell(enIdx));
-
-                if (code == null || code.isBlank()) continue;
-
-                if(FIRST_PROCEDURECODE.equals(code)) {
-                    isClinicalModification = false;
+            while (iter.hasNext()) {
+                InputStream sheetInputStream = iter.next();
+                String sheetName = iter.getSheetName();
+                if (!sheetName.toLowerCase().contains("icd10be")) {
+                    sheetInputStream.close();
+                    continue;
                 }
 
-                if(isClinicalModification) {
-                    if(code.length() > 3 && code.charAt(3) != '.') {
-                        code = code.substring(0, 3) + "." + code.substring(3);
-                    }
-                    cmConcepts.put(code, makeConcept(code, en, fr, nl));
-                } else {
-                    procedureCodeConcepts.put(code, makeConcept(code, en, fr, nl));
-                }
+                sheetFound = true;
+
+                XSSFSheetXMLHandler.SheetContentsHandler handler = new Icd10BeSheetContentHandler(isClinicalModification, cmConcepts, procedureCodeConcepts);
+
+                XMLReader parser = XMLReaderFactory.createXMLReader();
+                parser.setContentHandler(new XSSFSheetXMLHandler(styles, sst, handler, formatter, false));
+                parser.parse(new InputSource(sheetInputStream));
+
+                sheetInputStream.close();
+                break;
             }
 
-        } catch (IOException e) {
+            if (!sheetFound) {
+                throw new IllegalStateException("No sheet containing 'icd10BE' found in the file.");
+            }
+
+        } catch (IOException | OpenXML4JException | SAXException  e) {
             throw new ServiceException("Failed to read Excel file", e);
         }
 
         return List.of(cmConcepts.values().stream().toList(), procedureCodeConcepts.values().stream().toList());
-    }
-
-    private CodeSystem.ConceptDefinitionComponent makeConcept(String code, String en, String fr, String nl) {
-        CodeSystem.ConceptDefinitionComponent concept = new CodeSystem.ConceptDefinitionComponent();
-        concept.setCode(code);
-        concept.setDisplay(en);
-
-        List<CodeSystem.ConceptDefinitionDesignationComponent> designations = new ArrayList<>();
-
-        if (fr != null && !fr.isBlank()) {
-            designations.add(makeDesignation("fr", fr));
-        }
-        if (nl != null && !nl.isBlank()) {
-            designations.add(makeDesignation("nl", nl));
-        }
-        if (en != null && !en.isBlank()) {
-            designations.add(makeDesignation("en", en));
-        }
-
-        concept.setDesignation(designations);
-        return concept;
-    }
-
-    private String getString(Cell cell) {
-        if (cell == null) return null;
-        return switch (cell.getCellType()) {
-            case STRING -> cell.getStringCellValue().trim();
-            case NUMERIC -> String.valueOf((int) cell.getNumericCellValue());
-            default -> null;
-        };
-    }
-
-    private CodeSystem.ConceptDefinitionDesignationComponent makeDesignation(String lang, String value) {
-        return new CodeSystem.ConceptDefinitionDesignationComponent()
-                .setLanguage(lang)
-                .setValue(value);
     }
 
     @Override
