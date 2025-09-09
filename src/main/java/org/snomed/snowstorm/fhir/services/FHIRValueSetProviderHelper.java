@@ -8,16 +8,12 @@ import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
 import org.apache.commons.compress.archivers.tar.TarArchiveOutputStream;
 import org.hl7.fhir.r4.model.*;
 import org.jetbrains.annotations.Nullable;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.core.data.services.RuntimeServiceException;
 import org.snomed.snowstorm.fhir.domain.FHIRPackageIndexFile;
 import org.snomed.snowstorm.fhir.pojo.CanonicalUri;
 import org.snomed.snowstorm.fhir.pojo.ValueSetExpansionParameters;
 
 import java.io.*;
-import java.net.URI;
-import java.net.URISyntaxException;
 import java.util.List;
 import java.util.Optional;
 import java.util.zip.GZIPOutputStream;
@@ -25,8 +21,6 @@ import java.util.zip.GZIPOutputStream;
 import static org.snomed.snowstorm.fhir.services.FHIRHelper.*;
 
 class FHIRValueSetProviderHelper {
-
-	private static final Logger LOGGER = LoggerFactory.getLogger(FHIRValueSetProviderHelper.class);
 
 	private static FhirContext ctx;
 	static{
@@ -61,7 +55,8 @@ class FHIRValueSetProviderHelper {
 					findParameterCanonicalOrNull(parametersParameterComponents, "force-system-version"),
 					findParameterStringOrNull(parametersParameterComponents, "version"),
 					findParameterStringOrNull(parametersParameterComponents, "property"),
-					findParameterCanonicalOrNull(parametersParameterComponents, "default-valueset-version"));
+					findParameterCanonicalOrNull(parametersParameterComponents, "default-valueset-version"),
+				false);
 	}
 
 	static ValueSetExpansionParameters getValueSetExpansionParameters(
@@ -115,7 +110,8 @@ class FHIRValueSetProviderHelper {
 					CanonicalUri.fromString(getOrNull(forceSystemVersion)),
 					getOrNull(version),
 					getOrNull(property),
-					CanonicalUri.fromString(getOrNull(versionValueSet)));
+					CanonicalUri.fromString(getOrNull(versionValueSet)),
+					false);
 	}
 
 	@Nullable
