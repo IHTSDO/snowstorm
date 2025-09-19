@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Test;
 import org.snomed.snowstorm.core.data.services.ServiceException;
 import org.snomed.snowstorm.syndication.models.requestDto.SyndicationImportRequest;
 import org.snomed.snowstorm.syndication.models.data.SyndicationImport;
+import org.snomed.snowstorm.syndication.services.StartupSyndicationService;
 import org.snomed.snowstorm.syndication.services.importstatus.SyndicationImportStatusService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -21,13 +22,16 @@ class SyndicationControllerTest {
 
     private static final String SYNDICATION_SECRET = "SECRET";
     private SyndicationImportStatusService importStatusService;
+        private StartupSyndicationService startupSyndicationService;
     private SyndicationController controller;
 
     @BeforeEach
     void setup() {
         importStatusService = mock(SyndicationImportStatusService.class);
+        startupSyndicationService = mock(StartupSyndicationService.class);
         controller = new SyndicationController();
         ReflectionTestUtils.setField(controller, "importStatusService", importStatusService);
+        ReflectionTestUtils.setField(controller, "startupSyndicationService", startupSyndicationService);
         ReflectionTestUtils.setField(controller, "syndicationSecret", SYNDICATION_SECRET);
     }
 
@@ -65,7 +69,7 @@ class SyndicationControllerTest {
     @Test
     void updateTerminology_whenNewImportStarted_returnsOk() throws Exception {
         when(importStatusService.isImportRunning()).thenReturn(false);
-        when(importStatusService.updateTerminology(any())).thenReturn(false);
+        when(startupSyndicationService.updateTerminology(any())).thenReturn(false);
 
         ResponseEntity<String> response = controller.updateTerminology(getRequest());
 
@@ -76,7 +80,7 @@ class SyndicationControllerTest {
     @Test
     void updateTerminology_whenAlreadyImported_returnsOk() throws Exception {
         when(importStatusService.isImportRunning()).thenReturn(false);
-        when(importStatusService.updateTerminology(any())).thenReturn(true);
+        when(startupSyndicationService.updateTerminology(any())).thenReturn(true);
 
         ResponseEntity<String> response = controller.updateTerminology(getRequest());
 

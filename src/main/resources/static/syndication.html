@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>🧊 Snowstorm Syndication Setup Guide</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 2rem auto;
+            max-width: 900px;
+            line-height: 1.6;
+            color: #222;
+        }
+        h1, h2, h3 {
+            color: #0a4b78;
+        }
+        pre {
+            background: #f4f4f4;
+            padding: 1em;
+            border-radius: 6px;
+            overflow-x: auto;
+        }
+        code {
+            font-family: Consolas, monospace;
+            background: #eee;
+            padding: 2px 4px;
+            border-radius: 4px;
+        }
+        a {
+            color: #0a7cc0;
+            text-decoration: none;
+        }
+        a:hover {
+            text-decoration: underline;
+        }
+        .note {
+            background: #e6f4f1;
+            padding: 0.8em;
+            border-left: 4px solid #0a7cc0;
+            margin: 1em 0;
+            border-radius: 4px;
+        }
+        details {
+            margin: 1em 0;
+            padding: 0.5em 1em;
+            background: #f9f9f9;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+        }
+        summary {
+            cursor: pointer;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+
+<h1 style="color:#0a4b78; font-size:2em; display:flex; align-items:center;">
+    🧊 <span style="margin-left:0.4em;">Snowstorm Syndication Setup Guide</span>
+</h1>
+<p style="line-height:1.6; color:#333; max-width:800px;">
+    This document is a step-by-step guide to launching the containerized
+    <strong>Snowstorm terminology server</strong> and configuring importable terminologies.
+    It includes default behavior, customization tips, and verification steps to ensure everything runs smoothly.
+</p>
+
+<div style="background:#f9f9f9; border:1px solid #ddd; border-radius:8px; padding:1em 1.5em; margin:1.5em 0;">
+    <h2 style="margin-top:0; color:#0a7cc0;">📎 GitHub Repositories</h2>
+    <ul style="list-style:none; padding-left:0; margin:0;">
+        <li style="margin:0.8em 0;">
+            <a href="https://github.com/ehealthplatformstandards/snowstorm" target="_blank" style="font-weight:bold; color:#0a7cc0; text-decoration:none;">
+                snowstorm
+            </a>
+            <br>
+            <span style="color:#555;">Contains the syndication code used to import and stay up to date with the latest terminology versions</span>
+        </li>
+        <li style="margin:0.8em 0;">
+            <a href="https://github.com/ehealthplatformstandards/snowstorm-local" target="_blank" style="font-weight:bold; color:#0a7cc0; text-decoration:none;">
+                snowstorm-local
+            </a>
+            <br>
+            <span style="color:#555;">Contains the docker-compose file to launch snowstorm and the latest syndication documentation.</span>
+        </li>
+    </ul>
+</div>
+
+<div style="background:#e6f4f1; border-left:5px solid #0a7cc0; padding:1em 1.5em; border-radius:6px;">
+    <p style="margin:0 0 0.8em 0; font-weight:bold; color:#0a4b78;">🔎 Snowstorm supports multiple terminologies. For more details:</p>
+    <ul style="margin:0; padding-left:1.2em;">
+        <li><a href="https://github.com/ehealthplatformstandards/snowstorm-local/blob/main/syndication/syndication-terminologies.md" target="_blank" style="color:#0a7cc0;">Supported Terminologies</a></li>
+        <li><a href="https://github.com/ehealthplatformstandards/snowstorm-local/blob/main/syndication/syndication-on-startup.md" target="_blank" style="color:#0a7cc0;">Startup Configuration</a></li>
+        <li><a href="https://github.com/ehealthplatformstandards/snowstorm-local/blob/main/syndication/syndication-on-runtime.md" target="_blank" style="color:#0a7cc0;">Runtime Updates</a></li>
+    </ul>
+</div>
+
+<hr>
+
+<h2>🚀 Quick Launch Overview</h2>
+<p>Using the default <code>docker-compose.yml</code> file from the
+    <a href="https://github.com/ehealthplatformstandards/snowstorm-local" target="_blank">snowstorm-local</a>,
+    the following terminologies are <strong>imported</strong> at runtime startup:</p>
+<ul>
+    <li>ATC, BCP13, BCP47, ISO3166, ISO3166-2, UCUM <em>(embedded in Docker image)</em></li>
+</ul>
+<p>Additionally, the following are <strong>downloaded and imported</strong>:</p>
+<ul>
+    <li>LOINC, HL7, SNOMED CT (Belgian extension + international edition)</li>
+</ul>
+
+<div class="note">
+    🕒 <strong>Note:</strong> Initial setup may take up to <strong>40 minutes</strong>, depending on internet speed and hardware.
+</div>
+
+<h2>⚙️ Step 1: (Optional) Create Accounts</h2>
+<p>To access SNOMED and LOINC, register if needed:</p>
+<ul>
+    <li>SNOMED: <a href="https://mlds.ihtsdotools.org/#/register" target="_blank">Register</a></li>
+    <li>LOINC: <a href="https://loinc.org/join/" target="_blank">Join</a></li>
+</ul>
+
+<h2>⚙️ Step 2: Configure <code>.env</code></h2>
+<ul>
+    <li>Set a secure value for <code>SYNDICATION_SECRET</code></li>
+    <li>Add credentials for SNOMED CT and LOINC if needed</li>
+</ul>
+
+<h2>⚙️ Step 3: Customize Launch Options</h2>
+<pre><code>command: [
+  "--elasticsearch.urls=http://es:9200",
+  "--syndication",
+  "--atc=https://raw.githubusercontent.com/ehealthplatformstandards/atc-terminology-publisher/main/atc-codesystem.csv",
+  "--hl7",
+  #"--hl7=6.1.0",
+  #"--loinc",
+  #"--loinc=2.78",
+  #"--snomed=http://snomed.info/sct/11000172109",
+  "--snomed=http://snomed.info/sct/11000172109/version/20250315",
+  "--extension-country-code=BE"
+]</code></pre>
+
+<h2>▶️ Step 4: Start the Server</h2>
+<pre><code>docker compose up</code></pre>
+
+<h2>✅ Step 5: Confirm Import Completion</h2>
+<pre><code>curl --location 'localhost:8080/syndication/status?runningOnly=true'</code></pre>
+
+<h2>✅ Step 6: Validate ATC Terminology</h2>
+<details>
+    <summary>🧾 cURL Request</summary>
+    <pre><code>curl --location 'http://localhost:8080/fhir/CodeSystem/$validate-code?=null' \
+--header 'Content-Type: application/json' \
+--data '{ "resourceType": "Parameters", ... }'</code></pre>
+</details>
+<details>
+    <summary>📥 Expected Response</summary>
+    <pre><code>{ "resourceType": "Parameters", "parameter": [ ... ] }</code></pre>
+</details>
+
+<h2>🧪 Postman Collection</h2>
+<p>
+    <a href="https://app.getpostman.com/run-collection/2126838-a60204ed-27e8-4c12-8358-ea58be02a431?action=collection%2Ffork&source=rip_markdown&collection-url=entityId%3D2126838-a60204ed-27e8-4c12-8358-ea58be02a431%26entityType%3Dcollection%26workspaceId%3D2e13e762-0976-4818-a6d8-07850f2523ad">
+        <img src="https://run.pstmn.io/button.svg" alt="Run in Postman">
+    </a>
+</p>
+
+<h2>📌 Legal Notice</h2>
+<p>By using Snowstorm, you agree to the <strong>terms and conditions</strong> of each terminology source.</p>
+
+<h2>💡 Tips</h2>
+<ul>
+    <li>If you change <code>.env</code>, run <code>docker compose down</code> before <code>docker compose up</code>.</li>
+    <li>For updates, either restart Snowstorm or call the <a href="https://github.com/ehealthplatformstandards/snowstorm-local/blob/main/syndication/syndication-on-runtime.md">syndication endpoint</a>.</li>
+    <li>Set up a CRON job with <code>curl</code> to stay updated.</li>
+</ul>
+
+<h2>🐛 Debugging</h2>
+<ul>
+    <li><strong>Elasticsearch exited with code 137</strong> → Increase memory allocation to ≥ 8 GB.</li>
+    <li><strong>LOINC import times out</strong> → Check credentials or use local import option.</li>
+    <li><strong>Branch already locked</strong> → Prune Elasticsearch volume and reimport.</li>
+</ul>
+
+</body>
+</html>

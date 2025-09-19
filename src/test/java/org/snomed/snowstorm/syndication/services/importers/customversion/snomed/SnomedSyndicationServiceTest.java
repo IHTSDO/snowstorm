@@ -4,6 +4,7 @@ import org.ihtsdo.otf.snomedboot.ReleaseImportException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.Spy;
@@ -11,6 +12,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.snomed.snowstorm.core.data.domain.CodeSystem;
 import org.snomed.snowstorm.core.data.services.CodeSystemService;
 import org.snomed.snowstorm.core.data.services.ServiceException;
+import org.snomed.snowstorm.core.rf2.rf2import.ImportJob;
 import org.snomed.snowstorm.core.rf2.rf2import.ImportService;
 import org.snomed.snowstorm.syndication.utils.FileUtils;
 import org.snomed.snowstorm.syndication.models.domain.SyndicationImportParams;
@@ -29,7 +31,9 @@ import java.util.Optional;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
+import static org.snomed.snowstorm.core.rf2.rf2import.ImportJob.ImportStatus.FAILED;
 import static org.snomed.snowstorm.syndication.constants.SyndicationConstants.LOCAL_VERSION;
+import static org.snomed.snowstorm.syndication.constants.SyndicationTerminology.SNOMED;
 
 @ExtendWith(MockitoExtension.class)
 class SnomedSyndicationServiceTest {
@@ -63,14 +67,22 @@ class SnomedSyndicationServiceTest {
     void testImportSnomedEditionAndExtension_InvalidURI_ThrowsException() {
         String invalidUri = "invalid-uri";
 
-        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () ->
-                syndicationService.fetchAndImportTerminology(new SyndicationImportParams(SyndicationTerminology.SNOMED, invalidUri, "BE")));
+        syndicationService.fetchAndImportTerminology(new SyndicationImportParams(SyndicationTerminology.SNOMED, invalidUri, "BE"));
 
-        assertTrue(exception.getMessage().contains("not a valid SNOMED CT release URI"));
-    }
+        ArgumentCaptor<ImportJob.ImportStatus> captor = ArgumentCaptor.forClass(ImportJob.ImportStatus.class);
+
+        verify(importStatusService, atLeastOnce())
+                .saveOrUpdateImportStatus(eq(SNOMED), eq(invalidUri), eq(null), any(), any());
+
+        verify(importStatusService, atLeastOnce())
+                .saveOrUpdateImportStatus(eq(SNOMED), eq(invalidUri), eq(null), captor.capture(), any());
+
+        ImportJob.ImportStatus lastCall = captor.getAllValues().get(captor.getAllValues().size() - 1);
+
+        assertEquals(FAILED, lastCall);    }
 
     @Test
-    void testImportSnomedEditionAndExtension_ValidURI_CallsImportMethods() throws IOException, ServiceException, ReleaseImportException, InterruptedException {
+    void testImportSnomedEditionAndExtension_ValidURI_CallsImportMethods() throws IOException, ServiceException, ReleaseImportException {
         List<File> filePaths = List.of(new File("edition.zip"), new File("extension.zip"));
 
         when(syndicationClient.downloadPackages(RELEASE_VERSION_URI, "testUser", "testPass")).thenReturn(filePaths);
@@ -84,7 +96,7 @@ class SnomedSyndicationServiceTest {
     }
 
     @Test
-    void testImportSnomedEditionAndExtension_Local_CallsImportMethods() throws IOException, ServiceException, ReleaseImportException, InterruptedException {
+    void testImportSnomedEditionAndExtension_Local_CallsImportMethods() throws IOException, ServiceException, ReleaseImportException {
         try(var fileUtilsMock = mockStatic(FileUtils.class)) {
             fileUtilsMock.when(() -> FileUtils.findFile(any(), any()))
                     .thenReturn(Optional.of(new File("edition.zip"))).thenReturn(Optional.of(new File("extension.zip")));
@@ -101,22 +113,38 @@ class SnomedSyndicationServiceTest {
     void testValidateSyndicationCredentials_BlankUsername_ThrowsException() {
         ReflectionTestUtils.setField(syndicationService, "snomedUsername", "");
 
+        syndicationService.fetchAndImportTerminology(new SyndicationImportParams(SyndicationTerminology.SNOMED, RELEASE_VERSION_URI, "BE"));
 
-        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () ->
-                syndicationService.fetchAndImportTerminology(new SyndicationImportParams(SyndicationTerminology.SNOMED, RELEASE_VERSION_URI, "BE")));
+        ArgumentCaptor<ImportJob.ImportStatus> captor = ArgumentCaptor.forClass(ImportJob.ImportStatus.class);
 
-        assertEquals("Syndication username is blank.", exception.getMessage());
+        verify(importStatusService, atLeastOnce())
+                .saveOrUpdateImportStatus(eq(SNOMED), eq("http://snomed.info/sct/11000172109/version/20250315"), eq(null), any(), any());
+
+        verify(importStatusService, atLeastOnce())
+                .saveOrUpdateImportStatus(eq(SNOMED), eq("http://snomed.info/sct/11000172109/version/20250315"), eq(null), captor.capture(), any());
+
+        ImportJob.ImportStatus lastCall = captor.getAllValues().get(captor.getAllValues().size() - 1);
+
+        assertEquals(FAILED, lastCall);
     }
 
     @Test
     void testValidateSyndicationCredentials_BlankPassword_ThrowsException() {
         ReflectionTestUtils.setField(syndicationService, "snomedPassword", "");
 
+        syndicationService.fetchAndImportTerminology(new SyndicationImportParams(SyndicationTerminology.SNOMED, RELEASE_VERSION_URI, "BE"));
 
-        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () ->
-                syndicationService.fetchAndImportTerminology(new SyndicationImportParams(SyndicationTerminology.SNOMED, RELEASE_VERSION_URI, "BE")));
+        ArgumentCaptor<ImportJob.ImportStatus> captor = ArgumentCaptor.forClass(ImportJob.ImportStatus.class);
 
-        assertEquals("Syndication password is blank.", exception.getMessage());
+        verify(importStatusService, atLeastOnce())
+                .saveOrUpdateImportStatus(eq(SNOMED), eq("http://snomed.info/sct/11000172109/version/20250315"), eq(null), any(), any());
+
+        verify(importStatusService, atLeastOnce())
+                .saveOrUpdateImportStatus(eq(SNOMED), eq("http://snomed.info/sct/11000172109/version/20250315"), eq(null), captor.capture(), any());
+
+        ImportJob.ImportStatus lastCall = captor.getAllValues().get(captor.getAllValues().size() - 1);
+
+        assertEquals(FAILED, lastCall);
     }
 
     @Test

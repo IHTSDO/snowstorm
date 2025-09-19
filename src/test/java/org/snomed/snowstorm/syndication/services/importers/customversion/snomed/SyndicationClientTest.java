@@ -36,6 +36,7 @@ class SyndicationClientTest {
     @BeforeEach
     void setUp() {
         ReflectionTestUtils.setField(syndicationClient, "restTemplate", restTemplate);
+        ReflectionTestUtils.setField(syndicationClient, "workingDirectory", "/tmp");
     }
 
     @Test
