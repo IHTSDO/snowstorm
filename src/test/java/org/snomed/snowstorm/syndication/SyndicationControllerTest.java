@@ -5,7 +5,7 @@ import org.junit.jupiter.api.Test;
 import org.snomed.snowstorm.core.data.services.ServiceException;
 import org.snomed.snowstorm.syndication.models.requestDto.SyndicationImportRequest;
 import org.snomed.snowstorm.syndication.models.data.SyndicationImport;
-import org.snomed.snowstorm.syndication.services.StartupSyndicationService;
+import org.snomed.snowstorm.syndication.services.ImportTerminologyService;
 import org.snomed.snowstorm.syndication.services.importstatus.SyndicationImportStatusService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -22,13 +22,13 @@ class SyndicationControllerTest {
 
     private static final String SYNDICATION_SECRET = "SECRET";
     private SyndicationImportStatusService importStatusService;
-        private StartupSyndicationService startupSyndicationService;
+        private ImportTerminologyService startupSyndicationService;
     private SyndicationController controller;
 
     @BeforeEach
     void setup() {
         importStatusService = mock(SyndicationImportStatusService.class);
-        startupSyndicationService = mock(StartupSyndicationService.class);
+        startupSyndicationService = mock(ImportTerminologyService.class);
         controller = new SyndicationController();
         ReflectionTestUtils.setField(controller, "importStatusService", importStatusService);
         ReflectionTestUtils.setField(controller, "startupSyndicationService", startupSyndicationService);

@@ -5,7 +5,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import org.snomed.snowstorm.core.data.services.ServiceException;
 import org.snomed.snowstorm.syndication.models.requestDto.SyndicationImportRequest;
 import org.snomed.snowstorm.syndication.models.data.SyndicationImport;
-import org.snomed.snowstorm.syndication.services.StartupSyndicationService;
+import org.snomed.snowstorm.syndication.services.ImportTerminologyService;
 import org.snomed.snowstorm.syndication.services.importstatus.SyndicationImportStatusService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -33,7 +33,7 @@ public class SyndicationController {
     private SyndicationImportStatusService importStatusService;
 
     @Autowired
-    private StartupSyndicationService startupSyndicationService;
+    private ImportTerminologyService startupSyndicationService;
 
     @Value("${SYNDICATION_SECRET:empty}")
     private String syndicationSecret;

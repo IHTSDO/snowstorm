@@ -20,9 +20,9 @@ import static org.mockito.Mockito.*;
 import static org.snomed.snowstorm.core.rf2.rf2import.ImportJob.ImportStatus.COMPLETED;
 import static org.snomed.snowstorm.syndication.constants.SyndicationTerminology.LOINC;
 
-class StartupSyndicationServiceTest {
+class ImportTerminologyServiceTest {
 
-    private StartupSyndicationService startupService;
+    private ImportTerminologyService startupService;
     private SyndicationService snomedService;
     private SyndicationService loincService;
     private SyndicationService hl7Service;
@@ -37,7 +37,7 @@ class StartupSyndicationServiceTest {
 
     @BeforeEach
     void setup() {
-        startupService = new StartupSyndicationService();
+        startupService = new ImportTerminologyService();
 
         snomedService = mock(SyndicationService.class);
         loincService = mock(SyndicationService.class);

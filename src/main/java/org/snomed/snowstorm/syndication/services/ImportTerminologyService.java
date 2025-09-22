@@ -12,6 +12,7 @@ import org.snomed.snowstorm.syndication.services.importers.fixedversion.FixedVer
 import org.snomed.snowstorm.syndication.services.importstatus.SyndicationImportStatusDao;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.ApplicationArguments;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
@@ -24,7 +25,7 @@ import static org.snomed.snowstorm.syndication.constants.SyndicationConstants.EX
 import static org.snomed.snowstorm.syndication.constants.SyndicationConstants.LATEST_VERSION;
 
 @Service
-public class StartupSyndicationService {
+public class ImportTerminologyService {
 
     @Autowired
     private Map<String, SyndicationService> syndicationServices;
@@ -36,8 +37,15 @@ public class StartupSyndicationService {
     private ExecutorService executorService;
 
     private final Logger logger = LoggerFactory.getLogger(getClass());
+    private ApplicationArguments applicationArguments;
 
-    public void handleStartupSyndication(ApplicationArguments applicationArguments) throws IOException, ServiceException, InterruptedException {
+    public void handleStartupSyndication(ApplicationArguments appArguments) throws IOException, ServiceException, InterruptedException {
+        applicationArguments = appArguments;
+        importTerminologies();
+    }
+
+    @Scheduled(cron = "${SYNDICATION_CRON:-}")
+    private void importTerminologies() throws ServiceException, IOException, InterruptedException {
         String extensionName = getOneValueOrDefault(applicationArguments, EXTENSION_COUNTRY_CODE, null);
         for (SyndicationTerminology terminology : SyndicationTerminology.values()) {
             if (terminology.importByDefault() || applicationArguments.containsOption(terminology.getName())) {
