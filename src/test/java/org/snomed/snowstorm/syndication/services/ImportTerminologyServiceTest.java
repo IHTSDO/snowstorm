@@ -3,21 +3,26 @@ package org.snomed.snowstorm.syndication.services;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.snomed.snowstorm.syndication.models.data.SyndicationImport;
 import org.snomed.snowstorm.syndication.models.domain.SyndicationImportParams;
+import org.snomed.snowstorm.syndication.models.requestDto.SyndicationImportRequest;
 import org.snomed.snowstorm.syndication.services.importers.SyndicationService;
-import org.snomed.snowstorm.syndication.services.importstatus.SyndicationImportStatusService;
+import org.snomed.snowstorm.syndication.services.importstatus.SyndicationImportStatusDao;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ExecutorService;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
+import static org.snomed.snowstorm.core.rf2.rf2import.ImportJob.ImportStatus.COMPLETED;
+import static org.snomed.snowstorm.syndication.constants.SyndicationTerminology.LOINC;
 
-class StartupSyndicationServiceTest {
+class ImportTerminologyServiceTest {
 
-    private StartupSyndicationService startupService;
+    private ImportTerminologyService startupService;
     private SyndicationService snomedService;
     private SyndicationService loincService;
     private SyndicationService hl7Service;
@@ -27,11 +32,12 @@ class StartupSyndicationServiceTest {
     private SyndicationService bcp47Service;
     private SyndicationService iso3166Service;
     private SyndicationService m49Service;
-    private SyndicationImportStatusService importStatusService;
+    private SyndicationImportStatusDao syndicationImportStatusDao;
+    private ExecutorService executorService;
 
     @BeforeEach
     void setup() {
-        startupService = new StartupSyndicationService();
+        startupService = new ImportTerminologyService();
 
         snomedService = mock(SyndicationService.class);
         loincService = mock(SyndicationService.class);
@@ -42,7 +48,8 @@ class StartupSyndicationServiceTest {
         bcp47Service = mock(SyndicationService.class);
         iso3166Service = mock(SyndicationService.class);
         m49Service = mock(SyndicationService.class);
-        importStatusService = mock(SyndicationImportStatusService.class);
+        syndicationImportStatusDao = mock(SyndicationImportStatusDao.class);
+        executorService = mock(ExecutorService.class);
 
         Map<String, SyndicationService> services = Map.of(
                 "snomed", snomedService,
@@ -57,7 +64,8 @@ class StartupSyndicationServiceTest {
         );
 
         ReflectionTestUtils.setField(startupService, "syndicationServices", services);
-        ReflectionTestUtils.setField(startupService, "importStatusService", importStatusService);
+        ReflectionTestUtils.setField(startupService, "syndicationImportStatusDao", syndicationImportStatusDao);
+        ReflectionTestUtils.setField(startupService, "executorService", executorService);
     }
 
     @Test
@@ -111,4 +119,34 @@ class StartupSyndicationServiceTest {
 
         assertTrue(exception.getMessage().contains("No service found for terminology"));
     }
+
+    @Test
+    void testUpdateTerminology_success() throws Exception {
+        SyndicationImportRequest request = new SyndicationImportRequest(LOINC.getName(), "2.80", null, null);
+        SyndicationImport notRunningStatus = new SyndicationImport(LOINC.getName(), "2.79", "2.79", COMPLETED, null);
+
+        when(syndicationImportStatusDao.getAllImportStatuses()).thenReturn(List.of());
+        when(syndicationImportStatusDao.getImportStatus(LOINC.getName())).thenReturn(notRunningStatus);
+
+        boolean alreadyImported = startupService.updateTerminology(request);
+
+        assertFalse(alreadyImported);
+        verify(executorService).submit(any(Runnable.class));
+    }
+
+    @Test
+    void testUpdateTerminology_alreadyImported() throws Exception {
+        SyndicationImportRequest request = new SyndicationImportRequest(LOINC.getName(), "2.80", null, null);
+        SyndicationImport notRunningStatus = new SyndicationImport(LOINC.getName(), "2.79", "2.79", COMPLETED, null);
+
+        when(syndicationImportStatusDao.getAllImportStatuses()).thenReturn(List.of());
+        when(syndicationImportStatusDao.getImportStatus(LOINC.getName())).thenReturn(notRunningStatus);
+        when(loincService.alreadyImported(any(), any())).thenReturn(true);
+
+        boolean alreadyImported = startupService.updateTerminology(request);
+
+        assertTrue(alreadyImported);
+        verify(executorService, never()).submit(any(Runnable.class));
+    }
+
 }

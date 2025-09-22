@@ -1,20 +1,19 @@
 package org.snomed.snowstorm.syndication.services.importstatus;
 
-import static org.junit.jupiter.api.Assertions.*;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.snomed.snowstorm.core.rf2.rf2import.ImportJob;
-import org.snomed.snowstorm.syndication.models.requestDto.SyndicationImportRequest;
 import org.snomed.snowstorm.syndication.services.importers.SyndicationService;
 import org.snomed.snowstorm.syndication.constants.SyndicationTerminology;
 import org.snomed.snowstorm.syndication.models.data.SyndicationImport;
 import org.springframework.test.util.ReflectionTestUtils;
 
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
-import java.util.concurrent.ExecutorService;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.*;
 import static org.snomed.snowstorm.core.rf2.rf2import.ImportJob.ImportStatus.*;
 import static org.snomed.snowstorm.syndication.constants.SyndicationTerminology.HL7;
@@ -26,24 +25,14 @@ class SyndicationImportStatusServiceTest {
     private SyndicationImportStatusDao syndicationImportStatusDao;
     private SyndicationImportStatusService service;
     private SyndicationService mockSyndicationService;
-    private ExecutorService executorService;
-
 
     @BeforeEach
     void setup() {
         syndicationImportStatusDao = mock(SyndicationImportStatusDao.class);
         mockSyndicationService = mock(SyndicationService.class);
-        executorService = mock(ExecutorService.class);
 
         service = new SyndicationImportStatusService();
         ReflectionTestUtils.setField(service, "syndicationImportStatusDao", syndicationImportStatusDao);
-        ReflectionTestUtils.setField(service, "executorService", executorService);
-
-        Map<String, SyndicationService> syndicationServices = new HashMap<>();
-        syndicationServices.put(LOINC.getName(), mockSyndicationService);
-        syndicationServices.put(HL7.getName(), mockSyndicationService);
-        syndicationServices.put(SNOMED.getName(), mockSyndicationService);
-        ReflectionTestUtils.setField(service, "syndicationServices", syndicationServices);
     }
 
     @Test
@@ -70,29 +59,6 @@ class SyndicationImportStatusServiceTest {
         service.saveOrUpdateImportStatus(terminology, requestedVersion, actualVersion, status, exception);
 
         verify(syndicationImportStatusDao).saveOrUpdateImportStatus(eq(terminology.getName()), eq(requestedVersion), eq(actualVersion), eq(status), eq(exception));
-    }
-
-    @Test
-    void testGetImportStatus_found() {
-        SyndicationTerminology terminology = SyndicationTerminology.SNOMED;
-        SyndicationImport mockStatus = new SyndicationImport(terminology.getName(), "20250301", "20250301", RUNNING, null);
-        when(syndicationImportStatusDao.getImportStatus(terminology.getName())).thenReturn(mockStatus);
-
-        SyndicationImport result = service.getImportStatus(terminology);
-
-        assertNotNull(result);
-        assertEquals(terminology.getName(), result.getTerminology());
-        assertEquals(RUNNING, result.getStatus());
-    }
-
-    @Test
-    void testGetImportStatus_notFound() {
-
-        when(syndicationImportStatusDao.getImportStatus(anyString())).thenReturn(null);
-
-        SyndicationImport result = service.getImportStatus(LOINC);
-
-        assertNull(result);
     }
 
     @Test
@@ -125,35 +91,6 @@ class SyndicationImportStatusServiceTest {
         when(syndicationImportStatusDao.getAllImportStatuses()).thenReturn(List.of(hl7Import));
 
         assertFalse(service.isLoincPresent());
-    }
-
-    @Test
-    void testUpdateTerminology_success() throws Exception {
-        SyndicationImportRequest request = new SyndicationImportRequest(LOINC.getName(), "2.80", null, null);
-        SyndicationImport notRunningStatus = new SyndicationImport(LOINC.getName(), "2.79", "2.79", COMPLETED, null);
-
-        when(syndicationImportStatusDao.getAllImportStatuses()).thenReturn(List.of());
-        when(syndicationImportStatusDao.getImportStatus(LOINC.getName())).thenReturn(notRunningStatus);
-
-        boolean alreadyImported = service.updateTerminology(request);
-
-        assertFalse(alreadyImported);
-        verify(executorService).submit(any(Runnable.class));
-    }
-
-    @Test
-    void testUpdateTerminology_alreadyImported() throws Exception {
-        SyndicationImportRequest request = new SyndicationImportRequest(LOINC.getName(), "2.80", null, null);
-        SyndicationImport notRunningStatus = new SyndicationImport(LOINC.getName(), "2.79", "2.79", COMPLETED, null);
-
-        when(syndicationImportStatusDao.getAllImportStatuses()).thenReturn(List.of());
-        when(syndicationImportStatusDao.getImportStatus(LOINC.getName())).thenReturn(notRunningStatus);
-        when(mockSyndicationService.alreadyImported(any(), any())).thenReturn(true);
-
-        boolean alreadyImported = service.updateTerminology(request);
-
-        assertTrue(alreadyImported);
-        verify(executorService, never()).submit(any(Runnable.class));
     }
 
     @Test

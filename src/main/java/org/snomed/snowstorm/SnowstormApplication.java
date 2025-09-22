@@ -11,7 +11,7 @@ import org.snomed.snowstorm.core.data.services.*;
 import org.snomed.snowstorm.core.rf2.RF2Type;
 import org.snomed.snowstorm.core.rf2.rf2import.ImportService;
 import org.snomed.snowstorm.core.util.CollectionUtils;
-import org.snomed.snowstorm.syndication.services.StartupSyndicationService;
+import org.snomed.snowstorm.syndication.services.ImportTerminologyService;
 import org.springframework.beans.factory.BeanCreationException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.ApplicationArguments;
@@ -57,7 +57,7 @@ public class SnowstormApplication extends Config implements ApplicationRunner {
 	private CodeSystemVersionService codeSystemVersionService;
 
 	@Autowired
-	private StartupSyndicationService startupSyndicationService;
+	private ImportTerminologyService importTerminologyService;
 
 	private static final Logger logger = LoggerFactory.getLogger(SnowstormApplication.class);
 
@@ -120,7 +120,7 @@ public class SnowstormApplication extends Config implements ApplicationRunner {
 				importEditionRF2FromDisk(releasePath, RF2Type.FULL);
 			}
 			else if (applicationArguments.containsOption(SYNDICATION)) {
-				startupSyndicationService.handleStartupSyndication(applicationArguments);
+				importTerminologyService.handleStartupSyndication(applicationArguments);
 			}
 			if (applicationArguments.containsOption(EXIT)) {
 				logger.info("Exiting application.");

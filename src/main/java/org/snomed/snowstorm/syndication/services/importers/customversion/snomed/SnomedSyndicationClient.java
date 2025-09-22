@@ -28,7 +28,6 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.StringReader;
 import java.nio.file.Files;
-import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -75,7 +74,7 @@ public class SnomedSyndicationClient {
             for (SyndicationFeedEntry feedEntry : feedEntries) {
                 logger.info("Downloading package file {}\n on: {}", feedEntry.getTitle(), feedEntry.getZipLink().getHref());
 
-                File outputFile = Files.createTempFile(Paths.get(workingDirectory), UUID.randomUUID().toString(), ".zip").toFile();
+                File outputFile = Files.createTempFile(UUID.randomUUID().toString(), ".zip").toFile();
                 restTemplate.execute(feedEntry.getZipLink().getHref(), HttpMethod.GET,
                         request -> request.getHeaders().setBasicAuth(snomedUsername, snomedPassword),
                         clientHttpResponse -> handleHttpResponse(feedEntry.getZipLink(), clientHttpResponse, outputFile));

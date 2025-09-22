@@ -3,17 +3,18 @@ package org.snomed.snowstorm.syndication.services.importers.customversion.hl7;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.snomed.snowstorm.core.data.services.ServiceException;
+import org.snomed.snowstorm.core.rf2.rf2import.ImportJob;
 import org.snomed.snowstorm.fhir.domain.FHIRCodeSystemVersion;
 import org.snomed.snowstorm.fhir.services.FHIRCodeSystemService;
 import org.snomed.snowstorm.fhir.services.FHIRLoadPackageService;
 import org.snomed.snowstorm.syndication.utils.CommandUtils;
 import org.snomed.snowstorm.syndication.models.domain.SyndicationImportParams;
 import org.snomed.snowstorm.syndication.services.importstatus.SyndicationImportStatusService;
-import org.snomed.snowstorm.syndication.constants.SyndicationTerminology;
 import org.snomed.snowstorm.syndication.models.data.SyndicationImport;
 import org.springframework.test.util.ReflectionTestUtils;
 
@@ -26,7 +27,9 @@ import java.util.Set;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 import static org.snomed.snowstorm.core.rf2.rf2import.ImportJob.ImportStatus.COMPLETED;
+import static org.snomed.snowstorm.core.rf2.rf2import.ImportJob.ImportStatus.FAILED;
 import static org.snomed.snowstorm.syndication.constants.SyndicationConstants.LATEST_VERSION;
+import static org.snomed.snowstorm.syndication.constants.SyndicationTerminology.HL7;
 
 class Hl7SyndicationServiceTest {
 
@@ -62,23 +65,30 @@ class Hl7SyndicationServiceTest {
         Path hl7File = tempDir.resolve("hl7.terminology.r4-6.2.0.tgz");
         Files.createFile(hl7File);
         try (var ignored = mockStatic(CommandUtils.class)) {
-            assertDoesNotThrow(() -> hl7SyndicationService.fetchAndImportTerminology(new SyndicationImportParams(SyndicationTerminology.HL7, null, null)));
+            assertDoesNotThrow(() -> hl7SyndicationService.fetchAndImportTerminology(new SyndicationImportParams(HL7, null, null)));
 
             verify(loadPackageService, times(1))
                     .uploadPackageResources(any(File.class), eq(Set.of("*")), eq("hl7.terminology.r4-6.2.0.tgz"), eq(false));
-            verify(codeSystemService, times(1)).deleteCodeSystemVersion(fhirCodeSystemVersion);
             verify(syndicationImportStatusService, times(2)).saveOrUpdateImportStatus(any(), any(), any(), any(), any());
         }
     }
 
     @Test
-    void testImportHl7Terminology_FileNotFound() throws IOException {
+    void testImportHl7Terminology_FileNotFound() {
         try (var ignored = mockStatic(CommandUtils.class)) {
-            Exception exception = assertThrows(ServiceException.class, () -> hl7SyndicationService.fetchAndImportTerminology(new SyndicationImportParams(SyndicationTerminology.HL7,null, null)));
+            hl7SyndicationService.fetchAndImportTerminology(new SyndicationImportParams(HL7,null, null));
 
-            assertEquals("Hl7 terminology file not found, cannot be imported", exception.getMessage());
+            ArgumentCaptor<ImportJob.ImportStatus> captor = ArgumentCaptor.forClass(ImportJob.ImportStatus.class);
 
-            verify(loadPackageService, never()).uploadPackageResources(any(), any(), any(), anyBoolean());
+            verify(syndicationImportStatusService, atLeastOnce())
+                    .saveOrUpdateImportStatus(eq(HL7), eq(null), eq(null), any(), any());
+
+            verify(syndicationImportStatusService, atLeastOnce())
+                    .saveOrUpdateImportStatus(eq(HL7), eq(null), eq(null), captor.capture(), any());
+
+            ImportJob.ImportStatus lastCall = captor.getAllValues().get(captor.getAllValues().size() - 1);
+
+            assertEquals(FAILED, lastCall);
         }
     }
 
@@ -87,8 +97,7 @@ class Hl7SyndicationServiceTest {
         Path hl7File = tempDir.resolve("hl7.terminology.r4-6.2.0.tgz");
         Files.createFile(hl7File);
         SyndicationImport importStatus = new SyndicationImport("hl7", VERSION, VERSION, COMPLETED, null);
-        doReturn(importStatus).when(syndicationImportStatusService).getImportStatus(any());
-        var params = new SyndicationImportParams(SyndicationTerminology.HL7, VERSION, null);
+        var params = new SyndicationImportParams(HL7, VERSION, null);
         assertTrue(hl7SyndicationService.alreadyImported(params, importStatus));
     }
 
@@ -97,10 +106,9 @@ class Hl7SyndicationServiceTest {
         Path hl7File = tempDir.resolve("hl7.terminology.r4-6.2.0.tgz");
         Files.createFile(hl7File);
         SyndicationImport importStatus = new SyndicationImport("hl7", LATEST_VERSION, VERSION, COMPLETED, null);
-        doReturn(importStatus).when(syndicationImportStatusService).getImportStatus(any());
         try (var mockStatic = mockStatic(CommandUtils.class)){
             mockStatic.when(() -> CommandUtils.getSingleLineCommandResult(anyString())).thenReturn(VERSION);
-            var params = new SyndicationImportParams(SyndicationTerminology.HL7, LATEST_VERSION, null);
+            var params = new SyndicationImportParams(HL7, LATEST_VERSION, null);
             assertTrue(hl7SyndicationService.alreadyImported(params, importStatus));
         }
     }

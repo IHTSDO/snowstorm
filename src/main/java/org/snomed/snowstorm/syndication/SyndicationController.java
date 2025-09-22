@@ -5,10 +5,14 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import org.snomed.snowstorm.core.data.services.ServiceException;
 import org.snomed.snowstorm.syndication.models.requestDto.SyndicationImportRequest;
 import org.snomed.snowstorm.syndication.models.data.SyndicationImport;
+import org.snomed.snowstorm.syndication.services.ImportTerminologyService;
 import org.snomed.snowstorm.syndication.services.importstatus.SyndicationImportStatusService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.io.ClassPathResource;
+import org.springframework.core.io.Resource;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -28,8 +32,19 @@ public class SyndicationController {
     @Autowired
     private SyndicationImportStatusService importStatusService;
 
+    @Autowired
+    private ImportTerminologyService startupSyndicationService;
+
     @Value("${SYNDICATION_SECRET:empty}")
     private String syndicationSecret;
+
+    @GetMapping
+    public ResponseEntity<Resource> htmlPage() {
+        Resource syndicationPage = new ClassPathResource("static/syndication.html");
+        return ResponseEntity.ok()
+                .contentType(MediaType.TEXT_HTML)
+                .body(syndicationPage);
+    }
 
     @GetMapping(value = "/status")
     public List<SyndicationImport> getSyndicationStatuses(@RequestParam boolean runningOnly) {
@@ -63,7 +78,7 @@ public class SyndicationController {
         if (importStatusService.isImportRunning()) {
             return ResponseEntity.badRequest().body("An import process is still running");
         }
-        boolean alreadyImported = importStatusService.updateTerminology(request);
+        boolean alreadyImported = startupSyndicationService.updateTerminology(request);
         return ResponseEntity.ok(alreadyImported ? "The specified terminology version has already been imported" : "Update started");
     }
 }
