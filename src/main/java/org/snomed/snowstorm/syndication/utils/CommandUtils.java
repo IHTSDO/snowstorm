@@ -18,7 +18,7 @@ public class CommandUtils {
             try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
                 String line;
                 while ((line = reader.readLine()) != null) {
-                    logger.info(line);
+                    logger.info("[STDOUT] {}", line);
                 }
             } catch (IOException e) {
                 logger.error("Error reading stdout", e);
@@ -27,11 +27,8 @@ public class CommandUtils {
 
         Thread stderrReader = new Thread(() -> {
             try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getErrorStream()))) {
-                String line;
-                while ((line = reader.readLine()) != null) {
-                    logger.error(line);
-                }
-            } catch (IOException e) {
+                terminateProcessAfterFirstStacktrace(process, reader);
+            } catch (IOException | InterruptedException e) {
                 logger.error("Error reading stderr", e);
             }
         });
@@ -65,5 +62,19 @@ public class CommandUtils {
         }
 
         return version;
+    }
+
+    private static void terminateProcessAfterFirstStacktrace(Process process, BufferedReader reader) throws IOException, InterruptedException {
+        String line;
+        if ((line = reader.readLine()) != null) {
+            logger.error("[STDERR] {}", line);
+            Thread.sleep(2000);
+            while (reader.ready()) {
+                logger.error("[STDERR] {}", reader.readLine());
+                Thread.sleep(200);
+            }
+            process.destroyForcibly();
+            logger.error("Process terminated due to error output");
+        }
     }
 }
