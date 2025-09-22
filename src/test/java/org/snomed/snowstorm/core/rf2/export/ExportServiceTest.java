@@ -203,13 +203,16 @@ class ExportServiceTest extends AbstractTest {
 			assertTrue(lines.contains("125022\t\t1\t900000000000207008\t123001\t100002\t0\t116680003\t900000000000011006\t900000000000451002"));
 			assertTrue(lines.contains("125023\t\t1\t900000000000207008\t123001\t100003\t0\t116680003\t900000000000227009\t900000000000451002"));
 
-			// Inferred (non-concrete) Relationships
+			// Concrete Relationships
 			ZipEntry concreteRelationships = zipInputStream.getNextEntry();
 			assertEquals("SnomedCT_Export/Delta/Terminology/sct2_RelationshipConcreteValues_Delta_INT_20210731.txt", concreteRelationships.getName());
 			lines = getLines(zipInputStream);
-			assertEquals(2, lines.size());
+			assertEquals(3, lines.size());
 			assertEquals(RF2Constants.CONCRETE_RELATIONSHIP_HEADER, lines.get(0));
+			// Inferred type concrete relationship
 			assertTrue(lines.contains("125024\t\t1\t900000000000207008\t123001\t#100\t0\t1142135004\t900000000000011006\t900000000000451002"));
+			// Additional type concrete relationship
+			assertTrue(lines.contains("125025\t\t1\t900000000000207008\t123001\t\"PPA23080/021/002\"\t0\t680041000220101\t900000000000227009\t900000000000451002"));
 
 			// Identifier
 			ZipEntry identifierTypes = zipInputStream.getNextEntry();
@@ -311,7 +314,7 @@ class ExportServiceTest extends AbstractTest {
 			assertTrue(lines.contains("125022\t\t1\t900000000000207008\t123001\t100002\t0\t116680003\t900000000000011006\t900000000000451002"));
 			assertTrue(lines.contains("125023\t\t1\t900000000000207008\t123001\t100003\t0\t116680003\t900000000000227009\t900000000000451002"));
 
-			// Inferred Concrete Relationships
+			// Concrete Relationships
 			ZipEntry concreteRelationships = zipInputStream.getNextEntry();
 			assertEquals("SnomedCT_Export/Delta/Terminology/sct2_RelationshipConcreteValues_Delta_US_20210801.txt", concreteRelationships.getName());
 			lines = getLines(zipInputStream);
@@ -419,13 +422,16 @@ class ExportServiceTest extends AbstractTest {
 			assertTrue(lines.contains("125022\t\t1\t900000000000207008\t123001\t100002\t0\t116680003\t900000000000011006\t900000000000451002"));
 			assertTrue(lines.contains("125023\t\t1\t900000000000207008\t123001\t100003\t0\t116680003\t900000000000227009\t900000000000451002"));
 
-			// Inferred (non-concrete) Relationships
+			// Concrete Relationships
 			ZipEntry concreteRelationships = zipInputStream.getNextEntry();
 			assertEquals("SnomedCT_Export/RF2Release/Terminology/sct2_RelationshipConcreteValues_Delta_INT_20210731.txt", concreteRelationships.getName());
 			lines = getLines(zipInputStream);
-			assertEquals(2, lines.size());
+			assertEquals(3, lines.size());
 			assertEquals(RF2Constants.CONCRETE_RELATIONSHIP_HEADER, lines.get(0));
+			// Inferred type concrete relationship
 			assertTrue(lines.contains("125024\t\t1\t900000000000207008\t123001\t#100\t0\t1142135004\t900000000000011006\t900000000000451002"));
+			// Additional type concrete relationship
+			assertTrue(lines.contains("125025\t\t1\t900000000000207008\t123001\t\"PPA23080/021/002\"\t0\t680041000220101\t900000000000227009\t900000000000451002"));
 
 			// Identifier
 			ZipEntry identifierTypes = zipInputStream.getNextEntry();
@@ -508,13 +514,16 @@ class ExportServiceTest extends AbstractTest {
 			assertTrue(lines.contains("125022\t\t1\t900000000000207008\t123001\t100002\t0\t116680003\t900000000000011006\t900000000000451002"));
 			assertTrue(lines.contains("125023\t\t1\t900000000000207008\t123001\t100003\t0\t116680003\t900000000000227009\t900000000000451002"));
 
-			// Inferred (non-concrete) Relationships
+			// Concrete Relationships
 			ZipEntry concreteRelationships = zipInputStream.getNextEntry();
 			assertEquals("SnomedCT_Export/RF2Release/Terminology/sct2_RelationshipConcreteValues_Delta_INT_20210731.txt", concreteRelationships.getName());
 			lines = getLines(zipInputStream);
-			assertEquals(2, lines.size());
+			assertEquals(3, lines.size());
 			assertEquals(RF2Constants.CONCRETE_RELATIONSHIP_HEADER, lines.get(0));
+			// Inferred type concrete relationship
 			assertTrue(lines.contains("125024\t\t1\t900000000000207008\t123001\t#100\t0\t1142135004\t900000000000011006\t900000000000451002"));
+			// Additional type concrete relationship
+			assertTrue(lines.contains("125025\t\t1\t900000000000207008\t123001\t\"PPA23080/021/002\"\t0\t680041000220101\t900000000000227009\t900000000000451002"));
 
 
 			// Identifier
