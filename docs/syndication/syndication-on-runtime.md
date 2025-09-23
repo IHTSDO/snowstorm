@@ -57,7 +57,8 @@ Calling this endpoint triggers a **background job** that imports or updates a cl
 * **Versioned terminologies** (e.g. SNOMED CT, LOINC, HL7 FHIR)
 * **Fixed-code terminologies** (e.g. ISO standards, UCUM)
 
-> ⚠️ **Security Requirement**: A `syndicationSecret` must be included in the request body. This secret must match the value configured in the application’s environment (see `syndication-terminologies.md`) to prevent unauthorized access.
+> ⚠️ **Security Requirement**: A `syndicationSecret` must be included in the request body. This secret must match the value configured in the `SYNDICATION_SECRET` environment variable to prevent unauthorized access to non-admin users. 
+> The `SYNDICATION_SECRET` environment variable acts as a basic protection mechanism for the `PUT /syndication/import` endpoint
 
 ---
 
