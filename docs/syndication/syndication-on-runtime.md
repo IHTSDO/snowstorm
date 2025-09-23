@@ -1,6 +1,7 @@
 # 🩺 Runtime Syndication API Guide
 
 This guide explains how to **dynamically import or update clinical terminology versions** in a Snowstorm-based application **after it has fully started** and completed its initial import process.
+Please note that these terminology updates won't prevent the terminologies (the one being updated included) from being used.
 There are two options available:
 
 1. **Automated updates** using a CRON job.
