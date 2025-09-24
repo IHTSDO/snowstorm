@@ -137,9 +137,11 @@ public class SnomedSyndicationService extends SyndicationService {
         if (filePaths.size() > 1) {
             String shortName = "SNOMEDCT-" + extensionCountryCode;
             String branchPath = MAIN + "/" + shortName;
-            CodeSystem newCodeSystem = new CodeSystem(shortName, branchPath, extensionCountryCode + " edition", extensionCountryCode.toLowerCase());
-            newCodeSystem.setUriModuleId(getModuleUri(releaseUri));
-            codeSystemService.createCodeSystem(newCodeSystem);
+            if(codeSystemService.find(shortName) == null) {
+                CodeSystem newCodeSystem = new CodeSystem(shortName, branchPath, extensionCountryCode + " edition", extensionCountryCode.toLowerCase());
+                newCodeSystem.setUriModuleId(getModuleUri(releaseUri));
+                codeSystemService.createCodeSystem(newCodeSystem);
+            }
             importPackage(filePaths.get(1), branchPath);
             logger.info("Extension import DONE");
         }
