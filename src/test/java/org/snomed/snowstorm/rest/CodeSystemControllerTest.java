@@ -61,12 +61,12 @@ class CodeSystemControllerTest extends AbstractTest {
     private ReferenceSetMemberService referenceSetMemberService;
 
     @BeforeEach
-    public void setUp() throws ServiceException {
+     void setUp() throws ServiceException {
         givenAuthoringCycles();
     }
 
     @Test
-    public void listCodeSystems_ShouldReturnCodeSystems_WhenCodeSystemsExists() {
+     void listCodeSystems_ShouldReturnCodeSystems_WhenCodeSystemsExists() {
         //given
         String requestUrl = listCodeSystems();
 
@@ -78,7 +78,7 @@ class CodeSystemControllerTest extends AbstractTest {
     }
 
     @Test
-    public void listCodeSystems_ShouldReturnInternationalWithNoDependsOnProperty() {
+     void listCodeSystems_ShouldReturnInternationalWithNoDependsOnProperty() {
         //given
         String requestUrl = listCodeSystems();
 
@@ -91,7 +91,7 @@ class CodeSystemControllerTest extends AbstractTest {
     }
 
     @Test
-    public void listCodeSystems_ShouldReturnCodeSystemWithExpectedProperty_WhenCodeSystemDependsOnInternational() {
+     void listCodeSystems_ShouldReturnCodeSystemWithExpectedProperty_WhenCodeSystemDependsOnInternational() {
         //given
         String requestUrl = listCodeSystems();
 
@@ -104,7 +104,7 @@ class CodeSystemControllerTest extends AbstractTest {
     }
 
     @Test
-    public void findCodeSystem_ShouldReturnError_WhenCodeSystemCannotBeFound() {
+     void findCodeSystem_ShouldReturnError_WhenCodeSystemCannotBeFound() {
         //given
         String requestUrl = findCodeSystem("idontexist");
 
@@ -117,7 +117,7 @@ class CodeSystemControllerTest extends AbstractTest {
     }
 
     @Test
-    public void findCodeSystem_ShouldReturnCodeSystems_WhenCodeSystemsExists() {
+     void findCodeSystem_ShouldReturnCodeSystems_WhenCodeSystemsExists() {
         //given
         String requestUrl = findCodeSystem("SNOMEDCT-DM");
 
@@ -130,7 +130,7 @@ class CodeSystemControllerTest extends AbstractTest {
     }
 
     @Test
-    public void findCodeSystem_ShouldReturnInternationalWithNoDependsOnProperty() {
+     void findCodeSystem_ShouldReturnInternationalWithNoDependsOnProperty() {
         String requestUrl = findCodeSystem("SNOMEDCT");
 
         //when
@@ -142,7 +142,7 @@ class CodeSystemControllerTest extends AbstractTest {
     }
 
     @Test
-    public void findCodeSystem_ShouldReturnCodeSystemWithExpectedProperty_WhenCodeSystemDependsOnInternational() {
+     void findCodeSystem_ShouldReturnCodeSystemWithExpectedProperty_WhenCodeSystemDependsOnInternational() {
         //given
         String requestUrl = findCodeSystem("SNOMEDCT-DM");
 
@@ -155,7 +155,7 @@ class CodeSystemControllerTest extends AbstractTest {
     }
 
     @Test
-    public void findCodeSystem_ShouldReturnExpectedNumberOfModules() throws ServiceException {
+     void findCodeSystem_ShouldReturnExpectedNumberOfModules() throws ServiceException {
         //given
         givenCodeSystemExists("SNOMEDCT-XX", "MAIN/SNOMEDCT-XX");
         for (int x = 0; x < 13; x++) {
@@ -171,7 +171,7 @@ class CodeSystemControllerTest extends AbstractTest {
     }
 
     @Test
-    public void findAllVersions_ShouldReturnEmpty_WhenCodeSystemCannotBeFound() {
+     void findAllVersions_ShouldReturnEmpty_WhenCodeSystemCannotBeFound() {
         //given
         String requestUrl = findAllVersions("idontexist");
 
@@ -183,7 +183,7 @@ class CodeSystemControllerTest extends AbstractTest {
     }
 
     @Test
-    public void findAllVersions_ShouldReturnInternationalVersionsWithNoDependsOnProperty() {
+     void findAllVersions_ShouldReturnInternationalVersionsWithNoDependsOnProperty() {
         //given
         String requestUrl = findAllVersions("SNOMEDCT");
 
@@ -200,7 +200,7 @@ class CodeSystemControllerTest extends AbstractTest {
     }
 
     @Test
-    public void findAllVersions_ShouldReturnExpectedDependsOnPropertyValues() {
+     void findAllVersions_ShouldReturnExpectedDependsOnPropertyValues() {
         //given
         String requestUrl = findAllVersions("SNOMEDCT-DM");
 
@@ -215,7 +215,7 @@ class CodeSystemControllerTest extends AbstractTest {
     }
 
     @Test
-    public void startNewAuthoringCycle_ShouldReturnExpectedMetadata() {
+     void startNewAuthoringCycle_ShouldReturnExpectedMetadata() {
         //given
         CodeSystem codeSystem = codeSystemService.find("SNOMEDCT");
         String requestUrl = startNewAuthoringCycle(codeSystem.getShortName());
@@ -235,7 +235,7 @@ class CodeSystemControllerTest extends AbstractTest {
     }
 
     @Test
-    public void startNewAuthoringCycle_ShouldReturnExpectedMetadata_WhenCodeSystemDependsOnInternational() {
+     void startNewAuthoringCycle_ShouldReturnExpectedMetadata_WhenCodeSystemDependsOnInternational() {
         //given
         CodeSystem codeSystem = codeSystemService.find("SNOMEDCT-DM");
         String requestUrl = startNewAuthoringCycle(codeSystem.getShortName());
@@ -545,45 +545,8 @@ class CodeSystemControllerTest extends AbstractTest {
 
     @Test
     @SuppressWarnings("unchecked")
-    void getCompatibleDependentVersions_ShouldReturnEmptyList_WhenNoDependentVersion() {
+    void getCompatibleDependentVersions_ShouldReturnCompatibleVersions_WhenDependentVersionExists() throws ServiceException {
         //given
-        givenCodeSystemExists("SNOMEDCT-TEST", "MAIN/SNOMEDCT-TEST", 20210131);
-        String requestUrl = getCompatibleDependentVersions("SNOMEDCT-TEST");
-
-        //when
-        Map<String, Object> response = testRestTemplate.getForObject(requestUrl, Map.class);
-
-        //then
-        assertNotNull(response);
-
-        List<String> compatibleVersions = (List<String>) response.get("compatibleVersions");
-        assertNotNull(compatibleVersions);
-        assertTrue(compatibleVersions.isEmpty());
-    }
-
-    @Test
-    @SuppressWarnings("unchecked")
-    void getCompatibleDependentVersions_ShouldReturnCompatibleVersions_WhenDependentVersionExists() {
-        //given
-        String requestUrl = getCompatibleDependentVersions("SNOMEDCT-DM");
-
-        //when
-        Map<String, Object> response = testRestTemplate.getForObject(requestUrl, Map.class);
-
-        //then
-        assertNotNull(response);
-        List<String> compatibleVersions = (List<String>) response.get("compatibleVersions");
-        assertNotNull(compatibleVersions);
-        // The method should return compatible versions, but the test data might not have any
-        // We'll just verify the response structure is correct
-        assertInstanceOf(List.class, compatibleVersions);
-    }
-
-    @Test
-    @SuppressWarnings("unchecked")
-    void getCompatibleDependentVersions_ShouldReturnDependentVersions_WhenNoWithParameter() throws ServiceException {
-        //given
-        // Create a code system with dependencies
         CodeSystem test = givenCodeSystemExists("SNOMEDCT-TEST", "MAIN/SNOMEDCT-TEST", 20200731);
         String defaultModule = givenModuleExists(test.getBranchPath(), "Test CodeSystem default Module");
         givenMRDSEntryExists(test.getBranchPath(), defaultModule, CORE_MODULE, String.valueOf(20200731));
@@ -597,17 +560,21 @@ class CodeSystemControllerTest extends AbstractTest {
         assertNotNull(response);
         List<String> compatibleVersions = (List<String>) response.get("compatibleVersions");
         assertNotNull(compatibleVersions);
-        // Should return compatible versions based on existing dependencies (without additional 'with' parameter)
-        assertInstanceOf(List.class, compatibleVersions);
-        // The response should contain the compatible versions for the existing dependencies
-        assertFalse(compatibleVersions.isEmpty(), "Should return compatible versions for SNOMEDCT");
+        assertEquals(2, compatibleVersions.size());
+        assertTrue(compatibleVersions.contains("20200731"));
+        assertTrue(compatibleVersions.contains("20210131"));
     }
 
     @Test
     @SuppressWarnings("unchecked")
-    void getCompatibleDependentVersions_ShouldReturnCompatibleVersions_WithAdditionalCodeSystems() {
+    void getCompatibleDependentVersions_ShouldReturnCompatibleVersions_WithAdditionalCodeSystems() throws ServiceException {
         //given
-        givenCodeSystemExists("SNOMEDCT-TEST", "MAIN/SNOMEDCT-TEST", 20210131);
+        CodeSystem test = givenCodeSystemExists("SNOMEDCT-TEST", "MAIN/SNOMEDCT-TEST", 20200731);
+        String defaultModule = givenModuleExists(test.getBranchPath(), "Test CodeSystem default Module");
+        givenMRDSEntryExists(test.getBranchPath(), defaultModule, CORE_MODULE, String.valueOf(20200731));
+
+        givenCodeSystemVersionExists("SNOMEDCT-DM", 20210201, "20210201 release");
+
         String requestUrl = getCompatibleDependentVersions("SNOMEDCT-TEST", "SNOMEDCT-DM");
 
         //when
@@ -618,9 +585,9 @@ class CodeSystemControllerTest extends AbstractTest {
         assertNotNull(response);
         List<String> compatibleVersions = (List<String>) response.get("compatibleVersions");
         assertNotNull(compatibleVersions);
-        // The method should return compatible versions, but the test data might not have any
-        // We'll just verify the response structure is correct
-        assertInstanceOf(List.class, compatibleVersions);
+        assertFalse(compatibleVersions.isEmpty());
+        assertTrue(compatibleVersions.contains("20200731"));
+        assertTrue(compatibleVersions.contains("20210131"));
     }
 
     @Test
@@ -839,5 +806,4 @@ class CodeSystemControllerTest extends AbstractTest {
         //then
         assertEquals(404, response.getStatusCode().value());
     }
-
 }
