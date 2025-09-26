@@ -30,7 +30,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
 import java.util.*;
-import java.util.stream.Collectors;
 
 import static co.elastic.clients.elasticsearch._types.query_dsl.QueryBuilders.bool;
 import static co.elastic.clients.elasticsearch._types.query_dsl.QueryBuilders.range;
@@ -110,8 +109,7 @@ public class SBranchService {
 				.withPageable(pageable);
 
 		SearchHits<Branch> searchHits = elasticsearchOperations.search(queryBuilder.build(), Branch.class);
-		return new PageImpl<>(searchHits.get().map(SearchHit::getContent).collect(Collectors.toList()),
-				pageable, searchHits.getTotalHits());
+		return new PageImpl<>(searchHits.get().map(SearchHit::getContent).toList(), pageable, searchHits.getTotalHits());
 	}
 
 	public List<Branch> findByPathAndBaseTimepoint(Set<String> path, Date baseTimestamp, Sort sort) {
@@ -119,10 +117,9 @@ public class SBranchService {
 				.withQuery(bool(bq -> bq
 						.must(termsQuery("path", path))
 						.must(termQuery("base", baseTimestamp.getTime()))))
-				.withSort(s -> s.field(fb -> fb.field("start")))
 				.withPageable(PageRequest.of(0, path.size(), sort));
 		return elasticsearchOperations.search(queryBuilder.build(), Branch.class)
-				.stream().map(SearchHit::getContent).collect(Collectors.toList());
+				.stream().map(SearchHit::getContent).toList();
 	}
 
 	public Branch findByPathAndHeadTimepoint(String path, long head) {
@@ -215,13 +212,13 @@ public class SBranchService {
 
 	public Date getPartialCommitTimestamp(String branchPath) {
 		Branch latestCompleteCommit = branchService.findLatest(branchPath);
-		for (Class<? extends DomainEntity> entityType : domainEntityConfiguration.getAllDomainEntityTypes()) {
+		for (Class<? extends DomainEntity<?>> entityType : domainEntityConfiguration.getAllDomainEntityTypes()) {
 			NativeQuery query = new NativeQueryBuilder().withQuery(
 					bool(bq -> bq
 							.must(termQuery("path", branchPath))
 							.must(range(rq -> rq.field("start").gt(JsonData.of(latestCompleteCommit.getStart().getTime()))))))
 					.build();
-			List<? extends DomainEntity> domainEntities = elasticsearchOperations.search(query, entityType).stream().map(SearchHit::getContent).collect(Collectors.toList());
+			List<? extends DomainEntity<?>> domainEntities = elasticsearchOperations.search(query, entityType).stream().map(SearchHit::getContent).toList();
 			if (!domainEntities.isEmpty()) {
 				return domainEntities.get(0).getStart();
 			}
