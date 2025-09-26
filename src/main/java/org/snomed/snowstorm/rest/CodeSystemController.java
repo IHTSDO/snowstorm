@@ -324,7 +324,7 @@ public class CodeSystemController {
 		// Get current dependent version
 		Integer currentDependantVersion = currentCodeSystem.getDependantVersionEffectiveTime();
 		if (currentDependantVersion == null) {
-			// If no dependent version, return empty list (must wait for upgrade)
+			logger.warn("No dependent version found for '{}'", shortName);
 			Map<String, List<String>> response = new HashMap<>();
 			response.put("compatibleVersions", Collections.emptyList());
 			return ResponseEntity.ok(response);
