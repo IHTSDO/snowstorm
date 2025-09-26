@@ -118,6 +118,9 @@ public class CodeSystemService {
 	@Value("${snowstorm.codesystem-start-new-cycle.message.enabled}")
 	private boolean jmsCodeSystemNewAuthoringCycleMessageEnabled;
 
+	@Value("${snowstorm.branch-change.message.enabled}" )
+	private boolean jmsBranchChangeMessageEnabled;
+
 	// Cache to prevent expensive aggregations. Entry per branch. Expires if there is a new commit.
 	private final ConcurrentHashMap<String, Pair<Date, CodeSystem>> contentInformationCache = new ConcurrentHashMap<>();
 
@@ -267,6 +270,13 @@ public class CodeSystemService {
 			String topicDestination = jmsQueuePrefix + ".versioning.complete";
 			logger.info("Sending JMS Topic - destination {}, payload {}...", topicDestination, payload);
 			jmsTemplate.convertAndSend(new ActiveMQTopic(topicDestination), payload);
+		}
+
+		if (jmsBranchChangeMessageEnabled)  {
+			Map<String, String> jmsObject = new HashMap<>();
+			jmsObject.put("branch", branchPath);
+			jmsObject.put("sourceBranch", branchPath);
+			jmsTemplate.convertAndSend(jmsQueuePrefix + ".branch.change", jmsObject);
 		}
 
 		return version;
