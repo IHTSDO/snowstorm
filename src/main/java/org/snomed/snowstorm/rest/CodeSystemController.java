@@ -431,27 +431,41 @@ public class CodeSystemController {
 	}
 
 
-	@Operation(summary = "Retrieve all existing dependencies for the given code system",
+	@Operation(summary = "Get all dependencies for a code system",
 			description = """
-			Retrieves all existing dependencies for the specified code system, including version information
-			from Module Dependency Reference Set (MDRS) entries.
+			Retrieves all existing dependencies for the specified code system, including their version information.
+			This endpoint provides a complete view of what other code systems the specified code system depends on,
+			which is essential for understanding dependency relationships and planning upgrades.
+			
+			**Functionality:**
+			- Queries Module Dependency Reference Set (MDRS) entries to find all dependencies
+			- Retrieves version information from MDRS TARGET_EFFECTIVE_TIME field
+			- Returns dependency information in a structured format
+			- Handles special cases for SNOMEDCT (root code system with no dependencies)
+			
+			**Parameters:**
 			
 			**Response Format:**
-			- Returns a list of dependency objects containing code system short name and version
-			- Version information is retrieved from MDRS TARGET_EFFECTIVE_TIME field
-			- If no MDRS entry exists for a dependency, version is marked as "Unknown"
+			Returns an array of dependency objects, each containing:
+			- `codeSystem`: The short name of the dependent code system
+			- `version`: The version/effective time of the dependency (or "Unknown" if not available)
 			
 			**Special Cases:**
-			- For SNOMEDCT: Returns an empty list as it is the root code system with no dependencies
-			- For non-existent code systems: Returns 404 Not Found
-			- For system errors: Returns 500 Internal Server Error
+			- **SNOMEDCT**: Returns an empty array `[]` as it is the root code system with no dependencies
+			- **Non-existent code systems**: Returns HTTP 404 Not Found
+			- **System errors**: Returns HTTP 500 Internal Server Error
 			
 			**Example Response:**
+			**Example Responses:**
 			```json
 			[
 			  {
 			    "codeSystem": "SNOMEDCT-LOINC",
 			    "version": "20250901"
+			  },
+			  {
+			    "codeSystem": "SNOMEDCT-ICD10",
+			    "version": "20250801"
 			  }
 			]
 			```
