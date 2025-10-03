@@ -285,28 +285,43 @@ public class CodeSystemController {
 		codeSystemService.notifyCodeSystemNewAuthoringCycle(codeSystem, newEffectiveTime);
 	}
 
-	@Operation(summary = "Get compatible dependent versions for code system dependencies",
+	@Operation(summary = "Get compatible International versions for multiple code system dependencies",
 			description = """
-			Retrieves all compatible versions for dependencies of the specified code system, using the current 
-			dependent version as the baseline for compatibility checking.
+			Finds all International(SNOMEDCT code system) versions that are compatible with the specified code system and any additional code systems provided.
+			This endpoint is essential for determining which International versions can be safely used when upgrading or managing additional code system dependencies.
 			
 			**Functionality:**
-			- Returns versions that are compatible across all current dependencies
-			- If additional code systems are specified via the 'with' parameter, includes them in compatibility checking
-			- Always includes the current version if it remains compatible
-			- Uses the findCompatibleVersions logic to determine version compatibility
+			- Uses the current dependent version (International version) of the specified code system as the baseline
+			- Finds versions that are compatible across ALL dependencies (current + additional)
+			- Returns the intersection of compatible versions from all dependency code systems
+			- Versions are sorted in ascending order for easy selection
+			
+			**Use Cases:**
+			- Determine safe International versions for code system upgrades
+			- Validate compatibility before adding new dependencies
+			- Plan dependency management across multiple code systems
+			- Ensure all dependencies can work together with a specific International version
 			
 			**Parameters:**
-			- shortName: The code system to check dependencies for
-			- with: Optional comma-separated list of additional code systems to include in compatibility checking
+			- `shortName` (path): The code system to check dependencies for (must be an extension, not SNOMEDCT)
+			- `with` (query, optional): Comma-separated list of additional code system short names to include in compatibility checking
 			
-			**Restrictions:**
-			- The main code system (shortName) must not be SNOMEDCT
-			- Any additional code systems in the 'with' parameter must not be SNOMEDCT
+			**Important Restrictions:**
+			- The main code system (`shortName`) must NOT be SNOMEDCT
+			- Any additional code systems in the `with` parameter must NOT be SNOMEDCT
+			- SNOMEDCT is automatically included as a dependency and cannot be specified manually
 			
-			**Response:**
-			- Returns a map with 'compatibleVersions' key containing a list of compatible version strings
-			- Versions are returned in a format suitable for dependency management
+			**Response Format:**
+			```json
+			{
+			  "compatibleVersions": ["20250801", "20250901", "20251001"]
+			}
+			```
+			
+			**Error Cases:**
+			- Returns empty list if no dependent version is configured for the code system
+			- Returns HTTP 400 if SNOMEDCT is specified in parameters
+			- Returns HTTP 404 if the specified code system doesn't exist
 			""")
 	@GetMapping(value = "/{shortName}/dependencies/compatible-versions")
 	public ResponseEntity<Map<String, List<String>>> getCompatibleDependentVersions(
@@ -341,39 +356,34 @@ public class CodeSystemController {
 		return ResponseEntity.ok(response);
 	}
 
-	@Operation(summary = "Add a code system dependency to the current code system",
+	@Operation(summary = "Add an additional code system dependency to the current code system",
 			description = """
-			Adds a single additional code system as a dependency to the specified code system by creating 
-			Module Dependency Reference Set (MDRS) entries that establish the dependency relationship.
+			This endpoint allows you to add an additional code system as a dependency to an existing code system
+			by creating Module Dependency Reference Set (MDRS) entries using the module id specified in "holdingModule"
 			
 			**Functionality:**
-			- Creates MDRS entries linking the current code system to the additional dependency
-			- Uses the holdingModule to establish the dependency relationship
-			- Validates compatibility between the current and additional code systems
-			- Prevents duplicate dependencies from being added
+			- Validates that both code systems exist and are valid extensions (not SNOMEDCT)
+			- Checks for duplicate dependencies to prevent conflicts
+			- Performs compatibility validation using the current dependent version as baseline
+			- Creates MDRS entries that establish the formal dependency relationship
+			- Uses the holdingModule to link the current code system with the new dependency
 			
 			**Parameters:**
-			- shortName: The code system to add the dependency to
-			- holdingModule: The module ID that will link the current code system with the new dependency
-			- with: The short name of the code system to add as a dependency (single code system only)
+			- `shortName` (path): The code system to add the dependency to (must be an extension, not SNOMEDCT)
+			- `holdingModule` (query): The module ID that will establish the dependency link between code systems
+			- `with` (query): The short name of the code system to add as a dependency (single code system only)
 			
-			**Business Rules:**
-			- The main code system (shortName) must not be SNOMEDCT
-			- The additional code system (with) must not be SNOMEDCT
-			- The additional code system must not already be a dependency
-			- The additional code system must exist and be valid
-			- Compatibility is checked before adding the dependency
+			**Response Codes:**
+			- `201 Created`: Dependency successfully added with success message
+			- `400 Bad Request`: Invalid parameters, duplicate dependency, or business rule violation
+			- `404 Not Found`: One or both code systems not found
+			- `409 Conflict`: Compatibility issues or missing dependent version
+			- `500 Internal Server Error`: Unexpected error during MDRS creation
 			
-			**Response:**
-			- 201 Created: Dependency successfully added
-			- 400 Bad Request: Invalid parameters, duplicate dependency, or business rule violation
-			- 404 Not Found: Code system not found
-			- 500 Internal Server Error: Unexpected error during processing
-			
-			**MDRS Creation:**
-			- Creates ReferenceSetMember entries with MODULE_DEPENDENCY_REFERENCE_SET refsetId
-			- Sets TARGET_EFFECTIVE_TIME based on the additional code system's version
-			- Links the holdingModule to the dependency's default module
+			**Success Response:**
+			```json
+			{"message": "Additional dependency added successfully: SNOMEDCT-LOINC"}
+			```
 			""")
 	@PostMapping(value = "/{shortName}/dependencies")
 	@PreAuthorize("hasPermission('ADMIN', 'global')")
@@ -444,6 +454,7 @@ public class CodeSystemController {
 			- Handles special cases for SNOMEDCT (root code system with no dependencies)
 			
 			**Parameters:**
+			- `shortName` (path): The code system to retrieve dependencies for
 			
 			**Response Format:**
 			Returns an array of dependency objects, each containing:
@@ -455,7 +466,6 @@ public class CodeSystemController {
 			- **Non-existent code systems**: Returns HTTP 404 Not Found
 			- **System errors**: Returns HTTP 500 Internal Server Error
 			
-			**Example Response:**
 			**Example Responses:**
 			```json
 			[
