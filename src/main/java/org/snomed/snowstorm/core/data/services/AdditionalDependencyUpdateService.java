@@ -56,7 +56,7 @@ public class AdditionalDependencyUpdateService extends ComponentService implemen
         BranchCriteria changesOnBranchCriteria = versionControlHelper.getChangesOnBranchIncludingOpenCommit(commit);
         Set<ReferenceSetMember> allMdrsMembers = moduleDependencyService.fetchMdrsMembers(changesOnBranchCriteria);
         Map<String, String> moduleToEffectiveTime = mapDependentModuleToEffectiveTime(allMdrsMembers);
-        Set<String> dependentBranches = resolveAdditionalDependentBranches(moduleToEffectiveTime);
+        Set<String> dependentBranches = resolveAdditionalDependentBranches(commit.getBranch().getPath(), moduleToEffectiveTime);
 
         if (!dependentBranches.isEmpty()) {
             validateBranchesExist(dependentBranches);
@@ -79,11 +79,11 @@ public class AdditionalDependencyUpdateService extends ComponentService implemen
         return moduleToTime;
     }
 
-    private Set<String> resolveAdditionalDependentBranches(Map<String, String> moduleToEffectiveTime) {
+    private Set<String> resolveAdditionalDependentBranches(String currentCodeSystemBranchPath, Map<String, String> moduleToEffectiveTime) {
         Map<String, String> codeSystemsByModule = moduleDependencyService.getCodeSystemBranchByModuleId(moduleToEffectiveTime.keySet());
         Set<String> dependentBranches = new HashSet<>();
         codeSystemsByModule.forEach((module, branch) -> {
-            if (!"MAIN".equals(branch)) {
+            if (!"MAIN".equals(branch) && !currentCodeSystemBranchPath.equals(branch)) {
                 String effectiveTime = moduleToEffectiveTime.get(module);
                 if (effectiveTime != null && !effectiveTime.trim().isEmpty()) {
                     dependentBranches.add(branch + PathUtil.SEPARATOR + formatEffectiveTime(effectiveTime));

@@ -7,19 +7,17 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.snomed.snowstorm.AbstractTest;
-import org.snomed.snowstorm.core.data.domain.CodeSystem;
-import org.snomed.snowstorm.core.data.domain.Concepts;
-import org.snomed.snowstorm.core.data.domain.ReferenceSetMember;
+import org.snomed.snowstorm.core.data.domain.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
-import static org.snomed.snowstorm.core.data.domain.Concepts.CORE_MODULE;
-import static org.snomed.snowstorm.core.data.domain.Concepts.MODEL_MODULE;
+import static org.snomed.snowstorm.core.data.domain.Concepts.*;
 
 @Testcontainers
 @ExtendWith(SpringExtension.class)
@@ -39,6 +37,9 @@ class AdditionalDependencyUpdateServiceTest extends AbstractTest  {
 
     @Autowired
     private VersionControlHelper versionControlHelper;
+
+    @Autowired
+    private ConceptService conceptService;
 
     private CodeSystem main;
     private CodeSystem loinc;
@@ -160,6 +161,46 @@ class AdditionalDependencyUpdateServiceTest extends AbstractTest  {
         assertNotNull(additionalDependencies);
         assertEquals(1, additionalDependencies.size());
         assertEquals("MAIN/SNOMEDCT-TM/2025-06-01", additionalDependencies.get(0));
+    }
+
+    @Test
+    void testVersioningCodeSystemWithAdditionalDependency() throws ServiceException {
+        // Add a holding module for LOINC in extension
+        Concept holdingModule = new Concept("123456", EXTENSION_MODULE).addDescription(new Description("LOINC holding module"))
+                .addRelationship(Concepts.ISA, MODULE);
+        conceptService.create(holdingModule, extension.getBranchPath());
+
+        // Add modules to branch metadata
+        HashMap<String, Object> metaData = new HashMap<>();
+        metaData.put(BranchMetadataKeys.EXPECTED_EXTENSION_MODULES, List.of(EXTENSION_MODULE, holdingModule.getId()));
+        metaData.put(BranchMetadataKeys.DEFAULT_MODULE_ID, EXTENSION_MODULE);
+        branchService.updateMetadata(extension.getBranchPath(), metaData);
+
+        // Add MDRS to extension default module
+        ReferenceSetMember holdingModuleMdrs = referenceSetMemberService.createMember(extension.getBranchPath(), constructMDRS(holdingModule.getConceptId(), EXTENSION_MODULE, null, null));
+
+        // Add one MDRS entry for LOINC on extension using the holding module
+        ReferenceSetMember loincMdrs = referenceSetMemberService.createMember(extension.getBranchPath(), constructMDRS(holdingModule.getConceptId(), LOINC_MODULE, null, 20250601));
+        List<String> additionalDependencies = versionControlHelper.getAdditionalDependencies(branchService.findLatest(extension.getBranchPath()));
+        assertNotNull(additionalDependencies);
+        assertEquals(1, additionalDependencies.size());
+        assertEquals("MAIN/SNOMEDCT-LOINC/2025-06-01", additionalDependencies.get(0));
+        codeSystemService.createVersion(extension, 20250701, "20250701 extension release");
+
+        // Verify after versioning
+        holdingModuleMdrs = referenceSetMemberService.findMember(extension.getBranchPath(), holdingModuleMdrs.getMemberId());
+        assertEquals("20250701", holdingModuleMdrs.getAdditionalField("sourceEffectiveTime"));
+        assertEquals("20250701", holdingModuleMdrs.getAdditionalField("targetEffectiveTime"));
+
+        loincMdrs = referenceSetMemberService.findMember(extension.getBranchPath(), loincMdrs.getMemberId());
+        assertNotNull(loincMdrs);
+        assertEquals("20250701", loincMdrs.getAdditionalField("sourceEffectiveTime"));
+        assertEquals("20250601", loincMdrs.getAdditionalField("targetEffectiveTime"));
+        // No LOINC version change
+        additionalDependencies = versionControlHelper.getAdditionalDependencies(branchService.findLatest(extension.getBranchPath()));
+        assertNotNull(additionalDependencies);
+        assertEquals(1, additionalDependencies.size());
+        assertEquals("MAIN/SNOMEDCT-LOINC/2025-06-01", additionalDependencies.get(0));
     }
 
     private ReferenceSetMember constructMDRS(String moduleId, String dependantModuleId, Integer sourceEffectiveTime, Integer targetEffectiveTime) {
