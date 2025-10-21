@@ -1,0 +1,74 @@
+steps:
+  # Build the Docker image
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'Build'
+    args:
+      - 'build'
+      - '--no-cache'
+      - '-t'
+      - 'europe-west1-docker.pkg.dev/fhir-tx/cloud-run-source-deploy/snowstorm/atticus-snowstorm:${COMMIT_SHA}'
+      - '.'
+      - '-f'
+      - 'Dockerfile'
+
+  # Push the Docker image to Artifact Registry
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'Push'
+    args:
+      - 'push'
+      - 'europe-west1-docker.pkg.dev/fhir-tx/cloud-run-source-deploy/snowstorm/atticus-snowstorm:${COMMIT_SHA}'
+
+  # Deploy to Cloud Run with GCS volume mounts for terminology files
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk:slim'
+    id: 'Deploy'
+    entrypoint: 'gcloud'
+    args:
+      - 'run'
+      - 'services'
+      - 'update'
+      - 'atticus-snowstorm'
+      - '--platform=managed'
+      - '--image=europe-west1-docker.pkg.dev/fhir-tx/cloud-run-source-deploy/snowstorm/atticus-snowstorm:${COMMIT_SHA}'
+      - '--labels=managed-by=gcp-cloud-build-deploy-cloud-run,commit-sha=${COMMIT_SHA},gcb-build-id=${BUILD_ID}'
+      - '--region=europe-west1'
+      - '--update-volumes=name=hl7-vol,type=cloud-storage,bucket=fhir-tx-snowstorm,mount-options=only-dir=hl7/terminologyFiles'
+      - '--update-volume-mounts=volume=hl7-vol,mount-path=/app/hl7/terminologyFiles'
+      - '--update-volumes=name=loinc-vol,type=cloud-storage,bucket=fhir-tx-snowstorm,mount-options=only-dir=loinc/terminologyFiles'
+      - '--update-volume-mounts=volume=loinc-vol,mount-path=/app/loinc/terminologyFiles'
+      - '--update-volumes=name=snomed-vol,type=cloud-storage,bucket=fhir-tx-snowstorm,mount-options=only-dir=snomed/terminologyFiles'
+      - '--update-volume-mounts=volume=snomed-vol,mount-path=/app/snomed/terminologyFiles'
+      - '--update-volumes=name=icpc2-vol,type=cloud-storage,bucket=fhir-tx-snowstorm,mount-options=only-dir=icpc2/terminologyFiles'
+      - '--update-volume-mounts=volume=icpc2-vol,mount-path=/app/icpc2/terminologyFiles'
+      - '--update-volumes=name=icd10-vol,type=cloud-storage,bucket=fhir-tx-snowstorm,mount-options=only-dir=icd10/terminologyFiles'
+      - '--update-volume-mounts=volume=icd10-vol,mount-path=/app/icd10/terminologyFiles'
+      - '--update-volumes=name=icd10be-vol,type=cloud-storage,bucket=fhir-tx-snowstorm,mount-options=only-dir=icd10be/terminologyFiles'
+      - '--update-volume-mounts=volume=icd10be-vol,mount-path=/app/icd10be/terminologyFiles'
+      - '--quiet'
+
+# Images to be pushed to registry
+images:
+  - 'europe-west1-docker.pkg.dev/fhir-tx/cloud-run-source-deploy/snowstorm/atticus-snowstorm:${COMMIT_SHA}'
+
+# Build options
+options:
+  dynamicSubstitutions: true
+  logging: CLOUD_LOGGING_ONLY
+  substitutionOption: ALLOW_LOOSE
+
+# Substitutions for variables
+substitutions:
+  _AR_HOSTNAME: 'europe-west1-docker.pkg.dev'
+  _AR_PROJECT_ID: 'fhir-tx'
+  _AR_REPOSITORY: 'cloud-run-source-deploy'
+  _DEPLOY_REGION: 'europe-west1'
+  _PLATFORM: 'managed'
+  _SERVICE_NAME: 'atticus-snowstorm'
+
+# Tags for the build
+tags:
+  - 'gcp-cloud-build-deploy-cloud-run'
+  - 'gcp-cloud-build-deploy-cloud-run-managed'
+  - 'atticus-snowstorm'
+
+# Timeout for the build
+timeout: '3600s'

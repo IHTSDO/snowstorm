@@ -1,0 +1,170 @@
+{
+  "artifacts": {
+    "images": [
+      "europe-west1-docker.pkg.dev/fhir-tx/cloud-run-source-deploy/snowstorm/atticus-snowstorm:232a54d1a91da68ec5a0a2c2192dad846d63f12b"
+    ]
+  },
+  "buildTriggerId": "b4517da6-7989-45e0-925b-693e286ba8fd",
+  "createTime": "2025-10-14T15:02:00.095099Z",
+  "finishTime": "2025-10-14T15:16:45.083371Z",
+  "id": "487456d7-9696-4250-93af-16a1a8ef6b18",
+  "images": [
+    "europe-west1-docker.pkg.dev/fhir-tx/cloud-run-source-deploy/snowstorm/atticus-snowstorm:232a54d1a91da68ec5a0a2c2192dad846d63f12b"
+  ],
+  "logUrl": "https://console.cloud.google.com/cloud-build/builds/487456d7-9696-4250-93af-16a1a8ef6b18?project=599256739524",
+  "name": "projects/599256739524/locations/global/builds/487456d7-9696-4250-93af-16a1a8ef6b18",
+  "options": {
+    "dynamicSubstitutions": true,
+    "logging": "CLOUD_LOGGING_ONLY",
+    "pool": {},
+    "substitutionOption": "ALLOW_LOOSE"
+  },
+  "projectId": "fhir-tx",
+  "queueTtl": "3600s",
+  "results": {
+    "buildStepImages": [
+      "sha256:ad35cc3a3cf518fb0430d1928c050aaa751355a2cd2320d9041f5b7d4384c46b",
+      "sha256:ad35cc3a3cf518fb0430d1928c050aaa751355a2cd2320d9041f5b7d4384c46b",
+      "sha256:f3c694aceb083a05392ea4597c1ba27e79d448ecf80aba2f8fe7a3bd2922dba8"
+    ],
+    "buildStepOutputs": [
+      "",
+      "",
+      ""
+    ],
+    "images": [
+      {
+        "digest": "sha256:e884dfd7783564ad1af0a96ff8579a4b4509549b86a32964277e12d8fc32e170",
+        "name": "europe-west1-docker.pkg.dev/fhir-tx/cloud-run-source-deploy/snowstorm/atticus-snowstorm:232a54d1a91da68ec5a0a2c2192dad846d63f12b",
+        "pushTiming": {
+          "endTime": "2025-10-14T15:16:44.717652794Z",
+          "startTime": "2025-10-14T15:16:36.007149630Z"
+        }
+      }
+    ]
+  },
+  "serviceAccount": "projects/fhir-tx/serviceAccounts/599256739524-compute@developer.gserviceaccount.com",
+  "source": {
+    "gitSource": {
+      "revision": "232a54d1a91da68ec5a0a2c2192dad846d63f12b",
+      "url": "https://github.com/Tiro-health/snowstorm.git"
+    }
+  },
+  "sourceProvenance": {
+    "resolvedGitSource": {
+      "revision": "232a54d1a91da68ec5a0a2c2192dad846d63f12b",
+      "url": "https://github.com/Tiro-health/snowstorm.git"
+    }
+  },
+  "startTime": "2025-10-14T15:02:01.082636513Z",
+  "status": "SUCCESS",
+  "steps": [
+    {
+      "args": [
+        "build",
+        "--no-cache",
+        "-t",
+        "europe-west1-docker.pkg.dev/fhir-tx/cloud-run-source-deploy/snowstorm/atticus-snowstorm:232a54d1a91da68ec5a0a2c2192dad846d63f12b",
+        ".",
+        "-f",
+        "Dockerfile"
+      ],
+      "id": "Build",
+      "name": "gcr.io/cloud-builders/docker",
+      "pullTiming": {
+        "endTime": "2025-10-14T15:02:06.398879599Z",
+        "startTime": "2025-10-14T15:02:06.388360118Z"
+      },
+      "status": "SUCCESS",
+      "timing": {
+        "endTime": "2025-10-14T15:10:44.362431285Z",
+        "startTime": "2025-10-14T15:02:06.388360118Z"
+      }
+    },
+    {
+      "args": [
+        "push",
+        "europe-west1-docker.pkg.dev/fhir-tx/cloud-run-source-deploy/snowstorm/atticus-snowstorm:232a54d1a91da68ec5a0a2c2192dad846d63f12b"
+      ],
+      "id": "Push",
+      "name": "gcr.io/cloud-builders/docker",
+      "pullTiming": {
+        "endTime": "2025-10-14T15:10:44.366384796Z",
+        "startTime": "2025-10-14T15:10:44.362539856Z"
+      },
+      "status": "SUCCESS",
+      "timing": {
+        "endTime": "2025-10-14T15:13:43.461546536Z",
+        "startTime": "2025-10-14T15:10:44.362539856Z"
+      }
+    },
+    {
+      "args": [
+        "run",
+        "services",
+        "update",
+        "atticus-snowstorm",
+        "--platform=managed",
+        "--image=europe-west1-docker.pkg.dev/fhir-tx/cloud-run-source-deploy/snowstorm/atticus-snowstorm:232a54d1a91da68ec5a0a2c2192dad846d63f12b",
+        "--labels=managed-by=gcp-cloud-build-deploy-cloud-run,commit-sha=232a54d1a91da68ec5a0a2c2192dad846d63f12b,gcb-build-id=487456d7-9696-4250-93af-16a1a8ef6b18,gcb-trigger-id=b4517da6-7989-45e0-925b-693e286ba8fd",
+        "--region=europe-west1",
+        "--quiet"
+      ],
+      "entrypoint": "gcloud",
+      "id": "Deploy",
+      "name": "gcr.io/google.com/cloudsdktool/cloud-sdk:slim",
+      "pullTiming": {
+        "endTime": "2025-10-14T15:14:34.020384957Z",
+        "startTime": "2025-10-14T15:13:43.461680438Z"
+      },
+      "status": "SUCCESS",
+      "timing": {
+        "endTime": "2025-10-14T15:16:35.947331119Z",
+        "startTime": "2025-10-14T15:13:43.461680438Z"
+      }
+    }
+  ],
+  "substitutions": {
+    "BRANCH_NAME": "master",
+    "COMMIT_SHA": "232a54d1a91da68ec5a0a2c2192dad846d63f12b",
+    "REF_NAME": "master",
+    "REPO_FULL_NAME": "Tiro-health/snowstorm",
+    "REPO_NAME": "snowstorm",
+    "REVISION_ID": "232a54d1a91da68ec5a0a2c2192dad846d63f12b",
+    "SHORT_SHA": "232a54d",
+    "TRIGGER_BUILD_CONFIG_PATH": "",
+    "TRIGGER_NAME": "rmgpgab-atticus-snowstorm-europe-west1-Tiro-health-snowstormxhk",
+    "_AR_HOSTNAME": "europe-west1-docker.pkg.dev",
+    "_AR_PROJECT_ID": "fhir-tx",
+    "_AR_REPOSITORY": "cloud-run-source-deploy",
+    "_DEPLOY_REGION": "europe-west1",
+    "_PLATFORM": "managed",
+    "_SERVICE_NAME": "atticus-snowstorm",
+    "_TRIGGER_ID": "b4517da6-7989-45e0-925b-693e286ba8fd"
+  },
+  "tags": [
+    "gcp-cloud-build-deploy-cloud-run",
+    "gcp-cloud-build-deploy-cloud-run-managed",
+    "atticus-snowstorm",
+    "trigger-b4517da6-7989-45e0-925b-693e286ba8fd"
+  ],
+  "timeout": "3600s",
+  "timing": {
+    "BUILD": {
+      "endTime": "2025-10-14T15:16:36.007010061Z",
+      "startTime": "2025-10-14T15:02:05.558537142Z"
+    },
+    "FETCHSOURCE": {
+      "endTime": "2025-10-14T15:02:05.558360980Z",
+      "startTime": "2025-10-14T15:02:02.944511097Z"
+    },
+    "GIT_SOURCE": {
+      "endTime": "2025-10-14T15:02:05.558360980Z",
+      "startTime": "2025-10-14T15:02:02.944511097Z"
+    },
+    "PUSH": {
+      "endTime": "2025-10-14T15:16:44.717749019Z",
+      "startTime": "2025-10-14T15:16:36.007139055Z"
+    }
+  }
+}
