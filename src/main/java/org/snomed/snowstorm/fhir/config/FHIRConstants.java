@@ -11,9 +11,6 @@ public interface FHIRConstants {
 	String ACTIVE = "active";
 	String CODE = "code";
 	String CODING = "coding";
-	String CODING_CODE = "Coding.code";
-	String CODING_DISPLAY = "Coding.display";
-	String CODING_SYSTEM = "Coding.system";
 	String CODEABLE_CONCEPT = "codeableConcept";
 	String CONCEPT = "concept";
 	String DATE = "date";
@@ -28,8 +25,13 @@ public interface FHIRConstants {
 	String MESSAGE = "message";
 	String NOT_IN_VS = "not-in-vs";
 	String OUTCOME = "outcome";
+	String OUTCOME_CODING = "Coding";
+	String OUTCOME_CODING_CODE = "Coding.code";
+	String OUTCOME_CODING_DISPLAY = "Coding.display";
+	String OUTCOME_CODING_SYSTEM = "Coding.system";
 	String PIPE = "\\|";
 	String PARAMETER = "parameter";
+	String PREFERRED_FOR_LANGUAGE = "preferredForLanguage";
 	String PROPERTY = "property";
 	String RESULT = "result";
 	String SNOMED_CT = "SNOMED_CT";
@@ -52,7 +54,8 @@ public interface FHIRConstants {
 	String SNOMED_VALUESET_COPYRIGHT = "This value set includes content from SNOMED CT, which is copyright © 2002+ International Health Terminology Standards Development " +
 			"Organisation (SNOMED International), and distributed by agreement between SNOMED International and HL7. Implementer use of SNOMED CT is not covered by this " +
 			"agreement.";
-	String HL7_DESIGNATION_USAGE = "http://terminology.hl7.org/CodeSystem/designation-usage";
+	String HL7_CS_DESIGNATION_USAGE = "http://terminology.hl7.org/CodeSystem/designation-usage";
+	String HL7_CS_TERM_INFRA = "http://terminology.hl7.org/CodeSystem/hl7TermMaintInfra";
 	String LOINC_ORG = "http://loinc.org";
 	String HL_7_ORG_FHIR_SID_ICD_10 = "http://hl7.org/fhir/sid/icd-10";
 
@@ -62,7 +65,6 @@ public interface FHIRConstants {
 	String IMPLICIT_ECL= FHIR_VS + "=ecl/";
 	
 	enum FhirSctProperty {
-
 		ALL_PROPERTIES("*"),
 		CHILD("child"),
 		EFFECTIVE_TIME("effectiveTime"),
