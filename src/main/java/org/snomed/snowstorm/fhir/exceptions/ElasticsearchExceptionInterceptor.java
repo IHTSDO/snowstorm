@@ -8,6 +8,7 @@ import ca.uhn.fhir.rest.server.exceptions.BaseServerResponseException;
 import co.elastic.clients.elasticsearch._types.ElasticsearchException;
 import co.elastic.clients.elasticsearch._types.ErrorCause;
 import org.hl7.fhir.instance.model.api.IBaseOperationOutcome;
+import org.hl7.fhir.r4.model.Parameters;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.elasticsearch.UncategorizedElasticsearchException;
@@ -26,6 +27,17 @@ public class ElasticsearchExceptionInterceptor {
 		// operationOutcome = the OperationOutcome HAPI is about to send
 		// serverException = the HAPI-wrapped exception (e.g. InternalErrorException)
 		logRootCauseIfElastic(exception);
+		if (!exception.getMessage().contains("Supplement") && ! exception.getMessage().contains("does not exist")) {
+			//Is this a broken or bad test case?
+			if (requestDetails != null && requestDetails.getUserData().values().stream()
+								.anyMatch(p -> p instanceof Parameters params &&
+										(params.getParameter("url").getValue().toString().contains("broken")
+								|| params.getParameter("url").getValue().toString().contains("bad")) )) {
+				//expected exception - deliberately broken test case
+			} else {
+				logger.info("Check unexpected exception");
+			}
+		}
 		return serverException;
 	}
 
