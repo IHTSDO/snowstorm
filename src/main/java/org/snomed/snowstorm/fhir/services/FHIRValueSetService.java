@@ -5,6 +5,7 @@ import it.unimi.dsi.fastutil.longs.LongArrayList;
 import org.apache.commons.lang3.tuple.Pair;
 import org.hl7.fhir.r4.model.*;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.core.data.domain.ConceptMini;
@@ -65,7 +66,7 @@ public class FHIRValueSetService implements FHIRConstants {
 	public static final String HL7_SD_VS_CONCEPT_DEFINITION = "http://hl7.org/fhir/StructureDefinition/valueset-concept-definition";
 	public static final String HL7_SD_VS_CONCEPT_ORDER = "http://hl7.org/fhir/StructureDefinition/valueset-conceptOrder";
 	public static final String HL7_SD_VS_DEPRECATED = "http://hl7.org/fhir/StructureDefinition/valueset-deprecated";
-	public static final String HL7_SD_VS_EXPANSION_PARAMETER = "http://hl7.org/fhir/tools/StructureDefinition/valueset-expansion-parameter";
+	public static final String HL7_SD_VS_EXPANSION_PARAMETER = "http://hl7.org/fhir/StructureDefinition/valueset-expansion-parameter";
 	public static final String HL7_SD_VS_LABEL = "http://hl7.org/fhir/StructureDefinition/valueset-label";
 	public static final String HL7_SD_VS_SUPPLEMENT = "http://hl7.org/fhir/StructureDefinition/valueset-supplement";
 	
@@ -440,19 +441,7 @@ public class FHIRValueSetService implements FHIRConstants {
 				}
 		);
 
-		final String fhirDisplayLanguage;
-		if (Optional.ofNullable(params.getDisplayLanguage()).isPresent()){
-			fhirDisplayLanguage = params.getDisplayLanguage();
-			expansion.addParameter(new ValueSet.ValueSetExpansionParameterComponent(new StringType(DISPLAY_LANGUAGE)).setValue(new CodeType(fhirDisplayLanguage)));
-		} else if (hasDisplayLanguage(hapiValueSet)){
-			fhirDisplayLanguage = hapiValueSet.getCompose().getExtensionByUrl(HL7_SD_VS_EXPANSION_PARAMETER).getExtensionString(VALUE);
-			expansion.addParameter(new ValueSet.ValueSetExpansionParameterComponent(new StringType(DISPLAY_LANGUAGE)).setValue(new CodeType(fhirDisplayLanguage)));
-		} else if (displayLanguage != null){
-			fhirDisplayLanguage = displayLanguage;
-			expansion.addParameter(new ValueSet.ValueSetExpansionParameterComponent(new StringType(DISPLAY_LANGUAGE)).setValue(new CodeType(fhirDisplayLanguage)));
-		} else {
-			fhirDisplayLanguage = null;
-		}
+		final String fhirDisplayLanguage = determineFhirDisplayLanguage(params, displayLanguage, expansion, hapiValueSet);
 
 		List<ValueSet.ValueSetExpansionContainsComponent> expansionContents = createExpansionContents(conceptsPage, hapiValueSet, idAndVersionToLanguage, idAndVersionToUrl, expansion, params, fhirDisplayLanguage);
 		expansion.setContains(expansionContents);
@@ -473,6 +462,23 @@ public class FHIRValueSetService implements FHIRConstants {
 		}
 
 		return hapiValueSet;
+	}
+
+	private static @Nullable String determineFhirDisplayLanguage(ValueSetExpansionParameters params, String displayLanguage, ValueSet.ValueSetExpansionComponent expansion, ValueSet hapiValueSet) {
+		final String fhirDisplayLanguage;
+		if (Optional.ofNullable(params.getDisplayLanguage()).isPresent()){
+			fhirDisplayLanguage = params.getDisplayLanguage();
+			expansion.addParameter(new ValueSet.ValueSetExpansionParameterComponent(new StringType(DISPLAY_LANGUAGE)).setValue(new CodeType(fhirDisplayLanguage)));
+		} else if (hasDisplayLanguage(hapiValueSet)){
+			fhirDisplayLanguage = hapiValueSet.getCompose().getExtensionByUrl(HL7_SD_VS_EXPANSION_PARAMETER).getExtensionString(VALUE);
+			expansion.addParameter(new ValueSet.ValueSetExpansionParameterComponent(new StringType(DISPLAY_LANGUAGE)).setValue(new CodeType(fhirDisplayLanguage)));
+		} else if (displayLanguage != null){
+			fhirDisplayLanguage = displayLanguage;
+			expansion.addParameter(new ValueSet.ValueSetExpansionParameterComponent(new StringType(DISPLAY_LANGUAGE)).setValue(new CodeType(fhirDisplayLanguage)));
+		} else {
+			fhirDisplayLanguage = null;
+		}
+		return fhirDisplayLanguage;
 	}
 
 	private List<ValueSet.ValueSetExpansionContainsComponent> createExpansionContents(Page<FHIRConcept> conceptsPage, ValueSet hapiValueSet, Map<String, String> idAndVersionToLanguage, Map<String, String> idAndVersionToUrl, ValueSet.ValueSetExpansionComponent expansion, ValueSetExpansionParameters params, String fhirDisplayLanguage) {
@@ -554,7 +560,8 @@ public class FHIRValueSetService implements FHIRConstants {
 	}
 
 	static boolean hasDisplayLanguage(ValueSet hapiValueSet) {
-        return Optional.ofNullable(hapiValueSet.getCompose().getExtensionByUrl(HL7_SD_VS_EXPANSION_PARAMETER)).isPresent() && DISPLAY_LANGUAGE.equals(hapiValueSet.getCompose().getExtensionByUrl(HL7_SD_VS_EXPANSION_PARAMETER).getExtensionString("name"));
+        return Optional.ofNullable(hapiValueSet.getCompose().getExtensionByUrl(HL7_SD_VS_EXPANSION_PARAMETER)).isPresent()
+		        && DISPLAY_LANGUAGE.equals(hapiValueSet.getCompose().getExtensionByUrl(HL7_SD_VS_EXPANSION_PARAMETER).getExtensionString("name"));
 	}
 
 	private void setDisplayAndDesignations(ValueSet.ValueSetExpansionContainsComponent component,
@@ -575,8 +582,10 @@ public class FHIRValueSetService implements FHIRConstants {
 				.toList();
 
 		Map<String, List<Locale>> languageToVarieties = new HashMap<>();
-		Locale defaultLocale = Locale.forLanguageTag(defaultConceptLanguage);
-		languageToVarieties.put(defaultLocale.getLanguage(), new ArrayList<>(List.of(defaultLocale)));
+		if (defaultConceptLanguage != null) {
+			Locale defaultLocale = Locale.forLanguageTag(defaultConceptLanguage);
+			languageToVarieties.put(defaultLocale.getLanguage(), new ArrayList<>(List.of(defaultLocale)));
+		}
 
 		// Convert component and concept designations to ValueSetDesignationComponents
 		List<ValueSet.ConceptReferenceDesignationComponent> allDesignations = Stream.concat(
@@ -617,23 +626,52 @@ public class FHIRValueSetService implements FHIRConstants {
 		// Determine requested language and set display
 		List<Pair<LanguageDialect, Double>> weightedLanguages = ControllerHelper.parseAcceptLanguageHeaderWithWeights(displayLanguage, true);
 		String requestedLanguage = determineRequestedLanguage(defaultConceptLanguage, weightedLanguages, languageToDesignation.keySet(), languageToVarieties);
+		String originalDisplayTerm = component.getDisplay();
+		String promotedDesignationLanguage = null;
 
-		if (component.getDisplay() == null && includeDesignations) {
+		if ((component.getDisplay() == null && includeDesignations)
+			|| (displayLanguage != null && defaultConceptLanguage != null && !defaultConceptLanguage.equals(displayLanguage))) {
 			String displayTerm = languageToDesignation.getOrDefault(requestedLanguage, emptyList()).stream()
-					.filter(d -> d.getUse() != null && FHIRConstants.HL7_DESIGNATION_USAGE.equals(d.getUse().getSystem()))
+					.filter(d -> d.getUse() != null && FHIRConstants.HL7_CS_DESIGNATION_USAGE.equals(d.getUse().getSystem()))
 					.findFirst()
 					.orElse(new ValueSet.ConceptReferenceDesignationComponent())
 					.getValue();
-			component.setDisplay(displayTerm);
+			if (displayTerm == null) {
+				//Not clear on the use of HL7_DESIGNATION_USAGE.   If we only have one designation in the required language, use it for display
+				List<ValueSet.ConceptReferenceDesignationComponent> designationsInRequestedLanguage = languageToDesignation.getOrDefault(requestedLanguage, emptyList());
+				if (designationsInRequestedLanguage.size() == 1) {
+					component.setDisplay(designationsInRequestedLanguage.get(0).getValue());
+					promotedDesignationLanguage = designationsInRequestedLanguage.get(0).getLanguage();
+				} else {
+					logger.warn("Multiple or no designations found for requested display language '{}', unable to determine single display value for concept code '{}'.",
+							requestedLanguage, component.getCode());
+				}
+			} else {
+				component.setDisplay(displayTerm);
+			}
 		}
 
 		// Set component designations based on requested languages
 		if (includeDesignations) {
-			List<ValueSet.ConceptReferenceDesignationComponent> newDesignations = languageToDesignation.values().stream()
+			List<ValueSet.ConceptReferenceDesignationComponent> newDesignations = new ArrayList<>();
+			//If we replaced the display term and the defaultConceptLanguage is something OTHER than what was requested, then
+			//we're going to replace it.  In that case if we're including designations, then shift the old display term into a designation
+			if(originalDisplayTerm != null && !originalDisplayTerm.equals(component.getDisplay())) {
+				ValueSet.ConceptReferenceDesignationComponent existingDisplayAsDesignation = new ValueSet.ConceptReferenceDesignationComponent();
+				existingDisplayAsDesignation.setValue(originalDisplayTerm);
+				existingDisplayAsDesignation.setLanguage(defaultConceptLanguage);
+				existingDisplayAsDesignation.setUse(new Coding(HL7_CS_TERM_INFRA, PREFERRED_FOR_LANGUAGE, null));
+				newDesignations.add(existingDisplayAsDesignation);
+			}
+			// Something I disagree with, and we might want to do this for non-SNOMED system only, but the Validator expects that if a designation
+			// has been promoted to the display term, then we don't also include it as a separate designation.
+			final String wrappedPromotedDesignationLanguage = promotedDesignationLanguage;
+			newDesignations.addAll(languageToDesignation.values().stream()
 					.flatMap(List::stream)
 					.filter(d -> designationLang.isEmpty() || designationLang.contains(d.getLanguage()))
-					.collect(Collectors.toList());
-
+					.filter((d -> !(d.getValue().equals(component.getDisplay())
+									&& d.getLanguage().equals(wrappedPromotedDesignationLanguage))))
+					.toList());
 			newDesignations.addAll(noLanguage);
 			component.setDesignation(newDesignations);
 		} else {
@@ -646,7 +684,7 @@ public class FHIRValueSetService implements FHIRConstants {
 		List<Pair<LanguageDialect,Double>> allowedLanguages = new ArrayList<>(weightedLanguages.stream().filter(x -> (x.getRight()>0d)).toList());
 		allowedLanguages.sort( (a,b) -> a.getRight().compareTo(b.getRight())*-1);
 		String requestedLanguage = allowedLanguages.isEmpty() ?defaultConceptLanguage:allowedLanguages.get(0).getLeft().getLanguageCode();
-		if (!availableVarieties.contains(requestedLanguage)){
+		if (requestedLanguage != null && !availableVarieties.contains(requestedLanguage)){
 			Locale requested = Locale.forLanguageTag(requestedLanguage);
 			if(languageToVarieties.get(requested.getLanguage())==null){
 				List<String> forbiddenLanguages = weightedLanguages.stream().filter(x -> x.getRight().equals(0d)).map(x -> x.getLeft().getLanguageCode()).toList();
