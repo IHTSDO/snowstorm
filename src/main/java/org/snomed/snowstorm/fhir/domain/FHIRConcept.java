@@ -181,7 +181,7 @@ public class FHIRConcept implements FHIRGraphNode {
 		if (includeDesignations) {
 			designations = new ArrayList<>();
 			// Add display
-			designations.add(new FHIRDesignation(displayTerm.getLang(), FHIRConstants.HL7_DESIGNATION_USAGE, FHIRConstants.DISPLAY, displayTerm.getTerm()));
+			designations.add(new FHIRDesignation(displayTerm.getLang(), FHIRConstants.HL7_CS_DESIGNATION_USAGE, FHIRConstants.DISPLAY, displayTerm.getTerm()));
 
 			// Add other descriptions with acceptability, and then any others without 'use'.
 			List<Description> activeDescriptions = new ArrayList<>(snomedConceptMini.getActiveDescriptions());
