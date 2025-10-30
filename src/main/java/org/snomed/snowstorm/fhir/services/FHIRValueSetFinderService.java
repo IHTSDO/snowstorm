@@ -393,7 +393,15 @@ public class FHIRValueSetFinderService implements FHIRConstants {
 		StringBuilder result = new StringBuilder().append("( ").append(ecl).append(" )");
 		for (ConceptConstraint exclusion :
 				criteria.getExclusionConstraints().values().iterator().next().constraintsFlattened()) {
-			result.append(" MINUS ( ").append(exclusion.getEcl()).append(" )");
+			//Even if the inclusion criteria is ECL, it's quite possible (even likely) that the exclusion is just a list of codes.
+			if (exclusion.hasEcl()) {
+				result.append(" MINUS ( ").append(exclusion.getEcl()).append(" )");
+			} else if (exclusion.isSimpleCodeSet()) {
+				String exclusionECL = exclusion.getCodes().stream().collect(Collectors.joining(" OR "));
+				result.append(" MINUS ( ").append(exclusionECL).append(" )");
+			} else {
+				throw new IllegalArgumentException("Invalid exclusion constraint: " + exclusion);
+			}
 		}
 		return result;
 	}
