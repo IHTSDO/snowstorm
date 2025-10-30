@@ -195,10 +195,11 @@ public class SecurityAndUriConfig {
 						.requestMatchers(antMatcher(HttpMethod.DELETE, "/**")).denyAll();
 			}
 
-			// Final rule for remaining requests
+			// Final rule for remaining requests (must always set at least one matcher)
 			if (rolesEnabled) {
 				auth.anyRequest().authenticated();
-			} else if (restApiReadOnly) {
+			} else {
+				// When roles are not enabled, permit remaining requests
 				auth.anyRequest().permitAll();
 			}
 		});
