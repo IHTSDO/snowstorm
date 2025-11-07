@@ -3,6 +3,34 @@ All notable changes to this project will be documented in this file.
 
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 10.10.0 Release (November 2025)
+Maintenance release with bug fixes and general improvements.
+
+### Features
+- MAINT-2089 Add ability to read content from multiple CodeSystems
+- MAINT-2171 Add endpoints to support management of multiple CodeSystems
+- MAINT-2173 Add endpoint for viewing MDRS in human-readable format
+- BROWSE-809 Add read-only access
+
+### Improvements
+- MAINT-2657 Include MDRS entries when exporting for classification
+- PIP-836 Address CVE-2025-27533
+- PIP-856 Address CVE-2025-50151
+- PIP-864 Address CVE-2025-7962
+- MAINT-2512 Add tests for reading from multiple CodeSystems
+- MAINT-2174 Update branch metadata to reflect MDRS changes
+- MAINT-2513 Add tests for importing with multiple CodeSystems
+- MAINT-2175 Improve upgrade process to prevent incompatibility issues with multiple CodeSystems
+- MAINT-2177 Update MDRS when upgrading CodeSystem
+- MAINT-2176 Add tests for integrity report with multiple CodeSystems
+- MAINT-2954 Remove redundant sorting in SBranchService
+- MAINT-2964 Limit scope in AdditionalDependencyUpdateService to prevent versioning issues
+- MAINT-2961 Add tests for rebasing with multiple CodeSystems
+
+### Fixes
+- INFRA-16025 Fix Chile and Jamaica FHIR config
+- MAINT-2953 Fix caching issue when parent branch's status changes
+
 ## 10.9.1 Release (July 2025)
 Maintenance release with bug fixes and general improvements.
 
