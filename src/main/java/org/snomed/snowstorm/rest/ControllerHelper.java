@@ -22,7 +22,7 @@ import org.springframework.util.Assert;
 import org.springframework.web.context.request.RequestAttributes;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
-import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
+import org.springframework.web.util.UriComponentsBuilder;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -83,7 +83,7 @@ public class ControllerHelper {
 		}
 
 		HttpHeaders httpHeaders = new HttpHeaders();
-		httpHeaders.setLocation(ServletUriComponentsBuilder.fromHttpUrl(requestUrl).path("/{id}").buildAndExpand(id).toUri());
+		httpHeaders.setLocation(UriComponentsBuilder.fromUriString(requestUrl).path("/{id}").buildAndExpand(id).toUri());
 		return httpHeaders;
 	}
 
