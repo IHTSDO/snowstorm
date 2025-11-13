@@ -47,7 +47,6 @@ import org.springframework.web.bind.annotation.GetMapping;
 import java.util.Collections;
 import java.util.List;
 
-import static org.springframework.security.config.Customizer.withDefaults;
 import static org.springframework.security.web.util.matcher.AntPathRequestMatcher.antMatcher;
 
 @Configuration
@@ -206,8 +205,7 @@ public class SecurityAndUriConfig {
 
 		// Exception handling for roles
 		if (rolesEnabled) {
-			http.exceptionHandling(ah -> ah.accessDeniedHandler(new AccessDeniedExceptionHandler()))
-					.httpBasic(withDefaults());
+			http.exceptionHandling(ah -> ah.accessDeniedHandler(new AccessDeniedExceptionHandler()));
 		}
 
 		return http.build();
