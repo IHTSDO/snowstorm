@@ -203,7 +203,7 @@ public class ConceptChangeHelper {
                 .withFilter(bool(b -> b
                         .mustNot(termQuery(Description.Fields.TYPE_ID, Concepts.FSN))
                         .must(termsQuery(Description.Fields.DESCRIPTION_ID, referenceComponentIdToConceptMap.keySet()))
-                        .must(termQuery(Description.Fields.ACTIVE, true))))
+                        .must(termQuery(SnomedComponent.Fields.ACTIVE, true))))
                 .withSourceFilter(new FetchSourceFilter(true, new String[]{Description.Fields.DESCRIPTION_ID}, null))
                 .withPageable(LARGE_PAGE);
         timerUtil.checkpoint("Created synonym query with " + referenceComponentIdToConceptMap.size() + " description ids in filter");
@@ -311,11 +311,11 @@ public class ConceptChangeHelper {
                 .search(new NativeQueryBuilder()
                         .withQuery(
                                 bool(b -> b
-                                        .must(termQuery(Concept.Fields.PATH, branchPath))
+                                        .must(termQuery(SnomedComponent.Fields.PATH, branchPath))
                                         .mustNot(termsQuery(Concept.Fields.CONCEPT_ID, conceptsReplacedOnBranch)))
                         )
-                        .withSourceFilter(new FetchSourceFilter(true, new String[]{Concept.Fields.CONCEPT_ID, Concept.Fields.END}, null))
-                        .withSort(SortOptions.of(s -> s.field(f -> f.field(Concept.Fields.START).order(SortOrder.Desc))))
+                        .withSourceFilter(new FetchSourceFilter(true, new String[]{Concept.Fields.CONCEPT_ID, SnomedComponent.Fields.END}, null))
+                        .withSort(SortOptions.of(s -> s.field(f -> f.field(SnomedComponent.Fields.START).order(SortOrder.Desc))))
                         // Group by conceptId. Query will return most recent document for each Concept.
                         .withFieldCollapse(FieldCollapse.of(f -> f.field(Concept.Fields.CONCEPT_ID)))
                         .build(), Concept.class)
@@ -332,7 +332,7 @@ public class ConceptChangeHelper {
                     .withQuery(
                             bool(b -> b
                                     .must(termsQuery(Concept.Fields.CONCEPT_ID, conceptsEndedOnBranch))
-                                    .must(termsQuery(Concept.Fields.PATH, branchPathAncestors))
+                                    .must(termsQuery(SnomedComponent.Fields.PATH, branchPathAncestors))
                                     .mustNot(existsQuery("end")))
                     )
                     .withSourceFilter(new FetchSourceFilter(true, new String[]{Concept.Fields.CONCEPT_ID}, null))
@@ -350,8 +350,8 @@ public class ConceptChangeHelper {
                     .withQuery(
                             bool(b -> b
                                     .must(termsQuery(Concept.Fields.CONCEPT_ID, conceptsReplacedOnBranch))
-                                    .must(termQuery(Concept.Fields.PATH, branchPath))
-                                    .mustNot(existsQuery(Concept.Fields.END))
+                                    .must(termQuery(SnomedComponent.Fields.PATH, branchPath))
+                                    .mustNot(existsQuery(SnomedComponent.Fields.END))
                     ))
                     .withSourceFilter(new FetchSourceFilter(true, new String[]{Concept.Fields.CONCEPT_ID}, null))
                     .build(), Concept.class)) {
@@ -387,9 +387,9 @@ public class ConceptChangeHelper {
 
     private Set<String> getConceptsWithModifiedDescriptionsOnBranch(Branch branch, Query rangeBoundary, Set<String> deletedConceptIds) {
         BoolQuery.Builder queryModifiedDescriptions = bool()
-                .must(termQuery(Description.Fields.PATH, branch.getPath()))
+                .must(termQuery(SnomedComponent.Fields.PATH, branch.getPath()))
                 .must(termsQuery(Description.Fields.CONCEPT_ID, deletedConceptIds))
-                .mustNot(existsQuery(Description.Fields.END));
+                .mustNot(existsQuery(SnomedComponent.Fields.END));
 
         if (rangeBoundary != null) {
             queryModifiedDescriptions.must(rangeBoundary);
@@ -399,7 +399,7 @@ public class ConceptChangeHelper {
         try (final SearchHitsIterator<Description> stream = elasticsearchOperations.searchForStream(new NativeQueryBuilder()
                 .withQuery(queryModifiedDescriptions.build()._toQuery())
                 .withSourceFilter(new FetchSourceFilter(true, new String[]{Description.Fields.CONCEPT_ID}, null))
-                .withSort(SortOptions.of(s -> s.field(f -> f.field(Description.Fields.START).order(SortOrder.Desc))))
+                .withSort(SortOptions.of(s -> s.field(f -> f.field(SnomedComponent.Fields.START).order(SortOrder.Desc))))
                 .build(), Description.class)) {
             stream.forEachRemaining(hit -> conceptsWithModifiedDescriptions.add(hit.getContent().getConceptId()));
         }
