@@ -505,7 +505,7 @@ public class SemanticIndexUpdateService extends ComponentService implements Comm
 										)
 						)))
 				)
-				.withSourceFilter(new FetchSourceFilter(new String[]{Relationship.Fields.SOURCE_ID, Relationship.Fields.DESTINATION_ID}, null))
+				.withSourceFilter(new FetchSourceFilter(true, new String[]{Relationship.Fields.SOURCE_ID, Relationship.Fields.DESTINATION_ID}, null))
 				.withPageable(LARGE_PAGE).build(), Relationship.class)) {
 			changedIsARelationships.forEachRemaining(hit -> {
 				updateSource.add(parseLong(hit.getContent().getSourceId()));
@@ -528,7 +528,7 @@ public class SemanticIndexUpdateService extends ComponentService implements Comm
 											))
 							))
 					)
-					.withSourceFilter(new FetchSourceFilter(new String[]{ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID, ReferenceSetMember.OwlExpressionFields.OWL_EXPRESSION_FIELD_PATH}, null))
+					.withSourceFilter(new FetchSourceFilter(true, new String[]{ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID, ReferenceSetMember.OwlExpressionFields.OWL_EXPRESSION_FIELD_PATH}, null))
 					.withPageable(LARGE_PAGE).build(), ReferenceSetMember.class)) {
 				axiomStreamToRelationshipStream(
 						changedAxioms,
@@ -565,7 +565,7 @@ public class SemanticIndexUpdateService extends ComponentService implements Comm
 										.mustNot(termsQuery(Relationship.Fields.SOURCE_ID, updateSource))
 						)))
 				)
-				.withSourceFilter(new FetchSourceFilter(new String[]{Relationship.Fields.SOURCE_ID}, null))
+				.withSourceFilter(new FetchSourceFilter(true, new String[]{Relationship.Fields.SOURCE_ID}, null))
 				.withPageable(LARGE_PAGE)
 				.build(), Relationship.class)) {
 			otherChangedRelationships.forEachRemaining(hit -> updateSource.add(parseLong(hit.getContent().getSourceId())));
@@ -588,7 +588,7 @@ public class SemanticIndexUpdateService extends ComponentService implements Comm
 						.must(termQuery("stated", form.isStated()))
 						.filter(termsQuery(QueryConcept.Fields.CONCEPT_ID, Sets.union(updateSource, updateDestination))))
 				)
-				.withSourceFilter(new FetchSourceFilter(new String[]{QueryConcept.Fields.ANCESTORS}, null))
+				.withSourceFilter(new FetchSourceFilter(true, new String[]{QueryConcept.Fields.ANCESTORS}, null))
 				.withPageable(LARGE_PAGE).build();
 		try (final SearchHitsIterator<QueryConcept> existingQueryConcepts = elasticsearchOperations.searchForStream(query, QueryConcept.class)) {
 			existingQueryConcepts.forEachRemaining(hit -> existingAncestors.addAll(hit.getContent().getAncestors()));
@@ -603,7 +603,7 @@ public class SemanticIndexUpdateService extends ComponentService implements Comm
 						.must(termQuery("stated", form.isStated()))
 						.filter(termsQuery("ancestors", updateSource)))
 				)
-				.withSourceFilter(new FetchSourceFilter(new String[]{QueryConcept.Fields.CONCEPT_ID}, null))
+				.withSourceFilter(new FetchSourceFilter(true, new String[]{QueryConcept.Fields.CONCEPT_ID}, null))
 				.withPageable(LARGE_PAGE).build(), QueryConcept.class)) {
 			existingQueryConcepts.forEachRemaining(hit -> existingDescendants.add(hit.getContent().getConceptIdL()));
 		}
@@ -645,7 +645,7 @@ public class SemanticIndexUpdateService extends ComponentService implements Comm
 						.must(termQuery(QueryConcept.Fields.STATED, stated))
 						.filter(termsQuery(QueryConcept.Fields.CONCEPT_ID, nodesToLoad)))
 				)
-				.withSourceFilter(new FetchSourceFilter(new String[]{QueryConcept.Fields.CONCEPT_ID, QueryConcept.Fields.PARENTS, QueryConcept.Fields.ANCESTORS}, null))
+				.withSourceFilter(new FetchSourceFilter(true, new String[]{QueryConcept.Fields.CONCEPT_ID, QueryConcept.Fields.PARENTS, QueryConcept.Fields.ANCESTORS}, null))
 				.withPageable(LARGE_PAGE);
 
 		try (SearchHitsIterator<QueryConcept> queryConcepts = elasticsearchOperations.searchForStream(queryConceptQuery.build(), QueryConcept.class)) {
@@ -737,7 +737,7 @@ public class SemanticIndexUpdateService extends ComponentService implements Comm
 						.must(termQuery(SnomedComponent.Fields.ACTIVE, true))
 						.filter(termsQuery(Concept.Fields.CONCEPT_ID, requiredActiveConcepts)))
 				)
-				.withSourceFilter(new FetchSourceFilter(new String[]{Concept.Fields.CONCEPT_ID}, null))
+				.withSourceFilter(new FetchSourceFilter(true, new String[]{Concept.Fields.CONCEPT_ID}, null))
 				.withPageable(PageRequest.of(0, 1));
 
 		Query activeQuery = queryBuilder.build();

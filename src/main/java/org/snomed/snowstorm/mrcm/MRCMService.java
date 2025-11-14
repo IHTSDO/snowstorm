@@ -232,7 +232,7 @@ public class MRCMService {
 						.must(termQuery(QueryConcept.Fields.STATED, false))
 						.filter(termsQuery(QueryConcept.Fields.CONCEPT_ID, remainingAttributes)))
 				)
-				.withSourceFilter(new FetchSourceFilter(new String[]{QueryConcept.Fields.CONCEPT_ID, QueryConcept.Fields.PARENTS}, null))
+				.withSourceFilter(new FetchSourceFilter(true, new String[]{QueryConcept.Fields.CONCEPT_ID, QueryConcept.Fields.PARENTS}, null))
 				.withPageable(LARGE_PAGE);
 		try (SearchHitsIterator<QueryConcept> queryConcepts = elasticsearchOperations.searchForStream(queryConceptQuery.build(), QueryConcept.class)) {
 			queryConcepts.forEachRemaining(hit -> {

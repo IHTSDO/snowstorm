@@ -1,7 +1,7 @@
 package org.snomed.snowstorm.ecl.domain.refinement;
 
 import co.elastic.clients.elasticsearch._types.query_dsl.BoolQuery;
-import co.elastic.clients.json.JsonData;
+import co.elastic.clients.elasticsearch._types.query_dsl.RangeQuery;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import io.kaicode.elasticvc.api.BranchCriteria;
 
@@ -168,14 +168,15 @@ public class SEclAttribute extends EclAttribute implements SRefinement {
 			for (String attributeTypeProperty : attributeTypeProperties) {
 				if (getAttributeRange().isNumericQuery()) {
 					String numericValue = possibleAttributeValues.get(0);// Restricted to single value in ECL language.
+					double numericValueDouble = Double.parseDouble(numericValue);
 					if (">=".equals(comparisonOperator)) {
-						oneOf.must(range().field(getAttributeTypeField(attributeTypeProperty)).gte(JsonData.of(numericValue)).build()._toQuery());
+						oneOf.must(RangeQuery.of(r -> r.number(nrq -> nrq.field(getAttributeTypeField(attributeTypeProperty)).gte(numericValueDouble)))._toQuery());
 					} else if (">".equals(comparisonOperator)) {
-						oneOf.must(range().field(getAttributeTypeField(attributeTypeProperty)).gt(JsonData.of(numericValue)).build()._toQuery());
+						oneOf.must(RangeQuery.of(r -> r.number(nrq -> nrq.field(getAttributeTypeField(attributeTypeProperty)).gt(numericValueDouble)))._toQuery());
 					} else if ("<=".equals(comparisonOperator)) {
-						oneOf.must(range().field(getAttributeTypeField(attributeTypeProperty)).lte(JsonData.of(numericValue)).build()._toQuery());
+						oneOf.must(RangeQuery.of(r -> r.number(nrq -> nrq.field(getAttributeTypeField(attributeTypeProperty)).lte(numericValueDouble)))._toQuery());
 					} else if ("<".equals(comparisonOperator)) {
-						oneOf.must(range().field(getAttributeTypeField(attributeTypeProperty)).lt(JsonData.of(numericValue)).build()._toQuery());
+						oneOf.must(RangeQuery.of(r -> r.number(nrq -> nrq.field(getAttributeTypeField(attributeTypeProperty)).lt(numericValueDouble)))._toQuery());
 					} else if ("!=".equals(comparisonOperator)) {
 						oneOf.must(existsQuery(getAttributeTypeField(attributeTypeProperty)));
 						oneOf.mustNot(termQuery(getAttributeTypeField(attributeTypeProperty), numericValue));

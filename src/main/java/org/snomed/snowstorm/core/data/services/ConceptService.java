@@ -849,7 +849,7 @@ public class ConceptService extends ComponentService {
 						.must(branchCriteria.getEntityBranchCriteria(Concept.class))
 						.must(termQuery(SnomedComponent.Fields.ACTIVE, true))))
 				.withPageable(LARGE_PAGE)
-				.withSourceFilter(new FetchSourceFilter(new String[]{Concept.Fields.CONCEPT_ID}, null));
+				.withSourceFilter(new FetchSourceFilter(true, new String[]{Concept.Fields.CONCEPT_ID}, null));
 		List<Long> ids = new LongArrayList();
 		try (SearchHitsIterator<Concept> conceptStream = elasticsearchOperations.searchForStream(queryBuilder.build(), Concept.class)) {
 			conceptStream.forEachRemaining(c -> ids.add(c.getContent().getConceptIdAsLong()));

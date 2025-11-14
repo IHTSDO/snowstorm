@@ -298,7 +298,7 @@ public class ReferencedConceptsLookupUpdateService extends ComponentService impl
                         .must(versionControlHelper.getBranchCriteriaChangesAndDeletionsWithinOpenCommitOnly(commit).getEntityBranchCriteria(ReferenceSetMember.class))
                         .must(termsQuery(REFSET_ID, refsetIds)))
                 )
-                .withSourceFilter(new FetchSourceFilter(new String[]{REFSET_ID}, null))
+                .withSourceFilter(new FetchSourceFilter(true, new String[]{REFSET_ID}, null))
                 .withPageable(Pageable.ofSize(1))
                 .build();
         SearchHits<ReferenceSetMember> searchHits = elasticsearchOperations.search(nativeQuery, ReferenceSetMember.class);
@@ -319,7 +319,7 @@ public class ReferencedConceptsLookupUpdateService extends ComponentService impl
                                         )
                                 )
                         )
-                        .withSourceFilter(new FetchSourceFilter(new String[]{}, null)) // Exclude source fields
+                        .withSourceFilter(new FetchSourceFilter(true, new String[]{}, null)) // Exclude source fields
                         .withPageable(Pageable.ofSize(1))
                         .build();
 
@@ -433,7 +433,7 @@ public class ReferencedConceptsLookupUpdateService extends ComponentService impl
                 .withQuery(bool(b -> b.must(branchCriteria.getEntityBranchCriteria(ReferenceSetMember.class))
                         .must(termQuery(REFSET_ID, refsetId)))
                 )
-                .withSourceFilter(new FetchSourceFilter(new String[]{MEMBER_ID, REFERENCED_COMPONENT_ID, ACTIVE}, null))
+                .withSourceFilter(new FetchSourceFilter(true, new String[]{MEMBER_ID, REFERENCED_COMPONENT_ID, ACTIVE}, null))
                 .withPageable(LARGE_PAGE)
                 .build();
         Set<String> memberIds = new HashSet<>();
@@ -482,7 +482,7 @@ public class ReferencedConceptsLookupUpdateService extends ComponentService impl
                                 .must(termsQuery(REFERENCED_COMPONENT_ID, conceptIdsToRemove))
                         )
                 )
-                .withSourceFilter(new FetchSourceFilter(new String[]{REFERENCED_COMPONENT_ID, MEMBER_ID}, null))
+                .withSourceFilter(new FetchSourceFilter(true, new String[]{REFERENCED_COMPONENT_ID, MEMBER_ID}, null))
                 .withPageable(LARGE_PAGE)
                 .build();
         Set<Long> componentWithActiveMembers = new HashSet<>();
@@ -534,7 +534,7 @@ public class ReferencedConceptsLookupUpdateService extends ComponentService impl
                 .withQuery(bool(b -> b
                         .must(termsQuery("_id", refsetMemberDeletionsToProcess))
                         .must(termQuery(REFSET_ID, refsetId))))
-                .withSourceFilter(new FetchSourceFilter(new String[]{MEMBER_ID, REFERENCED_COMPONENT_ID}, null))
+                .withSourceFilter(new FetchSourceFilter(true, new String[]{MEMBER_ID, REFERENCED_COMPONENT_ID}, null))
                 .withPageable(LARGE_PAGE)
                 .build();
         SearchHits<ReferenceSetMember> referenceSetMemberSearchHits = elasticsearchOperations.search(query, ReferenceSetMember.class);
@@ -549,7 +549,7 @@ public class ReferencedConceptsLookupUpdateService extends ComponentService impl
                         .must(criteria.getEntityBranchCriteria(ReferenceSetMember.class))
                         .must(termQuery(REFSET_ID, refsetId))
                         .must(termQuery(ACTIVE, true))))
-                .withSourceFilter(new FetchSourceFilter(new String[]{REFERENCED_COMPONENT_ID}, null))
+                .withSourceFilter(new FetchSourceFilter(true, new String[]{REFERENCED_COMPONENT_ID}, null))
                 .withPageable(LARGE_PAGE).build(), ReferenceSetMember.class)) {
             searchHitsIterator.forEachRemaining(hit -> conceptIds.add(parseLong(hit.getContent().getReferencedComponentId())));
         }

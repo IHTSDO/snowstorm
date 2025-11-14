@@ -1,6 +1,6 @@
 package org.snomed.snowstorm.core.data.services;
 
-import co.elastic.clients.json.JsonData;
+import co.elastic.clients.elasticsearch._types.query_dsl.RangeQuery;
 import io.kaicode.elasticvc.api.BranchNotFoundException;
 import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.api.PathUtil;
@@ -32,7 +32,6 @@ import org.springframework.util.StringUtils;
 import java.util.*;
 
 import static co.elastic.clients.elasticsearch._types.query_dsl.QueryBuilders.bool;
-import static co.elastic.clients.elasticsearch._types.query_dsl.QueryBuilders.range;
 import static java.lang.String.format;
 import static org.snomed.snowstorm.core.data.services.BranchMetadataHelper.AUTHOR_FLAGS_METADATA_KEY;
 import static org.snomed.snowstorm.core.data.services.BranchMetadataHelper.INTERNAL_METADATA_KEY;
@@ -103,8 +102,8 @@ public class SBranchService {
 		NativeQueryBuilder queryBuilder = new NativeQueryBuilder()
 				.withQuery(bool(bq -> bq
 						.must(termQuery("path", path))
-						.must(range(rq -> rq.field("start").gte(JsonData.of(timestamp.getTime()))))))
-				.withSourceFilter(new FetchSourceFilter(new String[]{"path", "start", "end", "head", "base", "locked"}, null))
+						.must(RangeQuery.of(r -> r.number(nrq -> nrq.field("start").gte((double)timestamp.getTime())))._toQuery())))
+				.withSourceFilter(new FetchSourceFilter(true, new String[]{"path", "start", "end", "head", "base", "locked"}, null))
 				.withSort(s -> s.field(fb -> fb.field("start")))
 				.withPageable(pageable);
 
@@ -216,7 +215,7 @@ public class SBranchService {
 			NativeQuery query = new NativeQueryBuilder().withQuery(
 					bool(bq -> bq
 							.must(termQuery("path", branchPath))
-							.must(range(rq -> rq.field("start").gt(JsonData.of(latestCompleteCommit.getStart().getTime()))))))
+							.must(RangeQuery.of(r -> r.number(nrq -> nrq.field("start").gt((double)latestCompleteCommit.getStart().getTime())))._toQuery())))
 					.build();
 			List<? extends DomainEntity<?>> domainEntities = elasticsearchOperations.search(query, entityType).stream().map(SearchHit::getContent).toList();
 			if (!domainEntities.isEmpty()) {

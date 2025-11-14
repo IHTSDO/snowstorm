@@ -251,7 +251,7 @@ public class IntegrityService extends ComponentService implements CommitListener
 						.must(termQuery(ACTIVE, true))
 						.must(termsQuery(Concept.Fields.CONCEPT_ID, conceptsRequiredActive)))
 				)
-				.withSourceFilter(new FetchSourceFilter(new String[]{Concept.Fields.CONCEPT_ID}, null))
+				.withSourceFilter(new FetchSourceFilter(true, new String[]{Concept.Fields.CONCEPT_ID}, null))
 				.withPageable(LARGE_PAGE)
 				.build(), Concept.class)) {
 			activeConceptStream.forEachRemaining(hit -> activeConcepts.add(hit.getContent().getConceptIdAsLong()));
@@ -395,7 +395,7 @@ public class IntegrityService extends ComponentService implements CommitListener
 						.must(termQuery(ACTIVE, true))
 						.must(termsQuery(Concept.Fields.CONCEPT_ID, conceptIdsToCheck)))
 				)
-				.withSourceFilter(new FetchSourceFilter(new String[]{Concept.Fields.CONCEPT_ID}, null))
+				.withSourceFilter(new FetchSourceFilter(true, new String[]{Concept.Fields.CONCEPT_ID}, null))
 				.withPageable(LARGE_PAGE)
 				.build(), Concept.class)) {
 			activeConceptStream.forEachRemaining(hit -> activeConcepts.add(hit.getContent().getConceptIdAsLong()));
@@ -627,7 +627,7 @@ public class IntegrityService extends ComponentService implements CommitListener
 		try (SearchHitsIterator<Concept> changedOrDeletedConceptStream = elasticsearchOperations.searchForStream(
 				new NativeQueryBuilder()
 						.withQuery(bool(b -> b.must(versionControlHelper.getBranchCriteriaUnpromotedChangesAndDeletions(branch).getEntityBranchCriteria(Concept.class))))
-						.withSourceFilter(new FetchSourceFilter(new String[]{Concept.Fields.CONCEPT_ID}, null))
+						.withSourceFilter(new FetchSourceFilter(true, new String[]{Concept.Fields.CONCEPT_ID}, null))
 						.withPageable(LARGE_PAGE).build(), Concept.class)) {
 			changedOrDeletedConceptStream.forEachRemaining(hit -> changedOrDeletedConcepts.add(hit.getContent().getConceptIdAsLong()));
 		}
@@ -642,7 +642,7 @@ public class IntegrityService extends ComponentService implements CommitListener
 								.must(termsQuery(Concept.Fields.CONCEPT_ID, changedOrDeletedConcepts))
 								.must(termQuery(ACTIVE, true)))
 						)
-						.withSourceFilter(new FetchSourceFilter(new String[]{Concept.Fields.CONCEPT_ID}, null))
+						.withSourceFilter(new FetchSourceFilter(true, new String[]{Concept.Fields.CONCEPT_ID}, null))
 						.withPageable(LARGE_PAGE).build(),
 				Concept.class)) {
 			changedOrDeletedConceptStream.forEachRemaining(hit -> changedAndActiveConcepts.add(hit.getContent().getConceptIdAsLong()));

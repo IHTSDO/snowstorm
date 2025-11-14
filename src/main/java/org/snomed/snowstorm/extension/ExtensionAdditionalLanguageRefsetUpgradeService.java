@@ -1,6 +1,6 @@
 package org.snomed.snowstorm.extension;
 
-import co.elastic.clients.json.JsonData;
+import co.elastic.clients.elasticsearch._types.query_dsl.RangeQuery;
 import io.kaicode.elasticvc.api.BranchCriteria;
 import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.api.PathUtil;
@@ -26,7 +26,6 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import static co.elastic.clients.elasticsearch._types.query_dsl.QueryBuilders.bool;
-import static co.elastic.clients.elasticsearch._types.query_dsl.QueryBuilders.range;
 import static com.google.common.collect.Iterables.partition;
 import static io.kaicode.elasticvc.api.ComponentService.LARGE_PAGE;
 import static io.kaicode.elasticvc.helper.QueryHelper.*;
@@ -137,7 +136,7 @@ public class ExtensionAdditionalLanguageRefsetUpgradeService {
 						.must(branchCriteria.getEntityBranchCriteria(ReferenceSetMember.class))
 						.must(termQuery(REFSET_ID, config.getLanguageRefsetIdToCopyFrom()))))
 				.withFilter(termQuery(ACTIVE, true))
-				.withSourceFilter(new FetchSourceFilter(new String[]{REFERENCED_COMPONENT_ID, ACTIVE, ACCEPTABILITY_ID_FIELD_PATH}, null))
+				.withSourceFilter(new FetchSourceFilter(true, new String[]{REFERENCED_COMPONENT_ID, ACTIVE, ACCEPTABILITY_ID_FIELD_PATH}, null))
 				.withPageable(LARGE_PAGE);
 
 		try (final SearchHitsIterator<ReferenceSetMember> referencedComponents = elasticsearchOperations.searchForStream(searchQueryBuilder.build(), ReferenceSetMember.class)) {
@@ -154,11 +153,11 @@ public class ExtensionAdditionalLanguageRefsetUpgradeService {
 				.withQuery(bool(b -> b
 						.must(branchCriteria.getEntityBranchCriteria(ReferenceSetMember.class))
 						.must(termQuery(REFSET_ID, languageRefsetId))))
-				.withSourceFilter(new FetchSourceFilter(new String[]{ MEMBER_ID, REFERENCED_COMPONENT_ID, ACTIVE, ACCEPTABILITY_ID_FIELD_PATH, CONCEPT_ID}, null))
+				.withSourceFilter(new FetchSourceFilter(true, new String[]{ MEMBER_ID, REFERENCED_COMPONENT_ID, ACTIVE, ACCEPTABILITY_ID_FIELD_PATH, CONCEPT_ID}, null))
 				.withPageable(LARGE_PAGE);
 		if (lastDependantEffectiveTime != null) {
 			// for roll up upgrade every 6 months for example
-			searchQueryBuilder.withFilter(range().field(EFFECTIVE_TIME).gt(JsonData.of(lastDependantEffectiveTime)).lte(JsonData.of(currentDependantEffectiveTime)).build()._toQuery());
+			searchQueryBuilder.withFilter(RangeQuery.of(r -> r.number(nrq -> nrq.field(EFFECTIVE_TIME).gt((double)lastDependantEffectiveTime).lte((double)currentDependantEffectiveTime)))._toQuery());
 		} else {
 			// for incremental monthly upgrade
 			searchQueryBuilder.withFilter(termQuery(EFFECTIVE_TIME, currentDependantEffectiveTime));

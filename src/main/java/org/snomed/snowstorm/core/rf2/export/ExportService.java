@@ -3,7 +3,7 @@ package org.snomed.snowstorm.core.rf2.export;
 import co.elastic.clients.elasticsearch._types.SortOptions;
 import co.elastic.clients.elasticsearch._types.query_dsl.BoolQuery;
 import co.elastic.clients.elasticsearch._types.query_dsl.Query;
-import co.elastic.clients.json.JsonData;
+import co.elastic.clients.elasticsearch._types.query_dsl.RangeQuery;
 import com.google.common.collect.Sets;
 import io.kaicode.elasticvc.api.BranchCriteria;
 import io.kaicode.elasticvc.api.BranchService;
@@ -351,8 +351,8 @@ public class ExportService {
 		if (startEffectiveTime != null) {
 			contentQuery.must(bool(b -> b
 					.should(bool(bq -> bq.mustNot(existsQuery(SnomedComponent.Fields.EFFECTIVE_TIME))))
-					.should(range().field(SnomedComponent.Fields.EFFECTIVE_TIME)
-							.gte(JsonData.of(Integer.parseInt(startEffectiveTime))).build()._toQuery())));
+					.should(RangeQuery.of(r -> r.number(nrq -> nrq.field(SnomedComponent.Fields.EFFECTIVE_TIME)
+							.gte((double)Integer.parseInt(startEffectiveTime))))._toQuery())));
 		}
 		return contentQuery;
 	}

@@ -27,6 +27,8 @@ import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.data.elasticsearch.client.elc.NativeQuery;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.data.elasticsearch.client.elc.NativeQueryBuilder;
+import org.springframework.data.elasticsearch.core.query.DeleteQuery;
+import org.springframework.data.elasticsearch.core.query.Query;
 import org.springframework.jms.annotation.JmsListener;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -176,7 +178,8 @@ public abstract class AbstractTest {
 	}
 
 	protected void deleteAllQueryConceptsAndRefresh() {
-		NativeQuery deleteQuery = new NativeQueryBuilder().withQuery(new MatchAllQuery.Builder().build()._toQuery()).build();
+		Query query = new NativeQueryBuilder().withQuery(new MatchAllQuery.Builder().build()._toQuery()).build();
+		DeleteQuery deleteQuery = DeleteQuery.builder(query).build();
 		elasticsearchOperations.delete(deleteQuery, QueryConcept.class, elasticsearchOperations.getIndexCoordinatesFor(QueryConcept.class));
 		elasticsearchOperations.indexOps(QueryConcept.class).refresh();
 	}

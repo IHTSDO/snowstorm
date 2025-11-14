@@ -2,7 +2,7 @@ package org.snomed.snowstorm.core.data.services;
 
 import co.elastic.clients.elasticsearch._types.aggregations.AggregationBuilders;
 import co.elastic.clients.elasticsearch._types.aggregations.StringTermsBucket;
-import co.elastic.clients.json.JsonData;
+import co.elastic.clients.elasticsearch._types.query_dsl.RangeQuery;
 import com.google.common.base.Strings;
 import io.kaicode.elasticvc.api.BranchCriteria;
 import io.kaicode.elasticvc.api.BranchService;
@@ -47,8 +47,7 @@ import java.util.function.Function;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
-import static co.elastic.clients.elasticsearch._types.query_dsl.QueryBuilders.bool;
-import static co.elastic.clients.elasticsearch._types.query_dsl.QueryBuilders.range;
+import static co.elastic.clients.elasticsearch._types.query_dsl.QueryBuilders.*;
 import static io.kaicode.elasticvc.api.ComponentService.LARGE_PAGE;
 import static io.kaicode.elasticvc.helper.QueryHelper.*;
 import static java.lang.String.format;
@@ -756,9 +755,9 @@ public class CodeSystemService {
 		SearchHits<Branch> queryBranches = elasticsearchOperations.search(
 				new NativeQueryBuilder()
 						.withQuery(bool(b -> b
-										.must(range(r -> r.field("base").gt(JsonData.of(lowerBound)).lte(JsonData.of(upperBound))).range()._toQuery())
-										.mustNot(existsQuery(Branch.Fields.END)))
-						).withFilter(termsQuery(Branch.Fields.PATH, branchPaths))
+										.must(RangeQuery.of(r -> r.number(nrq -> nrq.field("base").gt((double)lowerBound).lte((double)upperBound)))._toQuery())
+										.mustNot(existsQuery(Branch.Fields.END))))
+						.withFilter(termsQuery(Branch.Fields.PATH, branchPaths))
 						.build(), Branch.class
 		);
 

@@ -231,7 +231,7 @@ public class RelationshipService extends ComponentService {
 
 		return new NativeQueryBuilder()
 				.withQuery(boolQueryBuilder.build()._toQuery())
-				.withSourceFilter(new FetchSourceFilter(new String[]{Relationship.Fields.DESTINATION_ID}, null))
+				.withSourceFilter(new FetchSourceFilter(true, new String[]{Relationship.Fields.DESTINATION_ID}, null))
 				.withPageable(LARGE_PAGE)
 				.build();
 	}
@@ -346,7 +346,7 @@ public class RelationshipService extends ComponentService {
 
 		return new NativeQueryBuilder()
 				.withQuery(boolQueryBuilder.build()._toQuery())
-				.withSourceFilter(new FetchSourceFilter(new String[]{Relationship.Fields.DESTINATION_ID}, null))
+				.withSourceFilter(new FetchSourceFilter(true, new String[]{Relationship.Fields.DESTINATION_ID}, null))
 				.withPageable(LARGE_PAGE)
 				.build();
 	}

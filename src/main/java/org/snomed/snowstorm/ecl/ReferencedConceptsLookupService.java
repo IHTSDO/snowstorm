@@ -56,7 +56,7 @@ public class ReferencedConceptsLookupService {
         // Should exclude conceptIds from the response as it can be a large list
         // Retrieve only for testing or update lookups with conceptIds
         if (!includeConceptIds) {
-            queryBuilder.withSourceFilter(new FetchSourceFilter(null, new String[]{ReferencedConceptsLookup.Fields.CONCEPT_IDS}));
+            queryBuilder.withSourceFilter(new FetchSourceFilter(true, new String[]{ReferencedConceptsLookup.Fields.CONCEPT_IDS}, null));
         }
         queryBuilder.withPageable(LARGE_PAGE);
         SearchHits<ReferencedConceptsLookup> refsetConceptsLookupSearchHits = elasticsearchOperations.search(queryBuilder.build(), ReferencedConceptsLookup.class);

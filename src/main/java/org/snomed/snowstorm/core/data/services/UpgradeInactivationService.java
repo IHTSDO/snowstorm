@@ -69,7 +69,7 @@ public class UpgradeInactivationService {
 				.withQuery(bool(b -> b
 						.must(branchCriteria.getEntityBranchCriteria(Concept.class))
 						.must(termQuery(SnomedComponent.Fields.ACTIVE, false))))
-				.withSourceFilter(new FetchSourceFilter(new String[]{Concept.Fields.CONCEPT_ID}, null))
+				.withSourceFilter(new FetchSourceFilter(true, new String[]{Concept.Fields.CONCEPT_ID}, null))
 				.withPageable(ComponentService.LARGE_PAGE)
 				.build();
 		List<Long> inactiveConceptIds = new LongArrayList();
@@ -95,7 +95,7 @@ public class UpgradeInactivationService {
 
 			NativeQuery descriptionsWithInactivationIndicators = new NativeQueryBuilder()
 					.withQuery(queryDescriptionsWithInactivationIndicators.build()._toQuery())
-					.withSourceFilter(new FetchSourceFilter(new String[]{REFERENCED_COMPONENT_ID}, null))
+					.withSourceFilter(new FetchSourceFilter(true, new String[]{REFERENCED_COMPONENT_ID}, null))
 					.withPageable(ComponentService.LARGE_PAGE)
 					.build();
 
@@ -212,7 +212,7 @@ public class UpgradeInactivationService {
 						.must(termQuery(SnomedComponent.Fields.ACTIVE, true))
 						.must(termsQuery(Concept.Fields.CONCEPT_ID, conceptToAxiomsMap.keySet())))
 				)
-				.withSourceFilter(new FetchSourceFilter(new String[]{Concept.Fields.CONCEPT_ID}, null))
+				.withSourceFilter(new FetchSourceFilter(true, new String[]{Concept.Fields.CONCEPT_ID}, null))
 				.withPageable(ComponentService.LARGE_PAGE);
 		try (SearchHitsIterator<Concept> activeConcepts = elasticsearchOperations.searchForStream(activeConceptsQueryBuilder.build(), Concept.class)) {
 			activeConcepts.forEachRemaining(hit -> activeConceptIds.add(hit.getContent().getConceptIdAsLong()));
@@ -271,7 +271,7 @@ public class UpgradeInactivationService {
 				.withQuery(bool(b -> b
 						.must(branchCriteria.getEntityBranchCriteria(Description.class))))
 				.withFilter(termQuery(ACTIVE, false))
-				.withSourceFilter(new FetchSourceFilter(new String[]{Description.Fields.DESCRIPTION_ID}, null))
+				.withSourceFilter(new FetchSourceFilter(true, new String[]{Description.Fields.DESCRIPTION_ID}, null))
 				.withPageable(ComponentService.LARGE_PAGE);
 
 		try (final SearchHitsIterator<Description> inactiveDescriptions = elasticsearchOperations.searchForStream(searchQueryBuilder.build(), Description.class)) {
