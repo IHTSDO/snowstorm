@@ -1,6 +1,6 @@
 package org.snomed.snowstorm.core.rf2.rf2import;
 
-import co.elastic.clients.json.JsonData;
+import co.elastic.clients.elasticsearch._types.query_dsl.RangeQuery;
 import com.google.common.collect.Sets;
 import io.kaicode.elasticvc.api.BranchCriteria;
 import io.kaicode.elasticvc.api.BranchService;
@@ -196,9 +196,9 @@ public class ImportComponentFactoryImpl extends ImpotentComponentFactory {
 							.must(branchCriteriaBeforeOpenCommit.getEntityBranchCriteria(componentClass))
 							.must(termsQuery(idField, componentsAtDate.stream().map(T::getId).toList()))
 							.must(replacementOfThisEffectiveTimeAllowed ?
-									range().field(SnomedComponent.Fields.EFFECTIVE_TIME).gt(JsonData.of(effectiveTime)).build()._toQuery()
-									: range().field(SnomedComponent.Fields.EFFECTIVE_TIME).gte(JsonData.of(effectiveTime)).build()._toQuery())))
-					.withSourceFilter(new FetchSourceFilter(new String[]{idField}, null))// Only fetch the id
+									RangeQuery.of(r -> r.number(nrq -> nrq.field(SnomedComponent.Fields.EFFECTIVE_TIME).gt((double)effectiveTime)))._toQuery()
+									: RangeQuery.of(r -> r.number(nrq -> nrq.field(SnomedComponent.Fields.EFFECTIVE_TIME).gte((double)effectiveTime)))._toQuery())))
+					.withSourceFilter(new FetchSourceFilter(true, new String[]{idField}, null))// Only fetch the id
 					.withPageable(LARGE_PAGE)
 					.build(), componentClass)) {
 				componentsWithSameOrLaterEffectiveTime.forEachRemaining(hit -> {

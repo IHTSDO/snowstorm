@@ -244,7 +244,7 @@ public class TraceabilityLogService implements CommitListener {
 				try (final SearchHitsIterator<Description> stream = elasticsearchOperations.searchForStream(new NativeQueryBuilder()
 						.withQuery(bool(b -> b.must(descriptionQuery)
 								.must(termsQuery(Description.Fields.DESCRIPTION_ID, descriptionIdsSegment))))
-						.withSourceFilter(new FetchSourceFilter(new String[]{Description.Fields.DESCRIPTION_ID, Description.Fields.CONCEPT_ID}, null))
+						.withSourceFilter(new FetchSourceFilter(true, new String[]{Description.Fields.DESCRIPTION_ID, Description.Fields.CONCEPT_ID}, null))
 						.withPageable(LARGE_PAGE)
 						.build(), Description.class)) {
 					stream.forEachRemaining(hit -> {
@@ -264,7 +264,7 @@ public class TraceabilityLogService implements CommitListener {
 						.withQuery(bool(b -> b
 								.must(relationshipQuery)
 								.must(termsQuery(Relationship.Fields.RELATIONSHIP_ID, relationshipsIdsSegment))))
-						.withSourceFilter(new FetchSourceFilter(new String[]{Relationship.Fields.RELATIONSHIP_ID, Relationship.Fields.SOURCE_ID}, new String[]{}))
+						.withSourceFilter(new FetchSourceFilter(true, new String[]{Relationship.Fields.RELATIONSHIP_ID, Relationship.Fields.SOURCE_ID}, new String[]{}))
 						.withPageable(LARGE_PAGE)
 						.build(), Relationship.class)) {
 					stream.forEachRemaining(hit -> {

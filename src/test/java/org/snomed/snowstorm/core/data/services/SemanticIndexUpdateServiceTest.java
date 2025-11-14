@@ -1,6 +1,6 @@
 package org.snomed.snowstorm.core.data.services;
 
-import co.elastic.clients.json.JsonData;
+import co.elastic.clients.elasticsearch._types.query_dsl.RangeQuery;
 import com.google.common.collect.Lists;
 import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.api.CommitListener;
@@ -1310,7 +1310,7 @@ class SemanticIndexUpdateServiceTest extends AbstractTest {
 		// Assert
 		// No unnecessary semantic index changes are made.
 		SearchHits<QueryConcept> semanticChanges = elasticsearchOperations.search(new NativeQueryBuilder()
-				.withQuery(range().field("start").gte(JsonData.of(now.getTime())).build()._toQuery())
+				.withQuery(RangeQuery.of(r -> r.number(nrq -> nrq.field("start").gte((double)now.getTime())))._toQuery())
 				.build(), QueryConcept.class);
 		assertEquals(0, semanticChanges.getTotalHits());
 
@@ -1324,13 +1324,13 @@ class SemanticIndexUpdateServiceTest extends AbstractTest {
 
 		// When
 		// Version content
-		now = new Date();
+		Date now2 = new Date();
 		codeSystemService.createVersion(codeSystemService.find(CodeSystemService.SNOMEDCT), 20210201, "");
 
 		// Assert
 		// No unnecessary semantic index changes are made.
 		semanticChanges = elasticsearchOperations.search(new NativeQueryBuilder()
-				.withQuery(range().field("start").gte(JsonData.of(now.getTime())).build()._toQuery())
+				.withQuery(RangeQuery.of(r -> r.number(nrq -> nrq.field("start").gte((double)now2.getTime())))._toQuery())
 				.build(), QueryConcept.class);
 		assertEquals(0, semanticChanges.getTotalHits());
 	}

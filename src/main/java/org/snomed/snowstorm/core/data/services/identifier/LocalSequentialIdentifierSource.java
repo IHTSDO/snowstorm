@@ -157,7 +157,7 @@ public class LocalSequentialIdentifierSource implements IdentifierSource {
 
 	private SortOptions scriptSortByIdLengthInDesc(String idField) {
 		return SortOptions.of(s -> s.script(ScriptSort.of(b -> b.type(ScriptSortType.Number)
-				.script(sb -> sb.inline(InlineScript.of(is -> is.source(String.format("doc['%s'].value.length()", idField)))))
+				.script(sb -> sb.source(String.format("doc['%s'].value.length()", idField)))
 				.order(SortOrder.Desc))));
 	}
 }

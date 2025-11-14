@@ -2,7 +2,7 @@ package org.snomed.snowstorm.ecl;
 
 import co.elastic.clients.elasticsearch._types.query_dsl.BoolQuery;
 import co.elastic.clients.elasticsearch._types.query_dsl.Query;
-import co.elastic.clients.json.JsonData;
+import co.elastic.clients.elasticsearch._types.query_dsl.RangeQuery;
 import io.kaicode.elasticvc.api.BranchCriteria;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 import it.unimi.dsi.fastutil.longs.LongArraySet;
@@ -221,7 +221,7 @@ public class ECLContentService {
 		NativeQueryBuilder queryBuilder = new NativeQueryBuilder()
 				.withQuery(superQueryBuilder.build()._toQuery())
 				.withFilter(termsQuery(Concept.Fields.CONCEPT_ID, conceptIdsToFilter))
-				.withSourceFilter(new FetchSourceFilter(new String[]{Concept.Fields.CONCEPT_ID}, null))
+				.withSourceFilter(new FetchSourceFilter(true, new String[]{Concept.Fields.CONCEPT_ID}, null))
 				.withPageable(LARGE_PAGE);
 		Set<Long> conceptIds = new LongOpenHashSet();
 		try (SearchHitsIterator<Concept> stream = elasticsearchOperations.searchForStream(queryBuilder.build(), Concept.class)) {
@@ -313,22 +313,22 @@ public class ECLContentService {
             case NOT_EQUAL -> query.mustNot(termsQuery(field, values));
             case LESS_THAN_OR_EQUAL -> {
                 for (Number effectiveTime : values) {
-                    query.must(range().field(field).lte(JsonData.of(effectiveTime)).build()._toQuery());
+                    query.must(RangeQuery.of(r -> r.number(nrq -> nrq.field(field).lte(effectiveTime.doubleValue())))._toQuery());
                 }
             }
             case LESS_THAN -> {
                 for (Number effectiveTime : values) {
-                    query.must(range().field(field).lt(JsonData.of(effectiveTime)).build()._toQuery());
+                    query.must(RangeQuery.of(r -> r.number(nrq -> nrq.field(field).lt(effectiveTime.doubleValue())))._toQuery());
                 }
             }
             case GREATER_THAN_OR_EQUAL -> {
                 for (Number effectiveTime : values) {
-                    query.must(range().field(field).gte(JsonData.of(effectiveTime)).build()._toQuery());
+                    query.must(RangeQuery.of(r -> r.number(nrq -> nrq.field(field).gte(effectiveTime.doubleValue())))._toQuery());
                 }
             }
             case GREATER_THAN -> {
                 for (Number effectiveTime : values) {
-                    query.must(range().field(field).gt(JsonData.of(effectiveTime)).build()._toQuery());
+                    query.must(RangeQuery.of(r -> r.number(nrq -> nrq.field(field).gt(effectiveTime.doubleValue())))._toQuery());
                 }
             }
         }
@@ -345,7 +345,7 @@ public class ECLContentService {
 						.must(termQuery(ACTIVE, true))
 						.must(termsQuery(ReferenceSetMember.Fields.REFSET_ID, associationTypes))))
 				.withFilter(termsQuery(ReferenceSetMember.Fields.ADDITIONAL_FIELDS_PREFIX + ReferenceSetMember.AssociationFields.TARGET_COMP_ID, initialConcepts))
-				.withSourceFilter(new FetchSourceFilter(new String[]{ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID}, null))
+				.withSourceFilter(new FetchSourceFilter(true, new String[]{ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID}, null))
 				.withPageable(LARGE_PAGE);
 
 		Set<Long> conceptIds = new LongOpenHashSet();

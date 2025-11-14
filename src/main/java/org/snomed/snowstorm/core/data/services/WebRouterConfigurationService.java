@@ -13,7 +13,7 @@ import java.util.*;
  * primarily for resolution of URIs based on SCTID (with optional module
  * and effective date) and routed to some service based on HTTP
  * accept headers.
- * @see docs/WebRouterConfiguration.md
+ * See docs/webrouter-configuration.md for more details.
  */
 public class WebRouterConfigurationService {
 	

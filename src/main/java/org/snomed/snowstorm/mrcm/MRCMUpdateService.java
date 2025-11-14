@@ -253,7 +253,7 @@ public class MRCMUpdateService extends ComponentService implements CommitListene
 						)
 				)
 				.withPageable(LARGE_PAGE)
-				.withSourceFilter(new FetchSourceFilter(new String[]{ReferenceSetMember.Fields.MEMBER_ID}, null))
+				.withSourceFilter(new FetchSourceFilter(true, new String[]{ReferenceSetMember.Fields.MEMBER_ID}, null))
 				.build(), ReferenceSetMember.class)) {
 			mrcmMembers.forEachRemaining(hit -> result.add(hit.getContent().getMemberId()));
 		}

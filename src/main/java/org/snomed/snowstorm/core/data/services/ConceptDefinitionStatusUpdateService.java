@@ -105,7 +105,7 @@ public class ConceptDefinitionStatusUpdateService extends ComponentService imple
 				.must(termQuery(ReferenceSetMember.Fields.ACTIVE, true)));
 		try (final SearchHitsIterator<ReferenceSetMember> allActiveAxioms = elasticsearchOperations.searchForStream(new NativeQueryBuilder()
 				.withQuery(must)
-				.withSourceFilter(new FetchSourceFilter(new String[]{ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID}, null))
+				.withSourceFilter(new FetchSourceFilter(true, new String[]{ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID}, null))
 				.withPageable(ConceptService.LARGE_PAGE).build(), ReferenceSetMember.class)) {
 
 			allActiveAxioms.forEachRemaining(hit -> result.add(Long.parseLong(hit.getContent().getReferencedComponentId())));
@@ -126,7 +126,7 @@ public class ConceptDefinitionStatusUpdateService extends ComponentService imple
 		}
 		try (final SearchHitsIterator<ReferenceSetMember> changedAxioms = elasticsearchOperations.searchForStream(new NativeQueryBuilder()
 				.withQuery(builder.build()._toQuery())
-				.withSourceFilter(new FetchSourceFilter(new String[]{ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID}, null))
+				.withSourceFilter(new FetchSourceFilter(true, new String[]{ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID}, null))
 				.withPageable(ConceptService.LARGE_PAGE).build(), ReferenceSetMember.class)) {
 
 			changedAxioms.forEachRemaining(hit -> result.add(Long.parseLong(hit.getContent().getReferencedComponentId())));
@@ -143,7 +143,7 @@ public class ConceptDefinitionStatusUpdateService extends ComponentService imple
 						.must(termQuery(ReferenceSetMember.Fields.REFSET_ID, Concepts.OWL_AXIOM_REFERENCE_SET)))
 				)
 				.withPageable(ConceptService.LARGE_PAGE)
-				.withSourceFilter(new FetchSourceFilter(new String[]{ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID}, null))
+				.withSourceFilter(new FetchSourceFilter(true, new String[]{ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID}, null))
 				.build();
 		try (final SearchHitsIterator<ReferenceSetMember> axioms = elasticsearchOperations.searchForStream(query, ReferenceSetMember.class)) {
 				axioms.forEachRemaining(hit -> result.add(Long.parseLong(hit.getContent().getReferencedComponentId())));
