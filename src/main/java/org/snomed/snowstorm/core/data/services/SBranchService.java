@@ -102,7 +102,7 @@ public class SBranchService {
 		NativeQueryBuilder queryBuilder = new NativeQueryBuilder()
 				.withQuery(bool(bq -> bq
 						.must(termQuery("path", path))
-						.must(RangeQuery.of(r -> r.number(nrq -> nrq.field("start").gte((double)timestamp.getTime())))._toQuery())))
+						.must(RangeQuery.of(r -> r.date(nrq -> nrq.field("start").gte(String.valueOf(timestamp.getTime()))))._toQuery())))
 				.withSourceFilter(new FetchSourceFilter(true, new String[]{"path", "start", "end", "head", "base", "locked"}, null))
 				.withSort(s -> s.field(fb -> fb.field("start")))
 				.withPageable(pageable);
@@ -215,7 +215,7 @@ public class SBranchService {
 			NativeQuery query = new NativeQueryBuilder().withQuery(
 					bool(bq -> bq
 							.must(termQuery("path", branchPath))
-							.must(RangeQuery.of(r -> r.number(nrq -> nrq.field("start").gt((double)latestCompleteCommit.getStart().getTime())))._toQuery())))
+							.must(RangeQuery.of(r -> r.date(nrq -> nrq.field("start").gt(String.valueOf(latestCompleteCommit.getStart().getTime()))))._toQuery())))
 					.build();
 			List<? extends DomainEntity<?>> domainEntities = elasticsearchOperations.search(query, entityType).stream().map(SearchHit::getContent).toList();
 			if (!domainEntities.isEmpty()) {

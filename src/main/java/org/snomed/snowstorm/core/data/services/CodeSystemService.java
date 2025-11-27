@@ -755,7 +755,7 @@ public class CodeSystemService {
 		SearchHits<Branch> queryBranches = elasticsearchOperations.search(
 				new NativeQueryBuilder()
 						.withQuery(bool(b -> b
-										.must(RangeQuery.of(r -> r.number(nrq -> nrq.field("base").gt((double)lowerBound).lte((double)upperBound)))._toQuery())
+										.must(RangeQuery.of(r -> r.date(nrq -> nrq.field("base").gt(String.valueOf(lowerBound)).lte(String.valueOf(upperBound))))._toQuery())
 										.mustNot(existsQuery(Branch.Fields.END))))
 						.withFilter(termsQuery(Branch.Fields.PATH, branchPaths))
 						.build(), Branch.class
