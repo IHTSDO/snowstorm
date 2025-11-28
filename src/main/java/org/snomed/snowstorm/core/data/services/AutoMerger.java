@@ -269,6 +269,7 @@ public class AutoMerger {
                 mergedDescription.copyReleaseDetails(sourceDescription);
 
                 mergedDescription.setActive(getValueChanged(targetDescriptionOld.isActive(), targetDescriptionNew.isActive(), sourceDescription.isActive()));
+                mergedDescription.setInactivationIndicator(getValueChanged(targetDescriptionOld.getInactivationIndicator(), targetDescriptionNew.getInactivationIndicator(), sourceDescription.getInactivationIndicator()));
                 mergedDescription.setModuleId(getValueChanged(targetDescriptionOld.getModuleId(), targetDescriptionNew.getModuleId(), sourceDescription.getModuleId()));
                 mergedDescription.setTerm(getValueChanged(targetDescriptionOld.getTerm(), targetDescriptionNew.getTerm(), sourceDescription.getTerm()));
                 mergedDescription.setCaseSignificanceId(getValueChanged(targetDescriptionOld.getCaseSignificanceId(), targetDescriptionNew.getCaseSignificanceId(), sourceDescription.getCaseSignificanceId()));
