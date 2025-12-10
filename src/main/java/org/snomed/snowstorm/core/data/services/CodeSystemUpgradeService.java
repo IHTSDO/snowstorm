@@ -69,7 +69,7 @@ public class CodeSystemUpgradeService {
 		this.executorService = executorService;
 		this.moduleDependencyService = moduleDependencyService;
 		this.codeSystemVersionService = codeSystemVersionService;
-		
+
 		Timer timer = new Timer();
 
 		// Schedules the specified task for repeated fixed-delay execution
@@ -163,10 +163,11 @@ public class CodeSystemUpgradeService {
 			CodeSystem parentCodeSystem = result.getParentCodeSystem();
 			branchMergeService.rebaseToSpecificTimepointAndRemoveDuplicateContent(parentPath, newParentBaseTimepoint, branchPath, String.format("Upgrading extension to %s@%s.", parentPath, newParentVersion.getVersion()));
 			logger.info("Completed rebase of {} to {} version {}.", codeSystem, parentCodeSystem, newDependantVersion);
+            // Update MDRS TARGET_EFFECTIVE_TIME to reflect new International dependent version
+            moduleDependencyService.setTargetEffectiveTime(branchPath, newDependantVersion);
 
 			if (contentAutomations) {
 				logger.info("Running upgrade content automations on {}.", branchPath);
-				moduleDependencyService.setTargetEffectiveTime(branchPath, newDependantVersion);
 				upgradeInactivationService.findAndUpdateDescriptionsInactivation(codeSystem);
 				upgradeInactivationService.findAndUpdateLanguageRefsets(codeSystem);
 				upgradeInactivationService.findAndUpdateAdditionalAxioms(codeSystem);
@@ -254,14 +255,14 @@ public class CodeSystemUpgradeService {
 		Set<CodeSystem> additionalCodeSystems = dependentCodeSystems.stream()
 			.filter(additional -> !additional.equals(parentCodeSystem))
 			.collect(Collectors.toSet());
-		
+
 		if (additionalCodeSystems.isEmpty()) {
 			return; // No additional dependencies to check
 		}
-		
+
 		// Use the existing findCompatibleVersions method
 		List<Integer> compatibleVersions = codeSystemVersionService.findCompatibleVersions(additionalCodeSystems, newDependantVersion);
-		
+
 		if (compatibleVersions.isEmpty()) {
 			// No compatible versions found - upgrade is blocked
 			List<String> missingDeps = additionalCodeSystems.stream()
@@ -269,7 +270,7 @@ public class CodeSystemUpgradeService {
 				.toList();
 			throwUpgradeBlockedException(newDependantVersion, missingDeps, job);
 		}
-		
+
 		// Check if the requested version is compatible
 		if (!compatibleVersions.contains(newDependantVersion)) {
 			// Requested version not compatible, but there are other compatible versions
