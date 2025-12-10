@@ -174,7 +174,7 @@ public class ReleaseImportService {
                     if (dependency.getEffectiveTime() <= codeSystem.getDependantVersionEffectiveTime()) return;
                     logger.info("Upgrade the code system {} with dependency version {}", codeSystem.getShortName(), dependency.getEffectiveTime());
                     codeSystemUpgradeService.upgrade(codeSystem.getShortName(), dependency.getEffectiveTime(), false); // Use the method upgrade(String,Integer,boolean) to bypass the security check
-                    Branch extensionBranch = branchService.findLatest(codeSystem.getShortName());
+                    Branch extensionBranch = branchService.findLatest(codeSystem.getBranchPath());
                     IntegrityIssueReport integrityReport = integrityService.findChangedComponentsWithBadIntegrityNotFixed(extensionBranch);
                     if (!integrityReport.isEmpty()) {
                         sBranchService.rollbackCommit(codeSystem.getBranchPath(), branchHeadTimestamp);
