@@ -311,24 +311,87 @@ public class ModuleDependencyService extends ComponentService {
 	}
 
 	public Map<String, String> getCodeSystemBranchByModuleId(Set<String> moduleIds) {
-		// Fetch the CodeSystem branch for a given module id using module dependency reference set
-		Map<String, String> results = new HashMap<>();
+		// Fetch the CodeSystem branch for a given module id using module dependency reference set.
+		// When the same module id appears in multiple code system branches, prefer the parent
+		// code system branch (for example MAIN over MAIN/SNOMEDCT-XX).
 
-		try (SearchHitsIterator<ReferenceSetMember> hits = elasticsearchOperations.searchForStream(new NativeQueryBuilder()
-				.withQuery(bool(bq -> bq
-						.must(termQuery(SnomedComponent.Fields.ACTIVE, true))
-						.mustNot(existsQuery(SnomedComponent.Fields.END))
-						.must(termsQuery(SnomedComponent.Fields.MODULE_ID, moduleIds))
-						.must(termQuery(ReferenceSetMember.Fields.REFSET_ID, Concepts.MODULE_DEPENDENCY_REFERENCE_SET)))
-				).withSort(SortOptions.of(s -> s.field(f -> f.field(START).order(SortOrder.Desc))))
-				.withPageable(LARGE_PAGE)
-				.build(), ReferenceSetMember.class)) {
-			// Skip MDRS entries that have been imported into MAIN previously such as derivative products
-			// Sorting by start date in descending order
-			hits.forEachRemaining(hit -> results.putIfAbsent(hit.getContent().getModuleId(), hit.getContent().getPath())
-			);
+		// Collect all MDRS entries grouped by module id and code system branch.
+		// For each module+branch combination we keep the most recent entry using the START sort order.
+		Map<String, Map<String, ReferenceSetMember>> moduleToBranchEntry = new HashMap<>();
+
+		try (SearchHitsIterator<ReferenceSetMember> hits = elasticsearchOperations.searchForStream(
+				new NativeQueryBuilder()
+						.withQuery(bool(bq -> bq
+								.must(termQuery(SnomedComponent.Fields.ACTIVE, true))
+								.mustNot(existsQuery(SnomedComponent.Fields.END))
+								.must(termsQuery(SnomedComponent.Fields.MODULE_ID, moduleIds))
+								.must(termQuery(ReferenceSetMember.Fields.REFSET_ID, Concepts.MODULE_DEPENDENCY_REFERENCE_SET))))
+						.withSort(SortOptions.of(s -> s.field(f -> f.field(START).order(SortOrder.Desc))))
+						.withPageable(LARGE_PAGE)
+						.build(), ReferenceSetMember.class)) {
+
+			hits.forEachRemaining(hit -> {
+				ReferenceSetMember member = hit.getContent();
+				String moduleId = member.getModuleId();
+				if (moduleId == null) {
+					return;
+				}
+				// Only consider MDRS members which are directly on a code system branch,
+				// not on project or task branches.
+				String path = member.getPath();
+				if (!SPathUtil.isCodeSystemBranch(path)) {
+					return;
+				}
+				// Preserve first (most recent) entry per module+branch using insertion-order map.
+				moduleToBranchEntry
+						.computeIfAbsent(moduleId, k -> new LinkedHashMap<>())
+						.putIfAbsent(path, member);
+			});
 		}
+
+		// Resolve one code system branch per module id, preferring parent branches where applicable.
+		Map<String, String> results = new HashMap<>();
+		moduleToBranchEntry.forEach((moduleId, branchToMember) -> {
+			String selectedBranch = selectPreferredCodeSystemBranch(branchToMember.keySet());
+			if (selectedBranch != null) {
+				results.put(moduleId, selectedBranch);
+			}
+		});
 		return results;
+	}
+
+	private String selectPreferredCodeSystemBranch(Set<String> branches) {
+		if (branches == null || branches.isEmpty()) {
+			return null;
+		}
+		if (branches.size() == 1) {
+			return branches.iterator().next();
+		}
+		
+		// Convert to list to maintain insertion order (most recent first from LinkedHashMap)
+		List<String> branchList = new ArrayList<>(branches);
+		String preferred = branchList.get(0);
+		
+		for (int i = 1; i < branchList.size(); i++) {
+			String branch = branchList.get(i);
+			if (isAncestor(branch, preferred)) {
+				preferred = branch;
+			}
+		}
+		return preferred;
+	}
+
+	private boolean isAncestor(String possibleAncestor, String branch) {
+		if (possibleAncestor == null || branch == null || possibleAncestor.equals(branch)) {
+			return false;
+		}
+		String parent = branch;
+		while ((parent = PathUtil.getParentPath(parent)) != null) {
+			if (possibleAncestor.equals(parent)) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	/**
@@ -370,7 +433,7 @@ public class ModuleDependencyService extends ComponentService {
 	public List<DependencyInfo> getAllDependencies(CodeSystem currentCodeSystem) {
 		BranchCriteria branchCriteria = versionControlHelper.getChangesOnBranchCriteria(currentCodeSystem.getBranchPath());
 		Set<ReferenceSetMember> allMdrsMembers = fetchMdrsMembers(branchCriteria);
-		
+
 		// Map ReferencedComponentId to target effective time
 		Map<String, String> moduleIdToTargetEffectiveTime = allMdrsMembers.stream()
 			.filter(member -> member.getAdditionalField(ReferenceSetMember.MDRSFields.TARGET_EFFECTIVE_TIME) != null)
@@ -379,7 +442,7 @@ public class ModuleDependencyService extends ComponentService {
 				member -> member.getAdditionalField(ReferenceSetMember.MDRSFields.TARGET_EFFECTIVE_TIME),
 				(existing, replacement) -> existing // Handle duplicate keys by keeping existing value
 			));
-		
+
 		Set<String> moduleIds = allMdrsMembers.stream().map(ReferenceSetMember::getReferencedComponentId).collect(Collectors.toSet());
 
 		Map<String, String> codeSystemBranchByModuleId = getCodeSystemBranchByModuleId(moduleIds);
@@ -393,10 +456,10 @@ public class ModuleDependencyService extends ComponentService {
 					.map(Map.Entry::getKey)
 					.findFirst()
 					.orElse(null);
-				
-				String targetEffectiveTime = moduleId != null ? 
+
+				String targetEffectiveTime = moduleId != null ?
 					moduleIdToTargetEffectiveTime.getOrDefault(moduleId, "Unknown") : "Unknown";
-				
+
 				results.add(new DependencyInfo(cs.getShortName(), targetEffectiveTime));
 			}
 		});

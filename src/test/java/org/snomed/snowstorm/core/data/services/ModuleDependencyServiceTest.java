@@ -716,4 +716,33 @@ class ModuleDependencyServiceTest extends AbstractTest {
 		assertEquals("MAIN/SNOMEDCT-XX", results.get(extensionModuleId));
 	}
 
+	@Test
+	void getCodeSystemBranchByModuleId_coreModuleMdrsOnExtensionPrefersMain() {
+		// Create International CodeSystem with CORE_MODULE MDRS on MAIN
+		CodeSystem main = codeSystemService.createCodeSystem(new CodeSystem("SNOMEDCT", "MAIN"));
+		ReferenceSetMember coreMdrsMain = new ReferenceSetMember();
+		coreMdrsMain.setModuleId(CORE_MODULE);
+		coreMdrsMain.setReferencedComponentId(MODEL_MODULE);
+		coreMdrsMain.setActive(true);
+		coreMdrsMain.setRefsetId(Concepts.MODULE_DEPENDENCY_REFERENCE_SET);
+		coreMdrsMain.setAdditionalField(ReferenceSetMember.MDRSFields.SOURCE_EFFECTIVE_TIME, "");
+		coreMdrsMain.setAdditionalField(ReferenceSetMember.MDRSFields.TARGET_EFFECTIVE_TIME, "");
+		referenceSetMemberService.createMember("MAIN", coreMdrsMain);
+		codeSystemService.createVersion(main, 20250101, "20250321 International release");
+
+		// Create an extension CodeSystem with imported CORE_MODULE MDRS
+		CodeSystem extension = codeSystemService.createCodeSystem(new CodeSystem("SNOMEDCT-XX", "MAIN/SNOMEDCT-XX"));
+		ReferenceSetMember coreMdrsOnExtension = new ReferenceSetMember();
+		coreMdrsOnExtension.setModuleId(CORE_MODULE);
+		coreMdrsOnExtension.setReferencedComponentId(MODEL_MODULE);
+		coreMdrsOnExtension.setActive(true);
+		coreMdrsOnExtension.setRefsetId(Concepts.MODULE_DEPENDENCY_REFERENCE_SET);
+		coreMdrsOnExtension.setAdditionalField(ReferenceSetMember.MDRSFields.SOURCE_EFFECTIVE_TIME, "");
+		coreMdrsOnExtension.setAdditionalField(ReferenceSetMember.MDRSFields.TARGET_EFFECTIVE_TIME, "20250101");
+		referenceSetMemberService.createMember(extension.getBranchPath(), coreMdrsOnExtension);
+
+		Map<String, String> results = mdService.getCodeSystemBranchByModuleId(Set.of(CORE_MODULE));
+		assertEquals("MAIN", results.get(CORE_MODULE));
+	}
+
 }
