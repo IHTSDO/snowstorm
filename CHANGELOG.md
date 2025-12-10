@@ -3,6 +3,14 @@ All notable changes to this project will be documented in this file.
 
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 10.10.1 Release (December 2025)
+Maintenance release with bug fixes and general improvements.
+
+- ### Improvements
+- MAINT-2976 Use branchPath to update MDRS target effective time during CodeSystem upgrade
+- MAINT-2977 Use parent CodeSystem branch instead when MDRS entries exist on extension branches
+- MAINT-2978 Always update MDRS target effective time, even when content automations are disabled
+
 ## 10.10.0 Release (November 2025)
 Maintenance release with bug fixes and general improvements.
 
