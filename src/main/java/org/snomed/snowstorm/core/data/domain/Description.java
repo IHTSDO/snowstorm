@@ -513,6 +513,7 @@ public class Description extends SnomedComponent<Description> implements SnomedC
 	public void clone(Description description) {
 		setDescriptionId(description.getDescriptionId());
 		setActive(description.isActive());
+		setInactivationIndicator(description.getInactivationIndicator());
 		setTerm(description.getTerm());
 		setConceptId(description.getConceptId());
 		setEffectiveTimeI(description.getEffectiveTimeI());
