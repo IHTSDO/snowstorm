@@ -6,13 +6,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 ## 10.10.1 Release (December 2025)
 Maintenance release with bug fixes and general improvements.
 
-- ### Improvements
-- MAINT-2976 Use branchPath to update MDRS target effective time during CodeSystem upgrade
-- MAINT-2977 Use parent CodeSystem branch instead when MDRS entries exist on extension branches
-- MAINT-2978 Always update MDRS target effective time, even when content automations are disabled
-
-## 10.10.0 Release (November 2025)
-Maintenance release with bug fixes and general improvements.
+This release added support for multiple code system dependencies. See [multiple code system dependencies](docs/multiple-code-system-dependencies.md).
 
 ### Features
 - MAINT-2089 Add ability to read content from multiple CodeSystems
@@ -21,6 +15,9 @@ Maintenance release with bug fixes and general improvements.
 - BROWSE-809 Add read-only access
 
 ### Improvements
+- MAINT-2976 Use branchPath to update MDRS target effective time during CodeSystem upgrade
+- MAINT-2977 Use parent CodeSystem branch instead when MDRS entries exist on extension branches
+- MAINT-2978 Always update MDRS target effective time, even when content automations are disabled
 - MAINT-2657 Include MDRS entries when exporting for classification
 - PIP-836 Address CVE-2025-27533
 - PIP-856 Address CVE-2025-50151
