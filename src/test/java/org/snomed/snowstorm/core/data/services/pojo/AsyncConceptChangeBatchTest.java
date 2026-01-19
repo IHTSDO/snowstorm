@@ -2,7 +2,7 @@ package org.snomed.snowstorm.core.data.services.pojo;
 
 import org.junit.jupiter.api.Test;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 
 class AsyncConceptChangeBatchTest {
 

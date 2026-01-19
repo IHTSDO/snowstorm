@@ -1,6 +1,5 @@
 package org.snomed.snowstorm.core.data.services.identifier;
 
-import org.junit.Assert;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -13,6 +12,8 @@ import org.snomed.snowstorm.core.data.services.ServiceException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
+
+import static org.junit.jupiter.api.Assertions.*;
 
 @ExtendWith(SpringExtension.class)
 @ContextConfiguration(classes = TestConfig.class)
@@ -38,33 +39,33 @@ class IdentifierCacheManagerTest extends AbstractTest {
 	
 	@Test
 	void testTopUp() throws ServiceException, InterruptedException {
-		Assert.assertEquals(0, testCache.identifiersAvailable());
+		assertEquals(0, testCache.identifiersAvailable());
 		
 		//Since the cache is below critical level, asking for identifiers will trigger a top up + additional required
 		IdentifierReservedBlock reservedBlock = new IdentifierReservedBlock(0);
 		cacheManager.populateIdBlock(reservedBlock, TEST_DEMAND, TEST_NAMESPACE, TEST_PARTITION);
-		Assert.assertEquals(TEST_DEMAND, reservedBlock.size(ComponentType.Concept));
-		Assert.assertEquals(TEST_CAPACITY, testCache.identifiersAvailable());
+		assertEquals(TEST_DEMAND, reservedBlock.size(ComponentType.Concept));
+		assertEquals(TEST_CAPACITY, testCache.identifiersAvailable());
 		
 		//Now take us down to above top up level and prove it remains constant
 		int reduction = TEST_CAPACITY - (int)(TEST_CAPACITY * IdentifierCacheManager.topUpLevel);
 		cacheManager.populateIdBlock(reservedBlock, reduction, TEST_NAMESPACE, TEST_PARTITION);
-		Assert.assertEquals(reduction + TEST_DEMAND, reservedBlock.size(ComponentType.Concept));
+		assertEquals(reduction + TEST_DEMAND, reservedBlock.size(ComponentType.Concept));
 		int expectedLevel = TEST_CAPACITY - reduction;
-		Assert.assertEquals(expectedLevel, testCache.identifiersAvailable());
+		assertEquals(expectedLevel, testCache.identifiersAvailable());
 		
 		//Now drop below top up level and check we top up to capacity
 		reduction = TEST_DEMAND + testCache.identifiersAvailable() - (int)(TEST_CAPACITY * IdentifierCacheManager.topUpLevel);
 		cacheManager.populateIdBlock(reservedBlock, reduction, TEST_NAMESPACE, TEST_PARTITION);
 		expectedLevel -= reduction;
-		Assert.assertEquals(expectedLevel, testCache.identifiersAvailable());
+		assertEquals(expectedLevel, testCache.identifiersAvailable());
 		cacheManager.checkTopUpRequired();
-		Assert.assertEquals(TEST_CAPACITY, testCache.identifiersAvailable());
+		assertEquals(TEST_CAPACITY, testCache.identifiersAvailable());
 		
 		//And check we've got a valid concept id.  
 		//The dummy service does know how to work with partition ids and check digits
 		Long sctid = reservedBlock.getNextId(ComponentType.Concept);
-		Assert.assertNull(IdentifierService.isValidId(sctid.toString(), ComponentType.Concept));
+		assertNull(IdentifierService.isValidId(sctid.toString(), ComponentType.Concept));
 	}
 
 	@Test
@@ -84,9 +85,9 @@ class IdentifierCacheManagerTest extends AbstractTest {
 		int secondRunIdentifiersAvailableAfter = cache.identifiersAvailable();
 
 		//then
-		Assert.assertEquals(firstRunIdentifiersAvailable, 0); //Cache is empty on first run
-		Assert.assertTrue(secondRunIdentifiersAvailableBefore > firstRunIdentifiersAvailable && secondRunIdentifiersAvailableAfter > firstRunIdentifiersAvailable); //Cache is populated
-		Assert.assertEquals(secondRunIdentifiersAvailableAfter, secondRunIdentifiersAvailableBefore - 1); //Cache has had identifier removed for this test
+		assertEquals(0, firstRunIdentifiersAvailable); //Cache is empty on first run
+		assertTrue(secondRunIdentifiersAvailableBefore > firstRunIdentifiersAvailable && secondRunIdentifiersAvailableAfter > firstRunIdentifiersAvailable); //Cache is populated
+		assertEquals(secondRunIdentifiersAvailableAfter, secondRunIdentifiersAvailableBefore - 1); //Cache has had identifier removed for this test
 	}
 
 	@Test
@@ -106,9 +107,9 @@ class IdentifierCacheManagerTest extends AbstractTest {
 		int secondRunIdentifiersAvailableAfter = cache.identifiersAvailable();
 
 		//then
-		Assert.assertEquals(firstRunIdentifiersAvailable, 0); //Cache is empty on first run
-		Assert.assertTrue(secondRunIdentifiersAvailableBefore > firstRunIdentifiersAvailable && secondRunIdentifiersAvailableAfter > firstRunIdentifiersAvailable); //Cache is populated
-		Assert.assertEquals(secondRunIdentifiersAvailableAfter, secondRunIdentifiersAvailableBefore - 1); //Cache has had identifier removed for this test
+		assertEquals(firstRunIdentifiersAvailable, 0); //Cache is empty on first run
+		assertTrue(secondRunIdentifiersAvailableBefore > firstRunIdentifiersAvailable && secondRunIdentifiersAvailableAfter > firstRunIdentifiersAvailable); //Cache is populated
+		assertEquals(secondRunIdentifiersAvailableAfter, secondRunIdentifiersAvailableBefore - 1); //Cache has had identifier removed for this test
 	}
 
 	@Test
@@ -128,9 +129,9 @@ class IdentifierCacheManagerTest extends AbstractTest {
 		int secondRunIdentifiersAvailableAfter = cache.identifiersAvailable();
 
 		//then
-		Assert.assertEquals(firstRunIdentifiersAvailable, 0); //Cache is empty on first run
-		Assert.assertTrue(secondRunIdentifiersAvailableBefore > firstRunIdentifiersAvailable && secondRunIdentifiersAvailableAfter > firstRunIdentifiersAvailable); //Cache is populated
-		Assert.assertEquals(secondRunIdentifiersAvailableAfter, secondRunIdentifiersAvailableBefore - 1); //Cache has had identifier removed for this test
+		assertEquals(0, firstRunIdentifiersAvailable); //Cache is empty on first run
+		assertTrue(secondRunIdentifiersAvailableBefore > firstRunIdentifiersAvailable && secondRunIdentifiersAvailableAfter > firstRunIdentifiersAvailable); //Cache is populated
+		assertEquals(secondRunIdentifiersAvailableAfter, secondRunIdentifiersAvailableBefore - 1); //Cache has had identifier removed for this test
 	}
 
 	@Test

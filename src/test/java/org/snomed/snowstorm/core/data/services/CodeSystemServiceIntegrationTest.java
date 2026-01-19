@@ -22,8 +22,7 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.util.*;
 
-import static org.junit.Assert.*;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.*;
 import static org.snomed.snowstorm.core.data.domain.Concepts.*;
 import static org.snomed.snowstorm.core.data.services.BranchMetadataKeys.DEPENDENCY_PACKAGE;
 import static org.snomed.snowstorm.core.data.services.BranchMetadataKeys.DEPENDENCY_RELEASE;
@@ -94,7 +93,8 @@ class CodeSystemServiceIntegrationTest extends AbstractTest {
 
 		IntegrityIssueReport componentsWithBadIntegrityOnExtension = integrityService.findAllComponentsWithBadIntegrity(
 				branchService.findLatest(extensionCodeSystem.getBranchPath()), true);
-		assertTrue("Integrity report should be empty: " + componentsWithBadIntegrityOnExtension.toString(), componentsWithBadIntegrityOnExtension.isEmpty());
+		assertTrue(componentsWithBadIntegrityOnExtension.isEmpty(),
+				"Integrity report should be empty: " + componentsWithBadIntegrityOnExtension.toString());
 
 		// Extension concept 18736003 should be in the extension module
 		assertEquals("900101001", conceptService.find("18736003", "MAIN/SNOMEDCT-BE").getModuleId());
@@ -108,7 +108,8 @@ class CodeSystemServiceIntegrationTest extends AbstractTest {
 		// Integrity check still be clean
 		componentsWithBadIntegrityOnExtension = integrityService.findAllComponentsWithBadIntegrity(
 				branchService.findLatest(extensionCodeSystem.getBranchPath()), true);
-		assertTrue("Integrity report should be empty: " + componentsWithBadIntegrityOnExtension.toString(), componentsWithBadIntegrityOnExtension.isEmpty());
+		assertTrue(componentsWithBadIntegrityOnExtension.isEmpty(),
+				"Integrity report should be empty: " + componentsWithBadIntegrityOnExtension.toString());
 
 		// Extension concept 18736003 has now been donated so has the international module.
 		assertEquals("900000000000207008", conceptService.find("18736003", "MAIN/SNOMEDCT-BE").getModuleId());
@@ -135,7 +136,8 @@ class CodeSystemServiceIntegrationTest extends AbstractTest {
 
 		// Check integrity of international dummy content
 		IntegrityIssueReport componentsWithBadIntegrityOnMAIN = integrityService.findAllComponentsWithBadIntegrity(branchService.findLatest("MAIN"), true);
-		assertTrue("Integrity report should be empty: " + componentsWithBadIntegrityOnMAIN.toString(), componentsWithBadIntegrityOnMAIN.isEmpty());
+		assertTrue(componentsWithBadIntegrityOnMAIN.isEmpty(),
+				"Integrity report should be empty: " + componentsWithBadIntegrityOnMAIN.toString());
 
 		// Create extension code system
 		CodeSystem extensionCodeSystem = new CodeSystem("SNOMEDCT-BE", "MAIN/SNOMEDCT-BE", "Belgian Edition", "be");
@@ -149,7 +151,8 @@ class CodeSystemServiceIntegrationTest extends AbstractTest {
 
 		IntegrityIssueReport componentsWithBadIntegrityOnExtension = integrityService.findAllComponentsWithBadIntegrity(
 				branchService.findLatest(extensionCodeSystem.getBranchPath()), true);
-		assertTrue("Integrity report should be empty: " + componentsWithBadIntegrityOnExtension.toString(), componentsWithBadIntegrityOnExtension.isEmpty());
+		assertTrue(componentsWithBadIntegrityOnExtension.isEmpty(),
+				"Integrity report should be empty: " + componentsWithBadIntegrityOnExtension.toString());
 
 
 		// Replace a concept in International
@@ -184,8 +187,8 @@ class CodeSystemServiceIntegrationTest extends AbstractTest {
 
 		// check branch metadata
 		Metadata branchMetaData = branchService.findLatest(extensionCodeSystem.getBranchPath()).getMetadata();
-		assertEquals("Dependant release version is updated", "20190131", branchMetaData.getString(DEPENDENCY_RELEASE));
-		assertEquals("DependencyPackage is updated", releasePackage, branchMetaData.getString(DEPENDENCY_PACKAGE));
+		assertEquals("20190131", branchMetaData.getString(DEPENDENCY_RELEASE), "Dependant release version is updated");
+		assertEquals(releasePackage, branchMetaData.getString(DEPENDENCY_PACKAGE), "DependencyPackage is updated");
 
 
 		extensionCodeSystem = codeSystemService.find("SNOMEDCT-BE");
@@ -194,8 +197,8 @@ class CodeSystemServiceIntegrationTest extends AbstractTest {
 		// Integrity check should fail because the extension is using a concept which has been made inactive
 		componentsWithBadIntegrityOnExtension = integrityService.findAllComponentsWithBadIntegrity(
 				branchService.findLatest(extensionCodeSystem.getBranchPath()), true);
-		assertEquals("One of the extension relationships should be found to have an inactive destination concept.",
-				1, componentsWithBadIntegrityOnExtension.getRelationshipsWithMissingOrInactiveDestination().size());
+		assertEquals(1, componentsWithBadIntegrityOnExtension.getRelationshipsWithMissingOrInactiveDestination().size(),
+				"One of the extension relationships should be found to have an inactive destination concept.");
 	}
 
 	@Test

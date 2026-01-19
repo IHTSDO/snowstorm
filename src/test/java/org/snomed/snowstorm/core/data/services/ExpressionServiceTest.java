@@ -14,8 +14,7 @@ import org.springframework.test.context.junit.jupiter.SpringExtension;
 
 import java.util.*;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.*;
 import static org.snomed.snowstorm.config.Config.DEFAULT_LANGUAGE_DIALECTS;
 import static org.snomed.snowstorm.core.data.domain.Concepts.*;
 
@@ -77,15 +76,15 @@ class ExpressionServiceTest extends AbstractTest {
 		
 		// Expecting one attribute (fully defined), and a single focus concept of concept 2
 		assertEquals(1, exp.getAttributes().size());
-		assertTrue(exp.getAttributes().get(0).getValue() == null);
-		assertTrue(exp.getAttributes().get(0).getTarget() != null);
+		assertNull(exp.getAttributes().get(0).getValue());
+		assertNotNull(exp.getAttributes().get(0).getTarget());
 		
 		assertEquals(1, exp.getConcepts().size());
 		assertEquals(new ConceptMicro(concept2), exp.getConcepts().get(0));
 		
 		//Concrete example also has 1 attribute (which is concrete) and Concept4 as a focus
 		assertEquals(1, expCD.getAttributes().size());
-		assertTrue(expCD.getAttributes().get(0).getValue() != null);
+		assertNotNull(expCD.getAttributes().get(0).getValue());
 		
 		assertEquals(1, expCD.getConcepts().size());
 		//Concept 5 has the sufficiently defined concept4 as an immediate parent, however
@@ -167,8 +166,8 @@ class ExpressionServiceTest extends AbstractTest {
 
 		// Expecting one attribute (fully defined), and a single focus concept of concept 2
 		assertEquals(1, exp.getAttributes().size());
-		assertTrue(exp.getAttributes().get(0).getValue() == null);
-		assertTrue(exp.getAttributes().get(0).getTarget() != null);
+		assertNull(exp.getAttributes().get(0).getValue());
+		assertNotNull(exp.getAttributes().get(0).getTarget());
 
 		assertEquals(1, exp.getConcepts().size());
 		assertEquals(new ConceptMicro(concept2), exp.getConcepts().get(0));

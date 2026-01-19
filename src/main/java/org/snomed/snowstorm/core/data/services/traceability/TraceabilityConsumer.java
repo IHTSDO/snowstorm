@@ -1,8 +1,6 @@
 package org.snomed.snowstorm.core.data.services.traceability;
 
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -27,6 +25,10 @@ public class TraceabilityConsumer {
 	private JmsTemplate jmsTemplate;
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
+
+	public int getMaxConceptActiviesPerMessage() {
+		return maxConceptActiviesPerMessage;
+	}
 
 	public void accept(Activity activity) {
 		if (activity.getChanges().size() <= maxConceptActiviesPerMessage) {

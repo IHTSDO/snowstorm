@@ -5,7 +5,6 @@ import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.domain.Commit;
 import org.assertj.core.util.Lists;
 import org.ihtsdo.otf.snomedboot.ReleaseImportException;
-import org.junit.Assert;
 import org.junit.jupiter.api.Test;
 import org.snomed.otf.snomedboot.testutil.ZipUtil;
 import org.snomed.snowstorm.AbstractTest;
@@ -24,7 +23,7 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 import static io.kaicode.elasticvc.api.ComponentService.LARGE_PAGE;
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 import static org.snomed.snowstorm.config.Config.DEFAULT_LANGUAGE_DIALECTS;
 import static org.snomed.snowstorm.core.data.domain.Concepts.CORE_MODULE;
 
@@ -58,11 +57,11 @@ class ConceptDefinitionStatusUpdateServiceTest extends AbstractTest {
 		conceptService.create(concept, MAIN);
 		assertEquals(1, conceptService.find(concept.getConceptId(), MAIN).getClassAxioms().size());
 		final Concept savedConcept = conceptService.find("50960005", MAIN);
-		Assert.assertNotNull(savedConcept);
+		assertNotNull(savedConcept);
 		assertEquals(1, savedConcept.getClassAxioms().size());
 		Axiom axiom = savedConcept.getClassAxioms().iterator().next();
 		assertEquals(Concepts.FULLY_DEFINED, axiom.getDefinitionStatusId());
-		assertEquals("Concept and class axiom should have the same definition status", axiom.getDefinitionStatusId(), savedConcept.getDefinitionStatusId());
+		assertEquals(axiom.getDefinitionStatusId(), savedConcept.getDefinitionStatusId(), "Concept and class axiom should have the same definition status");
 
 		Page<ReferenceSetMember> members = referenceSetMemberService.findMembers(MAIN,
 				new MemberSearchRequest().active(true).referenceSet(Concepts.OWL_AXIOM_REFERENCE_SET).referencedComponentId(savedConcept.getConceptId()), PageRequest.of(0, 10));
@@ -193,15 +192,15 @@ class ConceptDefinitionStatusUpdateServiceTest extends AbstractTest {
 		concepts = conceptService.find(MAIN, Lists.newArrayList("64572001", "125676002"), DEFAULT_LANGUAGE_DIALECTS);
 		concepts.forEach(concept -> concept.setDefinitionStatusId(Concepts.FULLY_DEFINED));
 		conceptService.createUpdate(new ArrayList<>(concepts), MAIN);
-		assertEquals("Expecting only two primitive concepts to be fully defined.",
-				"[64572001:FULLY_DEFINED, 125676002:FULLY_DEFINED]", getDefinedConcepts().toString());
+		assertEquals("[64572001:FULLY_DEFINED, 125676002:FULLY_DEFINED]", getDefinedConcepts().toString(),
+				"Expecting only two primitive concepts to be fully defined.");
 
 		// Import complete OWL delta - let the definition status update hook fix the statuses
 		try (FileInputStream releaseFileStream = new FileInputStream(completeOwlRf2Archive)) {
 			importService.importArchive(importService.createJob(RF2Type.DELTA, MAIN, false, false), releaseFileStream);
 		}
-		assertEquals("Expecting statuses to be fixed to original set of FD concepts.",
-				"[131148009:FULLY_DEFINED, 413350009:FULLY_DEFINED]", getDefinedConcepts().toString());
+		assertEquals("[131148009:FULLY_DEFINED, 413350009:FULLY_DEFINED]", getDefinedConcepts().toString(),
+				"Expecting statuses to be fixed to original set of FD concepts.");
 	}
 
 	@Test

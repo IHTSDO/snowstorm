@@ -5,7 +5,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 
 class SearchAfterHelperTest {
 
@@ -45,6 +45,6 @@ class SearchAfterHelperTest {
 		Object[] before = new Object[]{123L, 456L};
 		String token = SearchAfterHelper.toSearchAfterToken(before);
 		Object[] after = SearchAfterHelper.fromSearchAfterToken(token);
-		assertFalse("Conversion from Long to token and back fails.", Arrays.equals(before, after));
+		assertFalse(Arrays.equals(before, after), "Conversion from Long to token and back fails.");
 	}
 }

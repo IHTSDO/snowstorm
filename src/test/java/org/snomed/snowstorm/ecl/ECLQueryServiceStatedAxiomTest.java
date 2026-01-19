@@ -12,7 +12,7 @@ import org.springframework.test.context.junit.jupiter.SpringExtension;
 import java.util.Collection;
 import java.util.stream.Collectors;
 
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.snomed.snowstorm.TestConcepts.*;
 import static org.snomed.snowstorm.core.data.domain.Concepts.CLINICAL_FINDING;
 import static org.snomed.snowstorm.core.data.domain.Concepts.REFSET_MRCM_ATTRIBUTE_DOMAIN;
@@ -36,29 +36,29 @@ class ECLQueryServiceStatedAxiomTest extends AbstractECLQueryServiceTest {
 	// In axioms all non is-a attributes in group 0 become self grouped unless the MRCM Attribute Domain reference set explicitly states that they should never be grouped
 	void attributeGroupCardinality() {
 		assertEquals(
-				"Match clinical finding with at least one grouped finding site attributes.",
 				Sets.newHashSet(PENTALOGY_OF_FALLOT, PENTALOGY_OF_FALLOT_INCORRECT_GROUPING, BLEEDING_SKIN),
-				strings(selectConceptIds("<404684003 |Clinical finding|: { 363698007 |Finding site| = * }")));
+				strings(selectConceptIds("<404684003 |Clinical finding|: { 363698007 |Finding site| = * }")),
+				"Match clinical finding with at least one grouped finding site attributes.");
 
 		assertEquals(
-				"Match clinical finding with zero grouped finding site attributes.",
 				Sets.newHashSet(DISORDER, BLEEDING),
-				strings(selectConceptIds("<404684003 |Clinical finding|: [0..0]{ 363698007 |Finding site| = * }")));
+				strings(selectConceptIds("<404684003 |Clinical finding|: [0..0]{ 363698007 |Finding site| = * }")),
+				"Match clinical finding with zero grouped finding site attributes.");
 
 		assertEquals(
-				"Match clinical finding with one grouped finding site attributes.",
 				Sets.newHashSet(BLEEDING_SKIN),
-				strings(selectConceptIds("<404684003 |Clinical finding|: [1..1]{ 363698007 |Finding site| = * }")));
+				strings(selectConceptIds("<404684003 |Clinical finding|: [1..1]{ 363698007 |Finding site| = * }")),
+				"Match clinical finding with one grouped finding site attributes.");
 
 		assertEquals(
-				"Match clinical finding with one or two grouped finding site attributes.",
 				Sets.newHashSet(PENTALOGY_OF_FALLOT, PENTALOGY_OF_FALLOT_INCORRECT_GROUPING, BLEEDING_SKIN),
-				strings(selectConceptIds("<404684003 |Clinical finding|: [1..2]{ 363698007 |Finding site| = * }")));
+				strings(selectConceptIds("<404684003 |Clinical finding|: [1..2]{ 363698007 |Finding site| = * }")),
+				"Match clinical finding with one or two grouped finding site attributes.");
 
 		assertEquals(
-				"Match clinical finding with three or more grouped finding site attributes.",
 				Sets.newHashSet(),
-				strings(selectConceptIds("<404684003 |Clinical finding|: [3..*]{ 363698007 |Finding site| = * }")));
+				strings(selectConceptIds("<404684003 |Clinical finding|: [3..*]{ 363698007 |Finding site| = * }")),
+				"Match clinical finding with three or more grouped finding site attributes.");
 	}
 	
 	@Test
@@ -68,9 +68,9 @@ class ECLQueryServiceStatedAxiomTest extends AbstractECLQueryServiceTest {
 		//As such, Bleeding and Bleeding skin - which are created with ungrouped attributes above, will
 		//match this ECL as those attributes become grouped when expressed in axioms.
 		assertEquals(
-				"Match clinical finding with at least one grouped finding site attributes.",
 				Sets.newHashSet(PENTALOGY_OF_FALLOT, PENTALOGY_OF_FALLOT_INCORRECT_GROUPING, BLEEDING, BLEEDING_SKIN),
-				strings(selectConceptIds("<404684003 |Clinical finding|: { 363698007 |Finding site| = * } OR { 116676008 |Associated morphology| = * }")));
+				strings(selectConceptIds("<404684003 |Clinical finding|: { 363698007 |Finding site| = * } OR { 116676008 |Associated morphology| = * }")),
+				"Match clinical finding with at least one grouped finding site attributes.");
 	}
 
 	@Test

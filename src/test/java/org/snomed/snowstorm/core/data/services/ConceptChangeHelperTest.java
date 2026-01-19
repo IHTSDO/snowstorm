@@ -1,7 +1,7 @@
 package org.snomed.snowstorm.core.data.services;
 
 import io.kaicode.elasticvc.api.BranchService;
-import org.junit.Assert;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -110,7 +110,7 @@ class ConceptChangeHelperTest extends AbstractTest {
         List<Long> ids = new ArrayList<>(changedConcepts);
         ids.sort(null);
         System.out.println("changed " + Arrays.toString(ids.toArray()));
-        Assert.assertArrayEquals("Concepts Changed", expectedConceptsChanged, ids.toArray());
+        Assertions.assertArrayEquals(expectedConceptsChanged, ids.toArray(), "Concepts Changed");
     }
 
     @Test

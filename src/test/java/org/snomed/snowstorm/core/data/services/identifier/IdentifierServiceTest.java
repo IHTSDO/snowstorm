@@ -1,6 +1,5 @@
 package org.snomed.snowstorm.core.data.services.identifier;
 
-import org.junit.Assert;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.slf4j.Logger;
@@ -17,7 +16,7 @@ import org.springframework.test.context.junit.jupiter.SpringExtension;
 
 import java.util.*;
 
-import static org.junit.jupiter.api.Assertions.assertAll;
+import static org.junit.jupiter.api.Assertions.*;
 
 @ExtendWith(SpringExtension.class)
 class IdentifierServiceTest extends AbstractTest {
@@ -34,9 +33,9 @@ class IdentifierServiceTest extends AbstractTest {
 	void testGetReserveBlock() throws ServiceException {
 		List<Concept> testConcepts = createTestData();
 		IdentifierReservedBlock block = identifierService.reserveIdentifierBlock(testConcepts, null);
-		Assert.assertEquals(2, block.size(ComponentType.Concept));
-		Assert.assertEquals(4, block.size(ComponentType.Description));
-		Assert.assertEquals(3, block.size(ComponentType.Relationship));
+		assertEquals(2, block.size(ComponentType.Concept));
+		assertEquals(4, block.size(ComponentType.Description));
+		assertEquals(3, block.size(ComponentType.Relationship));
 	}
 	
 	@Test
@@ -45,7 +44,7 @@ class IdentifierServiceTest extends AbstractTest {
 		ifr.add(new IdentifiersForRegistration(0, Collections.singletonList(123456L)));
 		ifr.add(new IdentifiersForRegistration(1000003, Collections.singletonList(336331000003125L)));
 		Map<Integer, Set<Long>> namespaceIdentifierMap = identifierService.getNamespaceIdentifierMap(ifr);
-		Assert.assertEquals(2, namespaceIdentifierMap.size());
+		assertEquals(2, namespaceIdentifierMap.size());
 	}
 	
 	/**
@@ -57,7 +56,7 @@ class IdentifierServiceTest extends AbstractTest {
 	void testGetReserveBlockLarge() throws ServiceException {
 		List<Concept> testConcepts = createTestDataLarge(250);
 		IdentifierReservedBlock block = identifierService.reserveIdentifierBlock(testConcepts, null);
-		Assert.assertEquals(250, block.size(ComponentType.Concept));
+		assertEquals(250, block.size(ComponentType.Concept));
 	}
 	
 	@Test
@@ -103,55 +102,55 @@ class IdentifierServiceTest extends AbstractTest {
 
 	@Test
 	void testIsConceptId() {
-		Assert.assertTrue(IdentifierService.isConceptId("1234101"));
-		Assert.assertTrue(IdentifierService.isConceptId("1234001"));
+		assertTrue(IdentifierService.isConceptId("1234101"));
+		assertTrue(IdentifierService.isConceptId("1234001"));
 		
-		Assert.assertFalse(IdentifierService.isConceptId(null));
-		Assert.assertFalse(IdentifierService.isConceptId(""));
-		Assert.assertFalse(IdentifierService.isConceptId("123123"));
-		Assert.assertFalse(IdentifierService.isConceptId("123120"));
-		Assert.assertFalse(IdentifierService.isConceptId("101"));
-		Assert.assertFalse(IdentifierService.isConceptId("a123101"));
-		Assert.assertFalse(IdentifierService.isConceptId("12 3101"));
+		assertFalse(IdentifierService.isConceptId(null));
+		assertFalse(IdentifierService.isConceptId(""));
+		assertFalse(IdentifierService.isConceptId("123123"));
+		assertFalse(IdentifierService.isConceptId("123120"));
+		assertFalse(IdentifierService.isConceptId("101"));
+		assertFalse(IdentifierService.isConceptId("a123101"));
+		assertFalse(IdentifierService.isConceptId("12 3101"));
 	}
 	
 	@Test
 	void testIsDescriptionId() {
-		Assert.assertTrue(IdentifierService.isDescriptionId("1234110"));
-		Assert.assertTrue(IdentifierService.isDescriptionId("1234013"));
+		assertTrue(IdentifierService.isDescriptionId("1234110"));
+		assertTrue(IdentifierService.isDescriptionId("1234013"));
 		
-		Assert.assertFalse(IdentifierService.isDescriptionId(null));
-		Assert.assertFalse(IdentifierService.isDescriptionId(""));
-		Assert.assertFalse(IdentifierService.isDescriptionId("123120"));
-		Assert.assertFalse(IdentifierService.isDescriptionId("101"));
-		Assert.assertFalse(IdentifierService.isDescriptionId("a123101"));
-		Assert.assertFalse(IdentifierService.isDescriptionId("12 3101"));
+		assertFalse(IdentifierService.isDescriptionId(null));
+		assertFalse(IdentifierService.isDescriptionId(""));
+		assertFalse(IdentifierService.isDescriptionId("123120"));
+		assertFalse(IdentifierService.isDescriptionId("101"));
+		assertFalse(IdentifierService.isDescriptionId("a123101"));
+		assertFalse(IdentifierService.isDescriptionId("12 3101"));
 	}
 	
 	@Test
 	void testIsValid() {
 		String errMsg = IdentifierService.isValidId("999480551000087103", ComponentType.Concept);
-		Assert.assertNull(errMsg);
+		assertNull(errMsg);
 		
 		errMsg = IdentifierService.isValidId("900000000001211010", ComponentType.Description);
-		Assert.assertNull(errMsg);
+		assertNull(errMsg);
 		
 		errMsg = IdentifierService.isValidId("934530801000132110", ComponentType.Description);
-		Assert.assertNull(errMsg);
+		assertNull(errMsg);
 		
 		errMsg = IdentifierService.isValidId("100022", ComponentType.Relationship);
-		Assert.assertNull(errMsg);
+		assertNull(errMsg);
 		
 		errMsg = IdentifierService.isValidId("900000000000723024", ComponentType.Relationship);
-		Assert.assertNull(errMsg);
+		assertNull(errMsg);
 		
 		//Get component type wrong
 		errMsg = IdentifierService.isValidId("100022", ComponentType.Concept);
-		Assert.assertNotNull(errMsg);
+		assertNotNull(errMsg);
 		
 		//Get check digit wrong
 		errMsg = IdentifierService.isValidId("100029", ComponentType.Relationship);
-		Assert.assertNotNull(errMsg);
+		assertNotNull(errMsg);
 	}
 	
 }
