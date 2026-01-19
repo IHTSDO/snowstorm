@@ -22,7 +22,7 @@ import org.springframework.test.context.junit.jupiter.SpringExtension;
 import java.util.Arrays;
 import java.util.List;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.snomed.snowstorm.core.data.services.ReferenceSetMemberService.AGGREGATION_MEMBER_COUNTS_BY_REFERENCE_SET;
 import static org.snomed.snowstorm.core.data.services.pojo.AsyncRefsetMemberChangeBatch.Status.*;
@@ -88,11 +88,11 @@ class ReferenceSetMemberServiceTest extends AbstractTest {
 											"ObjectSomeValuesFrom(:609096000 " +
 												"ObjectIntersectionOf(ObjectSomeValuesFrom(:116676008 :68245003) ObjectSomeValuesFrom(:363698007 :280369009)))))"));
 
-		assertEquals("Number not in axiom.", 0, findOwlMembers("999").getTotalElements());
-		assertEquals("Number in left hand part of axiom.", 1, findOwlMembers("90253000").getTotalElements());
-		assertEquals("Number in right hand part of axiom.", 1, findOwlMembers("116676008").getTotalElements());
-		assertEquals("Partial number should not match.", 0, findOwlMembers("11667600").getTotalElements());
-		assertEquals("Partial number should not match.", 0, findOwlMembers("9096000").getTotalElements());
+		assertEquals(0, findOwlMembers("999").getTotalElements(), "Number not in axiom.");
+		assertEquals(1, findOwlMembers("90253000").getTotalElements(), "Number in left hand part of axiom.");
+		assertEquals(1, findOwlMembers("116676008").getTotalElements(), "Number in right hand part of axiom.");
+		assertEquals(0, findOwlMembers("11667600").getTotalElements(), "Partial number should not match.");
+		assertEquals(0, findOwlMembers("9096000").getTotalElements(), "Partial number should not match.");
 	}
 
 	@Test
@@ -121,13 +121,13 @@ class ReferenceSetMemberServiceTest extends AbstractTest {
 										// Named concept on right hand side
 										":703264005)"));
 
-		assertEquals("Match normal class axiom.", 1, findOwlMembers("116676008", null).getTotalElements());
-		assertEquals("Should not match normal class axiom.", 0, findOwlMembers("116676008", true).getTotalElements());
-		assertEquals("Match normal class axiom.", 1, findOwlMembers("116676008", false).getTotalElements());
+		assertEquals(1, findOwlMembers("116676008", null).getTotalElements(), "Match normal class axiom.");
+		assertEquals(0, findOwlMembers("116676008", true).getTotalElements(), "Should not match normal class axiom.");
+		assertEquals(1, findOwlMembers("116676008", false).getTotalElements(), "Match normal class axiom.");
 
-		assertEquals("Match GCI axiom.", 1, findOwlMembers("703264005", null).getTotalElements());
-		assertEquals("Match GCI axiom.", 1, findOwlMembers("703264005", true).getTotalElements());
-		assertEquals("Should not match GCI axiom.", 0, findOwlMembers("703264005", false).getTotalElements());
+		assertEquals(1, findOwlMembers("703264005", null).getTotalElements(), "Match GCI axiom.");
+		assertEquals(1, findOwlMembers("703264005", true).getTotalElements(), "Match GCI axiom.");
+		assertEquals(0, findOwlMembers("703264005", false).getTotalElements(), "Should not match GCI axiom.");
 	}
 
 	public Page<ReferenceSetMember> findOwlMembers(String owlExpressionConceptId) {

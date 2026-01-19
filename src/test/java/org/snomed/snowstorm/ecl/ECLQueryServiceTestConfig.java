@@ -15,7 +15,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import static io.kaicode.elasticvc.api.VersionControlHelper.LARGE_PAGE;
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.snomed.snowstorm.AbstractTest.MAIN;
 import static org.snomed.snowstorm.TestConcepts.*;
 import static org.snomed.snowstorm.core.data.domain.Concepts.HEART_STRUCTURE;

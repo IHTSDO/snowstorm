@@ -20,9 +20,9 @@ import java.util.List;
 import java.util.Map;
 
 import static io.kaicode.elasticvc.api.ComponentService.LARGE_PAGE;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.snomed.snowstorm.core.data.domain.Concepts.ISA;
 
 @ExtendWith(SpringExtension.class)

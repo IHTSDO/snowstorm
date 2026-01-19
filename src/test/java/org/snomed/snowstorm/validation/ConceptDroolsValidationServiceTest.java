@@ -2,7 +2,6 @@ package org.snomed.snowstorm.validation;
 
 import io.kaicode.elasticvc.api.BranchCriteria;
 import io.kaicode.elasticvc.api.VersionControlHelper;
-import org.junit.Assert;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -20,6 +19,9 @@ import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
 
 import java.util.Collections;
+
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @ExtendWith(SpringExtension.class)
 @ContextConfiguration(classes = TestConfig.class)
@@ -55,9 +57,9 @@ class ConceptDroolsValidationServiceTest extends AbstractTest {
 
 	@Test
 	void isActive() {
-		Assert.assertTrue(validationService.isActive("100001"));
-		Assert.assertFalse(validationService.isActive("100002"));
-		Assert.assertFalse(validationService.isActive("100003"));
+		assertTrue(validationService.isActive("100001"));
+		assertFalse(validationService.isActive("100002"));
+		assertFalse(validationService.isActive("100003"));
 	}
 
 }

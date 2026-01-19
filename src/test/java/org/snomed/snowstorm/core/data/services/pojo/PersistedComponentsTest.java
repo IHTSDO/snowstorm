@@ -1,6 +1,6 @@
 package org.snomed.snowstorm.core.data.services.pojo;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 import org.snomed.snowstorm.core.data.domain.Concept;
 import org.snomed.snowstorm.core.data.domain.Description;
 import org.snomed.snowstorm.core.data.domain.ReferenceSetMember;
@@ -9,7 +9,7 @@ import org.snomed.snowstorm.core.data.domain.Relationship;
 import java.util.Collections;
 import java.util.stream.StreamSupport;
 
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class PersistedComponentsTest {
 

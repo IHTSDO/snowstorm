@@ -5,7 +5,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.ObjectWriter;
 import org.ihtsdo.drools.response.InvalidContent;
 import org.ihtsdo.drools.response.Severity;
-import org.junit.Assert;
 import org.junit.jupiter.api.Test;
 import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.repositories.config.ConceptStoreMixIn;
@@ -16,7 +15,7 @@ import org.snomed.snowstorm.validation.domain.DroolsConcept;
 import java.io.IOException;
 import java.util.Collections;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 
 class ConceptSerialisationTest {
 
@@ -38,20 +37,20 @@ class ConceptSerialisationTest {
 				"}]" +
 				"}").replace("'", "\""), ConceptView.class);
 
-		Assert.assertEquals("900000000000074008", concept.getDefinitionStatusId());
+		assertEquals("900000000000074008", concept.getDefinitionStatusId());
 
-		Assert.assertEquals(1, concept.getDescriptions().size());
+		assertEquals(1, concept.getDescriptions().size());
 
 		final Description description = concept.getDescriptions().iterator().next();
-		Assert.assertEquals("123", description.getDescriptionId());
-		Assert.assertEquals(1, description.getAcceptabilityMap().size());
-		Assert.assertEquals("b", description.getAcceptabilityMap().get("a"));
-		Assert.assertEquals(1, concept.getRelationships().size());
+		assertEquals("123", description.getDescriptionId());
+		assertEquals(1, description.getAcceptabilityMap().size());
+		assertEquals("b", description.getAcceptabilityMap().get("a"));
+		assertEquals(1, concept.getRelationships().size());
 
 		final Relationship relationship = concept.getRelationships().iterator().next();
-		Assert.assertEquals("200", relationship.getRelationshipId());
-		Assert.assertEquals("116680003", relationship.getTypeId());
-		Assert.assertEquals("102263004", relationship.getDestinationId());
+		assertEquals("200", relationship.getRelationshipId());
+		assertEquals("116680003", relationship.getTypeId());
+		assertEquals("102263004", relationship.getDestinationId());
 	}
 
 	@Test

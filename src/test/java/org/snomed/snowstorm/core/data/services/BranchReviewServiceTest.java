@@ -2,7 +2,6 @@ package org.snomed.snowstorm.core.data.services;
 
 import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.domain.Branch;
-import org.junit.Assert;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -19,7 +18,7 @@ import org.springframework.test.context.junit.jupiter.SpringExtension;
 import java.util.*;
 import java.util.stream.Collectors;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 import static org.snomed.snowstorm.config.Config.DEFAULT_LANGUAGE_DIALECTS;
 
 @ExtendWith(SpringExtension.class)
@@ -379,7 +378,7 @@ class BranchReviewServiceTest extends AbstractTest {
 		List<Long> ids = new ArrayList<>(changedConcepts);
 		ids.sort(null);
 		System.out.println("changed " + Arrays.toString(ids.toArray()));
-		Assert.assertArrayEquals("Concepts Changed", expectedConceptsChanged, ids.toArray());
+		assertArrayEquals(expectedConceptsChanged, ids.toArray(), "Concepts Changed");
 	}
 
 	private void createConcept(String conceptId, String path) throws ServiceException {

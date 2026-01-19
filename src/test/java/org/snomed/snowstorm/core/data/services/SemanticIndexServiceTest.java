@@ -19,7 +19,7 @@ import java.util.Set;
 
 import static io.kaicode.elasticvc.api.VersionControlHelper.LARGE_PAGE;
 import static java.lang.Long.parseLong;
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.snomed.snowstorm.core.data.domain.Concepts.ISA;
 import static org.snomed.snowstorm.core.data.domain.Concepts.SNOMEDCT_ROOT;
 

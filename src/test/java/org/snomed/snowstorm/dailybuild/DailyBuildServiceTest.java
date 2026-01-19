@@ -31,10 +31,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.List;
 
-import static junit.framework.TestCase.assertFalse;
-import static junit.framework.TestCase.assertNull;
-import static junit.framework.TestCase.assertTrue;
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 
 @ExtendWith(SpringExtension.class)
 @ContextConfiguration(classes = TestConfig.class)
@@ -168,39 +165,39 @@ class DailyBuildServiceTest extends AbstractTest {
 
 		String dailyBuild1Concept = "131148009";
 		String dailyBuild2Concept = "131148010";
-		assertNull("Concept not yet imported", conceptService.find(dailyBuild1Concept, branchPath));
-		assertNull("Concept not yet imported", conceptService.find(dailyBuild2Concept, branchPath));
+		assertNull(conceptService.find(dailyBuild1Concept, branchPath), "Concept not yet imported");
+		assertNull(conceptService.find(dailyBuild2Concept, branchPath), "Concept not yet imported");
 
 		// Trigger #1 daily build import manually
 		dailyBuildService.dailyBuildDeltaImport(snomedExtensionCodeSystem, rf2Archive1.getAbsolutePath());
-		assertNotNull("Concept imported in daily build #1", conceptService.find(dailyBuild1Concept, branchPath));
-		assertNull("Concept not yet imported", conceptService.find(dailyBuild2Concept, branchPath));
+		assertNotNull(conceptService.find(dailyBuild1Concept, branchPath), "Concept imported in daily build #1");
+		assertNull(conceptService.find(dailyBuild2Concept, branchPath), "Concept not yet imported");
 
 		// Trigger #2 daily build import manually
 		dailyBuildService.dailyBuildDeltaImport(snomedExtensionCodeSystem, rf2Archive2.getAbsolutePath());
-		assertNull("Daily build #1 import reverted and concept not present in daily build #2", conceptService.find(dailyBuild1Concept, branchPath));
-		assertNotNull("Concept imported in daily build #2", conceptService.find(dailyBuild2Concept, branchPath));
+		assertNull(conceptService.find(dailyBuild1Concept, branchPath), "Daily build #1 import reverted and concept not present in daily build #2");
+		assertNotNull(conceptService.find(dailyBuild2Concept, branchPath), "Concept imported in daily build #2");
 
 		// Create fake international release
 		codeSystemService.createVersion(snomedct, 20200131, "");
 
 		// Upgrade the extension (rollback of previous daily build is automatic)
 		codeSystemUpgradeService.upgrade(null, snomedExtensionCodeSystem, 20200131, false);
-		assertEquals("Assert extension upgraded", 20200131, codeSystemService.find(shortName).getDependantVersionEffectiveTime().intValue());
-		assertNull("Daily build 1 still not there.", conceptService.find(dailyBuild1Concept, branchPath));
-		assertNull("Daily build 2 Concept should have been reverted as part of the upgrade.", conceptService.find(dailyBuild2Concept, branchPath));
+		assertEquals(20200131, codeSystemService.find(shortName).getDependantVersionEffectiveTime().intValue(), "Assert extension upgraded");
+		assertNull(conceptService.find(dailyBuild1Concept, branchPath), "Daily build 1 still not there.");
+		assertNull(conceptService.find(dailyBuild2Concept, branchPath), "Daily build 2 Concept should have been reverted as part of the upgrade.");
 
 		// Import daily build #1
 		dailyBuildService.dailyBuildDeltaImport(snomedExtensionCodeSystem, rf2Archive1.getAbsolutePath());
-		assertEquals("Assert extension is still upgraded", 20200131, codeSystemService.find(shortName).getDependantVersionEffectiveTime().intValue());
-		assertNotNull("Daily build 1 Concept is now there.", conceptService.find(dailyBuild1Concept, branchPath));
-		assertNull("Daily build 2 Concept should not be there yet.", conceptService.find(dailyBuild2Concept, branchPath));
+		assertEquals(20200131, codeSystemService.find(shortName).getDependantVersionEffectiveTime().intValue(), "Assert extension is still upgraded");
+		assertNotNull(conceptService.find(dailyBuild1Concept, branchPath), "Daily build 1 Concept is now there.");
+		assertNull(conceptService.find(dailyBuild2Concept, branchPath), "Daily build 2 Concept should not be there yet.");
 
 		// Import daily build #2
 		dailyBuildService.dailyBuildDeltaImport(snomedExtensionCodeSystem, rf2Archive2.getAbsolutePath());
-		assertEquals("Assert extension is still upgraded", 20200131, codeSystemService.find(shortName).getDependantVersionEffectiveTime().intValue());
-		assertNull("Daily build 1 Concept should now have been reverted.", conceptService.find(dailyBuild1Concept, branchPath));
-		assertNotNull("Daily build 2 Concept should now be there.", conceptService.find(dailyBuild2Concept, branchPath));
+		assertEquals(20200131, codeSystemService.find(shortName).getDependantVersionEffectiveTime().intValue(), "Assert extension is still upgraded");
+		assertNull(conceptService.find(dailyBuild1Concept, branchPath), "Daily build 1 Concept should now have been reverted.");
+		assertNotNull(conceptService.find(dailyBuild2Concept, branchPath), "Daily build 2 Concept should now be there.");
 	}
 
 	private static class MockResourceManager extends ResourceManager {
