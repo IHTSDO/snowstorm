@@ -66,6 +66,7 @@ import static io.kaicode.elasticvc.helper.QueryHelper.*;
 import static org.snomed.snowstorm.config.Config.*;
 import static org.snomed.snowstorm.core.data.domain.ReferenceSetMember.Fields.REFSET_ID;
 import static org.snomed.snowstorm.core.data.domain.ReferenceSetMember.LanguageFields.ACCEPTABILITY_ID_FIELD_PATH;
+import static org.snomed.snowstorm.core.data.domain.SnomedComponent.Fields.ACTIVE;
 import static org.snomed.snowstorm.core.util.AggregationUtils.getAggregations;
 
 
@@ -810,6 +811,7 @@ public class DescriptionService extends ComponentService {
 						new NativeQueryBuilder()
 								.withQuery(bool(bq -> bq
 										.must(termQuery(REFSET_ID, criteria.getConceptRefset()))
+										.must(termQuery(ACTIVE, true))
 										.filter(branchCriteria.getEntityBranchCriteria(ReferenceSetMember.class))
 										.filter(termsQuery(ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID, conceptIdsToSearch)))
 								)
