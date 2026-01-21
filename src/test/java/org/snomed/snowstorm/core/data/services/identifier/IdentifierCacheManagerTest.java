@@ -107,7 +107,7 @@ class IdentifierCacheManagerTest extends AbstractTest {
 		int secondRunIdentifiersAvailableAfter = cache.identifiersAvailable();
 
 		//then
-		assertEquals(firstRunIdentifiersAvailable, 0); //Cache is empty on first run
+		assertEquals(0, firstRunIdentifiersAvailable); //Cache is empty on first run
 		assertTrue(secondRunIdentifiersAvailableBefore > firstRunIdentifiersAvailable && secondRunIdentifiersAvailableAfter > firstRunIdentifiersAvailable); //Cache is populated
 		assertEquals(secondRunIdentifiersAvailableAfter, secondRunIdentifiersAvailableBefore - 1); //Cache has had identifier removed for this test
 	}
@@ -135,7 +135,7 @@ class IdentifierCacheManagerTest extends AbstractTest {
 	}
 
 	@Test
-	public void populateIdBlock_ShouldThrowException_WhenRequestingIdentifierForUnsupportedPartition() {
+	void populateIdBlock_ShouldThrowException_WhenRequestingIdentifierForUnsupportedPartition() {
 		//given
 		int namespace = 12345678;
 		IdentifierReservedBlock identifierReservedBlock = new IdentifierReservedBlock(namespace);

@@ -6,7 +6,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class ConcreteValueTest {
     @Test
-    public void dataTypeFromShortHand_ShouldReturnExpectedDataType_WhenGivenExternalConcreteDec() {
+    void dataTypeFromShortHand_ShouldReturnExpectedDataType_WhenGivenExternalConcreteDec() {
         //given
         final String shorthand = "dec";
 
@@ -20,7 +20,7 @@ class ConcreteValueTest {
     }
 
     @Test
-    public void dataTypeFromShortHand_ShouldReturnExpectedDataType_WhenGivenExternalConcreteInt() {
+    void dataTypeFromShortHand_ShouldReturnExpectedDataType_WhenGivenExternalConcreteInt() {
         //given
         final String shorthand = "int";
 
@@ -34,7 +34,7 @@ class ConcreteValueTest {
     }
 
     @Test
-    public void dataTypeFromShortHand_ShouldReturnExpectedDataType_WhenGivenExternalConcreteStr() {
+    void dataTypeFromShortHand_ShouldReturnExpectedDataType_WhenGivenExternalConcreteStr() {
         //given
         final String shorthand = "str";
 
@@ -48,7 +48,7 @@ class ConcreteValueTest {
     }
 
     @Test
-    public void concreteValueFrom_ShouldReturnExpectedConcreteValue_WhenGivenConcreteString() {
+    void concreteValueFrom_ShouldReturnExpectedConcreteValue_WhenGivenConcreteString() {
         //given
         final String inValue = "\"Two pills in the morning.\"";
         final String inDataType = "str";
@@ -64,7 +64,7 @@ class ConcreteValueTest {
     }
 
     @Test
-    public void concreteValueFrom_ShouldReturnExpectedConcreteValue_WhenGivenConcreteStringWithNestedQuote() {
+    void concreteValueFrom_ShouldReturnExpectedConcreteValue_WhenGivenConcreteStringWithNestedQuote() {
         //given
         final String inValue = "\"\"A Promised Land\" is a memoir by Barack Obama.\"";
         final String inDataType = "str";
@@ -80,7 +80,7 @@ class ConcreteValueTest {
     }
 
     @Test
-    public void concreteValueFrom_ShouldReturnExpectedConcreteValue_WhenGivenConcreteInteger() {
+    void concreteValueFrom_ShouldReturnExpectedConcreteValue_WhenGivenConcreteInteger() {
         //given
         final String inValue = "#5";
         final String inDataType = "int";
@@ -96,7 +96,7 @@ class ConcreteValueTest {
     }
 
     @Test
-    public void concreteValueFrom_ShouldReturnExpectedConcreteValue_WhenGivenConcreteDecimal() {
+    void concreteValueFrom_ShouldReturnExpectedConcreteValue_WhenGivenConcreteDecimal() {
         //given
         final String inValue = "#3.14";
         final String inDataType = "dec";
@@ -116,7 +116,7 @@ class ConcreteValueTest {
      * same as use case for using MRCM.
      * */
     @Test
-    public void concreteValueFrom_ShouldReturnConcreteValueWithSameDataTypeAsInput() {
+    void concreteValueFrom_ShouldReturnConcreteValueWithSameDataTypeAsInput() {
         //given
         final String inValue = "#3"; //Doesn't look like a Decimal.
         final String inDataType = "dec"; //But source states it is.
@@ -132,7 +132,7 @@ class ConcreteValueTest {
     }
 
     @Test
-    public void removeConcretePrefix_ShouldRemoveConcretePrefix_WhenGivenString() {
+    void removeConcretePrefix_ShouldRemoveConcretePrefix_WhenGivenString() {
         //given
         final String value = "\"Two pills per day.\"";
 
@@ -144,7 +144,7 @@ class ConcreteValueTest {
     }
 
     @Test
-    public void removeConcretePrefix_ShouldRemoveConcretePrefix_WhenGivenInteger() {
+    void removeConcretePrefix_ShouldRemoveConcretePrefix_WhenGivenInteger() {
         //given
         final String value = "#5";
 
@@ -156,7 +156,7 @@ class ConcreteValueTest {
     }
 
     @Test
-    public void removeConcretePrefix_ShouldRemoveConcretePrefix_WhenGivenDecimal() {
+    void removeConcretePrefix_ShouldRemoveConcretePrefix_WhenGivenDecimal() {
         //given
         final String value = "#3.14";
 
