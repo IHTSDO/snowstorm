@@ -72,6 +72,12 @@ public class ReferenceSetMember extends SnomedComponent<ReferenceSetMember> impl
 		String TARGET_EFFECTIVE_TIME = "targetEffectiveTime";
 	}
 
+	public interface DescriptorFields {
+		String ATTRIBUTE_DESCRIPTION = "attributeDescription";
+		String ATTRIBUTE_TYPE = "attributeType";
+		String ATTRIBUTE_ORDER = "attributeOrder";
+	}
+
 	@JsonView(value = View.Component.class)
 	@Field(type = FieldType.Keyword)
 	private String memberId;
