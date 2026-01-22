@@ -107,7 +107,7 @@ public class RefsetDescriptorUpdaterService implements CommitListener {
 
 	private Set<ReferenceSetMember> getNewMembersInspiredByAncestors(Commit commit, long conceptIdL, String branchPath) {
 		BranchCriteria branchCriteria = versionControlHelper.getBranchCriteriaIncludingOpenCommit(commit);
-		Page<ReferenceSetMember> membersExisting;
+		Page<ReferenceSetMember> membersExisting = null;
 		MemberSearchRequest memberSearchRequest = new MemberSearchRequest();
 		memberSearchRequest.active(true);
 		memberSearchRequest.referenceSet(Concepts.REFSET_DESCRIPTOR_REFSET);
@@ -115,22 +115,24 @@ public class RefsetDescriptorUpdaterService implements CommitListener {
 		String moduleId = conceptService.find(branchCriteria, branchPath, List.of(conceptIdS), DEFAULT_LANGUAGE_DIALECTS).iterator().next().getModuleId();
 
 		// Find entry in RefSet for parent
-		Long parentId = queryService.findParentIds(branchCriteria, true, List.of(conceptIdL)).iterator().next();
-		memberSearchRequest.referencedComponentId(String.valueOf(parentId));
-		membersExisting = referenceSetMemberService.findMembers(branchCriteria, memberSearchRequest, PAGE_REQUEST);
+		Set<Long> parentIds = queryService.findParentIds(branchCriteria, true, List.of(conceptIdL));
+		for (Long parentId : parentIds) {
+			memberSearchRequest.referencedComponentId(String.valueOf(parentId));
+			membersExisting = referenceSetMemberService.findMembers(branchCriteria, memberSearchRequest, PAGE_REQUEST);
 
-		// Find entry in RefSet for grandparent
-		if (membersExisting == null || membersExisting.isEmpty()) {
-			Iterator<Long> iterator = queryService.findParentIds(branchCriteria, true, List.of(parentId)).iterator();
-			if (iterator.hasNext()) {
-				Long grandparentId = iterator.next();
-				String grandParentIdS = String.valueOf(grandparentId);
-				if (Concepts.REFSET.equals(grandParentIdS) || Concepts.FOUNDATION_METADATA.equals(grandParentIdS)) {
-					// Creating top-level Concept for Reference Sets; cannot proceed.
-					return Collections.emptySet();
+			if (membersExisting != null && !membersExisting.isEmpty()) {
+				break;
+			} else {
+				Set<Long> grandparentIds = queryService.findParentIds(branchCriteria, true, List.of(parentId));
+				for (Long grandparentId : grandparentIds) {
+					String grandParentIdS = String.valueOf(grandparentId);
+					memberSearchRequest.referencedComponentId(grandParentIdS);
+					membersExisting = referenceSetMemberService.findMembers(branchCriteria, memberSearchRequest, PAGE_REQUEST);
+
+					if (membersExisting != null && !membersExisting.isEmpty()) {
+						break;
+					}
 				}
-				memberSearchRequest.referencedComponentId(grandParentIdS);
-				membersExisting = referenceSetMemberService.findMembers(branchCriteria, memberSearchRequest, PAGE_REQUEST);
 			}
 		}
 
@@ -139,7 +141,10 @@ public class RefsetDescriptorUpdaterService implements CommitListener {
 			return Collections.emptySet();
 		}
 
-		// Copy ReferenceSetMembers from parent/grandparent with mild differences
+		return clone(membersExisting, moduleId, conceptIdS);
+	}
+
+	private Set<ReferenceSetMember> clone(Page<ReferenceSetMember> membersExisting, String moduleId, String conceptIdS) {
 		Set<ReferenceSetMember> membersNew = new HashSet<>();
 		for (ReferenceSetMember memberExisting : membersExisting) {
 			ReferenceSetMember memberNew = new ReferenceSetMember(moduleId, Concepts.REFSET_DESCRIPTOR_REFSET, conceptIdS);
