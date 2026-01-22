@@ -24,6 +24,7 @@ import java.util.*;
 import static co.elastic.clients.elasticsearch._types.query_dsl.QueryBuilders.bool;
 import static io.kaicode.elasticvc.helper.QueryHelper.termQuery;
 import static org.snomed.snowstorm.config.Config.DEFAULT_LANGUAGE_DIALECTS;
+import static org.snomed.snowstorm.core.data.domain.ReferenceSetMember.DescriptorFields.*;
 
 @Service
 public class RefsetDescriptorUpdaterService implements CommitListener {
@@ -107,47 +108,121 @@ public class RefsetDescriptorUpdaterService implements CommitListener {
 
 	private Set<ReferenceSetMember> getNewMembersInspiredByAncestors(Commit commit, long conceptIdL, String branchPath) {
 		BranchCriteria branchCriteria = versionControlHelper.getBranchCriteriaIncludingOpenCommit(commit);
-		Page<ReferenceSetMember> membersExisting;
-		MemberSearchRequest memberSearchRequest = new MemberSearchRequest();
-		memberSearchRequest.active(true);
-		memberSearchRequest.referenceSet(Concepts.REFSET_DESCRIPTOR_REFSET);
+		MemberSearchRequest memberSearchRequest = new MemberSearchRequest().active(true).referenceSet(Concepts.REFSET_DESCRIPTOR_REFSET);
 		String conceptIdS = String.valueOf(conceptIdL);
 		String moduleId = conceptService.find(branchCriteria, branchPath, List.of(conceptIdS), DEFAULT_LANGUAGE_DIALECTS).iterator().next().getModuleId();
+		List<ReferenceSetMember> descriptors = getDescriptorsRecursively(branchCriteria, conceptIdL, memberSearchRequest);
 
-		// Find entry in RefSet for parent
-		Long parentId = queryService.findParentIds(branchCriteria, true, List.of(conceptIdL)).iterator().next();
-		memberSearchRequest.referencedComponentId(String.valueOf(parentId));
-		membersExisting = referenceSetMemberService.findMembers(branchCriteria, memberSearchRequest, PAGE_REQUEST);
-
-		// Find entry in RefSet for grandparent
-		if (membersExisting == null || membersExisting.isEmpty()) {
-			Iterator<Long> iterator = queryService.findParentIds(branchCriteria, true, List.of(parentId)).iterator();
-			if (iterator.hasNext()) {
-				Long grandparentId = iterator.next();
-				String grandParentIdS = String.valueOf(grandparentId);
-				if (Concepts.REFSET.equals(grandParentIdS) || Concepts.FOUNDATION_METADATA.equals(grandParentIdS)) {
-					// Creating top-level Concept for Reference Sets; cannot proceed.
-					return Collections.emptySet();
-				}
-				memberSearchRequest.referencedComponentId(grandParentIdS);
-				membersExisting = referenceSetMemberService.findMembers(branchCriteria, memberSearchRequest, PAGE_REQUEST);
-			}
-		}
-
-		if (membersExisting == null || membersExisting.isEmpty()) {
+		if (descriptors == null || descriptors.isEmpty()) {
 			logger.warn("A new Reference Set Concept was detected, however, the service cannot generate any RefSet Descriptor entries because existing entries for an ancestor could not be found.");
 			return Collections.emptySet();
 		}
 
-		// Copy ReferenceSetMembers from parent/grandparent with mild differences
+		return clone(descriptors, moduleId, conceptIdS);
+	}
+
+	private List<ReferenceSetMember> getDescriptorsRecursively(BranchCriteria branchCriteria, long conceptId, MemberSearchRequest memberSearchRequest) {
+		Set<Long> parentIds = queryService.findParentIds(branchCriteria, true, List.of(conceptId));
+		return doGetDescriptorsRecursively(branchCriteria, parentIds, memberSearchRequest);
+	}
+
+	private List<ReferenceSetMember> doGetDescriptorsRecursively(BranchCriteria branchCriteria, Set<Long> parentIds, MemberSearchRequest memberSearchRequest) {
+		if (parentIds.isEmpty()) {
+			return Collections.emptyList();
+		}
+
+		// Parents
+		Map<Long, List<ReferenceSetMember>> descriptors = new HashMap<>();
+		for (Long parentId : parentIds) {
+			memberSearchRequest.referencedComponentId(String.valueOf(parentId));
+			Page<ReferenceSetMember> memberSearchResponse = referenceSetMemberService.findMembers(branchCriteria, memberSearchRequest, PAGE_REQUEST);
+			if (memberSearchResponse != null && !memberSearchResponse.isEmpty()) {
+				descriptors.put(parentId, memberSearchResponse.getContent());
+			}
+		}
+
+		if (!descriptors.isEmpty()) {
+			if (!sameStructure(descriptors)) {
+				return Collections.emptyList();
+			}
+
+			return descriptors.values().iterator().next();
+		}
+
+		// Grandparents
+		for (Long parentId : parentIds) {
+			Set<Long> grandparentIds = queryService.findParentIds(branchCriteria, true, List.of(parentId));
+			List<ReferenceSetMember> referenceSetMembers = doGetDescriptorsRecursively(branchCriteria, grandparentIds, memberSearchRequest);
+			if (referenceSetMembers != null && !referenceSetMembers.isEmpty()) {
+				return referenceSetMembers;
+			}
+		}
+
+		return Collections.emptyList();
+	}
+
+	private boolean sameStructure(Map<Long, List<ReferenceSetMember>> descriptors) {
+		// No compatibility check required
+		if (descriptors.size() == 1) {
+			return true;
+		}
+
+		// Check if each parent has the same number of descriptors
+		int expectedSize = descriptors.values().iterator().next().size();
+		for (Map.Entry<Long, List<ReferenceSetMember>> entrySet : descriptors.entrySet()) {
+			List<ReferenceSetMember> value = entrySet.getValue();
+			if (!value.isEmpty() && value.size() != expectedSize) {
+				return false;
+			}
+		}
+
+		// Check if each parent has the same attributes for each given descriptor
+		Map<String, List<String>> additionalFields = getAdditionalFields(descriptors);
+		for (Map.Entry<String, List<String>> entrySet : additionalFields.entrySet()) {
+			List<String> values = entrySet.getValue();
+
+			String current = values.iterator().next();
+			for (String value : values) {
+				if (!current.equals(value)) {
+					return false;
+				}
+
+				current = value;
+			}
+		}
+
+		return true;
+	}
+
+	private Map<String, List<String>> getAdditionalFields(Map<Long, List<ReferenceSetMember>> descriptors) {
+		Map<String, List<String>> additionalFields = new HashMap<>();
+		for (Map.Entry<Long, List<ReferenceSetMember>> entrySet : descriptors.entrySet()) {
+			for (ReferenceSetMember referenceSetMember : entrySet.getValue()) {
+				String attributeOrder = referenceSetMember.getAdditionalField(ATTRIBUTE_ORDER);
+				String attributeDescription = referenceSetMember.getAdditionalField(ATTRIBUTE_DESCRIPTION);
+				String attributeType = referenceSetMember.getAdditionalField(ATTRIBUTE_TYPE);
+				List<String> attributeOrders = additionalFields.get(attributeOrder);
+				if (attributeOrders == null) {
+					attributeOrders = new ArrayList<>();
+				}
+
+				attributeOrders.add(String.join("|", attributeDescription, attributeType, attributeOrder));
+				additionalFields.put(attributeOrder, attributeOrders);
+			}
+		}
+
+		return additionalFields;
+	}
+
+	private Set<ReferenceSetMember> clone(List<ReferenceSetMember> membersExisting, String moduleId, String conceptIdS) {
 		Set<ReferenceSetMember> membersNew = new HashSet<>();
 		for (ReferenceSetMember memberExisting : membersExisting) {
 			ReferenceSetMember memberNew = new ReferenceSetMember(moduleId, Concepts.REFSET_DESCRIPTOR_REFSET, conceptIdS);
 			memberNew.setAdditionalFields(
 					Map.of(
-							"attributeDescription", memberExisting.getAdditionalField("attributeDescription"),
-							"attributeType", memberExisting.getAdditionalField("attributeType"),
-							"attributeOrder", memberExisting.getAdditionalField("attributeOrder")
+							ATTRIBUTE_DESCRIPTION, memberExisting.getAdditionalField(ATTRIBUTE_DESCRIPTION),
+							ATTRIBUTE_TYPE, memberExisting.getAdditionalField(ATTRIBUTE_TYPE),
+							ATTRIBUTE_ORDER, memberExisting.getAdditionalField(ATTRIBUTE_ORDER)
 					)
 			);
 			memberNew.markChanged();

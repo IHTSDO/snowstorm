@@ -16,6 +16,9 @@ import java.util.Map;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.*;
+import static org.snomed.snowstorm.core.data.domain.Concepts.*;
 
 @ExtendWith(SpringExtension.class)
 class RefsetDescriptorUpdaterServiceTest extends AbstractTest {
@@ -97,6 +100,477 @@ class RefsetDescriptorUpdaterServiceTest extends AbstractTest {
 		assertEquals(Concepts.REFERENCED_COMPONENT, referenceSetMember.getAdditionalField("attributeDescription"));
 		assertEquals(Concepts.CONCEPT_TYPE_COMPONENT, referenceSetMember.getAdditionalField("attributeType"));
 		assertEquals("0", referenceSetMember.getAdditionalField("attributeOrder"));
+	}
+
+	/*
+	 * A
+	 * B C
+	 * D E
+	 * F
+	 *
+	 * E has a descriptor entry. F needs to find it and duplicate it.
+	 * */
+	@Test
+	void testDescriptorsWhenMultipleParentsAndGrandParentsWithSequenceA() throws ServiceException {
+		Concept concept;
+		List<ReferenceSetMember> referenceSetMembers;
+
+		// Create reference sets
+		concept = new Concept()
+				.addDescription(new Description("A reference set (reference set)"))
+				.addDescription(new Description("A reference set"))
+				.addAxiom(new Relationship(ISA, REFSET))
+				.addRelationship(new Relationship(ISA, REFSET));
+		concept = conceptService.create(concept, "MAIN");
+		String aReferenceSetId = concept.getConceptId();
+
+		concept = new Concept()
+				.addDescription(new Description("B reference set (reference set)"))
+				.addDescription(new Description("B reference set"))
+				.addAxiom(new Relationship(ISA, aReferenceSetId))
+				.addRelationship(new Relationship(ISA, aReferenceSetId));
+		concept = conceptService.create(concept, "MAIN");
+		String bReferenceSetId = concept.getConceptId();
+
+		concept = new Concept()
+				.addDescription(new Description("C reference set (reference set)"))
+				.addDescription(new Description("C reference set"))
+				.addAxiom(new Relationship(ISA, aReferenceSetId))
+				.addRelationship(new Relationship(ISA, aReferenceSetId));
+		concept = conceptService.create(concept, "MAIN");
+		String cReferenceSetId = concept.getConceptId();
+
+		concept = new Concept()
+				.addDescription(new Description("D reference set (reference set)"))
+				.addDescription(new Description("D reference set"))
+				.addAxiom(new Relationship(ISA, bReferenceSetId), new Relationship(ISA, cReferenceSetId))
+				.addRelationship(new Relationship(ISA, bReferenceSetId))
+				.addRelationship(new Relationship(ISA, cReferenceSetId));
+		concept = conceptService.create(concept, "MAIN");
+		String dReferenceSetId = concept.getConceptId();
+
+		concept = new Concept()
+				.addDescription(new Description("E reference set (reference set)"))
+				.addDescription(new Description("E reference set"))
+				.addAxiom(new Relationship(ISA, bReferenceSetId), new Relationship(ISA, cReferenceSetId))
+				.addRelationship(new Relationship(ISA, bReferenceSetId))
+				.addRelationship(new Relationship(ISA, cReferenceSetId));
+		concept = conceptService.create(concept, "MAIN");
+		String eReferenceSetId = concept.getConceptId();
+
+		// Create Descriptor manually
+		memberService.createMember("MAIN", new ReferenceSetMember(MODEL_MODULE, REFSET_DESCRIPTOR_REFSET, eReferenceSetId).setAdditionalField("attributeType", "1").setAdditionalField("attributeOrder", "0").setAdditionalField("attributeDescription", "3"));
+		referenceSetMembers = memberService.findMembers("MAIN", new MemberSearchRequest().referencedComponentId(eReferenceSetId).referenceSet(REFSET_DESCRIPTOR_REFSET), PAGE_REQUEST).getContent();
+		assertFalse(referenceSetMembers.isEmpty());
+
+		memberService.createMember("MAIN", new ReferenceSetMember(MODEL_MODULE, REFSET_DESCRIPTOR_REFSET, dReferenceSetId).setAdditionalField("attributeType", "1").setAdditionalField("attributeOrder", "0").setAdditionalField("attributeDescription", "3"));
+		referenceSetMembers = memberService.findMembers("MAIN", new MemberSearchRequest().referencedComponentId(eReferenceSetId).referenceSet(REFSET_DESCRIPTOR_REFSET), PAGE_REQUEST).getContent();
+		assertFalse(referenceSetMembers.isEmpty());
+
+		// Create reference set
+		concept = new Concept()
+				.addDescription(new Description("F reference set (reference set)"))
+				.addDescription(new Description("F reference set"))
+				.addAxiom(new Relationship(ISA, dReferenceSetId), new Relationship(ISA, eReferenceSetId))
+				.addRelationship(new Relationship(ISA, dReferenceSetId))
+				.addRelationship(new Relationship(ISA, eReferenceSetId));
+
+		concept = conceptService.create(concept, "MAIN");
+		String fReferenceSetId = concept.getConceptId();
+
+		// Assert
+		referenceSetMembers = memberService.findMembers("MAIN", new MemberSearchRequest().referencedComponentId(fReferenceSetId).referenceSet(REFSET_DESCRIPTOR_REFSET), PAGE_REQUEST).getContent();
+		assertFalse(referenceSetMembers.isEmpty());
+		assertEquals(1, referenceSetMembers.size());
+	}
+
+	/*
+	 * A
+	 * B C
+	 * D E
+	 * F
+	 *
+	 * E & D have descriptor entries. F needs to ignore them as they have different formats.
+	 * */
+	@Test
+	void testDescriptorsWhenMultipleParentsAndGrandParentsWithSequenceB() throws ServiceException {
+		Concept concept;
+		List<ReferenceSetMember> referenceSetMembers;
+
+		// Create reference sets
+		concept = new Concept()
+				.addDescription(new Description("A reference set (reference set)"))
+				.addDescription(new Description("A reference set"))
+				.addAxiom(new Relationship(ISA, REFSET))
+				.addRelationship(new Relationship(ISA, REFSET));
+		concept = conceptService.create(concept, "MAIN");
+		String aReferenceSetId = concept.getConceptId();
+
+		concept = new Concept()
+				.addDescription(new Description("B reference set (reference set)"))
+				.addDescription(new Description("B reference set"))
+				.addAxiom(new Relationship(ISA, aReferenceSetId))
+				.addRelationship(new Relationship(ISA, aReferenceSetId));
+		concept = conceptService.create(concept, "MAIN");
+		String bReferenceSetId = concept.getConceptId();
+
+		concept = new Concept()
+				.addDescription(new Description("C reference set (reference set)"))
+				.addDescription(new Description("C reference set"))
+				.addAxiom(new Relationship(ISA, aReferenceSetId))
+				.addRelationship(new Relationship(ISA, aReferenceSetId));
+		concept = conceptService.create(concept, "MAIN");
+		String cReferenceSetId = concept.getConceptId();
+
+		concept = new Concept()
+				.addDescription(new Description("D reference set (reference set)"))
+				.addDescription(new Description("D reference set"))
+				.addAxiom(new Relationship(ISA, bReferenceSetId), new Relationship(ISA, cReferenceSetId))
+				.addRelationship(new Relationship(ISA, bReferenceSetId))
+				.addRelationship(new Relationship(ISA, cReferenceSetId));
+		concept = conceptService.create(concept, "MAIN");
+		String dReferenceSetId = concept.getConceptId();
+
+		concept = new Concept()
+				.addDescription(new Description("E reference set (reference set)"))
+				.addDescription(new Description("E reference set"))
+				.addAxiom(new Relationship(ISA, bReferenceSetId), new Relationship(ISA, cReferenceSetId))
+				.addRelationship(new Relationship(ISA, bReferenceSetId))
+				.addRelationship(new Relationship(ISA, cReferenceSetId));
+		concept = conceptService.create(concept, "MAIN");
+		String eReferenceSetId = concept.getConceptId();
+
+		// Create Descriptor manually
+		memberService.createMember("MAIN", new ReferenceSetMember(MODEL_MODULE, REFSET_DESCRIPTOR_REFSET, eReferenceSetId).setAdditionalField("attributeType", "1").setAdditionalField("attributeOrder", "0").setAdditionalField("attributeDescription", "3"));
+		memberService.createMember("MAIN", new ReferenceSetMember(MODEL_MODULE, REFSET_DESCRIPTOR_REFSET, eReferenceSetId).setAdditionalField("attributeType", "1").setAdditionalField("attributeOrder", "1").setAdditionalField("attributeDescription", "3"));
+		referenceSetMembers = memberService.findMembers("MAIN", new MemberSearchRequest().referencedComponentId(eReferenceSetId).referenceSet(REFSET_DESCRIPTOR_REFSET), PAGE_REQUEST).getContent();
+		assertFalse(referenceSetMembers.isEmpty());
+
+		// Create reference set
+		concept = new Concept()
+				.addDescription(new Description("F reference set (reference set)"))
+				.addDescription(new Description("F reference set"))
+				.addAxiom(new Relationship(ISA, dReferenceSetId), new Relationship(ISA, eReferenceSetId))
+				.addRelationship(new Relationship(ISA, dReferenceSetId))
+				.addRelationship(new Relationship(ISA, eReferenceSetId));
+
+		concept = conceptService.create(concept, "MAIN");
+		String fReferenceSetId = concept.getConceptId();
+
+		// Assert
+		referenceSetMembers = memberService.findMembers("MAIN", new MemberSearchRequest().referencedComponentId(fReferenceSetId).referenceSet(REFSET_DESCRIPTOR_REFSET), PAGE_REQUEST).getContent();
+		assertFalse(referenceSetMembers.isEmpty());
+		assertEquals(2, referenceSetMembers.size());
+	}
+
+	@Test
+	void testDescriptorsWhenMultipleParentsAndGrandParentsWithSequenceC() throws ServiceException {
+		Concept concept;
+		List<ReferenceSetMember> referenceSetMembers;
+
+		// Create reference sets
+		concept = new Concept()
+				.addDescription(new Description("A reference set (reference set)"))
+				.addDescription(new Description("A reference set"))
+				.addAxiom(new Relationship(ISA, REFSET))
+				.addRelationship(new Relationship(ISA, REFSET));
+		concept = conceptService.create(concept, "MAIN");
+		String aReferenceSetId = concept.getConceptId();
+
+		concept = new Concept()
+				.addDescription(new Description("B reference set (reference set)"))
+				.addDescription(new Description("B reference set"))
+				.addAxiom(new Relationship(ISA, aReferenceSetId))
+				.addRelationship(new Relationship(ISA, aReferenceSetId));
+		concept = conceptService.create(concept, "MAIN");
+		String bReferenceSetId = concept.getConceptId();
+
+		concept = new Concept()
+				.addDescription(new Description("C reference set (reference set)"))
+				.addDescription(new Description("C reference set"))
+				.addAxiom(new Relationship(ISA, aReferenceSetId))
+				.addRelationship(new Relationship(ISA, aReferenceSetId));
+		concept = conceptService.create(concept, "MAIN");
+		String cReferenceSetId = concept.getConceptId();
+
+		concept = new Concept()
+				.addDescription(new Description("D reference set (reference set)"))
+				.addDescription(new Description("D reference set"))
+				.addAxiom(new Relationship(ISA, bReferenceSetId), new Relationship(ISA, cReferenceSetId))
+				.addRelationship(new Relationship(ISA, bReferenceSetId))
+				.addRelationship(new Relationship(ISA, cReferenceSetId));
+		concept = conceptService.create(concept, "MAIN");
+		String dReferenceSetId = concept.getConceptId();
+
+		concept = new Concept()
+				.addDescription(new Description("E reference set (reference set)"))
+				.addDescription(new Description("E reference set"))
+				.addAxiom(new Relationship(ISA, bReferenceSetId), new Relationship(ISA, cReferenceSetId))
+				.addRelationship(new Relationship(ISA, bReferenceSetId))
+				.addRelationship(new Relationship(ISA, cReferenceSetId));
+		concept = conceptService.create(concept, "MAIN");
+		String eReferenceSetId = concept.getConceptId();
+
+		// Create Descriptor manually
+		memberService.createMember("MAIN", new ReferenceSetMember(MODEL_MODULE, REFSET_DESCRIPTOR_REFSET, eReferenceSetId).setAdditionalField("attributeType", "1").setAdditionalField("attributeOrder", "0").setAdditionalField("attributeDescription", "2"));
+		memberService.createMember("MAIN", new ReferenceSetMember(MODEL_MODULE, REFSET_DESCRIPTOR_REFSET, eReferenceSetId).setAdditionalField("attributeType", "1").setAdditionalField("attributeOrder", "1").setAdditionalField("attributeDescription", "2"));
+		referenceSetMembers = memberService.findMembers("MAIN", new MemberSearchRequest().referencedComponentId(eReferenceSetId).referenceSet(REFSET_DESCRIPTOR_REFSET), PAGE_REQUEST).getContent();
+		assertFalse(referenceSetMembers.isEmpty());
+
+		memberService.createMember("MAIN", new ReferenceSetMember(MODEL_MODULE, REFSET_DESCRIPTOR_REFSET, dReferenceSetId).setAdditionalField("attributeType", "3").setAdditionalField("attributeOrder", "0").setAdditionalField("attributeDescription", "4"));
+		memberService.createMember("MAIN", new ReferenceSetMember(MODEL_MODULE, REFSET_DESCRIPTOR_REFSET, dReferenceSetId).setAdditionalField("attributeType", "3").setAdditionalField("attributeOrder", "1").setAdditionalField("attributeDescription", "4"));
+		referenceSetMembers = memberService.findMembers("MAIN", new MemberSearchRequest().referencedComponentId(eReferenceSetId).referenceSet(REFSET_DESCRIPTOR_REFSET), PAGE_REQUEST).getContent();
+		assertFalse(referenceSetMembers.isEmpty());
+
+		// Create reference set
+		concept = new Concept()
+				.addDescription(new Description("F reference set (reference set)"))
+				.addDescription(new Description("F reference set"))
+				.addAxiom(new Relationship(ISA, dReferenceSetId), new Relationship(ISA, eReferenceSetId))
+				.addRelationship(new Relationship(ISA, dReferenceSetId))
+				.addRelationship(new Relationship(ISA, eReferenceSetId));
+
+		concept = conceptService.create(concept, "MAIN");
+		String fReferenceSetId = concept.getConceptId();
+
+		// Assert
+		referenceSetMembers = memberService.findMembers("MAIN", new MemberSearchRequest().referencedComponentId(fReferenceSetId).referenceSet(REFSET_DESCRIPTOR_REFSET), PAGE_REQUEST).getContent();
+		assertTrue(referenceSetMembers.isEmpty());
+	}
+
+	@Test
+	void testDescriptorsWhenMultipleParentsAndGrandParentsWithSequenceD() throws ServiceException {
+		Concept concept;
+		List<ReferenceSetMember> referenceSetMembers;
+
+		// Create reference sets
+		concept = new Concept()
+				.addDescription(new Description("A reference set (reference set)"))
+				.addDescription(new Description("A reference set"))
+				.addAxiom(new Relationship(ISA, REFSET))
+				.addRelationship(new Relationship(ISA, REFSET));
+		concept = conceptService.create(concept, "MAIN");
+		String aReferenceSetId = concept.getConceptId();
+
+		concept = new Concept()
+				.addDescription(new Description("B reference set (reference set)"))
+				.addDescription(new Description("B reference set"))
+				.addAxiom(new Relationship(ISA, aReferenceSetId))
+				.addRelationship(new Relationship(ISA, aReferenceSetId));
+		concept = conceptService.create(concept, "MAIN");
+		String bReferenceSetId = concept.getConceptId();
+
+		concept = new Concept()
+				.addDescription(new Description("C reference set (reference set)"))
+				.addDescription(new Description("C reference set"))
+				.addAxiom(new Relationship(ISA, aReferenceSetId))
+				.addRelationship(new Relationship(ISA, aReferenceSetId));
+		concept = conceptService.create(concept, "MAIN");
+		String cReferenceSetId = concept.getConceptId();
+
+		concept = new Concept()
+				.addDescription(new Description("D reference set (reference set)"))
+				.addDescription(new Description("D reference set"))
+				.addAxiom(new Relationship(ISA, bReferenceSetId), new Relationship(ISA, cReferenceSetId))
+				.addRelationship(new Relationship(ISA, bReferenceSetId))
+				.addRelationship(new Relationship(ISA, cReferenceSetId));
+		concept = conceptService.create(concept, "MAIN");
+		String dReferenceSetId = concept.getConceptId();
+
+		concept = new Concept()
+				.addDescription(new Description("E reference set (reference set)"))
+				.addDescription(new Description("E reference set"))
+				.addAxiom(new Relationship(ISA, bReferenceSetId), new Relationship(ISA, cReferenceSetId))
+				.addRelationship(new Relationship(ISA, bReferenceSetId))
+				.addRelationship(new Relationship(ISA, cReferenceSetId));
+		concept = conceptService.create(concept, "MAIN");
+		String eReferenceSetId = concept.getConceptId();
+
+		// Create Descriptor manually
+		memberService.createMember("MAIN", new ReferenceSetMember(MODEL_MODULE, REFSET_DESCRIPTOR_REFSET, eReferenceSetId).setAdditionalField("attributeType", "1").setAdditionalField("attributeOrder", "0").setAdditionalField("attributeDescription", "3"));
+		memberService.createMember("MAIN", new ReferenceSetMember(MODEL_MODULE, REFSET_DESCRIPTOR_REFSET, eReferenceSetId).setAdditionalField("attributeType", "2").setAdditionalField("attributeOrder", "1").setAdditionalField("attributeDescription", "4"));
+		referenceSetMembers = memberService.findMembers("MAIN", new MemberSearchRequest().referencedComponentId(eReferenceSetId).referenceSet(REFSET_DESCRIPTOR_REFSET), PAGE_REQUEST).getContent();
+		assertFalse(referenceSetMembers.isEmpty());
+
+		memberService.createMember("MAIN", new ReferenceSetMember(MODEL_MODULE, REFSET_DESCRIPTOR_REFSET, dReferenceSetId).setAdditionalField("attributeType", "5").setAdditionalField("attributeOrder", "0").setAdditionalField("attributeDescription", "7"));
+		memberService.createMember("MAIN", new ReferenceSetMember(MODEL_MODULE, REFSET_DESCRIPTOR_REFSET, dReferenceSetId).setAdditionalField("attributeType", "6").setAdditionalField("attributeOrder", "1").setAdditionalField("attributeDescription", "8"));
+		referenceSetMembers = memberService.findMembers("MAIN", new MemberSearchRequest().referencedComponentId(eReferenceSetId).referenceSet(REFSET_DESCRIPTOR_REFSET), PAGE_REQUEST).getContent();
+		assertFalse(referenceSetMembers.isEmpty());
+
+		// Create reference set
+		concept = new Concept()
+				.addDescription(new Description("F reference set (reference set)"))
+				.addDescription(new Description("F reference set"))
+				.addAxiom(new Relationship(ISA, dReferenceSetId), new Relationship(ISA, eReferenceSetId))
+				.addRelationship(new Relationship(ISA, dReferenceSetId))
+				.addRelationship(new Relationship(ISA, eReferenceSetId));
+
+		concept = conceptService.create(concept, "MAIN");
+		String fReferenceSetId = concept.getConceptId();
+
+		// Assert
+		referenceSetMembers = memberService.findMembers("MAIN", new MemberSearchRequest().referencedComponentId(fReferenceSetId).referenceSet(REFSET_DESCRIPTOR_REFSET), PAGE_REQUEST).getContent();
+		assertTrue(referenceSetMembers.isEmpty());
+	}
+
+	@Test
+	void testDescriptorsWhenMultipleParentsAndGrandParentsWithSequenceE() throws ServiceException {
+		Concept concept;
+		List<ReferenceSetMember> referenceSetMembers;
+
+		// Create reference sets
+		concept = new Concept()
+				.addDescription(new Description("A reference set (reference set)"))
+				.addDescription(new Description("A reference set"))
+				.addAxiom(new Relationship(ISA, REFSET))
+				.addRelationship(new Relationship(ISA, REFSET));
+		concept = conceptService.create(concept, "MAIN");
+		String aReferenceSetId = concept.getConceptId();
+
+		concept = new Concept()
+				.addDescription(new Description("B reference set (reference set)"))
+				.addDescription(new Description("B reference set"))
+				.addAxiom(new Relationship(ISA, aReferenceSetId))
+				.addRelationship(new Relationship(ISA, aReferenceSetId));
+		concept = conceptService.create(concept, "MAIN");
+		String bReferenceSetId = concept.getConceptId();
+
+		concept = new Concept()
+				.addDescription(new Description("C reference set (reference set)"))
+				.addDescription(new Description("C reference set"))
+				.addAxiom(new Relationship(ISA, aReferenceSetId))
+				.addRelationship(new Relationship(ISA, aReferenceSetId));
+		concept = conceptService.create(concept, "MAIN");
+		String cReferenceSetId = concept.getConceptId();
+
+		concept = new Concept()
+				.addDescription(new Description("D reference set (reference set)"))
+				.addDescription(new Description("D reference set"))
+				.addAxiom(new Relationship(ISA, bReferenceSetId), new Relationship(ISA, cReferenceSetId))
+				.addRelationship(new Relationship(ISA, bReferenceSetId))
+				.addRelationship(new Relationship(ISA, cReferenceSetId));
+		concept = conceptService.create(concept, "MAIN");
+		String dReferenceSetId = concept.getConceptId();
+
+		concept = new Concept()
+				.addDescription(new Description("E reference set (reference set)"))
+				.addDescription(new Description("E reference set"))
+				.addAxiom(new Relationship(ISA, bReferenceSetId), new Relationship(ISA, cReferenceSetId))
+				.addRelationship(new Relationship(ISA, bReferenceSetId))
+				.addRelationship(new Relationship(ISA, cReferenceSetId));
+		concept = conceptService.create(concept, "MAIN");
+		String eReferenceSetId = concept.getConceptId();
+
+		// Create Descriptor manually
+		memberService.createMember("MAIN", new ReferenceSetMember(MODEL_MODULE, REFSET_DESCRIPTOR_REFSET, eReferenceSetId).setAdditionalField("attributeType", "1").setAdditionalField("attributeOrder", "0").setAdditionalField("attributeDescription", "1"));
+		referenceSetMembers = memberService.findMembers("MAIN", new MemberSearchRequest().referencedComponentId(eReferenceSetId).referenceSet(REFSET_DESCRIPTOR_REFSET), PAGE_REQUEST).getContent();
+		assertFalse(referenceSetMembers.isEmpty());
+
+		memberService.createMember("MAIN", new ReferenceSetMember(MODEL_MODULE, REFSET_DESCRIPTOR_REFSET, dReferenceSetId).setAdditionalField("attributeType", "2").setAdditionalField("attributeOrder", "0").setAdditionalField("attributeDescription", "2"));
+		referenceSetMembers = memberService.findMembers("MAIN", new MemberSearchRequest().referencedComponentId(eReferenceSetId).referenceSet(REFSET_DESCRIPTOR_REFSET), PAGE_REQUEST).getContent();
+		assertFalse(referenceSetMembers.isEmpty());
+
+		// Create reference set
+		concept = new Concept()
+				.addDescription(new Description("F reference set (reference set)"))
+				.addDescription(new Description("F reference set"))
+				.addAxiom(new Relationship(ISA, dReferenceSetId), new Relationship(ISA, eReferenceSetId))
+				.addRelationship(new Relationship(ISA, dReferenceSetId))
+				.addRelationship(new Relationship(ISA, eReferenceSetId));
+
+		concept = conceptService.create(concept, "MAIN");
+		String fReferenceSetId = concept.getConceptId();
+
+		// Assert
+		referenceSetMembers = memberService.findMembers("MAIN", new MemberSearchRequest().referencedComponentId(fReferenceSetId).referenceSet(REFSET_DESCRIPTOR_REFSET), PAGE_REQUEST).getContent();
+		assertTrue(referenceSetMembers.isEmpty());
+	}
+
+	@Test
+	void testDescriptorsWhenMultipleParentsAndGrandParentsWithSequenceF() throws ServiceException {
+		Concept concept;
+		List<ReferenceSetMember> referenceSetMembers;
+
+		// Create reference sets
+		concept = new Concept()
+				.addDescription(new Description("A reference set (reference set)"))
+				.addDescription(new Description("A reference set"))
+				.addAxiom(new Relationship(ISA, REFSET))
+				.addRelationship(new Relationship(ISA, REFSET));
+		concept = conceptService.create(concept, "MAIN");
+		String aReferenceSetId = concept.getConceptId();
+
+		concept = new Concept()
+				.addDescription(new Description("B reference set (reference set)"))
+				.addDescription(new Description("B reference set"))
+				.addAxiom(new Relationship(ISA, aReferenceSetId))
+				.addRelationship(new Relationship(ISA, aReferenceSetId));
+		concept = conceptService.create(concept, "MAIN");
+		String bReferenceSetId = concept.getConceptId();
+
+		concept = new Concept()
+				.addDescription(new Description("C reference set (reference set)"))
+				.addDescription(new Description("C reference set"))
+				.addAxiom(new Relationship(ISA, aReferenceSetId))
+				.addRelationship(new Relationship(ISA, aReferenceSetId));
+		concept = conceptService.create(concept, "MAIN");
+		String cReferenceSetId = concept.getConceptId();
+
+		concept = new Concept()
+				.addDescription(new Description("D reference set (reference set)"))
+				.addDescription(new Description("D reference set"))
+				.addAxiom(new Relationship(ISA, bReferenceSetId), new Relationship(ISA, cReferenceSetId))
+				.addRelationship(new Relationship(ISA, bReferenceSetId))
+				.addRelationship(new Relationship(ISA, cReferenceSetId));
+		concept = conceptService.create(concept, "MAIN");
+		String dReferenceSetId = concept.getConceptId();
+
+		concept = new Concept()
+				.addDescription(new Description("E reference set (reference set)"))
+				.addDescription(new Description("E reference set"))
+				.addAxiom(new Relationship(ISA, bReferenceSetId), new Relationship(ISA, cReferenceSetId))
+				.addRelationship(new Relationship(ISA, bReferenceSetId))
+				.addRelationship(new Relationship(ISA, cReferenceSetId));
+		concept = conceptService.create(concept, "MAIN");
+		String eReferenceSetId = concept.getConceptId();
+
+		concept = new Concept()
+				.addDescription(new Description("F reference set (reference set)"))
+				.addDescription(new Description("F reference set"))
+				.addAxiom(new Relationship(ISA, bReferenceSetId), new Relationship(ISA, cReferenceSetId))
+				.addRelationship(new Relationship(ISA, bReferenceSetId))
+				.addRelationship(new Relationship(ISA, cReferenceSetId));
+		concept = conceptService.create(concept, "MAIN");
+		String fReferenceSetId = concept.getConceptId();
+
+		// Create Descriptor manually
+		memberService.createMember("MAIN", new ReferenceSetMember(MODEL_MODULE, REFSET_DESCRIPTOR_REFSET, bReferenceSetId).setAdditionalField("attributeType", "0").setAdditionalField("attributeOrder", "0").setAdditionalField("attributeDescription", "0"));
+		referenceSetMembers = memberService.findMembers("MAIN", new MemberSearchRequest().referencedComponentId(bReferenceSetId).referenceSet(REFSET_DESCRIPTOR_REFSET), PAGE_REQUEST).getContent();
+		assertFalse(referenceSetMembers.isEmpty());
+
+		memberService.createMember("MAIN", new ReferenceSetMember(MODEL_MODULE, REFSET_DESCRIPTOR_REFSET, eReferenceSetId).setAdditionalField("attributeType", "1").setAdditionalField("attributeOrder", "0").setAdditionalField("attributeDescription", "1"));
+		referenceSetMembers = memberService.findMembers("MAIN", new MemberSearchRequest().referencedComponentId(eReferenceSetId).referenceSet(REFSET_DESCRIPTOR_REFSET), PAGE_REQUEST).getContent();
+		assertFalse(referenceSetMembers.isEmpty());
+
+		memberService.createMember("MAIN", new ReferenceSetMember(MODEL_MODULE, REFSET_DESCRIPTOR_REFSET, dReferenceSetId).setAdditionalField("attributeType", "2").setAdditionalField("attributeOrder", "0").setAdditionalField("attributeDescription", "2"));
+		referenceSetMembers = memberService.findMembers("MAIN", new MemberSearchRequest().referencedComponentId(eReferenceSetId).referenceSet(REFSET_DESCRIPTOR_REFSET), PAGE_REQUEST).getContent();
+		assertFalse(referenceSetMembers.isEmpty());
+
+		// Create reference set
+		concept = new Concept()
+				.addDescription(new Description("G reference set (reference set)"))
+				.addDescription(new Description("G reference set"))
+				.addAxiom(new Relationship(ISA, dReferenceSetId), new Relationship(ISA, eReferenceSetId), new Relationship(ISA, fReferenceSetId))
+				.addRelationship(new Relationship(ISA, dReferenceSetId))
+				.addRelationship(new Relationship(ISA, eReferenceSetId))
+				.addRelationship(new Relationship(ISA, fReferenceSetId));
+
+		concept = conceptService.create(concept, "MAIN");
+		String gReferenceSetId = concept.getConceptId();
+
+		// Assert
+		referenceSetMembers = memberService.findMembers("MAIN", new MemberSearchRequest().referencedComponentId(gReferenceSetId).referenceSet(REFSET_DESCRIPTOR_REFSET), PAGE_REQUEST).getContent();
+		assertTrue(referenceSetMembers.isEmpty());
 	}
 
 	private void givenRefSetAncestorsExist() throws ServiceException {
