@@ -22,6 +22,7 @@ import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.bind.annotation.ResponseStatus;
+import org.springframework.web.context.request.async.AsyncRequestNotUsableException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
@@ -99,6 +100,20 @@ public class RestControllerAdvice {
 		logger.info("A client aborted an HTTP connection, probably a page refresh during loading.");
 		logger.debug("ClientAbortException.", exception);
 	}
+
+    @ExceptionHandler(AsyncRequestNotUsableException.class)
+    @ResponseStatus(HttpStatus.OK)
+    @ResponseBody
+    public void handleAsyncRequestNotUsable(AsyncRequestNotUsableException ex) {
+        Throwable root = ex.getCause();
+        String msg = (root != null ? root.getMessage() : ex.getMessage());
+        if (msg != null && (msg.contains("Broken pipe") || msg.contains("Connection reset") || msg.contains("EOF"))) {
+            logger.info("Client disconnected during async response write.");
+            logger.debug("AsyncRequestNotUsableException.", ex);
+            return;
+        }
+        logger.warn("Async request became unusable unexpectedly.", ex);
+    }
 
 	@ExceptionHandler(Exception.class)
 	@ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
