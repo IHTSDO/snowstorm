@@ -147,16 +147,11 @@ public class FHIRValueSetService {
 
 		// Delete existing ValueSets with the same URL and version (could be different ID)
 		valueSetRepository.findAllByUrl(valueSet.getUrl()).stream()
-				.filter(otherVs -> equalVersions(otherVs.getVersion(), valueSet.getVersion()))
+				.filter(otherVs -> Objects.equals(otherVs.getVersion(), valueSet.getVersion()))
 				.forEach(otherVs -> valueSetRepository.deleteById(otherVs.getId()));
 
 		// Save will replace any existing value set with the same id.
 		return valueSetRepository.save(new FHIRValueSet(valueSet));
-	}
-
-	private boolean equalVersions(String versionA, String versionB) {
-		return versionA == null && versionB == null
-				|| (versionA != null && versionA.equals(versionB));
 	}
 
 	public ValueSet expand(final ValueSetExpansionParameters params, String displayLanguage) {

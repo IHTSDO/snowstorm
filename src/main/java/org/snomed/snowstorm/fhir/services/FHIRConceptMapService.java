@@ -3,8 +3,10 @@ package org.snomed.snowstorm.fhir.services;
 
 import co.elastic.clients.elasticsearch._types.query_dsl.BoolQuery;
 import org.hl7.fhir.r4.model.Coding;
+import org.hl7.fhir.r4.model.ConceptMap;
 import org.hl7.fhir.r4.model.Enumerations;
 import org.hl7.fhir.r4.model.IdType;
+import org.jetbrains.annotations.Nullable;
 import org.snomed.snowstorm.core.data.domain.ConceptMini;
 import org.snomed.snowstorm.core.data.domain.ReferenceSetMember;
 import org.snomed.snowstorm.core.data.services.ConceptService;
@@ -16,7 +18,7 @@ import org.snomed.snowstorm.fhir.domain.*;
 import org.snomed.snowstorm.fhir.pojo.FHIRCodeSystemVersionParams;
 import org.snomed.snowstorm.fhir.pojo.FHIRSnomedConceptMapConfig;
 import org.snomed.snowstorm.fhir.repositories.FHIRConceptMapRepository;
-import org.springframework.beans.factory.annotation.Autowired;
+import org.snomed.snowstorm.fhir.repositories.FHIRMapElementRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
@@ -27,6 +29,7 @@ import org.springframework.stereotype.Service;
 import jakarta.annotation.PostConstruct;
 import jakarta.validation.constraints.NotNull;
 import java.util.*;
+import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
@@ -43,35 +46,38 @@ public class FHIRConceptMapService {
 
 	private static final PageRequest PAGE_OF_ONE_THOUSAND = PageRequest.of(0, 1_000);
 
-	@Autowired
-	private FHIRConceptMapRepository conceptMapRepository;
-
-	@Autowired
-	private ElasticsearchOperations elasticsearchOperations;
-
-	@Autowired
-	private FHIRCodeSystemService fhirCodeSystemService;
-
-	@Autowired
-	private ReferenceSetMemberService snomedRefsetMemberService;
-
-	@Autowired
-	private ConceptService snomedConceptService;
-
-	@Autowired
-	private FHIRConceptMapImplicitConfig implicitMapConfig;
-
-	@Autowired
-	private FHIRConceptService conceptService;
-
-	@Autowired
-	private FHIRSnomedModelTermCache snomedModelTermCache;
+	private final FHIRConceptMapRepository conceptMapRepository;
+	private final FHIRMapElementRepository mapElementRepository;
+	private final ElasticsearchOperations elasticsearchOperations;
+	private final FHIRCodeSystemService fhirCodeSystemService;
+	private final ReferenceSetMemberService snomedRefsetMemberService;
+	private final ConceptService snomedConceptService;
+	private final FHIRConceptMapImplicitConfig implicitMapConfig;
+	private final FHIRConceptService conceptService;
+	private final FHIRSnomedModelTermCache snomedModelTermCache;
 
 	// Implicit ConceptMaps - format http://snomed.info/sct[/(module)[/version/(version)]]?fhir_cm=(sctid)
 	private List<FHIRSnomedConceptMapConfig> snomedMaps;
 
 	// Map of SNOMED CT map correlation concepts to FHIR equivalence codes - http://hl7.org/fhir/concept-map-equivalence
 	private Map<String, Enumerations.ConceptMapEquivalence> snomedCorrelationToFhirEquivalenceMap;
+
+	public FHIRConceptMapService(FHIRConceptMapRepository conceptMapRepository, FHIRMapElementRepository mapElementRepository,
+			ElasticsearchOperations elasticsearchOperations, FHIRCodeSystemService fhirCodeSystemService,
+			ReferenceSetMemberService snomedRefsetMemberService, ConceptService snomedConceptService,
+			FHIRConceptMapImplicitConfig implicitMapConfig, FHIRConceptService conceptService,
+			FHIRSnomedModelTermCache snomedModelTermCache) {
+
+		this.conceptMapRepository = conceptMapRepository;
+		this.mapElementRepository = mapElementRepository;
+		this.elasticsearchOperations = elasticsearchOperations;
+		this.fhirCodeSystemService = fhirCodeSystemService;
+		this.snomedRefsetMemberService = snomedRefsetMemberService;
+		this.snomedConceptService = snomedConceptService;
+		this.implicitMapConfig = implicitMapConfig;
+		this.conceptService = conceptService;
+		this.snomedModelTermCache = snomedModelTermCache;
+	}
 
 	@PostConstruct
 	public void init() {
@@ -153,7 +159,7 @@ public class FHIRConceptMapService {
 
 		// Grab generated snomed maps
 		maps.addAll(getSnomedMaps().stream()
-				.filter(map -> snomedPredicates.stream().allMatch(predicate -> predicate.test(map))).collect(Collectors.toList()));
+				.filter(map -> snomedPredicates.stream().allMatch(predicate -> predicate.test(map))).toList());
 
 		return maps;
 	}
@@ -168,7 +174,7 @@ public class FHIRConceptMapService {
 				.filter(group -> targetSystem == null || group.getTarget().equals(targetSystem))
 				.toList();
 		BoolQuery.Builder query = bool()
-				.must(termsQuery(FHIRMapElement.Fields.GROUP_ID, groups.stream().map(FHIRConceptMapGroup::getGroupId).collect(Collectors.toList())))
+				.must(termsQuery(FHIRMapElement.Fields.GROUP_ID, groups.stream().map(FHIRConceptMapGroup::getGroupId).toList()))
 				.must(termQuery(FHIRMapElement.Fields.CODE, coding.getCode()));
 		NativeQueryBuilder queryBuilder = new NativeQueryBuilder()
 				.withQuery(query.build()._toQuery())
@@ -194,50 +200,21 @@ public class FHIRConceptMapService {
 		}
 		Page<ReferenceSetMember> members = snomedRefsetMemberService.findMembers(snomedVersion.getSnomedBranch(), memberSearchRequest, PAGE_OF_ONE_THOUSAND);
 
-		// Collect map targets for filling terms
-		Map<String, List<FHIRMapTarget>> mapTargetsByCode = new HashMap<>();
-
 		Comparator<ReferenceSetMember> mapComparator =
 				comparing(ReferenceSetMember::getMapGroup, Comparator.nullsFirst(naturalOrder()))
 						.thenComparing(ReferenceSetMember::getMapPriority, Comparator.nullsFirst(naturalOrder()));
 
 		List<FHIRMapElement> generatedElements = members.stream()
 				.sorted(mapComparator)
-				.map(referenceSetMember -> {
-					String targetCode = getTargetCode(hasSnomedSource, hasSnomedTarget, referenceSetMember);
-					if (targetCode == null) return null;
-					String equivalence = map.getSnomedRefsetEquivalence();
-					FHIRMapTarget mapTarget = new FHIRMapTarget(targetCode, equivalence, null);
-					mapTargetsByCode.computeIfAbsent(targetCode, key -> new ArrayList<>()).add(mapTarget);
-					String message = null;
-					String mapGroup = referenceSetMember.getAdditionalField("mapGroup");
-					if (mapGroup != null) {
-						String mapPriority = referenceSetMember.getAdditionalField("mapPriority");
-						String mapRule = referenceSetMember.getAdditionalField("mapRule");
-						String mapAdvice = referenceSetMember.getAdditionalField("mapAdvice");
-						String correlationId = referenceSetMember.getAdditionalField("correlationId");
-						Enumerations.ConceptMapEquivalence mapEquivalence = snomedCorrelationToFhirEquivalenceMap.get(correlationId);
-						mapTarget.setEquivalence(mapEquivalence != null ? mapEquivalence.toCode() : null);
-						String mapCategoryId = referenceSetMember.getAdditionalField("mapCategoryId");
-						String mapCategoryMessage = "";
-
-						// mapCategoryId null for complex map, only used in extended map
-						if (mapCategoryId != null) {
-							String mapCategoryTerm = snomedModelTermCache.getSnomedTerm(mapCategoryId, snomedVersion, languageDialects);
-							mapCategoryMessage = format(", Map Category:'%s'", mapCategoryTerm);
-						}
-
-						message = format("Please observe the following map advice. Group:%s, Priority:%s, Rule:%s, Advice:'%s'%s.",
-								mapGroup, mapPriority, mapRule, mapAdvice, mapCategoryMessage);
-					}
-					return new FHIRMapElement()
-							.setCode(coding.getCode())
-							.setTarget(Collections.singletonList(mapTarget))
-							.setMessage(message);
-				})
+				.map(referenceSetMember -> getFhirMapElement(referenceSetMember, map, coding, languageDialects,
+						hasSnomedSource, hasSnomedTarget, snomedVersion))
 				.filter(Objects::nonNull)
 				.filter(element -> element.getTarget().get(0).getCode() != null)
-				.collect(Collectors.toList());
+				.toList();
+
+		// Collect map targets for filling terms
+		Map<String, List<FHIRMapTarget>> mapTargetsByCode = generatedElements.stream().map(FHIRMapElement::getTarget)
+				.collect(Collectors.toMap(element -> element.get(0).getCode(), Function.identity()));
 
 		// Grab target display terms
 		if (!mapTargetsByCode.isEmpty()) {
@@ -256,6 +233,40 @@ public class FHIRConceptMapService {
 		}
 
 		return generatedElements;
+	}
+
+	private @Nullable FHIRMapElement getFhirMapElement(ReferenceSetMember referenceSetMember, FHIRConceptMap map, Coding coding, List<LanguageDialect> languageDialects,
+			boolean hasSnomedSource, boolean hasSnomedTarget, FHIRCodeSystemVersion snomedVersion) {
+
+		String targetCode = getTargetCode(hasSnomedSource, hasSnomedTarget, referenceSetMember);
+		if (targetCode == null) return null;
+		String equivalence = map.getSnomedRefsetEquivalence();
+		FHIRMapTarget mapTarget = new FHIRMapTarget(targetCode, equivalence, null);
+		String message = null;
+		String mapGroup = referenceSetMember.getAdditionalField("mapGroup");
+		if (mapGroup != null) {
+			String mapPriority = referenceSetMember.getAdditionalField("mapPriority");
+			String mapRule = referenceSetMember.getAdditionalField("mapRule");
+			String mapAdvice = referenceSetMember.getAdditionalField("mapAdvice");
+			String correlationId = referenceSetMember.getAdditionalField("correlationId");
+			Enumerations.ConceptMapEquivalence mapEquivalence = snomedCorrelationToFhirEquivalenceMap.get(correlationId);
+			mapTarget.setEquivalence(mapEquivalence != null ? mapEquivalence.toCode() : null);
+			String mapCategoryId = referenceSetMember.getAdditionalField("mapCategoryId");
+			String mapCategoryMessage = "";
+
+			// mapCategoryId null for complex map, only used in extended map
+			if (mapCategoryId != null) {
+				String mapCategoryTerm = snomedModelTermCache.getSnomedTerm(mapCategoryId, snomedVersion, languageDialects);
+				mapCategoryMessage = format(", Map Category:'%s'", mapCategoryTerm);
+			}
+
+			message = format("Please observe the following map advice. Group:%s, Priority:%s, Rule:%s, Advice:'%s'%s.",
+					mapGroup, mapPriority, mapRule, mapAdvice, mapCategoryMessage);
+		}
+		return new FHIRMapElement()
+				.setCode(coding.getCode())
+				.setTarget(Collections.singletonList(mapTarget))
+				.setMessage(message);
 	}
 
 	public Set<FHIRSnomedConceptMapConfig> getConfiguredMapsWithNonSnomedTarget(Set<String> refsetIds) {
@@ -304,6 +315,29 @@ public class FHIRConceptMapService {
 	@NotNull
 	private <T> List<T> searchForList(NativeQueryBuilder queryBuilder, Class<T> clazz) {
 		return elasticsearchOperations.search(queryBuilder.build(), clazz).stream()
-				.map(SearchHit::getContent).collect(Collectors.toList());
+				.map(SearchHit::getContent).toList();
+	}
+
+	public void createOrUpdateConceptMap(ConceptMap conceptMap) {
+		FHIRConceptMap fhirConceptMap = new FHIRConceptMap(conceptMap);
+
+		// Delete existing maps with the same URL and version (could be different ID)
+		conceptMapRepository.findAllByUrl(conceptMap.getUrl()).stream()
+				.filter(otherMap -> Objects.equals(otherMap.getVersion(), conceptMap.getVersion()))
+				.forEach(this::deleteMap);
+		// Save will replace any existing map with the same id.
+		fhirConceptMap = conceptMapRepository.save(fhirConceptMap);
+		for (FHIRConceptMapGroup mapGroup : fhirConceptMap.getGroup()) {
+			// Save elements within each group
+			mapElementRepository.saveAll(mapGroup.getElement());
+		}
+	}
+
+	private void deleteMap(FHIRConceptMap otherMap) {
+		conceptMapRepository.deleteById(otherMap.getId());
+		for (FHIRConceptMapGroup fhirConceptMapGroup : otherMap.getGroup()) {
+			List<FHIRMapElement> groupElements = mapElementRepository.findAllByGroupId(fhirConceptMapGroup.getGroupId());
+			mapElementRepository.deleteAll(groupElements);
+		}
 	}
 }
