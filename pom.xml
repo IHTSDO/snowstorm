@@ -381,6 +381,14 @@
 					<argLine>--add-opens java.base/java.util=ALL-UNNAMED --add-opens java.base/java.lang=ALL-UNNAMED</argLine>
 				</configuration>
 			</plugin>
+			<plugin>
+			<groupId>org.owasp</groupId>
+				<artifactId>dependency-check-maven</artifactId>
+				<version>${dependency-check-maven.version}</version>
+				<configuration>
+					<failBuildOnCVSS>10</failBuildOnCVSS>
+				</configuration>
+			</plugin>
 			<!-- Docker Image Build -->
 			<plugin>
 				<groupId>com.google.cloud.tools</groupId>
