@@ -76,10 +76,8 @@ public class FHIRValueSetConstraintsService implements FHIRConstants {
 				FHIRCodeSystemVersion csv = codeSystemVersionProvider.get(include.getSystem(), include.getVersion());
 				AndConstraints constraints = criteria.addInclusion(csv);
 				collectConstraints(valueSet, include, i, csv, constraints, activeOnly, true);
-
 			} else if (include.hasValueSet()) {
 				handleNestedValueSets(codeSystemVersionProvider, activeOnly, isExpandFlow, criteria, include);
-
 			} else {
 				throw exception("ValueSet clause has no system or nested value set",
 						OperationOutcome.IssueType.INVARIANT, 400);
