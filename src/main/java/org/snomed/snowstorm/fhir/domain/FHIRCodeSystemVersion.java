@@ -27,9 +27,6 @@ public class FHIRCodeSystemVersion {
 	private String id;
 
 	@Field(type = FieldType.Keyword)
-	private String codeSystemId;
-
-	@Field(type = FieldType.Keyword)
 	private String url;
 
 	@Field(type = FieldType.Keyword)
@@ -98,7 +95,6 @@ public class FHIRCodeSystemVersion {
 			provisionalId = codeSystem.getId().replace("CodeSystem/", "");
 		}
 		this.id = provisionalId + (StringUtils.isBlank(version) ? "" : ("-" + version));
-		this.codeSystemId = provisionalId;
 		experimental = codeSystem.getExperimental();
 		caseSensitive = codeSystem.getCaseSensitive();
 		date = codeSystem.getDate();
@@ -137,7 +133,6 @@ public class FHIRCodeSystemVersion {
 
 		String moduleId = snomedVersion.getCodeSystem().getUriModuleId();
 		id = FHIRCodeSystemService.SCT_ID_PREFIX + moduleId + "_" + snomedVersion.getEffectiveDate();
-		this.codeSystemId = id;
 		version = SNOMED_URI + "/" + moduleId + VERSION_SLASH + snomedVersion.getEffectiveDate();
 		if (title == null) {
 			title = "SNOMED CT release " + snomedVersion.getVersion();
@@ -167,7 +162,6 @@ public class FHIRCodeSystemVersion {
 			url = SNOMED_URI_UNVERSIONED;
 			version = SNOMED_URI_UNVERSIONED + "/" + moduleId;
 		}
-		this.codeSystemId = id;
 		snomedBranch = snomedCodeSystem.getBranchPath();
 		var languages = snomedCodeSystem.getLanguages();
 		if (languages != null) {
@@ -180,7 +174,7 @@ public class FHIRCodeSystemVersion {
 	public CodeSystem toHapiCodeSystem() {
 		CodeSystem codeSystem = new CodeSystem();
 		codeSystem.setExtension(Optional.ofNullable(extensions).orElse(Collections.emptyList()).stream().map(fe -> fe.getHapi()).toList());
-		codeSystem.setId(codeSystemId);
+		codeSystem.setId(id);
 		codeSystem.setUrl(url);
 		if(!"0".equals(version)) {
 			codeSystem.setVersion(version);
