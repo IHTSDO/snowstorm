@@ -17,7 +17,7 @@ This loads the content of the current release and skips loading outdated content
 
 ### Via REST
 
-Once Snowstorm is running, you will need to start the import process by creating a new import job. Look for the Imports endpoint on Swagger, (http://localhost:8080) and then create a new import using
+Once Snowstorm is running, you will need to start the import process by creating a new import job. Look for the Imports `/imports` endpoint on Swagger, (http://localhost:8080) and then create a new import using
 
 ```json
 {
@@ -29,7 +29,7 @@ Once Snowstorm is running, you will need to start the import process by creating
 
 and then click on 'Execute' and then note the id of the import as you will need it for the next step (it will look something like - _d0b30d96-3714-443e-99a5-2f282b1f1b0_).
 
-You now need to upload the SNOMED release zip file. You can do this through the swagger interface at the *imports/archive* end point, but the following will allow you to run it using curl to do this from the command line (*this example uses the January 2025 release*):
+You now need to upload the SNOMED release zip file. You can do this through the swagger interface at the `/imports/{importId}/archive` endpoint, but the following will allow you to run it using curl to do this from the command line (*this example uses the January 2025 release*):
 
 ```bash
 curl -X POST --header 'Content-Type: multipart/form-data' --header 'Accept: application/json' -F file=@SnomedCT_InternationalRF2_PRODUCTION_20250101T120000Z.zip 'http://localhost:8080/imports/<import id>/archive'
