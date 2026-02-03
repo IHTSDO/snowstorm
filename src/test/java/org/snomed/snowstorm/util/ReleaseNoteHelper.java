@@ -21,16 +21,16 @@ import java.util.regex.Pattern;
  * To get started, follow the steps below. Note, DO NOT commit your changes.
  * 1) Keep WORKING_DIRECTORY as is for Snowstorm, or change to the local path to another repository.
  * 2) Change START_COMMIT to the commit hash of the first commit to include in the release notes. Typically, this is the commit BEFORE "Start X-SNAPSHOT".
- * 3) Change USERNAME to the email address associated with your Atlassian account.
- * 4) Change TOKEN to your Jira Cloud API token. Tokens can be created here: https://id.atlassian.com/manage-profile/security/api-tokens
+ * 3) Change USER_EMAIL_ADDR to the email address associated with your Atlassian account.
+ * 4) Change API_TOKEN to your Jira Cloud API token. Tokens can be created here: https://id.atlassian.com/manage-profile/security/api-tokens
  */
 public class ReleaseNoteHelper {
 	private static final Logger LOGGER = LoggerFactory.getLogger(ReleaseNoteHelper.class);
-	private static final String JIRA_API = "https://snomed.atlassian.net/rest/api/3";
+	private static final String JIRA_API_URL = "https://snomed.atlassian.net/rest/api/3";
 	private static final String WORKING_DIRECTORY = ".";
-	private static final String START_COMMIT = "";
-	private static final String USERNAME = "";
-	private static final String TOKEN = "";
+	private static final String START_COMMIT_HASH = "";
+	private static final String USER_EMAIL_ADDR = "";
+	private static final String API_TOKEN = "";
 
 	public static void main(String[] args) {
 		ReleaseNoteHelper releaseNoteHelper = new ReleaseNoteHelper();
@@ -55,24 +55,24 @@ public class ReleaseNoteHelper {
 	}
 
 	private void throwIfMissingParameters() {
-		if (JIRA_API == null || JIRA_API.isBlank()) {
-			throw new IllegalArgumentException("JIRA_API must be set");
+		if (JIRA_API_URL == null || JIRA_API_URL.isBlank()) {
+			throw new IllegalArgumentException("JIRA_API_URL must be set");
 		}
 
 		if (WORKING_DIRECTORY == null || WORKING_DIRECTORY.isBlank()) {
 			throw new IllegalArgumentException("WORKING_DIRECTORY must be set");
 		}
 
-		if (START_COMMIT == null || START_COMMIT.isBlank()) {
-			throw new IllegalArgumentException("START_COMMIT must be set");
+		if (START_COMMIT_HASH == null || START_COMMIT_HASH.isBlank()) {
+			throw new IllegalArgumentException("START_COMMIT_HASH must be set");
 		}
 
-		if (USERNAME == null || USERNAME.isBlank()) {
-			throw new IllegalArgumentException("USERNAME must be set");
+		if (USER_EMAIL_ADDR == null || USER_EMAIL_ADDR.isBlank()) {
+			throw new IllegalArgumentException("USERNAME (email address) must be set");
 		}
 
-		if (TOKEN == null || TOKEN.isBlank()) {
-			throw new IllegalArgumentException("TOKEN must be set");
+		if (API_TOKEN == null || API_TOKEN.isBlank()) {
+			throw new IllegalArgumentException("API TOKEN must be set");
 		}
 	}
 
@@ -81,7 +81,7 @@ public class ReleaseNoteHelper {
 
 		try {
 			File codeDirectory = new File(WORKING_DIRECTORY);
-			Process process = Runtime.getRuntime().exec("git log " + START_COMMIT + ".." + "HEAD", new String[]{}, codeDirectory);
+			Process process = Runtime.getRuntime().exec("git log " + START_COMMIT_HASH + ".." + "HEAD", new String[]{}, codeDirectory);
 			ExecutorService executorService = Executors.newCachedThreadPool();
 			executorService.submit(new StreamGobbler(process.getErrorStream(), System.err::println));
 			process.waitFor();
@@ -115,7 +115,7 @@ public class ReleaseNoteHelper {
 		for (Commit commit : commits) {
 			String issueKey = parseIssueKeyFromCommit(commit.comment);
 			if (issueKey == null) {
-				issues.put(commit.hash, new Issue(commit.hash, "-", "-", "-").addCommit(commit));
+				issues.put(commit.hash, new Issue(commit.hash, "-", "-", "-", "").addCommit(commit));
 				continue;
 			}
 
@@ -137,7 +137,7 @@ public class ReleaseNoteHelper {
 	@SuppressWarnings("unchecked")
 	private Map<String, Object> getFromAPI(String issueKey) {
 		try {
-			RestTemplate restTemplate = new RestTemplateBuilder().rootUri(JIRA_API).basicAuthentication(USERNAME, TOKEN).build();
+			RestTemplate restTemplate = new RestTemplateBuilder().rootUri(JIRA_API_URL).basicAuthentication(USER_EMAIL_ADDR, API_TOKEN).build();
 			return restTemplate.getForObject("/issue/" + issueKey, Map.class);
 		} catch (Exception e) {
 			LOGGER.error("Failed to get issues", e);
@@ -152,15 +152,20 @@ public class ReleaseNoteHelper {
 
 		String status = (String) statusMap.get("name");
 		String summary = (String) fieldsMap.get("summary");
+		String assignee = "";
+		Map<String, Object> assigneeMap = (Map<String, Object>) fieldsMap.get("assignee");
+		if (assigneeMap != null) {
+			assignee = (String) assigneeMap.get("displayName");
+		}
 
-		return new Issue(commit.hash, issueKey, status, summary);
+		return new Issue(commit.hash, issueKey, status, summary, assignee);
 	}
 
 	private void flushToFile(Map<String, Issue> issues) {
 		LOGGER.info("Writing summary to file");
 
 		try (BufferedWriter writer = new BufferedWriter(new FileWriter("commit-change-log.tsv"))) {
-			writer.write("Commit hash\tTicket\tTicket Status\tTicket Summary\tCommit comment");
+			writer.write("Commit hash\tTicket\tTicket Status\tAssignee\tCommit comment\tTicket Summary");
 			writer.newLine();
 			for (String key : Lists.reverse(new ArrayList<>(issues.keySet()))) {
 				Issue issue = issues.get(key);
@@ -172,8 +177,9 @@ public class ReleaseNoteHelper {
 						issue.getHash(),
 						issue.getKey(),
 						issue.getStatus(),
-						issue.getSummary(),
-						comments.toString()
+						issue.getAssignee(),
+						comments.toString(),
+						issue.getSummary()
 				));
 				writer.newLine();
 			}
@@ -198,6 +204,7 @@ public class ReleaseNoteHelper {
 		private String status;
 		private final List<Commit> commits = new ArrayList<>();
 		private String summary;
+		private String assignee;
 
 		public Issue(String hash, String key, String status) {
 			this.hash = hash;
@@ -205,11 +212,12 @@ public class ReleaseNoteHelper {
 			this.status = status;
 		}
 
-		public Issue(String hash, String key, String status, String summary) {
+		public Issue(String hash, String key, String status, String summary, String assignee) {
 			this.hash = hash;
 			this.key = key;
 			this.status = status;
 			this.summary = summary;
+			this.assignee = assignee;
 		}
 
 		public String getHash() {
@@ -222,6 +230,10 @@ public class ReleaseNoteHelper {
 
 		public String getStatus() {
 			return status;
+		}
+
+		public String getAssignee() {
+			return assignee;
 		}
 
 		public void setStatus(String status) {
