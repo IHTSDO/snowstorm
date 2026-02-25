@@ -1,206 +1,455 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Snowstorm Dashboard</title>
+	<meta charset="UTF-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+	<title>Snowstorm Dashboard</title>
 
-    <!-- Bootstrap 5 -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <!-- Bootstrap Icons -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" rel="stylesheet">
-    <!-- DataTables -->
-    <link href="https://cdn.datatables.net/1.13.4/css/dataTables.bootstrap5.min.css" rel="stylesheet">
-    <link href="css/dashboard.css" rel="stylesheet">
+	<!-- Bootstrap 5 -->
+	<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+	<!-- Bootstrap Icons -->
+	<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" rel="stylesheet">
+	<link href="css/dashboard.css" rel="stylesheet">
 </head>
-<body>
+<body x-data="dashboard()" x-init="init()">
 
 <!-- Sidebar -->
 <div id="sidebar">
-    <h5 class="text-center text-white">Snowstorm</h5>
-<!--    <a href="#">About</a>-->
-    <a href="#" id="fhir-resources-btn">FHIR Resources</a>
-<!--    <a href="#">Syndication</a>-->
-    <a href="#" id="upload-sct-btn">Upload SNOMED CT</a>
-    <hr class="border-secondary" />
-<!--    <a href="#">Browser</a>-->
+	<h5 class="text-center text-white">Snowstorm</h5>
+	<a href="#" @click.prevent="section = 'resources'; setHash()">FHIR Resources</a>
+	<a href="#" @click.prevent="section = 'upload-sct'; setHash()">Upload SNOMED CT</a>
+	<hr class="border-secondary" />
 </div>
 
 <!-- Main Content -->
 <div class="p-3 main">
-    <!-- Top Navbar -->
-    <div class="d-flex justify-content-between align-items-center mb-3">
-        <h4>Snowstorm Dashboard</h4>
-        <div>
-            <!-- <button class="btn btn-primary btn-sm">Login</button> -->
-<!--            <select class="form-select d-inline-block w-auto ms-2">-->
-<!--                <option>en</option>-->
-<!--                <option>fr</option>-->
-<!--            </select>-->
-        </div>
-    </div>
+	<div class="d-flex justify-content-between align-items-center mb-3">
+		<h4>Snowstorm Dashboard</h4>
+	</div>
 
-    <div id="resources" class="tab-content">
-        <div class="d-flex justify-content-between align-items-center mb-3">
-            <div>
-                <h5>FHIR Resources</h5>
-                <small id="resource-count" class="text-muted">Loading...</small>
-            </div>
-            <div>
-                <button id="refresh-codesystems" class="btn btn-outline-secondary btn-sm me-2">
-                    <i class="bi bi-arrow-clockwise"></i> Refresh CodeSystems
-                </button>
-                <button id="refresh-valuesets" class="btn btn-outline-secondary btn-sm me-2" style="display: none;">
-                    <i class="bi bi-arrow-clockwise"></i> Refresh ValueSets
-                </button>
-                <button id="refresh-conceptmaps" class="btn btn-outline-secondary btn-sm" style="display: none;">
-                    <i class="bi bi-arrow-clockwise"></i> Refresh ConceptMaps
-                </button>
-            </div>
-        </div>
-        <!-- Tabs -->
-        <ul class="nav nav-tabs mb-3" id="resource-tabs">
-            <li class="nav-item">
-                <a class="nav-link active" href="#codesystem-tab" data-tab="codesystem">CodeSystem</a>
-            </li>
-            <li class="nav-item">
-                <a class="nav-link" href="#valueset-tab" data-tab="valueset">ValueSet</a>
-            </li>
-            <li class="nav-item">
-                <a class="nav-link" href="#conceptmap-tab" data-tab="conceptmap">ConceptMap</a>
-            </li>
-        </ul>
+	<!-- FHIR Resources section -->
+	<div id="resources" class="tab-content" x-show="section === 'resources'" x-transition x-cloak style="display: none;">
+		<div class="d-flex justify-content-between align-items-center mb-3">
+			<div>
+				<h5>FHIR Resources</h5>
+				<small class="text-muted" x-text="resourceCountText"></small>
+			</div>
+			<div>
+				<button x-show="tab === 'codesystem'" class="btn btn-outline-secondary btn-sm me-2"
+					@click="loadCodeSystems()">
+					<i class="bi bi-arrow-clockwise"></i> Refresh CodeSystems
+				</button>
+				<button x-show="tab === 'valueset'" class="btn btn-outline-secondary btn-sm me-2"
+					@click="loadValueSets()">
+					<i class="bi bi-arrow-clockwise"></i> Refresh ValueSets
+				</button>
+				<button x-show="tab === 'conceptmap'" class="btn btn-outline-secondary btn-sm"
+					@click="loadConceptMaps()">
+					<i class="bi bi-arrow-clockwise"></i> Refresh ConceptMaps
+				</button>
+			</div>
+		</div>
 
-        <!-- CodeSystem Table -->
-        <div id="codesystem-tab" class="tab-pane active">
-            <table id="codesystem-table" class="table table-striped table-bordered">
-                <thead>
-                <tr>
-                    <th>Title</th>
-                    <th>URL</th>
-                    <th>Version</th>
-                    <th>Status</th>
-                    <th>Publisher</th>
-                    <th>Actions</th>
-                </tr>
-                </thead>
-                <tbody>
-                <!-- Dynamically added rows via JS -->
-                </tbody>
-            </table>
-        </div>
+		<ul class="nav nav-tabs mb-3">
+			<li class="nav-item">
+				<a class="nav-link" href="#" :class="{ active: tab === 'codesystem' }"
+					@click.prevent="switchTab('codesystem')">CodeSystem</a>
+			</li>
+			<li class="nav-item">
+				<a class="nav-link" href="#" :class="{ active: tab === 'valueset' }"
+					@click.prevent="switchTab('valueset')">ValueSet</a>
+			</li>
+			<li class="nav-item">
+				<a class="nav-link" href="#" :class="{ active: tab === 'conceptmap' }"
+					@click.prevent="switchTab('conceptmap')">ConceptMap</a>
+			</li>
+		</ul>
 
-        <!-- ValueSet Table -->
-        <div id="valueset-tab" class="tab-pane" style="display: none;">
-            <table id="valueset-table" class="table table-striped table-bordered">
-                <thead>
-                <tr>
-                    <th>Title</th>
-                    <th>URL</th>
-                    <th>Version</th>
-                    <th>Status</th>
-                    <th>Publisher</th>
-                    <th>Actions</th>
-                </tr>
-                </thead>
-                <tbody>
-                <!-- Dynamically added rows via JS -->
-                </tbody>
-            </table>
-        </div>
+		<!-- CodeSystem Table -->
+		<div x-show="tab === 'codesystem'" x-transition style="display: none;">
+			<table class="table table-striped table-bordered">
+				<thead>
+					<tr>
+						<th class="sortable" @click="sortBy('codesystem', 'title')">
+							Title <span x-show="sortKey.codesystem === 'title'" x-text="sortAsc.codesystem ? '↑' : '↓'"></span>
+						</th>
+						<th class="sortable" @click="sortBy('codesystem', 'url')">
+							URL <span x-show="sortKey.codesystem === 'url'" x-text="sortAsc.codesystem ? '↑' : '↓'"></span>
+						</th>
+						<th class="sortable" @click="sortBy('codesystem', 'version')">
+							Version <span x-show="sortKey.codesystem === 'version'" x-text="sortAsc.codesystem ? '↑' : '↓'"></span>
+						</th>
+						<th class="sortable" @click="sortBy('codesystem', 'status')">
+							Status <span x-show="sortKey.codesystem === 'status'" x-text="sortAsc.codesystem ? '↑' : '↓'"></span>
+						</th>
+						<th class="sortable" @click="sortBy('codesystem', 'publisher')">
+							Publisher <span x-show="sortKey.codesystem === 'publisher'" x-text="sortAsc.codesystem ? '↑' : '↓'"></span>
+						</th>
+						<th>Actions</th>
+					</tr>
+				</thead>
+				<tbody>
+					<template x-if="loadingCodesystems">
+						<tr>
+							<td colspan="6" class="text-center">
+								<div class="spinner-border spinner-border-sm" role="status"></div>
+								Loading CodeSystems...
+							</td>
+						</tr>
+					</template>
+					<template x-if="!loadingCodesystems && errorCodesystems">
+						<tr>
+							<td colspan="6" class="text-center text-danger" x-text="errorCodesystems"></td>
+						</tr>
+					</template>
+					<template x-if="!loadingCodesystems && !errorCodesystems && sortedCodeSystems.length === 0">
+						<tr>
+							<td colspan="6" class="text-center text-muted">No CodeSystems found</td>
+						</tr>
+					</template>
+					<template x-for="r in sortedCodeSystems" :key="r.id">
+						<tr>
+							<td x-text="r.title"></td>
+							<td x-text="r.url"></td>
+							<td x-text="r.version"></td>
+							<td>
+								<span class="badge" :class="r.status === 'active' ? 'bg-success' : 'bg-secondary'" x-text="r.status"></span>
+							</td>
+							<td x-text="r.publisher"></td>
+							<td>
+								<button class="btn btn-sm btn-outline-primary" title="View" @click="viewDetail('codesystem', r.id)">
+									<i class="bi bi-eye"></i>
+								</button>
+							</td>
+						</tr>
+					</template>
+				</tbody>
+			</table>
+		</div>
 
-        <!-- ConceptMap Table -->
-        <div id="conceptmap-tab" class="tab-pane" style="display: none;">
-            <table id="conceptmap-table" class="table table-striped table-bordered">
-                <thead>
-                <tr>
-                    <th>Title</th>
-                    <th>URL</th>
-                    <th>Version</th>
-                    <th>Status</th>
-                    <th>Publisher</th>
-                    <th>Actions</th>
-                </tr>
-                </thead>
-                <tbody>
-                <!-- Dynamically added rows via JS -->
-                </tbody>
-            </table>
-        </div>
-    </div>
+		<!-- ValueSet Table -->
+		<div x-show="tab === 'valueset'" x-transition style="display: none;">
+			<table class="table table-striped table-bordered">
+				<thead>
+					<tr>
+						<th class="sortable" @click="sortBy('valueset', 'title')">
+							Title <span x-show="sortKey.valueset === 'title'" x-text="sortAsc.valueset ? '↑' : '↓'"></span>
+						</th>
+						<th class="sortable" @click="sortBy('valueset', 'url')">
+							URL <span x-show="sortKey.valueset === 'url'" x-text="sortAsc.valueset ? '↑' : '↓'"></span>
+						</th>
+						<th class="sortable" @click="sortBy('valueset', 'version')">
+							Version <span x-show="sortKey.valueset === 'version'" x-text="sortAsc.valueset ? '↑' : '↓'"></span>
+						</th>
+						<th class="sortable" @click="sortBy('valueset', 'status')">
+							Status <span x-show="sortKey.valueset === 'status'" x-text="sortAsc.valueset ? '↑' : '↓'"></span>
+						</th>
+						<th class="sortable" @click="sortBy('valueset', 'publisher')">
+							Publisher <span x-show="sortKey.valueset === 'publisher'" x-text="sortAsc.valueset ? '↑' : '↓'"></span>
+						</th>
+						<th>Actions</th>
+					</tr>
+				</thead>
+				<tbody>
+					<template x-if="loadingValueSets">
+						<tr>
+							<td colspan="6" class="text-center">
+								<div class="spinner-border spinner-border-sm" role="status"></div>
+								Loading ValueSets...
+							</td>
+						</tr>
+					</template>
+					<template x-if="!loadingValueSets && errorValueSets">
+						<tr>
+							<td colspan="6" class="text-center text-danger" x-text="errorValueSets"></td>
+						</tr>
+					</template>
+					<template x-if="!loadingValueSets && !errorValueSets && sortedValueSets.length === 0">
+						<tr>
+							<td colspan="6" class="text-center text-muted">No ValueSets found</td>
+						</tr>
+					</template>
+					<template x-for="r in sortedValueSets" :key="r.id">
+						<tr>
+							<td x-text="r.title"></td>
+							<td x-text="r.url"></td>
+							<td x-text="r.version"></td>
+							<td>
+								<span class="badge" :class="r.status === 'active' ? 'bg-success' : 'bg-secondary'" x-text="r.status"></span>
+							</td>
+							<td x-text="r.publisher"></td>
+							<td>
+								<button class="btn btn-sm btn-outline-primary" title="View" @click="viewDetail('valueset', r.id)">
+									<i class="bi bi-eye"></i>
+								</button>
+							</td>
+						</tr>
+					</template>
+				</tbody>
+			</table>
+		</div>
 
-    <div id="upload-sct" class="tab-content" style="display: none;">
-        <h5>Upload SNOMED CT</h5>
-        <div class="row"></div>
-    </div>
+		<!-- ConceptMap Table -->
+		<div x-show="tab === 'conceptmap'" x-transition style="display: none;">
+			<table class="table table-striped table-bordered">
+				<thead>
+					<tr>
+						<th class="sortable" @click="sortBy('conceptmap', 'title')">
+							Title <span x-show="sortKey.conceptmap === 'title'" x-text="sortAsc.conceptmap ? '↑' : '↓'"></span>
+						</th>
+						<th class="sortable" @click="sortBy('conceptmap', 'url')">
+							URL <span x-show="sortKey.conceptmap === 'url'" x-text="sortAsc.conceptmap ? '↑' : '↓'"></span>
+						</th>
+						<th class="sortable" @click="sortBy('conceptmap', 'version')">
+							Version <span x-show="sortKey.conceptmap === 'version'" x-text="sortAsc.conceptmap ? '↑' : '↓'"></span>
+						</th>
+						<th class="sortable" @click="sortBy('conceptmap', 'status')">
+							Status <span x-show="sortKey.conceptmap === 'status'" x-text="sortAsc.conceptmap ? '↑' : '↓'"></span>
+						</th>
+						<th class="sortable" @click="sortBy('conceptmap', 'publisher')">
+							Publisher <span x-show="sortKey.conceptmap === 'publisher'" x-text="sortAsc.conceptmap ? '↑' : '↓'"></span>
+						</th>
+						<th>Actions</th>
+					</tr>
+				</thead>
+				<tbody>
+					<template x-if="loadingConceptMaps">
+						<tr>
+							<td colspan="6" class="text-center">
+								<div class="spinner-border spinner-border-sm" role="status"></div>
+								Loading ConceptMaps...
+							</td>
+						</tr>
+					</template>
+					<template x-if="!loadingConceptMaps && errorConceptMaps">
+						<tr>
+							<td colspan="6" class="text-center text-danger" x-text="errorConceptMaps"></td>
+						</tr>
+					</template>
+					<template x-if="!loadingConceptMaps && !errorConceptMaps && sortedConceptMaps.length === 0">
+						<tr>
+							<td colspan="6" class="text-center text-muted">No ConceptMaps found</td>
+						</tr>
+					</template>
+					<template x-for="r in sortedConceptMaps" :key="r.id">
+						<tr>
+							<td x-text="r.title"></td>
+							<td x-text="r.url"></td>
+							<td x-text="r.version"></td>
+							<td>
+								<span class="badge" :class="r.status === 'active' ? 'bg-success' : 'bg-secondary'" x-text="r.status"></span>
+							</td>
+							<td x-text="r.publisher"></td>
+							<td>
+								<button class="btn btn-sm btn-outline-primary" title="View" @click="viewDetail('conceptmap', r.id)">
+									<i class="bi bi-eye"></i>
+								</button>
+							</td>
+						</tr>
+					</template>
+				</tbody>
+			</table>
+		</div>
+	</div>
+
+	<div id="upload-sct" class="tab-content" x-show="section === 'upload-sct'" x-transition x-cloak style="display: none;">
+		<h5>Upload SNOMED CT</h5>
+		<div class="row"></div>
+	</div>
 </div>
 
 <!-- CodeSystem Details Modal -->
 <div class="modal fade" id="codesystemModal" tabindex="-1" aria-labelledby="codesystemModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-lg">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="codesystemModalLabel">CodeSystem Details</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body">
-                <div id="codesystemDetails">
-                    <!-- Details will be populated by JavaScript -->
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-            </div>
-        </div>
-    </div>
+	<div class="modal-dialog modal-lg">
+		<div class="modal-content">
+			<div class="modal-header">
+				<h5 class="modal-title" id="codesystemModalLabel">CodeSystem Details</h5>
+				<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+			</div>
+			<div class="modal-body">
+				<div x-show="modalLoading" class="text-center">
+					<div class="spinner-border" role="status"></div>
+					<p class="mt-2">Loading CodeSystem details...</p>
+				</div>
+				<div x-show="modalError" class="alert alert-danger" x-text="modalError"></div>
+				<div x-show="!modalLoading && !modalError && modalDetail" x-cloak>
+					<div class="row">
+						<div class="col-md-6">
+							<h6 class="fw-bold">Basic Information</h6>
+							<table class="table table-sm">
+								<tbody>
+									<tr><td class="fw-bold">ID:</td><td x-text="modalDetail.id || 'N/A'"></td></tr>
+									<tr><td class="fw-bold">Title:</td><td x-text="modalDetail.title || modalDetail.name || 'N/A'"></td></tr>
+									<tr><td class="fw-bold">URL:</td><td x-text="modalDetail.url || 'N/A'"></td></tr>
+									<tr><td class="fw-bold">Version:</td><td x-text="modalDetail.version || 'N/A'"></td></tr>
+									<tr><td class="fw-bold">Status:</td>
+										<td><span class="badge" :class="modalDetail.status === 'active' ? 'bg-success' : 'bg-secondary'" x-text="modalDetail.status || 'N/A'"></span></td></tr>
+									<tr><td class="fw-bold">Publisher:</td><td x-text="modalDetail.publisher || 'N/A'"></td></tr>
+									<tr><td class="fw-bold">Date:</td><td x-text="modalDetail.date ? new Date(modalDetail.date).toLocaleDateString() : 'N/A'"></td></tr>
+								</tbody>
+							</table>
+						</div>
+						<div class="col-md-6">
+							<h6 class="fw-bold">Technical Details</h6>
+							<table class="table table-sm">
+								<tbody>
+									<tr><td class="fw-bold">Hierarchy Meaning:</td><td x-text="modalDetail.hierarchyMeaning || 'N/A'"></td></tr>
+									<tr><td class="fw-bold">Compositional:</td>
+										<td><span class="badge" :class="modalDetail.compositional ? 'bg-info' : 'bg-secondary'" x-text="modalDetail.compositional ? 'Yes' : 'No'"></span></td></tr>
+									<tr><td class="fw-bold">Content:</td>
+										<td><span class="badge" :class="modalDetail.content === 'complete' ? 'bg-success' : 'bg-warning'" x-text="modalDetail.content || 'N/A'"></span></td></tr>
+									<tr><td class="fw-bold">Resource Type:</td><td x-text="modalDetail.resourceType || 'N/A'"></td></tr>
+								</tbody>
+							</table>
+						</div>
+					</div>
+					<div class="row mt-3" x-show="modalDetail.description">
+						<div class="col-12">
+							<h6 class="fw-bold">Description</h6>
+							<p class="text-muted" x-text="modalDetail.description"></p>
+						</div>
+					</div>
+				</div>
+			</div>
+			<div class="modal-footer">
+				<button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+			</div>
+		</div>
+	</div>
 </div>
 
 <!-- ValueSet Details Modal -->
 <div class="modal fade" id="valuesetModal" tabindex="-1" aria-labelledby="valuesetModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-lg">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="valuesetModalLabel">ValueSet Details</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body">
-                <div id="valuesetDetails">
-                    <!-- Details will be populated by JavaScript -->
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-            </div>
-        </div>
-    </div>
+	<div class="modal-dialog modal-lg">
+		<div class="modal-content">
+			<div class="modal-header">
+				<h5 class="modal-title" id="valuesetModalLabel">ValueSet Details</h5>
+				<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+			</div>
+			<div class="modal-body">
+				<div x-show="modalLoading" class="text-center">
+					<div class="spinner-border" role="status"></div>
+					<p class="mt-2">Loading ValueSet details...</p>
+				</div>
+				<div x-show="modalError" class="alert alert-danger" x-text="modalError"></div>
+				<div x-show="!modalLoading && !modalError && modalDetail" x-cloak>
+					<div class="row">
+						<div class="col-md-6">
+							<h6 class="fw-bold">Basic Information</h6>
+							<table class="table table-sm">
+								<tbody>
+									<tr><td class="fw-bold">ID:</td><td x-text="modalDetail.id || 'N/A'"></td></tr>
+									<tr><td class="fw-bold">Name:</td><td x-text="modalDetail.name || 'N/A'"></td></tr>
+									<tr><td class="fw-bold">Title:</td><td x-text="modalDetail.title || 'N/A'"></td></tr>
+									<tr><td class="fw-bold">URL:</td><td x-text="modalDetail.url || 'N/A'"></td></tr>
+									<tr><td class="fw-bold">Version:</td><td x-text="modalDetail.version || 'N/A'"></td></tr>
+									<tr><td class="fw-bold">Status:</td>
+										<td><span class="badge" :class="modalDetail.status === 'active' ? 'bg-success' : 'bg-secondary'" x-text="modalDetail.status || 'N/A'"></span></td></tr>
+									<tr><td class="fw-bold">Publisher:</td><td x-text="modalDetail.publisher || 'N/A'"></td></tr>
+								</tbody>
+							</table>
+						</div>
+						<div class="col-md-6">
+							<h6 class="fw-bold">Technical Details</h6>
+							<table class="table table-sm">
+								<tbody>
+									<tr><td class="fw-bold">Resource Type:</td><td x-text="modalDetail.resourceType || 'N/A'"></td></tr>
+									<tr><td class="fw-bold">Experimental:</td>
+										<td><span class="badge" :class="modalDetail.experimental ? 'bg-warning' : 'bg-info'" x-text="modalDetail.experimental ? 'Yes' : 'No'"></span></td></tr>
+									<tr><td class="fw-bold">Date:</td><td x-text="modalDetail.date ? new Date(modalDetail.date).toLocaleDateString() : 'N/A'"></td></tr>
+									<tr><td class="fw-bold">Description:</td><td x-text="modalDetail.description || 'N/A'"></td></tr>
+									<tr><td class="fw-bold">Purpose:</td><td x-text="modalDetail.purpose || 'N/A'"></td></tr>
+								</tbody>
+							</table>
+						</div>
+					</div>
+					<div class="row mt-3" x-show="modalDetail.copyright">
+						<div class="col-12">
+							<h6 class="fw-bold">Copyright</h6>
+							<div class="alert alert-info"><small class="text-muted" x-text="modalDetail.copyright"></small></div>
+						</div>
+					</div>
+				</div>
+			</div>
+			<div class="modal-footer">
+				<button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+			</div>
+		</div>
+	</div>
 </div>
 
 <!-- ConceptMap Details Modal -->
 <div class="modal fade" id="conceptmapModal" tabindex="-1" aria-labelledby="conceptmapModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-lg">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="conceptmapModalLabel">ConceptMap Details</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body">
-                <div id="conceptmapDetails">
-                    <!-- Details will be populated by JavaScript -->
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-            </div>
-        </div>
-    </div>
+	<div class="modal-dialog modal-lg">
+		<div class="modal-content">
+			<div class="modal-header">
+				<h5 class="modal-title" id="conceptmapModalLabel">ConceptMap Details</h5>
+				<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+			</div>
+			<div class="modal-body">
+				<div x-show="modalLoading" class="text-center">
+					<div class="spinner-border" role="status"></div>
+					<p class="mt-2">Loading ConceptMap details...</p>
+				</div>
+				<div x-show="modalError" class="alert alert-danger" x-text="modalError"></div>
+				<div x-show="!modalLoading && !modalError && modalDetail" x-cloak>
+					<div class="row">
+						<div class="col-md-6">
+							<h6 class="fw-bold">Basic Information</h6>
+							<table class="table table-sm">
+								<tbody>
+									<tr><td class="fw-bold">ID:</td><td x-text="modalDetail.id || 'N/A'"></td></tr>
+									<tr><td class="fw-bold">Name:</td><td x-text="modalDetail.name || 'N/A'"></td></tr>
+									<tr><td class="fw-bold">Title:</td><td x-text="modalDetail.title || 'N/A'"></td></tr>
+									<tr><td class="fw-bold">URL:</td><td x-text="modalDetail.url || 'N/A'"></td></tr>
+									<tr><td class="fw-bold">Version:</td><td x-text="modalDetail.version || 'N/A'"></td></tr>
+									<tr><td class="fw-bold">Status:</td>
+										<td><span class="badge" :class="modalDetail.status === 'active' ? 'bg-success' : 'bg-secondary'" x-text="modalDetail.status || 'N/A'"></span></td></tr>
+									<tr><td class="fw-bold">Publisher:</td><td x-text="modalDetail.publisher || 'N/A'"></td></tr>
+								</tbody>
+							</table>
+						</div>
+						<div class="col-md-6">
+							<h6 class="fw-bold">Mapping Details</h6>
+							<table class="table table-sm">
+								<tbody>
+									<tr><td class="fw-bold">Resource Type:</td><td x-text="modalDetail.resourceType || 'N/A'"></td></tr>
+									<tr><td class="fw-bold">Source URI:</td><td x-text="modalDetail.sourceUri || 'N/A'"></td></tr>
+									<tr><td class="fw-bold">Target URI:</td><td x-text="modalDetail.targetUri || 'N/A'"></td></tr>
+									<tr><td class="fw-bold">Source Code System:</td><td x-text="modalDetail.sourceCodeSystem || 'N/A'"></td></tr>
+									<tr><td class="fw-bold">Target Code System:</td><td x-text="modalDetail.targetCodeSystem || 'N/A'"></td></tr>
+									<tr><td class="fw-bold">Experimental:</td>
+										<td><span class="badge" :class="modalDetail.experimental ? 'bg-warning' : 'bg-info'" x-text="modalDetail.experimental ? 'Yes' : 'No'"></span></td></tr>
+								</tbody>
+							</table>
+						</div>
+					</div>
+					<div class="row mt-3" x-show="modalDetail.text && modalDetail.text.div">
+						<div class="col-12">
+							<h6 class="fw-bold">Description</h6>
+							<div class="alert alert-info">
+								<div x-html="modalDetail.text.div"></div>
+							</div>
+						</div>
+					</div>
+					<div class="row mt-3" x-show="modalDetail.description">
+						<div class="col-12">
+							<h6 class="fw-bold">Additional Description</h6>
+							<p class="text-muted" x-text="modalDetail.description"></p>
+						</div>
+					</div>
+				</div>
+			</div>
+			<div class="modal-footer">
+				<button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+			</div>
+		</div>
+	</div>
 </div>
 
-<!-- Scripts -->
-<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-<script src="https://cdn.datatables.net/1.13.4/js/jquery.dataTables.min.js"></script>
-<script src="https://cdn.datatables.net/1.13.4/js/dataTables.bootstrap5.min.js"></script>
-<script src="js/dashboard.js"></script>
+<script defer src="js/dashboard.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.3/dist/cdn.min.js"></script>
 
 </body>
 </html>
