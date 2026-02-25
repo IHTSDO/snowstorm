@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Snowstorm Dashboard</title>
+
+    <!-- Bootstrap 5 -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Bootstrap Icons -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" rel="stylesheet">
+    <!-- DataTables -->
+    <link href="https://cdn.datatables.net/1.13.4/css/dataTables.bootstrap5.min.css" rel="stylesheet">
+    <link href="css/dashboard.css" rel="stylesheet">
+</head>
+<body>
+
+<!-- Sidebar -->
+<div id="sidebar">
+    <h5 class="text-center text-white">Snowstorm</h5>
+<!--    <a href="#">About</a>-->
+    <a href="#" id="fhir-resources-btn">FHIR Resources</a>
+<!--    <a href="#">Syndication</a>-->
+    <a href="#" id="upload-sct-btn">Upload SNOMED CT</a>
+    <hr class="border-secondary" />
+<!--    <a href="#">Browser</a>-->
+</div>
+
+<!-- Main Content -->
+<div class="p-3 main">
+    <!-- Top Navbar -->
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h4>Snowstorm Dashboard</h4>
+        <div>
+            <!-- <button class="btn btn-primary btn-sm">Login</button> -->
+<!--            <select class="form-select d-inline-block w-auto ms-2">-->
+<!--                <option>en</option>-->
+<!--                <option>fr</option>-->
+<!--            </select>-->
+        </div>
+    </div>
+
+    <div id="resources" class="tab-content">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <div>
+                <h5>FHIR Resources</h5>
+                <small id="resource-count" class="text-muted">Loading...</small>
+            </div>
+            <div>
+                <button id="refresh-codesystems" class="btn btn-outline-secondary btn-sm me-2">
+                    <i class="bi bi-arrow-clockwise"></i> Refresh CodeSystems
+                </button>
+                <button id="refresh-valuesets" class="btn btn-outline-secondary btn-sm me-2" style="display: none;">
+                    <i class="bi bi-arrow-clockwise"></i> Refresh ValueSets
+                </button>
+                <button id="refresh-conceptmaps" class="btn btn-outline-secondary btn-sm" style="display: none;">
+                    <i class="bi bi-arrow-clockwise"></i> Refresh ConceptMaps
+                </button>
+            </div>
+        </div>
+        <!-- Tabs -->
+        <ul class="nav nav-tabs mb-3" id="resource-tabs">
+            <li class="nav-item">
+                <a class="nav-link active" href="#codesystem-tab" data-tab="codesystem">CodeSystem</a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" href="#valueset-tab" data-tab="valueset">ValueSet</a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" href="#conceptmap-tab" data-tab="conceptmap">ConceptMap</a>
+            </li>
+        </ul>
+
+        <!-- CodeSystem Table -->
+        <div id="codesystem-tab" class="tab-pane active">
+            <table id="codesystem-table" class="table table-striped table-bordered">
+                <thead>
+                <tr>
+                    <th>Title</th>
+                    <th>URL</th>
+                    <th>Version</th>
+                    <th>Status</th>
+                    <th>Publisher</th>
+                    <th>Actions</th>
+                </tr>
+                </thead>
+                <tbody>
+                <!-- Dynamically added rows via JS -->
+                </tbody>
+            </table>
+        </div>
+
+        <!-- ValueSet Table -->
+        <div id="valueset-tab" class="tab-pane" style="display: none;">
+            <table id="valueset-table" class="table table-striped table-bordered">
+                <thead>
+                <tr>
+                    <th>Title</th>
+                    <th>URL</th>
+                    <th>Version</th>
+                    <th>Status</th>
+                    <th>Publisher</th>
+                    <th>Actions</th>
+                </tr>
+                </thead>
+                <tbody>
+                <!-- Dynamically added rows via JS -->
+                </tbody>
+            </table>
+        </div>
+
+        <!-- ConceptMap Table -->
+        <div id="conceptmap-tab" class="tab-pane" style="display: none;">
+            <table id="conceptmap-table" class="table table-striped table-bordered">
+                <thead>
+                <tr>
+                    <th>Title</th>
+                    <th>URL</th>
+                    <th>Version</th>
+                    <th>Status</th>
+                    <th>Publisher</th>
+                    <th>Actions</th>
+                </tr>
+                </thead>
+                <tbody>
+                <!-- Dynamically added rows via JS -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div id="upload-sct" class="tab-content" style="display: none;">
+        <h5>Upload SNOMED CT</h5>
+        <div class="row"></div>
+    </div>
+</div>
+
+<!-- CodeSystem Details Modal -->
+<div class="modal fade" id="codesystemModal" tabindex="-1" aria-labelledby="codesystemModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="codesystemModalLabel">CodeSystem Details</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div id="codesystemDetails">
+                    <!-- Details will be populated by JavaScript -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ValueSet Details Modal -->
+<div class="modal fade" id="valuesetModal" tabindex="-1" aria-labelledby="valuesetModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="valuesetModalLabel">ValueSet Details</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div id="valuesetDetails">
+                    <!-- Details will be populated by JavaScript -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ConceptMap Details Modal -->
+<div class="modal fade" id="conceptmapModal" tabindex="-1" aria-labelledby="conceptmapModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="conceptmapModalLabel">ConceptMap Details</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div id="conceptmapDetails">
+                    <!-- Details will be populated by JavaScript -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Scripts -->
+<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.datatables.net/1.13.4/js/jquery.dataTables.min.js"></script>
+<script src="https://cdn.datatables.net/1.13.4/js/dataTables.bootstrap5.min.js"></script>
+<script src="js/dashboard.js"></script>
+
+</body>
+</html>
