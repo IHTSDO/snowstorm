@@ -1,6 +1,7 @@
 document.addEventListener('alpine:init', () => {
 	Alpine.data('dashboard', () => {
 		const AJAX_TIMEOUT_MS = 60000;
+		const SYNDICATION_TIMEOUT_MS = 10000;
 
 		return {
 			section: 'resources',
@@ -8,14 +9,18 @@ document.addEventListener('alpine:init', () => {
 			codeSystems: [],
 			valueSets: [],
 			conceptMaps: [],
+			editions: [],
 			loadingCodesystems: false,
 			loadingValueSets: false,
 			loadingConceptMaps: false,
+			loadingSyndication: false,
 			errorCodesystems: null,
 			errorValueSets: null,
 			errorConceptMaps: null,
-			sortKey: { codesystem: 'title', valueset: 'title', conceptmap: 'title' },
-			sortAsc: { codesystem: true, valueset: true, conceptmap: true },
+			errorSyndication: null,
+			installState: {},
+			sortKey: { codesystem: 'title', valueset: 'title', conceptmap: 'title', syndication: 'title' },
+			sortAsc: { codesystem: true, valueset: true, conceptmap: true, syndication: true },
 			modalType: null,
 			modalDetail: null,
 			modalLoading: false,
@@ -37,6 +42,12 @@ document.addEventListener('alpine:init', () => {
 				return '';
 			},
 
+			get syndicationCountText() {
+				if (this.loadingSyndication) return 'Loading editions...';
+				if (this.errorSyndication) return 'Error loading data';
+				return `${this.editions.length} edition(s) loaded`;
+			},
+
 			get sortedCodeSystems() {
 				return this.sortedFor('codesystem', this.codeSystems);
 			},
@@ -45,6 +56,9 @@ document.addEventListener('alpine:init', () => {
 			},
 			get sortedConceptMaps() {
 				return this.sortedFor('conceptmap', this.conceptMaps);
+			},
+			get sortedEditions() {
+				return this.sortedFor('syndication', this.editions);
 			},
 
 			sortedFor(type, arr) {
@@ -84,6 +98,9 @@ document.addEventListener('alpine:init', () => {
 							this.tab = tab;
 							this.loadTabIfNeeded();
 						}
+					} else if (section === 'syndication') {
+						this.section = 'syndication';
+						this.loadSyndicationIfNeeded();
 					} else if (section === 'upload-sct') {
 						this.section = 'upload-sct';
 					}
@@ -116,6 +133,95 @@ document.addEventListener('alpine:init', () => {
 					this.loadValueSets();
 				} else if (this.tab === 'conceptmap' && this.conceptMaps.length === 0 && !this.loadingConceptMaps) {
 					this.loadConceptMaps();
+				}
+			},
+
+			loadSyndicationIfNeeded() {
+				if (this.editions.length === 0 && !this.loadingSyndication) {
+					this.loadSyndicationEditions();
+				}
+			},
+
+			async loadSyndicationEditions() {
+				this.loadingSyndication = true;
+				this.errorSyndication = null;
+				let res;
+				try {
+					res = await this.fetchWithTimeout('/syndication/snomed-editions', SYNDICATION_TIMEOUT_MS);
+					const data = await res.json();
+					if (!res.ok) throw new Error(data.message || 'Failed to load editions');
+					if (data && data.length > 0) {
+						this.editions = data.map(ed => ({
+							id: ed.id,
+							title: ed.title || 'N/A',
+							versionsAvailable: ed.versionsAvailable || [],
+							selectedVersion: (ed.versionsAvailable && ed.versionsAvailable[0]) || ''
+						}));
+					} else {
+						this.editions = [];
+					}
+				} catch (err) {
+					this.errorSyndication = this.errorMessage(err, 'editions', res);
+					this.editions = [];
+				} finally {
+					this.loadingSyndication = false;
+				}
+			},
+
+			getInstallStatus(editionId) {
+				return this.installState[editionId] || { status: 'idle' };
+			},
+
+			async installEdition(edition) {
+				const version = edition.selectedVersion;
+				if (!version) {
+					alert('Please select a version');
+					return;
+				}
+				const editionId = edition.id;
+				const setInstallStatus = (status, error) => {
+					this.installState = { ...this.installState, [editionId]: error != null ? { status, error } : { status } };
+				};
+				setInstallStatus('queued');
+				try {
+					const res = await fetch('/syndication/install', {
+						method: 'POST',
+						headers: { 'Content-Type': 'application/json' },
+						body: JSON.stringify({ editionId, version })
+					});
+					const data = await res.json();
+					if (!res.ok) throw new Error(data.message || 'Error starting installation');
+					const taskId = data.taskId;
+					setInstallStatus('installing');
+					const pollMs = 2000;
+					const maxWaitMs = 600000;
+					const started = Date.now();
+					const poll = async () => {
+						const taskRes = await fetch(`/syndication/install/${taskId}`);
+						const taskData = await taskRes.json();
+						const taskStatus = taskData.status;
+						if (taskStatus === 'COMPLETED') {
+							setInstallStatus('completed');
+							alert('Installation completed successfully!');
+							return;
+						}
+						if (taskStatus === 'FAILED') {
+							const errMsg = taskData.errorMessage || 'Installation failed';
+							setInstallStatus('failed', errMsg);
+							alert('Installation failed: ' + errMsg);
+							return;
+						}
+						if (Date.now() - started < maxWaitMs) {
+							setTimeout(poll, pollMs);
+						} else {
+							setInstallStatus('failed', 'Timeout');
+						}
+					};
+					setTimeout(poll, pollMs);
+				} catch (err) {
+					const errMsg = err.message || 'Error starting installation';
+					setInstallStatus('failed', errMsg);
+					alert(errMsg);
 				}
 			},
 

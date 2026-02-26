@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom" xmlns:ncts="http://ns.electronichealth.net.au/ncts/syndication/asf/extensions/1.0.0" xmlns:sct="http://snomed.info/syndication/sct-extension/1.0.0">
+    <title>SNOMED International MLDS Terminology Release Syndication Feed</title>
+    <link rel="alternate" type="application/atom+xml" href="http://ns.electronichealth.net.au/ncts/syndication/asf/profile/1.0.0" />
+    <id>urn:uuid:5c26c3ca-c21c-476e-b0a4-096679529f2e</id>
+    <generator>SNOMED International</generator>
+    <updated>2025-12-19T13:20:55Z</updated>
+    <ncts:atomSyndicationFormatProfile>http://ns.electronichealth.net.au/ncts/syndication/asf/profile/1.0.0</ncts:atomSyndicationFormatProfile>
+    <entry>
+        <title>Belgian National Edition-March 2025 v1.0</title>
+        <link rel="alternate" type="application/zip" href="http://localhost:8000/releasePackages/SnomedCT_ManagedServiceBE_MICROTEST_BE1000172_20250315T120000Z.zip" length="13355" sct:md5Hash="802402081842fe538be90c86e909df91" />
+        <link rel="related" type="application/pdf" href="http://localhost:8000/releasePackages/does-not-exist.pdf" length="1000" sct:md5Hash="9722970993c7a578ef02ce2833a9232b" />
+        <category term="SCT_RF2_ALL" label="SNOMED CT RF2 All" scheme="http://ns.electronichealth.net.au/ncts/syndication/asf/scheme/1.0.0" />
+        <author>
+            <name>Terminology Center Belgium</name>
+            <uri>www.health.belgium.be</uri>
+            <email>terminologie@health.belgium.be</email>
+        </author>
+        <id>urn:uuid:9cde5b44-f346-4b7f-8f2a-2ae1cac6fdf4</id>
+        <rights>© International Health Terminology Standards Development Organisation 2002-2023.  All rights reserved.  SNOMED CT® was originally created by the College of American Pathologists.  "SNOMED" and "SNOMED CT" are registered trademarks of International Health Terminology Standards Development Organisation, trading as SNOMED International.</rights>
+        <updated>2025-10-08T11:03:25Z</updated>
+        <published>2025-03-15T00:00:00Z</published>
+        <summary>March 2025 SNOMED CT Managed Service Belgium Edition release</summary>
+        <ncts:contentItemIdentifier>http://snomed.info/sct/11000172109</ncts:contentItemIdentifier>
+        <ncts:contentItemVersion>http://snomed.info/sct/11000172109/version/20250315</ncts:contentItemVersion>
+        <sct:packageDependency>
+            <sct:editionDependency>http://snomed.info/sct/900000000000207008/version/20250301</sct:editionDependency>
+        </sct:packageDependency>
+    </entry>
+    <entry>
+        <title>SNOMED CT International Edition-March 2025 v1.0</title>
+        <link rel="alternate" type="application/zip" href="http://localhost:8000/releasePackages/SnomedCT_InternationalRF2_MICROTEST_20250301T120000Z.zip" length="27443" sct:md5Hash="df8522f30e28cdb9787777a82ab4de58" />
+        <link rel="related" type="application/pdf" href="http://localhost:8000/releasePackages/does-not-exist.pdf" length="1000" sct:md5Hash="9722970993c7a578ef02ce2833a9232b" />
+        <category term="SCT_RF2_ALL" label="SNOMED CT RF2 All" scheme="http://ns.electronichealth.net.au/ncts/syndication/asf/scheme/1.0.0" />
+        <author>
+            <name>SNOMED International</name>
+            <uri>https://www.snomed.org</uri>
+            <email>info@snomed.org</email>
+        </author>
+        <id>urn:uuid:bef8f08a-36b0-4ee9-87f8-ce425085a58b</id>
+        <rights>© International Health Terminology Standards Development Organisation 2002-2024.  All rights reserved.  SNOMED CT® was originally created by the College of American Pathologists.  "SNOMED" and "SNOMED CT" are registered trademarks of International Health Terminology Standards Development Organisation, trading as SNOMED International.</rights>
+        <updated>2025-10-08T11:00:48Z</updated>
+        <published>2025-03-01T00:00:00Z</published>
+        <summary>March 2025 SNOMED CT International Edition release package</summary>
+        <ncts:contentItemIdentifier>http://snomed.info/sct/900000000000207008</ncts:contentItemIdentifier>
+        <ncts:contentItemVersion>http://snomed.info/sct/900000000000207008/version/20250301</ncts:contentItemVersion>
+    </entry>
+    <entry>
+        <title>SNOMED CT International Edition-April 2025 v1.0</title>
+        <link rel="related" type="application/pdf" href="https://mlds.ihtsdotools.org/api/releasePackages/167/releaseVersions/1436328/releaseFiles/1436333/download" length="106374" sct:md5Hash="81cfbd555a0fbacd7a1b755690763aa2" />
+        <link rel="alternate" type="application/zip" href="https://mlds.ihtsdotools.org/api/releasePackages/167/releaseVersions/1436328/releaseFiles/1436335/download" length="563280356" sct:md5Hash="4cd2e34d2a641f1016a8d1a935628243" />
+        <category term="SCT_RF2_ALL" label="SNOMED CT RF2 All" scheme="http://ns.electronichealth.net.au/ncts/syndication/asf/scheme/1.0.0" />
+        <author>
+            <name>SNOMED International</name>
+            <uri>https://www.snomed.org</uri>
+            <email>info@snomed.org</email>
+        </author>
+        <id>urn:uuid:0fe9ecff-7cfa-4e71-87d7-5e9ad9df0c23</id>
+        <rights>© International Health Terminology Standards Development Organisation 2002-2024.  All rights reserved.  SNOMED CT® was originally created by the College of American Pathologists.  "SNOMED" and "SNOMED CT" are registered trademarks of International Health Terminology Standards Development Organisation, trading as SNOMED International.</rights>
+        <updated>2025-10-08T11:00:46Z</updated>
+        <published>2025-04-01T00:00:00Z</published>
+        <summary>April 2025 SNOMED CT International Edition release package</summary>
+        <ncts:contentItemIdentifier>http://snomed.info/sct/900000000000207008</ncts:contentItemIdentifier>
+        <ncts:contentItemVersion>http://snomed.info/sct/900000000000207008/version/20250401</ncts:contentItemVersion>
+    </entry>
+</feed>

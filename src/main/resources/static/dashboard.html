@@ -17,6 +17,7 @@
 <div id="sidebar">
 	<h5 class="text-center text-white">Snowstorm</h5>
 	<a href="#" @click.prevent="section = 'resources'; setHash()">FHIR Resources</a>
+	<a href="#" @click.prevent="section = 'syndication'; setHash(); loadSyndicationIfNeeded()">Syndication</a>
 	<a href="#" @click.prevent="section = 'upload-sct'; setHash()">Upload SNOMED CT</a>
 	<hr class="border-secondary" />
 </div>
@@ -250,6 +251,88 @@
 				</tbody>
 			</table>
 		</div>
+	</div>
+
+	<!-- Syndication section -->
+	<div id="syndication" class="tab-content" x-show="section === 'syndication'" x-transition x-cloak style="display: none;">
+		<div class="d-flex justify-content-between align-items-center mb-3">
+			<div>
+
+				<!--TODO: Work on Syndication error scenarios -->
+				<!--TODO: Prevent downloading the International Edition when selecting a derivative -->
+
+				<h4>Syndication</h4>
+				<h5>Available SNOMED CT Editions</h5>
+				<small class="text-muted" x-text="syndicationCountText"></small>
+			</div>
+			<div>
+				<button class="btn btn-outline-secondary btn-sm" @click="loadSyndicationEditions()">
+					<i class="bi bi-arrow-clockwise"></i> Refresh
+				</button>
+			</div>
+		</div>
+		<table class="table table-striped table-bordered">
+			<thead>
+				<tr>
+					<th class="sortable" @click="sortBy('syndication', 'title')">
+						Title <span x-show="sortKey.syndication === 'title'" x-text="sortAsc.syndication ? '↑' : '↓'"></span>
+					</th>
+					<th class="sortable" @click="sortBy('syndication', 'selectedVersion')">
+						Version <span x-show="sortKey.syndication === 'selectedVersion'" x-text="sortAsc.syndication ? '↑' : '↓'"></span>
+					</th>
+					<th>Actions</th>
+				</tr>
+			</thead>
+			<tbody>
+				<template x-if="loadingSyndication">
+					<tr>
+						<td colspan="3" class="text-center">
+							<div class="spinner-border spinner-border-sm" role="status"></div>
+							Loading editions...
+						</td>
+					</tr>
+				</template>
+				<template x-if="!loadingSyndication && errorSyndication">
+					<tr>
+						<td colspan="3" class="text-center text-danger" x-text="errorSyndication"></td>
+					</tr>
+				</template>
+				<template x-if="!loadingSyndication && !errorSyndication && sortedEditions.length === 0">
+					<tr>
+						<td colspan="3" class="text-center text-muted">No editions found</td>
+					</tr>
+				</template>
+				<template x-for="edition in sortedEditions" :key="edition.id">
+					<tr>
+						<td x-text="edition.title"></td>
+						<td>
+							<select class="form-select form-select-sm" x-model="edition.selectedVersion"
+								:disabled="getInstallStatus(edition.id).status === 'installing' || getInstallStatus(edition.id).status === 'queued'">
+								<template x-for="(v, i) in edition.versionsAvailable" :key="v">
+									<option :value="v" x-text="i === 0 ? 'latest (' + v + ')' : v"></option>
+								</template>
+							</select>
+						</td>
+						<td>
+							<template x-if="getInstallStatus(edition.id).status === 'idle' || getInstallStatus(edition.id).status === 'failed'">
+								<button class="btn btn-sm" :class="getInstallStatus(edition.id).status === 'failed' ? 'btn-outline-danger' : 'btn-primary'"
+									:title="getInstallStatus(edition.id).error || 'Install'" @click="installEdition(edition)">
+									<span x-text="getInstallStatus(edition.id).status === 'failed' ? 'Retry' : 'Install'"></span>
+								</button>
+							</template>
+							<template x-if="getInstallStatus(edition.id).status === 'queued' || getInstallStatus(edition.id).status === 'installing'">
+								<button class="btn btn-sm btn-primary" disabled>
+									<span class="spinner-border spinner-border-sm" role="status"></span> Installing...
+								</button>
+							</template>
+							<template x-if="getInstallStatus(edition.id).status === 'completed'">
+								<button class="btn btn-sm btn-success" disabled><i class="bi bi-check-circle"></i> Installed</button>
+							</template>
+						</td>
+					</tr>
+				</template>
+			</tbody>
+		</table>
 	</div>
 
 	<div id="upload-sct" class="tab-content" x-show="section === 'upload-sct'" x-transition x-cloak style="display: none;">
