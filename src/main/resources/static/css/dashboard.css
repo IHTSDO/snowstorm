@@ -34,7 +34,8 @@ body {
     color: white;
 }
 
-#resources {
+#resources,
+#syndication {
     flex-grow: 1;
     overflow: visible;
 }

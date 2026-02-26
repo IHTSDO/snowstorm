@@ -64,8 +64,9 @@ public class CodeSystemService {
 
 	public static final String SNOMEDCT = "SNOMEDCT";
 	public static final String MAIN = "MAIN";
-    private static final Pattern VERSION_BRANCH_NAME_PATTERN = Pattern.compile("[0-9]{4}-[0-9]{2}-[0-9]{2}");
-    public static final String VERSION_ALREADY_EXISTS = "Aborting Code System Version creation. This version already exists.";
+	public static final int EMPTY_2000_VERSION_DATE = 20000101;
+	private static final Pattern VERSION_BRANCH_NAME_PATTERN = Pattern.compile("[0-9]{4}-[0-9]{2}-[0-9]{2}");
+	public static final String VERSION_ALREADY_EXISTS = "Aborting Code System Version creation. This version already exists.";
 
 
     @Value("${code-systems.version.visible.after.published.date}")
@@ -308,6 +309,15 @@ public class CodeSystemService {
 		return version;
 	}
 
+	public CodeSystemVersion getOrCreateEmpty2000Version() {
+		CodeSystemVersion codeSystemVersion = getEmpty2000Version();
+		if (codeSystemVersion != null) {
+			return codeSystemVersion;
+		}
+		createEmpty2000Version();
+		return getEmpty2000Version();
+	}
+
 	/**
 	 * Create an empty code system version on the root code system.
 	 * This can be used as the dependant version when hosting one or many subontologies in Snowstorm.
@@ -317,22 +327,24 @@ public class CodeSystemService {
 		// Get the version of MAIN created when Snowstorm first started, before the first import commit.
 		Branch branchVersion = branchService.findFirstVersionOrThrow(MAIN);
 
-		int effectiveDate = 20000101;
-
-		CodeSystemVersion codeSystemVersion = versionRepository.findOneByShortNameAndEffectiveDate(SNOMEDCT, effectiveDate);
+		CodeSystemVersion codeSystemVersion = getEmpty2000Version();
 		if (codeSystemVersion != null) {
 			logger.warn(VERSION_ALREADY_EXISTS);
 			throw new IllegalStateException(VERSION_ALREADY_EXISTS);
 		}
 
 		// Create version branch
-		String releaseBranchPath = getReleaseBranchPath(MAIN, effectiveDate);
+		String releaseBranchPath = getReleaseBranchPath(MAIN, EMPTY_2000_VERSION_DATE);
 		branchService.createAtBaseTimepoint(releaseBranchPath, branchVersion.getBase());
 
-		versionRepository.save(new CodeSystemVersion(SNOMEDCT, new Date(), MAIN, effectiveDate, getHyphenatedVersionString(effectiveDate),
+		versionRepository.save(new CodeSystemVersion(SNOMEDCT, new Date(), MAIN, EMPTY_2000_VERSION_DATE, getHyphenatedVersionString(EMPTY_2000_VERSION_DATE),
 				"Empty version.", true));
 
-		return String.format("Version %s of the root code system created.", effectiveDate);
+		return String.format("Version %s of the root code system created.", EMPTY_2000_VERSION_DATE);
+	}
+
+	private CodeSystemVersion getEmpty2000Version() {
+		return versionRepository.findOneByShortNameAndEffectiveDate(SNOMEDCT, EMPTY_2000_VERSION_DATE);
 	}
 
 	@PreAuthorize("hasPermission('ADMIN', #codeSystemVersion.branchPath) || hasPermission('RELEASE_ADMIN', 'global') || hasPermission('RELEASE_MANAGER', 'global')")

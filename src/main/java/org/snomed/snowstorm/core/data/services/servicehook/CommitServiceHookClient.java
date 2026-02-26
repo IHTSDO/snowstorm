@@ -64,7 +64,7 @@ public class CommitServiceHookClient implements CommitListener {
 	@Override
 	public void preCommitCompletion(Commit commit) throws IllegalStateException {
 		if (restTemplate == null) {
-			logger.info("restTemplate == null, pre-commit completion done.");
+			logger.debug("restTemplate == null, pre-commit completion done.");
 			return;
 		}
 

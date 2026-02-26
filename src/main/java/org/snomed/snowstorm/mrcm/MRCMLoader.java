@@ -1,5 +1,6 @@
 package org.snomed.snowstorm.mrcm;
 
+import ch.qos.logback.classic.Level;
 import io.kaicode.elasticvc.api.BranchCriteria;
 import io.kaicode.elasticvc.api.CommitListener;
 import io.kaicode.elasticvc.api.VersionControlHelper;
@@ -63,7 +64,7 @@ public class MRCMLoader implements CommitListener {
      */
     // TODO: Make this work for MRCM extensions. Ask Guillermo how he is extending the MRCM in Extensions TermMed are maintaining.
     public MRCM loadActiveMRCM(BranchCriteria branchCriteria) throws ServiceException {
-        final TimerUtil timer = new TimerUtil("MRCM");
+        final TimerUtil timer = new TimerUtil("MRCM", Level.DEBUG);
         final List<Domain> domains = getDomains(branchCriteria, timer);
         final List<AttributeDomain> attributeDomains = getAttributeDomains(branchCriteria, timer);
         final List<AttributeRange> attributeRanges = getAttributeRanges(branchCriteria, timer);

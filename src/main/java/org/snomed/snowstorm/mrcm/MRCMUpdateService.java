@@ -71,7 +71,7 @@ public class MRCMUpdateService extends ComponentService implements CommitListene
 	@Override
 	public void preCommitCompletion(Commit commit) {
 		if (BranchMetadataHelper.isImportingCodeSystemVersion(commit)) {
-			logger.info("MRCM auto update is disabled on branch {}", commit.getBranch().getPath());
+			logger.debug("MRCM auto update is disabled on branch {}", commit.getBranch().getPath());
 			return;
 		}
 		if (commit.getCommitType() == CONTENT || commit.getCommitType() == REBASE) {
