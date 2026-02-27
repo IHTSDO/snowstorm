@@ -7,7 +7,6 @@ import io.kaicode.elasticvc.api.*;
 import io.kaicode.elasticvc.domain.Branch;
 import io.kaicode.elasticvc.domain.Commit;
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.core.data.domain.*;
@@ -21,12 +20,12 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.elasticsearch.client.elc.NativeQuery;
+import org.springframework.data.elasticsearch.client.elc.NativeQueryBuilder;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.data.elasticsearch.core.SearchHit;
 import org.springframework.data.elasticsearch.core.SearchHits;
 import org.springframework.data.elasticsearch.core.SearchHitsIterator;
-import org.springframework.data.elasticsearch.client.elc.NativeQuery;
-import org.springframework.data.elasticsearch.client.elc.NativeQueryBuilder;
 import org.springframework.data.elasticsearch.core.query.FetchSourceFilter;
 import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;
@@ -35,9 +34,10 @@ import java.time.LocalDate;
 import java.util.*;
 import java.util.stream.Collectors;
 
+import static co.elastic.clients.elasticsearch._types.query_dsl.QueryBuilders.bool;
 import static io.kaicode.elasticvc.api.ComponentService.LARGE_PAGE;
-import static co.elastic.clients.elasticsearch._types.query_dsl.QueryBuilders.*;
-import static io.kaicode.elasticvc.helper.QueryHelper.*;
+import static io.kaicode.elasticvc.helper.QueryHelper.termQuery;
+import static io.kaicode.elasticvc.helper.QueryHelper.termsQuery;
 
 @Service
 /*
@@ -69,9 +69,10 @@ public class MultiSearchService implements CommitListener {
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 	
 	private final Map<String, String> publishedBranches = new HashMap<>();
-
+	
 	private MultiBranchCriteria cachedBranchCriteria = null;
 	private LocalDate cacheDate = null;
+	private Set<CodeSystemVersion> cachedPublishedVersions = null;
 
 	public Page<Description> findDescriptions(MultiSearchDescriptionCriteria criteria, PageRequest pageRequest) {
 
@@ -263,13 +264,19 @@ public class MultiSearchService implements CommitListener {
 	}
 
 	public Set<CodeSystemVersion> getAllPublishedVersions() {
-		Set<CodeSystemVersion> codeSystemVersions = new HashSet<>();
-		for (CodeSystem codeSystem : codeSystemService.findAll()) {
-			List<CodeSystemVersion> thisCodeSystemVersions = codeSystemService.findAllVersions(codeSystem.getShortName(), true, false);
-			thisCodeSystemVersions.forEach(csv -> csv.setCodeSystem(codeSystem));
-			codeSystemVersions.addAll(thisCodeSystemVersions);
+		synchronized (this) {
+			if (cachedPublishedVersions == null) {
+				Set<CodeSystemVersion> codeSystemVersions = new HashSet<>();
+				List<CodeSystem> all = codeSystemService.findAll();
+				for (CodeSystem codeSystem : all) {
+					List<CodeSystemVersion> thisCodeSystemVersions = codeSystemService.findAllVersions(codeSystem.getShortName(), true, false);
+					thisCodeSystemVersions.forEach(csv -> csv.setCodeSystem(codeSystem));
+					codeSystemVersions.addAll(thisCodeSystemVersions);
+				}
+				cachedPublishedVersions = codeSystemVersions;
+			}
 		}
-		return codeSystemVersions;
+		return cachedPublishedVersions;
 	}
 
 	public CodeSystemVersion getNearestPublishedVersion(String branchPath) {
@@ -303,6 +310,7 @@ public class MultiSearchService implements CommitListener {
 		if (cachedBranchCriteria != null) {
 			if (BranchMetadataHelper.isCreatingCodeSystemVersion(commit)) {
 				cachedBranchCriteria = null;
+				cachedPublishedVersions = null;
 			} else {
 				for (BranchCriteria branchCriterion : cachedBranchCriteria.getBranchCriteria()) {
 					String branchPath = branchCriterion.getBranchPath();
