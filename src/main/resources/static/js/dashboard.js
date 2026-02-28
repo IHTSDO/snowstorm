@@ -28,6 +28,14 @@ document.addEventListener('alpine:init', () => {
 			modalDetail: null,
 			modalLoading: false,
 			modalError: null,
+			showAddValueSetForm: false,
+			addValueSetJson: '',
+			addValueSetError: null,
+			addValueSetSaving: false,
+			showAddConceptMapForm: false,
+			addConceptMapJson: '',
+			addConceptMapError: null,
+			addConceptMapSaving: false,
 
 			get resourceCountText() {
 				if (this.tab === 'codesystem') {
@@ -370,6 +378,126 @@ document.addEventListener('alpine:init', () => {
 				}
 			},
 
+			onValueSetFileSelected(event) {
+				this.addValueSetError = null;
+				const file = event.target.files && event.target.files[0];
+				if (!file) return;
+				const reader = new FileReader();
+				reader.onload = () => {
+					this.addValueSetJson = reader.result || '';
+				};
+				reader.onerror = () => {
+					this.addValueSetError = 'Failed to read file';
+				};
+				reader.readAsText(file);
+				event.target.value = '';
+			},
+
+			async submitAddValueSet() {
+				const jsonStr = this.addValueSetJson.trim();
+				if (!jsonStr) return;
+				this.addValueSetError = null;
+				this.addValueSetSaving = true;
+				let payload;
+				try {
+					payload = JSON.parse(jsonStr);
+				} catch (e) {
+					this.addValueSetError = 'Invalid JSON: ' + (e.message || 'parse error');
+					this.addValueSetSaving = false;
+					return;
+				}
+				if (payload.resourceType !== 'ValueSet') {
+					this.addValueSetError = 'Resource must be a ValueSet (resourceType: "ValueSet")';
+					this.addValueSetSaving = false;
+					return;
+				}
+				try {
+					const res = await this.fetchWithTimeout('/fhir/ValueSet', AJAX_TIMEOUT_MS, {
+						method: 'POST',
+						headers: { 'Content-Type': 'application/fhir+json' },
+						body: JSON.stringify(payload)
+					});
+					const data = res.ok ? await res.json().catch(() => ({})) : await res.json().catch(() => ({}));
+					if (!res.ok) {
+						const msg = data.issue && data.issue[0] && (data.issue[0].diagnostics || data.issue[0].details && data.issue[0].details.text);
+						throw new Error(msg || data.message || 'Failed to add ValueSet');
+					}
+					this.clearAddValueSetForm();
+					this.showAddValueSetForm = false;
+					await this.loadValueSets();
+					alert('ValueSet added successfully.');
+				} catch (err) {
+					this.addValueSetError = err.message || 'Failed to add ValueSet';
+				} finally {
+					this.addValueSetSaving = false;
+				}
+			},
+
+			clearAddValueSetForm() {
+				this.addValueSetJson = '';
+				this.addValueSetError = null;
+			},
+
+			onConceptMapFileSelected(event) {
+				this.addConceptMapError = null;
+				const file = event.target.files && event.target.files[0];
+				if (!file) return;
+				const reader = new FileReader();
+				reader.onload = () => {
+					this.addConceptMapJson = reader.result || '';
+				};
+				reader.onerror = () => {
+					this.addConceptMapError = 'Failed to read file';
+				};
+				reader.readAsText(file);
+				event.target.value = '';
+			},
+
+			async submitAddConceptMap() {
+				const jsonStr = this.addConceptMapJson.trim();
+				if (!jsonStr) return;
+				this.addConceptMapError = null;
+				this.addConceptMapSaving = true;
+				let payload;
+				try {
+					payload = JSON.parse(jsonStr);
+				} catch (e) {
+					this.addConceptMapError = 'Invalid JSON: ' + (e.message || 'parse error');
+					this.addConceptMapSaving = false;
+					return;
+				}
+				if (payload.resourceType !== 'ConceptMap') {
+					this.addConceptMapError = 'Resource must be a ConceptMap (resourceType: "ConceptMap")';
+					this.addConceptMapSaving = false;
+					return;
+				}
+				try {
+					const res = await this.fetchWithTimeout('/fhir/ConceptMap', AJAX_TIMEOUT_MS, {
+						method: 'POST',
+						headers: { 'Content-Type': 'application/fhir+json' },
+						body: JSON.stringify(payload)
+					});
+					const data = res.ok ? await res.json().catch(() => ({})) : await res.json().catch(() => ({}));
+					if (!res.ok) {
+						const msg = data.issue && data.issue[0] && (data.issue[0].diagnostics || data.issue[0].details && data.issue[0].details.text);
+						throw new Error(msg || data.message || 'Failed to add ConceptMap');
+					}
+					this.clearAddConceptMapForm();
+					this.showAddConceptMapForm = false;
+					await this.loadConceptMaps();
+					alert('ConceptMap added successfully.');
+				} catch (err) {
+					this.addConceptMapError = err.message || 'Failed to add ConceptMap';
+				} finally {
+					this.addConceptMapSaving = false;
+				}
+			},
+
+			clearAddConceptMapForm() {
+				this.addConceptMapJson = '';
+				this.addConceptMapError = null;
+			},
+
 			async loadConceptMaps() {
 				this.loadingConceptMaps = true;
 				this.errorConceptMaps = null;
@@ -402,10 +530,10 @@ document.addEventListener('alpine:init', () => {
 				};
 			},
 
-			fetchWithTimeout(url, ms) {
+			fetchWithTimeout(url, ms, options = {}) {
 				const ctrl = new AbortController();
 				const t = setTimeout(() => ctrl.abort(), ms);
-				return fetch(url, { signal: ctrl.signal }).finally(() => clearTimeout(t));
+				return fetch(url, { ...options, signal: ctrl.signal }).finally(() => clearTimeout(t));
 			},
 
 			errorMessage(err, label, res) {
