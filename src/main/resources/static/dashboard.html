@@ -234,7 +234,10 @@
 					</template>
 					<template x-for="r in sortedConceptMaps" :key="r.id">
 						<tr>
-							<td x-text="r.title"></td>
+							<td>
+								<div x-text="r.title"></div>
+								<div class="text-muted small" x-show="r.url && r.url.includes('http://snomed.info/sct') && r.url.includes('?fhir_cm=')" x-text="'SNOMED CT Implicit Concept Map'"></div>
+							</td>
 							<td x-text="r.url"></td>
 							<td x-text="r.version"></td>
 							<td>
@@ -242,9 +245,11 @@
 							</td>
 							<td x-text="r.publisher"></td>
 							<td>
-								<button class="btn btn-sm btn-outline-primary" title="View" @click="viewDetail('conceptmap', r.id)">
-									<i class="bi bi-eye"></i>
-								</button>
+								<template x-if="!r.url || !r.url.includes('http://snomed.info/sct') || !r.url.includes('?fhir_cm=')">
+									<button class="btn btn-sm btn-outline-primary" title="View" @click="viewDetail('conceptmap', r.id)">
+										<i class="bi bi-eye"></i>
+									</button>
+								</template>
 							</td>
 						</tr>
 					</template>
@@ -262,8 +267,8 @@
 				<!--TODO: Prevent downloading the International Edition when selecting a derivative -->
 
 				<h4>Syndication</h4>
-				<h5>Available SNOMED CT Editions</h5>
-				<small class="text-muted" x-text="syndicationCountText"></small>
+				<h5>Installed SNOMED CT Editions</h5>
+				<small class="text-muted" x-text="installedEditionsCountText"></small>
 			</div>
 			<div>
 				<button class="btn btn-outline-secondary btn-sm" @click="loadSyndicationEditions()">
@@ -271,6 +276,57 @@
 				</button>
 			</div>
 		</div>
+		<table class="table table-striped table-bordered mb-4">
+			<thead>
+				<tr>
+					<th>Title</th>
+					<th>Latest Version Installed</th>
+					<th>Actions</th>
+				</tr>
+			</thead>
+			<tbody>
+				<template x-if="loadingSyndication || loadingInstalledEditions">
+					<tr>
+						<td colspan="3" class="text-center">
+							<div class="spinner-border spinner-border-sm" role="status"></div>
+							Loading installed editions...
+						</td>
+					</tr>
+				</template>
+				<template x-if="!loadingSyndication && !loadingInstalledEditions && errorInstalledEditions">
+					<tr>
+						<td colspan="3" class="text-center text-danger" x-text="errorInstalledEditions"></td>
+					</tr>
+				</template>
+				<template x-if="!loadingSyndication && !loadingInstalledEditions && !errorInstalledEditions && sortedInstalledEditions.length === 0">
+					<tr>
+						<td colspan="3" class="text-center text-muted">No SNOMED CT editions installed</td>
+					</tr>
+				</template>
+				<template x-for="inst in sortedInstalledEditions" :key="inst.id">
+					<tr>
+						<td x-text="inst.title"></td>
+						<td x-text="inst.latestVersion"></td>
+						<td>
+							<template x-if="getInstallStatus(inst.id).status === 'queued' || getInstallStatus(inst.id).status === 'installing'">
+								<button class="btn btn-sm btn-primary" disabled>
+									<span class="spinner-border spinner-border-sm" role="status"></span> Upgrading...
+								</button>
+							</template>
+							<template x-if="(getInstallStatus(inst.id).status === 'idle' || getInstallStatus(inst.id).status === 'failed') && inst.upgradeVersion">
+								<button class="btn btn-sm btn-outline-primary" :title="'Upgrade to version ' + inst.upgradeVersion"
+									@click="upgradeEdition(inst)">
+									Upgrade
+								</button>
+							</template>
+						</td>
+					</tr>
+				</template>
+			</tbody>
+		</table>
+
+		<h5>Available SNOMED CT Editions</h5>
+		<small class="text-muted" x-text="syndicationCountText"></small>
 		<table class="table table-striped table-bordered">
 			<thead>
 				<tr>
