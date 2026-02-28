@@ -130,6 +130,43 @@
 
 		<!-- ValueSet Table -->
 		<div x-show="tab === 'valueset'" x-transition style="display: none;">
+			<div class="mb-3">
+				<button type="button" class="btn btn-outline-primary btn-sm"
+					@click="showAddValueSetForm = !showAddValueSetForm"
+					x-text="showAddValueSetForm ? 'Cancel' : 'Add ValueSet'"></button>
+				<div x-show="showAddValueSetForm" x-transition class="mt-2">
+					<div class="card card-body bg-light">
+						<h6 class="card-title">Add ValueSet</h6>
+						<p class="text-muted small mb-2">Upload a ValueSet JSON file or paste the resource below.</p>
+						<div class="mb-2">
+							<label class="form-label small">Upload file</label>
+							<input type="file" class="form-control form-control-sm" accept=".json,application/json"
+								@change="onValueSetFileSelected($event)">
+						</div>
+						<div class="mb-2">
+							<label class="form-label small">Or paste ValueSet JSON</label>
+							<textarea class="form-control font-monospace small" rows="12" placeholder='{"resourceType":"ValueSet", ...}'
+								x-model="addValueSetJson"></textarea>
+						</div>
+						<div x-show="addValueSetError" class="alert alert-danger py-2 small" x-text="addValueSetError"></div>
+						<div class="d-flex align-items-center gap-2">
+							<button type="button" class="btn btn-primary btn-sm"
+								:disabled="addValueSetSaving || !addValueSetJson.trim()"
+								@click="submitAddValueSet()">
+								<template x-if="!addValueSetSaving">
+									<span>Add ValueSet</span>
+								</template>
+								<template x-if="addValueSetSaving">
+									<span class="d-flex align-items-center gap-1">
+										<span class="spinner-border spinner-border-sm" role="status"></span> Saving...
+									</span>
+								</template>
+							</button>
+							<button type="button" class="btn btn-outline-secondary btn-sm" @click="clearAddValueSetForm()">Clear</button>
+						</div>
+					</div>
+				</div>
+			</div>
 			<table class="table table-striped table-bordered">
 				<thead>
 					<tr>
@@ -192,6 +229,43 @@
 
 		<!-- ConceptMap Table -->
 		<div x-show="tab === 'conceptmap'" x-transition style="display: none;">
+			<div class="mb-3">
+				<button type="button" class="btn btn-outline-primary btn-sm"
+					@click="showAddConceptMapForm = !showAddConceptMapForm"
+					x-text="showAddConceptMapForm ? 'Cancel' : 'Add ConceptMap'"></button>
+				<div x-show="showAddConceptMapForm" x-transition class="mt-2">
+					<div class="card card-body bg-light">
+						<h6 class="card-title">Add ConceptMap</h6>
+						<p class="text-muted small mb-2">Upload a ConceptMap JSON file or paste the resource below.</p>
+						<div class="mb-2">
+							<label class="form-label small">Upload file</label>
+							<input type="file" class="form-control form-control-sm" accept=".json,application/json"
+								@change="onConceptMapFileSelected($event)">
+						</div>
+						<div class="mb-2">
+							<label class="form-label small">Or paste ConceptMap JSON</label>
+							<textarea class="form-control font-monospace small" rows="12" placeholder='{"resourceType":"ConceptMap", ...}'
+								x-model="addConceptMapJson"></textarea>
+						</div>
+						<div x-show="addConceptMapError" class="alert alert-danger py-2 small" x-text="addConceptMapError"></div>
+						<div class="d-flex align-items-center gap-2">
+							<button type="button" class="btn btn-primary btn-sm"
+								:disabled="addConceptMapSaving || !addConceptMapJson.trim()"
+								@click="submitAddConceptMap()">
+								<template x-if="!addConceptMapSaving">
+									<span>Add ConceptMap</span>
+								</template>
+								<template x-if="addConceptMapSaving">
+									<span class="d-flex align-items-center gap-1">
+										<span class="spinner-border spinner-border-sm" role="status"></span> Saving...
+									</span>
+								</template>
+							</button>
+							<button type="button" class="btn btn-outline-secondary btn-sm" @click="clearAddConceptMapForm()">Clear</button>
+						</div>
+					</div>
+				</div>
+			</div>
 			<table class="table table-striped table-bordered">
 				<thead>
 					<tr>
