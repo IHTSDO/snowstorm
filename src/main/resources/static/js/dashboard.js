@@ -10,14 +10,17 @@ document.addEventListener('alpine:init', () => {
 			valueSets: [],
 			conceptMaps: [],
 			editions: [],
+			snomedCodeSystems: [],
 			loadingCodesystems: false,
 			loadingValueSets: false,
 			loadingConceptMaps: false,
 			loadingSyndication: false,
+			loadingInstalledEditions: false,
 			errorCodesystems: null,
 			errorValueSets: null,
 			errorConceptMaps: null,
 			errorSyndication: null,
+			errorInstalledEditions: null,
 			installState: {},
 			sortKey: { codesystem: 'title', valueset: 'title', conceptmap: 'title', syndication: 'title' },
 			sortAsc: { codesystem: true, valueset: true, conceptmap: true, syndication: true },
@@ -45,7 +48,13 @@ document.addEventListener('alpine:init', () => {
 			get syndicationCountText() {
 				if (this.loadingSyndication) return 'Loading editions...';
 				if (this.errorSyndication) return 'Error loading data';
-				return `${this.editions.length} edition(s) loaded`;
+				return `${this.availableEditions.length} edition(s) available`;
+			},
+
+			get installedEditionsCountText() {
+				if (this.loadingInstalledEditions) return 'Loading installed editions...';
+				if (this.errorInstalledEditions) return 'Error loading installed editions';
+				return `${this.sortedInstalledEditions.length} edition(s) installed`;
 			},
 
 			get sortedCodeSystems() {
@@ -57,8 +66,67 @@ document.addEventListener('alpine:init', () => {
 			get sortedConceptMaps() {
 				return this.sortedFor('conceptmap', this.conceptMaps);
 			},
+			get installedEditions() {
+				const SNOMED_SCT_URL = 'http://snomed.info/sct';
+				const versionPattern = /^https?:\/\/snomed\.info\/[xs]?sct\/(\d+)\/version\/(\d{8})/;
+				const byEdition = {};
+				for (const cs of this.snomedCodeSystems) {
+					const url = (cs.url || '').toString();
+					const version = (cs.version || '').toString();
+					if (!url.includes(SNOMED_SCT_URL) || !version) continue;
+					const m = version.match(versionPattern);
+					if (!m) continue;
+					const editionId = 'http://snomed.info/sct/' + m[1];
+					const versionDate = m[2];
+					if (!byEdition[editionId]) {
+						byEdition[editionId] = { id: editionId, title: cs.title || 'N/A', versions: [] };
+					}
+					byEdition[editionId].versions.push(versionDate);
+					if (versionDate > (byEdition[editionId].latestVersionDate || '')) {
+						byEdition[editionId].latestVersionDate = versionDate;
+						byEdition[editionId].title = cs.title || byEdition[editionId].title;
+					}
+				}
+				const syndicationById = {};
+				for (const ed of this.editions) {
+					syndicationById[ed.id] = ed;
+				}
+				return Object.values(byEdition).map(inst => {
+					const versions = [...new Set(inst.versions)].sort().reverse();
+					const latestVersion = versions[0] || '';
+					const feed = syndicationById[inst.id];
+					let upgradeVersion = null;
+					if (feed && feed.versionsAvailable && feed.versionsAvailable.length > 0) {
+						const latestAvailable = feed.versionsAvailable[0];
+						if (latestAvailable && latestAvailable > latestVersion) {
+							upgradeVersion = latestAvailable;
+						}
+					}
+					return {
+						id: inst.id,
+						title: inst.title,
+						latestVersion,
+						upgradeVersion
+					};
+				});
+			},
+
+			get sortedInstalledEditions() {
+				return [...this.installedEditions].sort((a, b) =>
+					(a.title || '').localeCompare(b.title || '', undefined, { numeric: true })
+				);
+			},
+
+			get availableEditions() {
+				const installedIds = new Set(this.installedEditions.map(e => e.id));
+				const withoutRefsets = this.editions.filter(
+					ed => !(ed.title && ed.title.toLowerCase().includes('refset'))
+				);
+				return withoutRefsets.filter(ed => !installedIds.has(ed.id));
+			},
+
 			get sortedEditions() {
-				return this.sortedFor('syndication', this.editions);
+				return this.sortedFor('syndication', this.availableEditions);
 			},
 
 			sortedFor(type, arr) {
@@ -144,14 +212,20 @@ document.addEventListener('alpine:init', () => {
 
 			async loadSyndicationEditions() {
 				this.loadingSyndication = true;
+				this.loadingInstalledEditions = true;
 				this.errorSyndication = null;
-				let res;
+				this.errorInstalledEditions = null;
+				let syndRes, csRes;
 				try {
-					res = await this.fetchWithTimeout('/syndication/snomed-editions', SYNDICATION_TIMEOUT_MS);
-					const data = await res.json();
-					if (!res.ok) throw new Error(data.message || 'Failed to load editions');
-					if (data && data.length > 0) {
-						this.editions = data.map(ed => ({
+					[syndRes, csRes] = await Promise.all([
+						this.fetchWithTimeout('/syndication/snomed-editions', SYNDICATION_TIMEOUT_MS),
+						this.fetchWithTimeout('/fhir/CodeSystem', AJAX_TIMEOUT_MS)
+					]);
+					const syndData = await syndRes.json();
+					const csData = await csRes.json();
+					if (!syndRes.ok) throw new Error(syndData.message || 'Failed to load editions');
+					if (syndData && syndData.length > 0) {
+						this.editions = syndData.map(ed => ({
 							id: ed.id,
 							title: ed.title || 'N/A',
 							versionsAvailable: ed.versionsAvailable || [],
@@ -160,12 +234,40 @@ document.addEventListener('alpine:init', () => {
 					} else {
 						this.editions = [];
 					}
+					if (!csRes.ok) {
+						this.errorInstalledEditions = this.errorMessage(
+							new Error(csData.message || 'Failed to load CodeSystems'), 'CodeSystems', csRes
+						);
+						this.snomedCodeSystems = [];
+					} else {
+						this.errorInstalledEditions = null;
+						const SNOMED_SCT_URL = 'http://snomed.info/sct';
+						const versionPattern = /^https?:\/\/snomed\.info\/[xs]?sct\/\d+\/version\/\d{8}/;
+						const entries = (csData.entry || []).map(e => e.resource).filter(r => r);
+						this.snomedCodeSystems = entries.filter(cs => {
+							const url = (cs.url || '').toString();
+							const version = (cs.version || '').toString();
+							return url.includes(SNOMED_SCT_URL) && versionPattern.test(version);
+						}).map(cs => this.normalizeRow(cs));
+					}
 				} catch (err) {
-					this.errorSyndication = this.errorMessage(err, 'editions', res);
+					this.errorSyndication = this.errorMessage(err, 'editions', syndRes);
 					this.editions = [];
+					this.errorInstalledEditions = this.errorMessage(err, 'installed editions', csRes);
+					this.snomedCodeSystems = [];
 				} finally {
 					this.loadingSyndication = false;
+					this.loadingInstalledEditions = false;
 				}
+			},
+
+			upgradeEdition(inst) {
+				this.installEdition({
+					id: inst.id,
+					selectedVersion: inst.upgradeVersion,
+					title: inst.title,
+					versionsAvailable: []
+				});
 			},
 
 			getInstallStatus(editionId) {
@@ -203,6 +305,7 @@ document.addEventListener('alpine:init', () => {
 						if (taskStatus === 'COMPLETED') {
 							setInstallStatus('completed');
 							alert('Installation completed successfully!');
+							this.loadSyndicationEditions();
 							return;
 						}
 						if (taskStatus === 'FAILED') {
