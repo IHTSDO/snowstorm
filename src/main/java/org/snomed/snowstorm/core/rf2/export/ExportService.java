@@ -331,33 +331,38 @@ public class ExportService {
 			ZipOutputStream zipOutputStream, String codeSystemRF2Name, ReferenceSetType referenceSetType, Long refsetToExport, Query memberBranchCriteria,
 			List<Long> refsetsOfThisType) {
 
-		if (!refsetOnlyExport || refsetIds.contains(refsetToExport.toString())) {
-			if (Concepts.MODULE_DEPENDENCY_REFERENCE_SET.equals(String.valueOf(refsetToExport))) {
-				moduleIds.addAll(sBranchService.getModules(branchPath));
-			}
+		if (moduleIds == null) {
+			moduleIds = new HashSet<>();
+		}
+		if (refsetOnlyExport && !refsetIds.contains(refsetToExport.toString())) {
+			return;
+		}
 
-			BoolQuery.Builder memberQueryBuilder = getContentQuery(exportType, moduleIds, startEffectiveTime, memberBranchCriteria);
-			memberQueryBuilder.must(termQuery(ReferenceSetMember.Fields.REFSET_ID, refsetToExport));
-			Query memberQuery = memberQueryBuilder.build()._toQuery();
-			long memberCount = elasticsearchOperations.count(getNativeSearchQuery(memberQuery), ReferenceSetMember.class);
-			if (memberCount > 0) {
-				logger.info("Exporting Reference Set {} {} with {} members", refsetToExport, referenceSetType.getName(), memberCount);
-				String exportDir = referenceSetType.getExportDir();
-				String entryDirectory = !exportDir.startsWith("/") ? "Refset/" + exportDir + "/" : exportDir.substring(1) + "/";
-				String entryFilenamePrefix = (!entryDirectory.startsWith("Terminology/") ? "der2_" : "sct2_") + referenceSetType.getFieldTypes() + "Refset_" + referenceSetType.getName() + (refsetsOfThisType.size() > 1 ? refsetToExport : "");
-				exportComponents(
-						ReferenceSetMember.class,
-						entryDirectoryPrefix, entryDirectory,
-						entryFilenamePrefix,
-						filenameEffectiveDate,
-						exportType,
-						zipOutputStream,
-						memberQuery,
-						transientEffectiveTime,
-						referenceSetType.getFieldNameList(),
-						codeSystemRF2Name,
-						null);
-			}
+		if (Concepts.MODULE_DEPENDENCY_REFERENCE_SET.equals(String.valueOf(refsetToExport))) {
+			moduleIds.addAll(sBranchService.getModules(branchPath));
+		}
+
+		BoolQuery.Builder memberQueryBuilder = getContentQuery(exportType, moduleIds, startEffectiveTime, memberBranchCriteria);
+		memberQueryBuilder.must(termQuery(ReferenceSetMember.Fields.REFSET_ID, refsetToExport));
+		Query memberQuery = memberQueryBuilder.build()._toQuery();
+		long memberCount = elasticsearchOperations.count(getNativeSearchQuery(memberQuery), ReferenceSetMember.class);
+		if (memberCount > 0) {
+			logger.info("Exporting Reference Set {} {} with {} members", refsetToExport, referenceSetType.getName(), memberCount);
+			String exportDir = referenceSetType.getExportDir();
+			String entryDirectory = !exportDir.startsWith("/") ? "Refset/" + exportDir + "/" : exportDir.substring(1) + "/";
+			String entryFilenamePrefix = (!entryDirectory.startsWith("Terminology/") ? "der2_" : "sct2_") + referenceSetType.getFieldTypes() + "Refset_" + referenceSetType.getName() + (refsetsOfThisType.size() > 1 ? refsetToExport : "");
+			exportComponents(
+					ReferenceSetMember.class,
+					entryDirectoryPrefix, entryDirectory,
+					entryFilenamePrefix,
+					filenameEffectiveDate,
+					exportType,
+					zipOutputStream,
+					memberQuery,
+					transientEffectiveTime,
+					referenceSetType.getFieldNameList(),
+					codeSystemRF2Name,
+					null);
 		}
 	}
 

@@ -20,6 +20,7 @@ import org.springframework.stereotype.Service;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
+import java.nio.file.Files;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -212,8 +213,10 @@ public class SyndicationService {
 			logger.error("Failed to create import job for file {}", filePath, e);
 			// Continue with other files
 		} finally {
-			if (!file.delete()) {
-				logger.warn("Failed to delete temp SNOMED CT archive file.");
+			try {
+				Files.delete(file.toPath());
+			} catch (IOException deleteException) {
+				logger.warn("Failed to delete temp SNOMED CT archive file.", deleteException);
 			}
 		}
 	}
