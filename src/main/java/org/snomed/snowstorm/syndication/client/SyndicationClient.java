@@ -53,6 +53,9 @@ public class SyndicationClient {
 		ResponseEntity<String> response = restTemplate.exchange("/feed", HttpMethod.GET, new HttpEntity<>(headers), String.class);
 		try {
 			String xmlBody = response.getBody();
+			if (xmlBody == null) {
+				throw new IOException("Empty response body from syndication feed.");
+			}
 			// Strip Atom namespace to simplify unmarshalling
 			xmlBody = xmlBody.replace("xmlns=\"http://www.w3.org/2005/Atom\"", "");
 			SyndicationFeed feed = (SyndicationFeed) jaxbContext.createUnmarshaller().unmarshal(new StringReader(xmlBody));
@@ -87,57 +90,61 @@ public class SyndicationClient {
 		Set<Pair<SyndicationFeedEntry, SyndicationLink>> packageUrls = new LinkedHashSet<>();
 		gatherPackageUrls(entry.getContentItemVersion(), feed.getEntries(), packageUrls);
 		Set<String> packageFilePaths = new HashSet<>();
-		if (!packageUrls.isEmpty()) {
-			System.out.println("Matched the following packages:");
-			for (Pair<SyndicationFeedEntry, SyndicationLink> packageEntry : packageUrls) {
-				System.out.printf(" %s, %s%n", packageEntry.getFirst().getTitle(), packageEntry.getFirst().getContentItemVersion());
-			}
-			System.out.println();
-			try {
-				for (Pair<SyndicationFeedEntry, SyndicationLink> packageEntry : packageUrls) {
-					SyndicationLink packageLink = packageEntry.getSecond();
-					logger.info("Downloading package {} file {}", packageEntry.getFirst().getContentItemVersion(), packageLink.getHref());
-
-					// Test credentials and download link using OPTIONS request
-					HttpHeaders headers = new HttpHeaders();
-					if (creds != null) {
-						headers.setBasicAuth(creds.getFirst(), creds.getSecond());
-					}
-					restTemplate.exchange(packageLink.getHref(), HttpMethod.OPTIONS, new HttpEntity<Void>(headers), Void.class);
-
-					File outputFile = Files.createTempFile(UUID.randomUUID().toString(), ".zip").toFile();
-					restTemplate.execute(packageLink.getHref(), HttpMethod.GET,
-							request -> {
-								if (creds != null) {
-									request.getHeaders().setBasicAuth(creds.getFirst(), creds.getSecond());
-								}
-							},
-							clientHttpResponse -> {
-								try (FileOutputStream outputStream = new FileOutputStream(outputFile)) {
-									String lengthString = packageLink.getLength();
-									int length;
-									if (lengthString == null || lengthString.isEmpty()) {
-										length = 1024 * 500;
-									} else {
-										length = Integer.parseInt(lengthString.replace(",", ""));
-									}
-									try {
-										StreamUtil.copyWithProgress(clientHttpResponse.getBody(), outputStream, length, "Download progress: %s%%");
-									} catch (Exception e) {
-										logger.error("Failed to download file from syndication service.", e);
-									}
-								}
-								return outputFile;
-							});
-					packageFilePaths.add(outputFile.getAbsolutePath());
-				}
-			} catch (HttpClientErrorException e) {
-				throw new ServiceException(format("Failed to download package due to HTTP error: %s", e.getStatusCode()), e);
-			}
-		} else {
+		if (packageUrls.isEmpty()) {
 			logger.error("Can not load content, no links found within the syndication feed for the requested package.");
+			return packageFilePaths;
+		}
+		logger.info("Matched the following packages:");
+		for (Pair<SyndicationFeedEntry, SyndicationLink> packageEntry : packageUrls) {
+			logger.info(" {}, {}", packageEntry.getFirst().getTitle(), packageEntry.getFirst().getContentItemVersion());
+		}
+		try {
+			for (Pair<SyndicationFeedEntry, SyndicationLink> packageEntry : packageUrls) {
+				packageFilePaths.add(downloadPackage(packageEntry, creds).getAbsolutePath());
+			}
+		} catch (HttpClientErrorException e) {
+			throw new ServiceException(format("Failed to download package due to HTTP error: %s", e.getStatusCode()), e);
 		}
 		return packageFilePaths;
+	}
+
+	private File downloadPackage(Pair<SyndicationFeedEntry, SyndicationLink> packageEntry, Pair<String, String> creds) throws IOException {
+		SyndicationLink packageLink = packageEntry.getSecond();
+		logger.info("Downloading package {} file {}", packageEntry.getFirst().getContentItemVersion(), packageLink.getHref());
+
+		// Test credentials and download link using OPTIONS request
+		HttpHeaders headers = new HttpHeaders();
+		if (creds != null) {
+			headers.setBasicAuth(creds.getFirst(), creds.getSecond());
+		}
+		restTemplate.exchange(packageLink.getHref(), HttpMethod.OPTIONS, new HttpEntity<Void>(headers), Void.class);
+
+		File outputFile = Files.createTempFile(UUID.randomUUID().toString(), ".zip").toFile();
+		restTemplate.execute(packageLink.getHref(), HttpMethod.GET,
+				request -> {
+					if (creds != null) {
+						request.getHeaders().setBasicAuth(creds.getFirst(), creds.getSecond());
+					}
+				},
+				clientHttpResponse -> {
+					try (FileOutputStream outputStream = new FileOutputStream(outputFile)) {
+						int length = parsePackageLength(packageLink.getLength());
+						try {
+							StreamUtil.copyWithProgress(clientHttpResponse.getBody(), outputStream, length, "Download progress: %s%%");
+						} catch (Exception e) {
+							logger.error("Failed to download file from syndication service.", e);
+						}
+					}
+					return outputFile;
+				});
+		return outputFile;
+	}
+
+	private int parsePackageLength(String lengthString) {
+		if (lengthString == null || lengthString.isEmpty()) {
+			return 1024 * 500;
+		}
+		return Integer.parseInt(lengthString.replace(",", ""));
 	}
 
 	public Pair<String, String> getSyndicationCredentials() throws IOException {
@@ -146,24 +153,23 @@ public class SyndicationClient {
 		}
 
 		Console console = System.console();
-		String username;
-		String password;
+		String enteredUsername;
+		String enteredPassword;
 		if (console != null) {
-			username = console.readLine("Syndication username:");
-			password = new String(console.readPassword("Syndication password:"));
+			enteredUsername = console.readLine("Syndication username:");
+			enteredPassword = new String(console.readPassword("Syndication password:"));
 		} else {
 			BufferedReader consoleReader = new BufferedReader(new InputStreamReader(System.in));
-			System.out.println("Syndication username:");
-			username = consoleReader.readLine();
-			System.out.println("Syndication password:");
-			password = consoleReader.readLine();
-			System.out.println();
+			logger.info("Syndication username:");
+			enteredUsername = consoleReader.readLine();
+			logger.info("Syndication password:");
+			enteredPassword = consoleReader.readLine();
 		}
-		if (Strings.isBlank(username) && Strings.isBlank(password)) {
+		if (Strings.isBlank(enteredUsername) && Strings.isBlank(enteredPassword)) {
 			logger.warn("Syndication credentials are blank. If required use the properties: syndication.username and syndication.password.");
 			return null;
 		}
-		return Pair.of(username, password);
+		return Pair.of(enteredUsername, enteredPassword);
 	}
 
 	private void gatherPackageUrls(String loadVersionUri, List<SyndicationFeedEntry> sortedEntries, Set<Pair<SyndicationFeedEntry, SyndicationLink>> downloadList) {
@@ -177,16 +183,20 @@ public class SyndicationClient {
 
 				SyndicationDependency packageDependency = entry.getPackageDependency();
 				if (packageDependency != null) {
-					if (packageDependency.getEditionDependency() != null) {
-						gatherPackageUrls(packageDependency.getEditionDependency(), sortedEntries, downloadList);
-					}
-					if (packageDependency.getDerivativeDependency() != null) {
-						for (String dependencyUri : packageDependency.getDerivativeDependency()) {
-							gatherPackageUrls(dependencyUri, sortedEntries, downloadList);
-						}
-					}
+					gatherDependencyUrls(packageDependency, sortedEntries, downloadList);
 				}
+			}
+		}
+	}
 
+	private void gatherDependencyUrls(SyndicationDependency dependency, List<SyndicationFeedEntry> sortedEntries,
+			Set<Pair<SyndicationFeedEntry, SyndicationLink>> downloadList) {
+		if (dependency.getEditionDependency() != null) {
+			gatherPackageUrls(dependency.getEditionDependency(), sortedEntries, downloadList);
+		}
+		if (dependency.getDerivativeDependency() != null) {
+			for (String dependencyUri : dependency.getDerivativeDependency()) {
+				gatherPackageUrls(dependencyUri, sortedEntries, downloadList);
 			}
 		}
 	}

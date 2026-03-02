@@ -1,5 +1,7 @@
 package org.snomed.snowstorm.core.util;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.core.data.domain.ConceptMini;
 
 import java.io.IOException;
@@ -8,6 +10,8 @@ import java.io.OutputStream;
 import java.util.function.BinaryOperator;
 
 public class StreamUtil {
+
+	private static final Logger logger = LoggerFactory.getLogger(StreamUtil.class);
 
 	private StreamUtil() {
 	}
@@ -26,7 +30,7 @@ public class StreamUtil {
 			float percentageFloat = ((float) byteCount / (float) totalStreamLength) * 100;
 			int percentage = (int) Math.floor(percentageFloat);
 			if (percentage % 10 == 0 && percentage > percentageLogged) {
-				System.out.printf(messageFormat + "%n", percentage);
+				logger.info(String.format(messageFormat, percentage));
 				percentageLogged = percentage;
 			}
 		}

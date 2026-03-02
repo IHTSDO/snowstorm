@@ -286,6 +286,9 @@ public class ExportService {
 				logger.info("{} Reference Set Types found for this export: {}", referenceSetTypes.size(), referenceSetTypes);
 
 				Query memberBranchCriteria = selectionBranchCriteria.getEntityBranchCriteria(ReferenceSetMember.class);
+				if (moduleIds == null) {
+					moduleIds = new HashSet<>();
+				}
 				Set<String> moduleIdsBackup = moduleIds;
 				for (ReferenceSetType referenceSetType : referenceSetTypes) {
 					List<Long> refsetsOfThisType = new ArrayList<>(queryService.findDescendantIdsAsUnion(allContentBranchCriteria, true, Collections.singleton(Long.parseLong(referenceSetType.getConceptId()))));
