@@ -30,7 +30,9 @@ public class StreamUtil {
 			float percentageFloat = ((float) byteCount / (float) totalStreamLength) * 100;
 			int percentage = (int) Math.floor(percentageFloat);
 			if (percentage % 10 == 0 && percentage > percentageLogged) {
-				logger.info(String.format(messageFormat, percentage));
+				if (logger.isInfoEnabled()) {
+					logger.info(String.format(messageFormat, percentage));
+				}
 				percentageLogged = percentage;
 			}
 		}
