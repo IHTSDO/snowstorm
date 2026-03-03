@@ -1,5 +1,6 @@
 package org.snomed.snowstorm.syndication;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import org.springframework.security.core.context.SecurityContext;
 
 import java.util.ArrayList;
@@ -23,8 +24,10 @@ public class InstallationTask {
 	private String errorMessage;
 	private Date createdAt;
 	private Date completedAt;
+	@JsonIgnore
 	private List<String> downloadedFiles;
 	private List<String> importJobIds;
+	@JsonIgnore
 	private SecurityContext securityContext;
 
 	public InstallationTask(String editionId, String version, SecurityContext securityContext) {
