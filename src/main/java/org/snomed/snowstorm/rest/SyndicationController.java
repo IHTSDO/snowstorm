@@ -6,7 +6,6 @@ import org.snomed.snowstorm.syndication.InstallationTask;
 import org.snomed.snowstorm.syndication.SyndicationService;
 import org.snomed.snowstorm.syndication.SyndicationSnomedEdition;
 import org.snomed.snowstorm.syndication.dto.InstallEditionRequest;
-import org.snomed.snowstorm.syndication.dto.InstallationTaskResponse;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -32,23 +31,23 @@ public class SyndicationController {
 
 	@Operation(summary = "Install a SNOMED CT edition", description = "Queues an installation task to download and import a SNOMED CT edition from the syndication feed")
 	@PostMapping("install")
-	public ResponseEntity<InstallationTaskResponse> installEdition(@RequestBody InstallEditionRequest request) {
+	public ResponseEntity<InstallationTask> installEdition(@RequestBody InstallEditionRequest request) {
 		if (request.getEditionId() == null || request.getVersion() == null) {
 			return ResponseEntity.badRequest().build();
 		}
 		String taskId = syndicationService.installEdition(request.getEditionId(), request.getVersion());
 		InstallationTask task = syndicationService.getInstallationTask(taskId);
-		return ResponseEntity.status(HttpStatus.ACCEPTED).body(new InstallationTaskResponse(task));
+		return ResponseEntity.status(HttpStatus.ACCEPTED).body(task);
 	}
 
 	@Operation(summary = "Get installation task status", description = "Retrieves the status of an installation task")
 	@GetMapping("install/{taskId}")
-	public ResponseEntity<InstallationTaskResponse> getInstallationTask(@PathVariable String taskId) {
+	public ResponseEntity<InstallationTask> getInstallationTask(@PathVariable String taskId) {
 		InstallationTask task = syndicationService.getInstallationTask(taskId);
 		if (task == null) {
 			return ResponseEntity.notFound().build();
 		}
-		return ResponseEntity.ok(new InstallationTaskResponse(task));
+		return ResponseEntity.ok(task);
 	}
 
 }
