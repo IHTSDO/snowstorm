@@ -107,7 +107,10 @@ public class ElasticsearchConfig extends ElasticsearchConfiguration {
 	private ElasticsearchClients.ElasticsearchRestClientConfigurationCallback configureHttpClient() {
 		return ElasticsearchClients.ElasticsearchRestClientConfigurationCallback.from(clientBuilder -> {
 			clientBuilder.setRequestConfigCallback(builder -> {
-				builder.setConnectionRequestTimeout(0);//Disable lease handling for the connection pool! See https://github.com/elastic/elasticsearch/issues/24069
+				builder.setConnectionRequestTimeout(30_000);
+				builder.setConnectTimeout(10_000);
+				builder.setSocketTimeout(360_000);
+				logger.info("Configured Elasticsearch client timeouts: connectionRequestTimeout=30s, connectTimeout=10s, socketTimeout=360s");
 				return builder;
 			});
 			final CredentialsProvider credentialsProvider = new BasicCredentialsProvider();
@@ -116,6 +119,8 @@ public class ElasticsearchConfig extends ElasticsearchConfiguration {
 			}
 			clientBuilder.setHttpClientConfigCallback(httpClientBuilder -> {
 				httpClientBuilder.setDefaultCredentialsProvider(credentialsProvider);
+				httpClientBuilder.setMaxConnTotal(100);
+				httpClientBuilder.setMaxConnPerRoute(100);
 				if (awsRequestSigning != null && awsRequestSigning) {
 					httpClientBuilder.addInterceptorFirst(awsInterceptor("es"));
 				}
