@@ -932,6 +932,49 @@ class ExportServiceTest extends AbstractTest {
 		assertNotEquals(intVersion, extVersion);
 	}
 
+	@Test
+	void exportRF2Archive_ShouldExportQueryReferenceSet() throws ServiceException, IOException {
+		Concept concept;
+		String intMain = "MAIN";
+
+		// Create International
+		codeSystemService.createCodeSystem(new CodeSystem("SNOMEDCT", intMain));
+
+		// Create reference set hierarchy
+		concept = new Concept("900000000000455006")
+				.addDescription(new Description("Reference set (foundation metadata concept)").setTypeId(FSN))
+				.addAxiom(new Relationship(ISA, SNOMEDCT_ROOT))
+				.addRelationship(new Relationship(ISA, SNOMEDCT_ROOT));
+		String referenceSetId = conceptService.create(concept, intMain).getConceptId();
+
+		concept = new Concept("900000000000512005")
+				.addDescription(new Description("Query specification type reference set (foundation metadata concept)").setTypeId(FSN))
+				.addAxiom(new Relationship(ISA, referenceSetId))
+				.addRelationship(new Relationship(ISA, referenceSetId));
+		String queryRefsetId = conceptService.create(concept, intMain).getConceptId();
+
+		concept = new Concept("900000000000513000")
+				.addDescription(new Description("Simple query specification reference set (foundation metadata concept)").setTypeId(FSN))
+				.addAxiom(new Relationship(ISA, queryRefsetId))
+				.addRelationship(new Relationship(ISA, queryRefsetId));
+		String simpleQueryRefsetId = conceptService.create(concept, intMain).getConceptId();
+
+		concept = new Concept()
+				.addDescription(new Description("Laterality query reference set (foundation metadata concept)").setTypeId(FSN))
+				.addAxiom(new Relationship(ISA, simpleQueryRefsetId))
+				.addRelationship(new Relationship(ISA, simpleQueryRefsetId));
+		String lateralityQueryRefsetId = conceptService.create(concept, intMain).getConceptId();
+
+		// Add member to laterality
+		ReferenceSetMember lateralityMember = referenceSetMemberService.createMember(intMain, new ReferenceSetMember().setActive(true).setModuleId(CORE_MODULE).setRefsetId(simpleQueryRefsetId).setReferencedComponentId(lateralityQueryRefsetId).setAdditionalField(ReferenceSetMember.QueryFields.QUERY, "<< 182353008"));
+
+		// Export
+		List<String> lines = getFileFromSnapshotExport("MAIN", "Query");
+		lines.remove(0); // Remove header
+		assertEquals(1, lines.size());
+		assertTrue((lines.iterator().next().contains(lateralityMember.getMemberId())));
+	}
+
 	private List<String> getFileFromSnapshotExport(String branchPath, String fileName) throws IOException {
 		// Prepare for export
 		File exportFile = getTempFile("export", ".zip");
