@@ -78,6 +78,10 @@ public class ReferenceSetMember extends SnomedComponent<ReferenceSetMember> impl
 		String ATTRIBUTE_ORDER = "attributeOrder";
 	}
 
+	public interface QueryFields {
+		String QUERY = "query";
+	}
+
 	@JsonView(value = View.Component.class)
 	@Field(type = FieldType.Keyword)
 	private String memberId;
