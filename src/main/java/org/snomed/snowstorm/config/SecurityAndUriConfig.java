@@ -37,6 +37,7 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configuration.WebSecurityCustomizer;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
+import org.springframework.security.config.Customizer;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.access.intercept.AuthorizationFilter;
 import org.springframework.security.web.firewall.DefaultHttpFirewall;
@@ -166,6 +167,7 @@ public class SecurityAndUriConfig {
 	@Bean
 	public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
 		http.csrf(AbstractHttpConfigurer::disable);// lgtm [java/spring-disabled-csrf-protection]
+		http.cors(Customizer.withDefaults());
 
 		// Add authentication filters if roles enabled
 		if (rolesEnabled) {

@@ -3,6 +3,12 @@ All notable changes to this project will be documented in this file.
 
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [DRAFT] 11.1.0 Release
+Major upgrade of HL7 FHIR API.
+
+### Improvements
+- Add CORS headers to allow any origin by default. Can be disabled using `snowstorm.rest-api.allowAnyOrigin=false` flag.
+
 ## 11.0.0 Release (July 2026)
 Major release with Java 25 upgrade and FHIR improvements.
 
