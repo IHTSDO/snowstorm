@@ -4,6 +4,7 @@ import ca.uhn.fhir.rest.api.EncodingEnum;
 import org.snomed.snowstorm.fhir.services.FHIRCodeSystemService;
 import org.snomed.snowstorm.fhir.services.FHIRLoadPackageServlet;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.info.BuildProperties;
 import org.springframework.boot.web.servlet.ServletRegistrationBean;
 import org.springframework.context.annotation.Bean;
@@ -20,12 +21,15 @@ public class FHIRRestConfig {
 
 	private static final int MB_IN_BYTES = 1024 * 1024;
 
+	@Value("${snowstorm.rest-api.allowAnyOrigin:true}")
+	private boolean allowAnyOrigin;
+
 	@Bean
 	public ServletRegistrationBean<HapiRestfulServlet> hapi(
 			@Autowired(required = false) BuildProperties buildProperties,
 			@Autowired @Lazy FHIRCodeSystemService codeSystemService) {
 
-		HapiRestfulServlet hapiServlet = new HapiRestfulServlet(buildProperties, codeSystemService);
+		HapiRestfulServlet hapiServlet = new HapiRestfulServlet(buildProperties, codeSystemService, allowAnyOrigin);
 
 		ServletRegistrationBean<HapiRestfulServlet> servletRegistrationBean = new ServletRegistrationBean<>(hapiServlet, "/fhir/*");
 		hapiServlet.setServerName("Snowstorm FHIR Server");
