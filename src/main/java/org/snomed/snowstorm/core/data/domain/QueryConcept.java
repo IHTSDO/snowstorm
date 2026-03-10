@@ -353,18 +353,20 @@ public class QueryConcept extends DomainEntity<QueryConcept> implements FHIRGrap
 			}
 			String[] groups = attrMap.split("\\|");
 			for (String group : groups) {
-				// To exclude : in concrete string value
-				String[] attributes = group.split(":(?=(?:[^\"]*\"[^\"]*\")*[^\"]*$)");
-				int groupNo = Integer.parseInt(attributes[0]);
+				// Split on ':' but not inside double-quoted strings (e.g. URLs in attribute values)
+				List<String> attributeList = splitRespectingQuotes(group, ':');
+				int groupNo = Integer.parseInt(attributeList.get(0));
 				Map<String, List<Object>> attributeMap = new HashMap<>();
-				for (int i = 1; i < attributes.length; i++) {
-					String attribute = attributes[i];
-					String[] attrParts = attribute.split("=");
+				for (int i = 1; i < attributeList.size(); i++) {
+					String attribute = attributeList.get(i);
+					String[] attrParts = attribute.split("=", 2);
 					if (attrParts.length != 2) {
 						throw new IllegalArgumentException(String.format("Invalid attribute format %s found in attrMap %s", attribute, attrMap));
 					}
 					String type = attrParts[0];
-					String[] values = attrParts[1].split(",");
+					String valuePart = attrParts[1];
+					// Split values by comma, but do not split on commas inside double-quoted strings
+					String[] values = splitValuesRespectingQuotes(valuePart);
 					List<Object> transformed = checkAndTransformConcreteValues(Arrays.asList(values));
 					transformed.sort(null);
 					attributeMap.put(type, transformed);
@@ -372,6 +374,45 @@ public class QueryConcept extends DomainEntity<QueryConcept> implements FHIRGrap
 				groupedAttributesMap.put(groupNo, attributeMap);
 			}
 			return groupedAttributesMap;
+		}
+
+		/**
+		 * Splits a string by the given delimiter, but does not split on delimiter inside double-quoted regions.
+		 * Used for both group segments (delimiter ':') and value segments (delimiter ',').
+		 */
+		private static List<String> splitRespectingQuotes(String input, char delimiter) {
+			if (input == null || input.isEmpty()) {
+				return new ArrayList<>();
+			}
+			List<String> result = new ArrayList<>();
+			StringBuilder current = new StringBuilder();
+			boolean inQuotes = false;
+			for (int i = 0; i < input.length(); i++) {
+				char c = input.charAt(i);
+				if (c == '"') {
+					inQuotes = !inQuotes;
+					current.append(c);
+				} else if (c == delimiter && !inQuotes) {
+					result.add(current.toString());
+					current = new StringBuilder();
+				} else {
+					current.append(c);
+				}
+			}
+			result.add(current.toString());
+			return result;
+		}
+
+		/**
+		 * Splits a value part by comma, but does not split on commas inside double-quoted strings.
+		 * This prevents a single quoted value like "http://example.com/a, b" from being split into two values.
+		 */
+		private static String[] splitValuesRespectingQuotes(String valuePart) {
+			if (valuePart == null || valuePart.isEmpty()) {
+				return new String[0];
+			}
+			List<String> segments = splitRespectingQuotes(valuePart, ',');
+			return segments.stream().map(String::trim).toArray(String[]::new);
 		}
 
 		private static List<Object> checkAndTransformConcreteValues(List<String> values) {
