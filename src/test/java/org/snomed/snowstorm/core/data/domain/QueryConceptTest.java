@@ -13,7 +13,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.*;
 
 class QueryConceptTest {
 
@@ -89,4 +89,68 @@ class QueryConceptTest {
 		assertEquals(4, result.get(0).size());
 	}
 
+	@Test
+	void testDeserializeUrlValueWithoutQuotesFails() {
+		String attrMapString = "0:62191000087109=26643006:411116001=http://monographs.termspace.com/en_ca/EDARBI_02381389_BAUSCH HEALTH";
+		QueryConcept queryConcept = new QueryConcept();
+		queryConcept.setAttrMap(attrMapString);
+		assertThrows(IllegalArgumentException.class, queryConcept::getGroupedAttributesMap);
+	}
+
+    @Test
+    void testDeserializeUrlValueWithQuotes() {
+        String attrMapString = """
+            0:62191000087109=26643006:411116001=421026006:62171000087105="http://monographs.termspace.com/en_ca/EDARBI_02381389_BAUSCH HEALTH, CANADA INC._MARKETED_EN_2023-11-09.pdf"
+            :774159003=90441000087109:763032000=732936001:774158006=80341000087102:62581000087102=62551000087105:1142139005=#1|1:732947008=732936001:762949000=895431005:732943007=449561004:732945000=258684004:1142135004=#40.0:1142136003=#1.0
+            """;
+            QueryConcept queryConcept = new QueryConcept();
+        queryConcept.setAttrMap(attrMapString);
+
+        assertDoesNotThrow(queryConcept::getGroupedAttributesMap);
+    }
+
+	/**
+	 * Verifies the fix for "attrMap is being modified after loading": when a document has a correctly
+	 * quoted attrMap (value contains a comma inside quotes), the copy constructor calls
+	 * serializeGroupedAttributesMap() which deserializes then re-serializes. Without the fix, the
+	 * deserializer split on comma ignoring quotes, producing two values that after sort produced the
+	 * malformed string and an IllegalArgumentException. With the fix, the comma inside quotes is not
+	 * split, so the value remains one and no error occurs.
+	 */
+	@Test
+	void testCopyConstructorDoesNotCorruptAttrMapWhenValueContainsCommaInsideQuotes() {
+		// Stored document has correctly quoted value (comma inside the quoted string)
+		String quotedAttrMap = "0:62191000087109=26643006:411116001=421026006:774159003=90441000087109" +
+				":62171000087105=\"http://monographs.termspace.com/en_ca/EDARBI_02381389_BAUSCH HEALTH, CANADA INC._MARKETED_EN_2023-11-09.pdf\"" +
+				":763032000=732936001:774158006=80341000087102:62581000087102=62551000087105:1142139005=#1" +
+				"|1:732947008=732936001:762949000=895431005:732943007=449561004:732945000=258684004:1142135004=#40.0:1142136003=#1.0";
+
+		QueryConcept loaded = new QueryConcept();
+		loaded.setConceptIdL(230091000087105L);
+		loaded.setPath("MAIN");
+		loaded.setAttrMap(quotedAttrMap);
+		loaded.setParents(Set.of(26643006L));
+		loaded.setAncestors(Set.of(26643006L, 421026006L));
+		loaded.setStated(false);
+
+		// Copy constructor runs serializeGroupedAttributesMap() which deserializes then re-serializes.
+		// Without fix: comma inside quotes was split → two values → sort → malformed attrMap → fail on next deserialize or in fieldsMatch.
+		QueryConcept copy = assertDoesNotThrow(() -> new QueryConcept(loaded),
+				"Copy constructor must not throw when attrMap has comma inside quoted value");
+
+		// Attribute 62171000087105 must still be a single value containing the comma (not split into two)
+		Map<Integer, Map<String, List<Object>>> grouped = copy.getGroupedAttributesMap();
+		assertNotNull(grouped);
+		assertTrue(grouped.containsKey(0), "Group 0 should exist");
+		List<Object> values = grouped.get(0).get("62171000087105");
+		assertNotNull(values, "Attribute 62171000087105 should exist");
+		assertEquals(1, values.size(), "Value should remain single (comma inside quotes not split); was: " + values);
+		String singleValue = (String) values.get(0);
+		assertTrue(singleValue.contains("http://monographs.termspace.com"), "Value should contain URL");
+		assertTrue(singleValue.contains("CANADA INC._MARKETED_EN_2023-11-09.pdf"), "Value should contain filename");
+		assertTrue(singleValue.contains(","), "Value should contain the comma (one value with comma inside)");
+
+		// fieldsMatch also calls getGroupedAttributesMap() on both; must not throw
+		assertTrue(loaded.fieldsMatch(copy), "Loaded and copy should match after round-trip");
+	}
 }
