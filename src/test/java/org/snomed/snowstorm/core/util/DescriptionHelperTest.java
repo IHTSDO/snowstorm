@@ -3,6 +3,7 @@ package org.snomed.snowstorm.core.util;
 import com.google.common.collect.Sets;
 import org.junit.jupiter.api.Test;
 import org.snomed.snowstorm.config.Config;
+import org.snomed.snowstorm.core.data.domain.Concept;
 import org.snomed.snowstorm.core.data.domain.Concepts;
 import org.snomed.snowstorm.core.data.domain.Description;
 import org.snomed.snowstorm.rest.ControllerHelper;
@@ -83,6 +84,26 @@ class DescriptionHelperTest {
 				"Neoplasm and/or hamartoma reference set (foundation metadata concept)", getFSNTerm("en", descriptionWithNoAcceptability));
 		assertEquals("Pick FSN with correct language when language dialect requested because 'en' is always included as fallback.",
 				"Neoplasm and/or hamartoma reference set (foundation metadata concept)", getFSNTerm("en-X-900000000000509007", descriptionWithNoAcceptability));
+	}
+
+	@Test
+	void getPickPreferredOfAnyTypeWhenNoPtFound() {
+		String newSynonymType = "101000000010";
+		Concept concept = new Concept();
+		addDescription(concept, "11000000010", Concepts.FSN, "the fsn", Concepts.PREFERRED);
+		addDescription(concept, "21000000010", Concepts.TEXT_DEFINITION, "the text def", Concepts.PREFERRED);
+		addDescription(concept, "31000000010", Concepts.SYNONYM, "a synonym", Concepts.ACCEPTABLE);
+		addDescription(concept, "41000000010", Concepts.SYNONYM, "another synonym", Concepts.ACCEPTABLE);
+		addDescription(concept, "51000000010", newSynonymType, "preferred term using synonym subtype", Concepts.PREFERRED);
+
+		concept.setRequestedLanguageDialects(Config.DEFAULT_LANGUAGE_DIALECTS);
+		assertEquals("preferred term using synonym subtype", concept.getPt().getTerm());
+	}
+
+	private static void addDescription(Concept concept, String number, String fsn, String the_fsn, String acceptabilityConstant) {
+		Description description = new Description(number, null, true, null, null, "en", fsn, the_fsn, Concepts.CASE_INSENSITIVE);
+		description.addLanguageRefsetMember(Concepts.US_EN_LANG_REFSET, acceptabilityConstant, true);
+		concept.addDescription(description);
 	}
 
 	private String getPtTerm(String acceptLanguageHeader, Set<Description> descriptions) {
