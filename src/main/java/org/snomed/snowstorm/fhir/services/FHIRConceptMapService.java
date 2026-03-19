@@ -87,12 +87,19 @@ public class FHIRConceptMapService {
 	}
 
 	public FHIRConceptMap createOrUpdate(FHIRConceptMap conceptMap) {
-		if (conceptMap.getUrl().contains("?fhir_cm")) {
-			throw exception("ConceptMap url must not contain 'fhir_cm', this is reserved for implicit concept maps.", OperationOutcome.IssueType.INVARIANT, 400);
+		// FHIR ConceptMap canonical is `url|version` and both are required for persistence.
+		String url = conceptMap.getUrl();
+		if (url == null || url.isBlank()) {
+			throw exception("ConceptMap 'url' is required (canonical is `url|version`).", OperationOutcome.IssueType.INVARIANT, 400);
 		}
 
-		if (conceptMap.getVersion() == null) {
-			conceptMap.setVersion("0");
+		String version = conceptMap.getVersion();
+		if (version == null || version.isBlank()) {
+			throw exception("ConceptMap 'version' is required (canonical is `url|version`).", OperationOutcome.IssueType.INVARIANT, 400);
+		}
+
+		if (url.contains("?fhir_cm")) {
+			throw exception("ConceptMap url must not contain 'fhir_cm', this is reserved for implicit concept maps.", OperationOutcome.IssueType.INVARIANT, 400);
 		}
 
 		// Delete existing maps with the same URL and version
