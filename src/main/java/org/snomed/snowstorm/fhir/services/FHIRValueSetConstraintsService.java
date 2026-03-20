@@ -395,27 +395,45 @@ public class FHIRValueSetConstraintsService implements FHIRConstants {
 	}
 
 	public Map<FHIRCodeSystemVersion, AndConstraints> combineConstraints(Map<FHIRCodeSystemVersion, AndConstraints> constraints) {
+		// This method combines "simple code set" constraints to reduce Elasticsearch clause count.
+		// IMPORTANT: must preserve the AND/OR semantics encoded by AndConstraints/OrConstraints.
+		// In particular, moving simple constraints out of their original OR-group changes them
+		// from being OR-ed to being AND-ed by the query builder, which breaks ValueSet filters
+		// like `property=concept op=is-a` (code + descendants).
 		Map<FHIRCodeSystemVersion, AndConstraints> combinedConstraints = new HashMap<>();
-		Map<FHIRCodeSystemVersion, ConceptConstraint> simpleConstraints = new HashMap<>();
+
 		for (Map.Entry<FHIRCodeSystemVersion, AndConstraints> entry : constraints.entrySet()) {
+			FHIRCodeSystemVersion codeSystemVersion = entry.getKey();
 			AndConstraints andConstraints = entry.getValue();
 			AndConstraints newAndConstraints = new AndConstraints();
+
 			for (AndConstraints.OrConstraints orConstraints : andConstraints.getAndConstraints()) {
-				Set<ConceptConstraint> newOrConstraints = new HashSet<>();
-				for(ConceptConstraint conceptConstraint: orConstraints.getOrConstraints()) {
+				// Keep combination within the existing OR-group to preserve semantics.
+				Map<Boolean, Set<String>> simpleCodesByActiveOnlyTrue = new HashMap<>();
+				Set<ConceptConstraint> nonSimpleConstraints = new HashSet<>();
+
+				for (ConceptConstraint conceptConstraint : orConstraints.getOrConstraints()) {
 					if (conceptConstraint.isSimpleCodeSet()) {
-						simpleConstraints.computeIfAbsent(entry.getKey(), k -> new ConceptConstraint(new HashSet<>())).getCodes().addAll(conceptConstraint.getCodes());
+						boolean activeOnlyTrue = Boolean.TRUE.equals(conceptConstraint.isActiveOnly());
+						simpleCodesByActiveOnlyTrue
+								.computeIfAbsent(activeOnlyTrue, ignored -> new HashSet<>())
+								.addAll(conceptConstraint.getCodes());
 					} else {
-						newOrConstraints.add(conceptConstraint);
+						nonSimpleConstraints.add(conceptConstraint);
 					}
 				}
-				newAndConstraints.addOrConstraints(newOrConstraints);
-			}
-			combinedConstraints.put(entry.getKey(), newAndConstraints);
-		}
 
-		for (Map.Entry<FHIRCodeSystemVersion, ConceptConstraint> entry : simpleConstraints.entrySet()) {
-			combinedConstraints.computeIfAbsent(entry.getKey(), k -> new AndConstraints()).addOrConstraints(new HashSet<>(List.of(entry.getValue())));
+				// Re-add combined simple constraints (per effective activeOnly=true/!=true)
+				for (Map.Entry<Boolean, Set<String>> simpleEntry : simpleCodesByActiveOnlyTrue.entrySet()) {
+					ConceptConstraint combinedSimple = new ConceptConstraint(new HashSet<>(simpleEntry.getValue()));
+					combinedSimple.setActiveOnly(simpleEntry.getKey());
+					nonSimpleConstraints.add(combinedSimple);
+				}
+
+				newAndConstraints.addOrConstraints(nonSimpleConstraints);
+			}
+
+			combinedConstraints.put(codeSystemVersion, newAndConstraints);
 		}
 
 		return combinedConstraints;
