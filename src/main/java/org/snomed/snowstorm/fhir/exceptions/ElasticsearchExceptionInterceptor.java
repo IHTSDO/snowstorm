@@ -30,9 +30,17 @@ public class ElasticsearchExceptionInterceptor {
 		if (!exception.getMessage().contains("Supplement") && ! exception.getMessage().contains("does not exist")) {
 			//Is this a broken or bad test case?
 			if (requestDetails != null && requestDetails.getUserData().values().stream()
-								.anyMatch(p -> p instanceof Parameters params &&
-										(params.getParameter("url").getValue().toString().contains("broken")
-								|| params.getParameter("url").getValue().toString().contains("bad")) )) {
+								.anyMatch(p -> {
+									if (!(p instanceof Parameters params)) {
+										return false;
+									}
+									var urlParameter = params.getParameter("url");
+									if (urlParameter == null || urlParameter.getValue() == null) {
+										return false;
+									}
+									String url = urlParameter.getValue().toString();
+									return url.contains("broken") || url.contains("bad");
+								})) {
 				//expected exception - deliberately broken test case
 			} else {
 				logger.info("Check unexpected exception");
