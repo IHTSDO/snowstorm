@@ -344,7 +344,7 @@ public class FHIRValueSetService implements FHIRConstants {
 		} else {
 			// FHIR Concept Expansion (non-SNOMED)
 			String sortField = filter != null ? "displayLen" : CODE;
-			pageRequest = PageRequest.of(pageRequest.getPageNumber(), pageRequest.getPageSize(), Sort.Direction.ASC, sortField);
+			pageRequest = getPageRequest(pageRequest, sortField);
 			BoolQuery fhirConceptQuery = vsFinderService.getFhirConceptQuery(codeSelectionCriteria, filter).build();
 
 			int offsetRequested = (int) pageRequest.getOffset();
@@ -482,7 +482,6 @@ public class FHIRValueSetService implements FHIRConstants {
 
 		List<ValueSet.ValueSetExpansionContainsComponent> expansionContents = createExpansionContents(conceptsPage, hapiValueSet, idAndVersionToLanguage, idAndVersionToUrl, expansion, params, fhirDisplayLanguage);
 		expansion.setContains(expansionContents);
-		expansion.setOffset(conceptsPage.getNumber() * conceptsPage.getSize());
 		expansion.setTotal((int) conceptsPage.getTotalElements());
 		hapiValueSet.setExpansion(expansion);
 
@@ -499,6 +498,13 @@ public class FHIRValueSetService implements FHIRConstants {
 		}
 
 		return hapiValueSet;
+	}
+
+	private static @NotNull PageRequest getPageRequest(PageRequest pageRequest, String sortField) {
+		if (pageRequest instanceof ControllerHelper.ZeroSizePageRequest) {
+			return new ControllerHelper.ZeroSizePageRequest(Sort.by(Sort.Direction.ASC, sortField));
+		}
+		return PageRequest.of(pageRequest.getPageNumber(), pageRequest.getPageSize(), Sort.Direction.ASC, sortField);
 	}
 
 	private static @Nullable String determineFhirDisplayLanguage(ValueSetExpansionParameters params, String displayLanguage, ValueSet.ValueSetExpansionComponent expansion, ValueSet hapiValueSet) {
