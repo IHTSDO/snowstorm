@@ -117,6 +117,11 @@ public class HapiParametersMapper implements FHIRConstants {
 				Type hapiValue = propertyValue.toHapiValue(codeSystemVersion.getUrl());
 				if (DEFINITION.equals(code) && hapiValue instanceof StringType hapiString) {
 					parameters.addParameter(DEFINITION, hapiString.getValue());
+				} else if (NOT_SELECTABLE.equals(code) && hapiValue instanceof BooleanType hapiBool) {
+					parameters.addParameter(ABSTRACT, hapiBool.getValue());
+					Parameters.ParametersParameterComponent param = parameters.addParameter().setName(PROPERTY);
+					param.addPart().setName(CODE).setValue(new CodeType(code));
+					param.addPart().setName(VALUE).setValue(hapiValue);
 				} else {
 					Parameters.ParametersParameterComponent param = parameters.addParameter().setName(PROPERTY);
 					param.addPart().setName(CODE).setValue(new CodeType(code));
