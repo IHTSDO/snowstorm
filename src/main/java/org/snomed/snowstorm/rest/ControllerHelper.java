@@ -122,13 +122,28 @@ public class ControllerHelper {
 	}
 
 	public static PageRequest getPageRequest(int offset, int limit, Sort sort) {
+		if (limit == 0) {
+			return new ZeroSizePageRequest(sort);
+		}
 		if (offset % limit != 0) {
 			throw new IllegalArgumentException("Offset must be a multiplication of the limit param in order to map to Spring pages.");
 		}
-
 		int page = ((offset + limit) / limit) - 1;
-		int size = limit;
-		return sort == null ? PageRequest.of(page, size) : PageRequest.of(page, size, sort);
+		return sort == null ? PageRequest.of(page, limit) : PageRequest.of(page, limit, sort);
+	}
+
+	// This strange class is needed for the external FHIR-IG tests.
+	public static class ZeroSizePageRequest extends PageRequest {
+
+		public ZeroSizePageRequest(Sort sort) {
+			// Superclass does not allow 0 size, setting 1 then overriding getter
+			super(1, 1, sort);
+		}
+
+		@Override
+		public int getPageSize() {
+			return 0;
+		}
 	}
 
 	public static PageRequest getPageRequest(int offset, int limit, Sort sort, String searchAfter) {
