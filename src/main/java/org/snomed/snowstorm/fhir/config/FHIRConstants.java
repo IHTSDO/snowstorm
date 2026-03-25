@@ -16,6 +16,7 @@ public interface FHIRConstants {
 	String DATE = "date";
 	String DESIGNATION = "designation";
 	String DISPLAY = "display";
+	String DEFINITION = "definition";
 	String DISPLAY_LANGUAGE = "displayLanguage";
 	String FHIR = "FHIR";
 	String ICD10_URI = "http://hl7.org/fhir/sid/icd-10";

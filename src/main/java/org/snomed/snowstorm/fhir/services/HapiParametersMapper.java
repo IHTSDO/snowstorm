@@ -113,9 +113,15 @@ public class HapiParametersMapper implements FHIRConstants {
 
 		for (Map.Entry<String, List<FHIRProperty>> property : concept.getProperties().entrySet()) {
 			for (FHIRProperty propertyValue : property.getValue()) {
-				Parameters.ParametersParameterComponent param = parameters.addParameter().setName(PROPERTY);
-				param.addPart().setName(CODE).setValue(new CodeType(propertyValue.getCode()));
-				param.addPart().setName(VALUE).setValue(propertyValue.toHapiValue(codeSystemVersion.getUrl()));
+				String code = propertyValue.getCode();
+				Type hapiValue = propertyValue.toHapiValue(codeSystemVersion.getUrl());
+				if (DEFINITION.equals(code) && hapiValue instanceof StringType hapiString) {
+					parameters.addParameter(DEFINITION, hapiString.getValue());
+				} else {
+					Parameters.ParametersParameterComponent param = parameters.addParameter().setName(PROPERTY);
+					param.addPart().setName(CODE).setValue(new CodeType(code));
+					param.addPart().setName(VALUE).setValue(hapiValue);
+				}
 			}
 		}
 
