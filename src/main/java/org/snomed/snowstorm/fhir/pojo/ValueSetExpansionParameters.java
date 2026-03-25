@@ -81,7 +81,7 @@ public final class ValueSetExpansionParameters {
 	public PageRequest getPageRequest(Sort sort) {
 		int offsetInt = this.offset != null ? this.offset : 0;
 		int pageSize = this.count != null ? this.count : FHIRHelper.DEFAULT_PAGESIZE;
-		if (offsetInt % pageSize != 0) {
+		if (pageSize > 0 && offsetInt % pageSize != 0) {
 			throw FHIRHelper.exception(format("Parameter 'offset' '%s' must be a multiplication of 'count' (page size) '%s'.", offsetInt, pageSize),
 					OperationOutcome.IssueType.INVALID, 400);
 		}
