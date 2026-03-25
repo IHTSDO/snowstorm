@@ -16,6 +16,8 @@ public interface FHIRConstants {
 	String DATE = "date";
 	String DESIGNATION = "designation";
 	String DISPLAY = "display";
+	String ABSTRACT = "abstract";
+	String NOT_SELECTABLE = "notSelectable";
 	String DEFINITION = "definition";
 	String DISPLAY_LANGUAGE = "displayLanguage";
 	String FHIR = "FHIR";
