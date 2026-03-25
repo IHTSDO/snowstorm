@@ -418,8 +418,6 @@ public class FHIRValueSetService implements FHIRConstants {
 			));
 		allInclusionVersions.forEach(codeSystemVersion -> {
 				if (codeSystemVersion.getVersion() != null) {
-					expansion.addParameter(new ValueSet.ValueSetExpansionParameterComponent(new StringType(VERSION))
-							.setValue(new CanonicalType(codeSystemVersion.getCanonical())));
 					expansion.addParameter(new ValueSet.ValueSetExpansionParameterComponent(new StringType("used-codesystem"))
 							.setValue(new CanonicalType(codeSystemVersion.getCanonical())));
 				}
