@@ -33,6 +33,7 @@ public class FHIRConcept implements FHIRGraphNode {
 		String CODE = "code";
 		String CODE_LOWER = "codeLower";
 		String DISPLAY = "display";
+		String DEFINITION = "definition";
 		String DISPLAY_LENGTH = "displayLen";
 		String PARENTS = "parents";
 		String ANCESTORS = "ancestors";
@@ -57,6 +58,8 @@ public class FHIRConcept implements FHIRGraphNode {
 
 	@Field(type = FieldType.Integer)
 	private Integer displayLen;
+
+	private String definition;
 
 	@Transient
 	private Boolean active;
@@ -83,6 +86,8 @@ public class FHIRConcept implements FHIRGraphNode {
 		code = termConcept.getCode();
 		codeLower = code.toLowerCase();
 		setDisplay(termConcept.getDisplay());
+		setDefinition(termConcept.getStringProperty(Fields.DEFINITION));
+
 		termConcept.getProperties().stream().filter(x -> ( x.getKey().equals(INACTIVE) && !Boolean.valueOf(x.getValue()).equals(Boolean.FALSE)) || x.getKey().equals("status") && x.getValue().equals("retired")).findFirst().ifPresentOrElse(x -> active = false, ()-> active = true);
 
 		designations = new ArrayList<>();
@@ -116,6 +121,7 @@ public class FHIRConcept implements FHIRGraphNode {
 		code = definitionConcept.getCode();
 		codeLower = code.toLowerCase();
 		setDisplay(definitionConcept.getDisplay());
+		setDefinition(definitionConcept.getDefinition());
 
 		designations = definitionConcept.getDesignation().stream()
 				.map(FHIRDesignation::new)
@@ -241,6 +247,14 @@ public class FHIRConcept implements FHIRGraphNode {
 
 	public Integer getDisplayLen() {
 		return displayLen;
+	}
+
+	public String getDefinition() {
+		return definition;
+	}
+
+	public void setDefinition(String definition) {
+		this.definition = definition;
 	}
 
 	public boolean isActive() {
