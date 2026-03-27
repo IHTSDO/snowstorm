@@ -44,7 +44,8 @@ class CodeSystemCacheIntegrationTest extends AbstractTest {
 		createAndPrimeCaches();
 
 		// Method failure should not evict because @CacheEvict runs after successful invocation by default
-		assertThrows(IllegalArgumentException.class, () -> codeSystemService.createCodeSystem(new CodeSystem("SNOMEDCT", "MAIN")));
+		CodeSystem duplicateCodeSystem = new CodeSystem("SNOMEDCT", "MAIN");
+		assertThrows(IllegalArgumentException.class, () -> codeSystemService.createCodeSystem(duplicateCodeSystem));
 		assertCodeSystemCachesPresent();
 	}
 
