@@ -41,13 +41,10 @@ import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.access.intercept.AuthorizationFilter;
 import org.springframework.security.web.firewall.DefaultHttpFirewall;
 import org.springframework.security.web.firewall.HttpFirewall;
-import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
 import org.springframework.web.bind.annotation.GetMapping;
 
 import java.util.Collections;
 import java.util.List;
-
-import static org.springframework.security.web.util.matcher.AntPathRequestMatcher.antMatcher;
 
 @Configuration
 @EnableWebSecurity
@@ -181,17 +178,17 @@ public class SecurityAndUriConfig {
 			// Excluded patterns (swagger, version) - no auth required
 			if (rolesEnabled) {
 				for (String pattern : excludedUrlPatterns) {
-					auth.requestMatchers(new AntPathRequestMatcher(pattern)).permitAll();
+					auth.requestMatchers(pattern).permitAll();
 				}
 			}
 
 			// Read-only mode: configure allowed POST endpoints and block writes
 			if (restApiReadOnly) {
 				configureAllowedPostEndpoints(auth, rolesEnabled);
-				auth.requestMatchers(antMatcher(HttpMethod.POST, "/**")).denyAll()
-						.requestMatchers(antMatcher(HttpMethod.PUT, "/**")).denyAll()
-						.requestMatchers(antMatcher(HttpMethod.PATCH, "/**")).denyAll()
-						.requestMatchers(antMatcher(HttpMethod.DELETE, "/**")).denyAll();
+				auth.requestMatchers(HttpMethod.POST, "/**").denyAll()
+						.requestMatchers(HttpMethod.PUT, "/**").denyAll()
+						.requestMatchers(HttpMethod.PATCH, "/**").denyAll()
+						.requestMatchers(HttpMethod.DELETE, "/**").denyAll();
 			}
 
 			// Final rule for remaining requests (must always set at least one matcher)
@@ -216,14 +213,14 @@ public class SecurityAndUriConfig {
 			boolean requireAuth) {
 		// Configure FHIR and utility POST endpoints - require auth if roles enabled, otherwise permit
 		for (String prefix : alwaysAllowReadOnlyPostEndpointPrefixes()) {
-			applyAuthRule(auth.requestMatchers(antMatcher(HttpMethod.POST, prefix + "/**")), requireAuth);
+			applyAuthRule(auth.requestMatchers(HttpMethod.POST, prefix + "/**"), requireAuth);
 		}
 		for (String path : alwaysAllowReadOnlyPostEndpoints()) {
-			applyAuthRule(auth.requestMatchers(antMatcher(HttpMethod.POST, path)), requireAuth);
+			applyAuthRule(auth.requestMatchers(HttpMethod.POST, path), requireAuth);
 		}
 		if (restApiAllowReadOnlyPostEndpoints) {
 			for (String endpoint : whenEnabledAllowReadOnlyPostEndpoints()) {
-				applyAuthRule(auth.requestMatchers(antMatcher(HttpMethod.POST, endpoint.replace("{branch}", "**"))), requireAuth);
+				applyAuthRule(auth.requestMatchers(HttpMethod.POST, endpoint.replace("{branch}", "**")), requireAuth);
 			}
 		}
 	}
