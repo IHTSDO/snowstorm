@@ -26,6 +26,7 @@ import org.snomed.snowstorm.core.util.LangUtil;
 import org.snomed.snowstorm.rest.pojo.CodeSystemUpdateRequest;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
@@ -108,7 +109,7 @@ public class CodeSystemService {
 			CodeSystemQueryService codeSystemQueryService,
 			BranchService branchService,
 			SBranchService sBranchService,
-			ReleaseService releaseService,
+			@Lazy ReleaseService releaseService,
 			ConceptService conceptService,
 			ElasticsearchOperations elasticsearchOperations,
 			VersionControlHelper versionControlHelper,

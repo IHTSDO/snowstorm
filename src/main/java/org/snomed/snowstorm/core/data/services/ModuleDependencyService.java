@@ -38,7 +38,7 @@ public class ModuleDependencyService extends ComponentService {
 	private final SBranchService sBranchService;
 	private final CodeSystemVersionService codeSystemVersionService;
 
-	public ModuleDependencyService(BranchService branchService, CodeSystemService codeSystemService,
+	public ModuleDependencyService(BranchService branchService, @Lazy CodeSystemService codeSystemService,
 								   @Lazy ReferenceSetMemberService referenceSetMemberService, ElasticsearchOperations elasticsearchOperations,
 								   VersionControlHelper versionControlHelper, SBranchService sBranchService,
 								   CodeSystemVersionService codeSystemVersionService) {
@@ -367,11 +367,11 @@ public class ModuleDependencyService extends ComponentService {
 		if (branches.size() == 1) {
 			return branches.iterator().next();
 		}
-		
+
 		// Convert to list to maintain insertion order (most recent first from LinkedHashMap)
 		List<String> branchList = new ArrayList<>(branches);
 		String preferred = branchList.get(0);
-		
+
 		for (int i = 1; i < branchList.size(); i++) {
 			String branch = branchList.get(i);
 			if (isAncestor(branch, preferred)) {
