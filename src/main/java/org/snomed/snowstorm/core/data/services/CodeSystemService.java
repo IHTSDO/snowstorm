@@ -24,7 +24,6 @@ import org.snomed.snowstorm.core.util.AggregationUtils;
 import org.snomed.snowstorm.core.util.DateUtil;
 import org.snomed.snowstorm.core.util.LangUtil;
 import org.snomed.snowstorm.rest.pojo.CodeSystemUpdateRequest;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
@@ -63,53 +62,29 @@ public class CodeSystemService {
 
 	public static final String SNOMEDCT = "SNOMEDCT";
 	public static final String MAIN = "MAIN";
-	private static final Pattern VERSION_BRANCH_NAME_PATTERN = Pattern.compile("[0-9]{4}-[0-9]{2}-[0-9]{2}");
+    private static final Pattern VERSION_BRANCH_NAME_PATTERN = Pattern.compile("[0-9]{4}-[0-9]{2}-[0-9]{2}");
+    public static final String VERSION_ALREADY_EXISTS = "Aborting Code System Version creation. This version already exists.";
 
 
-	@Value("${code-systems.version.visible.after.published.date}")
+    @Value("${code-systems.version.visible.after.published.date}")
 	private Set<String> codeSystemsWithVersionVisibleAfterPublishedDate;
 
-	@Autowired
-	private CodeSystemRepository repository;
-
-	@Autowired
-	private CodeSystemVersionRepository versionRepository;
-
-	@Autowired
-	private CodeSystemConfigurationService codeSystemConfigurationService;
-
-	@Autowired
-	private CodeSystemQueryService codeSystemQueryService;
-
-	@Autowired
-	private BranchService branchService;
-
-	@Autowired
-	private SBranchService sBranchService;
-
-	@Autowired
-	private ReleaseService releaseService;
-
-	@Autowired
-	private ConceptService conceptService;
-
-	@Autowired
-	private ElasticsearchOperations elasticsearchOperations;
-
-	@Autowired
-	private VersionControlHelper versionControlHelper;
-
-	@Autowired
-	private ValidatorService validatorService;
-
-	@Autowired
-	private ModelMapper modelMapper;
+	private final CodeSystemRepository repository;
+	private final CodeSystemVersionRepository versionRepository;
+	private final CodeSystemConfigurationService codeSystemConfigurationService;
+	private final CodeSystemQueryService codeSystemQueryService;
+	private final BranchService branchService;
+	private final SBranchService sBranchService;
+	private final ReleaseService releaseService;
+	private final ConceptService conceptService;
+	private final ElasticsearchOperations elasticsearchOperations;
+	private final VersionControlHelper versionControlHelper;
+	private final ValidatorService validatorService;
+	private final ModelMapper modelMapper;
+	private final JmsTemplate jmsTemplate;
 
 	@Value("${jms.queue.prefix}")
 	private String jmsQueuePrefix;
-
-	@Autowired
-	private JmsTemplate jmsTemplate;
 
 	@Value("${codesystem.all.latest-version.allow-future}")
 	private boolean latestVersionCanBeFuture;
@@ -125,6 +100,35 @@ public class CodeSystemService {
 
 	@Value("${snowstorm.branch-change.message.enabled}" )
 	private boolean jmsBranchChangeMessageEnabled;
+
+	public CodeSystemService(
+			CodeSystemRepository repository,
+			CodeSystemVersionRepository versionRepository,
+			CodeSystemConfigurationService codeSystemConfigurationService,
+			CodeSystemQueryService codeSystemQueryService,
+			BranchService branchService,
+			SBranchService sBranchService,
+			ReleaseService releaseService,
+			ConceptService conceptService,
+			ElasticsearchOperations elasticsearchOperations,
+			VersionControlHelper versionControlHelper,
+			ValidatorService validatorService,
+			ModelMapper modelMapper,
+			JmsTemplate jmsTemplate) {
+		this.repository = repository;
+		this.versionRepository = versionRepository;
+		this.codeSystemConfigurationService = codeSystemConfigurationService;
+		this.codeSystemQueryService = codeSystemQueryService;
+		this.branchService = branchService;
+		this.sBranchService = sBranchService;
+		this.releaseService = releaseService;
+		this.conceptService = conceptService;
+		this.elasticsearchOperations = elasticsearchOperations;
+		this.versionControlHelper = versionControlHelper;
+		this.validatorService = validatorService;
+		this.modelMapper = modelMapper;
+		this.jmsTemplate = jmsTemplate;
+	}
 
 	// Cache to prevent expensive aggregations. Entry per branch. Expires if there is a new commit.
 	private final ConcurrentHashMap<String, Pair<Date, CodeSystem>> contentInformationCache = new ConcurrentHashMap<>();
@@ -252,8 +256,8 @@ public class CodeSystemService {
 
 		CodeSystemVersion codeSystemVersion = versionRepository.findOneByShortNameAndEffectiveDate(codeSystem.getShortName(), effectiveDate);
 		if (codeSystemVersion != null) {
-			logger.warn("Aborting Code System Version creation. This version already exists.");
-			throw new IllegalStateException("Aborting Code System Version creation. This version already exists.");
+			logger.warn(VERSION_ALREADY_EXISTS);
+			throw new IllegalStateException(VERSION_ALREADY_EXISTS);
 		}
 
 		logger.info("Creating Code System version - Code System: {}, Version: {}, Release Branch: {}", codeSystem.getShortName(), version, releaseBranchPath);
@@ -302,8 +306,8 @@ public class CodeSystemService {
 
 		CodeSystemVersion codeSystemVersion = versionRepository.findOneByShortNameAndEffectiveDate(SNOMEDCT, effectiveDate);
 		if (codeSystemVersion != null) {
-			logger.warn("Aborting Code System Version creation. This version already exists.");
-			throw new IllegalStateException("Aborting Code System Version creation. This version already exists.");
+			logger.warn(VERSION_ALREADY_EXISTS);
+			throw new IllegalStateException(VERSION_ALREADY_EXISTS);
 		}
 
 		// Create version branch
