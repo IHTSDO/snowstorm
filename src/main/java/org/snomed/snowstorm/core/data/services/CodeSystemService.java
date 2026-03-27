@@ -26,6 +26,7 @@ import org.snomed.snowstorm.core.util.LangUtil;
 import org.snomed.snowstorm.rest.pojo.CodeSystemUpdateRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
@@ -53,6 +54,8 @@ import static io.kaicode.elasticvc.helper.QueryHelper.*;
 import static java.lang.String.format;
 import static java.util.stream.Collectors.toList;
 import static org.snomed.snowstorm.config.Config.DEFAULT_LANGUAGE_CODES;
+import static org.snomed.snowstorm.core.data.domain.SnomedComponent.Fields.ACTIVE;
+import static org.snomed.snowstorm.core.data.domain.SnomedComponent.Fields.MODULE_ID;
 import static org.snomed.snowstorm.core.data.services.BranchMetadataKeys.*;
 
 @Service
@@ -74,6 +77,9 @@ public class CodeSystemService {
 
 	@Autowired
 	private CodeSystemConfigurationService codeSystemConfigurationService;
+
+	@Autowired
+	private CodeSystemQueryService codeSystemQueryService;
 
 	@Autowired
 	private BranchService branchService;
@@ -138,6 +144,7 @@ public class CodeSystemService {
 		}
 	}
 
+	@CacheEvict(value = {"code-systems", "code-system-branches"}, allEntries = true)
 	public void clearCache() {
 		contentInformationCache.clear();
 	}
@@ -146,6 +153,7 @@ public class CodeSystemService {
 		return findOneByBranchPath(branchPath) != null;
 	}
 
+	@CacheEvict(value = {"code-systems", "code-system-branches"}, allEntries = true)
 	public synchronized CodeSystem createCodeSystem(CodeSystem newCodeSystem) {
 		validatorService.validate(newCodeSystem);
 		if (repository.findById(newCodeSystem.getShortName()).isPresent()) {
@@ -333,7 +341,7 @@ public class CodeSystemService {
 		}
 		return null;
 	}
-	
+
 	private String getReleaseBranchPath(String branchPath, Integer effectiveDate) {
 		return branchPath + "/" + getHyphenatedVersionString(effectiveDate);
 	}
@@ -348,14 +356,40 @@ public class CodeSystemService {
 	}
 
 	public List<CodeSystem> findAll() {
-		List<CodeSystem> codeSystems = repository.findAll(PageRequest.of(0, 10_000, Sort.by(CodeSystem.Fields.SHORT_NAME))).getContent();
+		List<CodeSystem> codeSystems = copyStoredCodeSystems(codeSystemQueryService.findAllStored());
 		joinContentInformation(codeSystems);
 		return codeSystems;
 	}
 
+	public List<CodeSystem> findAllWithoutContentInfo() {
+		return copyStoredCodeSystems(codeSystemQueryService.findAllStored());
+	}
+
 	@Cacheable("code-system-branches")
 	public List<String> findAllCodeSystemBranchesUsingCache() {
-		return repository.findAll(PageRequest.of(0, 1000, Sort.by(CodeSystem.Fields.SHORT_NAME))).getContent().stream().map(CodeSystem::getBranchPath).sorted().collect(toList());
+		return repository.findAll(PageRequest.of(0, 10_000, Sort.by(CodeSystem.Fields.SHORT_NAME))).getContent().stream().map(CodeSystem::getBranchPath).sorted().toList();
+	}
+
+	private List<CodeSystem> copyStoredCodeSystems(List<CodeSystem> storedCodeSystems) {
+		if (storedCodeSystems == null || storedCodeSystems.isEmpty()) {
+			return Collections.emptyList();
+		}
+		List<CodeSystem> copies = new ArrayList<>(storedCodeSystems.size());
+		for (CodeSystem stored : storedCodeSystems) {
+			CodeSystem copy = new CodeSystem();
+			copy.setShortName(stored.getShortName());
+			copy.setBranchPath(stored.getBranchPath());
+			copy.setName(stored.getName());
+			copy.setOwner(stored.getOwner());
+			copy.setCountryCode(stored.getCountryCode());
+			copy.setMaintainerType(stored.getMaintainerType());
+			copy.setDefaultLanguageCode(stored.getDefaultLanguageCode());
+			copy.setDefaultLanguageReferenceSets(stored.getDefaultLanguageReferenceSets() == null ? null : stored.getDefaultLanguageReferenceSets().clone());
+			copy.setDailyBuildAvailable(stored.isDailyBuildAvailable());
+			copy.setLatestDailyBuild(stored.getLatestDailyBuild());
+			copies.add(copy);
+		}
+		return copies;
 	}
 
 	private void joinContentInformation(List<CodeSystem> codeSystems) {
@@ -422,7 +456,7 @@ public class CodeSystemService {
 		SearchHits<Description> descriptionSearch = elasticsearchOperations.search(new NativeQueryBuilder()
 				.withQuery(bool(b -> b
 						.must(branchCriteria.getEntityBranchCriteria(Description.class))
-						.must(termQuery(Description.Fields.ACTIVE, true))))
+						.must(termQuery(ACTIVE, true))))
 				.withPageable(PageRequest.of(0, 1))
 				.withAggregation("language", AggregationBuilders.terms().field(Description.Fields.LANGUAGE_CODE).size(20).build()._toAggregation())
 				.build(), Description.class);
@@ -464,14 +498,14 @@ public class CodeSystemService {
 		SearchHits<ReferenceSetMember> memberPage = elasticsearchOperations.search(new NativeQueryBuilder()
 				.withQuery(bool(b -> b
 						.must(branchCriteria.getEntityBranchCriteria(ReferenceSetMember.class))
-						.must(termQuery(ReferenceSetMember.Fields.ACTIVE, true))))
+						.must(termQuery(ACTIVE, true))))
 				.withPageable(PageRequest.of(0, 1))
-				.withAggregation("module", AggregationBuilders.terms(a -> a.field(ReferenceSetMember.Fields.MODULE_ID).size(50)))
+				.withAggregation("module", AggregationBuilders.terms(a -> a.field(MODULE_ID).size(50)))
 				.build(), ReferenceSetMember.class);
 		if (memberPage.hasAggregations()) {
 			Map<String, Long> modulesOfActiveMembers = PageWithBucketAggregationsFactory.createPage(memberPage, PageRequest.of(0, 1))
 					.getBuckets().get("module");
-			List<LanguageDialect> languageDialects = acceptableLanguageCodes.stream().map(LanguageDialect::new).collect(toList());
+			List<LanguageDialect> languageDialects = acceptableLanguageCodes.stream().map(LanguageDialect::new).toList();
 			codeSystem.setModules(conceptService.findConceptMinis(branchCriteria, modulesOfActiveMembers.keySet(), languageDialects).getResultsMap().values());
 		}
 
@@ -604,6 +638,7 @@ public class CodeSystemService {
 		return null;
 	}
 
+	@CacheEvict(value = {"code-systems", "code-system-branches"}, allEntries = true)
 	public void deleteAll() {
 		repository.deleteAll();
 		versionRepository.deleteAll();
@@ -617,6 +652,7 @@ public class CodeSystemService {
 	}
 
 	@PreAuthorize("hasPermission('ADMIN', #codeSystem.branchPath)")
+	@CacheEvict(value = {"code-systems", "code-system-branches"}, allEntries = true)
 	public CodeSystem update(CodeSystem codeSystem, CodeSystemUpdateRequest updateRequest) {
 		modelMapper.map(updateRequest, codeSystem);
 		validatorService.validate(codeSystem);
@@ -635,6 +671,7 @@ public class CodeSystemService {
 	}
 
 	@PreAuthorize("hasPermission('ADMIN', #codeSystem.branchPath)")
+	@CacheEvict(value = {"code-systems", "code-system-branches"}, allEntries = true)
 	public void deleteCodeSystemAndVersions(CodeSystem codeSystem) {
 		if (codeSystem.getBranchPath().equals("MAIN")) {
 			throw new IllegalArgumentException("The root code system can not be deleted. " +
@@ -651,6 +688,7 @@ public class CodeSystemService {
 		this.latestVersionCanBeFuture = latestVersionCanBeFuture;
 	}
 
+	@CacheEvict(value = {"code-systems", "code-system-branches"}, allEntries = true)
 	public void updateDetailsFromConfig() {
 		logger.info("Updating the details of all code systems using values from configuration.");
 		final Map<String, CodeSystemConfiguration> configurationsMap = codeSystemConfigurationService.getConfigurations().stream()
