@@ -17,13 +17,14 @@ import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.repositories.CodeSystemRepository;
 import org.snomed.snowstorm.core.data.repositories.CodeSystemVersionRepository;
-import org.snomed.snowstorm.core.data.services.pojo.CodeSystemConfiguration;
+import org.snomed.snowstorm.core.data.services.pojo.CodeSystemDefaultConfiguration;
 import org.snomed.snowstorm.core.data.services.pojo.PageWithBucketAggregationsFactory;
 import org.snomed.snowstorm.core.pojo.LanguageDialect;
 import org.snomed.snowstorm.core.util.AggregationUtils;
 import org.snomed.snowstorm.core.util.DateUtil;
 import org.snomed.snowstorm.core.util.LangUtil;
 import org.snomed.snowstorm.rest.pojo.CodeSystemUpdateRequest;
+
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.context.annotation.Lazy;
@@ -72,7 +73,7 @@ public class CodeSystemService {
 
 	private final CodeSystemRepository repository;
 	private final CodeSystemVersionRepository versionRepository;
-	private final CodeSystemConfigurationService codeSystemConfigurationService;
+	private final CodeSystemDefaultConfigurationService codeSystemDefaultConfigurationService;
 	private final CodeSystemQueryService codeSystemQueryService;
 	private final BranchService branchService;
 	private final SBranchService sBranchService;
@@ -83,6 +84,7 @@ public class CodeSystemService {
 	private final ValidatorService validatorService;
 	private final ModelMapper modelMapper;
 	private final JmsTemplate jmsTemplate;
+	private final AdminOperationsService adminOperationsService;
 
 	@Value("${jms.queue.prefix}")
 	private String jmsQueuePrefix;
@@ -105,7 +107,7 @@ public class CodeSystemService {
 	public CodeSystemService(
 			CodeSystemRepository repository,
 			CodeSystemVersionRepository versionRepository,
-			CodeSystemConfigurationService codeSystemConfigurationService,
+			CodeSystemDefaultConfigurationService codeSystemDefaultConfigurationService,
 			CodeSystemQueryService codeSystemQueryService,
 			BranchService branchService,
 			SBranchService sBranchService,
@@ -115,10 +117,11 @@ public class CodeSystemService {
 			VersionControlHelper versionControlHelper,
 			ValidatorService validatorService,
 			ModelMapper modelMapper,
-			JmsTemplate jmsTemplate) {
+			JmsTemplate jmsTemplate,
+		@Lazy AdminOperationsService adminOperationsService) {
 		this.repository = repository;
 		this.versionRepository = versionRepository;
-		this.codeSystemConfigurationService = codeSystemConfigurationService;
+		this.codeSystemDefaultConfigurationService = codeSystemDefaultConfigurationService;
 		this.codeSystemQueryService = codeSystemQueryService;
 		this.branchService = branchService;
 		this.sBranchService = sBranchService;
@@ -129,6 +132,7 @@ public class CodeSystemService {
 		this.validatorService = validatorService;
 		this.modelMapper = modelMapper;
 		this.jmsTemplate = jmsTemplate;
+		this.adminOperationsService = adminOperationsService;
 	}
 
 	// Cache to prevent expensive aggregations. Entry per branch. Expires if there is a new commit.
@@ -143,8 +147,8 @@ public class CodeSystemService {
 		if (repository.findById(SNOMEDCT).isEmpty()) {
 			createCodeSystem(new CodeSystem(SNOMEDCT, MAIN));
 		}
-		logger.info("{} code system configurations available.", codeSystemConfigurationService.getConfigurations().size());
-		for (CodeSystemConfiguration configuration : codeSystemConfigurationService.getConfigurations()) {
+		logger.info("{} code system configurations available.", codeSystemDefaultConfigurationService.getConfigurations().size());
+		for (CodeSystemDefaultConfiguration configuration : codeSystemDefaultConfigurationService.getConfigurations()) {
 			System.out.println(configuration);
 		}
 	}
@@ -167,6 +171,13 @@ public class CodeSystemService {
 		String branchPath = newCodeSystem.getBranchPath();
 		if (findByBranchPath(branchPath).isPresent()) {
 			throw new IllegalArgumentException("A code system already exists on branch path " + branchPath);
+		}
+		String uriModuleId = newCodeSystem.getUriModuleId();
+		if (uriModuleId != null) {
+			CodeSystem byModule = findByUriModule(uriModuleId);
+			if (byModule != null) {
+				throw new IllegalArgumentException(format("A code system already exists with URI module %s : %s ", uriModuleId, byModule.getShortName()));
+			}
 		}
 		String parentPath = PathUtil.getParentPath(newCodeSystem.getBranchPath());
 		CodeSystem parentCodeSystem = null;
@@ -210,6 +221,12 @@ public class CodeSystemService {
 			logger.info("Creating Code System branch '{}'.", branchPath);
 			sBranchService.create(branchPath);
 		}
+
+		// Save URI module as default authoring module
+		if (uriModuleId != null) {
+			branchService.updateMetadata(branchPath, new Metadata().putString(DEFAULT_MODULE_ID, uriModuleId));
+		}
+
 		repository.save(newCodeSystem);
 		logger.info("Code System '{}' created.", newCodeSystem.getShortName());
 		return newCodeSystem;
@@ -406,7 +423,7 @@ public class CodeSystemService {
 			codeSystem.setLatestVersion(findLatestVisibleVersion(codeSystem.getShortName()));
 
 			// Set default module to help FHIR API
-			codeSystem.setDefaultModuleId(codeSystemConfigurationService.getDefaultModuleId(codeSystem.getShortName()));
+			codeSystem.setDefaultModuleId(codeSystemDefaultConfigurationService.getDefaultModuleId(codeSystem.getShortName()));
 
 			// Pull from cache
 			Pair<Date, CodeSystem> dateCodeSystemPair = contentInformationCache.get(branchPath);
@@ -441,16 +458,7 @@ public class CodeSystemService {
 			return;
 		}
 
-		// Set dependant version effectiveTime (transient field)
-		if (!PathUtil.isRoot(branchPath)) {
-			Integer effectiveTime = getVersionEffectiveTime(PathUtil.getParentPath(branchPath), workingBranch.getBase(), codeSystem.getShortName());
-			if (effectiveTime == null) {
-				logger.warn("Code System {} is not dependant on a specific version of the parent Code System. " +
-								"The working branch {} has a base timepoint of {} which does not match the base of any version branches of {}.",
-						codeSystem, branchPath, workingBranch.getBase(), PathUtil.getParentPath(branchPath));
-			}
-			codeSystem.setDependantVersionEffectiveTime(effectiveTime);
-		}
+		doJoinDependentVersionEffectiveTime(codeSystem, branchPath, workingBranch);
 
 		BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(workingBranch);
 
@@ -517,16 +525,29 @@ public class CodeSystemService {
 			// Populate moduleId
 			String uriModuleId = Concepts.CORE_MODULE;
 			Optional<CodeSystemDefaultConfiguration> defaultConfiguration = codeSystemDefaultConfigurationService.getConfigurations().stream()
-					.filter(config -> config.getShortName().equals(codeSystem.getShortName()))
+					.filter(config -> config.shortName().equals(codeSystem.getShortName()))
 					.findFirst();
 			if (defaultConfiguration.isPresent()) {
-				uriModuleId = defaultConfiguration.get().getModule();
+				uriModuleId = defaultConfiguration.get().module();
 			}
 			codeSystem.setUriModuleId(uriModuleId);
 		}
 
 		// Add to cache
 		contentInformationCache.put(branchPath, Pair.of(workingBranch.getHead(), codeSystem));
+	}
+
+	// Set dependant version effectiveTime (transient field)
+	private void doJoinDependentVersionEffectiveTime(CodeSystem codeSystem, String branchPath, Branch workingBranch) {
+		if (!PathUtil.isRoot(branchPath)) {
+			Integer effectiveTime = getVersionEffectiveTime(PathUtil.getParentPath(branchPath), workingBranch.getBase(), codeSystem.getShortName());
+			if (effectiveTime == null) {
+				logger.warn("Code System {} is not dependant on a specific version of the parent Code System. " +
+								"The working branch {} has a base timepoint of {} which does not match the base of any version branches of {}.",
+						codeSystem, branchPath, workingBranch.getBase(), PathUtil.getParentPath(branchPath));
+			}
+			codeSystem.setDependantVersionEffectiveTime(effectiveTime);
+		}
 	}
 
 	public synchronized Integer getVersionEffectiveTime(String codeSystemBranch, Date timepoint, String forChildCodeSystem) {
@@ -575,11 +596,16 @@ public class CodeSystemService {
 	}
 
 	public CodeSystem findByDefaultModule(String moduleId) {
-		CodeSystemConfiguration codeSystemConfiguration = codeSystemConfigurationService.findByModule(moduleId);
+		CodeSystemDefaultConfiguration codeSystemConfiguration = codeSystemDefaultConfigurationService.findByModule(moduleId);
 		if (codeSystemConfiguration == null) {
 			return null;
 		}
 		return find(codeSystemConfiguration.shortName());
+	}
+
+	public CodeSystem findByUriModule(String moduleId) {
+		CodeSystem codeSystem = repository.findByUriModuleId(moduleId);
+		return codeSystem != null ? find(codeSystem.getShortName()) : null;
 	}
 
 	public CodeSystemVersion findVersion(String shortName, int effectiveTime) {
@@ -688,7 +714,7 @@ public class CodeSystemService {
 
 	@PreAuthorize("hasPermission('ADMIN', #codeSystem.branchPath)")
 	@CacheEvict(value = {"code-systems", "code-system-branches"}, allEntries = true)
-	public void deleteCodeSystemAndVersions(CodeSystem codeSystem) {
+	public void deleteCodeSystemAndVersions(CodeSystem codeSystem, boolean deleteBranches) {
 		if (codeSystem.getBranchPath().equals("MAIN")) {
 			throw new IllegalArgumentException("The root code system can not be deleted. " +
 					"If you need to start again delete all indices and restart Snowstorm.");
@@ -697,6 +723,12 @@ public class CodeSystemService {
 		List<CodeSystemVersion> allVersions = findAllVersions(codeSystem.getShortName(), true, false);
 		versionRepository.deleteAll(allVersions);
 		repository.delete(codeSystem);
+		if (deleteBranches) {
+			for (CodeSystemVersion version : allVersions) {
+				adminOperationsService.hardDeleteBranch(version.getBranchPath());
+			}
+			adminOperationsService.hardDeleteBranch(codeSystem.getBranchPath());
+		}
 		logger.info("Deleted Code System '{}' and versions.", codeSystem.getShortName());
 	}
 
@@ -707,10 +739,10 @@ public class CodeSystemService {
 	@CacheEvict(value = {"code-systems", "code-system-branches"}, allEntries = true)
 	public void updateDetailsFromConfig() {
 		logger.info("Updating the details of all code systems using values from configuration.");
-		final Map<String, CodeSystemConfiguration> configurationsMap = codeSystemConfigurationService.getConfigurations().stream()
-				.collect(Collectors.toMap(CodeSystemConfiguration::shortName, Function.identity()));
+		final Map<String, CodeSystemDefaultConfiguration> configurationsMap = codeSystemDefaultConfigurationService.getConfigurations().stream()
+				.collect(Collectors.toMap(CodeSystemDefaultConfiguration::shortName, Function.identity()));
 		for (CodeSystem codeSystem : findAll()) {
-			final CodeSystemConfiguration configuration = configurationsMap.get(codeSystem.getShortName());
+			final CodeSystemDefaultConfiguration configuration = configurationsMap.get(codeSystem.getShortName());
 			if (configuration != null) {
 				logger.info("Updating code system {}", codeSystem.getShortName());
 				update(codeSystem, new CodeSystemUpdateRequest(codeSystem).populate(configuration));

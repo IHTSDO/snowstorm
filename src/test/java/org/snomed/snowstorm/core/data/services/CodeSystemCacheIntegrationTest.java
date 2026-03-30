@@ -67,7 +67,7 @@ class CodeSystemCacheIntegrationTest extends AbstractTest {
 		codeSystemService.findAllCodeSystemBranchesUsingCache();
 		assertCodeSystemCachesPresent();
 
-		codeSystemService.deleteCodeSystemAndVersions(extension);
+		codeSystemService.deleteCodeSystemAndVersions(extension, true);
 		assertCodeSystemCachesEmpty();
 	}
 
