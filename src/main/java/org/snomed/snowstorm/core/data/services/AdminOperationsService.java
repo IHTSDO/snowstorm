@@ -108,8 +108,12 @@ public class AdminOperationsService {
 			descriptionsOnAllBranchesStream.forEachRemaining(hit -> {
 				Description description = hit.getContent();
 				if (exceptionThrown.get() == null) {
+					String termToFold = description.getTerm();
+					if (searchLanguagesConfiguration.getElisionLanguages().contains(languageCode)) {
+						termToFold = DescriptionHelper.stripElisions(termToFold);
+					}
 
-					String newFoldedTerm = DescriptionHelper.foldTerm(description.getTerm(), foldedCharacters);
+					String newFoldedTerm = DescriptionHelper.foldTerm(termToFold, foldedCharacters);
 					descriptionCount.incrementAndGet();
 					if (!newFoldedTerm.equals(description.getTermFolded())) {
 						final Document document = Document.create();

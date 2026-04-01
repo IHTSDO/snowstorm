@@ -9,8 +9,10 @@ import org.snomed.snowstorm.core.pojo.TermLangPojo;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.regex.Pattern;
 
 public class DescriptionHelper {
+	private static final Pattern ELISION_PATTERN = Pattern.compile("(?i)\\b(l|d|m|t|s|n|j|c|qu)['\u2019]");
 
 	public static TermLangPojo getFsnDescriptionTermAndLang(Set<Description> descriptions, List<LanguageDialect> languageDialects) {
 		return getFsnDescription(descriptions, languageDialects).map(d -> new TermLangPojo(d.getTerm(), d.getLang())).orElse(new TermLangPojo());
@@ -114,5 +116,9 @@ public class DescriptionHelper {
 			}
 		}
 		return builder.toString().replace("*", ".*");
+	}
+
+	public static String stripElisions(String term) {
+		return ELISION_PATTERN.matcher(term).replaceAll("");
 	}
 }

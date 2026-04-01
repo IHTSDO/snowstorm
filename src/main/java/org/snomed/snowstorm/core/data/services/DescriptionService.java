@@ -898,15 +898,24 @@ public class DescriptionService extends ComponentService {
 				for (BoolQuery.Builder uniqueTermQuery : uniqueTermQueries) {
 					foldedTermsQueryBuilder.should(uniqueTermQuery.build()._toQuery());// Logical OR
 				}
-				termFilter.must(foldedTermsQueryBuilder.build()._toQuery());
 
+				Set<String> elisionLanguages = searchLanguagesConfiguration.getElisionLanguages();
+				String strippedTerm = elisionLanguages.isEmpty() ? term : DescriptionHelper.stripElisions(term);
 				if (SearchMode.WILDCARD == searchMode) {
+					termFilter.must(foldedTermsQueryBuilder.build()._toQuery());
 					String replace = DescriptionHelper.wildcardToCaseInsensitiveRegex(term);
 					termFilter.must(regexpQuery(Description.Fields.TERM, replace));
-				} else if (containingNonAlphanumeric(term)) {
+				} else if (containingNonAlphanumeric(strippedTerm)) {
 					// Apply second constraint against non-folded term
-					String regexString = constructRegexQuery(term);
-					termFilter.must(regexpQuery(Description.Fields.TERM, regexString));
+					termFilter.must(foldedTermsQueryBuilder.build()._toQuery());
+					termFilter.must(regexpQuery(Description.Fields.TERM, constructRegexQuery(term)));
+				} else {
+					if (!strippedTerm.equals(term)) {
+						for (String languageFoldingStrategy : languageFoldingStrategies) {
+							foldedTermsQueryBuilder.should(getTermQuery(strippedTerm, searchMode, charactersNotFoldedSets, languageFoldingStrategy).build()._toQuery());
+						}
+					}
+					termFilter.must(foldedTermsQueryBuilder.build()._toQuery());
 				}
 			}
 			typedSearchTermQuery.filter(termFilter.build()._toQuery());
