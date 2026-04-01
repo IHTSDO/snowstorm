@@ -8,6 +8,7 @@ import org.snomed.snowstorm.core.data.domain.Description;
 import org.snomed.snowstorm.rest.ControllerHelper;
 
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -85,6 +86,24 @@ class DescriptionHelperTest {
 		assertEquals("Neoplasm and/or hamartoma reference set (foundation metadata concept)",
 				getFSNTerm("en-X-900000000000509007", descriptionWithNoAcceptability),
 				"Pick FSN with correct language when language dialect requested because 'en' is always included as fallback.");
+	}
+
+	@Test
+	void stripElisions_ShouldReturnExpected() {
+		List<String> input = List.of(
+				"l'intervention", "d'accord", "qu'il", "L'Intervention",
+				"l\u2019intervention", "d\u2019accord",
+				"intervention", "atlas-axis"
+		);
+		List<String> expected = List.of(
+				"intervention", "accord", "il", "Intervention",
+				"intervention", "accord",
+				"intervention", "atlas-axis"
+		);
+
+		for (int i = 0; i < input.size(); i++) {
+			assertEquals(expected.get(i), DescriptionHelper.stripElisions(input.get(i)), "stripElisions(\"" + input.get(i) + "\")");
+		}
 	}
 
 	private String getPtTerm(String acceptLanguageHeader, Set<Description> descriptions) {

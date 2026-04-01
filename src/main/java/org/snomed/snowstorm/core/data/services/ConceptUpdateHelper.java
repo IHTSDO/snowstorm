@@ -639,8 +639,13 @@ public class ConceptUpdateHelper extends ComponentService {
 	 */
 	public void doSaveBatchDescriptions(Collection<Description> descriptions, Commit commit) {
 		Map<String, Set<Character>> charactersNotFoldedSets = searchLanguagesConfiguration.getCharactersNotFoldedSets();
+		Set<String> elisionLanguages = searchLanguagesConfiguration.getElisionLanguages();
 		for (Description description : descriptions) {
-			description.setTermFolded(DescriptionHelper.foldTerm(description.getTerm(),
+			String term = description.getTerm();
+			if (elisionLanguages.contains(description.getLanguageCode())) {
+				term = DescriptionHelper.stripElisions(term);
+			}
+			description.setTermFolded(DescriptionHelper.foldTerm(term,
 					charactersNotFoldedSets.getOrDefault(description.getLanguageCode(), Collections.emptySet())));
 		}
 		doSaveBatchComponents(descriptions, commit, "descriptionId", descriptionRepository);

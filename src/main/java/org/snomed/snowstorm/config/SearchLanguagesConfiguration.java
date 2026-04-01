@@ -8,7 +8,16 @@ import java.util.Set;
 public class SearchLanguagesConfiguration {
 
 	private final Map<String, String> charactersNotFolded = new HashMap<>();
+	private Set<String> elisionLanguages = new HashSet<>();
 	private Map<String, Set<Character>> charactersNotFoldedSets;
+
+	public Set<String> getElisionLanguages() {
+		return elisionLanguages;
+	}
+
+	public void setElisionLanguages(Set<String> elisionLanguages) {
+		this.elisionLanguages = elisionLanguages;
+	}
 
 	public Map<String, String> getCharactersNotFolded() {
 		return charactersNotFolded;
