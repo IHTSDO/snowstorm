@@ -387,6 +387,7 @@ public class CodeSystemService {
 			copy.setName(stored.getName());
 			copy.setOwner(stored.getOwner());
 			copy.setCountryCode(stored.getCountryCode());
+			copy.setCountryName(stored.getCountryName());
 			copy.setMaintainerType(stored.getMaintainerType());
 			copy.setDefaultLanguageCode(stored.getDefaultLanguageCode());
 			copy.setDefaultLanguageReferenceSets(stored.getDefaultLanguageReferenceSets() == null ? null : stored.getDefaultLanguageReferenceSets().clone());

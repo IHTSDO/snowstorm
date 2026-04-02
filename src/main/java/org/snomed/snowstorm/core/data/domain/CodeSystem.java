@@ -45,6 +45,9 @@ public class CodeSystem implements CodeSystemCreate {
 	private String countryCode;
 
 	@Field(type = FieldType.Keyword)
+	private String countryName;
+
+	@Field(type = FieldType.Keyword)
 	private String maintainerType;
 
 	@Field(type = FieldType.Keyword)
@@ -136,6 +139,14 @@ public class CodeSystem implements CodeSystemCreate {
 
 	public void setCountryCode(String countryCode) {
 		this.countryCode = countryCode;
+	}
+
+	public String getCountryName() {
+		return countryName;
+	}
+
+	public void setCountryName(String countryName) {
+		this.countryName = countryName;
 	}
 
 	public String getMaintainerType() {
