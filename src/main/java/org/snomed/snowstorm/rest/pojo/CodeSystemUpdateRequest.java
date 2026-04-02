@@ -9,6 +9,7 @@ public class CodeSystemUpdateRequest {
 	public String name;
 	public String owner;
 	public String countryCode;
+	public String countryName;
 	public String maintainerType;
 	public String defaultLanguageCode;
 	public String[] defaultLanguageReferenceSets;
@@ -61,6 +62,10 @@ public class CodeSystemUpdateRequest {
 
 	public String getCountryCode() {
 		return countryCode;
+	}
+
+	public String getCountryName() {
+		return countryName;
 	}
 
 	public String getMaintainerType() {
