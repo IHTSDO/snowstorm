@@ -150,7 +150,7 @@ public class SyndicationService {
 				}
 
 				// Find or create CodeSystem for this edition
-				CodeSystem codeSystem = codeSystemService.findByDefaultModule(moduleId);
+				CodeSystem codeSystem = codeSystemService.findByUriModule(moduleId);
 				if (codeSystem == null) {
 					// Use empty version of MAIN as parent
 					// The whole Edition will be imported onto the new CodeSystem
