@@ -34,6 +34,32 @@ body {
     color: white;
 }
 
+#sidebar a.sidebar-link-disabled {
+    color: #8ea0b3;
+    opacity: 0.75;
+    cursor: not-allowed;
+}
+
+#sidebar a.sidebar-link-disabled:hover {
+    background-color: transparent;
+    color: #8ea0b3;
+}
+
+#sidebar .sidebar-logo {
+    width: 150px;
+    height: auto;
+    display: inline-block;
+}
+
+.code-system-warnings {
+    position: fixed;
+    left: 220px;
+    right: 0;
+    bottom: 0;
+    z-index: 1080;
+    padding: 0.75rem 1rem;
+}
+
 #resources,
 #syndication {
     flex-grow: 1;
@@ -47,4 +73,25 @@ body {
 th.sortable {
     cursor: pointer;
     user-select: none;
+}
+
+/* ConceptMap details: wide URIs must wrap and stay inside the modal */
+#conceptmapModal .modal-body .row > [class*="col-"] {
+    min-width: 0;
+}
+#conceptmapModal .table {
+    table-layout: fixed;
+    width: 100%;
+}
+#conceptmapModal .table td {
+    vertical-align: top;
+}
+#conceptmapModal .table td:not(.fw-bold) {
+    word-break: break-word;
+    overflow-wrap: anywhere;
+}
+#conceptmapModal .alert,
+#conceptmapModal .text-muted {
+    overflow-wrap: anywhere;
+    word-break: break-word;
 }
