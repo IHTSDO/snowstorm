@@ -32,7 +32,8 @@ public class FHIRRestConfig {
 
 		HapiRestfulServlet hapiServlet = new HapiRestfulServlet(buildProperties, codeSystemService, allowAnyOrigin);
 
-		ServletRegistrationBean<HapiRestfulServlet> servletRegistrationBean = new ServletRegistrationBean<>(hapiServlet, "/fhir/*");
+		// "/fhir" is required in addition to "/fhir/*" so the base URL matches the servlet (spec: path "/fhir" alone does not match "/fhir/*").
+		ServletRegistrationBean<HapiRestfulServlet> servletRegistrationBean = new ServletRegistrationBean<>(hapiServlet, "/fhir", "/fhir/*");
 		hapiServlet.setServerName("Snowstorm FHIR Server");
 		hapiServlet.setServerVersion(buildProperties != null ? buildProperties.getVersion() : "development");
 		hapiServlet.setDefaultResponseEncoding(EncodingEnum.JSON);
