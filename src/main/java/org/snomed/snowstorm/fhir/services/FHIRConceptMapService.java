@@ -6,8 +6,10 @@ import org.hl7.fhir.r4.model.Coding;
 import org.hl7.fhir.r4.model.Enumerations;
 import org.hl7.fhir.r4.model.IdType;
 import org.hl7.fhir.r4.model.OperationOutcome;
+import org.snomed.snowstorm.core.data.domain.CodeSystem;
 import org.snomed.snowstorm.core.data.domain.ConceptMini;
 import org.snomed.snowstorm.core.data.domain.ReferenceSetMember;
+import org.snomed.snowstorm.core.data.services.CodeSystemService;
 import org.snomed.snowstorm.core.data.services.ConceptService;
 import org.snomed.snowstorm.core.data.services.ReferenceSetMemberService;
 import org.snomed.snowstorm.core.data.services.pojo.MemberSearchRequest;
@@ -54,6 +56,8 @@ public class FHIRConceptMapService {
 
 	private final FHIRCodeSystemService fhirCodeSystemService;
 
+	private final CodeSystemService codeSystemService;
+
 	private final ReferenceSetMemberService snomedRefsetMemberService;
 
 	private final ConceptService snomedConceptService;
@@ -70,11 +74,12 @@ public class FHIRConceptMapService {
 	// Map of SNOMED CT map correlation concepts to FHIR equivalence codes - http://hl7.org/fhir/concept-map-equivalence
 	private Map<String, Enumerations.ConceptMapEquivalence> snomedCorrelationToFhirEquivalenceMap;
 
-	public FHIRConceptMapService(FHIRConceptMapRepository conceptMapRepository, ElasticsearchOperations elasticsearchOperations, FHIRMapElementRepository mapElementRepository, FHIRCodeSystemService fhirCodeSystemService, ReferenceSetMemberService snomedRefsetMemberService, ConceptService snomedConceptService, FHIRConceptMapImplicitConfig implicitMapConfig, FHIRConceptService conceptService, FHIRSnomedModelTermCache snomedModelTermCache) {
+	public FHIRConceptMapService(FHIRConceptMapRepository conceptMapRepository, ElasticsearchOperations elasticsearchOperations, FHIRMapElementRepository mapElementRepository, FHIRCodeSystemService fhirCodeSystemService, CodeSystemService codeSystemService, ReferenceSetMemberService snomedRefsetMemberService, ConceptService snomedConceptService, FHIRConceptMapImplicitConfig implicitMapConfig, FHIRConceptService conceptService, FHIRSnomedModelTermCache snomedModelTermCache) {
 		this.conceptMapRepository = conceptMapRepository;
 		this.elasticsearchOperations = elasticsearchOperations;
 		this.mapElementRepository = mapElementRepository;
 		this.fhirCodeSystemService = fhirCodeSystemService;
+		this.codeSystemService = codeSystemService;
 		this.snomedRefsetMemberService = snomedRefsetMemberService;
 		this.snomedConceptService = snomedConceptService;
 		this.implicitMapConfig = implicitMapConfig;
@@ -142,10 +147,19 @@ public class FHIRConceptMapService {
 
 	public List<FHIRConceptMap> findAll() {
 		// Load first 1000 until we can figure out pagination
-		List<FHIRConceptMap> maps = getSnomedMaps();
+		List<FHIRConceptMap> maps = new ArrayList<>(hasAnyImportedSnomedVersion() ? getSnomedMaps() : List.of());
 		PageRequest pageRequest = PageRequest.of(0, PAGE_OF_ONE_THOUSAND.getPageSize() - maps.size());
 		maps.addAll(conceptMapRepository.findAll(pageRequest).getContent());
 		return maps;
+	}
+
+	private boolean hasAnyImportedSnomedVersion() {
+		for (CodeSystem edition : codeSystemService.findAll()) {
+			if (codeSystemService.findLatestImportedVersion(edition.getShortName()) != null) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	private List<FHIRConceptMap> getSnomedMaps() {
@@ -212,9 +226,11 @@ public class FHIRConceptMapService {
 		// Grab maps from store
 		List<FHIRConceptMap> maps = new ArrayList<>(searchForList(queryBuilder, FHIRConceptMap.class));
 
-		// Grab generated snomed maps
-		maps.addAll(getSnomedMaps().stream()
-				.filter(map -> snomedPredicates.stream().allMatch(predicate -> predicate.test(map))).toList());
+		// Grab generated snomed maps when a SNOMED CT release is loaded
+		if (hasAnyImportedSnomedVersion()) {
+			maps.addAll(getSnomedMaps().stream()
+					.filter(map -> snomedPredicates.stream().allMatch(predicate -> predicate.test(map))).toList());
+		}
 
 		return maps;
 	}
