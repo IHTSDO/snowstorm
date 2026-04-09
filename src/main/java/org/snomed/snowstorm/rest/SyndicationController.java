@@ -4,6 +4,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.snomed.snowstorm.syndication.InstallationTask;
 import org.snomed.snowstorm.syndication.SyndicationService;
+import org.snomed.snowstorm.syndication.SyndicationDerivativeOption;
 import org.snomed.snowstorm.syndication.SyndicationSnomedEdition;
 import org.snomed.snowstorm.syndication.dto.InstallEditionRequest;
 import org.springframework.http.HttpStatus;
@@ -29,13 +30,34 @@ public class SyndicationController {
 		return syndicationService.getSnomedEditions();
 	}
 
+	@GetMapping("edition-derivatives")
+	public ResponseEntity<List<SyndicationDerivativeOption>> listEditionDerivatives(
+			@RequestParam String editionId,
+			@RequestParam String version) throws IOException {
+		if (editionId == null || editionId.isBlank() || version == null || !version.matches("\\d{8}")) {
+			return ResponseEntity.badRequest().build();
+		}
+		try {
+			return ResponseEntity.ok(syndicationService.listRefsetDerivatives(editionId, version));
+		} catch (IllegalArgumentException e) {
+			return ResponseEntity.badRequest().build();
+		}
+	}
+
+	@Operation(summary = "List active syndication installations", description = "Installation tasks with status PENDING or IN_PROGRESS (used to resume dashboard UI after refresh).")
+	@GetMapping("active-installations")
+	public List<InstallationTask> listActiveInstallations() {
+		return syndicationService.getActiveInstallationTasks();
+	}
+
 	@Operation(summary = "Install a SNOMED CT edition", description = "Queues an installation task to download and import a SNOMED CT edition from the syndication feed")
 	@PostMapping("install")
 	public ResponseEntity<InstallationTask> installEdition(@RequestBody InstallEditionRequest request) {
-		if (request.getEditionId() == null || request.getVersion() == null) {
+		if (request.getEditionId() == null || request.getVersion() == null || !request.getVersion().matches("\\d{8}")) {
 			return ResponseEntity.badRequest().build();
 		}
-		String taskId = syndicationService.installEdition(request.getEditionId(), request.getVersion());
+		String taskId = syndicationService.installEdition(
+				request.getEditionId(), request.getVersion(), request.getDerivativeContentItemVersions());
 		InstallationTask task = syndicationService.getInstallationTask(taskId);
 		return ResponseEntity.status(HttpStatus.ACCEPTED).body(task);
 	}

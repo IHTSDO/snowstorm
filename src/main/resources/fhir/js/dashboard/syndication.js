@@ -2,7 +2,46 @@ import { AJAX_TIMEOUT_MS, SYNDICATION_TIMEOUT_MS } from './constants.js';
 import { fetchWithTimeout, errorMessage } from './http.js';
 import { normalizeRow } from './resourceTransforms.js';
 
+function refsetGroupKeyFromOption(opt) {
+	if (opt.contentItemIdentifier) {
+		return opt.contentItemIdentifier;
+	}
+	const uri = opt.contentItemVersion || '';
+	const idx = uri.lastIndexOf('/version/');
+	if (idx > 0) {
+		return uri.substring(0, idx);
+	}
+	return uri;
+}
+
 export const dashboardSyndication = {
+	buildRefsetDerivativeGroups(options) {
+		const byId = new Map();
+		for (const opt of options) {
+			const id = refsetGroupKeyFromOption(opt);
+			if (!id) {
+				continue;
+			}
+			if (!byId.has(id)) {
+				byId.set(id, {
+					contentItemIdentifier: id,
+					title: opt.title || 'N/A',
+					versions: [],
+					selectedVersion: ''
+				});
+			}
+			byId.get(id).versions.push({
+				versionDate: String(opt.versionDate),
+				contentItemVersion: opt.contentItemVersion
+			});
+		}
+		const groups = Array.from(byId.values());
+		for (const g of groups) {
+			g.versions.sort((a, b) => b.versionDate.localeCompare(a.versionDate));
+		}
+		groups.sort((a, b) => (a.title || '').localeCompare(b.title || '', undefined, { numeric: true }));
+		return groups;
+	},
 	async loadSyndicationEditions() {
 		this.loadingSyndication = true;
 		this.loadingInstalledEditions = true;
@@ -52,10 +91,117 @@ export const dashboardSyndication = {
 			this.loadingSyndication = false;
 			this.loadingInstalledEditions = false;
 		}
+		await this.syncActiveInstallationTasks();
+	},
+
+	async syncActiveInstallationTasks() {
+		if (!this.syndicationAvailable) {
+			return;
+		}
+		try {
+			const res = await fetch('/syndication/active-installations');
+			if (!res.ok) {
+				return;
+			}
+			const tasks = await res.json();
+			if (!Array.isArray(tasks)) {
+				return;
+			}
+			for (const task of tasks) {
+				const editionId = task.editionId;
+				const taskId = task.taskId;
+				const s = task.status;
+				if (!editionId || !taskId) {
+					continue;
+				}
+				if (s === 'PENDING') {
+					this.installState = { ...this.installState, [editionId]: { status: 'queued' } };
+					this.beginInstallationPolling(taskId, editionId);
+				} else if (s === 'IN_PROGRESS') {
+					this.installState = { ...this.installState, [editionId]: { status: 'installing' } };
+					this.beginInstallationPolling(taskId, editionId);
+				}
+			}
+		} catch {
+			/* ignore */
+		}
+	},
+
+	beginInstallationPolling(taskId, editionId) {
+		if (!this._installationPollTaskIds) {
+			this._installationPollTaskIds = new Set();
+		}
+		if (this._installationPollTaskIds.has(taskId)) {
+			return;
+		}
+		this._installationPollTaskIds.add(taskId);
+		const pollMs = 2000;
+		const maxWaitMs = 600000;
+		const started = Date.now();
+		const setInstallStatus = (status, error) => {
+			this.installState = { ...this.installState, [editionId]: error != null ? { status, error } : { status } };
+		};
+		const finishPoll = () => {
+			this._installationPollTaskIds.delete(taskId);
+		};
+		const poll = async () => {
+			let taskRes;
+			try {
+				taskRes = await fetch(`/syndication/install/${taskId}`);
+			} catch {
+				setInstallStatus('failed', 'Unable to reach server');
+				finishPoll();
+				return;
+			}
+			if (!taskRes.ok) {
+				const notFound = taskRes.status === 404;
+				setInstallStatus('failed', notFound ? 'Installation task not found' : 'Failed to load task status');
+				finishPoll();
+				return;
+			}
+			let taskData;
+			try {
+				taskData = await taskRes.json();
+			} catch {
+				setInstallStatus('failed', 'Invalid task response');
+				finishPoll();
+				return;
+			}
+			const taskStatus = taskData.status;
+			if (taskStatus === 'COMPLETED') {
+				setInstallStatus('completed');
+				finishPoll();
+				alert('Installation completed successfully!');
+				this.loadSyndicationEditions();
+				return;
+			}
+			if (taskStatus === 'FAILED') {
+				const errMsg = taskData.errorMessage || 'Installation failed';
+				setInstallStatus('failed', errMsg);
+				finishPoll();
+				alert('Installation failed: ' + errMsg);
+				return;
+			}
+			if (taskStatus === 'PENDING') {
+				setInstallStatus('queued');
+			} else if (taskStatus === 'IN_PROGRESS') {
+				setInstallStatus('installing');
+			}
+			if (Date.now() - started < maxWaitMs) {
+				setTimeout(poll, pollMs);
+			} else {
+				setInstallStatus('failed', 'Timeout');
+				finishPoll();
+			}
+		};
+		setTimeout(poll, pollMs);
 	},
 
 	upgradeEdition(inst) {
-		this.installEdition({
+		if (!inst.upgradeVersion) {
+			return;
+		}
+		this.openSyndicationInstallDialog({
 			id: inst.id,
 			selectedVersion: inst.upgradeVersion,
 			title: inst.title,
@@ -63,11 +209,86 @@ export const dashboardSyndication = {
 		});
 	},
 
+	openSyndicationInstallDialog(edition) {
+		if (!edition.selectedVersion) {
+			alert('Please select a version');
+			return;
+		}
+		this.pendingSyndicationEdition = edition;
+		this.syndicationDerivativeGroups = [];
+		this.syndicationDerivativesError = null;
+		const el = document.getElementById('syndicationDerivativesModal');
+		if (el && typeof bootstrap !== 'undefined') {
+			bootstrap.Modal.getOrCreateInstance(el).show();
+		}
+		this.loadSyndicationDerivativeOptions();
+	},
+
+	async loadSyndicationDerivativeOptions() {
+		const ed = this.pendingSyndicationEdition;
+		if (!ed || !ed.selectedVersion) {
+			return;
+		}
+		this.syndicationDerivativesLoading = true;
+		this.syndicationDerivativesError = null;
+		try {
+			const params = new URLSearchParams({ editionId: ed.id, version: ed.selectedVersion });
+			const res = await fetch(`/syndication/edition-derivatives?${params.toString()}`);
+			let data;
+			try {
+				data = await res.json();
+			} catch (_) {
+				data = null;
+			}
+			if (!res.ok) {
+				throw new Error((data && data.message) || 'Failed to load refset packages');
+			}
+			const flat = Array.isArray(data) ? data : [];
+			this.syndicationDerivativeGroups = this.buildRefsetDerivativeGroups(flat);
+		} catch (err) {
+			this.syndicationDerivativesError = err.message || String(err);
+			this.syndicationDerivativeGroups = [];
+		} finally {
+			this.syndicationDerivativesLoading = false;
+		}
+	},
+
+	confirmSyndicationInstall() {
+		const edition = this.pendingSyndicationEdition;
+		const selected = [];
+		for (const g of this.syndicationDerivativeGroups) {
+			const pick = g.selectedVersion;
+			if (!pick) {
+				continue;
+			}
+			const ver = g.versions.find(v => v.versionDate === pick);
+			if (ver) {
+				selected.push(ver.contentItemVersion);
+			}
+		}
+		const el = document.getElementById('syndicationDerivativesModal');
+		if (el && typeof bootstrap !== 'undefined') {
+			bootstrap.Modal.getOrCreateInstance(el).hide();
+		}
+		this.pendingSyndicationEdition = null;
+		if (edition) {
+			this.installEdition(edition, selected);
+		}
+	},
+
+	cancelSyndicationInstall() {
+		const el = document.getElementById('syndicationDerivativesModal');
+		if (el && typeof bootstrap !== 'undefined') {
+			bootstrap.Modal.getOrCreateInstance(el).hide();
+		}
+		this.pendingSyndicationEdition = null;
+	},
+
 	getInstallStatus(editionId) {
 		return this.installState[editionId] || { status: 'idle' };
 	},
 
-	async installEdition(edition) {
+	async installEdition(edition, derivativeContentItemVersions = []) {
 		const version = edition.selectedVersion;
 		if (!version) {
 			alert('Please select a version');
@@ -82,38 +303,12 @@ export const dashboardSyndication = {
 			const res = await fetch('/syndication/install', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ editionId, version })
+				body: JSON.stringify({ editionId, version, derivativeContentItemVersions })
 			});
 			const data = await res.json();
 			if (!res.ok) throw new Error(data.message || 'Error starting installation');
 			const taskId = data.taskId;
-			setInstallStatus('installing');
-			const pollMs = 2000;
-			const maxWaitMs = 600000;
-			const started = Date.now();
-			const poll = async () => {
-				const taskRes = await fetch(`/syndication/install/${taskId}`);
-				const taskData = await taskRes.json();
-				const taskStatus = taskData.status;
-				if (taskStatus === 'COMPLETED') {
-					setInstallStatus('completed');
-					alert('Installation completed successfully!');
-					this.loadSyndicationEditions();
-					return;
-				}
-				if (taskStatus === 'FAILED') {
-					const errMsg = taskData.errorMessage || 'Installation failed';
-					setInstallStatus('failed', errMsg);
-					alert('Installation failed: ' + errMsg);
-					return;
-				}
-				if (Date.now() - started < maxWaitMs) {
-					setTimeout(poll, pollMs);
-				} else {
-					setInstallStatus('failed', 'Timeout');
-				}
-			};
-			setTimeout(poll, pollMs);
+			this.beginInstallationPolling(taskId, editionId);
 		} catch (err) {
 			const errMsg = err.message || 'Error starting installation';
 			setInstallStatus('failed', errMsg);

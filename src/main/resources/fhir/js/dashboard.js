@@ -63,7 +63,11 @@ function createDashboardState() {
 		txUrlPrompt: '',
 		txUrlDialogError: null,
 		routingInitialized: false,
-		conceptMapTranslateExampleBusy: false
+		conceptMapTranslateExampleBusy: false,
+		pendingSyndicationEdition: null,
+		syndicationDerivativeGroups: [],
+		syndicationDerivativesLoading: false,
+		syndicationDerivativesError: null
 	};
 }
 

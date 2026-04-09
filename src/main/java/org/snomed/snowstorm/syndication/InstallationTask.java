@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import org.springframework.security.core.context.SecurityContext;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 import java.util.UUID;
@@ -26,11 +27,14 @@ public class InstallationTask {
 	private Date completedAt;
 	@JsonIgnore
 	private List<String> downloadedFiles;
+	@JsonIgnore
 	private List<String> importJobIds;
 	@JsonIgnore
 	private SecurityContext securityContext;
+	@JsonIgnore
+	private List<String> derivativeContentItemVersions;
 
-	public InstallationTask(String editionId, String version, SecurityContext securityContext) {
+	public InstallationTask(String editionId, String version, List<String> derivativeContentItemVersions, SecurityContext securityContext) {
 		this.taskId = UUID.randomUUID().toString();
 		this.editionId = editionId;
 		this.version = version;
@@ -39,6 +43,8 @@ public class InstallationTask {
 		this.downloadedFiles = new ArrayList<>();
 		this.importJobIds = new ArrayList<>();
 		this.securityContext = securityContext;
+		this.derivativeContentItemVersions = derivativeContentItemVersions == null ? Collections.emptyList()
+				: new ArrayList<>(derivativeContentItemVersions);
 	}
 
 	public String getTaskId() {
@@ -119,6 +125,14 @@ public class InstallationTask {
 
 	public void setSecurityContext(SecurityContext securityContext) {
 		this.securityContext = securityContext;
+	}
+
+	public List<String> getDerivativeContentItemVersions() {
+		return derivativeContentItemVersions;
+	}
+
+	public void setDerivativeContentItemVersions(List<String> derivativeContentItemVersions) {
+		this.derivativeContentItemVersions = derivativeContentItemVersions;
 	}
 }
 
