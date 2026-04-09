@@ -27,6 +27,9 @@ public class SyndicationClient {
 
 	public static final Set<String> acceptablePackageTypes = Set.of("SCT_RF2_SNAPSHOT", "SCT_RF2_FULL", "SCT_RF2_ALL");
 
+	/** Used for download progress when the syndication feed does not declare a package link length. */
+	private static final int DEFAULT_RF2_PACKAGE_LENGTH_BYTES = 560 * 1024 * 1024;
+
 	private final RestTemplate restTemplate;
 	private final JAXBContext jaxbContext;
 	private final String username;
@@ -86,10 +89,17 @@ public class SyndicationClient {
 		return null;
 	}
 
-	public Set<String> downloadPackages(SyndicationFeedEntry entry, SyndicationFeed feed, Pair<String, String> creds) throws IOException, ServiceException {
+	/**
+	 * @param consumedVersionUris content-item version URIs already downloaded in this install; used to avoid duplicate zips when adding derivatives.
+	 */
+	public List<String> downloadPackages(SyndicationFeedEntry entry, SyndicationFeed feed, Pair<String, String> creds,
+			Set<String> consumedVersionUris) throws IOException, ServiceException {
+		if (consumedVersionUris == null) {
+			consumedVersionUris = new HashSet<>();
+		}
 		Set<Pair<SyndicationFeedEntry, SyndicationLink>> packageUrls = new LinkedHashSet<>();
-		gatherPackageUrls(entry.getContentItemVersion(), feed.getEntries(), packageUrls);
-		Set<String> packageFilePaths = new HashSet<>();
+		gatherPackageUrls(entry.getContentItemVersion(), feed.getEntries(), packageUrls, consumedVersionUris);
+		List<String> packageFilePaths = new ArrayList<>();
 		if (packageUrls.isEmpty()) {
 			logger.error("Can not load content, no links found within the syndication feed for the requested package.");
 			return packageFilePaths;
@@ -109,8 +119,11 @@ public class SyndicationClient {
 	}
 
 	private File downloadPackage(Pair<SyndicationFeedEntry, SyndicationLink> packageEntry, Pair<String, String> creds) throws IOException {
+		SyndicationFeedEntry entry = packageEntry.getFirst();
 		SyndicationLink packageLink = packageEntry.getSecond();
-		logger.info("Downloading package {} file {}", packageEntry.getFirst().getContentItemVersion(), packageLink.getHref());
+		final String contentItemVersion = entry.getContentItemVersion() != null ? entry.getContentItemVersion() : "(unknown)";
+		int progressBasisBytes = parsePackageLength(packageLink.getLength());
+		logger.info("Starting RF2 package download: {} ({} bytes used as progress denominator) from {}", contentItemVersion, progressBasisBytes, packageLink.getHref());
 
 		// Test credentials and download link using OPTIONS request
 		HttpHeaders headers = new HttpHeaders();
@@ -120,6 +133,7 @@ public class SyndicationClient {
 		restTemplate.exchange(packageLink.getHref(), HttpMethod.OPTIONS, new HttpEntity<Void>(headers), Void.class);
 
 		File outputFile = Files.createTempFile(UUID.randomUUID().toString(), ".zip").toFile();
+		String progressMessageFormat = "RF2 package download progress for " + contentItemVersion + ": %s%%";
 		restTemplate.execute(packageLink.getHref(), HttpMethod.GET,
 				request -> {
 					if (creds != null) {
@@ -128,11 +142,11 @@ public class SyndicationClient {
 				},
 				clientHttpResponse -> {
 					try (FileOutputStream outputStream = new FileOutputStream(outputFile)) {
-						int length = parsePackageLength(packageLink.getLength());
 						try {
-							StreamUtil.copyWithProgress(clientHttpResponse.getBody(), outputStream, length, "Download progress: %s%%");
+							int bytesWritten = StreamUtil.copyWithProgress(clientHttpResponse.getBody(), outputStream, progressBasisBytes, progressMessageFormat);
+							logger.info("Completed RF2 package download: {} ({} bytes)", contentItemVersion, bytesWritten);
 						} catch (Exception e) {
-							logger.error("Failed to download file from syndication service.", e);
+							logger.error("Failed RF2 package download for {}", contentItemVersion, e);
 						}
 					}
 					return outputFile;
@@ -142,7 +156,7 @@ public class SyndicationClient {
 
 	private int parsePackageLength(String lengthString) {
 		if (lengthString == null || lengthString.isEmpty()) {
-			return 1024 * 500;
+			return DEFAULT_RF2_PACKAGE_LENGTH_BYTES;
 		}
 		return Integer.parseInt(lengthString.replace(",", ""));
 	}
@@ -172,31 +186,41 @@ public class SyndicationClient {
 		return Pair.of(enteredUsername, enteredPassword);
 	}
 
-	private void gatherPackageUrls(String loadVersionUri, List<SyndicationFeedEntry> sortedEntries, Set<Pair<SyndicationFeedEntry, SyndicationLink>> downloadList) {
+	private void gatherPackageUrls(String loadVersionUri, List<SyndicationFeedEntry> sortedEntries,
+			Set<Pair<SyndicationFeedEntry, SyndicationLink>> downloadList, Set<String> consumedVersionUris) {
 		for (SyndicationFeedEntry entry : sortedEntries) {
 			SyndicationLink zipLink = entry.getZipLink();
 			if (zipLink != null && entry.getCategory() != null &&
 					acceptablePackageTypes.contains(entry.getCategory().getTerm()) &&
 					(entry.getContentItemVersion().equals(loadVersionUri) || entry.getContentItemIdentifier().equals(loadVersionUri))) {
 
+				String versionKey = entry.getContentItemVersion();
+				if (consumedVersionUris.contains(versionKey)) {
+					SyndicationDependency packageDependencySkipped = entry.getPackageDependency();
+					if (packageDependencySkipped != null) {
+						gatherDependencyUrls(packageDependencySkipped, sortedEntries, downloadList, consumedVersionUris);
+					}
+					continue;
+				}
 				downloadList.add(Pair.of(entry, zipLink));
+				consumedVersionUris.add(versionKey);
 
 				SyndicationDependency packageDependency = entry.getPackageDependency();
 				if (packageDependency != null) {
-					gatherDependencyUrls(packageDependency, sortedEntries, downloadList);
+					gatherDependencyUrls(packageDependency, sortedEntries, downloadList, consumedVersionUris);
 				}
 			}
 		}
 	}
 
 	private void gatherDependencyUrls(SyndicationDependency dependency, List<SyndicationFeedEntry> sortedEntries,
-			Set<Pair<SyndicationFeedEntry, SyndicationLink>> downloadList) {
+			Set<Pair<SyndicationFeedEntry, SyndicationLink>> downloadList, Set<String> consumedVersionUris) {
 		if (dependency.getEditionDependency() != null) {
-			gatherPackageUrls(dependency.getEditionDependency(), sortedEntries, downloadList);
+			gatherPackageUrls(dependency.getEditionDependency(), sortedEntries, downloadList, consumedVersionUris);
 		}
 		if (dependency.getDerivativeDependency() != null) {
 			for (String dependencyUri : dependency.getDerivativeDependency()) {
-				gatherPackageUrls(dependencyUri, sortedEntries, downloadList);
+				gatherPackageUrls(dependencyUri, sortedEntries, downloadList, consumedVersionUris);
 			}
 		}
 	}

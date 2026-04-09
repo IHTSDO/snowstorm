@@ -42,6 +42,9 @@ export const dashboardRouting = {
 		this.editions = [];
 		this.snomedCodeSystems = [];
 		this.installState = {};
+		if (this._installationPollTaskIds) {
+			this._installationPollTaskIds.clear();
+		}
 		this.errorCodesystems = null;
 		this.errorValueSets = null;
 		this.errorConceptMaps = null;
@@ -139,6 +142,8 @@ export const dashboardRouting = {
 		}
 		if (this.editions.length === 0 && !this.loadingSyndication) {
 			this.loadSyndicationEditions();
+		} else if (this.editions.length > 0) {
+			this.syncActiveInstallationTasks();
 		}
 	}
 };

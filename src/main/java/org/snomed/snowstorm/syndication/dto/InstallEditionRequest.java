@@ -1,9 +1,13 @@
 package org.snomed.snowstorm.syndication.dto;
 
+import java.util.Collections;
+import java.util.List;
+
 public class InstallEditionRequest {
 
 	private String editionId;
 	private String version;
+	private List<String> derivativeContentItemVersions;
 
 	public InstallEditionRequest() {
 	}
@@ -27,6 +31,14 @@ public class InstallEditionRequest {
 
 	public void setVersion(String version) {
 		this.version = version;
+	}
+
+	public List<String> getDerivativeContentItemVersions() {
+		return derivativeContentItemVersions != null ? derivativeContentItemVersions : Collections.emptyList();
+	}
+
+	public void setDerivativeContentItemVersions(List<String> derivativeContentItemVersions) {
+		this.derivativeContentItemVersions = derivativeContentItemVersions;
 	}
 }
 

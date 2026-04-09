@@ -1,6 +1,7 @@
 package org.snomed.snowstorm.syndication;
 
 import org.ihtsdo.otf.snomedboot.ReleaseImportException;
+import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.core.data.domain.CodeSystem;
@@ -21,7 +22,17 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.nio.file.Files;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Queue;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutorService;
@@ -79,9 +90,83 @@ public class SyndicationService {
 		return snomedEditions;
 	}
 
-	public String installEdition(String editionId, String version) {
+	public List<SyndicationDerivativeOption> listRefsetDerivatives(String editionId, String editionSelectedVersion) throws IOException {
+		if (editionId == null || editionId.isBlank() || editionSelectedVersion == null || !editionSelectedVersion.matches("\\d{8}")) {
+			throw new IllegalArgumentException("editionId and an 8-digit yyyyMMdd version are required");
+		}
+		int editionDate = Integer.parseInt(editionSelectedVersion);
+		SyndicationFeed feed = syndicationClient.getFeed();
+		List<SyndicationDerivativeOption> options = new ArrayList<>();
+		for (SyndicationFeedEntry entry : feed.getEntries()) {
+			if (entry.getTitle() == null || !entry.getTitle().toLowerCase(Locale.ROOT).contains("refset")) {
+				continue;
+			}
+			if (entry.getCategory() == null || !SyndicationClient.acceptablePackageTypes.contains(entry.getCategory().getTerm())) {
+				continue;
+			}
+			if (entry.getZipLink() == null) {
+				continue;
+			}
+			Optional<Integer> derivativeDate = versionDateFromContentItemVersion(entry.getContentItemVersion());
+			if (derivativeDate.isEmpty() || derivativeDate.get() > editionDate) {
+				continue;
+			}
+			options.add(new SyndicationDerivativeOption(
+					identifierForRefsetEntry(entry),
+					entry.getContentItemVersion(),
+					displayTitle(entry),
+					derivativeDate.get()));
+		}
+		options.sort(Comparator.comparing(SyndicationDerivativeOption::getContentItemIdentifier, String.CASE_INSENSITIVE_ORDER)
+				.thenComparing(SyndicationDerivativeOption::getVersionDate, Comparator.reverseOrder()));
+		return options;
+	}
+
+	private static String identifierForRefsetEntry(SyndicationFeedEntry entry) {
+		String id = entry.getContentItemIdentifier();
+		if (id != null && !id.isBlank()) {
+			return id;
+		}
+		String versionUri = entry.getContentItemVersion();
+		if (versionUri == null) {
+			return "";
+		}
+		String marker = "/version/";
+		int idx = versionUri.lastIndexOf(marker);
+		if (idx <= 0) {
+			return versionUri;
+		}
+		return versionUri.substring(0, idx);
+	}
+
+	private static String displayTitle(SyndicationFeedEntry entry) {
+		String title = entry.getTitle();
+		int dash = title.indexOf('-');
+		if (dash > 0) {
+			return title.substring(0, dash).trim();
+		}
+		return title.trim();
+	}
+
+	static Optional<Integer> versionDateFromContentItemVersion(String contentItemVersion) {
+		if (contentItemVersion == null) {
+			return Optional.empty();
+		}
+		String marker = "/version/";
+		int idx = contentItemVersion.lastIndexOf(marker);
+		if (idx < 0) {
+			return Optional.empty();
+		}
+		String suffix = contentItemVersion.substring(idx + marker.length());
+		if (suffix.length() != 8 || !suffix.chars().allMatch(Character::isDigit)) {
+			return Optional.empty();
+		}
+		return Optional.of(Integer.parseInt(suffix));
+	}
+
+	public String installEdition(String editionId, String version, List<String> derivativeContentItemVersions) {
 		SecurityContext securityContext = SecurityContextHolder.getContext();
-		InstallationTask task = new InstallationTask(editionId, version, securityContext);
+		InstallationTask task = new InstallationTask(editionId, version, derivativeContentItemVersions, securityContext);
 		installationQueue.offer(task);
 		activeTasks.put(task.getTaskId(), task);
 		logger.info("Created installation task {} for edition {} version {}", task.getTaskId(), editionId, version);
@@ -102,6 +187,14 @@ public class SyndicationService {
 
 	public InstallationTask getInstallationTask(String taskId) {
 		return activeTasks.get(taskId);
+	}
+
+	public List<InstallationTask> getActiveInstallationTasks() {
+		return activeTasks.values().stream()
+				.filter(t -> t.getStatus() == InstallationTask.InstallationStatus.PENDING
+						|| t.getStatus() == InstallationTask.InstallationStatus.IN_PROGRESS)
+				.sorted(Comparator.comparing(InstallationTask::getCreatedAt, Comparator.nullsLast(Comparator.naturalOrder())))
+				.toList();
 	}
 
 	private void processInstallationTasks() {
@@ -138,10 +231,19 @@ public class SyndicationService {
 				// Get credentials
 				Pair<String, String> creds = syndicationClient.getSyndicationCredentials();
 
-				// Download packages - this returns file paths but we need to track categories
-				// We'll use downloadPackages which handles dependencies, then find entries for each file
-				Set<String> downloadedFiles = syndicationClient.downloadPackages(entry, feed, creds);
-				task.getDownloadedFiles().addAll(downloadedFiles);
+				int editionEffectiveDate = Integer.parseInt(task.getVersion());
+				validateDerivativeSelections(feed, task.getDerivativeContentItemVersions(), editionEffectiveDate);
+
+				Set<String> consumedVersionUris = new HashSet<>();
+				List<String> orderedFiles = new ArrayList<>(syndicationClient.downloadPackages(entry, feed, creds, consumedVersionUris));
+				for (String derivativeUri : task.getDerivativeContentItemVersions()) {
+					SyndicationFeedEntry derivativeEntry = syndicationClient.findEntry(derivativeUri, feed);
+					if (derivativeEntry == null) {
+						throw new ServiceException("No matching syndication entry found for derivative URI: " + derivativeUri);
+					}
+					orderedFiles.addAll(syndicationClient.downloadPackages(derivativeEntry, feed, creds, consumedVersionUris));
+				}
+				task.getDownloadedFiles().addAll(orderedFiles);
 
 				// Extract module ID from editionId (e.g., "http://snomed.info/sct/900000000000207008" -> "900000000000207008")
 				String moduleId = extractModuleIdFromEditionId(task.getEditionId());
@@ -171,20 +273,17 @@ public class SyndicationService {
 
 				String branchPath = codeSystem.getBranchPath();
 
-				// Create import jobs and trigger imports for each downloaded file
-				List<String> fileList = new ArrayList<>(downloadedFiles);
-				for (int i = 0; i < fileList.size(); i++) {
-					String filePath = fileList.get(i);
+				for (String filePath : orderedFiles) {
 					File file = new File(filePath);
 					if (!file.exists()) {
 						logger.warn("Downloaded file does not exist: {}", filePath);
 						continue;
 					}
-
-					// Only create CodeSystem version on the last file import
-					boolean createCodeSystemVersion = (i == fileList.size() - 1);
-					importFile(task, file, branchPath, createCodeSystemVersion, filePath);
+					importFile(task, file, branchPath, filePath);
 				}
+
+				codeSystemService.createVersion(codeSystem, editionEffectiveDate,
+						String.format("%s syndication import %s", codeSystem.getShortName(), task.getVersion()));
 
 				task.setStatus(InstallationTask.InstallationStatus.COMPLETED);
 				task.setCompletedAt(new Date());
@@ -202,12 +301,12 @@ public class SyndicationService {
 		}
 	}
 
-	private void importFile(InstallationTask task, File file, String branchPath, boolean createCodeSystemVersion, String filePath) throws ReleaseImportException {
+	private void importFile(InstallationTask task, File file, String branchPath, String filePath) throws ReleaseImportException {
 		try (FileInputStream inputStream = new FileInputStream(file)) {
 			// Create import job using the CodeSystem's branchPath
-			String importId = importService.createJob(RF2Type.SNAPSHOT, branchPath, createCodeSystemVersion, false);
+			String importId = importService.createJob(RF2Type.SNAPSHOT, branchPath, false, false);
 			task.getImportJobIds().add(importId);
-			logger.info("Created import job {} for file {} on branch {} (createCodeSystemVersion: {})", importId, filePath, branchPath, createCodeSystemVersion);
+			logger.info("Created import job {} for file {} on branch {}", importId, filePath, branchPath);
 			importService.importArchive(importId, inputStream);
 		} catch (IOException e) {
 			logger.error("Failed to create import job for file {}", filePath, e);
@@ -219,6 +318,40 @@ public class SyndicationService {
 				logger.warn("Failed to delete temp SNOMED CT archive file.", deleteException);
 			}
 		}
+	}
+
+	private void validateDerivativeSelections(SyndicationFeed feed, List<String> derivativeUris, int editionEffectiveDate)
+			throws ServiceException {
+		if (derivativeUris == null || derivativeUris.isEmpty()) {
+			return;
+		}
+		for (String uri : derivativeUris) {
+			SyndicationFeedEntry matching = getSyndicationFeedEntry(feed, uri);
+			if (matching.getCategory() == null || !SyndicationClient.acceptablePackageTypes.contains(matching.getCategory().getTerm())) {
+				throw new ServiceException("Unacceptable package type for derivative: " + uri);
+			}
+			Optional<Integer> derivativeDate = versionDateFromContentItemVersion(uri);
+			if (derivativeDate.isEmpty() || derivativeDate.get() > editionEffectiveDate) {
+				throw new ServiceException("Derivative version date is after the selected edition: " + uri);
+			}
+		}
+	}
+
+	private static @NotNull SyndicationFeedEntry getSyndicationFeedEntry(SyndicationFeed feed, String uri) throws ServiceException {
+		SyndicationFeedEntry matching = null;
+		for (SyndicationFeedEntry candidate : feed.getEntries()) {
+			if (uri.equals(candidate.getContentItemVersion())) {
+				matching = candidate;
+				break;
+			}
+		}
+		if (matching == null) {
+			throw new ServiceException("Derivative not found in syndication feed: " + uri);
+		}
+		if (matching.getTitle() == null || !matching.getTitle().toLowerCase(Locale.ROOT).contains("refset")) {
+			throw new ServiceException("Not a refset derivative package: " + uri);
+		}
+		return matching;
 	}
 
 	private String extractModuleIdFromEditionId(String editionId) {

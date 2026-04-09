@@ -565,8 +565,9 @@
 						<td>
 							<template x-if="getInstallStatus(edition.id).status === 'idle' || getInstallStatus(edition.id).status === 'failed'">
 								<button class="btn btn-sm" :class="getInstallStatus(edition.id).status === 'failed' ? 'btn-outline-danger' : 'btn-primary'"
-									:title="getInstallStatus(edition.id).error || 'Install'" @click="installEdition(edition)">
-									<span x-text="getInstallStatus(edition.id).status === 'failed' ? 'Retry' : 'Install'"></span>
+									:title="getInstallStatus(edition.id).error || 'Select optional refsets and install'"
+									@click="openSyndicationInstallDialog(edition)">
+									<span x-text="getInstallStatus(edition.id).status === 'failed' ? 'Retry' : 'Select'"></span>
 								</button>
 							</template>
 							<template x-if="getInstallStatus(edition.id).status === 'queued' || getInstallStatus(edition.id).status === 'installing'">
@@ -869,6 +870,68 @@
 						</span>
 					</template>
 				</button>
+			</div>
+		</div>
+	</div>
+</div>
+
+<!-- Syndication: optional refset packages before install -->
+<div class="modal fade" id="syndicationDerivativesModal" tabindex="-1" aria-labelledby="syndicationDerivativesModalLabel" aria-hidden="true">
+	<div class="modal-dialog modal-lg modal-dialog-scrollable">
+		<div class="modal-content">
+			<div class="modal-header">
+				<h5 class="modal-title" id="syndicationDerivativesModalLabel">Install SNOMED CT edition</h5>
+				<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" @click="cancelSyndicationInstall()"></button>
+			</div>
+			<div class="modal-body">
+				<template x-if="pendingSyndicationEdition">
+					<p class="text-muted small">
+						Edition: <strong x-text="pendingSyndicationEdition.title"></strong>
+						— version <strong x-text="pendingSyndicationEdition.selectedVersion"></strong>
+					</p>
+				</template>
+				<h6>Add Derivatives (optional)</h6>
+				<p class="small mb-2">Select any derivatives to combine with the Edition installation. Only refset packages with an effective date on or before your selected edition are listed. Choose a version to include that derivative, or &quot;None&quot; to skip.</p>
+				<template x-if="syndicationDerivativesLoading">
+					<div class="text-center py-3">
+						<div class="spinner-border spinner-border-sm" role="status"></div>
+						<span class="ms-2">Loading derivative packages…</span>
+					</div>
+				</template>
+				<div x-show="syndicationDerivativesError" class="alert alert-danger py-2 small" x-text="syndicationDerivativesError"></div>
+				<template x-if="!syndicationDerivativesLoading && !syndicationDerivativesError && syndicationDerivativeGroups.length === 0">
+					<p class="text-muted small mb-0">No derivative packages available for this version.</p>
+				</template>
+				<div class="table-responsive mb-0" style="max-height: 280px; overflow-y: auto;">
+					<table class="table table-sm table-striped table-bordered mb-0"
+						x-show="!syndicationDerivativesLoading && !syndicationDerivativesError && syndicationDerivativeGroups.length > 0">
+						<thead>
+							<tr>
+								<th>Title</th>
+								<th>Version</th>
+							</tr>
+						</thead>
+						<tbody>
+							<template x-for="group in syndicationDerivativeGroups" :key="group.contentItemIdentifier">
+								<tr>
+									<td x-text="group.title"></td>
+									<td>
+										<select class="form-select form-select-sm" x-model="group.selectedVersion">
+											<option value="">— None —</option>
+											<template x-for="(v, i) in group.versions" :key="v.contentItemVersion">
+												<option :value="v.versionDate" x-text="i === 0 ? 'latest (' + v.versionDate + ')' : v.versionDate"></option>
+											</template>
+										</select>
+									</td>
+								</tr>
+							</template>
+						</tbody>
+					</table>
+				</div>
+			</div>
+			<div class="modal-footer">
+				<button type="button" class="btn btn-secondary" data-bs-dismiss="modal" @click="cancelSyndicationInstall()">Cancel</button>
+				<button type="button" class="btn btn-primary" :disabled="syndicationDerivativesLoading" @click="confirmSyndicationInstall()">Install</button>
 			</div>
 		</div>
 	</div>
