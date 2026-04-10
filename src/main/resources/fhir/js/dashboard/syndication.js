@@ -171,8 +171,6 @@ export const dashboardSyndication = {
 		}
 		this._installationPollTaskIds.add(taskId);
 		const pollMs = 2000;
-		const maxWaitMs = 600000;
-		const started = Date.now();
 		const setInstallStatus = (status, error) => {
 			this.installState = { ...this.installState, [editionId]: error != null ? { status, error } : { status } };
 		};
@@ -238,15 +236,7 @@ export const dashboardSyndication = {
 			} else if (taskStatus === 'IN_PROGRESS') {
 				setInstallStatus('installing');
 			}
-			if (Date.now() - started < maxWaitMs) {
-				setTimeout(poll, pollMs);
-			} else {
-				setInstallStatus('failed', 'Timeout');
-				finishPoll();
-				const snap = { ...this.installTaskSnapshotByEditionId };
-				delete snap[editionId];
-				this.installTaskSnapshotByEditionId = snap;
-			}
+			setTimeout(poll, pollMs);
 		};
 		setTimeout(poll, pollMs);
 	},
