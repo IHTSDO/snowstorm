@@ -1,19 +1,29 @@
+function fhirBaseUrlFromPageLocation() {
+	const u = new URL(window.location.href);
+	let path = u.pathname.replace(/\/index\.html$/i, '');
+	path = path.replace(/\/+$/, '') || '/';
+	return `${u.origin}${path}`.replace(/\/$/, '');
+}
+
+export function getInitialFhirBaseUrl() {
+	const tx = new URLSearchParams(window.location.search).get('tx');
+	if (tx) {
+		return tx.replace(/\/$/, '');
+	}
+	return fhirBaseUrlFromPageLocation();
+}
+
 export const dashboardRouting = {
 	init() {
-		const txParam = new URLSearchParams(window.location.search).get('tx');
-		if (txParam) {
-			this.fhirBaseUrl = txParam.replace(/\/$/, '');
-			this.continueDashboardInit();
-		} else {
-			this.txUrlDialogError = null;
-			this.txUrlPrompt = this.fhirBaseUrl;
-			this.$nextTick(() => {
-				const el = document.getElementById('txUrlModal');
-				if (el && typeof bootstrap !== 'undefined') {
-					bootstrap.Modal.getOrCreateInstance(el).show();
-				}
-			});
+		this.txUrlDialogError = null;
+		this.fhirBaseUrl = getInitialFhirBaseUrl();
+		this.txUrlPrompt = this.fhirBaseUrl;
+		if (!new URLSearchParams(window.location.search).get('tx')) {
+			const url = new URL(window.location.href);
+			url.searchParams.set('tx', this.fhirBaseUrl);
+			history.replaceState(null, '', url.pathname + url.search + url.hash);
 		}
+		this.continueDashboardInit();
 	},
 
 	continueDashboardInit() {
@@ -42,6 +52,7 @@ export const dashboardRouting = {
 		this.editions = [];
 		this.snomedCodeSystems = [];
 		this.installState = {};
+		this.installTaskSnapshotByEditionId = {};
 		if (this._installationPollTaskIds) {
 			this._installationPollTaskIds.clear();
 		}

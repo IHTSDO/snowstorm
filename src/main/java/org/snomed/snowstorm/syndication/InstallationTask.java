@@ -8,6 +8,7 @@ import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 public class InstallationTask {
 
@@ -33,6 +34,8 @@ public class InstallationTask {
 	private SecurityContext securityContext;
 	@JsonIgnore
 	private List<String> derivativeContentItemVersions;
+	private final List<InstallationPackageProgress> packageProgress = new CopyOnWriteArrayList<>();
+	private volatile long versioningStartedAtMillis;
 
 	public InstallationTask(String editionId, String version, List<String> derivativeContentItemVersions, SecurityContext securityContext) {
 		this.taskId = UUID.randomUUID().toString();
@@ -133,6 +136,30 @@ public class InstallationTask {
 
 	public void setDerivativeContentItemVersions(List<String> derivativeContentItemVersions) {
 		this.derivativeContentItemVersions = derivativeContentItemVersions;
+	}
+
+	public List<InstallationPackageProgress> getPackageProgress() {
+		return packageProgress;
+	}
+
+	public void replacePackageProgress(List<InstallationPackageProgress> slots) {
+		packageProgress.clear();
+		packageProgress.addAll(slots);
+	}
+
+	public void startVersioningPhase() {
+		this.versioningStartedAtMillis = System.currentTimeMillis();
+	}
+
+	public int getVersioningProgressPercent() {
+		if (versioningStartedAtMillis <= 0) {
+			return 0;
+		}
+		if (status == InstallationStatus.COMPLETED) {
+			return 100;
+		}
+		long elapsed = System.currentTimeMillis() - versioningStartedAtMillis;
+		return (int) Math.min(99, elapsed * 100 / 5000);
 	}
 }
 

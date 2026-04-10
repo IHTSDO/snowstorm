@@ -114,6 +114,15 @@ export const dashboardSyndication = {
 				if (!editionId || !taskId) {
 					continue;
 				}
+				try {
+					const detailRes = await fetch(`/syndication/install/${taskId}`);
+					if (detailRes.ok) {
+						const detail = await detailRes.json();
+						this.installTaskSnapshotByEditionId = { ...this.installTaskSnapshotByEditionId, [editionId]: detail };
+					}
+				} catch {
+					/* keep going */
+				}
 				if (s === 'PENDING') {
 					this.installState = { ...this.installState, [editionId]: { status: 'queued' } };
 					this.beginInstallationPolling(taskId, editionId);
@@ -125,6 +134,32 @@ export const dashboardSyndication = {
 		} catch {
 			/* ignore */
 		}
+	},
+
+	installPackagesForEdition(editionId) {
+		const t = this.installTaskSnapshotByEditionId[editionId];
+		return (t && Array.isArray(t.packageProgress)) ? t.packageProgress : [];
+	},
+
+	syndicationInstallProgressVisible(editionId) {
+		const st = this.getInstallStatus(editionId).status;
+		if (st !== 'installing' && st !== 'queued') {
+			return false;
+		}
+		return this.installPackagesForEdition(editionId).length > 0;
+	},
+
+	versioningProgressForEdition(editionId) {
+		const t = this.installTaskSnapshotByEditionId[editionId];
+		if (!t) {
+			return 0;
+		}
+		const p = t.versioningProgressPercent;
+		return typeof p === 'number' ? p : 0;
+	},
+
+	syndicationVersioningRowVisible(editionId) {
+		return this.getInstallStatus(editionId).status === 'installing' && this.versioningProgressForEdition(editionId) > 0;
 	},
 
 	beginInstallationPolling(taskId, editionId) {
@@ -151,12 +186,18 @@ export const dashboardSyndication = {
 			} catch {
 				setInstallStatus('failed', 'Unable to reach server');
 				finishPoll();
+				const snap = { ...this.installTaskSnapshotByEditionId };
+				delete snap[editionId];
+				this.installTaskSnapshotByEditionId = snap;
 				return;
 			}
 			if (!taskRes.ok) {
 				const notFound = taskRes.status === 404;
 				setInstallStatus('failed', notFound ? 'Installation task not found' : 'Failed to load task status');
 				finishPoll();
+				const snap = { ...this.installTaskSnapshotByEditionId };
+				delete snap[editionId];
+				this.installTaskSnapshotByEditionId = snap;
 				return;
 			}
 			let taskData;
@@ -165,12 +206,19 @@ export const dashboardSyndication = {
 			} catch {
 				setInstallStatus('failed', 'Invalid task response');
 				finishPoll();
+				const snap = { ...this.installTaskSnapshotByEditionId };
+				delete snap[editionId];
+				this.installTaskSnapshotByEditionId = snap;
 				return;
 			}
+			this.installTaskSnapshotByEditionId = { ...this.installTaskSnapshotByEditionId, [editionId]: taskData };
 			const taskStatus = taskData.status;
 			if (taskStatus === 'COMPLETED') {
 				setInstallStatus('completed');
 				finishPoll();
+				const next = { ...this.installTaskSnapshotByEditionId };
+				delete next[editionId];
+				this.installTaskSnapshotByEditionId = next;
 				alert('Installation completed successfully!');
 				this.loadSyndicationEditions();
 				return;
@@ -179,6 +227,9 @@ export const dashboardSyndication = {
 				const errMsg = taskData.errorMessage || 'Installation failed';
 				setInstallStatus('failed', errMsg);
 				finishPoll();
+				const next = { ...this.installTaskSnapshotByEditionId };
+				delete next[editionId];
+				this.installTaskSnapshotByEditionId = next;
 				alert('Installation failed: ' + errMsg);
 				return;
 			}
@@ -192,6 +243,9 @@ export const dashboardSyndication = {
 			} else {
 				setInstallStatus('failed', 'Timeout');
 				finishPoll();
+				const snap = { ...this.installTaskSnapshotByEditionId };
+				delete snap[editionId];
+				this.installTaskSnapshotByEditionId = snap;
 			}
 		};
 		setTimeout(poll, pollMs);
@@ -308,10 +362,14 @@ export const dashboardSyndication = {
 			const data = await res.json();
 			if (!res.ok) throw new Error(data.message || 'Error starting installation');
 			const taskId = data.taskId;
+			this.installTaskSnapshotByEditionId = { ...this.installTaskSnapshotByEditionId, [editionId]: data };
 			this.beginInstallationPolling(taskId, editionId);
 		} catch (err) {
 			const errMsg = err.message || 'Error starting installation';
 			setInstallStatus('failed', errMsg);
+			const snap = { ...this.installTaskSnapshotByEditionId };
+			delete snap[editionId];
+			this.installTaskSnapshotByEditionId = snap;
 			alert(errMsg);
 		}
 	}
