@@ -1,5 +1,6 @@
 package org.snomed.snowstorm.validation.domain;
 
+import org.ihtsdo.drools.domain.Annotation;
 import org.ihtsdo.drools.domain.OntologyAxiom;
 import org.snomed.snowstorm.core.data.domain.Concept;
 import org.snomed.snowstorm.core.data.domain.Concepts;
@@ -13,6 +14,7 @@ public class DroolsConcept implements org.ihtsdo.drools.domain.Concept {
 
 	private final Concept concept;
 	private final Set<DroolsDescription> descriptions;
+	private final Set<DroolsAnnotation> annotations;
 	private final Set<DroolsRelationship> relationships;
 	private final Set<DroolsOntologyAxiom> ontologyAxioms;
 
@@ -25,6 +27,14 @@ public class DroolsConcept implements org.ihtsdo.drools.domain.Concept {
 			concept.getDescriptions().forEach(d -> {
 				d.setConceptId(conceptId);
 				descriptions.add(new DroolsDescription(d));
+			});
+		}
+
+		annotations = new HashSet<>();
+		if (concept.getAnnotations() != null) {
+			concept.getAnnotations().forEach(a -> {
+				a.setConceptId(conceptId);
+				annotations.add(new DroolsAnnotation(a));
 			});
 		}
 
@@ -68,6 +78,11 @@ public class DroolsConcept implements org.ihtsdo.drools.domain.Concept {
 	@Override
 	public Collection<? extends org.ihtsdo.drools.domain.Description> getDescriptions() {
 		return descriptions;
+	}
+
+	@Override
+	public Collection<? extends org.ihtsdo.drools.domain.Annotation> getAnnotations() {
+		return annotations;
 	}
 
 	@Override
