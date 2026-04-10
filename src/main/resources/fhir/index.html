@@ -522,7 +522,7 @@
 							<div class="fw-semibold mb-2">Installation progress</div>
 							<template x-for="pkg in installPackagesForEdition(inst.id)" :key="pkg.contentItemVersion">
 								<div class="mb-3">
-									<div class="fw-medium" x-text="pkg.title"></div>
+									<div class="fw-medium" x-text="syndicationPackageTitleWithDate(pkg)"></div>
 									<div class="text-muted mb-1">Package download</div>
 									<div class="progress mb-2" style="height: 10px;">
 										<div class="progress-bar" role="progressbar"
@@ -620,7 +620,7 @@
 							<div class="fw-semibold mb-2">Installation progress</div>
 							<template x-for="pkg in installPackagesForEdition(edition.id)" :key="pkg.contentItemVersion">
 								<div class="mb-3">
-									<div class="fw-medium" x-text="pkg.title"></div>
+									<div class="fw-medium" x-text="syndicationPackageTitleWithDate(pkg)"></div>
 									<div class="text-muted mb-1">Package download</div>
 									<div class="progress mb-2" style="height: 10px;">
 										<div class="progress-bar" role="progressbar"

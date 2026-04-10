@@ -141,6 +141,24 @@ export const dashboardSyndication = {
 		return (t && Array.isArray(t.packageProgress)) ? t.packageProgress : [];
 	},
 
+	/** yyyyMMdd from syndication content item URI, or empty string if not present */
+	syndicationVersionDateFromContentItemVersion(contentItemVersion) {
+		if (!contentItemVersion || typeof contentItemVersion !== 'string') {
+			return '';
+		}
+		const m = contentItemVersion.match(/\/version\/(\d{8})(?:\/)?$/);
+		return m ? m[1] : '';
+	},
+
+	syndicationPackageTitleWithDate(pkg) {
+		const title = (pkg && pkg.title) ? pkg.title : '';
+		const d = pkg ? this.syndicationVersionDateFromContentItemVersion(pkg.contentItemVersion) : '';
+		if (!d) {
+			return title;
+		}
+		return `${title} (${d})`;
+	},
+
 	syndicationInstallProgressVisible(editionId) {
 		const st = this.getInstallStatus(editionId).status;
 		if (st !== 'installing' && st !== 'queued') {
