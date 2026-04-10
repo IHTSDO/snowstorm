@@ -307,18 +307,19 @@ public class MultiSearchService implements CommitListener {
 
 	@Override
 	public void preCommitCompletion(Commit commit) throws IllegalStateException {
+		// Always invalidate published-version caches when a CodeSystem version is created (e.g. RF2 import + versioning).
+		if (BranchMetadataHelper.isCreatingCodeSystemVersion(commit)) {
+			cachedBranchCriteria = null;
+			cachedPublishedVersions = null;
+			return;
+		}
 		if (cachedBranchCriteria != null) {
-			if (BranchMetadataHelper.isCreatingCodeSystemVersion(commit)) {
-				cachedBranchCriteria = null;
-				cachedPublishedVersions = null;
-			} else {
-				for (BranchCriteria branchCriterion : cachedBranchCriteria.getBranchCriteria()) {
-					String branchPath = branchCriterion.getBranchPath();
-					if (branchPath.equals(commit.getBranch().getPath())) {
-						// Commit made on branch in cached criteria - clear criteria cache
-						cachedBranchCriteria = null;
-						break;
-					}
+			for (BranchCriteria branchCriterion : cachedBranchCriteria.getBranchCriteria()) {
+				String branchPath = branchCriterion.getBranchPath();
+				if (branchPath.equals(commit.getBranch().getPath())) {
+					// Commit made on branch in cached criteria - clear criteria cache
+					cachedBranchCriteria = null;
+					break;
 				}
 			}
 		}
