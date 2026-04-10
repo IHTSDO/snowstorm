@@ -13,6 +13,7 @@ import org.snomed.snowstorm.core.rf2.rf2import.ImportService;
 import org.snomed.snowstorm.syndication.client.SyndicationClient;
 import org.snomed.snowstorm.syndication.client.SyndicationFeed;
 import org.snomed.snowstorm.syndication.client.SyndicationFeedEntry;
+import org.snomed.snowstorm.syndication.client.SyndicationLink;
 import org.springframework.data.util.Pair;
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -41,6 +42,10 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 @Service
 public class SyndicationService {
+
+	private static final long STANDARD_RF2_IMPORT_DURATION_MS = 50L * 60 * 1000;
+	private static final long STANDARD_RF2_PACKAGE_BYTES = SyndicationClient.DEFAULT_RF2_PACKAGE_LENGTH_BYTES;
+	private static final long MIN_RF2_IMPORT_DURATION_MS = 30_000L;
 
 	private final SyndicationClient syndicationClient;
 	private final Queue<InstallationTask> installationQueue;
@@ -228,21 +233,43 @@ public class SyndicationService {
 					throw new ServiceException("No matching syndication entry found for URI: " + versionUri);
 				}
 
-				// Get credentials
+				logger.info("Installation task {}: syndication entry matched {} ({}) — resolving credentials, then building package list.",
+						task.getTaskId(), entry.getContentItemVersion(), entry.getTitleCleaned());
+
+				// Get credentials (blocks on stdin if syndication.username/password unset — see SyndicationClient)
 				Pair<String, String> creds = syndicationClient.getSyndicationCredentials();
+				logger.info("Installation task {}: credentials step finished (HTTP Basic for package downloads: {}).",
+						task.getTaskId(), creds != null);
 
 				int editionEffectiveDate = Integer.parseInt(task.getVersion());
 				validateDerivativeSelections(feed, task.getDerivativeContentItemVersions(), editionEffectiveDate);
+				logger.info("Installation task {}: derivative selections OK ({} optional refset package(s)).",
+						task.getTaskId(), task.getDerivativeContentItemVersions().size());
 
 				Set<String> consumedVersionUris = new HashSet<>();
-				List<String> orderedFiles = new ArrayList<>(syndicationClient.downloadPackages(entry, feed, creds, consumedVersionUris));
+				List<InstallationPackageProgress> packageSlots = new ArrayList<>();
+				List<Pair<SyndicationFeedEntry, SyndicationLink>> allOrdered = new ArrayList<>();
+
+				List<Pair<SyndicationFeedEntry, SyndicationLink>> mainOrdered = syndicationClient.collectOrderedPackages(entry, feed, consumedVersionUris);
+				for (Pair<SyndicationFeedEntry, SyndicationLink> pair : mainOrdered) {
+					packageSlots.add(progressSlot(pair.getFirst(), pair.getSecond()));
+					allOrdered.add(pair);
+				}
 				for (String derivativeUri : task.getDerivativeContentItemVersions()) {
 					SyndicationFeedEntry derivativeEntry = syndicationClient.findEntry(derivativeUri, feed);
 					if (derivativeEntry == null) {
 						throw new ServiceException("No matching syndication entry found for derivative URI: " + derivativeUri);
 					}
-					orderedFiles.addAll(syndicationClient.downloadPackages(derivativeEntry, feed, creds, consumedVersionUris));
+					List<Pair<SyndicationFeedEntry, SyndicationLink>> derivOrdered = syndicationClient.collectOrderedPackages(derivativeEntry, feed, consumedVersionUris, false);
+					for (Pair<SyndicationFeedEntry, SyndicationLink> pair : derivOrdered) {
+						packageSlots.add(progressSlot(pair.getFirst(), pair.getSecond()));
+						allOrdered.add(pair);
+					}
 				}
+				logger.info("Installation task {}: {} package(s) queued for download/import (edition + dependencies + selected refsets).",
+						task.getTaskId(), allOrdered.size());
+				task.replacePackageProgress(packageSlots);
+				List<String> orderedFiles = new ArrayList<>(syndicationClient.downloadOrderedPackageList(allOrdered, creds, packageSlots));
 				task.getDownloadedFiles().addAll(orderedFiles);
 
 				// Extract module ID from editionId (e.g., "http://snomed.info/sct/900000000000207008" -> "900000000000207008")
@@ -273,15 +300,25 @@ public class SyndicationService {
 
 				String branchPath = codeSystem.getBranchPath();
 
-				for (String filePath : orderedFiles) {
+				for (int i = 0; i < orderedFiles.size(); i++) {
+					String filePath = orderedFiles.get(i);
 					File file = new File(filePath);
+					InstallationPackageProgress pkg = i < packageSlots.size() ? packageSlots.get(i) : null;
 					if (!file.exists()) {
 						logger.warn("Downloaded file does not exist: {}", filePath);
+						if (pkg != null) {
+							pkg.markImportComplete();
+						}
 						continue;
 					}
-					importFile(task, file, branchPath, filePath);
+					long est = estimatedImportMillis(pkg != null ? pkg.getDeclaredSizeBytes() : STANDARD_RF2_PACKAGE_BYTES);
+					if (pkg != null) {
+						pkg.beginImportEstimate(est);
+					}
+					importFile(task, file, branchPath, filePath, pkg);
 				}
 
+				task.startVersioningPhase();
 				codeSystemService.createVersion(codeSystem, editionEffectiveDate,
 						String.format("%s syndication import %s", codeSystem.getShortName(), task.getVersion()));
 
@@ -301,22 +338,48 @@ public class SyndicationService {
 		}
 	}
 
-	private void importFile(InstallationTask task, File file, String branchPath, String filePath) throws ReleaseImportException {
+	private void importFile(InstallationTask task, File file, String branchPath, String filePath, InstallationPackageProgress pkg)
+			throws ReleaseImportException {
 		try (FileInputStream inputStream = new FileInputStream(file)) {
-			// Create import job using the CodeSystem's branchPath
 			String importId = importService.createJob(RF2Type.SNAPSHOT, branchPath, false, false);
 			task.getImportJobIds().add(importId);
 			logger.info("Created import job {} for file {} on branch {}", importId, filePath, branchPath);
 			importService.importArchive(importId, inputStream);
+			if (pkg != null) {
+				pkg.markImportComplete();
+			}
 		} catch (IOException e) {
 			logger.error("Failed to create import job for file {}", filePath, e);
-			// Continue with other files
+			if (pkg != null) {
+				pkg.markImportComplete();
+			}
 		} finally {
 			try {
 				Files.delete(file.toPath());
 			} catch (IOException deleteException) {
 				logger.warn("Failed to delete temp SNOMED CT archive file.", deleteException);
 			}
+		}
+	}
+
+	private static long estimatedImportMillis(long declaredSizeBytes) {
+		long size = declaredSizeBytes > 0 ? declaredSizeBytes : STANDARD_RF2_PACKAGE_BYTES;
+		long scaled = (long) (STANDARD_RF2_IMPORT_DURATION_MS * (size / (double) STANDARD_RF2_PACKAGE_BYTES));
+		return Math.max(MIN_RF2_IMPORT_DURATION_MS, scaled);
+	}
+
+	private InstallationPackageProgress progressSlot(SyndicationFeedEntry entry, SyndicationLink link) {
+		long bytes = SyndicationClient.parseDeclaredPackageBytes(link.getLength());
+		String title = progressSlotTitle(entry);
+		String ver = entry.getContentItemVersion() != null ? entry.getContentItemVersion() : "";
+		return new InstallationPackageProgress(ver, title, bytes);
+	}
+
+	private static String progressSlotTitle(SyndicationFeedEntry entry) {
+		try {
+			return entry.getTitleCleaned();
+		} catch (Exception e) {
+			return entry.getTitle() != null ? entry.getTitle() : "";
 		}
 	}
 

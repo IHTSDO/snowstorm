@@ -4,12 +4,12 @@ import { dashboardConceptMapUi } from './dashboard/conceptMapUi.js';
 import { dashboardGetters } from './dashboard/getters.js';
 import { dashboardModalDetail } from './dashboard/modalDetail.js';
 import { dashboardResources } from './dashboard/resources.js';
-import { dashboardRouting } from './dashboard/routing.js';
+import { dashboardRouting, getInitialFhirBaseUrl } from './dashboard/routing.js';
 import { dashboardSyndication } from './dashboard/syndication.js';
 
 function createDashboardState() {
 	return {
-		fhirBaseUrl: 'http://localhost:8080/fhir',
+		fhirBaseUrl: typeof window !== 'undefined' ? getInitialFhirBaseUrl() : 'http://localhost:8080/fhir',
 		section: 'resources',
 		tab: 'codesystem',
 		codeSystems: [],
@@ -64,6 +64,7 @@ function createDashboardState() {
 		txUrlDialogError: null,
 		routingInitialized: false,
 		conceptMapTranslateExampleBusy: false,
+		installTaskSnapshotByEditionId: {},
 		pendingSyndicationEdition: null,
 		syndicationDerivativeGroups: [],
 		syndicationDerivativesLoading: false,
