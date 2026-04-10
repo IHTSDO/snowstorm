@@ -27,8 +27,19 @@ public class RootInterceptor extends InterceptorAdapter {
 		try {
 			String pathInfo = request.getPathInfo();
 
-			// The base URL will return a static HTML page
-			if (!"POST".equals(request.getMethod()) && (StringUtils.isEmpty(pathInfo) || pathInfo.equals("/"))) {
+			// /fhir (no trailing slash) -> 302 to /fhir/ so the browser URL matches the dashboard base path
+			if (StringUtils.isEmpty(pathInfo)) {
+				StringBuilder location = new StringBuilder(request.getContextPath()).append("/fhir/");
+				String queryString = request.getQueryString();
+				if (queryString != null) {
+					location.append('?').append(queryString);
+				}
+				response.sendRedirect(location.toString());
+				return false;
+			}
+
+			// The base URL /fhir/ will return a static HTML page
+			if (!"POST".equals(request.getMethod()) && pathInfo.equals("/")) {
 				response.setContentType("text/html; charset=UTF-8");
 				try (InputStream ios = getClass().getResourceAsStream(FHIR_RESOURCE_ROOT + "/index.html")) {
 					if (ios == null) {
