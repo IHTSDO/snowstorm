@@ -13,13 +13,17 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
 
+import org.snomed.snowstorm.core.data.domain.QueryConcept;
+
 import java.util.Arrays;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
 import static io.kaicode.elasticvc.api.VersionControlHelper.LARGE_PAGE;
 import static java.lang.Long.parseLong;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.snomed.snowstorm.core.data.domain.Concepts.ISA;
 import static org.snomed.snowstorm.core.data.domain.Concepts.SNOMEDCT_ROOT;
 
@@ -58,5 +62,22 @@ class SemanticIndexServiceTest extends AbstractTest {
 		assertEquals("[100003]", Arrays.toString(conceptReferences.get(parseLong(Concepts.ALL_OR_PART_OF)).toArray()));
 
 		assertEquals(0, semanticIndexService.findConceptReferences(PATH, parseLong(ISA), true, LARGE_PAGE).totalElements());
+	}
+
+	@Test
+	void loadQueryConceptSubgraph() {
+		Map<Long, QueryConcept> subgraph = semanticIndexService.loadQueryConceptSubgraph(PATH, List.of(100008L, 100003L), false);
+		// Five IS-A semantic nodes: root, pizza, cheese pizza, really cheesy, so cheesy (All or part of is not on the IS-A ancestor paths)
+		assertEquals(5, subgraph.size());
+		assertTrue(subgraph.containsKey(parseLong(SNOMEDCT_ROOT)));
+		assertTrue(subgraph.containsKey(100002L));
+		assertTrue(subgraph.containsKey(100005L));
+		assertEquals(Set.of(100005L), subgraph.get(100008L).getParents());
+		assertTrue(subgraph.get(100002L).getParents().contains(parseLong(SNOMEDCT_ROOT)));
+	}
+
+	@Test
+	void loadQueryConceptSubgraph_emptySeeds() {
+		assertTrue(semanticIndexService.loadQueryConceptSubgraph(PATH, List.of(), false).isEmpty());
 	}
 }
