@@ -76,6 +76,9 @@ public class ConceptController {
 	private SemanticIndexService semanticIndexService;
 
 	@Autowired
+	private PartialHierarchyService partialHierarchyService;
+
+	@Autowired
 	private ExpressionService expressionService;
 
 	@Autowired
@@ -338,6 +341,21 @@ public class ConceptController {
 		}
 
 		return conceptService.find(path, conceptIds, ControllerHelper.parseAcceptLanguageHeaderWithDefaultFallback(acceptLanguageHeader));
+	}
+
+	@Operation(summary = "Load a partial IS-A hierarchy above the given seed concept codes.",
+			description = "Returns graph nodes (code, direct parents, optional preferred term) for the seed concepts and all inferred ancestors on the branch, using the semantic index.")
+	@PostMapping(value = "/browser/{branch}/concepts/partial-hierarchy")
+	@JsonView(value = View.Component.class)
+	@ReadOnlyApiWhenEnabled
+	public List<PartialHierarchyNode> getPartialHierarchy(
+			@PathVariable String branch,
+			@RequestBody HierarchyRequest request,
+			@RequestHeader(value = "Accept-Language", defaultValue = Config.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) {
+
+		String path = BranchPathUriUtil.decodePath(branch);
+		return partialHierarchyService.loadPartialHierarchy(path, request.getCodes(), request.isIncludeTerms(),
+				ControllerHelper.parseAcceptLanguageHeaderWithDefaultFallback(acceptLanguageHeader));
 	}
 
 	@Operation(summary = "Load a concept in the browser format.",
