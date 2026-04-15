@@ -304,7 +304,7 @@ public class ImportComponentFactoryImpl extends ImpotentComponentFactory {
 	}
 
 	@Override
-	public void newReferenceSetMemberState(String[] fieldNames, String id, String effectiveTime, String active, String moduleId, String refsetId,
+	public void newReferenceSetMemberState(String filename, String[] fieldNames, String id, String effectiveTime, String active, String moduleId, String refsetId,
 			String referencedComponentId, String... otherValues) {
 
 		Integer effectiveTimeI = getEffectiveTimeI(effectiveTime);
