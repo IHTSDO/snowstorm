@@ -145,6 +145,14 @@ public class FHIRConcept implements FHIRGraphNode {
 						FHIRProperty.typeToFHIRPropertyType(e.getValue())
 				);
 				extensions.computeIfAbsent(url, k -> new ArrayList<>()).add(property);
+				// Promote structuredefinition-standards-status to a formal status property
+				if ("http://hl7.org/fhir/StructureDefinition/structuredefinition-standards-status".equals(url)) {
+					String statusValue = e.getValue().primitiveValue();
+					if ("deprecated".equals(statusValue) || "retired".equals(statusValue)) {
+						properties.computeIfAbsent("status", k -> new ArrayList<>())
+								.add(new FHIRProperty("status", null, statusValue, FHIRProperty.CODE_TYPE));
+					}
+				}
 			}
 		});
 		parents = new HashSet<>();

@@ -62,7 +62,7 @@ public class FHIRValueSetService implements FHIRConstants {
 	public static final String WEIGHT = "weight";
 
 	public static final String HL7_SD_EVS_CONTAINS_PROPERTY = "http://hl7.org/fhir/5.0/StructureDefinition/extension-ValueSet.expansion.contains.property";
-	public static final String HL7_SD_ITEM_WEIGHT = "http://hl7.org/fhir/StructureDefinition/item-weight";
+	public static final String HL7_SD_ITEM_WEIGHT = "http://hl7.org/fhir/StructureDefinition/itemWeight";
 	public static final String HL7_SD_OUTCOME_MESSAGE_ID = "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id";
 	public static final String HL7_SD_VS_CONCEPT_DEFINITION = "http://hl7.org/fhir/StructureDefinition/valueset-concept-definition";
 	public static final String HL7_SD_VS_CONCEPT_ORDER = "http://hl7.org/fhir/StructureDefinition/valueset-conceptOrder";
@@ -491,7 +491,7 @@ public class FHIRValueSetService implements FHIRConstants {
 					}
 				} else {
 					String message = SUPPLEMENT_NOT_EXIST.formatted(ext.getValue().primitiveValue());
-					CodeableConcept cc = new CodeableConcept().setText(message);
+					CodeableConcept cc = new CodeableConcept(new Coding(TX_ISSUE_TYPE, NOT_FOUND, null)).setText(message);
 					throw exception(message,
 							OperationOutcome.IssueType.NOTFOUND, 404, null, cc);
 
@@ -571,9 +571,13 @@ public class FHIRValueSetService implements FHIRConstants {
 							value.stream()
 									.filter(x -> x.getValue().equals("retired") || x.getValue().equals("deprecated"))
 									.findFirst()
-									.ifPresent(x ->
-											//component.setAbstract(true); // testcase inactive-expand doesn't expect abstract in the response
-											component.setInactive(true));
+									.ifPresent(x -> {
+										if ("retired".equals(x.getValue())) {
+											component.setInactive(true);
+										}
+										addPropertyToContains("status", component, new CodeType(x.getValue()));
+										addPropertyToExpansion("status", "http://hl7.org/fhir/concept-properties#status", expansion);
+									});
 						} else if (key.equals("notSelectable") || key.equals("not-selectable")) {
 							value.stream()
 									.filter(val -> val.getValue().equals("true"))
