@@ -80,6 +80,11 @@ public class FHIRHelper implements FHIRConstants {
 		return new SnowstormFHIRServerResponseException(theStatusCode, message, outcome, e);
 	}
 
+	public static SnowstormFHIRServerResponseException exception(String message, IssueType issueType, int theStatusCode, Throwable e, CodeableConcept detail, List<Extension> extensions) {
+		OperationOutcome outcome = createOperationOutcomeWithIssue(detail, OperationOutcome.IssueSeverity.ERROR, null, issueType, extensions, message);
+		return new SnowstormFHIRServerResponseException(theStatusCode, message, outcome, e);
+	}
+
 	public static String findParameterStringOrNull(final List<Parameters.ParametersParameterComponent> parametersParameterComponents, final String name) {
 		return parametersParameterComponents.stream()
 				.filter(parametersParameterComponent -> parametersParameterComponent.getName().equals(name))

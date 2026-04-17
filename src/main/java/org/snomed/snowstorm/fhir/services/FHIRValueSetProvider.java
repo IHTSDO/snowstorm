@@ -28,8 +28,11 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Component;
 import org.springframework.web.bind.annotation.RequestMethod;
 
+import org.snomed.snowstorm.fhir.pojo.CanonicalUri;
+
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
@@ -210,9 +213,9 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 			@OperationParam(name="excludePostCoordinated") BooleanType excludePostCoordinated,
 			@OperationParam(name="displayLanguage") String displayLanguage,
 			@OperationParam(name="exclude-system") StringType excludeSystem,
-			@OperationParam(name="system-version") StringType systemVersion,
-			@OperationParam(name="check-system-version") StringType checkSystemVersion,
-			@OperationParam(name="force-system-version") StringType forceSystemVersion,
+			@OperationParam(name="system-version") CanonicalType systemVersion,
+			@OperationParam(name="check-system-version") CanonicalType checkSystemVersion,
+			@OperationParam(name="force-system-version") CanonicalType forceSystemVersion,
 			@OperationParam(name="version") StringType version,
 			@OperationParam(name="property") CodeType property,
 			@OperationParam(name = "default-valueset-version") CanonicalType versionValueSet)// Invalid parameter
@@ -253,9 +256,9 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 			@OperationParam(name="excludePostCoordinated") BooleanType excludePostCoordinated,
 			@OperationParam(name="displayLanguage") String displayLanguage,
 			@OperationParam(name="exclude-system") StringType excludeSystem,
-			@OperationParam(name="system-version") StringType systemVersion,
-			@OperationParam(name="check-system-version") StringType checkSystemVersion,
-			@OperationParam(name="force-system-version") StringType forceSystemVersion,
+			@OperationParam(name="system-version") CanonicalType systemVersion,
+			@OperationParam(name="check-system-version") CanonicalType checkSystemVersion,
+			@OperationParam(name="force-system-version") CanonicalType forceSystemVersion,
 			@OperationParam(name="version") StringType version,// Invalid parameter
 			@OperationParam(name="property") CodeType property,
 			@OperationParam(name="default-valueset-version") CanonicalType versionValueSet)
@@ -297,12 +300,16 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 			@OperationParam(name="abstract") BooleanType abstractBool,
 			@OperationParam(name="displayLanguage") String displayLanguage,
 			@OperationParam(name="system-version") String systemVersionDeprecated,
+			@OperationParam(name="force-system-version") String forceSystemVersionStr,
+			@OperationParam(name="check-system-version") String checkSystemVersionStr,
 			@OperationParam(name="inferSystem") BooleanType inferSystem,
 			@OperationParam(name="lenient-display-validation") BooleanType lenientDisplayValidation,
 			@OperationParam(name="valueset-membership-only") BooleanType valueSetMembershipOnly,
 			@OperationParam(name="activeOnly") BooleanType activeOnly) {
 
-		validateCodeParamHints(systemVersionDeprecated);
+		// system-version canonical hints (system|version) for resolving versionless includes
+		Set<CanonicalUri> defaultSystemVersions = systemVersionDeprecated != null
+				? Set.of(CanonicalUri.fromString(systemVersionDeprecated)) : null;
 		FHIRCodeValidationRequest codeValidationRequest = new FHIRCodeValidationRequest()
 			.withId(id == null ? null : id.getIdPart())
 			.withUrl(url)
@@ -311,7 +318,10 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 			.withValueSetVersion(valueSetVersion)
 			.withCode(code)
 			.withSystem(system)
-			.withSystemVersion(systemVersion == null ? systemVersionDeprecated : systemVersion)
+			.withSystemVersion(systemVersion)
+			.withDefaultSystemVersions(defaultSystemVersions)
+			.withForceSystemVersion(forceSystemVersionStr != null ? CanonicalUri.fromString(forceSystemVersionStr) : null)
+			.withCheckSystemVersion(checkSystemVersionStr != null ? CanonicalUri.fromString(checkSystemVersionStr) : null)
 			.withDisplay(display)
 			.withCoding(coding)
 			.withCodeableConcept(codeableConcept)
@@ -344,6 +354,8 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 			@OperationParam(name="abstract") BooleanType abstractBool,
 			@OperationParam(name="displayLanguage") String displayLanguage,
 			@OperationParam(name="system-version") String systemVersionDeprecated,
+			@OperationParam(name="force-system-version") String forceSystemVersionStr,
+			@OperationParam(name="check-system-version") String checkSystemVersionStr,
 			@OperationParam(name="inferSystem") BooleanType inferSystem,
 			@OperationParam(name="activeOnly") BooleanType activeOnly,
 			@OperationParam(name="lenient-display-validation") BooleanType lenientDisplayValidation,
@@ -353,13 +365,14 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 		if (logger.isInfoEnabled()) {
 			logger.info(FHIRValueSetProviderHelper.getFullURL(request));
 		}
-		validateCodeParamHints(systemVersionDeprecated);
-
 		if (request.getMethod().equals(RequestMethod.POST.name())) {
 			// HAPI doesn't populate the OperationParam values for POST, we parse the body instead.
 			List<Parameters.ParametersParameterComponent> parsed = fhirContext.newJsonParser().parseResource(Parameters.class, rawBody).getParameter();
 			FHIRHelper.handleTxResources(loadPackageService, parsed);
 		}
+		// system-version canonical hints (system|version) for resolving versionless includes
+		Set<CanonicalUri> defaultSystemVersions = systemVersionDeprecated != null
+				? Set.of(CanonicalUri.fromString(systemVersionDeprecated)) : null;
 		FHIRCodeValidationRequest codeValidationRequest = new FHIRCodeValidationRequest()
 			.withUrl(url)
 			.withContext(context)
@@ -367,7 +380,10 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 			.withValueSetVersion(valueSetVersion)
 			.withCode(code)
 			.withSystem(system)
-			.withSystemVersion(systemVersion == null ? systemVersionDeprecated : systemVersion)
+			.withSystemVersion(systemVersion)
+			.withDefaultSystemVersions(defaultSystemVersions)
+			.withForceSystemVersion(forceSystemVersionStr != null ? CanonicalUri.fromString(forceSystemVersionStr) : null)
+			.withCheckSystemVersion(checkSystemVersionStr != null ? CanonicalUri.fromString(checkSystemVersionStr) : null)
 			.withDisplay(display)
 			.withCoding(coding)
 			.withCodeableConcept(codeableConcept)
@@ -381,10 +397,6 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 			.withValueSetMembershipOnly(valueSetMembershipOnly);
 
 		return valueSetService.validateCode(codeValidationRequest);
-	}
-
-	private void validateCodeParamHints(String systemVersionDeprecated) {
-		FHIRHelper.parameterNamingHint("system-version", systemVersionDeprecated, "systemVersion");
 	}
 
 	@Override

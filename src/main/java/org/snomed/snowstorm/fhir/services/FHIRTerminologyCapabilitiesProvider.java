@@ -33,8 +33,10 @@ public class FHIRTerminologyCapabilitiesProvider extends ServerCapabilityStateme
 	public IBaseConformance getMetadataResource(HttpServletRequest request, RequestDetails requestDetails) {
 		if ("terminology".equals(request.getParameter("mode"))) {
 			FHIRTerminologyCapabilities tc = new FHIRTerminologyCapabilities().withDefaults(this.buildProperties,this.codeSystemService);
-			tc.setVersion(buildProperties.getVersion());
-			tc.setDate(new Date(buildProperties.getTime().toEpochMilli()));
+			if (buildProperties != null) {
+				tc.setVersion(buildProperties.getVersion());
+				tc.setDate(new Date(buildProperties.getTime().toEpochMilli()));
+			}
 			TerminologyCapabilities.TerminologyCapabilitiesExpansionComponent expansion = new TerminologyCapabilities.TerminologyCapabilitiesExpansionComponent();
 			Arrays.asList("activeOnly",
 			"count",
@@ -65,9 +67,11 @@ public class FHIRTerminologyCapabilitiesProvider extends ServerCapabilityStateme
 			operation.setName("versions");
 			operation.setDefinition(requestDetails.getFhirServerBase()+"/versions");
 			cs.getRest().stream().filter(x->x.getMode()== CapabilityStatement.RestfulCapabilityMode.SERVER).findFirst().ifPresent(x -> x.addOperation(operation));
-			cs.getSoftware().setReleaseDate(new Date(buildProperties.getTime().toEpochMilli()));
-			cs.setVersion(buildProperties.getVersion());
-			cs.setTitle(buildProperties.getName());
+			if (buildProperties != null) {
+				cs.getSoftware().setReleaseDate(new Date(buildProperties.getTime().toEpochMilli()));
+				cs.setVersion(buildProperties.getVersion());
+				cs.setTitle(buildProperties.getName());
+			}
 			return cs;
 		}
 	}
