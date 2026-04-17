@@ -102,6 +102,13 @@ public class FHIRValueSetFinderService implements FHIRConstants {
 		mutuallyExclusive("id", id, "valueSet", hapiValueSet);
 		mutuallyExclusive("url", url, "valueSet", hapiValueSet);
 
+		// Parse pipe-notation version from URL (e.g. "http://.../ValueSet/foo|1.0.0")
+		if (url != null && url.contains("|") && version == null) {
+			int pipeIndex = url.indexOf('|');
+			version = url.substring(pipeIndex + 1);
+			url = url.substring(0, pipeIndex);
+		}
+
 		if (id != null) {
 			Optional<FHIRValueSet> valueSetOptional = valueSetRepository.findById(id);
 			if (valueSetOptional.isEmpty()) {

@@ -83,9 +83,9 @@ class FHIRValueSetProviderHelper {
 			final BooleanType excludePostCoordinated,
 			final String displayLanguage,
 			final StringType excludeSystem,
-			final StringType systemVersion,
-			final StringType checkSystemVersion,
-			final StringType forceSystemVersion,
+			final CanonicalType systemVersion,
+			final CanonicalType checkSystemVersion,
+			final CanonicalType forceSystemVersion,
 			final StringType version,
 			final CodeType property,
 			final CanonicalType versionValueSet) {

@@ -248,10 +248,21 @@ public class FHIRValueSetService implements FHIRConstants {
 		Set<CanonicalUri> systemVersionParam = params.getSystemVersion() != null ? Collections.singleton(params.getSystemVersion()) : Collections.emptySet();
 
 		CodeSystemVersionProvider codeSystemVersionProvider = new CodeSystemVersionProvider(systemVersionParam,
-				params.getCheckSystemVersion(), params.getForceSystemVersion(), params.getExcludeSystem(), codeSystemService);
+				null, // no coding version hints in expansion context
+				params.getCheckSystemVersion(), params.getForceSystemVersion(), params.getExcludeSystem(),
+				true, // expansion: always allow check-system-version as fallback for versionless includes
+				codeSystemService);
 
 		// Collate set of inclusion and exclusion constraints for each code system version
 		CodeSelectionCriteria codeSelectionCriteria = constraintsService.generateInclusionExclusionConstraints(hapiValueSet, codeSystemVersionProvider, activeOnly, true);
+
+		// Fail expand if check-system-version constraint was violated
+		List<OperationOutcome.OperationOutcomeIssueComponent> versionCheckIssues = codeSystemVersionProvider.getVersionCheckIssues();
+		if (!versionCheckIssues.isEmpty()) {
+			OperationOutcome operationOutcome = new OperationOutcome();
+			operationOutcome.setIssue(versionCheckIssues);
+			throw new SnowstormFHIRServerResponseException(422, versionCheckIssues.get(0).getDetails().getText(), operationOutcome);
+		}
 
 		// Restrict the expansion of ValueSets with multiple code system versions if any are SNOMED CT, to simplify pagination.
 		Set<FHIRCodeSystemVersion> allInclusionVersions = codeSelectionCriteria.gatherAllInclusionVersions();
@@ -398,10 +409,17 @@ public class FHIRValueSetService implements FHIRConstants {
 			throw exception(message, OperationOutcome.IssueType.TOOCOSTLY, 404, null, new CodeableConcept(new Coding()).setText(message));
 		}
 
-		Map<String, String> idAndVersionToUrl = allInclusionVersions.stream()
-				.collect(Collectors.toMap(FHIRCodeSystemVersion::getId, FHIRCodeSystemVersion::getUrl));
+		// Deduplicate inclusion versions by ID (multiple includes may resolve to the same version, e.g. after force-system-version)
+		boolean multipleIncludes = allInclusionVersions.size() > 1;
+		Map<String, FHIRCodeSystemVersion> idToVersionObj = allInclusionVersions.stream()
+				.collect(Collectors.toMap(FHIRCodeSystemVersion::getId, v -> v, (a, b) -> a));
+		Map<String, String> idAndVersionToUrl = idToVersionObj.entrySet().stream()
+				.collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().getUrl()));
+		Map<String, String> idToVersionStr = idToVersionObj.entrySet().stream()
+				.filter(e -> e.getValue().getVersion() != null)
+				.collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().getVersion()));
 		Map<String, String> idAndVersionToLanguage = allInclusionVersions.stream()
-				.filter(fhirCodeSystemVersion -> fhirCodeSystemVersion.getLanguage() != null).collect(Collectors.toMap(FHIRCodeSystemVersion::getId, FHIRCodeSystemVersion::getLanguage));
+				.filter(fhirCodeSystemVersion -> fhirCodeSystemVersion.getLanguage() != null).collect(Collectors.toMap(FHIRCodeSystemVersion::getId, FHIRCodeSystemVersion::getLanguage, (a, b) -> a));
 		ValueSet.ValueSetExpansionComponent expansion = new ValueSet.ValueSetExpansionComponent();
 		String id = UUID.randomUUID().toString();
 		expansion.setId(id);
@@ -412,11 +430,21 @@ public class FHIRValueSetService implements FHIRConstants {
 		Optional.ofNullable(params.getActiveOnly()).ifPresent(x->expansion.addParameter(new ValueSet.ValueSetExpansionParameterComponent(new StringType("activeOnly")).setValue(new BooleanType(x))));
 		Optional.ofNullable(params.getExcludeNested()).ifPresent(x->expansion.addParameter(new ValueSet.ValueSetExpansionParameterComponent(new StringType("excludeNested")).setValue(new BooleanType(x))));
 		Optional.ofNullable(params.getIncludeDesignations()).ifPresent(x->expansion.addParameter(new ValueSet.ValueSetExpansionParameterComponent(new StringType("includeDesignations")).setValue(new BooleanType(x))));
+		Optional.ofNullable(params.getForceSystemVersion()).ifPresent(x ->
+				expansion.addParameter(new ValueSet.ValueSetExpansionParameterComponent(new StringType("force-system-version")).setValue(new UriType(x.toString()))));
+		if (codeSystemVersionProvider.isSystemVersionWasUsedAsDefault()) {
+			Optional.ofNullable(params.getSystemVersion()).ifPresent(x ->
+					expansion.addParameter(new ValueSet.ValueSetExpansionParameterComponent(new StringType("system-version")).setValue(new UriType(x.toString()))));
+		}
+		if (codeSystemVersionProvider.isCheckSystemVersionWasUsedAsDefault()) {
+			Optional.ofNullable(params.getCheckSystemVersion()).ifPresent(x ->
+					expansion.addParameter(new ValueSet.ValueSetExpansionParameterComponent(new StringType("check-system-version")).setValue(new UriType(x.toString()))));
+		}
 		Optional.ofNullable(params.getDesignations()).ifPresent(x->
 			x.forEach(language -> 
 				expansion.addParameter(new ValueSet.ValueSetExpansionParameterComponent(new StringType("designation")).setValue(new StringType(language)))
 			));
-		allInclusionVersions.forEach(codeSystemVersion -> {
+		idToVersionObj.values().forEach(codeSystemVersion -> {
 				if (codeSystemVersion.getVersion() != null) {
 					expansion.addParameter(new ValueSet.ValueSetExpansionParameterComponent(new StringType("used-codesystem"))
 							.setValue(new CanonicalType(codeSystemVersion.getCanonical())));
@@ -480,7 +508,7 @@ public class FHIRValueSetService implements FHIRConstants {
 
 		final String fhirDisplayLanguage = determineFhirDisplayLanguage(params, displayLanguage, expansion, hapiValueSet);
 
-		List<ValueSet.ValueSetExpansionContainsComponent> expansionContents = createExpansionContents(conceptsPage, hapiValueSet, idAndVersionToLanguage, idAndVersionToUrl, expansion, params, fhirDisplayLanguage);
+		List<ValueSet.ValueSetExpansionContainsComponent> expansionContents = createExpansionContents(conceptsPage, hapiValueSet, idAndVersionToLanguage, idAndVersionToUrl, idToVersionStr, multipleIncludes, expansion, params, fhirDisplayLanguage);
 		expansion.setContains(expansionContents);
 		expansion.setTotal((int) conceptsPage.getTotalElements());
 		hapiValueSet.setExpansion(expansion);
@@ -524,7 +552,7 @@ public class FHIRValueSetService implements FHIRConstants {
 		return fhirDisplayLanguage;
 	}
 
-	private List<ValueSet.ValueSetExpansionContainsComponent> createExpansionContents(Page<FHIRConcept> conceptsPage, ValueSet hapiValueSet, Map<String, String> idAndVersionToLanguage, Map<String, String> idAndVersionToUrl, ValueSet.ValueSetExpansionComponent expansion, ValueSetExpansionParameters params, String fhirDisplayLanguage) {
+	private List<ValueSet.ValueSetExpansionContainsComponent> createExpansionContents(Page<FHIRConcept> conceptsPage, ValueSet hapiValueSet, Map<String, String> idAndVersionToLanguage, Map<String, String> idAndVersionToUrl, Map<String, String> idToVersionStr, boolean multipleIncludes, ValueSet.ValueSetExpansionComponent expansion, ValueSetExpansionParameters params, String fhirDisplayLanguage) {
 		return conceptsPage.stream().map(concept -> {
 					List<ValueSet.ConceptReferenceComponent> references = hapiValueSet.getCompose().getInclude().stream()
 							.flatMap(set -> set.getConcept().stream()).filter(c -> c.getCode().equals(concept.getCode())).toList();
@@ -534,6 +562,9 @@ public class FHIRValueSetService implements FHIRConstants {
 							.setCode(concept.getCode())
 							.setInactiveElement(concept.isActive() ? null : new BooleanType(true))
 							.setDisplay(concept.getDisplay());
+					if (multipleIncludes) {
+						component.setVersion(idToVersionStr.get(concept.getCodeSystemVersion()));
+					}
 
 					concept.getProperties().forEach((key, value) -> {
 						if (key.equals("status")) {
