@@ -26,6 +26,9 @@ import org.snomed.snowstorm.core.pojo.LanguageDialect;
 import org.snomed.snowstorm.fhir.config.FHIRConstants;
 import org.snomed.snowstorm.fhir.domain.FHIRCodeSystemVersion;
 import org.snomed.snowstorm.fhir.domain.FHIRConcept;
+import org.snomed.snowstorm.fhir.domain.FHIRDesignation;
+import org.snomed.snowstorm.fhir.domain.FHIRExtension;
+import org.snomed.snowstorm.fhir.domain.FHIRProperty;
 import org.snomed.snowstorm.fhir.domain.SearchFilter;
 import org.snomed.snowstorm.fhir.pojo.ConceptAndSystemResult;
 import org.snomed.snowstorm.fhir.pojo.FHIRCodeSystemVersionParams;
@@ -46,6 +49,7 @@ import static java.lang.String.format;
 import static java.util.stream.Stream.concat;
 import static org.snomed.snowstorm.fhir.services.FHIRCodeSystemService.SCT_ID_PREFIX;
 import static org.snomed.snowstorm.fhir.services.FHIRHelper.*;
+import static org.snomed.snowstorm.fhir.services.FHIRValueSetService.TX_ISSUE_TYPE;
 
 @Component
 public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants {
@@ -435,10 +439,55 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants 
 			boolean displayValidOrNull = display == null ||
 					display.equals(concept.getDisplay()) ||
 					concept.getDesignations().stream().anyMatch(d -> display.equals(d.getValue()));
-			return pMapper.validateCodeResponse(concept, displayValidOrNull, codeSystemVersion);
+
+			Parameters response = pMapper.validateCodeResponse(concept, displayValidOrNull, codeSystemVersion);
+
+			List<OperationOutcome.OperationOutcomeIssueComponent> issues = new ArrayList<>();
+
+			// Warn if the provided display matches a withdrawn/inactive designation
+			if (display != null && displayValidOrNull && !display.equals(concept.getDisplay())) {
+				FHIRDesignation matchingDesignation = concept.getDesignations().stream()
+						.filter(d -> display.equals(d.getValue()))
+						.findFirst().orElse(null);
+				if (matchingDesignation != null && isDesignationWithdrawn(matchingDesignation)) {
+					String msg = format("'%s' is no longer considered a correct display for code '%s' (status = deprecated). The correct display is one of \"%s\".",
+							display, code, concept.getDisplay());
+					issues.add(createOperationOutcomeIssueComponent(
+							new CodeableConcept(new Coding(TX_ISSUE_TYPE, "display-comment", null)).setText(msg),
+							OperationOutcome.IssueSeverity.WARNING, "display", IssueType.INVALID, null, null));
+				}
+			}
+
+			// Warn if the concept itself is deprecated
+			String conceptStatus = concept.getProperties().getOrDefault("status", Collections.emptyList()).stream()
+					.filter(p -> "deprecated".equals(p.getValue()) || "retired".equals(p.getValue()))
+					.map(FHIRProperty::getValue)
+					.findFirst().orElse(null);
+			if (conceptStatus != null) {
+				String msg = format("The concept '%s' is deprecated and its use should be reviewed", code);
+				issues.add(createOperationOutcomeIssueComponent(
+						new CodeableConcept(new Coding(TX_ISSUE_TYPE, "code-comment", null)).setText(msg),
+						OperationOutcome.IssueSeverity.WARNING, "code", IssueType.BUSINESSRULE, null, null));
+				response.addParameter("message", msg);
+				response.addParameter("status", new CodeType(conceptStatus));
+			}
+
+			if (!issues.isEmpty()) {
+				response.addParameter(createParameterComponentWithOperationOutcomeWithIssues(issues));
+			}
+
+			return response;
 		} else {
 			return pMapper.resultFalse(code, codeSystemVersion);
 		}
+	}
+
+	private boolean isDesignationWithdrawn(FHIRDesignation designation) {
+		List<FHIRExtension> exts = designation.getExtensions();
+		if (exts == null) return false;
+		return exts.stream().anyMatch(ext ->
+				"http://hl7.org/fhir/StructureDefinition/structuredefinition-standards-status".equals(ext.getUri()) &&
+				("withdrawn".equals(ext.getValue()) || "deprecated".equals(ext.getValue())));
 	}
 
 	private Parameters handleNonSnomedValidationException(SnowstormFHIRServerResponseException e,

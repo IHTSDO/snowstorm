@@ -100,8 +100,11 @@ public class FHIRValueSetCodeValidationService {
 				codingSystemVersionsWithVersion.stream().allMatch(cv -> !codeSystemVersionExistsOnServer(cv));
 		boolean allowCheckSystemVersionAsFallback = codingHasNoExplicitVersion || allCodingVersionsUnknownToServer;
 
+		// Use system-version hints when provided; otherwise use coding versions as hints only if they are
+		// actually known to the server. Unknown/bad versions must not be used as resolution hints because
+		// they would pollute versionless include resolution (e.g. a bad "2.4.0" would shadow the default version).
 		Set<CanonicalUri> systemVersionParamForProvider = (systemVersionHints != null && !systemVersionHints.isEmpty())
-				? systemVersionHints : Collections.emptySet();
+				? systemVersionHints : (allCodingVersionsUnknownToServer ? Collections.emptySet() : codingSystemVersionsWithVersion);
 
 		CodeSystemVersionProvider codeSystemVersionProvider = new CodeSystemVersionProvider(systemVersionParamForProvider, codingSystemVersionsWithVersion, request.getCheckSystemVersion(), request.getForceSystemVersion(), null, allowCheckSystemVersionAsFallback, codeSystemService);
 		// Collate set of inclusion and exclusion constraints for each code system version
@@ -740,6 +743,23 @@ public class FHIRValueSetCodeValidationService {
 						continue;
 					}
 				}
+				// Check if the concept is deprecated in the context of this ValueSet via valueset-deprecated extension
+				final Coding finalCodingA = codingA;
+				boolean deprecatedInValueSet = hapiValueSet.getCompose().getInclude().stream()
+						.filter(include -> finalCodingA.getSystem() != null && finalCodingA.getSystem().equals(include.getSystem()))
+						.flatMap(include -> include.getConcept().stream())
+						.filter(ref -> finalCodingA.getCode().equals(ref.getCode()))
+						.anyMatch(ref -> ref.getExtension().stream()
+								.anyMatch(ext -> HL7_SD_VS_DEPRECATED.equals(ext.getUrl())
+										&& ext.hasValue() && "true".equals(ext.getValue().primitiveValue())));
+				if (deprecatedInValueSet) {
+					String vsCanonical = CanonicalUri.of(hapiValueSet.getUrl(), hapiValueSet.getVersion()).toString();
+					String deprecatedMessage = format("The presence of the concept '%s' in the system '%s' in the value set %s is marked with a status of deprecated and its use should be reviewed",
+							codingA.getCode(), codingA.getSystem(), vsCanonical);
+					issues.add(createOperationOutcomeIssueComponent(
+							new CodeableConcept(new Coding(TX_ISSUE_TYPE, "code-comment", null)).setText(deprecatedMessage),
+							OperationOutcome.IssueSeverity.WARNING, "Coding.code", OperationOutcome.IssueType.BUSINESSRULE, null, null));
+				}
 				if(!concept.getCode().equals(codingA.getCode()) && concept.getCode().equalsIgnoreCase(codingA.getCode())) {
 					response.addParameter("normalized-code", new CodeType(concept.getCode()));
 					FHIRCodeSystemVersion caseInSensitiveCodeSystem = resolvedCodeSystemVersionsMatchingCodings.stream().filter(fhirCodeSystemVersion -> !fhirCodeSystemVersion.isCaseSensitive()).findFirst().orElseThrow();
@@ -1010,7 +1030,7 @@ public class FHIRValueSetCodeValidationService {
 					if (ext.getUrl().equals(HL7_SD_VS_SUPPLEMENT)
 							&& !codeSystemService.supplementExists(ext.getValue().primitiveValue(), false)) {
 						String message = SUPPLEMENT_NOT_EXIST.formatted(ext.getValue().primitiveValue());
-						CodeableConcept cc = new CodeableConcept().setText(message);
+						CodeableConcept cc = new CodeableConcept(new Coding(TX_ISSUE_TYPE, NOT_FOUND, null)).setText(message);
 						throw exception(message,OperationOutcome.IssueType.NOTFOUND, 404, null, cc);
 					}
 				});

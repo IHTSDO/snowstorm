@@ -682,7 +682,16 @@ public class FHIRCodeSystemService {
 				query.filter(new TermQuery.Builder().field("extensions.value").value(value).build()._toQuery());
 			}
 			nested.path("extensions").query(query.build()._toQuery());
-			return find(PageRequest.of(0, 100), nested.build()._toQuery()).toList();
+			List<FHIRCodeSystemVersion> results = find(PageRequest.of(0, 100), nested.build()._toQuery()).toList();
+			// If no exact match and value has no version, fall back to prefix match for versioned supplements
+			if (results.isEmpty() && !containsWildcard && !value.contains("|")) {
+				BoolQuery.Builder prefixQuery = new BoolQuery.Builder();
+				prefixQuery.filter(new WildcardQuery.Builder().field("extensions.value").value(value + "|*").build()._toQuery());
+				NestedQuery.Builder prefixNested = new NestedQuery.Builder();
+				prefixNested.path("extensions").query(prefixQuery.build()._toQuery());
+				results = find(PageRequest.of(0, 100), prefixNested.build()._toQuery()).toList();
+			}
+			return results;
 		} catch (Exception e) {
 			logger.error("Failed to find supplements for value: {}", value, e);
 			return Collections.emptyList();
