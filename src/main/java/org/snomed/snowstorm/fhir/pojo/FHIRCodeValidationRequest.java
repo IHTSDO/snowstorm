@@ -2,6 +2,8 @@ package org.snomed.snowstorm.fhir.pojo;
 
 import org.hl7.fhir.r4.model.*;
 
+import java.util.Set;
+
 public class FHIRCodeValidationRequest {
 
 	private String id;
@@ -12,6 +14,13 @@ public class FHIRCodeValidationRequest {
 	private String code;
 	private UriType system;
 	private String systemVersion;
+	// Canonical system-version hints (system|version) for resolving versionless valueset includes.
+	// Separate from systemVersion which is the coding's bare version.
+	private Set<CanonicalUri> defaultSystemVersions;
+	// force-system-version: override the include version for the specified system (canonical system|version)
+	private CanonicalUri forceSystemVersion;
+	// check-system-version: validate that the resolved version matches the pattern (canonical system|version)
+	private CanonicalUri checkSystemVersion;
 	private String display;
 	private Coding coding;
 	private CodeableConcept codeableConcept;
@@ -78,6 +87,13 @@ public class FHIRCodeValidationRequest {
 	}
 	public FHIRCodeValidationRequest withSystemVersion(String systemVersion) {
 		this.systemVersion = systemVersion;
+		return this;
+	}
+	public Set<CanonicalUri> getDefaultSystemVersions() {
+		return defaultSystemVersions;
+	}
+	public FHIRCodeValidationRequest withDefaultSystemVersions(Set<CanonicalUri> defaultSystemVersions) {
+		this.defaultSystemVersions = defaultSystemVersions;
 		return this;
 	}
 	public String getDisplay() {
@@ -158,6 +174,20 @@ public class FHIRCodeValidationRequest {
 	}
 	public FHIRCodeValidationRequest withValueSetMembershipOnly(BooleanType valueSetMembershipOnly) {
 		this.valueSetMembershipOnly = valueSetMembershipOnly;
+		return this;
+	}
+	public CanonicalUri getForceSystemVersion() {
+		return forceSystemVersion;
+	}
+	public FHIRCodeValidationRequest withForceSystemVersion(CanonicalUri forceSystemVersion) {
+		this.forceSystemVersion = forceSystemVersion;
+		return this;
+	}
+	public CanonicalUri getCheckSystemVersion() {
+		return checkSystemVersion;
+	}
+	public FHIRCodeValidationRequest withCheckSystemVersion(CanonicalUri checkSystemVersion) {
+		this.checkSystemVersion = checkSystemVersion;
 		return this;
 	}
 }

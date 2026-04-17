@@ -398,6 +398,10 @@ public class FHIRCodeSystemService {
 	}
 
 
+	public List<FHIRCodeSystemVersion> findAllVersionsByUrl(String systemUrl) {
+		return codeSystemRepository.findAllByUrl(systemUrl);
+	}
+
 	public FHIRCodeSystemVersion findCodeSystemVersionOrThrow(FHIRCodeSystemVersionParams systemVersionParams) {
 		FHIRCodeSystemVersion codeSystemVersion = findCodeSystemVersion(systemVersionParams);
 		if (codeSystemVersion == null) {
@@ -440,11 +444,18 @@ public class FHIRCodeSystemService {
 			OperationOutcome oo = FHIRHelper.createOperationOutcomeWithIssue(cc, OperationOutcome.IssueSeverity.ERROR, "Coding.system", OperationOutcome.IssueType.INVALID, Collections.singletonList(new Extension("http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id", new StringType("CODESYSTEM_CS_NO_SUPPLEMENT"))), null);
 			throw new SnowstormFHIRServerResponseException(400,message,oo);
 		} else {
-			FHIRCodeSystemVersion other = findCodeSystemVersion(new FHIRCodeSystemVersionParams(systemVersionParams.getCodeSystem()));
-			String message = format("The CodeSystem %s version %s is unknown to this server. Valid versions: [%s]", systemVersionParams.getCodeSystem(), systemVersionParams.getVersion(), other==null?"":other.getVersion());
-			CodeableConcept cc = new CodeableConcept(new Coding("http://hl7.org/fhir/tools/CodeSystem/tx-issue-type", "not-found",null)).setText(message);
-			OperationOutcome oo = FHIRHelper.createOperationOutcomeWithIssue(cc, OperationOutcome.IssueSeverity.ERROR, "Coding.system", OperationOutcome.IssueType.NOTFOUND, Arrays.asList(new Extension("https://github.com/IHTSDO/snowstorm/missing-codesystem-version", new CanonicalType(CanonicalUri.of(systemVersionParams.getCodeSystem(), systemVersionParams.getVersion()).toString())),new Extension("https://github.com/IHTSDO/snowstorm/available-codesystem-version", new CanonicalType(other==null?"":other.getCanonical()))), null);
-			throw new SnowstormFHIRServerResponseException(400,message,oo);
+			List<FHIRCodeSystemVersion> allVersions = codeSystemRepository.findAllByUrl(systemVersionParams.getCodeSystem());
+			allVersions.sort(Comparator.comparing(FHIRCodeSystemVersion::getVersion));
+			String validVersions = allVersions.stream().map(FHIRCodeSystemVersion::getVersion).collect(java.util.stream.Collectors.joining(" or "));
+			String message = format("A definition for CodeSystem '%s' version '%s' could not be found, so the value set cannot be expanded. Valid versions: %s",
+					systemVersionParams.getCodeSystem(), systemVersionParams.getVersion(), validVersions);
+			CodeableConcept cc = new CodeableConcept(new Coding("http://hl7.org/fhir/tools/CodeSystem/tx-issue-type", "not-found", null)).setText(message);
+			List<Extension> extensions = new ArrayList<>();
+			extensions.add(new Extension("http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id", new StringType("UNKNOWN_CODESYSTEM_VERSION_EXP")));
+			extensions.add(new Extension("https://github.com/IHTSDO/snowstorm/missing-codesystem-version", new CanonicalType(CanonicalUri.of(systemVersionParams.getCodeSystem(), systemVersionParams.getVersion()).toString())));
+			allVersions.forEach(v -> extensions.add(new Extension("https://github.com/IHTSDO/snowstorm/available-codesystem-version", new CanonicalType(v.getCanonical()))));
+			OperationOutcome oo = FHIRHelper.createOperationOutcomeWithIssue(cc, OperationOutcome.IssueSeverity.ERROR, null, OperationOutcome.IssueType.NOTFOUND, extensions, null);
+			throw new SnowstormFHIRServerResponseException(400, message, oo);
 		}
 	}
 
@@ -460,7 +471,15 @@ public class FHIRCodeSystemService {
 			if (id != null) { // version not needed if only one codeSystem possesses this id or if only latest version needed
 				version = codeSystemRepository.findFirstByIdOrderByVersionDesc(id).orElse(null);
 			} else if (versionParam != null && urlParam != null) {
-				version = codeSystemRepository.findByUrlAndVersion(urlParam, versionParam);
+				if (isWildcardVersion(versionParam)) {
+					// Wildcard version (e.g. "1.x.x"): scan all versions and return the highest matching one
+					version = codeSystemRepository.findAllByUrl(urlParam).stream()
+							.filter(v -> versionMatchesPattern(v.getVersion(), versionParam))
+							.max(Comparator.comparing(FHIRCodeSystemVersion::getVersion))
+							.orElse(null);
+				} else {
+					version = codeSystemRepository.findByUrlAndVersion(urlParam, versionParam);
+				}
 			} else {
 				version = codeSystemRepository.findFirstByUrlOrderByVersionDesc(urlParam);
 			}
@@ -468,6 +487,33 @@ public class FHIRCodeSystemService {
 
 		unwrap(version);
 		return version;
+	}
+
+	/**
+	 * Returns true if the version string contains a wildcard segment ('x'), e.g. "1.x.x" or "1.0.x".
+	 */
+	public static boolean isWildcardVersion(String version) {
+		if (version == null) return false;
+		for (String part : version.split("\\.")) {
+			if ("x".equals(part)) return true;
+		}
+		return false;
+	}
+
+	/**
+	 * Checks whether an actual version string matches a version pattern that may contain 'x' wildcards.
+	 * E.g. "1.0.5" matches pattern "1.0.x", and "1.2.0" matches "1.x.x".
+	 */
+	public static boolean versionMatchesPattern(String actualVersion, String patternVersion) {
+		if (actualVersion == null || patternVersion == null) return false;
+		if (actualVersion.equals(patternVersion)) return true;
+		String[] actualParts = actualVersion.split("\\.");
+		String[] patternParts = patternVersion.split("\\.");
+		if (actualParts.length != patternParts.length) return false;
+		for (int i = 0; i < patternParts.length; i++) {
+			if (!"x".equals(patternParts[i]) && !patternParts[i].equals(actualParts[i])) return false;
+		}
+		return true;
 	}
 
 	public FHIRCodeSystemVersion getSnomedVersionOrThrow(FHIRCodeSystemVersionParams params) {

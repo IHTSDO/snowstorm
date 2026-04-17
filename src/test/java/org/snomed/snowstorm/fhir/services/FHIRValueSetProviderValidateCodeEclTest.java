@@ -117,13 +117,13 @@ class FHIRValueSetProviderValidateCodeEclTest extends AbstractFHIRTest {
 						"&systemVersion=http://snomed.info/sct/1234000008",
 				false);
 
-		// Using incorrectly named "system-version" param
+		// Using "system-version" param (canonical form, sets the default version for versionless includes)
 		validateCode(baseUrl + "/ValueSet/$validate-code?" +
 						"url=http://snomed.info/sct?fhir_vs" +
 						"&system=" + SNOMED_URI +
 						"&code=138875005" +
 						"&system-version=http://snomed.info/sct/900000000000207008",
-				400, "Parameter name 'system-version' is not applicable to this operation. Please use 'systemVersion' instead.");
+				true, null);
 
 		// Code "systemVersion" version matches the resolved value set version
 		validateCode(baseUrl + "/ValueSet/$validate-code?" +

@@ -107,6 +107,15 @@ class FHIRValueSetProviderExpandEclTest extends AbstractFHIRTest {
 	}
 
 	@Test
+	void testECLWithCheckSystemVersionFail() {
+		// check-system-version requires a version that doesn't match the resolved version -> should return 4xx
+		String url = baseUrl + "/ValueSet/$expand?check-system-version=http://snomed.info/sct|http://snomed.info/sct/900000000000207008/version/20200101&" +
+				"url=http://snomed.info/sct?fhir_vs=ecl/<<" + Concepts.SNOMEDCT_ROOT +
+				"&_format=json";
+		getValueSet(url, 422, "is not allowed for system");
+	}
+
+	@Test
 	void testImplicitValueSets() {
 
 		// ?fhir_vs -> all concepts
