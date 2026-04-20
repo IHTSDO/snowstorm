@@ -9,6 +9,8 @@ import java.util.*;
 
 import static java.lang.String.format;
 import static org.snomed.snowstorm.fhir.services.FHIRHelper.exception;
+import static org.snomed.snowstorm.fhir.services.FHIRValueSetService.TX_ISSUE_TYPE;
+import static org.snomed.snowstorm.fhir.services.FHIRValueSetService.VS_INVALID;
 
 @Service
 public class FHIRValueSetCycleDetectionService {
@@ -20,7 +22,7 @@ public class FHIRValueSetCycleDetectionService {
 		List<ValueSetCycleElement> valueSetCycle = getValueSetIncludeExcludeCycle(hapiValueSet);
 		if(!valueSetCycle.isEmpty()) {
 			String message = getCyclicDiagnosticMessage(valueSetCycle);
-			throw exception(message, OperationOutcome.IssueType.PROCESSING, 400, null, new CodeableConcept(new Coding()).setText(message));
+			throw exception(message, OperationOutcome.IssueType.PROCESSING, 400, null, new CodeableConcept(new Coding(TX_ISSUE_TYPE, VS_INVALID, null)).setText(message));
 		}
 	}
 
