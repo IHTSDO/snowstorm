@@ -511,6 +511,7 @@ public class FHIRValueSetService implements FHIRConstants {
 		List<ValueSet.ValueSetExpansionContainsComponent> expansionContents = createExpansionContents(conceptsPage, hapiValueSet, idAndVersionToLanguage, idAndVersionToUrl, idToVersionStr, multipleIncludes, expansion, params, fhirDisplayLanguage);
 		expansion.setContains(expansionContents);
 		expansion.setTotal((int) conceptsPage.getTotalElements());
+		Optional.ofNullable(params.getOffset()).ifPresent(expansion::setOffset);
 		hapiValueSet.setExpansion(expansion);
 
 		if (hapiValueSet.getId() == null) {
@@ -634,7 +635,11 @@ public class FHIRValueSetService implements FHIRConstants {
 
 	private boolean expansionRequestExceedsLimits(Page<FHIRConcept> conceptsPage, PageRequest pageRequest, ValueSetExpansionParameters params) {
 		int maximumPageSize = params.getAllowMaximumSizeExpansionAsBoolean() ? MAXIMUM_PAGESIZE : DEFAULT_PAGESIZE;
-		return conceptsPage.getTotalElements() > pageRequest.getPageSize() && pageRequest.getPageSize() > maximumPageSize;
+		// If the user explicitly requested a count within the allowed limit, pagination is intentional — not too costly.
+		if (params.getCount() != null && params.getCount() <= maximumPageSize) {
+			return false;
+		}
+		return conceptsPage.getTotalElements() > maximumPageSize;
 	}
 
 	static boolean hasDisplayLanguage(ValueSet hapiValueSet) {

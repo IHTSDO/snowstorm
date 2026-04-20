@@ -1048,7 +1048,7 @@ public class FHIRValueSetCodeValidationService {
 		List<ValueSetCycleElement> valueSetCycle = cycleDetectionService.getValueSetIncludeExcludeCycle(hapiValueSet);
 		if(!valueSetCycle.isEmpty()) {
 			String message = cycleDetectionService.getCyclicDiagnosticMessage(valueSetCycle);
-			throw exception(message, OperationOutcome.IssueType.PROCESSING, 400, null, new CodeableConcept(new Coding()).setText(message));
+			throw exception(message, OperationOutcome.IssueType.PROCESSING, 400, null, new CodeableConcept(new Coding(TX_ISSUE_TYPE, VS_INVALID, null)).setText(message));
 		}
 
 		Optional.ofNullable(request.getVersionValueSet()).ifPresent(v->
