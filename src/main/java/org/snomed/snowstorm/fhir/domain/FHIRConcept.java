@@ -24,11 +24,12 @@ import static org.snomed.snowstorm.fhir.config.FHIRConstants.SNOMED_URI;
 @Document(indexName = "#{@indexNameProvider.indexName('fhir-concept')}", createIndex = false)
 public class FHIRConcept implements FHIRGraphNode {
 
-	private static final String INACTIVE = "inactive";
+    private static final String INACTIVE = "inactive";
 
 	public static final String EXTENSION_MARKER = "://";
+    public static final String FHIR_STRUCTURE_DEFINITION_STRUCTUREDEFINITION_STANDARDS_STATUS = "http://hl7.org/fhir/StructureDefinition/structuredefinition-standards-status";
 
-	public interface Fields {
+    public interface Fields {
 		String CODE_SYSTEM_VERSION = "codeSystemVersion";
 		String CODE = "code";
 		String CODE_LOWER = "codeLower";
@@ -146,7 +147,7 @@ public class FHIRConcept implements FHIRGraphNode {
 				);
 				extensions.computeIfAbsent(url, k -> new ArrayList<>()).add(property);
 				// Promote structuredefinition-standards-status to a formal status property
-				if ("http://hl7.org/fhir/StructureDefinition/structuredefinition-standards-status".equals(url)) {
+				if (FHIR_STRUCTURE_DEFINITION_STRUCTUREDEFINITION_STANDARDS_STATUS.equals(url)) {
 					String statusValue = e.getValue().primitiveValue();
 					if ("deprecated".equals(statusValue) || "retired".equals(statusValue)) {
 						properties.computeIfAbsent("status", k -> new ArrayList<>())
