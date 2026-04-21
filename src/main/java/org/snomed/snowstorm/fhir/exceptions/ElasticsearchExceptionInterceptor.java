@@ -43,7 +43,7 @@ public class ElasticsearchExceptionInterceptor {
 								})) {
 				//expected exception - deliberately broken test case
 			} else {
-				logger.info("Check unexpected exception");
+                logger.error(exception.getMessage(), exception);
 			}
 		}
 		return serverException;
