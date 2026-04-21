@@ -107,6 +107,9 @@ public class FHIRCodeSystemService {
 		wrap(fhirCodeSystemVersion);
 		logger.debug("Updating FHIR code system '{}'.", fhirCodeSystemVersion.getId());
 
+		List<CodeSystem.ConceptDefinitionComponent> concepts = codeSystem.getConcept();
+		boolean hasConcepts = concepts != null && !concepts.isEmpty();
+
 		FHIRCodeSystemVersion existingCodeSystem = codeSystemRepository.findByUrlAndVersion(fhirCodeSystemVersion.getUrl(), fhirCodeSystemVersion.getVersion());
 		if (existingCodeSystem != null) {
 			// Prevent changing the id
@@ -114,9 +117,18 @@ public class FHIRCodeSystemService {
 				throw exception("A CodeSystem with the same URL and version already exists but with a different id. To change the id please delete the existing CodeSystem first.",
 						OperationOutcome.IssueType.INVARIANT, 400);
 			}
+			// Only purge indexed concepts if the incoming resource carries replacement concepts.
+			// When the update has no concepts (e.g. a supplement metadata update) leave existing
+			// concepts in place so they remain queryable.
+			if (hasConcepts) {
+				conceptService.deleteExistingCodes(existingCodeSystem.getId());
+			}
 			codeSystemRepository.delete(existingCodeSystem);
 		}
 		codeSystemRepository.save(fhirCodeSystemVersion);
+		if (hasConcepts) {
+			conceptService.saveAllConceptsOfCodeSystemVersion(concepts, fhirCodeSystemVersion);
+		}
 		return fhirCodeSystemVersion;
 	}
 
