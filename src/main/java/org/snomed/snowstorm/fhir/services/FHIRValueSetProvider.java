@@ -30,6 +30,8 @@ import org.springframework.web.bind.annotation.RequestMethod;
 
 import org.snomed.snowstorm.fhir.pojo.CanonicalUri;
 
+import org.hl7.fhir.instance.model.api.IBase;
+
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -397,6 +399,83 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 			.withValueSetMembershipOnly(valueSetMembershipOnly);
 
 		return valueSetService.validateCode(codeValidationRequest);
+	}
+
+	@Operation(name = "$batch-validate-code", idempotent = false)
+	public Parameters batchValidateCode(
+			HttpServletRequest request,
+			HttpServletResponse response,
+			@ResourceParam String rawBody) {
+
+		Parameters inputParams = fhirContext.newJsonParser().parseResource(Parameters.class, rawBody);
+		List<Parameters.ParametersParameterComponent> allParams = inputParams.getParameter();
+		FHIRHelper.handleTxResources(loadPackageService, allParams);
+
+		UriType globalUrl = getBatchParamOfType(allParams, "url", UriType.class);
+		BooleanType globalLenient = getBatchParamOfType(allParams, "lenient-display-validation", BooleanType.class);
+		String displayLanguage = FHIRHelper.getDisplayLanguage(null, request.getHeader(ACCEPT_LANGUAGE_HEADER));
+
+		Parameters result = new Parameters();
+		for (Parameters.ParametersParameterComponent param : allParams) {
+			if ("validation".equals(param.getName())) {
+				Resource valResult = processOneValidation((Parameters) param.getResource(), globalUrl, globalLenient, displayLanguage);
+				result.addParameter().setName("validation").setResource(valResult);
+			}
+		}
+		return result;
+	}
+
+	private Resource processOneValidation(Parameters valParams, UriType url, BooleanType globalLenient, String displayLanguage) {
+		List<Parameters.ParametersParameterComponent> params = valParams.getParameter();
+
+		Coding coding = getBatchParamOfType(params, "coding", Coding.class);
+		CodeableConcept codeableConcept = getBatchParamOfType(params, "codeableConcept", CodeableConcept.class);
+		String code = getBatchStringParam(params, "code");
+		UriType system = getBatchParamOfType(params, "system", UriType.class);
+		String display = getBatchStringParam(params, "display");
+		BooleanType perLenient = getBatchParamOfType(params, "lenient-display-validation", BooleanType.class);
+		BooleanType inferSystem = getBatchParamOfType(params, "inferSystem", BooleanType.class);
+
+		if (coding == null && codeableConcept == null && code == null) {
+			OperationOutcome oo = new OperationOutcome();
+			oo.addIssue()
+				.setSeverity(OperationOutcome.IssueSeverity.ERROR)
+				.setCode(IssueType.INVALID)
+				.setDetails(new CodeableConcept().setText(
+					"Unable to find code to validate (looked for coding | codeableConcept | code+system | code+inferSystem in parameters"));
+			return oo;
+		}
+
+		try {
+			return (Resource) valueSetService.validateCode(new FHIRCodeValidationRequest()
+				.withUrl(url)
+				.withCoding(coding)
+				.withCodeableConcept(codeableConcept)
+				.withCode(code)
+				.withSystem(system)
+				.withDisplay(display)
+				.withLenientDisplayValidation(perLenient != null ? perLenient : globalLenient)
+				.withInferSystem(inferSystem)
+				.withDisplayLanguage(displayLanguage));
+		} catch (SnowstormFHIRServerResponseException e) {
+			return e.getOperationOutcome();
+		}
+	}
+
+	private <T extends IBase> T getBatchParamOfType(List<Parameters.ParametersParameterComponent> params, String name, Class<T> type) {
+		return params.stream()
+			.filter(p -> name.equals(p.getName()) && type.isInstance(p.getValue()))
+			.map(p -> type.cast(p.getValue()))
+			.findFirst()
+			.orElse(null);
+	}
+
+	private String getBatchStringParam(List<Parameters.ParametersParameterComponent> params, String name) {
+		return params.stream()
+			.filter(p -> name.equals(p.getName()) && p.getValue() instanceof PrimitiveType)
+			.map(p -> ((PrimitiveType<?>) p.getValue()).getValueAsString())
+			.findFirst()
+			.orElse(null);
 	}
 
 	@Override
