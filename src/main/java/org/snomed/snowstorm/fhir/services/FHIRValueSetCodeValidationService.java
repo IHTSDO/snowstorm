@@ -9,6 +9,7 @@ import org.snomed.snowstorm.core.pojo.LanguageDialect;
 import org.snomed.snowstorm.fhir.domain.FHIRCodeSystemVersion;
 import org.snomed.snowstorm.fhir.domain.FHIRConcept;
 import org.snomed.snowstorm.fhir.domain.FHIRDesignation;
+import org.snomed.snowstorm.fhir.domain.FHIRProperty;
 import org.snomed.snowstorm.fhir.domain.ValueSetCycleElement;
 import org.snomed.snowstorm.fhir.pojo.CanonicalUri;
 import org.snomed.snowstorm.fhir.pojo.FHIRCodeSystemVersionParams;
@@ -733,6 +734,26 @@ public class FHIRValueSetCodeValidationService {
 					response.addParameter("inactive", !concept.isActive());
 				} else if (!FHIRHelper.isSnomedUri(codingA.getSystem()) && !concept.isActive()){
 					response.addParameter("inactive", true);
+
+					// Add status property value and inactive/retired warnings
+					List<FHIRProperty> statusPropList = concept.getProperties().get("status");
+					String statusValue = statusPropList != null && !statusPropList.isEmpty() ? statusPropList.get(0).getValue() : null;
+					if (statusValue != null) {
+						response.addParameter("status", new CodeType(statusValue));
+					}
+					List<String> inactiveWarnings = new ArrayList<>();
+					String inactiveMsg = format("The concept '%s' has a status of inactive and its use should be reviewed", codingA.getCode());
+					issues.add(createOperationOutcomeIssueComponent(new CodeableConcept(new Coding(TX_ISSUE_TYPE, "code-comment", null)).setText(inactiveMsg),
+							OperationOutcome.IssueSeverity.WARNING, "Coding", OperationOutcome.IssueType.BUSINESSRULE, null, null));
+					inactiveWarnings.add(inactiveMsg);
+					if ("retired".equals(statusValue)) {
+						String retiredMsg = format("The concept '%s' has a status of retired and its use should be reviewed", codingA.getCode());
+						issues.add(createOperationOutcomeIssueComponent(new CodeableConcept(new Coding(TX_ISSUE_TYPE, "code-comment", null)).setText(retiredMsg),
+								OperationOutcome.IssueSeverity.WARNING, "Coding", OperationOutcome.IssueType.BUSINESSRULE, null, null));
+						inactiveWarnings.add(retiredMsg);
+					}
+					response.addParameter(MESSAGE, String.join("; ", inactiveWarnings));
+
 					if(request.getActiveOnly() != null && request.getActiveOnly().booleanValue() || (hapiValueSet.getCompose().hasInactive() && !hapiValueSet.getCompose().getInactive())) {
 						String locationExpression = "Coding.code";
 						String message = format(CODE_NOT_IN_VS, createFullyQualifiedCodeString(codingA),CanonicalUri.of(hapiValueSet.getUrl(),hapiValueSet.getVersion()));
@@ -867,16 +888,19 @@ public class FHIRValueSetCodeValidationService {
 								response.addParameter(MESSAGE, format(message, codingA.getDisplay(), codingA.getSystem(), codingA.getCode(), selectedDisplay.selectedDisplayValue, request.getDisplayLanguage()==null?"--":request.getDisplayLanguage()));
 								cc = new CodeableConcept(new Coding().setSystem(TX_ISSUE_TYPE).setCode(INVALID_DISPLAY)).setText(format(message, codingA.getDisplay(), codingA.getSystem(), codingA.getCode(), selectedDisplay.selectedDisplayValue, request.getDisplayLanguage()==null?"--":request.getDisplayLanguage()));
 							} else if( selectedDisplay.isLanguageAvailable()) {
-								if (request.getDisplayLanguage() == null && !concept.getDesignations().isEmpty()){
+								List<FHIRDesignation> languageDesignations = concept.getDesignations().stream()
+									.filter(d -> d.getLanguage() != null && !d.getLanguage().isEmpty())
+									.toList();
+								if (request.getDisplayLanguage() == null && !languageDesignations.isEmpty()){
 									String prefix = "Wrong Display Name '%s' for %s#%s. Valid display is one of %d choices: ";
 									String languageFormat = "'%s' (%s)";
 									String interfix = " or ";
 									String suffix = " (for the language(s) '%s')";
 									StringBuilder fullString = new StringBuilder();
-									fullString.append(format(prefix, codingA.getDisplay(), codingA.getSystem(), codingA.getCode(), concept.getDesignations().size()+1));
+									fullString.append(format(prefix, codingA.getDisplay(), codingA.getSystem(), codingA.getCode(), languageDesignations.size()+1));
 									//add language of codesystem
 									fullString.append(format(languageFormat, selectedDisplay.selectedDisplayValue, selectedDisplay.selectedLanguage));
-									for (FHIRDesignation d : concept.getDesignations()){
+									for (FHIRDesignation d : languageDesignations){
 										fullString.append(interfix)
 												.append(format(languageFormat, d.getValue(), d.getLanguage()));
 									}
@@ -935,10 +959,31 @@ public class FHIRValueSetCodeValidationService {
 					message = format("No valid coding was found for the value set '%s'; The provided code '%s#%s' was not found in the value set '%s'",  hapiValueSet.getUrl(), codingA.getSystem(), codingA.getCode(), hapiValueSet.getUrl());
 				} else if (request.getCoding() != null) {
 					locationExpression = "Coding.code";
-					String details = format(SYSTEM_CODE_NOT_IN_VS, codingA.getSystem(), codingA.getCode(), CanonicalUri.of(hapiValueSet.getUrl(), hapiValueSet.getVersion()));
+					String codeWithDisplay = codingA.getDisplay() != null && !codingA.getDisplay().isEmpty()
+							? codingA.getCode() + " ('" + codingA.getDisplay() + "')"
+							: codingA.getCode();
+					String details = "The provided code '" + codingA.getSystem() + "#" + codeWithDisplay + "' was not found in the value set '" + CanonicalUri.of(hapiValueSet.getUrl(), hapiValueSet.getVersion()) + "'";
 					if(resolvedCodeSystemVersionsMatchingCodings.size() == 1 && codeSystemIncludesConcept(resolvedCodeSystemVersionsMatchingCodings.iterator().next(), codingA)) {
 						issues.add(createOperationOutcomeIssueComponent(new CodeableConcept().addCoding(new Coding(TX_ISSUE_TYPE, NOT_IN_VS, null)).setText(details), OperationOutcome.IssueSeverity.ERROR, locationExpression, OperationOutcome.IssueType.CODEINVALID, null /* Collections.singletonList(new Extension(HL7_SD_OUTCOME_MESSAGE_ID,new StringType("None_of_the_provided_codes_are_in_the_value_set_one")))*/, null));
-						message = format(SYSTEM_CODE_NOT_IN_VS,  codingA.getSystem(), codingA.getCode(), CanonicalUri.of(hapiValueSet.getUrl(), hapiValueSet.getVersion()));
+						message = details;
+						// Also check display when code exists in CS but is not in VS
+						String providedDisplay = codingA.getDisplay();
+						if (providedDisplay != null && !providedDisplay.isEmpty()) {
+							FHIRConcept csConcept = conceptService.findConcept(resolvedCodeSystemVersionsMatchingCodings.iterator().next(), codingA.getCode());
+							if (csConcept != null && csConcept.getDisplay() != null && !providedDisplay.equalsIgnoreCase(csConcept.getDisplay())) {
+								SelectedDisplay selectedDisplay = selectDisplay(codingA.getSystem(), request.getDisplayLanguage(), csConcept);
+								OperationOutcome.IssueSeverity displaySeverity = (request.getLenientDisplayValidation() != null && request.getLenientDisplayValidation().booleanValue())
+										? OperationOutcome.IssueSeverity.WARNING : OperationOutcome.IssueSeverity.ERROR;
+								String displayMsg = format("Wrong Display Name '%s' for %s#%s. Valid display is '%s' (%s) (for the language(s) '%s')",
+										providedDisplay, codingA.getSystem(), codingA.getCode(),
+										selectedDisplay.selectedDisplayValue, selectedDisplay.selectedLanguage,
+										request.getDisplayLanguage() != null ? request.getDisplayLanguage() : "--");
+								issues.add(createOperationOutcomeIssueComponent(
+										new CodeableConcept(new Coding(TX_ISSUE_TYPE, INVALID_DISPLAY, null)).setText(displayMsg),
+										displaySeverity, "Coding.display", OperationOutcome.IssueType.INVALID, null, null));
+								message = message + "; " + displayMsg;
+							}
+						}
 					} else {
 						issues.add(createOperationOutcomeIssueComponent(new CodeableConcept().addCoding(new Coding(TX_ISSUE_TYPE, NOT_IN_VS, null)).setText(details), OperationOutcome.IssueSeverity.ERROR, locationExpression, OperationOutcome.IssueType.CODEINVALID, Collections.singletonList(new Extension(HL7_SD_OUTCOME_MESSAGE_ID,new StringType("None_of_the_provided_codes_are_in_the_value_set_one"))), null));
 						String details2 = format("Unknown code '%s' in the CodeSystem '%s' version '%s'", codingA.getCode(), codingA.getSystem(), resolvedCodeSystemVersionsMatchingCodings.isEmpty() ? null : resolvedCodeSystemVersionsMatchingCodings.iterator().next().getVersion());

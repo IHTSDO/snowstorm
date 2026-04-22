@@ -16,6 +16,7 @@ import org.snomed.snowstorm.fhir.pojo.ValueSetExpansionParameters;
 import java.io.*;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.zip.GZIPOutputStream;
 
 import static org.snomed.snowstorm.fhir.services.FHIRHelper.*;
@@ -234,6 +235,10 @@ class FHIRValueSetProviderHelper {
 					FHIRPackageIndexFile temp = new FHIRPackageIndexFile();
 					temp.id = resource.getIdPart();
 					resource.getNamedProperty("url").getValues().stream().findFirst().ifPresent(y ->  temp.url = y.primitiveValue());
+					if (temp.id == null || temp.id.isEmpty()) {
+						String base = temp.url != null ? temp.url : UUID.randomUUID().toString();
+						temp.id = base.replaceAll("^urn:uuid:", "").replaceAll("^https?://", "").replaceAll("[^a-zA-Z0-9.-]", "-");
+					}
 					temp.resourceType = resource.getResourceType().toString();
 					Optional<String> version = resource.getNamedProperty("version").getValues().stream().findFirst().map(Base::primitiveValue);
 					if(version.isPresent()) {
