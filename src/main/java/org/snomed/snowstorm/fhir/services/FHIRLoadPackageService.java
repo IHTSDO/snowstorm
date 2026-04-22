@@ -129,7 +129,13 @@ public class FHIRLoadPackageService {
 				ValueSet valueSet = extractObject(new FileInputStream(packageFile), filename, ValueSet.class, jsonParser);
 				valueSet.setId(id);
 				valueSet.setUrl(url);
-				valueSet.setVersion(indexFileToImport.getVersion());
+				// Only set version if it was explicitly in the resource; DEFAULT_VERSION is a sentinel for "no version"
+				String indexVersion = indexFileToImport.getVersion();
+				if (indexVersion != null && !FHIRHelper.DEFAULT_VERSION.equals(indexVersion)) {
+					valueSet.setVersion(indexVersion);
+				} else if (FHIRHelper.DEFAULT_VERSION.equals(indexVersion)) {
+					valueSet.setVersion(null);
+				}
 				logger.info("Importing ValueSet {} {} from package", valueSet.getUrl(), valueSet.getVersion());
 				valueSetService.createOrUpdateValuesetWithoutExpandValidation(valueSet);
 				if (testValueSets) {
