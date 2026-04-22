@@ -912,7 +912,7 @@ public class DescriptionService extends ComponentService {
 				} else {
 					if (!strippedTerm.equals(term)) {
 						for (String languageFoldingStrategy : languageFoldingStrategies) {
-							foldedTermsQueryBuilder.should(getTermQuery(strippedTerm, searchMode, charactersNotFoldedSets, languageFoldingStrategy).build()._toQuery());
+							foldedTermsQueryBuilder.should(getTermQuery(strippedTerm, SearchMode.WHOLE_WORD, charactersNotFoldedSets, languageFoldingStrategy).build()._toQuery());
 						}
 					}
 					termFilter.must(foldedTermsQueryBuilder.build()._toQuery());

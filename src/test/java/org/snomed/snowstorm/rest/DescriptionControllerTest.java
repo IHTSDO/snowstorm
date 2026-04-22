@@ -297,6 +297,43 @@ class DescriptionControllerTest extends AbstractTest {
         assertEquals(3, extB.size());
     }
 
+    @Test
+    void testApostropheSearchWithPartialPhrasing() throws ServiceException, JSONException {
+        Concept concept;
+        String intMain = "MAIN";
+        Map<String, String> intPreferred = Map.of(US_EN_LANG_REFSET, descriptionAcceptabilityNames.get(PREFERRED), GB_EN_LANG_REFSET, descriptionAcceptabilityNames.get(PREFERRED));
+        CodeSystem codeSystem;
+
+        // Create International
+        CodeSystem rootCS = new CodeSystem(SNOMEDCT, Branch.MAIN);
+        codeSystemService.createCodeSystem(rootCS);
+
+        // Add Concepts
+        concept = new Concept()
+                .addDescription(new Description("Patient's unresponsive (event)").setTypeId(FSN).setAcceptabilityMap(intPreferred))
+                .addDescription(new Description("Patient's unresponsive").setTypeId(SYNONYM).setAcceptabilityMap(intPreferred))
+                .addAxiom(new Relationship(ISA, SNOMEDCT_ROOT))
+                .addRelationship(new Relationship(ISA, SNOMEDCT_ROOT));
+        concept = conceptService.create(concept, intMain);
+        String patientUnresponsiveId = concept.getConceptId();
+
+        concept = new Concept()
+                .addDescription(new Description("D'un patient (event)").setTypeId(FSN).setAcceptabilityMap(intPreferred))
+                .addDescription(new Description("D'un patient").setTypeId(SYNONYM).setAcceptabilityMap(intPreferred))
+                .addAxiom(new Relationship(ISA, SNOMEDCT_ROOT))
+                .addRelationship(new Relationship(ISA, SNOMEDCT_ROOT));
+        concept = conceptService.create(concept, intMain);
+        String dunPatientId = concept.getConceptId();
+
+        // Version International
+        codeSystem = codeSystemService.find("SNOMEDCT");
+        codeSystemService.createVersion(codeSystem, 20260101, "20260101");
+
+        // Assert
+        Set<Description> descriptions = getDescriptionsByText(intMain, "d'un patient");
+        assertEquals(2, descriptions.size());
+    }
+
     private Set<Description> getDescriptionsByText(String branchPath, String text) throws JSONException {
         String url = "http://localhost:" + port + "/browser/" + branchPath + "/descriptions?term=" + text;
         ResponseEntity<String> response = restTemplate.getForEntity(url, String.class);
