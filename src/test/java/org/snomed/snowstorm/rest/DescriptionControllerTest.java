@@ -219,11 +219,13 @@ class DescriptionControllerTest extends AbstractTest {
         // Assert
         Set<Description> extFR = getDescriptionsByText(extMain, "l'intervention");
         Set<Description> extEN = getDescriptionsByText(extMain, "intervention");
-        assertEquals(extFR, extEN);
+        assertEquals(1, extFR.size());
+        assertEquals(9, extEN.size());
 
         Set<Description> intFR = getDescriptionsByText(intMain, "l'intervention");
         Set<Description> intEN = getDescriptionsByText(intMain, "intervention");
-        assertEquals(intFR, intEN);
+        assertEquals(0, intFR.size());
+        assertEquals(8, intEN.size());
 
         assertTrue(extEN.containsAll(intEN));
         assertFalse(intFR.stream().anyMatch(d -> "l'intervention".equals(d.getTerm())), "French translation should not appear on the international branch");
@@ -332,6 +334,51 @@ class DescriptionControllerTest extends AbstractTest {
         // Assert
         Set<Description> descriptions = getDescriptionsByText(intMain, "d'un patient");
         assertEquals(2, descriptions.size());
+    }
+
+    @Test
+    void testApostropheSearchForFROnly() throws ServiceException, JSONException {
+        Concept concept;
+        String intMain = "MAIN";
+        Map<String, String> intPreferred = Map.of(US_EN_LANG_REFSET, descriptionAcceptabilityNames.get(PREFERRED), GB_EN_LANG_REFSET, descriptionAcceptabilityNames.get(PREFERRED));
+        CodeSystem codeSystem;
+
+        // Create International
+        CodeSystem rootCS = new CodeSystem(SNOMEDCT, Branch.MAIN);
+        codeSystemService.createCodeSystem(rootCS);
+
+        // Add Concepts
+        concept = new Concept()
+                .addDescription(new Description("Un patient (event)").setTypeId(FSN).setAcceptabilityMap(intPreferred))
+                .addDescription(new Description("Un patient").setTypeId(SYNONYM).setAcceptabilityMap(intPreferred))
+                .addAxiom(new Relationship(ISA, SNOMEDCT_ROOT))
+                .addRelationship(new Relationship(ISA, SNOMEDCT_ROOT));
+        concept = conceptService.create(concept, intMain);
+
+        concept = new Concept()
+                .addDescription(new Description("Un patient (event)").setTypeId(FSN).setAcceptabilityMap(intPreferred).setLanguageCode("fr"))
+                .addDescription(new Description("Un patient").setTypeId(SYNONYM).setAcceptabilityMap(intPreferred).setLanguageCode("fr"))
+                .addAxiom(new Relationship(ISA, SNOMEDCT_ROOT))
+                .addRelationship(new Relationship(ISA, SNOMEDCT_ROOT));
+        concept = conceptService.create(concept, intMain);
+
+        concept = new Concept()
+                .addDescription(new Description("Un patient (event)").setTypeId(FSN).setAcceptabilityMap(intPreferred).setLanguageCode("nl"))
+                .addDescription(new Description("Un patient").setTypeId(SYNONYM).setAcceptabilityMap(intPreferred).setLanguageCode("nl"))
+                .addAxiom(new Relationship(ISA, SNOMEDCT_ROOT))
+                .addRelationship(new Relationship(ISA, SNOMEDCT_ROOT));
+        concept = conceptService.create(concept, intMain);
+
+        // Version International
+        codeSystem = codeSystemService.find("SNOMEDCT");
+        codeSystemService.createVersion(codeSystem, 20260101, "20260101");
+
+        // Assert
+        Set<Description> query1 = getDescriptionsByText(intMain, "d'un patient");
+        assertEquals(2, query1.size());
+
+        Set<Description> query2 = getDescriptionsByText(intMain, "un patient");
+        assertEquals(6, query2.size());
     }
 
     private Set<Description> getDescriptionsByText(String branchPath, String text) throws JSONException {

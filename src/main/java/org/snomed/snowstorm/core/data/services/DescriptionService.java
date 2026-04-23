@@ -912,7 +912,10 @@ public class DescriptionService extends ComponentService {
 				} else {
 					if (!strippedTerm.equals(term)) {
 						for (String languageFoldingStrategy : languageFoldingStrategies) {
-							foldedTermsQueryBuilder.should(getTermQuery(strippedTerm, SearchMode.WHOLE_WORD, charactersNotFoldedSets, languageFoldingStrategy).build()._toQuery());
+							BoolQuery.Builder elisionFallback = bool();
+							elisionFallback.must(getTermQuery(strippedTerm, SearchMode.WHOLE_WORD, charactersNotFoldedSets, languageFoldingStrategy).build()._toQuery());
+							elisionFallback.must(termsQuery(Description.Fields.LANGUAGE_CODE, elisionLanguages));
+							foldedTermsQueryBuilder.should(elisionFallback.build()._toQuery());
 						}
 					}
 					termFilter.must(foldedTermsQueryBuilder.build()._toQuery());
