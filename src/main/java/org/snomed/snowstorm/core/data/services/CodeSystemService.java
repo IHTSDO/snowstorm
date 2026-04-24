@@ -285,10 +285,7 @@ public class CodeSystemService {
 		}
 
 		if (jmsBranchChangeMessageEnabled)  {
-			Map<String, String> jmsObject = new HashMap<>();
-			jmsObject.put("branch", branchPath);
-			jmsObject.put("sourceBranch", branchPath);
-			jmsTemplate.convertAndSend(jmsQueuePrefix + ".branch.change", jmsObject);
+			fireBranchChanged(branchPath);
 		}
 
 		return version;
@@ -749,8 +746,8 @@ public class CodeSystemService {
 	}
 
     public void notifyCodeSystemNewAuthoringCycle(CodeSystem codeSystem, String newEffectiveTime){
-        if (jmsCodeSystemNewAuthoringCycleMessageEnabled) {
-            String branchPath = codeSystem.getBranchPath();
+		String branchPath = codeSystem.getBranchPath();
+		if (jmsCodeSystemNewAuthoringCycleMessageEnabled) {
             Branch branch = branchService.findBranchOrThrow(branchPath);
             Metadata branchMetadata = branch.getMetadata();
             Map<String, String> payload = new HashMap<>();
@@ -765,7 +762,18 @@ public class CodeSystemService {
             logger.info("Sending JMS Topic - destination {}, payload {}...", topicDestination, payload);
             jmsTemplate.convertAndSend(new ActiveMQTopic(topicDestination), payload);
         }
+
+		if (jmsBranchChangeMessageEnabled)  {
+			fireBranchChanged(branchPath);
+		}
     }
+
+	private void fireBranchChanged(String branchPath) {
+		Map<String, String> jmsObject = new HashMap<>();
+		jmsObject.put("branch", branchPath);
+		jmsObject.put("sourceBranch", branchPath);
+		jmsTemplate.convertAndSend(jmsQueuePrefix + ".branch.change", jmsObject);
+	}
 
 	/**
 	 * Return versioned Branches for the given CodeSystem, where each Branch was versioned within the given time range.
