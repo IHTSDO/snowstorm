@@ -3,6 +3,32 @@ All notable changes to this project will be documented in this file.
 
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 10.12.0 Release (April 2026)
+Maintenance release with new authoring and search improvements, plus bug fixes and dependency updates.
+
+### Features
+
+- MAINT-2634 Add elision support
+- VAL-432 Add Drools Annotation
+- MAINT-2756 Add Query reference set to configuration
+
+### Improvements
+
+- MAINT-3023 Add support for comma inside quoted string value in attrMap
+- PIP-956 Upgrade snomed-parent-bom to 3.14.0-SNAPSHOT
+- PIP-964 Update security config after upgrading spring security version 6.5.9
+- PIP-962 Add caching and option for retrieving lightweight code systems
+- MAINT-3024 Add country name to code system
+- MAINT-2634 Use whole-word search matching
+- MAINT-3034 Change maximum length to 4096
+- MAINT-2634 Limit fallback to configured elision languages
+- MAINT-3059 Send JMS message to clear all branch cache after starting new authoring cycle
+
+### Fixes
+
+- PIP-962 Fix circular dependencies
+- PIP-980 Fix compile error after upgrading snomed-boot version to 5.5.1-SNAPSHOT
+
 ## 10.11.1 Release (February 2026)
 Maintenance release with bug fixes and general improvements.
 
