@@ -499,6 +499,7 @@ public class FHIRValueSetService implements FHIRConstants {
 				}
 			}
 		});
+		hapiValueSet.getExtension().clear();
 
 		Optional.ofNullable(params.getProperty()).ifPresent( x ->{
 					if (!"alternateCode".equals(x)){
@@ -606,6 +607,11 @@ public class FHIRValueSetService implements FHIRConstants {
 										addPropertyToContains(ORDER, component, new DecimalType(y.toHapiValue(null).primitiveValue()));
 										addPropertyToExpansion(ORDER, "http://hl7.org/fhir/concept-properties#order", expansion);
 									});
+						} else if (key.equals("http://hl7.org/fhir/StructureDefinition/rendering-style") ||
+								key.equals("http://hl7.org/fhir/StructureDefinition/rendering-xhtml")) {
+							value.stream()
+									.findFirst()
+									.ifPresent(y -> component.addExtension(key, y.toHapiValue(null)));
 						}
 					});
 
