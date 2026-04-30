@@ -240,12 +240,16 @@ class FHIRValueSetProviderHelper {
 						temp.id = base.replaceAll("^urn:uuid:", "").replaceAll("^https?://", "").replaceAll("[^a-zA-Z0-9.-]", "-");
 					}
 					temp.resourceType = resource.getResourceType().toString();
+					// Use URL for filename to avoid collisions when multiple resources share the same id
+					String fileKey = temp.url != null
+							? temp.url.replaceAll("^urn:uuid:", "").replaceAll("^https?://", "").replaceAll("[^a-zA-Z0-9.-]", "-")
+							: temp.id;
 					Optional<String> version = resource.getNamedProperty("version").getValues().stream().findFirst().map(Base::primitiveValue);
 					if(version.isPresent()) {
 						temp.version = version.get();
-						temp.filename = "%s-%s-%s.json".formatted(temp.resourceType, temp.id, temp.version);
+						temp.filename = "%s-%s-%s.json".formatted(temp.resourceType, fileKey, temp.version);
 					} else {
-						temp.filename = "%s-%s.json".formatted(temp.resourceType, temp.id);
+						temp.filename = "%s-%s.json".formatted(temp.resourceType, fileKey);
 					}
 					fileWithContents.indexFile = temp;
 
