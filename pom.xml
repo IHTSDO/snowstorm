@@ -16,7 +16,11 @@
 	<properties>
 		<packageName>${project.artifactId}</packageName>
 
+		<java.version>25</java.version>
+		<maven.compiler.release>25</maven.compiler.release>
+
 		<commons-io.version>2.21.0</commons-io.version>
+		<mvel2.version>2.5.0.Final</mvel2.version>
 
 		<!--
 		Current Elasticsearch _Server_ version is 8.11.1
@@ -26,7 +30,7 @@
 		<docker.allowInsecureRegistries>false</docker.allowInsecureRegistries>
 		<docker.image.prefix>snomedinternational</docker.image.prefix>
 		<docker.image.tag>latest</docker.image.tag>
-		<docker.base-image>amazoncorretto:17</docker.base-image>
+		<docker.base-image>amazoncorretto:25</docker.base-image>
 	</properties>
 
 	<dependencies>
@@ -337,6 +341,12 @@
 				<version>${spring-cloud.version}</version>
 				<type>pom</type>
 				<scope>import</scope>
+			</dependency>
+			<!-- Override mvel2 to 2.5.x which removes the java.lang.Compiler reference dropped in Java 21 -->
+			<dependency>
+				<groupId>org.mvel</groupId>
+				<artifactId>mvel2</artifactId>
+				<version>${mvel2.version}</version>
 			</dependency>
 		</dependencies>
 	</dependencyManagement>
