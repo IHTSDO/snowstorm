@@ -31,10 +31,16 @@ import static io.kaicode.elasticvc.api.ComponentService.LARGE_PAGE;
 import static java.lang.Long.parseLong;
 import static co.elastic.clients.elasticsearch._types.query_dsl.QueryBuilders.*;
 import static io.kaicode.elasticvc.helper.QueryHelper.*;
+import static org.snomed.snowstorm.core.data.domain.Relationship.Fields.*;
 
 public class ImportComponentFactoryImpl extends ImpotentComponentFactory {
 
 	private static final int FLUSH_INTERVAL = 5000;
+	public static final String CONCEPT_ROW = "Concept row";
+	public static final String RELATIONSHIP_ROW = "Relationship row";
+	public static final String CONCRETE_RELATIONSHIP_ROW = "Concrete relationship row";
+	public static final String DESCRIPTION_ROW = "Description row";
+	public static final String IDENTIFIER_ROW = "Identifier row";
 
 	private final BranchService branchService;
 	private final BranchMetadataHelper branchMetadataHelper;
@@ -228,8 +234,8 @@ public class ImportComponentFactoryImpl extends ImpotentComponentFactory {
 
 	void completeImportCommit() {
 		if (!componentTypeSkippedMap.isEmpty()) {
-			for (String type : componentTypeSkippedMap.keySet()) {
-				logger.info("{} components of type {} were not imported from RF2 because a newer version was found.", componentTypeSkippedMap.get(type).get(), type);
+			for (Map.Entry<String, AtomicLong> entry : componentTypeSkippedMap.entrySet()) {
+				logger.info("{} components of type {} were not imported from RF2 because a newer version was found.", componentTypeSkippedMap.get(entry.getKey()).get(), entry.getKey());
 			}
 		}
 		persistBuffers.forEach(PersistBuffer::flush);
@@ -240,6 +246,8 @@ public class ImportComponentFactoryImpl extends ImpotentComponentFactory {
 
 	@Override
 	public void newConceptState(String conceptId, String effectiveTime, String active, String moduleId, String definitionStatusId) {
+		Rf2ComponentFieldValidator.requireSnomedId(CONCEPT_ROW, "id", conceptId);
+		Rf2ComponentFieldValidator.requireSnomedId(CONCEPT_ROW, "definitionStatusId", definitionStatusId);
 		Integer effectiveTimeI = getEffectiveTimeI(effectiveTime);
 		final Concept concept = new Concept(conceptId, effectiveTimeI, isActive(active), moduleId, definitionStatusId);
 		if (effectiveTimeI != null) {
@@ -251,6 +259,12 @@ public class ImportComponentFactoryImpl extends ImpotentComponentFactory {
 	@Override
 	public void newRelationshipState(String id, String effectiveTime, String active, String moduleId, String sourceId, String destinationId,
 			String relationshipGroup, String typeId, String characteristicTypeId, String modifierId) {
+		Rf2ComponentFieldValidator.requireSnomedId(RELATIONSHIP_ROW, "id", id);
+		Rf2ComponentFieldValidator.requireSnomedId(RELATIONSHIP_ROW, "sourceId", sourceId);
+		Rf2ComponentFieldValidator.requireSnomedId(RELATIONSHIP_ROW, "destinationId", destinationId);
+		Rf2ComponentFieldValidator.requireNonBlankRelationshipGroup(RELATIONSHIP_ROW, relationshipGroup);
+		Rf2ComponentFieldValidator.requireSnomedId(RELATIONSHIP_ROW, TYPE_ID, typeId);
+		Rf2ComponentFieldValidator.requireSnomedId(RELATIONSHIP_ROW, "characteristicTypeId", characteristicTypeId);
 		Integer effectiveTimeI = getEffectiveTimeI(effectiveTime);
 		final Relationship relationship = new Relationship(id, effectiveTimeI, isActive(active), moduleId, sourceId,
 				destinationId, Integer.parseInt(relationshipGroup), typeId, characteristicTypeId, modifierId);
@@ -271,6 +285,12 @@ public class ImportComponentFactoryImpl extends ImpotentComponentFactory {
 	@Override
 	public void newConcreteRelationshipState(String id, String effectiveTime, String active, String moduleId, String sourceId, String value,
 											 String relationshipGroup, String typeId, String characteristicTypeId, String modifierId) {
+		Rf2ComponentFieldValidator.requireSnomedId(CONCRETE_RELATIONSHIP_ROW, "id", id);
+		Rf2ComponentFieldValidator.requireSnomedId(CONCRETE_RELATIONSHIP_ROW, "sourceId", sourceId);
+		Rf2ComponentFieldValidator.requireNonBlank(CONCRETE_RELATIONSHIP_ROW, "value", value);
+		Rf2ComponentFieldValidator.requireNonBlankRelationshipGroup(CONCRETE_RELATIONSHIP_ROW, relationshipGroup);
+		Rf2ComponentFieldValidator.requireSnomedId(CONCRETE_RELATIONSHIP_ROW, TYPE_ID, typeId);
+		Rf2ComponentFieldValidator.requireSnomedId(CONCRETE_RELATIONSHIP_ROW, "characteristicTypeId", characteristicTypeId);
 		Integer effectiveTimeI = getEffectiveTimeI(effectiveTime);
 		final Relationship relationship = new Relationship(id, effectiveTimeI, isActive(active), moduleId, sourceId,
 				value, Integer.parseInt(relationshipGroup), typeId, characteristicTypeId, modifierId);
@@ -284,7 +304,12 @@ public class ImportComponentFactoryImpl extends ImpotentComponentFactory {
 	@Override
 	public void newDescriptionState(String id, String effectiveTime, String active, String moduleId, String conceptId, String languageCode,
 			String typeId, String term, String caseSignificanceId) {
-
+		Rf2ComponentFieldValidator.requireSnomedId(DESCRIPTION_ROW, "id", id);
+		Rf2ComponentFieldValidator.requireSnomedId(DESCRIPTION_ROW, "conceptId", conceptId);
+		Rf2ComponentFieldValidator.requireNonBlank(DESCRIPTION_ROW, "languageCode", languageCode);
+		Rf2ComponentFieldValidator.requireSnomedId(DESCRIPTION_ROW, TYPE_ID, typeId);
+		Rf2ComponentFieldValidator.requireNonBlank(DESCRIPTION_ROW, "term", term);
+		Rf2ComponentFieldValidator.requireSnomedId(DESCRIPTION_ROW, "caseSignificanceId", caseSignificanceId);
 		Integer effectiveTimeI = getEffectiveTimeI(effectiveTime);
 		final Description description = new Description(id, effectiveTimeI, isActive(active), moduleId, conceptId, languageCode, typeId, term, caseSignificanceId);
 		if (effectiveTimeI != null) {
@@ -295,6 +320,9 @@ public class ImportComponentFactoryImpl extends ImpotentComponentFactory {
 
 	@Override
 	public void newIdentifierState(String alternateIdentifier, String effectiveTime, String active, String moduleId, String identifierSchemeId, String referencedComponentId) {
+		Rf2ComponentFieldValidator.requireNonBlank(IDENTIFIER_ROW, "alternateIdentifier", alternateIdentifier);
+		Rf2ComponentFieldValidator.requireSnomedId(IDENTIFIER_ROW, "identifierSchemeId", identifierSchemeId);
+		Rf2ComponentFieldValidator.requireSnomedId(IDENTIFIER_ROW, "referencedComponentId", referencedComponentId);
 		Integer effectiveTimeI = getEffectiveTimeI(effectiveTime);
 		Identifier identifier = new Identifier(alternateIdentifier, effectiveTimeI, isActive(active), moduleId, identifierSchemeId, referencedComponentId);
 		if (effectiveTimeI != null) {
@@ -306,7 +334,10 @@ public class ImportComponentFactoryImpl extends ImpotentComponentFactory {
 	@Override
 	public void newReferenceSetMemberState(String filename, String[] fieldNames, String id, String effectiveTime, String active, String moduleId, String refsetId,
 			String referencedComponentId, String... otherValues) {
-
+		String context = "Reference set member row in " + filename;
+		Rf2ComponentFieldValidator.requireMemberRowId(context, "id", id);
+		Rf2ComponentFieldValidator.requireSnomedId(context, "refsetId", refsetId);
+		Rf2ComponentFieldValidator.requireSnomedId(context, "referencedComponentId", referencedComponentId);
 		Integer effectiveTimeI = getEffectiveTimeI(effectiveTime);
 		ReferenceSetMember member = new ReferenceSetMember(id, effectiveTimeI, isActive(active), moduleId, refsetId, referencedComponentId);
 		for (int i = RF2Constants.MEMBER_ADDITIONAL_FIELD_OFFSET; i < fieldNames.length; i++) {

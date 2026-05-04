@@ -26,6 +26,7 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.file.Files;
 import java.util.*;
 import java.util.concurrent.ExecutorService;
 
@@ -219,7 +220,7 @@ public class ImportService {
 		try {
 			releaseImporter.loadFullReleaseFiles(releaseFileStream, loadingProfile, importComponentFactory, true);
 			return null;
-		} catch (ReleaseImportException e) {
+		} catch (ReleaseImportException | RuntimeException e) {
 			rollbackIncompleteCommit(importComponentFactory);
 			throw e;
 		}
@@ -241,7 +242,7 @@ public class ImportService {
 
 			releaseImporter.loadSnapshotReleaseFiles(releaseFileStream, loadingProfile.withModuleEffectiveTimeFilter(effectiveTimeByModuleId), importComponentFactory, true);
 			return importComponentFactory.getMaxEffectiveTime();
-		} catch (ReleaseImportException e) {
+		} catch (ReleaseImportException | RuntimeException e) {
 			rollbackIncompleteCommit(importComponentFactory);
 			throw e;
 		}
@@ -256,7 +257,7 @@ public class ImportService {
 		try {
 			releaseImporter.loadDeltaReleaseFiles(releaseFileStream, loadingProfile, importComponentFactory, true);
 			return importComponentFactory.getMaxEffectiveTime();
-		} catch (ReleaseImportException e) {
+		} catch (ReleaseImportException | RuntimeException e) {
 			rollbackIncompleteCommit(importComponentFactory);
 			throw e;
 		}
@@ -294,11 +295,13 @@ public class ImportService {
 				logger.error("Import failed. Error reading stream for temp file {}", tempFile.getAbsolutePath(), e);
 				getJob(importId).setStatus(ImportJob.ImportStatus.FAILED);
 			} finally {
-			if (deleteFileAfterImport && tempFile != null) {
-				if (!tempFile.delete()) {
-					logger.warn("Failed to delete temp import file {}", tempFile.getAbsolutePath());
+				if (deleteFileAfterImport && tempFile != null) {
+					try {
+						Files.delete(tempFile.toPath());
+					} catch (IOException deleteException) {
+						logger.warn("Failed to delete temp import file {}", tempFile.getAbsolutePath(), deleteException);
+					}
 				}
-			}
 			}
 		});
 	}
