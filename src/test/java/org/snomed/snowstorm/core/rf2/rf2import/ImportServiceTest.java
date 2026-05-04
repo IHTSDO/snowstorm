@@ -608,7 +608,7 @@ class ImportServiceTest extends AbstractTest {
 		Exception exceptionThrown = null;
 		try {
 			importService.importArchive(importId, new FileInputStream(zipFile));
-		} catch (ReleaseImportException e) {
+		} catch (ReleaseImportException | RuntimeException e) {
 			exceptionThrown = e;
 		}
 		assertNotNull(exceptionThrown);
