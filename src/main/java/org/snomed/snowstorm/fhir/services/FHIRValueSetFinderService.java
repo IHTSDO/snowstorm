@@ -36,7 +36,7 @@ import static org.snomed.snowstorm.fhir.services.FHIRHelper.mutuallyExclusive;
 import static org.snomed.snowstorm.fhir.services.FHIRValueSetService.MISSING_VALUESET;
 
 @Service
-public class FHIRValueSetFinderService implements FHIRConstants {
+public class FHIRValueSetFinderService implements FHIRConstants, TxResourceAware {
 
 	private static final PageRequest PAGE_OF_ONE = PageRequest.of(0, 1);
 
@@ -133,10 +133,14 @@ public class FHIRValueSetFinderService implements FHIRConstants {
 			valueSet.setStatus(Enumerations.PublicationStatus.ACTIVE.toCode());
 			hapiValueSet = valueSet.getHapi();
 		} else if (version != null){
-			hapiValueSet = find(url, version).map(FHIRValueSet::getHapi).orElse(null);
+			Resource overlayResource = TxResourceContext.lookup(url, version);
+			hapiValueSet = (overlayResource instanceof ValueSet vs) ? vs
+					: find(url, version).map(FHIRValueSet::getHapi).orElse(null);
 
 		} else if (hapiValueSet == null) {
-			hapiValueSet = findLatestByUrl(url).map(FHIRValueSet::getHapi).orElse(null);
+			Resource overlayResource = TxResourceContext.lookup(url, null);
+			hapiValueSet = (overlayResource instanceof ValueSet vs) ? vs
+					: findLatestByUrl(url).map(FHIRValueSet::getHapi).orElse(null);
 		}
 		return hapiValueSet;
 	}
@@ -266,7 +270,36 @@ public class FHIRValueSetFinderService implements FHIRConstants {
 		addCodeConstraintToQuery(coding, caseSensitive, query);
 
 		List<FHIRConcept> concepts = conceptService.findConcepts(query, PAGE_OF_ONE).getContent();
-		return concepts.isEmpty() ? null : concepts.get(0);
+		if (!concepts.isEmpty()) return concepts.get(0);
+
+		// Fallback for inline CS versions not stored in Elasticsearch
+		for (FHIRCodeSystemVersion version : genericVersions) {
+			if (version.getInlineCodeSystem() != null && isCodeIncludedInCriteria(coding.getCode(), version, criteria)) {
+				Optional<FHIRConcept> concept = findInlineConcept(version, coding.getCode());
+				if (concept.isPresent()) return concept.get();
+			}
+		}
+		return null;
+	}
+
+	private boolean isCodeIncludedInCriteria(String code, FHIRCodeSystemVersion version, CodeSelectionCriteria criteria) {
+		AndConstraints andConstraints = criteria.getInclusionConstraints().get(version);
+		if (andConstraints == null) return false;
+		if (andConstraints.isEmpty()) return true;
+		for (AndConstraints.OrConstraints orConstraints : andConstraints.getAndConstraints()) {
+			boolean orSatisfied = orConstraints.getOrConstraints().stream().anyMatch(constraint -> {
+				Collection<String> constraintCodes = constraint.getCodes();
+				if (constraintCodes != null && !constraintCodes.isEmpty()) {
+					return constraintCodes.contains(code);
+				}
+				// No explicit codes — accept unless the constraint uses ECL or hierarchy (not evaluable inline)
+				return !constraint.hasEcl()
+						&& orEmpty(constraint.getParent()).isEmpty()
+						&& orEmpty(constraint.getAncestor()).isEmpty();
+			});
+			if (!orSatisfied) return false;
+		}
+		return true;
 	}
 
 	private record VersionPartition(Set<FHIRCodeSystemVersion> snomed,

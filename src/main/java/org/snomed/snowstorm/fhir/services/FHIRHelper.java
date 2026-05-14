@@ -13,7 +13,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.services.DialectConfigurationService;
-import org.snomed.snowstorm.core.data.services.RuntimeServiceException;
 import org.snomed.snowstorm.core.pojo.LanguageDialect;
 import org.snomed.snowstorm.fhir.config.FHIRConstants;
 import org.snomed.snowstorm.fhir.domain.FHIRCodeSystemVersion;
@@ -24,8 +23,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Component;
 
-import java.io.File;
-import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.regex.Matcher;
@@ -219,61 +216,33 @@ public class FHIRHelper implements FHIRConstants {
 		return issue;
 	}
 
-	static void handleTxResources(FHIRLoadPackageService loadPackageService, List<Parameters.ParametersParameterComponent> parsed) {
-		List<Parameters.ParametersParameterComponent> txResources = FHIRValueSetProviderHelper.findParametersByName(parsed, "tx-resource");
-		//The uploadPackageResources call will fail if we're running in read-only mode,
-		//so avoid making this call if there are no tx-resources referenced.
-		if (txResources.isEmpty()) {
-			return;
-		}
-
-		List<Resource> resources = txResources.stream()
-				.map(Parameters.ParametersParameterComponent::getResource)
-				.toList();
-		//If the server is in read-only mode, we will not be able to upload the requested resources.
-		//See if we already have them, or throw an exception.
-		if (loadPackageService.isReadOnlyMode()) {
-			verifyTxResourcesExist(loadPackageService, resources);
-		} else {
-			File npmPackage = FHIRValueSetProviderHelper.createNpmPackageFromResources(resources);
-			try {
-				loadPackageService.uploadPackageResources(npmPackage, Collections.singleton("*"), "tx-resources", false);
-			} catch (IOException e) {
-				throw new RuntimeServiceException(e);
+	/**
+	 * Extracts inline tx-resource parameters into a request-scoped in-memory overlay map keyed by
+	 * canonical URL. In practice tx-resources are always CodeSystem or ValueSet (the two CanonicalResource
+	 * types a terminology server consumes). Resources of other types or without a URL are skipped.
+	 * When the same URL appears more than once the last occurrence wins. The returned map is unmodifiable.
+	 */
+	public static Map<String, Resource> extractTxResources(List<Parameters.ParametersParameterComponent> parsed) {
+		Map<String, Resource> overlay = new LinkedHashMap<>();
+		for (Parameters.ParametersParameterComponent param : FHIRValueSetProviderHelper.findParametersByName(parsed, "tx-resource")) {
+			Resource resource = param.getResource();
+			String url = null;
+			String version = null;
+			if (resource instanceof CodeSystem cs) {
+				url = cs.getUrl();
+				version = cs.hasVersion() ? cs.getVersion() : null;
+			} else if (resource instanceof ValueSet vs) {
+				url = vs.getUrl();
+				version = vs.hasVersion() ? vs.getVersion() : null;
+			}
+			if (url != null && !url.isBlank()) {
+				// Key by url|version so same-URL resources at different versions coexist.
+				// Unversioned resources are stored under the plain URL.
+				String key = version != null ? url + "|" + version : url;
+				overlay.put(key, resource);
 			}
 		}
-	}
-
-	private static void verifyTxResourcesExist(FHIRLoadPackageService loadPackageService, List<Resource> resources) {
-		List<String> missingResources = resources.stream()
-				.map(resource -> validateAndGetUrl(loadPackageService, resource))
-				.filter(Objects::nonNull)
-				.toList();
-
-		if (!missingResources.isEmpty()) {
-			String msg = String.format(
-					"The following resources are not locally available, and cannot be obtained as this server has been configured to read-only mode: %s",
-					String.join(", ", missingResources));
-			throw exception(msg, IssueType.NOTFOUND, 404);
-		}
-	}
-
-	private static String validateAndGetUrl(FHIRLoadPackageService loadPackageService, Resource resource) {
-		if (!(resource instanceof MetadataResource metadataResource)) {
-			throw exception("Resource type '" + resource.fhirType() + "' is not supported for tx-resources in read-only mode.",
-					IssueType.NOTSUPPORTED, 400);
-		}
-
-		String resourceUrl = metadataResource.getUrl();
-		if (resourceUrl == null || resourceUrl.isEmpty()) {
-			throw exception("Resource URL is not defined for " + resource.fhirType() + ".", IssueType.INVARIANT, 400);
-		}
-
-		if (!loadPackageService.verifyResourceExists(resourceUrl)) {
-			return resourceUrl;
-		}
-
-		return null;
+		return Collections.unmodifiableMap(overlay);
 	}
 
 

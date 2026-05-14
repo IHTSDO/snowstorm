@@ -41,8 +41,11 @@ import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.web.bind.annotation.RequestMethod;
 
 import java.util.*;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
+
+import org.snomed.snowstorm.fhir.services.TxResourceAware;
 
 import static io.kaicode.elasticvc.api.ComponentService.LARGE_PAGE;
 import static java.lang.String.format;
@@ -52,16 +55,13 @@ import static org.snomed.snowstorm.fhir.services.FHIRHelper.*;
 import static org.snomed.snowstorm.fhir.services.FHIRValueSetService.TX_ISSUE_TYPE;
 
 @Component
-public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants {
+public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants, TxResourceAware {
 
 	private static final String PARAM_SYSTEM = "system";
 	private static final String PARAM_FILE = "file";
 
 	@Value("${snowstorm.rest-api.readonly}")
 	private boolean readOnlyMode;
-
-	@Autowired
-	private FHIRLoadPackageService loadPackageService;
 
 	@Autowired
 	private FhirContext fhirContext;
@@ -332,10 +332,14 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants 
 		if (request.getMethod().equals(RequestMethod.POST.name())) {
 			// HAPI doesn't populate the OperationParam values for POST, we parse the body instead.
 			List<Parameters.ParametersParameterComponent> parsed = fhirContext.newJsonParser().parseResource(Parameters.class, rawBody).getParameter();
-			FHIRHelper.handleTxResources(loadPackageService,parsed);
+			TxResourceContext.set(FHIRHelper.extractTxResources(parsed));
 		}
 		FHIRCodeSystemVersionParams codeSystemParams = getCodeSystemVersionParams(null, url, version, coding);
-		return validateCode(codeSystemParams, fhirHelper.recoverCode(code, coding), display, request.getHeader(ACCEPT_LANGUAGE_HEADER));
+		try {
+			return validateCode(codeSystemParams, fhirHelper.recoverCode(code, coding), display, request.getHeader(ACCEPT_LANGUAGE_HEADER));
+		} finally {
+			TxResourceContext.clear();
+		}
 	}
 	
 	@Operation(name="$validate-code", idempotent=true)
@@ -434,15 +438,31 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants 
 			return handleNonSnomedValidationException(e, code, codeSystemParams);
 		}
 
-		FHIRConcept concept = fhirConceptService.findConcept(codeSystemVersion, code);
+		// A supplement cannot be used as a system for code validation — even when supplied as a tx-resource
+		if ("supplement".equals(codeSystemVersion.getContent())) {
+			String message = format("CodeSystem %s is a supplement, so can't be used as a value in Coding.system", codeSystemVersion.getCanonical());
+			CodeableConcept cc = new CodeableConcept(new Coding(TX_ISSUE_TYPE, "invalid-data", null)).setText(message);
+			OperationOutcome oo = FHIRHelper.createOperationOutcomeWithIssue(cc, OperationOutcome.IssueSeverity.ERROR,
+					"Coding.system", IssueType.INVALID, null, null);
+			Parameters parameters = new Parameters();
+			parameters.addParameter(CODE, new CodeType(code));
+			parameters.addParameter(new Parameters.ParametersParameterComponent(new StringType("issues")).setResource(oo));
+			parameters.addParameter(MESSAGE, message);
+			parameters.addParameter(RESULT, false);
+			parameters.addParameter(PARAM_SYSTEM, new UriType(codeSystemParams.getCodeSystem()));
+			return parameters;
+		}
+
+		FHIRConcept concept = findInlineConcept(codeSystemVersion, code)
+				.orElseGet(() -> fhirConceptService.findConcept(codeSystemVersion, code));
 		if (concept != null) {
 			boolean displayValidOrNull = display == null ||
 					display.equals(concept.getDisplay()) ||
 					concept.getDesignations().stream().anyMatch(d -> display.equals(d.getValue()));
 
-			Parameters response = pMapper.validateCodeResponse(concept, displayValidOrNull, codeSystemVersion);
-
 			List<OperationOutcome.OperationOutcomeIssueComponent> issues = new ArrayList<>();
+			String extraMessage = null;
+			String conceptStatus = null;
 
 			// Warn if the provided display matches a withdrawn/inactive designation
 			if (display != null && displayValidOrNull && !display.equals(concept.getDisplay())) {
@@ -459,21 +479,37 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants 
 			}
 
 			// Warn if the concept itself is deprecated
-			String conceptStatus = concept.getProperties().getOrDefault("status", Collections.emptyList()).stream()
+			conceptStatus = concept.getProperties().getOrDefault("status", Collections.emptyList()).stream()
 					.filter(p -> "deprecated".equals(p.getValue()) || "retired".equals(p.getValue()))
 					.map(FHIRProperty::getValue)
 					.findFirst().orElse(null);
 			if (conceptStatus != null) {
 				String msg = format("The concept '%s' is deprecated and its use should be reviewed", code);
+				extraMessage = msg;
 				issues.add(createOperationOutcomeIssueComponent(
 						new CodeableConcept(new Coding(TX_ISSUE_TYPE, "code-comment", null)).setText(msg),
 						OperationOutcome.IssueSeverity.WARNING, "code", IssueType.BUSINESSRULE, null, null));
-				response.addParameter("message", msg);
-				response.addParameter("status", new CodeType(conceptStatus));
 			}
 
+			// Build response in expected order: code, display, [issues], [message], result, [status], system
+			Parameters response = new Parameters();
+			response.addParameter(CODE, new CodeType(concept.getCode()));
+			response.addParameter(DISPLAY, concept.getDisplay());
 			if (!issues.isEmpty()) {
 				response.addParameter(createParameterComponentWithOperationOutcomeWithIssues(issues));
+			}
+			if (extraMessage != null) {
+				response.addParameter(MESSAGE, extraMessage);
+			} else if (!displayValidOrNull) {
+				response.addParameter(MESSAGE, "The code exists but the display is not valid.");
+			}
+			response.addParameter(RESULT, displayValidOrNull);
+			if (conceptStatus != null) {
+				response.addParameter("status", new CodeType(conceptStatus));
+			}
+			response.addParameter(SYSTEM, new UriType(codeSystemVersion.getUrl()));
+			if (!"0".equals(codeSystemVersion.getVersion())) {
+				response.addParameter(VERSION, codeSystemVersion.getVersion());
 			}
 
 			return response;
@@ -496,6 +532,11 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants 
 		if (isSupplementAsCodeSystemException(e)) {
 			Parameters parameters = new Parameters();
 			parameters.addParameter(CODE, new CodeType(code));
+			OperationOutcome.OperationOutcomeIssueComponent firstIssue = e.getOperationOutcome().getIssueFirstRep();
+			List<Extension> filteredExts = firstIssue.getExtension().stream()
+					.filter(ext -> !"http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id".equals(ext.getUrl()))
+					.collect(Collectors.toList());
+			firstIssue.setExtension(filteredExts);
 			parameters.addParameter(new Parameters.ParametersParameterComponent(new StringType("issues"))
 					.setResource(e.getOperationOutcome()));
 			parameters.addParameter(MESSAGE, e.getMessage());

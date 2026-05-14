@@ -34,7 +34,7 @@ import static org.snomed.snowstorm.fhir.services.FHIRValueSetFinderService.addCo
 import static org.snomed.snowstorm.fhir.services.FHIRValueSetService.*;
 
 @Service
-public class FHIRValueSetCodeValidationService {
+public class FHIRValueSetCodeValidationService implements TxResourceAware {
 
 	public static final String CODE_NOT_IN_VS = "The provided code '%s' was not found in the value set '%s'";
 	public static final String SYSTEM_CODE_NOT_IN_VS = "The provided code '%s#%s' was not found in the value set '%s'";
@@ -258,7 +258,8 @@ public class FHIRValueSetCodeValidationService {
 
 					// Look up display from fallback version
 					if (fallback != null) {
-						FHIRConcept fallbackConcept = conceptService.findConcept(fallback, theCode);
+						final FHIRCodeSystemVersion fallbackVersion = fallback;
+					FHIRConcept fallbackConcept = findInlineConcept(fallbackVersion, theCode).orElseGet(() -> conceptService.findConcept(fallbackVersion, theCode));
 						if (fallbackConcept != null && fallbackConcept.getDisplay() != null) {
 							response.addParameter(DISPLAY, fallbackConcept.getDisplay());
 						}
@@ -340,6 +341,8 @@ public class FHIRValueSetCodeValidationService {
 						}
 					}
 
+					// Build response in expected order: code, display, issues, message, result, system, version, x-caused-by-unknown-system
+					response.addParameter(createParameterComponentWithOperationOutcomeWithIssues(issueList));
 					response.addParameter(MESSAGE, messageStr);
 					response.addParameter(RESULT, false);
 					if (request.getCodeableConcept() == null) {
@@ -349,7 +352,6 @@ public class FHIRValueSetCodeValidationService {
 						}
 					}
 					response.addParameter("x-caused-by-unknown-system", new CanonicalType(missing.toString()));
-					response.addParameter(createParameterComponentWithOperationOutcomeWithIssues(issueList));
 					return response;
 				} else {
 					CanonicalUri valueSetCanonical = CanonicalUri.of(hapiValueSet.getUrl(), hapiValueSet.getVersion());
@@ -715,6 +717,7 @@ public class FHIRValueSetCodeValidationService {
 			codingA = codings.get(i);
 			FHIRConcept concept = vsFinderService.findInValueSet(codingA, resolvedCodeSystemVersionsMatchingCodings, codeSelectionCriteria, languageDialects);
 			if (concept != null) {
+				enrichWithSupplementDesignations(concept, hapiValueSet, resolvedCodeSystemVersionsMatchingCodings);
 				// Report the version of the CS where the code was actually found.
 				// When resolvedCodeSystemVersionsMatchingCodings has multiple entries (mixed VS with the same system
 				// at different versions), use concept.getCodeSystemVersion() (the ES document ID) to identify the
@@ -969,7 +972,9 @@ public class FHIRValueSetCodeValidationService {
 						// Also check display when code exists in CS but is not in VS
 						String providedDisplay = codingA.getDisplay();
 						if (providedDisplay != null && !providedDisplay.isEmpty()) {
-							FHIRConcept csConcept = conceptService.findConcept(resolvedCodeSystemVersionsMatchingCodings.iterator().next(), codingA.getCode());
+							FHIRCodeSystemVersion csVersion = resolvedCodeSystemVersionsMatchingCodings.iterator().next();
+							String csConceptCode = codingA.getCode();
+							FHIRConcept csConcept = findInlineConcept(csVersion, csConceptCode).orElseGet(() -> conceptService.findConcept(csVersion, csConceptCode));
 							if (csConcept != null && csConcept.getDisplay() != null && !providedDisplay.equalsIgnoreCase(csConcept.getDisplay())) {
 								SelectedDisplay selectedDisplay = selectDisplay(codingA.getSystem(), request.getDisplayLanguage(), csConcept);
 								OperationOutcome.IssueSeverity displaySeverity = (request.getLenientDisplayValidation() != null && request.getLenientDisplayValidation().booleanValue())
@@ -1133,6 +1138,9 @@ public class FHIRValueSetCodeValidationService {
 	}
 
 	private boolean codeSystemIncludesConcept(FHIRCodeSystemVersion codeSystem, Coding coding) {
+		if (codeSystem.getInlineCodeSystem() != null) {
+			return findInlineConcept(codeSystem, coding.getCode()).isPresent();
+		}
 		BoolQuery.Builder query = bool().must(termQuery(FHIRConcept.Fields.CODE_SYSTEM_VERSION, codeSystem.getId()));
 		addCodeConstraintToQuery(coding, codeSystem.isCaseSensitive(), query);
 		List<FHIRConcept> concepts = conceptService.findConcepts(query, PAGE_OF_ONE).getContent();
@@ -1164,6 +1172,29 @@ public class FHIRValueSetCodeValidationService {
 		return selectedDisplay;
 	}
 
+
+	private void enrichWithSupplementDesignations(FHIRConcept concept, ValueSet hapiValueSet, Set<FHIRCodeSystemVersion> versions) {
+		boolean isInlineVersion = versions.stream()
+				.anyMatch(v -> v.getId().equals(concept.getCodeSystemVersion()) && v.getInlineCodeSystem() != null);
+		if (!isInlineVersion) return;
+
+		Extension supplementExt = hapiValueSet.getExtensionByUrl(HL7_SD_VS_SUPPLEMENT);
+		if (supplementExt == null) return;
+		String supplementUrl = supplementExt.getValue().primitiveValue();
+		String urlBase = supplementUrl.contains("|") ? supplementUrl.substring(0, supplementUrl.indexOf("|")) : supplementUrl;
+		String versionPart = supplementUrl.contains("|") ? supplementUrl.substring(supplementUrl.indexOf("|") + 1) : null;
+
+		org.hl7.fhir.r4.model.Resource inlined = TxResourceContext.lookup(urlBase, versionPart);
+		if (!(inlined instanceof CodeSystem supplementCs)) return;
+
+		supplementCs.getConcept().stream()
+				.filter(c -> concept.getCode().equals(c.getCode()))
+				.findFirst()
+				.ifPresent(supplementConcept ->
+						supplementConcept.getDesignation().stream()
+								.map(FHIRDesignation::new)
+								.forEach(concept.getDesignations()::add));
+	}
 
 	private static class SelectedDisplay {
 		Boolean languageAvailable;
