@@ -50,9 +50,6 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 	private boolean readOnlyMode;
 
 	@Autowired
-	private FHIRLoadPackageService loadPackageService;
-
-	@Autowired
 	private FHIRValueSetRepository valuesetRepository;
 
 	@Autowired
@@ -272,15 +269,18 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 		if (request.getMethod().equals(RequestMethod.POST.name())) {
 			// HAPI doesn't populate the OperationParam values for POST, we parse the body instead.
 			List<Parameters.ParametersParameterComponent> parsed = fhirContext.newJsonParser().parseResource(Parameters.class, rawBody).getParameter();
-			FHIRHelper.handleTxResources(loadPackageService,parsed);
-			params = FHIRValueSetProviderHelper.getValueSetExpansionParameters(null, parsed );
+			TxResourceContext.set(FHIRHelper.extractTxResources(parsed));
+			params = FHIRValueSetProviderHelper.getValueSetExpansionParameters(null, parsed);
 		} else {
 			params = FHIRValueSetProviderHelper.getValueSetExpansionParameters(null, url, valueSetVersion, context, contextDirection, filter, date, offset, count,
 					includeDesignationsType, designations, includeDefinition, activeType, excludeNested, excludeNotForUI, excludePostCoordinated, displayLanguage,
 					excludeSystem, systemVersion, checkSystemVersion, forceSystemVersion, version, property, versionValueSet);
 		}
-
-		return valueSetService.expand(params,  request.getHeader(ACCEPT_LANGUAGE_HEADER));
+		try {
+			return valueSetService.expand(params, request.getHeader(ACCEPT_LANGUAGE_HEADER));
+		} finally {
+			TxResourceContext.clear();
+		}
 	}
 
 	@Operation(name="$validate-code", idempotent=true)
@@ -370,7 +370,7 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 		if (request.getMethod().equals(RequestMethod.POST.name())) {
 			// HAPI doesn't populate the OperationParam values for POST, we parse the body instead.
 			List<Parameters.ParametersParameterComponent> parsed = fhirContext.newJsonParser().parseResource(Parameters.class, rawBody).getParameter();
-			FHIRHelper.handleTxResources(loadPackageService, parsed);
+			TxResourceContext.set(FHIRHelper.extractTxResources(parsed));
 		}
 		// system-version canonical hints (system|version) for resolving versionless includes
 		Set<CanonicalUri> defaultSystemVersions = systemVersionDeprecated != null
@@ -397,8 +397,11 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 			.withVersionValueSet(versionValueSet)
 			.withLenientDisplayValidation(lenientDisplayValidation)
 			.withValueSetMembershipOnly(valueSetMembershipOnly);
-
-		return valueSetService.validateCode(codeValidationRequest);
+		try {
+			return valueSetService.validateCode(codeValidationRequest);
+		} finally {
+			TxResourceContext.clear();
+		}
 	}
 
 	@Operation(name = "$batch-validate-code", idempotent = false)
@@ -409,18 +412,22 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 
 		Parameters inputParams = fhirContext.newJsonParser().parseResource(Parameters.class, rawBody);
 		List<Parameters.ParametersParameterComponent> allParams = inputParams.getParameter();
-		FHIRHelper.handleTxResources(loadPackageService, allParams);
+		TxResourceContext.set(FHIRHelper.extractTxResources(allParams));
 
 		UriType globalUrl = getBatchParamOfType(allParams, "url", UriType.class);
 		BooleanType globalLenient = getBatchParamOfType(allParams, "lenient-display-validation", BooleanType.class);
 		String displayLanguage = FHIRHelper.getDisplayLanguage(null, request.getHeader(ACCEPT_LANGUAGE_HEADER));
 
 		Parameters result = new Parameters();
-		for (Parameters.ParametersParameterComponent param : allParams) {
-			if ("validation".equals(param.getName())) {
-				Resource valResult = processOneValidation((Parameters) param.getResource(), globalUrl, globalLenient, displayLanguage);
-				result.addParameter().setName("validation").setResource(valResult);
+		try {
+			for (Parameters.ParametersParameterComponent param : allParams) {
+				if ("validation".equals(param.getName())) {
+					Resource valResult = processOneValidation((Parameters) param.getResource(), globalUrl, globalLenient, displayLanguage);
+					result.addParameter().setName("validation").setResource(valResult);
+				}
 			}
+		} finally {
+			TxResourceContext.clear();
 		}
 		return result;
 	}

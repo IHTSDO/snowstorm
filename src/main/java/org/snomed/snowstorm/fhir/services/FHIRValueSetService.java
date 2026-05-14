@@ -16,6 +16,7 @@ import org.snomed.snowstorm.core.pojo.LanguageDialect;
 import org.snomed.snowstorm.core.util.SearchAfterPage;
 import org.snomed.snowstorm.fhir.config.FHIRConstants;
 import org.snomed.snowstorm.fhir.domain.*;
+import org.snomed.snowstorm.fhir.domain.ConceptConstraint;
 import org.snomed.snowstorm.fhir.pojo.CanonicalUri;
 import org.snomed.snowstorm.fhir.pojo.FHIRCodeValidationRequest;
 import org.snomed.snowstorm.fhir.pojo.ValueSetExpansionParameters;
@@ -352,6 +353,9 @@ public class FHIRValueSetService implements FHIRConstants {
 			}
 
 			conceptsPage = new PageImpl<>(conceptsOnRequestedPage, pageRequest, totalResults);
+		} else if (allInclusionVersions.stream().allMatch(v -> v.getInlineCodeSystem() != null)) {
+			// All inclusion versions carry inline concepts from the tx-resource overlay — expand in-memory.
+			conceptsPage = buildInlineConceptsPage(allInclusionVersions, codeSelectionCriteria, filter, activeOnly, pageRequest);
 		} else {
 			// FHIR Concept Expansion (non-SNOMED)
 			String sortField = filter != null ? "displayLen" : CODE;
@@ -482,16 +486,25 @@ public class FHIRValueSetService implements FHIRConstants {
 			orEmpty(codeSystemVersion.getExtensions()).forEach(fe ->
 				hapiValueSet.addExtension(fe.getHapi())));
 
+		// Collect supplement URLs before clearing extensions, for post-check overlay application
+		List<String> supplementUrls = hapiValueSet.getExtension().stream()
+				.filter(e -> HL7_SD_VS_SUPPLEMENT.equals(e.getUrl()))
+				.map(e -> e.getValue().primitiveValue())
+				.toList();
+
 		hapiValueSet.getExtension().forEach(
 				ext ->{
 			if(ext.getUrl().equals(HL7_SD_VS_SUPPLEMENT)) {
-				if (codeSystemService.supplementExists(ext.getValue().primitiveValue(), false)) {
-					if (expansion.getParameter(USED_SUPPLEMENT).isEmpty()) {
+				String supplementUrl = ext.getValue().primitiveValue();
+				if (codeSystemService.supplementExists(supplementUrl, false)) {
+					boolean alreadyAdded = expansion.getParameter().stream()
+							.anyMatch(p -> USED_SUPPLEMENT.equals(p.getName()));
+					if (!alreadyAdded) {
 						expansion.addParameter(new ValueSet.ValueSetExpansionParameterComponent(new StringType(USED_SUPPLEMENT))
-								.setValue(ext.getValue()));
+								.setValue(new CanonicalType(resolveSupplementCanonical(supplementUrl))));
 					}
 				} else {
-					String message = SUPPLEMENT_NOT_EXIST.formatted(ext.getValue().primitiveValue());
+					String message = SUPPLEMENT_NOT_EXIST.formatted(supplementUrl);
 					CodeableConcept cc = new CodeableConcept(new Coding(TX_ISSUE_TYPE, NOT_FOUND, null)).setText(message);
 					throw exception(message,
 							OperationOutcome.IssueType.NOTFOUND, 404, null, cc);
@@ -500,6 +513,17 @@ public class FHIRValueSetService implements FHIRConstants {
 			}
 		});
 		hapiValueSet.getExtension().clear();
+
+		// Apply concept-level data from any tx-resource supplement that is not persisted in Elasticsearch.
+		// Use TxResourceContext.lookup so versioned resources (stored as url|version) are also found.
+		for (String supplementUrl : supplementUrls) {
+			String urlBase = supplementUrl.contains("|") ? supplementUrl.substring(0, supplementUrl.indexOf("|")) : supplementUrl;
+			String versionPart = supplementUrl.contains("|") ? supplementUrl.substring(supplementUrl.indexOf("|") + 1) : null;
+			Resource inlined = TxResourceContext.lookup(urlBase, versionPart);
+			if (inlined instanceof CodeSystem supplementCs) {
+				applyOverlaySupplementToConcepts(supplementCs, conceptsPage);
+			}
+		}
 
 		Optional.ofNullable(params.getProperty()).ifPresent( x ->{
 					if (!"alternateCode".equals(x)){
@@ -553,6 +577,191 @@ public class FHIRValueSetService implements FHIRConstants {
 			fhirDisplayLanguage = null;
 		}
 		return fhirDisplayLanguage;
+	}
+
+	/**
+	 * Expands concepts in-memory from tx-resource overlay CodeSystems when no Elasticsearch documents exist.
+	 * Mirrors the filter/active logic applied during Elasticsearch-based non-SNOMED expansion.
+	 */
+	private Page<FHIRConcept> buildInlineConceptsPage(Set<FHIRCodeSystemVersion> versions,
+			CodeSelectionCriteria codeSelectionCriteria, String filter, boolean activeOnly, PageRequest pageRequest) {
+
+		List<FHIRConcept> allConcepts = new ArrayList<>();
+
+		for (FHIRCodeSystemVersion version : versions) {
+			CodeSystem inline = version.getInlineCodeSystem();
+			if (inline == null) continue;
+
+			// Collect all concepts including nested children
+			Set<CodeSystem.ConceptDefinitionComponent> allDefs = new LinkedHashSet<>();
+			for (CodeSystem.ConceptDefinitionComponent root : inline.getConcept()) {
+				collectInlineConcepts(root, allDefs);
+			}
+
+			// Build code→ancestor-set map so ancestor constraints can be evaluated inline.
+			Map<String, Set<String>> codeToAncestors = new HashMap<>();
+			for (CodeSystem.ConceptDefinitionComponent root : inline.getConcept()) {
+				collectInlineAncestors(root, Collections.emptySet(), codeToAncestors);
+			}
+			Set<String> allInlineCodes = allDefs.stream().map(CodeSystem.ConceptDefinitionComponent::getCode).collect(Collectors.toSet());
+
+			// Determine included codes using proper AND-of-ORs evaluation.
+			// null means "all" (no constraint narrowed the set).
+			Set<String> includedCodes = null;
+			AndConstraints andConstraints = codeSelectionCriteria.getInclusionConstraints().get(version);
+			if (andConstraints != null) {
+				for (AndConstraints.OrConstraints orGroup : andConstraints.getAndConstraints()) {
+					Set<String> orMatched = resolveInlineOrConstraints(orGroup.getOrConstraints(), allInlineCodes, codeToAncestors);
+					if (orMatched == null) continue; // unevaluable (e.g. ECL) — treat as unconstrained
+					if (includedCodes == null) includedCodes = orMatched;
+					else includedCodes.retainAll(orMatched);
+				}
+			}
+
+			// Determine excluded codes
+			Set<String> excludedCodes = new HashSet<>();
+			AndConstraints exclConstraints = codeSelectionCriteria.getExclusionConstraints().get(version);
+			if (exclConstraints != null) {
+				for (ConceptConstraint constraint : exclConstraints.constraintsFlattened()) {
+					if (constraint.getCodes() != null) excludedCodes.addAll(constraint.getCodes());
+				}
+			}
+
+			final Set<String> finalIncludedCodes = includedCodes;
+			for (CodeSystem.ConceptDefinitionComponent def : allDefs) {
+				String code = def.getCode();
+				if (excludedCodes.contains(code)) continue;
+				if (finalIncludedCodes != null && !finalIncludedCodes.contains(code)) continue;
+
+				FHIRConcept concept = new FHIRConcept(def, version);
+				// Apply extensions-as-properties merge (mirrors FHIRConceptService.saveAllConceptsOfCodeSystemVersion)
+				concept.getExtensions().forEach((key, value) -> concept.getProperties().put(key, value));
+
+				if (activeOnly && !concept.isActive()) continue;
+				if (filter != null && !filter.isBlank()) {
+					String lowerFilter = filter.toLowerCase();
+					String display = concept.getDisplay() != null ? concept.getDisplay() : "";
+					if (!code.toLowerCase().contains(lowerFilter) && !display.toLowerCase().contains(lowerFilter)) continue;
+				}
+				allConcepts.add(concept);
+			}
+		}
+
+		// Sort: by display length when filtering (matches ES behaviour), otherwise by code
+		if (filter != null) {
+			allConcepts.sort(Comparator.comparingInt(c -> (c.getDisplay() != null ? c.getDisplay().length() : 0)));
+		} else {
+			allConcepts.sort(Comparator.comparing(FHIRConcept::getCode));
+		}
+
+		int total = allConcepts.size();
+		int offset = (int) pageRequest.getOffset();
+		int toIndex = Math.min(offset + (int) pageRequest.getPageSize(), total);
+		List<FHIRConcept> page = offset < total ? new ArrayList<>(allConcepts.subList(offset, toIndex)) : new ArrayList<>();
+		return new PageImpl<>(page, pageRequest, total);
+	}
+
+	private void collectInlineConcepts(CodeSystem.ConceptDefinitionComponent parent,
+			Set<CodeSystem.ConceptDefinitionComponent> result) {
+		result.add(parent);
+		for (CodeSystem.ConceptDefinitionComponent child : parent.getConcept()) {
+			collectInlineConcepts(child, result);
+		}
+	}
+
+	/** Recursively populates {@code codeToAncestors} with the full ancestor set for every concept in the subtree. */
+	private void collectInlineAncestors(CodeSystem.ConceptDefinitionComponent node, Set<String> parentAncestors,
+			Map<String, Set<String>> codeToAncestors) {
+		codeToAncestors.put(node.getCode(), parentAncestors);
+		Set<String> childAncestors = new HashSet<>(parentAncestors);
+		childAncestors.add(node.getCode());
+		for (CodeSystem.ConceptDefinitionComponent child : node.getConcept()) {
+			collectInlineAncestors(child, childAncestors, codeToAncestors);
+		}
+	}
+
+	/**
+	 * Resolves an OR group of constraints against the inline CS concept set.
+	 * Returns the union of all codes matching any evaluable constraint, or null if none are evaluable
+	 * (meaning the group imposes no restriction on inline concepts).
+	 */
+	private Set<String> resolveInlineOrConstraints(Set<ConceptConstraint> orGroup, Set<String> allCodes,
+			Map<String, Set<String>> codeToAncestors) {
+		Set<String> matched = new HashSet<>();
+		boolean hasEvaluable = false;
+		for (ConceptConstraint c : orGroup) {
+			if (c.hasEcl()) continue; // ECL requires SNOMED — skip
+			hasEvaluable = true;
+			if (c.getCodes() != null && !c.getCodes().isEmpty()) {
+				matched.addAll(c.getCodes());
+			}
+			if (c.getAncestor() != null && !c.getAncestor().isEmpty()) {
+				for (String code : allCodes) {
+					Set<String> ancestors = codeToAncestors.getOrDefault(code, Collections.emptySet());
+					if (!Collections.disjoint(ancestors, c.getAncestor())) {
+						matched.add(code);
+					}
+				}
+			}
+		}
+		return hasEvaluable ? matched : null;
+	}
+
+	/**
+	 * Returns a versioned canonical for the supplement URL. If the supplement is in the tx-resource overlay
+	 * and carries a version, appends "|version". Otherwise returns the URL as-is.
+	 */
+	private String resolveSupplementCanonical(String supplementUrl) {
+		String urlBase = supplementUrl.contains("|") ? supplementUrl.substring(0, supplementUrl.indexOf("|")) : supplementUrl;
+		String versionPart = supplementUrl.contains("|") ? supplementUrl.substring(supplementUrl.indexOf("|") + 1) : null;
+		Resource inlined = TxResourceContext.lookup(urlBase, versionPart);
+		if (inlined instanceof CodeSystem cs && cs.getVersion() != null && !cs.getVersion().isBlank()) {
+			return urlBase + "|" + cs.getVersion();
+		}
+		return supplementUrl;
+	}
+
+	/**
+	 * Applies concept-level data (designations, extensions-as-properties, formal properties) from a
+	 * tx-resource supplement CodeSystem onto the already-fetched concepts. Mirrors the
+	 * "treat extensions as properties" merge done in FHIRConceptService at save time.
+	 */
+	private void applyOverlaySupplementToConcepts(CodeSystem supplement, Page<FHIRConcept> conceptsPage) {
+		if (supplement.getConcept().isEmpty()) return;
+
+		Map<String, CodeSystem.ConceptDefinitionComponent> supplementByCode = supplement.getConcept().stream()
+				.collect(Collectors.toMap(CodeSystem.ConceptDefinitionComponent::getCode, c -> c, (a, b) -> a));
+
+		for (FHIRConcept concept : conceptsPage) {
+			CodeSystem.ConceptDefinitionComponent supplementConcept = supplementByCode.get(concept.getCode());
+			if (supplementConcept == null) continue;
+
+			// Merge designations
+			List<FHIRDesignation> designations = new ArrayList<>(concept.getDesignations());
+			for (CodeSystem.ConceptDefinitionDesignationComponent d : supplementConcept.getDesignation()) {
+				designations.add(new FHIRDesignation(d));
+			}
+			concept.setDesignations(designations);
+
+			// Merge supplement extensions as properties (mirrors saveAllConceptsOfCodeSystemVersion behaviour)
+			for (Extension ext : supplementConcept.getExtension()) {
+				if (ext.getValue() == null) continue;
+				try {
+					FHIRProperty property = new FHIRProperty(ext.getUrl(), null,
+							ext.getValue().primitiveValue(),
+							FHIRProperty.typeToFHIRPropertyType(ext.getValue()));
+					concept.getProperties().computeIfAbsent(ext.getUrl(), k -> new ArrayList<>()).add(property);
+				} catch (IllegalArgumentException ignored) {
+					// Unknown extension type — skip, same as storage path
+				}
+			}
+
+			// Merge formal properties
+			for (CodeSystem.ConceptPropertyComponent prop : supplementConcept.getProperty()) {
+				concept.getProperties().computeIfAbsent(prop.getCode(), k -> new ArrayList<>())
+						.add(new FHIRProperty(prop));
+			}
+		}
 	}
 
 	private List<ValueSet.ValueSetExpansionContainsComponent> createExpansionContents(Page<FHIRConcept> conceptsPage, ValueSet hapiValueSet, Map<String, String> idAndVersionToLanguage, Map<String, String> idAndVersionToUrl, Map<String, String> idToVersionStr, boolean multipleIncludes, ValueSet.ValueSetExpansionComponent expansion, ValueSetExpansionParameters params, String fhirDisplayLanguage) {

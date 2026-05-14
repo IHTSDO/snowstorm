@@ -41,7 +41,7 @@ import static org.snomed.snowstorm.fhir.services.FHIRHelper.exception;
 import static org.snomed.snowstorm.fhir.utils.FHIRPageHelper.toPage;
 
 @Service
-public class FHIRCodeSystemService {
+public class FHIRCodeSystemService implements TxResourceAware {
 
 	public static final String SCT_ID_PREFIX = "sct_";
 	private static final int PAGESIZE = 1_000;
@@ -411,7 +411,9 @@ public class FHIRCodeSystemService {
 
 
 	public List<FHIRCodeSystemVersion> findAllVersionsByUrl(String systemUrl) {
-		return codeSystemRepository.findAllByUrl(systemUrl);
+		List<FHIRCodeSystemVersion> versions = new ArrayList<>(codeSystemRepository.findAllByUrl(systemUrl));
+		versions.addAll(getInlineVersionsByUrl(systemUrl));
+		return versions;
 	}
 
 	public FHIRCodeSystemVersion findCodeSystemVersionOrThrow(FHIRCodeSystemVersionParams systemVersionParams) {
@@ -456,7 +458,9 @@ public class FHIRCodeSystemService {
 			OperationOutcome oo = FHIRHelper.createOperationOutcomeWithIssue(cc, OperationOutcome.IssueSeverity.ERROR, "Coding.system", OperationOutcome.IssueType.INVALID, Collections.singletonList(new Extension("http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id", new StringType("CODESYSTEM_CS_NO_SUPPLEMENT"))), null);
 			throw new SnowstormFHIRServerResponseException(400,message,oo);
 		} else {
-			List<FHIRCodeSystemVersion> allVersions = codeSystemRepository.findAllByUrl(systemVersionParams.getCodeSystem());
+			// Include inline tx-resource versions so the catch block in the validation service
+			// sees available-codesystem-version extensions even for request-scoped CS definitions.
+			List<FHIRCodeSystemVersion> allVersions = findAllVersionsByUrl(systemVersionParams.getCodeSystem());
 			allVersions.sort(Comparator.comparing(FHIRCodeSystemVersion::getVersion));
 			String validVersions = allVersions.stream().map(FHIRCodeSystemVersion::getVersion).collect(java.util.stream.Collectors.joining(" or "));
 			String message = format("A definition for CodeSystem '%s' version '%s' could not be found, so the value set cannot be expanded. Valid versions: %s",
@@ -480,11 +484,40 @@ public class FHIRCodeSystemService {
 			String id = systemVersionParams.getId();
 			String versionParam = systemVersionParams.getVersion();
 			String urlParam = systemVersionParams.getCodeSystem();
-			if (id != null) { // version not needed if only one codeSystem possesses this id or if only latest version needed
+
+			// Check the request-scoped tx-resource overlay before hitting Elasticsearch.
+			// ID-based lookups bypass the overlay since tx-resources are addressed by canonical URL.
+			if (id == null) {
+				if (isWildcardVersion(versionParam)) {
+					// Wildcard (e.g. "1.x.x"): return the highest inline version matching the pattern.
+					FHIRCodeSystemVersion wildcardMatch = getInlineVersionsByUrl(urlParam).stream()
+							.filter(v -> versionMatchesPattern(v.getVersion(), versionParam))
+							.max(Comparator.comparing(FHIRCodeSystemVersion::getVersion))
+							.orElse(null);
+					if (wildcardMatch != null) {
+						return wildcardMatch;
+					}
+				} else if (versionParam == null) {
+					// Versionless: return the latest inline version, mirroring ES's findFirstByUrlOrderByVersionDesc.
+					FHIRCodeSystemVersion latestInline = getInlineVersionsByUrl(urlParam).stream()
+							.max(Comparator.comparing(FHIRCodeSystemVersion::getVersion))
+							.orElse(null);
+					if (latestInline != null) {
+						return latestInline;
+					}
+				} else {
+					// Exact version: look up directly by URL+version.
+					Resource inlined = TxResourceContext.lookup(urlParam, versionParam);
+					if (inlined instanceof CodeSystem cs) {
+						return TxResourceOverlay.toVersion(cs);
+					}
+				}
+			}
+
+			if (id != null) {
 				version = codeSystemRepository.findFirstByIdOrderByVersionDesc(id).orElse(null);
 			} else if (versionParam != null && urlParam != null) {
 				if (isWildcardVersion(versionParam)) {
-					// Wildcard version (e.g. "1.x.x"): scan all versions and return the highest matching one
 					version = codeSystemRepository.findAllByUrl(urlParam).stream()
 							.filter(v -> versionMatchesPattern(v.getVersion(), versionParam))
 							.max(Comparator.comparing(FHIRCodeSystemVersion::getVersion))
@@ -670,7 +703,7 @@ public class FHIRCodeSystemService {
 			if (!snomedConceptService.exists(code, codeSystemVersion.getSnomedBranch())) {
 				throwCodeNotFound(code, codeSystemVersion);
 			}
-		} else if (conceptService.findConcept(codeSystemVersion, code) == null) {
+		} else if (findInlineConcept(codeSystemVersion, code).or(() -> java.util.Optional.ofNullable(conceptService.findConcept(codeSystemVersion, code))).isEmpty()) {
 			throwCodeNotFound(code, codeSystemVersion);
 		}
 		return true;
@@ -681,6 +714,17 @@ public class FHIRCodeSystemService {
 	}
 
 	public boolean supplementExists(String value, boolean containsWildcard) {
+		// Check request-scoped tx-resource overlay before querying Elasticsearch
+		String urlBase = value.contains("|") ? value.substring(0, value.indexOf("|")) : value;
+		String versionSuffix = value.contains("|") ? value.substring(value.indexOf("|") + 1) : null;
+		// Use TxResourceContext.lookup so that versioned resources (url|version) are found
+		// even when the caller passes only the base URL (no version suffix).
+		org.hl7.fhir.r4.model.Resource inlined = TxResourceContext.lookup(urlBase, versionSuffix);
+		if (inlined instanceof CodeSystem cs
+				&& CodeSystem.CodeSystemContentMode.SUPPLEMENT.equals(cs.getContent())
+				&& (versionSuffix == null || versionSuffix.equals(cs.getVersion()))) {
+			return true;
+		}
 		return !getSupplements(value, containsWildcard).isEmpty();
 	}
 

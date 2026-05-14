@@ -1,8 +1,10 @@
 package org.snomed.snowstorm.fhir.services;
 
+import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.rest.annotation.*;
 import ca.uhn.fhir.rest.api.MethodOutcome;
 import ca.uhn.fhir.rest.server.IResourceProvider;
+import org.springframework.web.bind.annotation.RequestMethod;
 import org.hl7.fhir.instance.model.api.IBaseResource;
 import org.hl7.fhir.r4.model.*;
 import org.hl7.fhir.r4.model.OperationOutcome.IssueType;
@@ -33,6 +35,9 @@ public class FHIRConceptMapProvider implements IResourceProvider, FHIRConstants 
 
 	@Autowired
 	private FHIRConceptMapService service;
+
+	@Autowired
+	private FhirContext fhirContext;
 
 	@Read
 	public ConceptMap getConceptMap(@IdParam IdType id) {
@@ -75,6 +80,7 @@ public class FHIRConceptMapProvider implements IResourceProvider, FHIRConstants 
 	public Parameters translate(
 			HttpServletRequest request,
 			HttpServletResponse response,
+			@ResourceParam String rawBody,
 			@OperationParam(name="url") UriType urlType,
 			@OperationParam(name="conceptMap") ConceptMap conceptMap,
 			@OperationParam(name="conceptMapVersion") String conceptMapVersion,
@@ -88,6 +94,11 @@ public class FHIRConceptMapProvider implements IResourceProvider, FHIRConstants 
 			@OperationParam(name="targetsystem") String targetSystem,
 			@OperationParam(name="reverse") BooleanType reverse) {
 
+		if (request.getMethod().equals(RequestMethod.POST.name()) && rawBody != null) {
+			List<Parameters.ParametersParameterComponent> parsed = fhirContext.newJsonParser().parseResource(Parameters.class, rawBody).getParameter();
+			TxResourceContext.set(FHIRHelper.extractTxResources(parsed));
+		}
+		try {
 		String url = urlType != null ? urlType.getValueAsString() : null;
 		notSupported("conceptMapVersion", conceptMapVersion);
 		notSupported("reverse", reverse);
@@ -120,6 +131,13 @@ public class FHIRConceptMapProvider implements IResourceProvider, FHIRConstants 
 			maps = Collections.singleton(new FHIRConceptMap(conceptMap));
 		} else {
 			maps = service.findMaps(url, coding, targetSystem, sourceValueSet, targetValueSet);
+			// Check tx-resource overlay if Elasticsearch returned no matches
+			if (maps.isEmpty() && url != null) {
+				org.hl7.fhir.r4.model.Resource inlined = TxResourceContext.get().get(url);
+				if (inlined instanceof ConceptMap txConceptMap) {
+					maps = Collections.singleton(new FHIRConceptMap(txConceptMap));
+				}
+			}
 		}
 		if (maps.isEmpty()) {
 			throw exception("No suitable map found.", IssueType.NOTFOUND, 404);
@@ -164,6 +182,9 @@ public class FHIRConceptMapProvider implements IResourceProvider, FHIRConstants 
 		parameters.addParameter("result", false);
 		parameters.addParameter("message", format("No mapping found for code '%s', system '%s'.", coding.getCode(), coding.getSystem()));
 		return parameters;
+		} finally {
+			TxResourceContext.clear();
+		}
 	}
 
 	@Override

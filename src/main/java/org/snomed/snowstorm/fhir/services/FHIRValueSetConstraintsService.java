@@ -93,7 +93,7 @@ public class FHIRValueSetConstraintsService implements FHIRConstants {
 		for (CanonicalType canonicalType : include.getValueSet()) {
 			CanonicalUri uri = CanonicalUri.fromString(canonicalType.getValueAsString());
 			try {
-				ValueSet nestedVs = vsFinderService.findOrThrow(uri.getSystem(), uri.getVersion()).getHapi();
+				ValueSet nestedVs = findNestedValueSet(uri);
 				CodeSelectionCriteria nestedCriteria =
 						generateInclusionExclusionConstraints(nestedVs, codeSystemVersionProvider, activeOnly, isExpandFlow);
 				criteria.addNested(nestedCriteria);
@@ -101,6 +101,16 @@ public class FHIRValueSetConstraintsService implements FHIRConstants {
 				handleNestedValueSetException(uri, e);
 			}
 		}
+	}
+
+	private ValueSet findNestedValueSet(CanonicalUri uri) {
+		Resource inlined = TxResourceContext.lookup(uri.getSystem(), uri.getVersion());
+		if (inlined instanceof ValueSet vs) {
+			if (uri.getVersion() == null || uri.getVersion().equals(vs.getVersion())) {
+				return vs;
+			}
+		}
+		return vsFinderService.findOrThrow(uri.getSystem(), uri.getVersion()).getHapi();
 	}
 
 	private void handleNestedValueSetException(CanonicalUri uri,
