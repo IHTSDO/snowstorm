@@ -78,7 +78,7 @@ public class FHIRProperty {
 		}
 	}
 
-	static String typeToFHIRPropertyType(Type value) {
+	public static String typeToFHIRPropertyType(Type value) {
 		String fhirPropertyType;
 		if (value instanceof CodeType) {
 			fhirPropertyType = CODE_TYPE;

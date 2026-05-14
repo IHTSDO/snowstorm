@@ -77,6 +77,9 @@ public class FHIRCodeSystemVersion {
 	@Transient
 	private org.snomed.snowstorm.core.data.domain.CodeSystem snomedCodeSystem;
 
+	@Transient
+	private org.hl7.fhir.r4.model.CodeSystem inlineCodeSystem;
+
 	private static final DateTimeFormatter dateFormat = DateTimeFormat.forPattern("yyyyMMdd");
 	private static final Logger logger = LoggerFactory.getLogger(FHIRCodeSystemVersion.class);
 
@@ -201,6 +204,14 @@ public class FHIRCodeSystemVersion {
 
 	public boolean isOnSnomedBranch() {
 		return snomedBranch != null;
+	}
+
+	public org.hl7.fhir.r4.model.CodeSystem getInlineCodeSystem() {
+		return inlineCodeSystem;
+	}
+
+	public void setInlineCodeSystem(org.hl7.fhir.r4.model.CodeSystem inlineCodeSystem) {
+		this.inlineCodeSystem = inlineCodeSystem;
 	}
 
 	public boolean isSnomedUnversioned() {
