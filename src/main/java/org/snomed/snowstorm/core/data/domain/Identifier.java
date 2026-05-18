@@ -143,6 +143,18 @@ public class Identifier extends SnomedComponent<Identifier> implements Identifie
 	}
 
 	@Override
+	protected void restoreFromReleaseHash(String[] releaseHashParts) {
+		if (releaseHashParts.length < 5) {
+			return;
+		}
+		this.alternateIdentifier = releaseHashParts[0];
+		setActive(Boolean.parseBoolean(releaseHashParts[1]));
+		setModuleId(releaseHashParts[2]);
+		this.identifierSchemeId = releaseHashParts[3];
+		this.referencedComponentId = releaseHashParts[4];
+	}
+
+	@Override
 	public boolean equals(Object o) {
 		if (this == o) return true;
 		if (o == null || getClass() != o.getClass()) return false;

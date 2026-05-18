@@ -76,6 +76,30 @@ public abstract class SnomedComponent<C> extends DomainEntity<C> implements IdAn
 		}
 	}
 
+	/**
+	 * Restore mutable fields from the release hash if the component has been released.
+	 * Used before inactivating components so unpublished changes to mutable fields are not persisted.
+	 */
+	public void revertToReleaseState() {
+		if (!StringUtils.hasText(getReleaseHash())) {
+			return;
+		}
+		restoreFromReleaseHash(getReleaseHash().split("\\|", -1));
+		updateEffectiveTime();
+	}
+
+	/**
+	 * Restore component state from the pipe delimited release hash.
+	 * The default implementation restores the active flag and module id from the first two fields.
+	 */
+	protected void restoreFromReleaseHash(String[] releaseHashParts) {
+		if (releaseHashParts.length < 2) {
+			return;
+		}
+		setActive(Boolean.parseBoolean(releaseHashParts[0]));
+		setModuleId(releaseHashParts[1]);
+	}
+
 	public void copyReleaseDetails(SnomedComponent<C> component) {
 		setEffectiveTimeI(component.getEffectiveTimeI());
 		setReleased(component.isReleased());

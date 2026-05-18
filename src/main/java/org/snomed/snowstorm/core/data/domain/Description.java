@@ -162,6 +162,19 @@ public class Description extends SnomedComponent<Description> implements SnomedC
 	}
 
 	@Override
+	protected void restoreFromReleaseHash(String[] releaseHashParts) {
+		if (releaseHashParts.length < 6) {
+			return;
+		}
+		setActive(Boolean.parseBoolean(releaseHashParts[0]));
+		setTerm(releaseHashParts[1]);
+		setModuleId(releaseHashParts[2]);
+		setLanguageCode(releaseHashParts[3]);
+		setTypeId(releaseHashParts[4]);
+		setCaseSignificanceId(releaseHashParts[5]);
+	}
+
+	@Override
 	public Description setActive(boolean active) {
 		super.setActive(active);
 		return this;

@@ -5,6 +5,7 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonView;
 import com.google.common.base.Strings;
+import org.snomed.snowstorm.core.data.services.identifier.IdentifierService;
 import org.snomed.snowstorm.rest.View;
 import org.springframework.data.annotation.Transient;
 import org.springframework.data.elasticsearch.annotations.Document;
@@ -233,6 +234,25 @@ public class Relationship extends SnomedComponent<Relationship> {
 	@Override
 	protected Object[] getReleaseHashObjects() {
 		return new Object[] {active, getModuleId(), destinationId != null ? destinationId : value, relationshipGroup, typeId, characteristicTypeId, modifierId};
+	}
+
+	@Override
+	protected void restoreFromReleaseHash(String[] releaseHashParts) {
+		if (releaseHashParts.length < 7) {
+			return;
+		}
+		setActive(Boolean.parseBoolean(releaseHashParts[0]));
+		setModuleId(releaseHashParts[1]);
+		String destinationIdOrValue = releaseHashParts[2];
+		if (IdentifierService.isConceptId(destinationIdOrValue)) {
+			setDestinationId(destinationIdOrValue);
+		} else {
+			setValue(destinationIdOrValue);
+		}
+		setRelationshipGroup(Integer.parseInt(releaseHashParts[3]));
+		setTypeId(releaseHashParts[4]);
+		setCharacteristicTypeId(releaseHashParts[5]);
+		this.modifierId = releaseHashParts[6];
 	}
 
 	public ConceptMini getSource() {
