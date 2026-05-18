@@ -163,24 +163,16 @@ public class ReferenceSetMember extends SnomedComponent<ReferenceSetMember> impl
 		return hashObjects;
 	}
 
-	public void revertToReleaseState() {
-		if (getReleaseHash() == null || getReleaseHash().isEmpty()) {
+	@Override
+	protected void restoreFromReleaseHash(String[] releaseHashParts) {
+		if (releaseHashParts.length < 2) {
 			return;
 		}
-
-		String[] releaseHash = getReleaseHash().split("\\|");
-		boolean active = Boolean.parseBoolean(releaseHash[0]);
-		this.setActive(active);
-		this.setModuleId(releaseHash[1]);
-
-		for (int x = 2; x < releaseHash.length; x = x + 2) {
-			String key = releaseHash[x];
-			String value = releaseHash[x + 1];
-			setAdditionalField(key, value);
-			x = x + 1;
+		setActive(Boolean.parseBoolean(releaseHashParts[0]));
+		setModuleId(releaseHashParts[1]);
+		for (int x = 2; x + 1 < releaseHashParts.length; x += 2) {
+			setAdditionalField(releaseHashParts[x], releaseHashParts[x + 1]);
 		}
-
-		this.updateEffectiveTime();
 	}
 
 	public String getAdditionalField(String fieldName) {

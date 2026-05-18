@@ -148,6 +148,14 @@ public class Concept extends SnomedComponent<Concept> implements ConceptView, Sn
 		return new Object[]{active, getModuleId(), definitionStatusId};
 	}
 
+	@Override
+	protected void restoreFromReleaseHash(String[] releaseHashParts) {
+		super.restoreFromReleaseHash(releaseHashParts);
+		if (releaseHashParts.length > 2) {
+			setDefinitionStatusId(releaseHashParts[2]);
+		}
+	}
+
 	@JsonView(value = View.Component.class)
 	@Override
 	public TermLangPojo getFsn() {
