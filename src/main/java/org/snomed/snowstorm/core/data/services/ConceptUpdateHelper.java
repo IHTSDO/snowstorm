@@ -762,6 +762,7 @@ public class ConceptUpdateHelper extends ComponentService {
 					C existingParentComponent = rebaseParentExistingComponentMap.get(existingComponent.getId());
 					if (existingComponent.isActive() ||
 							(existingParentComponent != null && !Objects.equals(existingComponent.getReleasedEffectiveTime(), existingParentComponent.getReleasedEffectiveTime()))) {
+						existingComponent.revertToReleaseState();
 						existingComponent.setActive(false);
 						existingComponent.setChanged(true);
 						
