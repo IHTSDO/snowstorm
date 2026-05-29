@@ -18,30 +18,34 @@ import org.snomed.snowstorm.core.data.domain.Relationship;
 import org.snomed.snowstorm.core.data.domain.classification.ClassificationStatus;
 import org.snomed.snowstorm.core.data.repositories.ClassificationRepository;
 import org.snomed.snowstorm.core.data.services.BranchMetadataHelper;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.data.elasticsearch.client.elc.NativeQueryBuilder;
 import org.springframework.stereotype.Service;
 
+import java.util.Set;
+
 import static co.elastic.clients.elasticsearch._types.query_dsl.QueryBuilders.bool;
-import static io.kaicode.elasticvc.helper.QueryHelper.termQuery;
+import static io.kaicode.elasticvc.helper.QueryHelper.termsQuery;
 
 @Service
 public class BranchClassificationStatusService implements CommitListener {
 
 	public static final String CLASSIFIED_METADATA_KEY = "classified";
+	public static final Set<String> CLASSIFIABLE_REFSETS = Set.of(Concepts.OWL_AXIOM_REFERENCE_SET, Concepts.MODULE_DEPENDENCY_REFERENCE_SET);
 
-	@Autowired
-	private VersionControlHelper versionControlHelper;
+	private final VersionControlHelper versionControlHelper;
+	private final ElasticsearchOperations elasticsearchRestTemplate;
+	private final ClassificationRepository classificationRepository;
+	private final BranchService branchService;
 
-	@Autowired
-	private ElasticsearchOperations elasticsearchRestTemplate;
+	public BranchClassificationStatusService(VersionControlHelper versionControlHelper, ElasticsearchOperations elasticsearchRestTemplate,
+			ClassificationRepository classificationRepository, BranchService branchService) {
 
-	@Autowired
-	private ClassificationRepository classificationRepository;
-
-	@Autowired
-	private BranchService branchService;
+		this.versionControlHelper = versionControlHelper;
+		this.elasticsearchRestTemplate = elasticsearchRestTemplate;
+		this.classificationRepository = classificationRepository;
+		this.branchService = branchService;
+	}
 
 	public static Boolean getClassificationStatus(Branch branch) {
 		final String classificationStatus = branch.getMetadata().getMapOrCreate(BranchMetadataHelper.INTERNAL_METADATA_KEY).get(CLASSIFIED_METADATA_KEY);
@@ -102,14 +106,14 @@ public class BranchClassificationStatusService implements CommitListener {
 		final BranchCriteria branchCriteria = versionControlHelper.getBranchCriteriaUnpromotedChangesAndDeletions(branch);
 		return anyChangeOfType(branchCriteria, Concept.class, null) ||
 				anyChangeOfType(branchCriteria, Relationship.class, null) ||
-				anyChangeOfType(branchCriteria, ReferenceSetMember.class, bool(b -> b.must(termQuery(ReferenceSetMember.Fields.REFSET_ID, Concepts.OWL_AXIOM_REFERENCE_SET))));
+				anyChangeOfType(branchCriteria, ReferenceSetMember.class, bool(b -> b.must(termsQuery(ReferenceSetMember.Fields.REFSET_ID, CLASSIFIABLE_REFSETS))));
 	}
 
 	private boolean anyClassifiableChange(Commit commit) {
 		final BranchCriteria branchCriteria = versionControlHelper.getBranchCriteriaChangesAndDeletionsWithinOpenCommitOnly(commit);
 		return anyChangeOfType(branchCriteria, Concept.class, null) ||
 				anyChangeOfType(branchCriteria, Relationship.class, null) ||
-				anyChangeOfType(branchCriteria, ReferenceSetMember.class, termQuery(ReferenceSetMember.Fields.REFSET_ID, Concepts.OWL_AXIOM_REFERENCE_SET));
+				anyChangeOfType(branchCriteria, ReferenceSetMember.class, termsQuery(ReferenceSetMember.Fields.REFSET_ID, CLASSIFIABLE_REFSETS));
 	}
 
 	private boolean anyChangeOfType(BranchCriteria branchCriteria, Class<? extends DomainEntity<?>> entityClass, Query additionalCriteria) {
