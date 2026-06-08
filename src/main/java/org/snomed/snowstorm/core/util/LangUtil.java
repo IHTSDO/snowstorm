@@ -4,7 +4,13 @@ import java.util.Locale;
 
 public class LangUtil {
 
-	public static String convertLanguageCodeToName(String languageCode) {
-		return new Locale(languageCode).getDisplayLanguage();
-	}
+    private LangUtil() {
+    }
+
+    public static String convertLanguageCodeToName(String languageCode) {
+        if (languageCode == null || languageCode.isBlank()) {
+            return "";
+        }
+        return Locale.of(languageCode).getDisplayLanguage();
+    }
 }
