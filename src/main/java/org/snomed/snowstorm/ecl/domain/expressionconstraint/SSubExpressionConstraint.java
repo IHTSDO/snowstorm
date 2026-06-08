@@ -366,6 +366,7 @@ public class SSubExpressionConstraint extends SubExpressionConstraint implements
                 // ^
 				return handleMemberOf(conceptIds, refinementBuilder, queryBuilder, conceptSelector, branchCriteria);
             }
+			default ->  logger.warn("Unsupported operator: {}", operator);
         }
 		return null;
 	}

@@ -820,18 +820,18 @@ public class ConceptService extends ComponentService {
 	}
 
 	public void deleteAll() throws InterruptedException {
-		ExecutorService executorService = Executors.newCachedThreadPool();
-		List<Future<?>> futures = Lists.newArrayList(
-				executorService.submit(() -> conceptRepository.deleteAll()),
-				executorService.submit(() -> descriptionRepository.deleteAll()),
-				executorService.submit(() -> relationshipRepository.deleteAll()),
-				executorService.submit(() -> referenceSetMemberRepository.deleteAll()),
-				executorService.submit(() -> queryConceptRepository.deleteAll())
-		);
-		for (int i = 0; i < futures.size(); i++) {
-			getFutureWithTimeoutOrCancel(futures.get(i), i);
+		try (ExecutorService executorService = Executors.newCachedThreadPool()) {
+			List<Future<?>> futures = Lists.newArrayList(
+					executorService.submit(() -> conceptRepository.deleteAll()),
+					executorService.submit(() -> descriptionRepository.deleteAll()),
+					executorService.submit(() -> relationshipRepository.deleteAll()),
+					executorService.submit(() -> referenceSetMemberRepository.deleteAll()),
+					executorService.submit(() -> queryConceptRepository.deleteAll())
+			);
+			for (int i = 0; i < futures.size(); i++) {
+				getFutureWithTimeoutOrCancel(futures.get(i), i);
+			}
 		}
-		executorService.shutdown();
 	}
 
 	private void getFutureWithTimeoutOrCancel(Future<?> future, int index) throws InterruptedException {
