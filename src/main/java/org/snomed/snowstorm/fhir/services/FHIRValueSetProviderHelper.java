@@ -61,7 +61,7 @@ class FHIRValueSetProviderHelper {
 			findParameterStringOrNull(parametersParameterComponents, "version"),
 			findParameterStringOrNull(parametersParameterComponents, "property"),
 			findParameterCanonicalOrNull(parametersParameterComponents, "default-valueset-version"),
-			false
+			findParameterBooleanOrNull(parametersParameterComponents, "allowMaximumSizeExpansion")
 		);
 	}
 
