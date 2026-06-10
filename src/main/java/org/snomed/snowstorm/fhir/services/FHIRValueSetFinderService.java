@@ -7,11 +7,14 @@ import org.hl7.fhir.r4.model.*;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.snomed.langauges.ecl.ECLException;
+import org.snomed.langauges.ecl.ECLQueryBuilder;
 import org.snomed.snowstorm.core.data.domain.ConceptMini;
 import org.snomed.snowstorm.core.data.domain.Concepts;
 import org.snomed.snowstorm.core.data.services.DescriptionService;
 import org.snomed.snowstorm.core.data.services.QueryService;
 import org.snomed.snowstorm.core.pojo.LanguageDialect;
+import org.snomed.snowstorm.ecl.domain.expressionconstraint.SExpressionConstraint;
 import org.snomed.snowstorm.fhir.config.FHIRConstants;
 import org.snomed.snowstorm.fhir.domain.*;
 import org.snomed.snowstorm.fhir.pojo.CanonicalUri;
@@ -25,6 +28,7 @@ import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static co.elastic.clients.elasticsearch._types.query_dsl.QueryBuilders.bool;
 import static io.kaicode.elasticvc.helper.QueryHelper.*;
@@ -34,6 +38,10 @@ import static org.snomed.snowstorm.core.util.CollectionUtils.orEmpty;
 import static org.snomed.snowstorm.fhir.services.FHIRHelper.exception;
 import static org.snomed.snowstorm.fhir.services.FHIRHelper.mutuallyExclusive;
 import static org.snomed.snowstorm.fhir.services.FHIRValueSetService.MISSING_VALUESET;
+import static org.snomed.snowstorm.fhir.services.FHIRValueSetService.TX_ISSUE_TYPE;
+import static org.snomed.snowstorm.fhir.services.FHIRValueSetService.NOT_FOUND;
+import static org.snomed.snowstorm.fhir.services.FHIRValueSetService.VS_INVALID;
+import static org.snomed.snowstorm.fhir.services.FHIRValueSetService.HL7_SD_OUTCOME_MESSAGE_ID;
 
 @Service
 public class FHIRValueSetFinderService implements FHIRConstants, TxResourceAware {
@@ -55,6 +63,9 @@ public class FHIRValueSetFinderService implements FHIRConstants, TxResourceAware
 
 	@Autowired
 	private FHIRValueSetConstraintsService constraintsService;
+
+	@Autowired
+	private ECLQueryBuilder eclQueryBuilder;
 
 	public static final String REFSETS_WITH_MEMBERS = "Refsets";
 
@@ -220,7 +231,7 @@ public class FHIRValueSetFinderService implements FHIRConstants, TxResourceAware
 		Set<FHIRCodeSystemVersion> generic = new HashSet<>();
 
 		for (FHIRCodeSystemVersion version : expansionVersions) {
-			if (coding.getSystem().equals(version.getUrl()) &&
+			if (coding.getSystem().equals(version.getUrl().replace("xsct", "sct")) &&
 					(coding.getVersion() == null || version.isVersionMatch(coding.getVersion()))) {
 				if (version.isOnSnomedBranch()) {
 					snomed.add(version);
@@ -239,11 +250,16 @@ public class FHIRValueSetFinderService implements FHIRConstants, TxResourceAware
 
 		if (snomedVersions.isEmpty()) return null;
 
+		// Post-coordinated expressions cannot be looked up as concept IDs; treat as not found
+		if (coding.getCode() != null && coding.getCode().contains(":")) {
+			return null;
+		}
+
 		QueryService.ConceptQueryBuilder query = null;
 
 		for (FHIRCodeSystemVersion snomedVersion : snomedVersions) {
 			if (query == null) {
-				query = getSnomedConceptQuery(null, false, criteria, dialects);
+				query = getSnomedConceptQuery(null, false, criteria, dialects, null);
 			}
 			query.conceptIds(Collections.singleton(coding.getCode()));
 
@@ -256,6 +272,18 @@ public class FHIRValueSetFinderService implements FHIRConstants, TxResourceAware
 			}
 		}
 		return null;
+	}
+
+	public Map<String, String> findSnomedPreferredTerms(Set<String> conceptIds, FHIRCodeSystemVersion snomedVersion, List<LanguageDialect> languageDialects) {
+		if (conceptIds.isEmpty() || !snomedVersion.isOnSnomedBranch()) return Collections.emptyMap();
+		QueryService.ConceptQueryBuilder query = snomedQueryService.createQueryBuilder(false).conceptIds(conceptIds);
+		if (!languageDialects.isEmpty()) {
+			query.resultLanguageDialects(languageDialects);
+		}
+		return snomedQueryService.search(query, snomedVersion.getSnomedBranch(), PageRequest.of(0, conceptIds.size()))
+				.getContent().stream()
+				.filter(m -> m.getPt() != null && m.getPt().getTerm() != null)
+				.collect(Collectors.toMap(ConceptMini::getConceptId, m -> m.getPt().getTerm()));
 	}
 
 	private FHIRConcept findInGeneric(Coding coding,
@@ -307,11 +335,12 @@ public class FHIRValueSetFinderService implements FHIRConstants, TxResourceAware
 
 
 	public QueryService.ConceptQueryBuilder getSnomedConceptQuery(String filter, boolean activeOnly, CodeSelectionCriteria codeSelectionCriteria,
-	                                                               List<LanguageDialect> languageDialects) {
+	                                                               List<LanguageDialect> languageDialects, String branchPath) {
 
 		QueryService.ConceptQueryBuilder conceptQuery = snomedQueryService.createQueryBuilder(false);
 		if (codeSelectionCriteria.isAnyECL()) {
-			// ECL search
+			// ECL search — validate individual constraints before assembling to avoid wrapped parens in error messages
+			validateEclConstraints(codeSelectionCriteria, branchPath);
 			String ecl = inclusionExclusionClausesToEcl(codeSelectionCriteria);
 			conceptQuery.ecl(ecl);
 		} else {
@@ -387,6 +416,50 @@ public class FHIRValueSetFinderService implements FHIRConstants, TxResourceAware
 		} else {
 			fhirConceptQuery.must(termQuery(FHIRConcept.Fields.CODE_LOWER, coding.getCode().toLowerCase()));
 		}
+	}
+
+	private void validateEclConstraints(CodeSelectionCriteria codeSelectionCriteria, String branchPath) {
+		if (branchPath == null) return;
+		Stream.concat(
+				codeSelectionCriteria.getInclusionConstraints().values().stream(),
+				codeSelectionCriteria.getExclusionConstraints().values().stream()
+		).flatMap(andConstraints -> andConstraints.constraintsFlattened().stream())
+				.filter(ConceptConstraint::hasEcl)
+				.forEach(constraint -> validateEclConceptsExist(constraint.getEcl(), branchPath));
+	}
+
+	private void validateEclConceptsExist(String ecl, String branchPath) {
+		SExpressionConstraint expression;
+		try {
+			expression = (SExpressionConstraint) eclQueryBuilder.createQuery(ecl);
+		} catch (ECLException e) {
+			throwInvalidEclExpression(ecl, extractParserError(e));
+			return;
+		}
+		for (String conceptId : expression.getConceptIds()) {
+			if (snomedQueryService.search(snomedQueryService.createQueryBuilder(false).conceptIds(Collections.singleton(conceptId)), branchPath, PAGE_OF_ONE).isEmpty()) {
+				throwInvalidEclExpression(ecl, format("Unknown SNOMED Concept Id: %s", conceptId));
+			}
+		}
+	}
+
+	private void throwInvalidEclExpression(String displayEcl, String parserError) {
+		String message = format("Invalid ECL expression: '%s': (%s)", displayEcl, parserError);
+		CodeableConcept detail = new CodeableConcept(new Coding(TX_ISSUE_TYPE, VS_INVALID, null)).setText(message);
+		List<Extension> extensions = Collections.singletonList(new Extension(HL7_SD_OUTCOME_MESSAGE_ID, new StringType("INVALID_ECL")));
+		throw exception(message, OperationOutcome.IssueType.INVALID, 400, null, detail, extensions);
+	}
+
+	private String extractParserError(ECLException e) {
+		Throwable t = e;
+		while (t != null) {
+			String msg = t.getMessage();
+			if (msg != null && (msg.startsWith("Syntax error at line") || msg.startsWith("No viable alternative at line"))) {
+				return msg;
+			}
+			t = t.getCause();
+		}
+		return "ECL syntax error";
 	}
 
 	private String inclusionExclusionClausesToEcl(CodeSelectionCriteria criteria) {

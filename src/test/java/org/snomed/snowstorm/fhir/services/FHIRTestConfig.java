@@ -65,6 +65,8 @@ public class FHIRTestConfig extends TestConfig {
 		for (int x=1; x<=10; x++) {
 			createDummyConcepts(x, concepts, false);
 		}
+		concepts.add(new Concept(Concepts.OWL_AXIOM_REFERENCE_SET));
+		concepts.add(new Concept("27624003")); // chronic disease — referenced in ECL test fixtures
 		branchService.create(MAIN);
 		concepts.add(new Concept(sampleInactiveSCTID).setActive(false));
 		conceptService.batchCreate(concepts, MAIN);
