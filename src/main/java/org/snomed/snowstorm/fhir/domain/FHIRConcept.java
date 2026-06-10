@@ -6,6 +6,7 @@ import ca.uhn.fhir.jpa.entity.TermConceptParentChildLink;
 import ca.uhn.fhir.jpa.entity.TermConceptProperty;
 import org.hl7.fhir.r4.model.CodeSystem;
 import org.snomed.snowstorm.core.data.domain.ConceptMini;
+import org.snomed.snowstorm.core.data.domain.Concepts;
 import org.snomed.snowstorm.core.data.domain.Description;
 import org.snomed.snowstorm.core.pojo.LanguageDialect;
 import org.snomed.snowstorm.core.pojo.TermLangPojo;
@@ -201,12 +202,17 @@ public class FHIRConcept implements FHIRGraphNode {
 			// Add other descriptions with acceptability, and then any others without 'use'.
 			List<Description> activeDescriptions = new ArrayList<>(snomedConceptMini.getActiveDescriptions());
 			List<LanguageDialect> requestedLanguageDialects = snomedConceptMini.getRequestedLanguageDialects();
+			String ptTerm = displayTerm.getTerm();
 			activeDescriptions.sort(Comparator.comparing(Description::getType).thenComparing(description -> !description.hasAcceptability(requestedLanguageDialects)));
 			for (Description description : activeDescriptions) {
-				FHIRDesignation designation = new FHIRDesignation(description.getLanguageCode(), description.getTerm());
-				if (description.hasAcceptability(requestedLanguageDialects)) {
-					designation.setUse(SNOMED_URI, description.getTypeId());
+				boolean isFsn = Concepts.FSN.equals(description.getTypeId());
+				boolean isPt = description.getTerm().equals(ptTerm) && description.getLanguageCode().equals(displayTerm.getLang());
+				boolean isPreferred = !requestedLanguageDialects.isEmpty() && description.hasAcceptability(requestedLanguageDialects);
+				if (!isFsn && !isPt && !isPreferred) {
+					continue;
 				}
+				FHIRDesignation designation = new FHIRDesignation(description.getLanguageCode(), description.getTerm());
+				designation.setUse(SNOMED_URI, description.getTypeId());
 				designations.add(designation);
 			}
 		}
