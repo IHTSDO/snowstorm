@@ -8,7 +8,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.snomed.snowstorm.fhir.config.FHIRConstants.SNOMED_URI;
 
 class FHIRCodeSystemProviderValidateTest extends AbstractFHIRTest {
-	
+
 	@Test
 	void testValidateCode() {
 		String version = "version=http://snomed.info/sct/1234000008";
@@ -18,20 +18,21 @@ class FHIRCodeSystemProviderValidateTest extends AbstractFHIRTest {
 		String result = toString(getProperty(p, "result"));
 		assertEquals("true", result);
 		Boolean inactive = toBoolean(getProperty(p, "inactive"));
-		assertFalse(inactive);
+        // inactive property omitted when concept is active
+		assertNull(inactive);
 
 		//Alternative URLs using coding saying the same thing
 		url = baseUrl + "/CodeSystem/$validate-code?" + version + "&coding=http://snomed.info/sct|" + sampleSCTID;
 		p = getParameters(url);
 		result = toString(getProperty(p, "result"));
 		assertEquals("true", result);
-		
+
 		//Known not present
 		url = baseUrl + "/CodeSystem/$validate-code?url=" + SNOMED_URI + "&" + version + "&code=1234000008501";
 		p = getParameters(url);
 		result = toString(getProperty(p, "result"));
 		assertEquals("false", result);
-		
+
 		//Also check the preferred term
 		url = baseUrl + "/CodeSystem/$validate-code?" + version + "&coding=http://snomed.info/sct|" + sampleSCTID;
 		url += "&display=Baked potato 1";
@@ -40,7 +41,7 @@ class FHIRCodeSystemProviderValidateTest extends AbstractFHIRTest {
 		assertEquals("true", result);
 		String msg = toString(getProperty(p, "message"));
 		assertNull(msg);  //Display is the PT so we don't expect any message
-		
+
 		url = baseUrl + "/CodeSystem/$validate-code?" + version + "&coding=http://snomed.info/sct|" + sampleSCTID;
 		url += "&display=Baked potato 1 (substance)";
 		p = getParameters(url);
@@ -48,7 +49,7 @@ class FHIRCodeSystemProviderValidateTest extends AbstractFHIRTest {
 		assertEquals("true", result);
 		msg = toString(getProperty(p, "message"));
 		assertNotNull(msg);  //Display is not PT so we expect a message
-		
+
 		//Check for completely wrong display value
 		url = baseUrl + "/CodeSystem/$validate-code?" + version + "&coding=http://snomed.info/sct|" + sampleSCTID;
 		url += "&display=foo";
@@ -79,5 +80,5 @@ class FHIRCodeSystemProviderValidateTest extends AbstractFHIRTest {
 		String result = toString(getProperty(p, "result"));
 		assertEquals("true", result);
 	}
-	
+
 }
