@@ -203,13 +203,11 @@ class FHIRValueSetProviderExpandEclTest extends AbstractFHIRTest {
 		ValueSet valueSet = getValueSet(url);
 		assertEquals(1, valueSet.getExpansion().getContains().size());
 		List<ValueSet.ConceptReferenceDesignationComponent> designations = valueSet.getExpansion().getContains().get(0).getDesignation();
-		assertEquals(3, designations.size());
-		assertDesignation("Baked potato 1", "en", "http://terminology.hl7.org/CodeSystem/designation-usage", "display",
-				designations.get(0));
+		assertEquals(2, designations.size());
 		assertDesignation("Baked potato 1 (Substance)", "en", "http://snomed.info/sct", "900000000000003001",
-				designations.get(1));
+				designations.get(0));
 		assertDesignation("Baked potato 1", "en", "http://snomed.info/sct", "900000000000013009",
-				designations.get(2));
+				designations.get(1));
 	}
 
 	private void assertDesignation(String expectedValue, String expectedLang, String expectedUseSystem, String expectedUseCode, ValueSet.ConceptReferenceDesignationComponent designationComponent) {
