@@ -14,6 +14,7 @@ public class FHIRCodeSystemVersionParams {
 	private String snomedModule;
 	private String version;
 	private String id;
+	private boolean unversioned;
 
 	public FHIRCodeSystemVersionParams(String codeSystem) {
 		this.codeSystem = codeSystem;
@@ -24,7 +25,11 @@ public class FHIRCodeSystemVersionParams {
 	}
 
 	public boolean isUnversionedSnomed() {
-		return codeSystem != null && codeSystem.startsWith(SNOMED_URI_UNVERSIONED);
+		return (codeSystem != null && codeSystem.startsWith(SNOMED_URI_UNVERSIONED)) || unversioned;
+	}
+
+	public void setUnversioned(boolean unversioned) {
+		this.unversioned = unversioned;
 	}
 
 	public StringType toSnomedUri() {

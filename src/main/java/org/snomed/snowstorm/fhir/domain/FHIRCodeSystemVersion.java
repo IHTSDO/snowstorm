@@ -150,6 +150,16 @@ public class FHIRCodeSystemVersion {
 		snomedCodeSystem = snomedVersion.getCodeSystem();
 	}
 
+	public FHIRCodeSystemVersion(CodeSystemVersion snomedVersion, boolean unversioned) {
+		this(snomedVersion);
+		if (unversioned) {
+			String moduleId = snomedVersion.getCodeSystem().getUriModuleId();
+			url = SNOMED_URI_UNVERSIONED;
+			id = FHIRCodeSystemService.SCT_ID_PREFIX + moduleId + "_" + UNVERSIONED + "_" + snomedVersion.getEffectiveDate();
+			version = SNOMED_URI_UNVERSIONED + "/" + moduleId + VERSION_SLASH + snomedVersion.getEffectiveDate();
+		}
+	}
+
 	public FHIRCodeSystemVersion(org.snomed.snowstorm.core.data.domain.CodeSystem snomedCodeSystem, boolean unversioned) {
 		name = SNOMED_CT;
 		url = SNOMED_URI;
