@@ -605,7 +605,10 @@ public class CodeSystemService {
 
 	public CodeSystem findByUriModule(String moduleId) {
 		CodeSystem codeSystem = repository.findByUriModuleId(moduleId);
-		return codeSystem != null ? find(codeSystem.getShortName()) : null;
+		if (codeSystem != null) {
+			return find(codeSystem.getShortName());
+		}
+		return findByDefaultModule(moduleId);
 	}
 
 	public CodeSystemVersion findVersion(String shortName, int effectiveTime) {
