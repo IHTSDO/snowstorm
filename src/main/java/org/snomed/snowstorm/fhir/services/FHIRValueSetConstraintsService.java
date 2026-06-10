@@ -274,8 +274,9 @@ public class FHIRValueSetConstraintsService implements FHIRConstants {
 					OperationOutcome.IssueType.INVALID, 400);
 		}
 		if ("true".equalsIgnoreCase(value)) {
-			throw exception("This server does not yet support SNOMED CT ValueSets with expressions.",
-					OperationOutcome.IssueType.INVALID, 400);
+			String message = "This server does not yet support SNOMED CT ValueSets with expressions.";
+			CodeableConcept detail = new CodeableConcept(new Coding(TX_ISSUE_TYPE, "not-supported", null)).setText(message);
+			throw exception(message, OperationOutcome.IssueType.NOTSUPPORTED, 400, null, detail);
 		}
 		return Collections.emptySet();
 	}

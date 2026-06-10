@@ -192,6 +192,6 @@ public final class ValueSetExpansionParameters {
 	}
 
 	public boolean getAllowMaximumSizeExpansionAsBoolean() {
-		return allowMaximumSizeExpansion;
+		return Boolean.TRUE.equals(allowMaximumSizeExpansion);
 	}
 }
