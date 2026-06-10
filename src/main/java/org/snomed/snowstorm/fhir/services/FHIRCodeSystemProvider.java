@@ -80,7 +80,7 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants,
 
 	@Autowired
 	private HapiParametersMapper pMapper;
-	
+
 	@Autowired
 	private FHIRHelper fhirHelper;
 
@@ -117,7 +117,7 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants,
 	//See https://www.hl7.org/fhir/valueset.html#search
 	@Search
 	public List<CodeSystem> findCodeSystems(
-			RequestDetails theRequest, 
+			RequestDetails theRequest,
 			HttpServletResponse theResponse,
 			@OptionalParam(name="id") String id,
 			@OptionalParam(name="code") String code,
@@ -153,7 +153,7 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants,
 									.withTitle(title)
 									.withUrl(url)
 									.withVersion(version);
-		
+
 		List<String> sortOn;
 		if (theRequest.getParameters().get("_sort") != null) {
 			sortOn = new ArrayList<>();
@@ -163,7 +163,7 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants,
 		} else {
 			sortOn = Arrays.asList(defaultSortOrder);
 		}
-		
+
 		for (String sortField : sortOn) {
 			if (!comparatorMap.containsKey(sortField)) {
 				throw exception(sortField + " is not supported as a field to sort on.", IssueType.INVALID, 400);
@@ -184,7 +184,7 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants,
 				.sorted(chainedComparator)
 				.toList();
 	}
-	
+
 	@Read()
 	public CodeSystem getCodeSystem(@IdParam IdType id) {
 		String idPart = id.getIdPart();
@@ -259,7 +259,7 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants,
 		FHIRCodeSystemVersionParams codeSystemVersion = FHIRHelper.getCodeSystemVersionParams(system, version, coding);
 		return lookup(codeSystemVersion, fhirHelper.recoverCode(code, coding), displayLanguage, request.getHeader(ACCEPT_LANGUAGE_HEADER), propertiesType);
 	}
-	
+
 	@Operation(name="$lookup", idempotent=true)
 	public Parameters lookupInstance(
 			@IdParam IdType id,
@@ -280,7 +280,7 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants,
 		FHIRCodeSystemVersionParams codeSystemVersion = getCodeSystemVersionParams(id, system, version, coding);
 		return lookup(codeSystemVersion, fhirHelper.recoverCode(code, coding), displayLanguage, request.getHeader(ACCEPT_LANGUAGE_HEADER), propertiesType);
 	}
-	
+
 	private Parameters lookup(
 			FHIRCodeSystemVersionParams codeSystemParams,
 			String code,
@@ -317,6 +317,7 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants,
 			HttpServletResponse response,
 			@ResourceParam String rawBody,
 			@OperationParam(name="url") UriType url,
+			@OperationParam(name="system") UriType system,
 			@OperationParam(name="codeSystem") StringType codeSystem,
 			@OperationParam(name="code") CodeType code,
 			@OperationParam(name="display") String display,
@@ -334,14 +335,17 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants,
 			List<Parameters.ParametersParameterComponent> parsed = fhirContext.newJsonParser().parseResource(Parameters.class, rawBody).getParameter();
 			TxResourceContext.set(FHIRHelper.extractTxResources(parsed));
 		}
-		FHIRCodeSystemVersionParams codeSystemParams = getCodeSystemVersionParams(null, url, version, coding);
 		try {
-			return validateCode(codeSystemParams, fhirHelper.recoverCode(code, coding), display, request.getHeader(ACCEPT_LANGUAGE_HEADER));
+            // Accept 'system' as an alias for 'url' (used by some clients for CodeSystem/$validate-code)
+            UriType resolvedUrl = url != null ? url : system;
+            FHIRCodeSystemVersionParams codeSystemParams = getCodeSystemVersionParams(null, resolvedUrl, version, coding);
+            return validateCode(codeSystemParams, fhirHelper.recoverCode(code, coding), display, request.getHeader(ACCEPT_LANGUAGE_HEADER));
 		} finally {
 			TxResourceContext.clear();
 		}
+
 	}
-	
+
 	@Operation(name="$validate-code", idempotent=true)
 	public Parameters validateCodeInstance(
 			@IdParam IdType id,
@@ -388,11 +392,29 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants,
 		String displayOut = null;
 		boolean result = false;
 
+		List<OperationOutcome.OperationOutcomeIssueComponent> issues = new ArrayList<>();
+
 		if (concept != null) {
 			displayOut = concept.getPt().getTerm();
 			result = isDisplayValid(concept, display);
 			if (!result) {
-				message = "Code exists, but the display term is not recognised.";
+				// Check if the display matches an inactive description
+				boolean inactiveDisplayMatch = display != null && concept.getDescriptions().stream()
+						.filter(d -> !d.isActive())
+						.anyMatch(d -> d.getTerm().equalsIgnoreCase(display));
+				if (inactiveDisplayMatch) {
+					result = true;
+					String activeTerms = concept.getActiveDescriptions().stream()
+							.map(d -> "\"" + d.getTerm() + "\"")
+							.collect(Collectors.joining(","));
+					String msg = format("'%s' is no longer considered a correct display for code '%s' (status = inactive). The correct display is one of %s.",
+							display, code, activeTerms);
+					issues.add(createOperationOutcomeIssueComponent(
+							new CodeableConcept(new Coding(TX_ISSUE_TYPE, "display-comment", null)).setText(msg),
+							OperationOutcome.IssueSeverity.WARNING, "display", IssueType.INVALID, null, null));
+				} else {
+					message = "Code exists, but the display term is not recognised.";
+				}
 			} else if (display != null && !display.equalsIgnoreCase(concept.getPt().getTerm())) {
 				message = "Display term is acceptable, but not the preferred synonym in the language/dialect specified.";
 			}
@@ -401,17 +423,23 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants,
 		}
 
 		Parameters parameters = new Parameters();
-		parameters.addParameter(RESULT, result);
 		if (concept != null) {
-			parameters.addParameter(INACTIVE, !concept.isActive());
-		}
-		if (message != null) {
-			parameters.addParameter(MESSAGE, message);
+			parameters.addParameter(CODE, new CodeType(concept.getConceptId()));
 		}
 		if (displayOut != null) {
 			parameters.addParameter(DISPLAY, displayOut);
 		}
-		parameters.addParameter(SYSTEM, codeSystemVersion.getUrl());
+		if (!issues.isEmpty()) {
+			parameters.addParameter(createParameterComponentWithOperationOutcomeWithIssues(issues));
+		}
+		if (concept != null && !concept.isActive()) {
+			parameters.addParameter(INACTIVE, true);
+		}
+		if (message != null) {
+			parameters.addParameter(MESSAGE, message);
+		}
+		parameters.addParameter(RESULT, result);
+		parameters.addParameter(SYSTEM, new UriType(FHIRHelper.isSnomedUri(codeSystemVersion.getUrl()) ? SNOMED_URI : codeSystemVersion.getUrl()));
 		parameters.addParameter(VERSION, codeSystemVersion.getVersion());
 
 		return parameters;
@@ -507,7 +535,7 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants,
 			if (conceptStatus != null) {
 				response.addParameter("status", new CodeType(conceptStatus));
 			}
-			response.addParameter(SYSTEM, new UriType(codeSystemVersion.getUrl()));
+			response.addParameter(SYSTEM, new UriType(FHIRHelper.isSnomedUri(codeSystemVersion.getUrl()) ? SNOMED_URI : codeSystemVersion.getUrl()));
 			if (!"0".equals(codeSystemVersion.getVersion())) {
 				response.addParameter(VERSION, codeSystemVersion.getVersion());
 			}
@@ -662,5 +690,5 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants,
 	public Class<? extends IBaseResource> getResourceType() {
 		return CodeSystem.class;
 	}
-	
+
 }

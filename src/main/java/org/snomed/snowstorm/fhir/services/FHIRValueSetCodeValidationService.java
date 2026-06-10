@@ -42,6 +42,8 @@ public class FHIRValueSetCodeValidationService implements TxResourceAware {
 	public static final String DISPLAY_COMMENT = "display-comment";
 
 	public static final String INVALID_CODE ="invalid-code";
+
+	private static final java.util.regex.Pattern SCTID_PATTERN = java.util.regex.Pattern.compile("\\d{6,18}");
 	public static final String INVALID_DATA = "invalid-data";
 	public static final String INVALID_DISPLAY = "invalid-display";
 
@@ -733,8 +735,8 @@ public class FHIRValueSetCodeValidationService implements TxResourceAware {
 						response.addParameter("version", version);
 					}
 				}
-				if (FHIRHelper.isSnomedUri(codingA.getSystem())) {
-					response.addParameter("inactive", !concept.isActive());
+				if (FHIRHelper.isSnomedUri(codingA.getSystem()) && !concept.isActive()) {
+					response.addParameter("inactive", true);
 				} else if (!FHIRHelper.isSnomedUri(codingA.getSystem()) && !concept.isActive()){
 					response.addParameter("inactive", true);
 
@@ -997,10 +999,76 @@ public class FHIRValueSetCodeValidationService implements TxResourceAware {
 					}
 				} else {
 					locationExpression = CODE;
-					message = format(SYSTEM_CODE_NOT_IN_VS,  codingA.getSystem(), codingA.getCode(), CanonicalUri.of(hapiValueSet.getUrl(), hapiValueSet.getVersion()));
-					issues.add(createOperationOutcomeIssueComponent(new CodeableConcept().addCoding(new Coding(TX_ISSUE_TYPE, NOT_IN_VS, null)).setText(format("There was no valid code provided that is in the value set '%s'", CanonicalUri.of(hapiValueSet.getUrl(), hapiValueSet.getVersion()))), OperationOutcome.IssueSeverity.ERROR, locationExpression, OperationOutcome.IssueType.CODEINVALID, null, null));
-					if(!codeSystemIncludesConcept(resolvedCodeSystemVersionsMatchingCodings.iterator().next(), codingA) && (request.getInferSystem() == null || !request.getInferSystem().booleanValue())) {
-						issues.add(createOperationOutcomeIssueComponent(new CodeableConcept().addCoding(new Coding(TX_ISSUE_TYPE, INVALID_CODE, null)).setText(format("Unknown code '%s' in the CodeSystem '%s'", codingA.getCode(), codingA.getSystem())), OperationOutcome.IssueSeverity.ERROR, locationExpression, OperationOutcome.IssueType.CODEINVALID, null, null));
+					boolean isSnomedPostCoordinated = FHIRHelper.isSnomedUri(codingA.getSystem()) && codingA.getCode() != null && codingA.getCode().contains(":");
+					if (isSnomedPostCoordinated && !resolvedCodeSystemVersionsMatchingCodings.isEmpty()) {
+						String annotated = annotatePostCoordinatedExpression(codingA.getCode(), resolvedCodeSystemVersionsMatchingCodings.iterator().next());
+						if (annotated != null) {
+							response.addParameter(DISPLAY, annotated);
+						}
+						message = format(SYSTEM_CODE_NOT_IN_VS, codingA.getSystem(), codingA.getCode(), CanonicalUri.of(hapiValueSet.getUrl(), hapiValueSet.getVersion()));
+						OperationOutcome.OperationOutcomeIssueComponent notInVsIssue = createOperationOutcomeIssueComponent(
+								new CodeableConcept().addCoding(new Coding(TX_ISSUE_TYPE, NOT_IN_VS, null)).setText(message),
+								OperationOutcome.IssueSeverity.ERROR, null, OperationOutcome.IssueType.CODEINVALID, null, null);
+						notInVsIssue.addExpression(locationExpression);
+						issues.add(notInVsIssue);
+					} else {
+						FHIRCodeSystemVersion csVersion = resolvedCodeSystemVersionsMatchingCodings.iterator().next();
+						String csConceptCode = codingA.getCode();
+						// Look up the concept in the code system to determine display and validity.
+						// For SNOMED, use findSnomedPreferredTerms which queries the SNOMED branch directly.
+						// For non-SNOMED, fall back to the inline/fhir-concept ES index.
+						String conceptDisplay = null;
+						boolean conceptExistsInCS = false;
+						if (csVersion.isOnSnomedBranch()) {
+							Map<String, String> pts = vsFinderService.findSnomedPreferredTerms(
+									Collections.singleton(csConceptCode), csVersion, Collections.emptyList());
+							if (pts.containsKey(csConceptCode)) {
+								conceptDisplay = pts.get(csConceptCode);
+								conceptExistsInCS = true;
+							}
+						} else {
+							FHIRConcept csConcept = findInlineConcept(csVersion, csConceptCode).orElseGet(() -> conceptService.findConcept(csVersion, csConceptCode));
+							if (csConcept != null) {
+								conceptDisplay = csConcept.getDisplay();
+								conceptExistsInCS = true;
+							}
+						}
+						if (conceptExistsInCS) {
+							// Concept exists in the CS but not in the VS - include display and version in response
+							if (conceptDisplay != null) {
+								response.addParameter(DISPLAY, conceptDisplay);
+							} else if (codingA.getDisplay() != null && !codingA.getDisplay().isEmpty()) {
+								response.addParameter(DISPLAY, codingA.getDisplay());
+							}
+							String ver = csVersion.getVersion();
+							if (ver != null && !"0".equals(ver)) {
+								response.addParameter("version", ver);
+							}
+							String codeWithDisplay = codingA.getDisplay() != null && !codingA.getDisplay().isEmpty()
+									? codingA.getCode() + " ('" + codingA.getDisplay() + "')"
+									: codingA.getCode();
+							message = "The provided code '" + codingA.getSystem() + "#" + codeWithDisplay + "' was not found in the value set '" + CanonicalUri.of(hapiValueSet.getUrl(), hapiValueSet.getVersion()) + "'";
+							Extension notInVsExt = new Extension(HL7_SD_OUTCOME_MESSAGE_ID, new StringType("None_of_the_provided_codes_are_in_the_value_set_one"));
+							OperationOutcome.OperationOutcomeIssueComponent notInVsIssue = createOperationOutcomeIssueComponent(
+									new CodeableConcept().addCoding(new Coding(TX_ISSUE_TYPE, NOT_IN_VS, null)).setText(message),
+									OperationOutcome.IssueSeverity.ERROR, null, OperationOutcome.IssueType.CODEINVALID, Collections.singletonList(notInVsExt), null);
+							notInVsIssue.addExpression(locationExpression);
+							issues.add(notInVsIssue);
+						} else {
+							// Concept not found in the CS - report as unknown code
+							if (codingA.getDisplay() != null && !codingA.getDisplay().isEmpty()) {
+								response.addParameter(DISPLAY, codingA.getDisplay());
+							}
+							message = format(SYSTEM_CODE_NOT_IN_VS, codingA.getSystem(), codingA.getCode(), CanonicalUri.of(hapiValueSet.getUrl(), hapiValueSet.getVersion()));
+							OperationOutcome.OperationOutcomeIssueComponent notInVsIssue = createOperationOutcomeIssueComponent(
+									new CodeableConcept().addCoding(new Coding(TX_ISSUE_TYPE, NOT_IN_VS, null)).setText(message),
+									OperationOutcome.IssueSeverity.ERROR, null, OperationOutcome.IssueType.CODEINVALID, null, null);
+							notInVsIssue.addExpression(locationExpression);
+							issues.add(notInVsIssue);
+							if (request.getInferSystem() == null || !request.getInferSystem().booleanValue()) {
+								issues.add(createOperationOutcomeIssueComponent(new CodeableConcept().addCoding(new Coding(TX_ISSUE_TYPE, INVALID_CODE, null)).setText(format("Unknown code '%s' in the CodeSystem '%s'", codingA.getCode(), codingA.getSystem())), OperationOutcome.IssueSeverity.ERROR, locationExpression, OperationOutcome.IssueType.CODEINVALID, null, null));
+							}
+						}
 					}
 				}
 				response.setParameter(MESSAGE, message);
@@ -1194,6 +1262,28 @@ public class FHIRValueSetCodeValidationService implements TxResourceAware {
 						supplementConcept.getDesignation().stream()
 								.map(FHIRDesignation::new)
 								.forEach(concept.getDesignations()::add));
+	}
+
+	private String annotatePostCoordinatedExpression(String code, FHIRCodeSystemVersion snomedVersion) {
+		java.util.regex.Matcher idScan = SCTID_PATTERN.matcher(code);
+		Set<String> ids = new HashSet<>();
+		while (idScan.find()) ids.add(idScan.group());
+
+		Map<String, String> terms = vsFinderService.findSnomedPreferredTerms(ids, snomedVersion, Collections.emptyList());
+
+		StringBuffer result = new StringBuffer();
+		java.util.regex.Matcher matcher = SCTID_PATTERN.matcher(code);
+		while (matcher.find()) {
+			String sctId = matcher.group();
+			String term = terms.get(sctId);
+			if (term != null) {
+				matcher.appendReplacement(result, java.util.regex.Matcher.quoteReplacement(sctId + "|" + term + "|"));
+			} else {
+				matcher.appendReplacement(result, sctId);
+			}
+		}
+		matcher.appendTail(result);
+		return result.toString();
 	}
 
 	private static class SelectedDisplay {
