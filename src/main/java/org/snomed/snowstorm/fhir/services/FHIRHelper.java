@@ -50,7 +50,7 @@ public class FHIRHelper implements FHIRConstants {
 	public static final Sort MEMBER_SORT = Sort.sort(ReferenceSetMember.class).by(ReferenceSetMember::getMemberId).descending();
 
 	private static final Logger logger = LoggerFactory.getLogger(FHIRHelper.class);
-	
+
 	public static boolean isSnomedUri(String uri) {
 		return uri != null && (uri.startsWith(SNOMED_URI) || uri.startsWith(SNOMED_URI_UNVERSIONED));
 	}
@@ -291,12 +291,12 @@ public class FHIRHelper implements FHIRConstants {
 	public void setLanguageOptions(List<LanguageDialect> designations, String displayLanguageStr, String acceptLanguageHeader) {
 		setLanguageOptions(designations, null, displayLanguageStr, acceptLanguageHeader);
 	}
-	
+
 	public String getPreferredTerm(Concept concept, List<LanguageDialect> designations) {
 		if (designations == null || designations.isEmpty()) {
 			return concept.getPt().getTerm();
 		}
-		
+
 		for (Description d : concept.getDescriptions()) {
 			if (d.hasAcceptability(Concepts.PREFERRED, designations.get(0)) &&
 					d.getTypeId().equals(Concepts.SYNONYM)) {
@@ -305,7 +305,7 @@ public class FHIRHelper implements FHIRConstants {
 		}
 		return null;
 	}
-	
+
 	public void setLanguageOptions(List<LanguageDialect> designations,
 			List<String> designationsStr,
 			String displayLanguageStr,
@@ -363,7 +363,7 @@ public class FHIRHelper implements FHIRConstants {
 					param1Name, param2Name, param3Name), IssueType.INVARIANT, 400);
 		}
 	}
-	
+
 	public static void required(String param1Name, Object param1) {
 		if (param1 == null) {
 			throw exception(format("Parameter '%s' must be supplied.", param1Name), IssueType.INVARIANT, 400);
@@ -455,6 +455,9 @@ public class FHIRHelper implements FHIRConstants {
 				Matcher matcher = SNOMED_URI_MODULE_PATTERN.matcher(versionWithoutParams);
 				if (matcher.matches()) {
 					codeSystemParams.setSnomedModule(matcher.group(1));
+					if (versionWithoutParams.startsWith(SNOMED_URI_UNVERSIONED)) {
+						codeSystemParams.setUnversioned(true);
+					}
 				} else {
 					matcher = SNOMED_URI_MODULE_AND_VERSION_PATTERN.matcher(versionWithoutParams);
 					if (matcher.matches()) {
@@ -464,6 +467,9 @@ public class FHIRHelper implements FHIRConstants {
 						}
 						codeSystemParams.setSnomedModule(matcher.group(1));
 						codeSystemParams.setVersion(matcher.group(2));
+						if (versionWithoutParams.startsWith(SNOMED_URI_UNVERSIONED)) {
+							codeSystemParams.setUnversioned(true);
+						}
 					} else {
 						throw exception(format("The version parameter for the '" + SNOMED_URI + "' system must use the format " +
 								"'http://snomed.info/sct/[sctid]' or http://snomed.info/sct/[sctid]/version/[YYYYMMDD]. Version provided does not match: '%s'.", versionWithoutParams),
