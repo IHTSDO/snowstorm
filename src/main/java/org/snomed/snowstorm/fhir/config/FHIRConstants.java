@@ -73,7 +73,7 @@ public interface FHIRConstants {
 		EFFECTIVE_TIME("effectiveTime"),
 		EQUIVALENT_CONCEPT("equivalentConcept"),
 		INACTVE("inactive"),
-		MODULE_ID("moduleId"),
+		MODULE_ID("module"),
 		NORMAL_FORM_TERSE("normalFormTerse"),
 		NORMAL_FORM("normalForm"),
 		PARENT("parent"),
