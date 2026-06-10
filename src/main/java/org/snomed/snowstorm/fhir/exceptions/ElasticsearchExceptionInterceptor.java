@@ -27,7 +27,11 @@ public class ElasticsearchExceptionInterceptor {
 		// operationOutcome = the OperationOutcome HAPI is about to send
 		// serverException = the HAPI-wrapped exception (e.g. InternalErrorException)
 		logRootCauseIfElastic(exception);
-		if (!exception.getMessage().contains("Supplement") && ! exception.getMessage().contains("does not exist")) {
+		// 4xx responses are expected application behaviour — don't log as errors
+		if (exception instanceof BaseServerResponseException bsre && bsre.getStatusCode() < 500) {
+			return serverException != null ? serverException : bsre;
+		}
+		if (exception.getMessage() != null && !exception.getMessage().contains("Supplement") && !exception.getMessage().contains("does not exist")) {
 			//Is this a broken or bad test case?
 			if (requestDetails != null && requestDetails.getUserData().values().stream()
 								.anyMatch(p -> {
