@@ -43,7 +43,7 @@ public final class ConceptValidationHelper {
 			}
 			concept.getDescriptions().stream().filter(description -> description != null && description.getId() == null)
 					.forEach(description -> description.setDescriptionId(UUID.randomUUID().toString()));
-			concept.getAnnotations().stream().filter(annotation -> annotation != null && annotation.getId() == null)
+			concept.getAnnotations().stream().filter(annotation -> annotation != null && annotation.getAnnotationId() == null)
 					.forEach(annotation -> annotation.setAnnotationId(UUID.randomUUID().toString()));
 			concept.getRelationships().stream().filter(relationship -> relationship != null && relationship.getId() == null)
 					.forEach(relationship -> relationship.setRelationshipId(UUID.randomUUID().toString()));
