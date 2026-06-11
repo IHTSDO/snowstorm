@@ -28,6 +28,7 @@ public class Annotation extends ReferenceSetMember implements AnnotationView {
 
 	public void setAnnotationId(String annotationId) {
 		this.annotationId = annotationId;
+		setMemberId(annotationId);
 	}
 
 	@Override
