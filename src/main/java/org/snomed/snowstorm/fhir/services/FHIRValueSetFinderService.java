@@ -15,6 +15,7 @@ import org.snomed.snowstorm.core.data.services.DescriptionService;
 import org.snomed.snowstorm.core.data.services.QueryService;
 import org.snomed.snowstorm.core.pojo.LanguageDialect;
 import org.snomed.snowstorm.ecl.domain.expressionconstraint.SExpressionConstraint;
+import org.snomed.snowstorm.fhir.pojo.FHIRCodeSystemVersionParams;
 import org.snomed.snowstorm.fhir.config.FHIRConstants;
 import org.snomed.snowstorm.fhir.domain.*;
 import org.snomed.snowstorm.fhir.pojo.CanonicalUri;
@@ -63,6 +64,9 @@ public class FHIRValueSetFinderService implements FHIRConstants, TxResourceAware
 
 	@Autowired
 	private FHIRValueSetConstraintsService constraintsService;
+
+	@Autowired
+	private FHIRCodeSystemService codeSystemService;
 
 	@Autowired
 	private ECLQueryBuilder eclQueryBuilder;
@@ -173,6 +177,12 @@ public class FHIRValueSetFinderService implements FHIRConstants, TxResourceAware
 		if (url.endsWith("?fhir_vs=refset")) {
 			filter = new FHIRValueSetFilter("expression", "=", REFSETS_WITH_MEMBERS);
 		} else {
+			if (url.contains(IMPLICIT_ISA) || url.contains(IMPLICIT_REFSET)) {
+				String sctId = url.contains(IMPLICIT_ISA)
+						? url.substring(url.indexOf(IMPLICIT_ISA) + IMPLICIT_ISA.length())
+						: url.substring(url.indexOf(IMPLICIT_REFSET) + IMPLICIT_REFSET.length());
+				validateSnomedImplicitValueSetConcept(url, sctId, includeCriteria);
+			}
 			String ecl = determineEcl(url);
 			filter = new FHIRValueSetFilter("constraint", "=", ecl);
 		}
@@ -184,6 +194,25 @@ public class FHIRValueSetFinderService implements FHIRConstants, TxResourceAware
 		valueSet.setCompose(compose);
 		valueSet.setStatus(Enumerations.PublicationStatus.ACTIVE.toCode());
 		return valueSet.getHapi();
+	}
+
+	private void validateSnomedImplicitValueSetConcept(String url, String sctId, FHIRValueSetCriteria includeCriteria) {
+		FHIRCodeSystemVersionParams params = FHIRHelper.getCodeSystemVersionParams(
+				includeCriteria.getSystem(), includeCriteria.getVersion());
+		FHIRCodeSystemVersion csVersion = codeSystemService.findCodeSystemVersion(params);
+		String message = format("A definition for the value Set '%s' could not be found", url);
+		if (csVersion == null) {
+			CodeableConcept detail = new CodeableConcept(new Coding(TX_ISSUE_TYPE, NOT_FOUND, null)).setText(message);
+			throw exception(message, OperationOutcome.IssueType.NOTFOUND, 404, null, detail);
+		}
+		// For isa/<sctId>: concept must exist (<<sctId is non-empty if the concept exists)
+		// For refset/<sctId>: concept must be a SNOMED CT reference set type (descendant of 900000000000455006)
+		String checkEcl = url.contains(IMPLICIT_ISA) ? "<<" + sctId : "<<900000000000455006 AND " + sctId;
+		QueryService.ConceptQueryBuilder query = snomedQueryService.createQueryBuilder(false).ecl(checkEcl);
+		if (snomedQueryService.searchForIds(query, csVersion.getSnomedBranch(), PAGE_OF_ONE).isEmpty()) {
+			CodeableConcept detail = new CodeableConcept(new Coding(TX_ISSUE_TYPE, NOT_FOUND, null)).setText(message);
+			throw exception(message, OperationOutcome.IssueType.NOTFOUND, 404, null, detail);
+		}
 	}
 
 	/*
@@ -437,7 +466,7 @@ public class FHIRValueSetFinderService implements FHIRConstants, TxResourceAware
 			return;
 		}
 		for (String conceptId : expression.getConceptIds()) {
-			if (snomedQueryService.search(snomedQueryService.createQueryBuilder(false).conceptIds(Collections.singleton(conceptId)), branchPath, PAGE_OF_ONE).isEmpty()) {
+			if (snomedQueryService.searchForIds(snomedQueryService.createQueryBuilder(false).conceptIds(Collections.singleton(conceptId)), branchPath, PAGE_OF_ONE).isEmpty()) {
 				throwInvalidEclExpression(ecl, format("Unknown SNOMED Concept Id: %s", conceptId));
 			}
 		}
