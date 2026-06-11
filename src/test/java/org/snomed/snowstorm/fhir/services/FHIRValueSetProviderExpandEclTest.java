@@ -20,14 +20,14 @@ class FHIRValueSetProviderExpandEclTest extends AbstractFHIRTest {
 	void testECLRecovery_DescOrSelf() {
 		String url = baseUrl + "/ValueSet/$expand?url=http://snomed.info/sct?fhir_vs=ecl/<<" + Concepts.SNOMEDCT_ROOT + "&_format=json";
 		ValueSet v = getValueSet(url);
-		assertEquals(11, v.getExpansion().getContains().size());
+		assertEquals(13, v.getExpansion().getContains().size());
 	}
 
 	@Test
 	void testECLRecovery_DescOrSelfEncodedECL() {
 		String url = baseUrl + "/ValueSet/$expand?url=http://snomed.info/sct?fhir_vs=ecl/%3C%3C138875005&_format=json";
 		ValueSet v = getValueSet(url);
-		assertEquals(11, v.getExpansion().getContains().size());
+		assertEquals(13, v.getExpansion().getContains().size());
 	}
 
 	@Test
@@ -39,7 +39,7 @@ class FHIRValueSetProviderExpandEclTest extends AbstractFHIRTest {
 		//We'll get the 11 concepts defined on main (Root + 10 potatoes)
 		//plus the additional two defined for the new Edition
 		//plus the concrete example
-		assertEquals(14,v.getExpansion().getContains().size());
+		assertEquals(16,v.getExpansion().getContains().size());
 	}
 
 	@Test
@@ -69,23 +69,23 @@ class FHIRValueSetProviderExpandEclTest extends AbstractFHIRTest {
 
 	@Test
 	void testECLWithOffsetCount() {
-		//Asking for 5 at a time, expect 13 total - 10 on MAIN + 3 in the sample module
+		//Asking for 5 at a time, expect 15 total - 10 on MAIN + 5 in the sample module
 		String url = baseUrl + "/ValueSet/$expand?url=http://snomed.info/sct/1234000008?fhir_vs=ecl/<" + Concepts.SNOMEDCT_ROOT + "&offset=0&count=5&_format=json";
 		ValueSet v = getValueSet(url);
 		assertEquals(5,v.getExpansion().getContains().size());
-		assertEquals(13,v.getExpansion().getTotal());
+		assertEquals(15,v.getExpansion().getTotal());
 
-		//When not specifying a module, we'll read from MAIN so only the original 10 dummy concepts there
+		//When not specifying a module, we'll read from MAIN so only the original 12 dummy concepts there
 		url = baseUrl + "/ValueSet/$expand?url=http://snomed.info/sct?fhir_vs=ecl/<" + Concepts.SNOMEDCT_ROOT + "&offset=5&count=5&_format=json";
 		v = getValueSet(url);
 		assertEquals(5,v.getExpansion().getContains().size());
-		assertEquals(10,v.getExpansion().getTotal());
+		assertEquals(12,v.getExpansion().getTotal());
 
-		//With a total of 13 concepts and 5 per page, we expect our 3rd page to contain the last 3 concepts
+		//With a total of 15 concepts and 5 per page, we expect our 3rd page to contain the last 5 concepts
 		url = baseUrl + "/ValueSet/$expand?url=http://snomed.info/sct/1234000008?fhir_vs=ecl/<" + Concepts.SNOMEDCT_ROOT + "&offset=10&count=5&_format=json";
 		v = getValueSet(url);
-		assertEquals(3,v.getExpansion().getContains().size());
-		assertEquals(13,v.getExpansion().getTotal());
+		assertEquals(5,v.getExpansion().getContains().size());
+		assertEquals(15,v.getExpansion().getTotal());
 	}
 
 	@Test
@@ -95,7 +95,7 @@ class FHIRValueSetProviderExpandEclTest extends AbstractFHIRTest {
 				"url=http://snomed.info/sct/" + sampleModuleId + "?fhir_vs=ecl/<<" + Concepts.SNOMEDCT_ROOT +
 				"&_format=json";
 		ValueSet v = getValueSet(url);
-		assertEquals(14,v.getExpansion().getContains().size());
+		assertEquals(16,v.getExpansion().getContains().size());
 	}
 
 	@Test
@@ -122,7 +122,7 @@ class FHIRValueSetProviderExpandEclTest extends AbstractFHIRTest {
 		// expect 13 Total - 10 on MAIN + 3 in the sample module + 1 Root concept
 		String url = baseUrl + "/ValueSet/$expand?url=http://snomed.info/sct/1234000008?fhir_vs";
 		ValueSet v = getValueSet(url);
-		assertEquals(14,v.getExpansion().getTotal());
+		assertEquals(16,v.getExpansion().getTotal());
 
 		// ?fhir_vs=refset -> all concepts representing refsets
 //		url = baseUrl + "/ValueSet/$expand?url=http://snomed.info/sct/1234000008?fhir_vs=refset";
@@ -133,7 +133,7 @@ class FHIRValueSetProviderExpandEclTest extends AbstractFHIRTest {
 		// ?fhir_vs=isa/<root concept> -> all concepts under root plus self
 		url = baseUrl + "/ValueSet/$expand?url=http://snomed.info/sct/1234000008?fhir_vs=isa/" + Concepts.SNOMEDCT_ROOT;
 		v = getValueSet(url);
-		assertEquals(14,v.getExpansion().getTotal());
+		assertEquals(16,v.getExpansion().getTotal());
 
 		// ?fhir_vs=refset/<refsetId> -> all concepts in that refset
 		// Note that refset must be loaded on the branch for this to return
@@ -167,7 +167,7 @@ class FHIRValueSetProviderExpandEclTest extends AbstractFHIRTest {
 			String url = baseUrl + "/ValueSet/reason-for-encounter/$expand";
 			ResponseEntity<String> response = restTemplate.getForEntity(url, String.class);
 			ValueSet savedVS = fhirJsonParser.parseResource(ValueSet.class, response.getBody());
-			assertEquals(14, savedVS.getExpansion().getTotal(), () -> "Body: " + response.getBody());
+			assertEquals(16, savedVS.getExpansion().getTotal(), () -> "Body: " + response.getBody());
 		} finally {
 			deleteVs("reason-for-encounter");
 		}
@@ -180,7 +180,7 @@ class FHIRValueSetProviderExpandEclTest extends AbstractFHIRTest {
 				"url=http://snomed.info/xsct/" + sampleModuleId + "?fhir_vs=ecl/<<" + Concepts.SNOMEDCT_ROOT +
 				"&_format=json";
 		ValueSet v = getValueSet(url);
-		assertEquals(14, v.getExpansion().getContains().size());
+		assertEquals(16, v.getExpansion().getContains().size());
 		Optional<ValueSet.ValueSetExpansionParameterComponent> versionParam = v.getExpansion().getParameter().stream().filter(param -> "version".equals(param.getName())).findFirst();
 		assertFalse(versionParam.isPresent());
 	}
@@ -191,7 +191,7 @@ class FHIRValueSetProviderExpandEclTest extends AbstractFHIRTest {
 				"url=http://snomed.info/sct/" + sampleModuleId + "?fhir_vs=ecl/<<" + Concepts.SNOMEDCT_ROOT +
 				"&_format=json";
 		ValueSet v = getValueSet(url);
-		assertEquals(14, v.getExpansion().getContains().size());
+		assertEquals(16, v.getExpansion().getContains().size());
         Optional<ValueSet.ValueSetExpansionParameterComponent> usedCodesystemParam = v.getExpansion().getParameter().stream().filter(param -> "used-codesystem".equals(param.getName())).findFirst();
         assertTrue(usedCodesystemParam.isPresent());
         assertEquals("UriType[http://snomed.info/sct|http://snomed.info/sct/1234000008/version/20190731]", usedCodesystemParam.get().getValue().toString());

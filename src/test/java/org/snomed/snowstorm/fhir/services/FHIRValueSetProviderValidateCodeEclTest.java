@@ -172,7 +172,7 @@ class FHIRValueSetProviderValidateCodeEclTest extends AbstractFHIRTest {
 			String url = baseUrl + "/ValueSet/reason-for-encounter/$expand";
 			ResponseEntity<String> response = restTemplate.getForEntity(url, String.class);
 			ValueSet savedVS = fhirJsonParser.parseResource(ValueSet.class, response.getBody());
-			assertEquals(14, savedVS.getExpansion().getTotal(), () -> "Body: " + response.getBody());
+			assertEquals(16, savedVS.getExpansion().getTotal(), () -> "Body: " + response.getBody());
 		} finally {
 			deleteVs("reason-for-encounter");
 		}
