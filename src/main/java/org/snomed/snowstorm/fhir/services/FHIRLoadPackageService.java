@@ -8,6 +8,7 @@ import org.apache.commons.compress.archivers.tar.TarArchiveInputStream;
 import org.apache.commons.compress.compressors.gzip.GzipCompressorInputStream;
 import org.hl7.fhir.instance.model.api.IBaseResource;
 import org.hl7.fhir.r4.model.CodeSystem;
+import org.hl7.fhir.r4.model.ConceptMap;
 import org.hl7.fhir.r4.model.OperationOutcome;
 import org.hl7.fhir.r4.model.ValueSet;
 import org.slf4j.Logger;
@@ -33,27 +34,29 @@ import static java.lang.String.format;
 @Service
 public class FHIRLoadPackageService {
 
-	@Autowired
-	private ObjectMapper mapper;
-
-	@Autowired
-	private FHIRCodeSystemService codeSystemService;
-
-	@Autowired
-	private FHIRValueSetService valueSetService;
-
-	@Autowired
-	private FHIRConceptService fhirConceptService;
-
-	@Autowired
-	private FhirContext fhirContext;
-
+	private final ObjectMapper mapper;
+	private final FHIRCodeSystemService codeSystemService;
+	private final FHIRValueSetService valueSetService;
+	private final FHIRConceptMapService conceptMapService;
+	private final FHIRConceptService fhirConceptService;
+	private final FhirContext fhirContext;
 	private final Logger logger = LoggerFactory.getLogger(getClass());
+
+	public FHIRLoadPackageService(ObjectMapper mapper, FHIRCodeSystemService codeSystemService, FHIRValueSetService valueSetService,
+			FHIRConceptService fhirConceptService, FHIRConceptMapService conceptMapService, FhirContext fhirContext) {
+
+		this.mapper = mapper;
+		this.codeSystemService = codeSystemService;
+		this.valueSetService = valueSetService;
+		this.conceptMapService = conceptMapService;
+		this.fhirConceptService = fhirConceptService;
+		this.fhirContext = fhirContext;
+	}
 
 	public void uploadPackageResources(File packageFile, Set<String> resourceUrlsToImport, String submittedFileName, boolean testValueSets) throws IOException {
 		JsonParser jsonParser = (JsonParser) fhirContext.newJsonParser();
 		FHIRPackageIndex index = extractObject(packageFile, ".index.json", FHIRPackageIndex.class, jsonParser);
-		Set<String> supportedResourceTypes = Set.of("CodeSystem", "ValueSet");
+		Set<String> supportedResourceTypes = Set.of("CodeSystem", "ValueSet", "ConceptMap");
 		boolean importAll = resourceUrlsToImport.contains("*");
 		List<FHIRPackageIndexFile> filesToImport = index.getFiles().stream()
 				.filter(file -> (importAll && supportedResourceTypes.contains(file.getResourceType())) ||
@@ -64,7 +67,7 @@ public class FHIRLoadPackageService {
 				testValueSets ? " Each value set will be expanded and any issues logged as warning." : "");
 
 		// Import all code systems
-		for (FHIRPackageIndexFile indexFileToImport : filesToImport.stream().filter(file -> file.getResourceType().equals("CodeSystem")).collect(Collectors.toList())) {
+		for (FHIRPackageIndexFile indexFileToImport : filesToImport.stream().filter(file -> file.getResourceType().equals("CodeSystem")).toList()) {
 			String filename = indexFileToImport.getFilename();
 			String id = indexFileToImport.getId();
 			String url = indexFileToImport.getUrl();
@@ -96,7 +99,7 @@ public class FHIRLoadPackageService {
 		}
 
 		// Import all value sets
-		for (FHIRPackageIndexFile indexFileToImport : filesToImport.stream().filter(file -> file.getResourceType().equals("ValueSet")).collect(Collectors.toList())) {
+		for (FHIRPackageIndexFile indexFileToImport : filesToImport.stream().filter(file -> file.getResourceType().equals("ValueSet")).toList()) {
 			String filename = indexFileToImport.getFilename();
 			String id = indexFileToImport.getId();
 			String url = indexFileToImport.getUrl();
@@ -117,6 +120,21 @@ public class FHIRLoadPackageService {
 			}
 		}
 
+		// Import all maps
+		for (FHIRPackageIndexFile indexFileToImport : filesToImport.stream().filter(file -> file.getResourceType().equals("ConceptMap")).toList()) {
+			String filename = indexFileToImport.getFilename();
+			String id = indexFileToImport.getId();
+			String url = indexFileToImport.getUrl();
+			if (id != null && url != null) {
+				ConceptMap conceptMap = extractObject(packageFile, filename, ConceptMap.class, jsonParser);
+				conceptMap.setId(id);
+				conceptMap.setUrl(url);
+				conceptMap.setVersion(indexFileToImport.getVersion());
+				logger.info("Importing ConceptMap {} from package", conceptMap.getUrl());
+				conceptMapService.createOrUpdateConceptMap(conceptMap);
+			}
+		}
+
 		logger.info("Completed import of package {}.", submittedFileName);
 	}
 
@@ -132,7 +150,7 @@ public class FHIRLoadPackageService {
 		}
 		if (!importAll) {
 			Set<String> resourcesNotFound = new HashSet<>(resourceUrlsToImport);
-			resourcesNotFound.removeAll(filesToImport.stream().map(FHIRPackageIndexFile::getUrl).collect(Collectors.toList()));
+			filesToImport.stream().map(FHIRPackageIndexFile::getUrl).toList().forEach(resourcesNotFound::remove);
 			if (!resourcesNotFound.isEmpty()) {
 				throw FHIRHelper.exception(format("Failed to find resources (%s) within package index.", resourcesNotFound), OperationOutcome.IssueType.NOTFOUND, 400);
 			}
