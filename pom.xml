@@ -52,6 +52,11 @@
 			<groupId>org.apache.jena</groupId>
 			<artifactId>jena-arq</artifactId>
 		</dependency>
+		<dependency>
+			<!-- jena-arq excludes libthrift via snomed-parent-bom; declare it directly so Jena RIOT (Thrift) initialises. Version managed by BOM. -->
+			<groupId>org.apache.thrift</groupId>
+			<artifactId>libthrift</artifactId>
+		</dependency>
 
 		<dependency>
 			<!-- Branching and Version Control on top of Elasticsearch -->
