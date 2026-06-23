@@ -152,7 +152,6 @@
 		<dependency>
 			<groupId>org.ihtsdo.drools</groupId>
 			<artifactId>snomed-drools-engine</artifactId>
-      <version>5.7.0</version>
 			<exclusions>
 				<exclusion>
 					<groupId>org.testcontainers</groupId>
