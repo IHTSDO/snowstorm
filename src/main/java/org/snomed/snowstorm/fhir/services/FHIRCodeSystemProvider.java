@@ -45,8 +45,6 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
-import org.snomed.snowstorm.fhir.services.TxResourceAware;
-
 import static io.kaicode.elasticvc.api.ComponentService.LARGE_PAGE;
 import static java.lang.String.format;
 import static java.util.stream.Stream.concat;
@@ -59,6 +57,8 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants,
 
 	private static final String PARAM_SYSTEM = "system";
 	private static final String PARAM_FILE = "file";
+	private static final String PARAM_DISPLAY = "display";
+	private static final String PARAM_ISSUES = "issues";
 
 	@Value("${snowstorm.rest-api.readonly}")
 	private boolean readOnlyMode;
@@ -320,7 +320,7 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants,
 			@OperationParam(name="system") UriType system,
 			@OperationParam(name="codeSystem") StringType codeSystem,
 			@OperationParam(name="code") CodeType code,
-			@OperationParam(name="display") String display,
+			@OperationParam(name=PARAM_DISPLAY) String display,
 			@OperationParam(name="version") StringType version,
 			@OperationParam(name="date") DateTimeType date,
 			@OperationParam(name="coding") Coding coding,
@@ -329,7 +329,7 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants,
 		notSupported("codeSystem", codeSystem);
 		notSupported("date", date);
 		mutuallyExclusive("code", code, "coding", coding);
-		mutuallyRequired("display", display, "code", code, "coding", coding);
+		mutuallyRequired(PARAM_DISPLAY, display, "code", code, "coding", coding);
 		if (request.getMethod().equals(RequestMethod.POST.name())) {
 			// HAPI doesn't populate the OperationParam values for POST, we parse the body instead.
 			List<Parameters.ParametersParameterComponent> parsed = fhirContext.newJsonParser().parseResource(Parameters.class, rawBody).getParameter();
@@ -354,7 +354,7 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants,
 			@OperationParam(name="url") UriType url,
 			@OperationParam(name="codeSystem") StringType codeSystem,
 			@OperationParam(name="code") CodeType code,
-			@OperationParam(name="display") String display,
+			@OperationParam(name=PARAM_DISPLAY) String display,
 			@OperationParam(name="version") StringType version,
 			@OperationParam(name="date") DateTimeType date,
 			@OperationParam(name="coding") Coding coding,
@@ -398,8 +398,10 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants,
 			displayOut = concept.getPt().getTerm();
 			result = isDisplayValid(concept, display);
 			if (!result) {
-				// Check if the display matches an inactive description
-				boolean inactiveDisplayMatch = display != null && concept.getDescriptions().stream()
+				// Check if the display matches an inactive description.
+				// Reaching this branch implies result == false, and isDisplayValid only returns false
+				// when display is non-null, so an explicit display != null check is redundant here.
+				boolean inactiveDisplayMatch = concept.getDescriptions().stream()
 						.filter(d -> !d.isActive())
 						.anyMatch(d -> d.getTerm().equalsIgnoreCase(display));
 				if (inactiveDisplayMatch) {
@@ -411,7 +413,7 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants,
 							display, code, activeTerms);
 					issues.add(createOperationOutcomeIssueComponent(
 							new CodeableConcept(new Coding(TX_ISSUE_TYPE, "display-comment", null)).setText(msg),
-							OperationOutcome.IssueSeverity.WARNING, "display", IssueType.INVALID, null, null));
+							OperationOutcome.IssueSeverity.WARNING, PARAM_DISPLAY, IssueType.INVALID, null, null));
 				} else {
 					message = "Code exists, but the display term is not recognised.";
 				}
@@ -474,7 +476,7 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants,
 					"Coding.system", IssueType.INVALID, null, null);
 			Parameters parameters = new Parameters();
 			parameters.addParameter(CODE, new CodeType(code));
-			parameters.addParameter(new Parameters.ParametersParameterComponent(new StringType("issues")).setResource(oo));
+			parameters.addParameter(new Parameters.ParametersParameterComponent(new StringType(PARAM_ISSUES)).setResource(oo));
 			parameters.addParameter(MESSAGE, message);
 			parameters.addParameter(RESULT, false);
 			parameters.addParameter(PARAM_SYSTEM, new UriType(codeSystemParams.getCodeSystem()));
@@ -502,7 +504,7 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants,
 							display, code, concept.getDisplay());
 					issues.add(createOperationOutcomeIssueComponent(
 							new CodeableConcept(new Coding(TX_ISSUE_TYPE, "display-comment", null)).setText(msg),
-							OperationOutcome.IssueSeverity.WARNING, "display", IssueType.INVALID, null, null));
+							OperationOutcome.IssueSeverity.WARNING, PARAM_DISPLAY, IssueType.INVALID, null, null));
 				}
 			}
 
@@ -563,9 +565,9 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants,
 			OperationOutcome.OperationOutcomeIssueComponent firstIssue = e.getOperationOutcome().getIssueFirstRep();
 			List<Extension> filteredExts = firstIssue.getExtension().stream()
 					.filter(ext -> !"http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id".equals(ext.getUrl()))
-					.collect(Collectors.toList());
+					.toList();
 			firstIssue.setExtension(filteredExts);
-			parameters.addParameter(new Parameters.ParametersParameterComponent(new StringType("issues"))
+			parameters.addParameter(new Parameters.ParametersParameterComponent(new StringType(PARAM_ISSUES))
 					.setResource(e.getOperationOutcome()));
 			parameters.addParameter(MESSAGE, e.getMessage());
 			parameters.addParameter(RESULT, false);
@@ -587,7 +589,7 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants,
 			issue.getDetails().setText(text);
 			operationOutcome.setIssue(List.of(issue));
 
-			parameters.addParameter(new Parameters.ParametersParameterComponent(new StringType("issues"))
+			parameters.addParameter(new Parameters.ParametersParameterComponent(new StringType(PARAM_ISSUES))
 					.setResource(operationOutcome));
 			parameters.addParameter(MESSAGE, text);
 			parameters.addParameter(RESULT, true);

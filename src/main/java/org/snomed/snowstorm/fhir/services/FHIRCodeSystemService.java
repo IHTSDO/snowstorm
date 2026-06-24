@@ -45,6 +45,7 @@ public class FHIRCodeSystemService implements TxResourceAware {
 
 	public static final String SCT_ID_PREFIX = "sct_";
 	private static final int PAGESIZE = 1_000;
+	private static final String FIELD_EXTENSIONS_VALUE = "extensions.value";
 
 	@Autowired
 	private ElasticsearchOperations elasticsearchOperations;
@@ -767,16 +768,16 @@ public class FHIRCodeSystemService implements TxResourceAware {
 			NestedQuery.Builder nested = new NestedQuery.Builder();
 			BoolQuery.Builder query = new BoolQuery.Builder();
 			if (containsWildcard) {
-				query.filter(new WildcardQuery.Builder().field("extensions.value").value(value).build()._toQuery());
+				query.filter(new WildcardQuery.Builder().field(FIELD_EXTENSIONS_VALUE).value(value).build()._toQuery());
 			} else {
-				query.filter(new TermQuery.Builder().field("extensions.value").value(value).build()._toQuery());
+				query.filter(new TermQuery.Builder().field(FIELD_EXTENSIONS_VALUE).value(value).build()._toQuery());
 			}
 			nested.path("extensions").query(query.build()._toQuery());
 			List<FHIRCodeSystemVersion> results = find(PageRequest.of(0, 100), nested.build()._toQuery()).toList();
 			// If no exact match and value has no version, fall back to prefix match for versioned supplements
 			if (results.isEmpty() && !containsWildcard && !value.contains("|")) {
 				BoolQuery.Builder prefixQuery = new BoolQuery.Builder();
-				prefixQuery.filter(new WildcardQuery.Builder().field("extensions.value").value(value + "|*").build()._toQuery());
+				prefixQuery.filter(new WildcardQuery.Builder().field(FIELD_EXTENSIONS_VALUE).value(value + "|*").build()._toQuery());
 				NestedQuery.Builder prefixNested = new NestedQuery.Builder();
 				prefixNested.path("extensions").query(prefixQuery.build()._toQuery());
 				results = find(PageRequest.of(0, 100), prefixNested.build()._toQuery()).toList();

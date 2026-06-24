@@ -36,6 +36,9 @@ public class FHIRLoadPackageServlet extends HttpServlet {
 	public void init(ServletConfig config) throws ServletException {
 		final WebApplicationContext applicationContext =
 				WebApplicationContextUtils.getWebApplicationContext(config.getServletContext());
+		if (applicationContext == null) {
+			throw new ServletException("Unable to initialise " + getClass().getSimpleName() + ": no WebApplicationContext found in the servlet context.");
+		}
 
 		service = applicationContext.getBean(FHIRLoadPackageService.class);
 		fhirContext = applicationContext.getBean(FhirContext.class);

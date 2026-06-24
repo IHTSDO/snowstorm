@@ -8,7 +8,6 @@ import org.springframework.data.elasticsearch.annotations.Field;
 import org.springframework.data.elasticsearch.annotations.FieldType;
 
 import jakarta.persistence.Transient;
-import org.springframework.data.elasticsearch.annotations.Setting;
 
 import java.util.ArrayList;
 import java.util.List;

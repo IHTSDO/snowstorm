@@ -5,7 +5,6 @@ import java.io.IOException;
 import org.hl7.fhir.r4.model.StructureDefinition;
 
 import com.fasterxml.jackson.core.JsonParser;
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.DeserializationContext;
 import com.fasterxml.jackson.databind.deser.std.StdDeserializer;
 
@@ -25,7 +24,7 @@ public class StructureDefinitionDeserializer extends StdDeserializer<StructureDe
  
 
 	@Override
-	public StructureDefinition deserialize(JsonParser p, DeserializationContext ctxt) throws IOException, JsonProcessingException {
+	public StructureDefinition deserialize(JsonParser p, DeserializationContext ctxt) throws IOException {
 		IParser fhirParser = StructureDefinitionWrapper.getFhirParser();
 		String json = p.readValueAsTree().toString();
 		//Remove the leading and trailing quotes and unescape the remaining quotes

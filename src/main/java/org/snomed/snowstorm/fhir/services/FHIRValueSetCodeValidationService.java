@@ -49,6 +49,13 @@ public class FHIRValueSetCodeValidationService implements TxResourceAware {
 
 	public static final String X_UNKNOWN_SYSTEM = "x-unknown-system";
 
+	private static final String VERSION = "version";
+	private static final String CODE_COMMENT = "code-comment";
+	private static final String CODING_CODE = "Coding.code";
+	private static final String VALUESET_VALUE_MISMATCH_DEFAULT_MSG_ID = "VALUESET_VALUE_MISMATCH_DEFAULT";
+	private static final String NONE_IN_VALUE_SET_MSG_ID = "None_of_the_provided_codes_are_in_the_value_set_one";
+	private static final String CS_VERSION_DEF_NOT_FOUND_VALID_VERSIONS = "A definition for CodeSystem '%s' version '%s' could not be found, so the code cannot be validated. Valid versions: %s";
+
 	@Autowired
 	private FHIRValueSetCycleDetectionService cycleDetectionService;
 
@@ -106,8 +113,14 @@ public class FHIRValueSetCodeValidationService implements TxResourceAware {
 		// Use system-version hints when provided; otherwise use coding versions as hints only if they are
 		// actually known to the server. Unknown/bad versions must not be used as resolution hints because
 		// they would pollute versionless include resolution (e.g. a bad "2.4.0" would shadow the default version).
-		Set<CanonicalUri> systemVersionParamForProvider = (systemVersionHints != null && !systemVersionHints.isEmpty())
-				? systemVersionHints : (allCodingVersionsUnknownToServer ? Collections.emptySet() : codingSystemVersionsWithVersion);
+		Set<CanonicalUri> systemVersionParamForProvider;
+		if (systemVersionHints != null && !systemVersionHints.isEmpty()) {
+			systemVersionParamForProvider = systemVersionHints;
+		} else if (allCodingVersionsUnknownToServer) {
+			systemVersionParamForProvider = Collections.emptySet();
+		} else {
+			systemVersionParamForProvider = codingSystemVersionsWithVersion;
+		}
 
 		CodeSystemVersionProvider codeSystemVersionProvider = new CodeSystemVersionProvider(systemVersionParamForProvider, codingSystemVersionsWithVersion, request.getCheckSystemVersion(), request.getForceSystemVersion(), null, allowCheckSystemVersionAsFallback, codeSystemService);
 		// Collate set of inclusion and exclusion constraints for each code system version
@@ -150,9 +163,14 @@ public class FHIRValueSetCodeValidationService implements TxResourceAware {
 			} else if (OperationOutcome.IssueType.NOTFOUND.equals(e.getIssueCode()) && !e.getOperationOutcome().getIssue().stream().filter(i -> OperationOutcome.IssueType.NOTFOUND.equals(i.getCode())).flatMap( ex -> ex.getExtension().stream()).filter(ex -> ex.getUrl().equals("https://github.com/IHTSDO/snowstorm/available-codesystem-version")).toList().isEmpty()) {
 				Parameters response = new Parameters();
 				// Get the code being validated
-				String theCode = request.getCoding() != null ? request.getCoding().getCode()
-						: (request.getCodeableConcept() != null && !request.getCodeableConcept().getCoding().isEmpty()
-								? request.getCodeableConcept().getCoding().get(0).getCode() : request.getCode());
+				String theCode;
+				if (request.getCoding() != null) {
+					theCode = request.getCoding().getCode();
+				} else if (request.getCodeableConcept() != null && !request.getCodeableConcept().getCoding().isEmpty()) {
+					theCode = request.getCodeableConcept().getCoding().get(0).getCode();
+				} else {
+					theCode = request.getCode();
+				}
 				// For CodeableConcept requests echo the CC; for Coding/bare-code add the code param
 				if (request.getCodeableConcept() != null) {
 					response.addParameter(CODEABLE_CONCEPT, request.getCodeableConcept());
@@ -177,9 +195,8 @@ public class FHIRValueSetCodeValidationService implements TxResourceAware {
 						.anyMatch(vsCodeSystem -> Objects.equals(vsCodeSystem, requestedSystem));
 				if (valueSetSystemMatchesRequestedSystem) {
 					// Determine location prefix based on input type
-					String locationPrefix = request.getCodeableConcept() != null ? "CodeableConcept.coding[0]."
-							: request.getCoding() != null ? "Coding." : "";
-					String versionLocation = locationPrefix + "version";
+					String locationPrefix = getLocationPrefix(request);
+					String versionLocation = locationPrefix + VERSION;
 					String systemLocation = locationPrefix + "system";
 
 					// Get the coding's explicit version (from coding/CC/bare-code systemVersion)
@@ -269,7 +286,7 @@ public class FHIRValueSetCodeValidationService implements TxResourceAware {
 
 					// Build UNKNOWN issue
 					String unknownMsgText = availableVersion != null
-							? format("A definition for CodeSystem '%s' version '%s' could not be found, so the code cannot be validated. Valid versions: %s",
+							? format(CS_VERSION_DEF_NOT_FOUND_VALID_VERSIONS,
 									requestedSystem, missing.getVersion(), availableVersion)
 							: format("A definition for CodeSystem '%s' version '%s' could not be found, so the code cannot be validated",
 									requestedSystem, missing.getVersion());
@@ -326,7 +343,7 @@ public class FHIRValueSetCodeValidationService implements TxResourceAware {
 								String mismatchText = format("The code system '%s' version '%s' for the versionless include in the ValueSet include is different to the one in the value ('%s')",
 										requestedSystem, fallbackVersionStr, codingVersion);
 								Extension mismatchExt = new Extension(HL7_SD_OUTCOME_MESSAGE_ID);
-								mismatchExt.setValue(new StringType("VALUESET_VALUE_MISMATCH_DEFAULT"));
+								mismatchExt.setValue(new StringType(VALUESET_VALUE_MISMATCH_DEFAULT_MSG_ID));
 								CodeableConcept mismatchDetail = new CodeableConcept(new Coding(TX_ISSUE_TYPE, VS_INVALID, null)).setText(mismatchText);
 								OperationOutcome.OperationOutcomeIssueComponent mismatchIssue = createOperationOutcomeIssueComponent(
 										mismatchDetail, OperationOutcome.IssueSeverity.WARNING, versionLocation,
@@ -350,7 +367,7 @@ public class FHIRValueSetCodeValidationService implements TxResourceAware {
 					if (request.getCodeableConcept() == null) {
 						response.addParameter(SYSTEM, new UriType(requestedSystem));
 						if (fallback != null) {
-							response.addParameter("version", fallback.getVersion());
+							response.addParameter(VERSION, fallback.getVersion());
 						}
 					}
 					response.addParameter("x-caused-by-unknown-system", new CanonicalType(missing.toString()));
@@ -365,7 +382,7 @@ public class FHIRValueSetCodeValidationService implements TxResourceAware {
 					response.addParameter(SYSTEM, new UriType(requestedSystem));
 					response.addParameter(X_UNKNOWN_SYSTEM, new CanonicalType(requestedSystem));
 					Extension e1 = new Extension(HL7_SD_OUTCOME_MESSAGE_ID);
-					e1.setValue(new StringType("None_of_the_provided_codes_are_in_the_value_set_one"));
+					e1.setValue(new StringType(NONE_IN_VALUE_SET_MSG_ID));
 					CodeableConcept detail1 = new CodeableConcept(new Coding(TX_ISSUE_TYPE, NOT_IN_VS, null)).setText(format(CODE_NOT_IN_VS, codeSystemWithCode, valueSetCanonical));
 					issues[0] = createOperationOutcomeIssueComponent(detail1, OperationOutcome.IssueSeverity.ERROR, CODE, OperationOutcome.IssueType.CODEINVALID, List.of(e1), null);
 					String text = format(CS_DEF_NOT_FOUND, requestedSystem);
@@ -467,12 +484,11 @@ public class FHIRValueSetCodeValidationService implements TxResourceAware {
 									v.getVersion() == null ||
 									v.getVersion().equals(codingAVersion) ||
 									v.getVersion().contains(codingAVersion))
-							.collect(Collectors.toList());
+							.toList();
 
 					// Determine location prefix based on input type
-					String locationPrefix = request.getCodeableConcept() != null ? "CodeableConcept.coding[0]."
-							: request.getCoding() != null ? "Coding." : "";
-					String versionLocation = locationPrefix + "version";
+					String locationPrefix = getLocationPrefix(request);
+					String versionLocation = locationPrefix + VERSION;
 					String systemLocation = locationPrefix + "system";
 
 					if (!vsVersionsForSystem.isEmpty()) {
@@ -542,7 +558,7 @@ public class FHIRValueSetCodeValidationService implements TxResourceAware {
 									codingA.getVersion());
 						} else if (!codingVersionExists && isVersionlessInclude) {
 							// No hint, coding version doesn't exist, versionless include — DEFAULT variant (warning)
-							mismatchMsgId = "VALUESET_VALUE_MISMATCH_DEFAULT";
+							mismatchMsgId = VALUESET_VALUE_MISMATCH_DEFAULT_MSG_ID;
 							mismatchSeverity = OperationOutcome.IssueSeverity.WARNING;
 							mismatchMsg = format("The code system '%s' version '%s' for the versionless include in the ValueSet include is different to the one in the value ('%s')",
 									codingA.getSystem(), vsVersion.getVersion(), codingA.getVersion());
@@ -567,7 +583,7 @@ public class FHIRValueSetCodeValidationService implements TxResourceAware {
 							allVersions.sort(Comparator.comparing(FHIRCodeSystemVersion::getVersion));
 							String validVersions = allVersions.stream().map(FHIRCodeSystemVersion::getVersion)
 									.collect(Collectors.joining(" or "));
-							String unknownMsg = format("A definition for CodeSystem '%s' version '%s' could not be found, so the code cannot be validated. Valid versions: %s",
+							String unknownMsg = format(CS_VERSION_DEF_NOT_FOUND_VALID_VERSIONS,
 									codingA.getSystem(), codingA.getVersion(), validVersions);
 							Extension unknownExt = new Extension(HL7_SD_OUTCOME_MESSAGE_ID, new StringType("UNKNOWN_CODESYSTEM_VERSION"));
 							CodeableConcept unknownDetail = new CodeableConcept(new Coding(TX_ISSUE_TYPE, NOT_FOUND, null)).setText(unknownMsg);
@@ -577,7 +593,7 @@ public class FHIRValueSetCodeValidationService implements TxResourceAware {
 							response.addParameter("x-caused-by-unknown-system",
 									new CanonicalType(CanonicalUri.of(codingA.getSystem(), codingA.getVersion()).toString()));
 							// Ordering: DEFAULT puts UNKNOWN first; CHANGED puts MISMATCH first
-							if ("VALUESET_VALUE_MISMATCH_DEFAULT".equals(mismatchMsgId)) {
+							if (VALUESET_VALUE_MISMATCH_DEFAULT_MSG_ID.equals(mismatchMsgId)) {
 								mismatchIssues.add(unknownIssue);
 								mismatchIssues.add(mismatchIssue);
 								messageStr = unknownMsg;  // DEFAULT: only unknown in message (warning not included)
@@ -606,7 +622,7 @@ public class FHIRValueSetCodeValidationService implements TxResourceAware {
 							messageStr = messageStr + "; " + versionCheckMsg;
 						}
 
-						response.addParameter("version", vsVersion.getVersion());
+						response.addParameter(VERSION, vsVersion.getVersion());
 						response.addParameter(createParameterComponentWithOperationOutcomeWithIssues(mismatchIssues));
 						response.addParameter(MESSAGE, messageStr);
 					} else {
@@ -630,19 +646,22 @@ public class FHIRValueSetCodeValidationService implements TxResourceAware {
 						String systemVersionCanonical = codingA.getSystem() + (codingA.getVersion() == null ? "" : "|" + codingA.getVersion());
 						if (request.getCodeableConcept() != null) {
 							CanonicalUri valueSetCanonicalUri = CanonicalUri.of(hapiValueSet.getUrl(), hapiValueSet.getVersion());
-							issues[0] = createOperationOutcomeIssueComponent(new CodeableConcept().addCoding(new Coding(TX_ISSUE_TYPE, NOT_IN_VS, null)).setText(format("No valid coding was found for the value set '%s'", valueSetCanonicalUri)), OperationOutcome.IssueSeverity.ERROR, null, OperationOutcome.IssueType.CODEINVALID, null /* Collections.singletonList(new Extension(HL7_SD_OUTCOME_MESSAGE_ID,new StringType("None_of_the_provided_codes_are_in_the_value_set_one")))*/, null);
+							issues[0] = createOperationOutcomeIssueComponent(new CodeableConcept().addCoding(new Coding(TX_ISSUE_TYPE, NOT_IN_VS, null)).setText(format("No valid coding was found for the value set '%s'", valueSetCanonicalUri)), OperationOutcome.IssueSeverity.ERROR, null, OperationOutcome.IssueType.CODEINVALID, null /* Collections.singletonList(new Extension(HL7_SD_OUTCOME_MESSAGE_ID,new StringType(NONE_IN_VALUE_SET_MSG_ID)))*/, null);
 							List<FHIRCodeSystemVersion> knownCsVersions = codingA.getVersion() == null ? List.of() : codeSystemService.findAllVersionsByUrl(codingA.getSystem());
-							String text = codingA.getVersion() == null
-									? format(CS_DEF_NOT_FOUND, codingA.getSystem())
-									: knownCsVersions.isEmpty()
-											? format("A definition for CodeSystem '%s' version '%s' could not be found, so the code cannot be validated. No versions of this code system are known", codingA.getSystem(), codingA.getVersion())
-											: format("A definition for CodeSystem '%s' version '%s' could not be found, so the code cannot be validated. Valid versions: %s",
-													codingA.getSystem(), codingA.getVersion(),
-													knownCsVersions.stream().map(FHIRCodeSystemVersion::getVersion).sorted().collect(Collectors.joining(" or ")));
+							String text;
+							if (codingA.getVersion() == null) {
+								text = format(CS_DEF_NOT_FOUND, codingA.getSystem());
+							} else if (knownCsVersions.isEmpty()) {
+								text = format("A definition for CodeSystem '%s' version '%s' could not be found, so the code cannot be validated. No versions of this code system are known", codingA.getSystem(), codingA.getVersion());
+							} else {
+								text = format(CS_VERSION_DEF_NOT_FOUND_VALID_VERSIONS,
+										codingA.getSystem(), codingA.getVersion(),
+										knownCsVersions.stream().map(FHIRCodeSystemVersion::getVersion).sorted().collect(Collectors.joining(" or ")));
+							}
 							CodeableConcept details2 = new CodeableConcept(new Coding(TX_ISSUE_TYPE, NOT_FOUND, null)).setText(text);
 							issues[1] = createOperationOutcomeIssueComponent(details2, OperationOutcome.IssueSeverity.ERROR, "CodeableConcept.coding[0].system", OperationOutcome.IssueType.NOTFOUND, null, null);
 							String textIssue2 = format("The provided code '%s|%s#%s' was not found in the value set '%s'", codingA.getSystem(), codingA.getVersion(), codingA.getCode(), valueSetCanonicalUri);
-							issues[2] = createOperationOutcomeIssueComponent(new CodeableConcept().addCoding(new Coding(TX_ISSUE_TYPE, "this-code-not-in-vs", null)).setText(textIssue2), OperationOutcome.IssueSeverity.INFORMATION, "CodeableConcept.coding[0].code", OperationOutcome.IssueType.CODEINVALID, null /* Collections.singletonList(new Extension(HL7_SD_OUTCOME_MESSAGE_ID,new StringType("None_of_the_provided_codes_are_in_the_value_set_one")))*/, null);
+							issues[2] = createOperationOutcomeIssueComponent(new CodeableConcept().addCoding(new Coding(TX_ISSUE_TYPE, "this-code-not-in-vs", null)).setText(textIssue2), OperationOutcome.IssueSeverity.INFORMATION, "CodeableConcept.coding[0].code", OperationOutcome.IssueType.CODEINVALID, null /* Collections.singletonList(new Extension(HL7_SD_OUTCOME_MESSAGE_ID,new StringType(NONE_IN_VALUE_SET_MSG_ID)))*/, null);
 							String xUnknownSystem = (codingA.getVersion() != null && knownCsVersions.isEmpty()) ? codingA.getSystem() : systemVersionCanonical;
 							response.addParameter(X_UNKNOWN_SYSTEM, new CanonicalType(xUnknownSystem));
 							List<Parameters.ParametersParameterComponent> systemParameters = new ArrayList<>(response.getParameters(SYSTEM));
@@ -681,7 +700,7 @@ public class FHIRValueSetCodeValidationService implements TxResourceAware {
 								List<FHIRCodeSystemVersion> knownCsVersions = codeSystemService.findAllVersionsByUrl(codingA.getSystem());
 								String csVersionMsg = knownCsVersions.isEmpty()
 										? format("A definition for CodeSystem '%s' version '%s' could not be found, so the code cannot be validated. No versions of this code system are known", codingA.getSystem(), codingA.getVersion())
-										: format("A definition for CodeSystem '%s' version '%s' could not be found, so the code cannot be validated. Valid versions: %s", codingA.getSystem(), codingA.getVersion(), knownCsVersions.stream().map(FHIRCodeSystemVersion::getVersion).sorted().collect(Collectors.joining(" or ")));
+										: format(CS_VERSION_DEF_NOT_FOUND_VALID_VERSIONS, codingA.getSystem(), codingA.getVersion(), knownCsVersions.stream().map(FHIRCodeSystemVersion::getVersion).sorted().collect(Collectors.joining(" or ")));
 								response.addParameter(MESSAGE, format("%s; No valid coding was found for the value set '%s'", csVersionMsg, canonicalUriValueSet));
 							} else {
 								String validVersionsList = codeSystemService.findAllVersionsByUrl(codingA.getSystem()).stream()
@@ -732,7 +751,7 @@ public class FHIRValueSetCodeValidationService implements TxResourceAware {
 							.orElse(resolvedCodeSystemVersionsMatchingCodings.iterator().next());
 					String version = foundInVersion.getVersion();
 					if (!"0".equals(version)) {
-						response.addParameter("version", version);
+						response.addParameter(VERSION, version);
 					}
 				}
 				if (FHIRHelper.isSnomedUri(codingA.getSystem()) && !concept.isActive()) {
@@ -748,19 +767,19 @@ public class FHIRValueSetCodeValidationService implements TxResourceAware {
 					}
 					List<String> inactiveWarnings = new ArrayList<>();
 					String inactiveMsg = format("The concept '%s' has a status of inactive and its use should be reviewed", codingA.getCode());
-					issues.add(createOperationOutcomeIssueComponent(new CodeableConcept(new Coding(TX_ISSUE_TYPE, "code-comment", null)).setText(inactiveMsg),
+					issues.add(createOperationOutcomeIssueComponent(new CodeableConcept(new Coding(TX_ISSUE_TYPE, CODE_COMMENT, null)).setText(inactiveMsg),
 							OperationOutcome.IssueSeverity.WARNING, "Coding", OperationOutcome.IssueType.BUSINESSRULE, null, null));
 					inactiveWarnings.add(inactiveMsg);
 					if ("retired".equals(statusValue)) {
 						String retiredMsg = format("The concept '%s' has a status of retired and its use should be reviewed", codingA.getCode());
-						issues.add(createOperationOutcomeIssueComponent(new CodeableConcept(new Coding(TX_ISSUE_TYPE, "code-comment", null)).setText(retiredMsg),
+						issues.add(createOperationOutcomeIssueComponent(new CodeableConcept(new Coding(TX_ISSUE_TYPE, CODE_COMMENT, null)).setText(retiredMsg),
 								OperationOutcome.IssueSeverity.WARNING, "Coding", OperationOutcome.IssueType.BUSINESSRULE, null, null));
 						inactiveWarnings.add(retiredMsg);
 					}
 					response.addParameter(MESSAGE, String.join("; ", inactiveWarnings));
 
 					if(request.getActiveOnly() != null && request.getActiveOnly().booleanValue() || (hapiValueSet.getCompose().hasInactive() && !hapiValueSet.getCompose().getInactive())) {
-						String locationExpression = "Coding.code";
+						String locationExpression = CODING_CODE;
 						String message = format(CODE_NOT_IN_VS, createFullyQualifiedCodeString(codingA),CanonicalUri.of(hapiValueSet.getUrl(),hapiValueSet.getVersion()));
 						issues.add(createOperationOutcomeIssueComponent(new CodeableConcept(new Coding(TX_ISSUE_TYPE, "code-rule",null)).setText(format("The code '%s' is valid but is not active", codingA.getCode())), OperationOutcome.IssueSeverity.ERROR,locationExpression, OperationOutcome.IssueType.BUSINESSRULE,null,null));
 						issues.add(createOperationOutcomeIssueComponent(new CodeableConcept(new Coding(TX_ISSUE_TYPE, NOT_IN_VS,null)).setText(message), OperationOutcome.IssueSeverity.ERROR, locationExpression, OperationOutcome.IssueType.CODEINVALID, null, null));
@@ -783,8 +802,8 @@ public class FHIRValueSetCodeValidationService implements TxResourceAware {
 					String deprecatedMessage = format("The presence of the concept '%s' in the system '%s' in the value set %s is marked with a status of deprecated and its use should be reviewed",
 							codingA.getCode(), codingA.getSystem(), vsCanonical);
 					issues.add(createOperationOutcomeIssueComponent(
-							new CodeableConcept(new Coding(TX_ISSUE_TYPE, "code-comment", null)).setText(deprecatedMessage),
-							OperationOutcome.IssueSeverity.WARNING, "Coding.code", OperationOutcome.IssueType.BUSINESSRULE, null, null));
+							new CodeableConcept(new Coding(TX_ISSUE_TYPE, CODE_COMMENT, null)).setText(deprecatedMessage),
+							OperationOutcome.IssueSeverity.WARNING, CODING_CODE, OperationOutcome.IssueType.BUSINESSRULE, null, null));
 				}
 				if(!concept.getCode().equals(codingA.getCode()) && concept.getCode().equalsIgnoreCase(codingA.getCode())) {
 					response.addParameter("normalized-code", new CodeType(concept.getCode()));
@@ -963,13 +982,13 @@ public class FHIRValueSetCodeValidationService implements TxResourceAware {
 					}
 					message = format("No valid coding was found for the value set '%s'; The provided code '%s#%s' was not found in the value set '%s'",  hapiValueSet.getUrl(), codingA.getSystem(), codingA.getCode(), hapiValueSet.getUrl());
 				} else if (request.getCoding() != null) {
-					locationExpression = "Coding.code";
+					locationExpression = CODING_CODE;
 					String codeWithDisplay = codingA.getDisplay() != null && !codingA.getDisplay().isEmpty()
 							? codingA.getCode() + " ('" + codingA.getDisplay() + "')"
 							: codingA.getCode();
 					String details = "The provided code '" + codingA.getSystem() + "#" + codeWithDisplay + "' was not found in the value set '" + CanonicalUri.of(hapiValueSet.getUrl(), hapiValueSet.getVersion()) + "'";
 					if(resolvedCodeSystemVersionsMatchingCodings.size() == 1 && codeSystemIncludesConcept(resolvedCodeSystemVersionsMatchingCodings.iterator().next(), codingA)) {
-						issues.add(createOperationOutcomeIssueComponent(new CodeableConcept().addCoding(new Coding(TX_ISSUE_TYPE, NOT_IN_VS, null)).setText(details), OperationOutcome.IssueSeverity.ERROR, locationExpression, OperationOutcome.IssueType.CODEINVALID, null /* Collections.singletonList(new Extension(HL7_SD_OUTCOME_MESSAGE_ID,new StringType("None_of_the_provided_codes_are_in_the_value_set_one")))*/, null));
+						issues.add(createOperationOutcomeIssueComponent(new CodeableConcept().addCoding(new Coding(TX_ISSUE_TYPE, NOT_IN_VS, null)).setText(details), OperationOutcome.IssueSeverity.ERROR, locationExpression, OperationOutcome.IssueType.CODEINVALID, null /* Collections.singletonList(new Extension(HL7_SD_OUTCOME_MESSAGE_ID,new StringType(NONE_IN_VALUE_SET_MSG_ID)))*/, null));
 						message = details;
 						// Also check display when code exists in CS but is not in VS
 						String providedDisplay = codingA.getDisplay();
@@ -992,7 +1011,7 @@ public class FHIRValueSetCodeValidationService implements TxResourceAware {
 							}
 						}
 					} else {
-						issues.add(createOperationOutcomeIssueComponent(new CodeableConcept().addCoding(new Coding(TX_ISSUE_TYPE, NOT_IN_VS, null)).setText(details), OperationOutcome.IssueSeverity.ERROR, locationExpression, OperationOutcome.IssueType.CODEINVALID, Collections.singletonList(new Extension(HL7_SD_OUTCOME_MESSAGE_ID,new StringType("None_of_the_provided_codes_are_in_the_value_set_one"))), null));
+						issues.add(createOperationOutcomeIssueComponent(new CodeableConcept().addCoding(new Coding(TX_ISSUE_TYPE, NOT_IN_VS, null)).setText(details), OperationOutcome.IssueSeverity.ERROR, locationExpression, OperationOutcome.IssueType.CODEINVALID, Collections.singletonList(new Extension(HL7_SD_OUTCOME_MESSAGE_ID,new StringType(NONE_IN_VALUE_SET_MSG_ID))), null));
 						String details2 = format("Unknown code '%s' in the CodeSystem '%s' version '%s'", codingA.getCode(), codingA.getSystem(), resolvedCodeSystemVersionsMatchingCodings.isEmpty() ? null : resolvedCodeSystemVersionsMatchingCodings.iterator().next().getVersion());
 						issues.add(createOperationOutcomeIssueComponent(new CodeableConcept().addCoding(new Coding(TX_ISSUE_TYPE, INVALID_CODE, null)).setText(details2), OperationOutcome.IssueSeverity.ERROR, locationExpression, OperationOutcome.IssueType.CODEINVALID, Collections.singletonList(new Extension(HL7_SD_OUTCOME_MESSAGE_ID,new StringType("Unknown_Code_in_Version"))), null));
 						message = details + "; " + details2;
@@ -1042,13 +1061,13 @@ public class FHIRValueSetCodeValidationService implements TxResourceAware {
 							}
 							String ver = csVersion.getVersion();
 							if (ver != null && !"0".equals(ver)) {
-								response.addParameter("version", ver);
+								response.addParameter(VERSION, ver);
 							}
 							String codeWithDisplay = codingA.getDisplay() != null && !codingA.getDisplay().isEmpty()
 									? codingA.getCode() + " ('" + codingA.getDisplay() + "')"
 									: codingA.getCode();
 							message = "The provided code '" + codingA.getSystem() + "#" + codeWithDisplay + "' was not found in the value set '" + CanonicalUri.of(hapiValueSet.getUrl(), hapiValueSet.getVersion()) + "'";
-							Extension notInVsExt = new Extension(HL7_SD_OUTCOME_MESSAGE_ID, new StringType("None_of_the_provided_codes_are_in_the_value_set_one"));
+							Extension notInVsExt = new Extension(HL7_SD_OUTCOME_MESSAGE_ID, new StringType(NONE_IN_VALUE_SET_MSG_ID));
 							OperationOutcome.OperationOutcomeIssueComponent notInVsIssue = createOperationOutcomeIssueComponent(
 									new CodeableConcept().addCoding(new Coding(TX_ISSUE_TYPE, NOT_IN_VS, null)).setText(message),
 									OperationOutcome.IssueSeverity.ERROR, null, OperationOutcome.IssueType.CODEINVALID, Collections.singletonList(notInVsExt), null);
@@ -1083,8 +1102,7 @@ public class FHIRValueSetCodeValidationService implements TxResourceAware {
 
 		// Add any version-check issues collected during constraint generation
 		// (Must be processed before the early-return below so they appear in all result paths)
-		String versionLoc = (request.getCodeableConcept() != null ? "CodeableConcept.coding[0]."
-				: request.getCoding() != null ? "Coding." : "") + "version";
+		String versionLoc = getLocationPrefix(request) + VERSION;
 		for (OperationOutcome.OperationOutcomeIssueComponent vci : versionCheckIssues) {
 			vci.addLocation(versionLoc);
 			vci.addExpression(versionLoc);
@@ -1177,6 +1195,13 @@ public class FHIRValueSetCodeValidationService implements TxResourceAware {
 						.forEach( x -> x.setValueAsString(request.getVersionValueSet().getValueAsString()))
 		);
 		return hapiValueSet;
+	}
+
+	private static String getLocationPrefix(FHIRCodeValidationRequest request) {
+		if (request.getCodeableConcept() != null) {
+			return "CodeableConcept.coding[0].";
+		}
+		return request.getCoding() != null ? "Coding." : "";
 	}
 
 	private static void validateRequestParameters(FHIRCodeValidationRequest request) {

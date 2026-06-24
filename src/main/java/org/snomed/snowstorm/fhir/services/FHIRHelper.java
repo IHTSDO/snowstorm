@@ -116,7 +116,7 @@ public class FHIRHelper implements FHIRConstants {
 	public static List<String> findParameterStringListOrNull(List<Parameters.ParametersParameterComponent> parametersParameterComponents, String name) {
 		List<String> result =  parametersParameterComponents.stream().filter(parametersParameterComponent -> parametersParameterComponent.getName().equals(name)).map(parametersParameterComponent -> parametersParameterComponent.getValue().primitiveValue()).toList();
 		if (result.isEmpty()){
-			return null;
+			return Collections.emptyList();
 		} else {
 			return result;
 		}

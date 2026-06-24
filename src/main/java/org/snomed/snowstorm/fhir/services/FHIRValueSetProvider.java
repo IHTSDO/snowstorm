@@ -35,7 +35,6 @@ import org.hl7.fhir.instance.model.api.IBase;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
@@ -43,6 +42,8 @@ import static org.snomed.snowstorm.fhir.services.FHIRHelper.exception;
 
 @Component
 public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
+
+	private static final String RESOURCE_TYPE_VALUE_SET = "ValueSet";
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
@@ -75,7 +76,7 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 		FHIRHelper.readOnlyCheck(readOnlyMode);
 		MethodOutcome outcome = new MethodOutcome();
 		FHIRValueSet savedVs = valueSetService.createOrUpdateValueset(vs);
-		outcome.setId(new IdType("ValueSet", savedVs.getId(), vs.getVersion()));
+		outcome.setId(new IdType(RESOURCE_TYPE_VALUE_SET, savedVs.getId(), vs.getVersion()));
 		return outcome;
 	}
 
@@ -99,13 +100,13 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 		MethodOutcome outcome = new MethodOutcome();
 		if (id != null) {
 			valuesetRepository.deleteById(id.getIdPart());
-			outcome.setId(new IdType("ValueSet", id.getIdPart()));
+			outcome.setId(new IdType(RESOURCE_TYPE_VALUE_SET, id.getIdPart()));
 		} else {
 			FHIRHelper.required("url", url);
 			FHIRHelper.required("version", version);
 			valueSetFinderService.find(url.getValueAsString(), version).ifPresent(vs -> {
 				valuesetRepository.deleteById(vs.getId());
-				outcome.setId(new IdType("ValueSet", vs.getId(), version));
+				outcome.setId(new IdType(RESOURCE_TYPE_VALUE_SET, vs.getId(), version));
 			});
 		}
 		return outcome;
@@ -181,11 +182,11 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 				.map(vs -> {
 					vs.setCompose(null);// Remove compose element from ValueSet search/listing
 					Bundle.BundleEntryComponent component = new Bundle.BundleEntryComponent();
-					component.setFullUrl(vs.getIdElement().withServerBase(fhirServerBase, "ValueSet").getValue());
+					component.setFullUrl(vs.getIdElement().withServerBase(fhirServerBase, RESOURCE_TYPE_VALUE_SET).getValue());
 					component.setResource(vs);
 					return component;
 				})
-				.collect(Collectors.toList()));
+				.toList());
 		return bundle;
 	}
 
@@ -454,7 +455,7 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 		}
 
 		try {
-			return (Resource) valueSetService.validateCode(new FHIRCodeValidationRequest()
+			return valueSetService.validateCode(new FHIRCodeValidationRequest()
 				.withUrl(url)
 				.withCoding(coding)
 				.withCodeableConcept(codeableConcept)

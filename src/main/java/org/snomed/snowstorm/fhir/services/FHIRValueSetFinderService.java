@@ -133,7 +133,7 @@ public class FHIRValueSetFinderService implements FHIRConstants, TxResourceAware
 			idUrlCrosscheck(id, url, valueSet);
 
 			hapiValueSet = valueSet.getHapi();
-		} else if (FHIRHelper.isSnomedUri(url) && url.contains(FHIR_VS)) {
+		} else if (url != null && FHIRHelper.isSnomedUri(url) && url.contains(FHIR_VS)) {
 			// Create snomed implicit value set
 			hapiValueSet = createSnomedImplicitValueSet(url);
 		} else if (url != null && url.endsWith(FHIR_VS)) {

@@ -9,8 +9,6 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
-import java.util.stream.Collectors;
-
 import static org.snomed.snowstorm.core.util.CollectionUtils.orEmpty;
 
 public class FHIRValueSetCriteria {
@@ -55,7 +53,7 @@ public class FHIRValueSetCriteria {
 			}
 			filter.add(new FHIRValueSetFilter(hapiFilter));
 		}
-		valueSet = hapiCriteria.getValueSet().stream().map(CanonicalType::getValueAsString).collect(Collectors.toList());
+		valueSet = hapiCriteria.getValueSet().stream().map(CanonicalType::getValueAsString).toList();
 	}
 
 	public ValueSet.ConceptSetComponent getHapi() {
@@ -75,10 +73,10 @@ public class FHIRValueSetCriteria {
 			}
 			hapiConceptSet.addConcept(component);
 		}
-		for (FHIRValueSetFilter filter : orEmpty(getFilter())) {
-			hapiConceptSet.addFilter(filter.getHapi());
+		for (FHIRValueSetFilter vsFilter : orEmpty(getFilter())) {
+			hapiConceptSet.addFilter(vsFilter.getHapi());
 		}
-		hapiConceptSet.setValueSet(orEmpty(valueSet).stream().map(CanonicalType::new).collect(Collectors.toList()));
+		hapiConceptSet.setValueSet(orEmpty(valueSet).stream().map(CanonicalType::new).toList());
 		return hapiConceptSet;
 	}
 
