@@ -1,5 +1,8 @@
 package org.snomed.snowstorm.fhir.utils;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
@@ -10,6 +13,8 @@ import java.util.Date;
 import java.util.TimeZone;
 
 public class FileToJSON {
+
+	private static final Logger LOGGER = LoggerFactory.getLogger(FileToJSON.class);
 
 	public static void main(String[] args) throws Exception {
 		if (args.length < 3) {
@@ -103,15 +108,15 @@ public class FileToJSON {
 	}
 
 	private static String encode(String vsName) {
-		return vsName.toLowerCase().replaceAll(" ", "-");
+		return vsName.toLowerCase().replace(" ", "-");
 	}
 
 	public static void debug(String msg) {
-		System.out.println(msg);
+		LOGGER.info(msg);
 	}
-	
+
 	public static void out(String msg) {
-		System.out.println(msg);
+		LOGGER.info(msg);
 	}
 
 }

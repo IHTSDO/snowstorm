@@ -57,6 +57,7 @@ public class FHIRValueSetService implements FHIRConstants {
 
 	public static final String LABEL = "label";
 	public static final String NOT_FOUND = "not-found";
+	private static final String PROPERTY_STATUS = "status";
 	public static final String ORDER = "order";
 	public static final String VS_INVALID = "vs-invalid";
 	public static final String WARNING_DASH = "warning-";
@@ -218,9 +219,6 @@ public class FHIRValueSetService implements FHIRConstants {
 
 		//Do we have any sort of display language set?  Use the default if not, to ensure at least some display value is set.
 		//Discuss Config.DEFAULT_LANGUAGE_CODE currently 'en'
-		/*if (displayLanguage == null && params.getDisplayLanguage() == null) {
-			displayLanguage = defaultLangDialectCode;
-		}*/
 
 		ValueSet hapiValueSet = vsFinderService.findOrInferValueSet(params.getId(), params.getUrl(), params.getValueSet(), params.getValueSetVersion());
 		if (hapiValueSet == null) {
@@ -666,7 +664,7 @@ public class FHIRValueSetService implements FHIRConstants {
 
 		int total = allConcepts.size();
 		int offset = (int) pageRequest.getOffset();
-		int toIndex = Math.min(offset + (int) pageRequest.getPageSize(), total);
+		int toIndex = Math.min(offset + pageRequest.getPageSize(), total);
 		List<FHIRConcept> page = offset < total ? new ArrayList<>(allConcepts.subList(offset, toIndex)) : new ArrayList<>();
 		return new PageImpl<>(page, pageRequest, total);
 	}
@@ -788,12 +786,12 @@ public class FHIRValueSetService implements FHIRConstants {
 						component.setVersion(idToVersionStr.get(concept.getCodeSystemVersion()));
 					}
 					if (!concept.isActive()) {
-						addPropertyToContains("status", component, new CodeType("inactive"));
-						addPropertyToExpansion("status", "http://hl7.org/fhir/concept-properties#status", expansion);
+						addPropertyToContains(PROPERTY_STATUS, component, new CodeType("inactive"));
+						addPropertyToExpansion(PROPERTY_STATUS, "http://hl7.org/fhir/concept-properties#status", expansion);
 					}
 
 					concept.getProperties().forEach((key, value) -> {
-						if (key.equals("status")) {
+						if (key.equals(PROPERTY_STATUS)) {
 							value.stream()
 									.filter(x -> x.getValue().equals("retired") || x.getValue().equals("deprecated"))
 									.findFirst()
@@ -801,8 +799,8 @@ public class FHIRValueSetService implements FHIRConstants {
 										if ("retired".equals(x.getValue())) {
 											component.setInactive(true);
 										}
-										addPropertyToContains("status", component, new CodeType(x.getValue()));
-										addPropertyToExpansion("status", "http://hl7.org/fhir/concept-properties#status", expansion);
+										addPropertyToContains(PROPERTY_STATUS, component, new CodeType(x.getValue()));
+										addPropertyToExpansion(PROPERTY_STATUS, "http://hl7.org/fhir/concept-properties#status", expansion);
 									});
 						} else if (key.equals("notSelectable") || key.equals("not-selectable")) {
 							value.stream()

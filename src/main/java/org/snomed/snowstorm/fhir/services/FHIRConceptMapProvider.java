@@ -21,8 +21,6 @@ import org.springframework.stereotype.Component;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.util.*;
-import java.util.stream.Collectors;
-
 import static java.lang.String.format;
 import static org.snomed.snowstorm.fhir.services.FHIRConceptMapService.WHOLE_SYSTEM_VALUE_SET_URI_POSTFIX;
 import static org.snomed.snowstorm.fhir.services.FHIRHelper.*;
@@ -72,8 +70,8 @@ public class FHIRConceptMapProvider implements IResourceProvider, FHIRConstants 
 		return page.stream()
 				.filter(map -> url == null || url.equals(map.getUrl()))
 				.map(FHIRConceptMap::getHapi)
-				.peek(map -> map.setGroup(null))// Clear groups for display listing
-				.collect(Collectors.toList());
+				.map(map -> { map.setGroup(null); return map; })// Clear groups for display listing
+				.toList();
 	}
 
 	@Operation(name="$translate", idempotent=true)

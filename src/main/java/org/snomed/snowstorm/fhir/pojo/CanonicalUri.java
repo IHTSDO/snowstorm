@@ -43,7 +43,7 @@ public class CanonicalUri {
 	@Override
 	public String toString() {
 		if (system == null) {
-			return null;
+			return "";
 		} else if (version == null) {
 			return system;
 		} else {

@@ -1,6 +1,5 @@
 package org.snomed.snowstorm.fhir.domain;
 
-import org.hl7.fhir.r4.model.CanonicalType;
 import org.hl7.fhir.r4.model.ValueSet;
 import org.springframework.data.elasticsearch.annotations.Field;
 import org.springframework.data.elasticsearch.annotations.FieldType;
@@ -9,9 +8,6 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
-import java.util.stream.Collectors;
-
-import static org.snomed.snowstorm.core.util.CollectionUtils.orEmpty;
 
 public class FHIRValueSetCriteriaConcept {
 

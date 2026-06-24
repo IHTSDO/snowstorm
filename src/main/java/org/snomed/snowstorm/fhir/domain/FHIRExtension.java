@@ -45,12 +45,9 @@ public class FHIRExtension {
 		Extension extension = new Extension();
 		extension.setUrl(uri);
 		Optional.ofNullable(getType(value, type))
-				.ifPresentOrElse(extension::setValue, () ->{
-					orEmpty(extensions).forEach( fhirExtension -> {
-						extension.addExtension(fhirExtension.getHapi());
-					});
-
-		});
+				.ifPresentOrElse(extension::setValue, () ->
+					orEmpty(extensions).forEach(fhirExtension -> extension.addExtension(fhirExtension.getHapi()))
+		);
 		return extension;
 	}
 	public static Type getType(String primitiveValue, String fhirType){

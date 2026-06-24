@@ -26,6 +26,8 @@ import static org.snomed.snowstorm.fhir.config.FHIRConstants.SNOMED_URI;
 public class FHIRConcept implements FHIRGraphNode {
 
     private static final String INACTIVE = "inactive";
+    private static final String STATUS_RETIRED = "retired";
+    private static final String PROPERTY_STATUS = "status";
 
 	public static final String EXTENSION_MARKER = "://";
     public static final String FHIR_STRUCTURE_DEFINITION_STRUCTUREDEFINITION_STANDARDS_STATUS = "http://hl7.org/fhir/StructureDefinition/structuredefinition-standards-status";
@@ -90,7 +92,7 @@ public class FHIRConcept implements FHIRGraphNode {
 		setDisplay(termConcept.getDisplay());
 		setDefinition(termConcept.getStringProperty(Fields.DEFINITION));
 
-		termConcept.getProperties().stream().filter(x -> ( x.getKey().equals(INACTIVE) && !Boolean.valueOf(x.getValue()).equals(Boolean.FALSE)) || x.getKey().equals("status") && x.getValue().equals("retired")).findFirst().ifPresentOrElse(x -> active = false, ()-> active = true);
+		termConcept.getProperties().stream().filter(x -> ( x.getKey().equals(INACTIVE) && !Boolean.valueOf(x.getValue()).equals(Boolean.FALSE)) || x.getKey().equals(PROPERTY_STATUS) && x.getValue().equals(STATUS_RETIRED)).findFirst().ifPresentOrElse(x -> active = false, ()-> active = true);
 
 		designations = new ArrayList<>();
 		for (TermConceptDesignation designation : termConcept.getDesignations()) {
@@ -136,7 +138,6 @@ public class FHIRConcept implements FHIRGraphNode {
 				.findFirst().ifPresentOrElse(x -> active = false, ()-> active = true);
 		properties.put(INACTIVE,Collections.singletonList(new FHIRProperty(INACTIVE,null,Boolean.toString(!isActive()),FHIRProperty.BOOLEAN_TYPE)));
 		extensions = new HashMap<>();
-		CodeSystem.ConceptDefinitionComponent debugDefinitionConcept = definitionConcept;
 		definitionConcept.getExtension().forEach(e -> {
 			String url = e.getUrl();
 			if (e.getValue() != null) {
@@ -150,9 +151,9 @@ public class FHIRConcept implements FHIRGraphNode {
 				// Promote structuredefinition-standards-status to a formal status property
 				if (FHIR_STRUCTURE_DEFINITION_STRUCTUREDEFINITION_STANDARDS_STATUS.equals(url)) {
 					String statusValue = e.getValue().primitiveValue();
-					if ("deprecated".equals(statusValue) || "retired".equals(statusValue)) {
-						properties.computeIfAbsent("status", k -> new ArrayList<>())
-								.add(new FHIRProperty("status", null, statusValue, FHIRProperty.CODE_TYPE));
+					if ("deprecated".equals(statusValue) || STATUS_RETIRED.equals(statusValue)) {
+						properties.computeIfAbsent(PROPERTY_STATUS, k -> new ArrayList<>())
+								.add(new FHIRProperty(PROPERTY_STATUS, null, statusValue, FHIRProperty.CODE_TYPE));
 					}
 				}
 			}
@@ -331,6 +332,6 @@ public class FHIRConcept implements FHIRGraphNode {
 			if (x.hasValueBooleanType() && !Boolean.valueOf(x.getValueBooleanType().getValueAsString()).equals(Boolean.FALSE)) return true;
 			if (x.hasValueCodeType() && !Boolean.valueOf(x.getValueCodeType().getValueAsString()).equals(Boolean.FALSE)) return true;
 		}
-		return x.getCode().equals("status") && x.hasValueCodeType() && x.getValueCodeType().getCode().equals("retired");
+		return x.getCode().equals(PROPERTY_STATUS) && x.hasValueCodeType() && x.getValueCodeType().getCode().equals(STATUS_RETIRED);
 	}
 }

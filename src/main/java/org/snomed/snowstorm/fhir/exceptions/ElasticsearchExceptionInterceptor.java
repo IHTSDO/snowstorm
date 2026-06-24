@@ -64,38 +64,5 @@ public class ElasticsearchExceptionInterceptor {
 			logRootCauseIfElastic(exception.getCause());
 		}
 	}
-
-/*	@Hook(Pointcut.SERVER_PRE_PROCESS_OUTGOING_EXCEPTION)
-	public boolean handleException(RequestDetails requestDetails, Throwable exception) {
-		if (exception == null) {
-			return true;
-		}
-
-		Throwable root = getRootCause(exception);
-
-		if (root instanceof UncategorizedElasticsearchException) {
-			// This is the raw Spring Data ES wrapper
-			UncategorizedElasticsearchException esEx = (UncategorizedElasticsearchException) root;
-			// Log full cause chain or extract details
-			logger.error("Elasticsearch error: {}", esEx.getMessage(), esEx);
-		}
-
-		if (root instanceof co.elastic.clients.elasticsearch._types.ElasticsearchException) {
-			co.elastic.clients.elasticsearch._types.ElasticsearchException esEx =
-					(co.elastic.clients.elasticsearch._types.ElasticsearchException) root;
-			logger.error("ES API error [{}]: {}", esEx.error().type(), esEx.error().reason(), esEx);
-		}
-
-		// Return false to let HAPI continue its normal exception handling
-		return false;
-	}*/
-
-	private Throwable getRootCause(Throwable ex) {
-		Throwable cause = ex;
-		while (cause.getCause() != null && cause.getCause() != cause) {
-			cause = cause.getCause();
-		}
-		return cause;
-	}
 }
 
