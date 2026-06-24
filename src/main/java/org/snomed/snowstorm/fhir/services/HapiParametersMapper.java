@@ -31,6 +31,8 @@ import static org.snomed.snowstorm.fhir.services.FHIRValueSetService.TX_ISSUE_TY
 @Service
 public class HapiParametersMapper implements FHIRConstants {
 
+	private static final String PART_DESCRIPTION = "description";
+
 	@Autowired
 	private ExpressionService expressionService;
 
@@ -205,7 +207,7 @@ public class HapiParametersMapper implements FHIRConstants {
 				}
 				ConceptMini targetConceptMini = rel.getTarget();
 				if (targetConceptMini != null && targetConceptMini.getPt() != null) {
-					property.addPart().setName("description").setValue(new StringType(targetConceptMini.getPt().getTerm()));
+					property.addPart().setName(PART_DESCRIPTION).setValue(new StringType(targetConceptMini.getPt().getTerm()));
 				}
 				property.addPart().setName(VALUE).setValue(new CodeType(rel.getDestinationId()));
 				parameters.addParameter(property);
@@ -235,7 +237,7 @@ public class HapiParametersMapper implements FHIRConstants {
 						branchPath, Collections.singleton(c.getModuleId()), languageDialects).getResultsMap();
 				ConceptMini moduleMini = moduleMinis.get(c.getModuleId());
 				if (moduleMini != null && moduleMini.getPt() != null) {
-					moduleProp.addPart().setName("description").setValue(new StringType(moduleMini.getPt().getTerm()));
+					moduleProp.addPart().setName(PART_DESCRIPTION).setValue(new StringType(moduleMini.getPt().getTerm()));
 				}
 			}
 			moduleProp.addPart().setName(VALUE).setValue(new CodeType(c.getModuleId()));
@@ -265,7 +267,7 @@ public class HapiParametersMapper implements FHIRConstants {
 			property.addPart().setName(CODE).setValue(FhirSctProperty.PARENT.toCodeType());
 			ConceptMini target = rel.getTarget();
 			if (target != null && target.getPt() != null) {
-				property.addPart().setName("description").setValue(new StringType(target.getPt().getTerm()));
+				property.addPart().setName(PART_DESCRIPTION).setValue(new StringType(target.getPt().getTerm()));
 			}
 			property.addPart().setName(VALUE).setValue(new CodeType(rel.getDestinationId()));
 			parameters.addParameter(property);
@@ -284,7 +286,7 @@ public class HapiParametersMapper implements FHIRConstants {
 			property.addPart().setName(CODE).setValue(FhirSctProperty.CHILD.toCodeType());
 			ConceptMini mini = minis.get(childId);
 			if (mini != null && mini.getPt() != null) {
-				property.addPart().setName("description").setValue(new StringType(mini.getPt().getTerm()));
+				property.addPart().setName(PART_DESCRIPTION).setValue(new StringType(mini.getPt().getTerm()));
 			}
 			property.addPart().setName(VALUE).setValue(new CodeType(childId));
 			parameters.addParameter(property);
@@ -313,14 +315,5 @@ public class HapiParametersMapper implements FHIRConstants {
 				property.addPart().setName(VALUE_STRING).setValue(new StringType(propertyValueString));
 		}
 		return property;
-	}
-
-	private String getTypeName(Object obj) {
-		if (obj instanceof String) {
-			return VALUE_STRING;
-		} else if (obj instanceof Boolean) {
-			return VALUE_BOOLEAN;
-		}
-		return null;
 	}
 }

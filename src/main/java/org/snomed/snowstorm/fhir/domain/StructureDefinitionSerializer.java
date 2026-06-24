@@ -5,7 +5,6 @@ import java.io.IOException;
 import org.hl7.fhir.r4.model.StructureDefinition;
 
 import com.fasterxml.jackson.core.JsonGenerator;
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.SerializerProvider;
 import com.fasterxml.jackson.databind.ser.std.StdSerializer;
 
@@ -24,8 +23,8 @@ public class StructureDefinitionSerializer extends StdSerializer<StructureDefini
 	}
  
 	@Override
-	public void serialize(StructureDefinition vs, JsonGenerator jgen, SerializerProvider provider) 
-			throws IOException, JsonProcessingException {
+	public void serialize(StructureDefinition vs, JsonGenerator jgen, SerializerProvider provider)
+			throws IOException {
 		IParser fhirParser = StructureDefinitionWrapper.getFhirParser();
 		String json = fhirParser.encodeResourceToString(vs);
 		jgen.writeString(json);

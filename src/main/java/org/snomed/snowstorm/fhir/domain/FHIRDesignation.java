@@ -116,19 +116,17 @@ public class FHIRDesignation {
 	}
 
 	private static Coding addKnownDisplays(Coding coding) {
-		if (coding != null) {
-			if (SNOMED_URI.equals(coding.getSystem())) {
-				if ("900000000000003001".equals(coding.getCode())) {
-					coding.setDisplay("Fully specified name");
-				} else if ("900000000000013009".equals(coding.getCode())) {
-					coding.setDisplay("Synonym");
-				} else if ("900000000000550004".equals(coding.getCode())) {
-					coding.setDisplay("Text definition");
-				} else if ("900000000000548007".equals(coding.getCode())) {
-					coding.setDisplay("PREFERRED");
-				} else if ("900000000000549004".equals(coding.getCode())) {
-					coding.setDisplay("ACCEPTABLE");
-				}
+		if (coding != null && SNOMED_URI.equals(coding.getSystem())) {
+			if ("900000000000003001".equals(coding.getCode())) {
+				coding.setDisplay("Fully specified name");
+			} else if ("900000000000013009".equals(coding.getCode())) {
+				coding.setDisplay("Synonym");
+			} else if ("900000000000550004".equals(coding.getCode())) {
+				coding.setDisplay("Text definition");
+			} else if ("900000000000548007".equals(coding.getCode())) {
+				coding.setDisplay("PREFERRED");
+			} else if ("900000000000549004".equals(coding.getCode())) {
+				coding.setDisplay("ACCEPTABLE");
 			}
 		}
 		return coding;

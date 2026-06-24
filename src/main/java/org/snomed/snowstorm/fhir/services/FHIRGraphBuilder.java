@@ -4,8 +4,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.*;
-import java.util.stream.Collectors;
-
 public class FHIRGraphBuilder {
 
 	private final Map<String, Node> nodeLookup = new HashMap<>();
@@ -34,12 +32,12 @@ public class FHIRGraphBuilder {
 
 	public Collection<String> getNodeParents(String code) {
 		Node node = nodeLookup.get(code);
-		return node != null ? node.getParents().stream().map(Node::getCode).collect(Collectors.toList()) : Collections.emptyList();
+		return node != null ? node.getParents().stream().map(Node::getCode).toList() : Collections.emptyList();
 	}
 
 	public Collection<String> getNodeChildren(String code) {
 		Node node = nodeLookup.get(code);
-		return node != null ? node.getChildren().stream().map(Node::getCode).collect(Collectors.toList()) : Collections.emptyList();
+		return node != null ? node.getChildren().stream().map(Node::getCode).toList() : Collections.emptyList();
 	}
 
 	public static class Node {

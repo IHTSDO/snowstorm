@@ -18,7 +18,6 @@ import java.util.Map;
 import java.util.Set;
 
 import static java.lang.String.format;
-import static org.snomed.snowstorm.fhir.services.FHIRHelper.exception;
 import static org.snomed.snowstorm.fhir.services.FHIRHelper.isSnomedUri;
 import static org.snomed.snowstorm.fhir.services.FHIRValueSetService.TX_ISSUE_TYPE;
 
@@ -53,7 +52,7 @@ public class CodeSystemVersionProvider {
 	}
 
 	public FHIRCodeSystemVersion get(String system, String version) {
-		return codeSystemVersions.computeIfAbsent(CanonicalUri.of(system, version), (key) -> getCodeSystemVersion(system, version));
+		return codeSystemVersions.computeIfAbsent(CanonicalUri.of(system, version), key -> getCodeSystemVersion(system, version));
 	}
 
 	private FHIRCodeSystemVersion getCodeSystemVersion(String componentSystem, String componentVersion) {
@@ -137,8 +136,8 @@ public class CodeSystemVersionProvider {
 		if (checkSystemVersion != null && checkSystemVersion.getVersion() != null && !checkSystemVersionWasUsedAsDefault &&
 				(hadExplicitVersion || !forceVersionWasApplied) &&
 				(checkSystemVersion.getSystem().equals(componentSystem) ||
-				(isSnomedUri(checkSystemVersion.getSystem()) && isSnomedUri(componentSystem)))) {
-			if (!FHIRCodeSystemService.versionMatchesPattern(codeSystemVersion.getVersion(), checkSystemVersion.getVersion())) {
+				(isSnomedUri(checkSystemVersion.getSystem()) && isSnomedUri(componentSystem))) &&
+				!FHIRCodeSystemService.versionMatchesPattern(codeSystemVersion.getVersion(), checkSystemVersion.getVersion())) {
 				String message = format("The version '%s' is not allowed for system '%s': required to be '%s' by a version-check parameter",
 						codeSystemVersion.getVersion(), codeSystemVersion.getUrl(), checkSystemVersion.getVersion());
 				CodeableConcept detail = new CodeableConcept(new Coding(TX_ISSUE_TYPE, "version-error", null)).setText(message);
@@ -151,7 +150,6 @@ public class CodeSystemVersionProvider {
 				issue.setDetails(detail);
 				issue.setExtension(new ArrayList<>(extensions));
 				versionCheckIssues.add(issue);
-			}
 		}
 
 		return codeSystemVersion;

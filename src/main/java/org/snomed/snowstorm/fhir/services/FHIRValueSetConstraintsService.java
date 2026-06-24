@@ -105,10 +105,8 @@ public class FHIRValueSetConstraintsService implements FHIRConstants {
 
 	private ValueSet findNestedValueSet(CanonicalUri uri) {
 		Resource inlined = TxResourceContext.lookup(uri.getSystem(), uri.getVersion());
-		if (inlined instanceof ValueSet vs) {
-			if (uri.getVersion() == null || uri.getVersion().equals(vs.getVersion())) {
-				return vs;
-			}
+		if (inlined instanceof ValueSet vs && (uri.getVersion() == null || uri.getVersion().equals(vs.getVersion()))) {
+			return vs;
 		}
 		return vsFinderService.findOrThrow(uri.getSystem(), uri.getVersion()).getHapi();
 	}

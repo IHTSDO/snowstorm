@@ -29,8 +29,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
-import java.util.stream.Collectors;
-
 import static java.lang.String.format;
 import static org.snomed.snowstorm.fhir.services.FHIRHelper.DEFAULT_VERSION;
 
@@ -172,7 +170,7 @@ public class FHIRLoadPackageService {
 		}
 		if (!importAll) {
 			Set<String> resourcesNotFound = new HashSet<>(resourceUrlsToImport);
-			resourcesNotFound.removeAll(filesToImport.stream().map(FHIRPackageIndexFile::getUrl).collect(Collectors.toList()));
+			resourcesNotFound.removeAll(filesToImport.stream().map(FHIRPackageIndexFile::getUrl).toList());
 			if (!resourcesNotFound.isEmpty()) {
 				throw FHIRHelper.exception(format("Failed to find resources (%s) within package index.", resourcesNotFound), OperationOutcome.IssueType.NOTFOUND, 400);
 			}

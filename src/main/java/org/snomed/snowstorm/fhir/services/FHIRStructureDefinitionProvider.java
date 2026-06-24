@@ -1,8 +1,6 @@
 package org.snomed.snowstorm.fhir.services;
 
-import java.util.*;
-import java.util.stream.Collectors;
-import java.util.stream.StreamSupport;
+import java.util.*;import java.util.stream.StreamSupport;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -118,7 +116,7 @@ public class FHIRStructureDefinitionProvider implements IResourceProvider, FHIRC
 		return StreamSupport.stream(structureDefinitionRepository.findAll().spliterator(), false)
 				.map(StructureDefinitionWrapper::getStructureDefinition)
 				.filter(sd -> sdFilter.apply(sd, fhirHelper))
-				.collect(Collectors.toList());
+				.toList();
 	}
 
 	private void validateId(IdType id, StructureDefinition sd) {

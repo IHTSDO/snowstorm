@@ -15,8 +15,6 @@ import org.springframework.data.elasticsearch.client.elc.NativeQueryBuilder;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
-import java.util.stream.Collectors;
-
 import static co.elastic.clients.elasticsearch._types.query_dsl.QueryBuilders.bool;
 import static io.kaicode.elasticvc.helper.QueryHelper.termQuery;
 
@@ -53,7 +51,7 @@ public class FHIRGraphService {
 				.must(termQuery(PARENTS, code));
 
 		return elasticsearchOperations.search(graphCriteria.getQuery(), graphCriteria.nodeClass())
-				.get().map(hit -> hit.getContent().getCode()).collect(Collectors.toList());
+				.get().map(hit -> hit.getContent().getCode()).toList();
 	}
 
 	private GraphCriteria getGraphCriteria(FHIRCodeSystemVersion codeSystemVersion, PageRequest page) {
