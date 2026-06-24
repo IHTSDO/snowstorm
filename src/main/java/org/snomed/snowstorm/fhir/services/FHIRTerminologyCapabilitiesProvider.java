@@ -39,6 +39,7 @@ public class FHIRTerminologyCapabilitiesProvider extends ServerCapabilityStateme
 			}
 			TerminologyCapabilities.TerminologyCapabilitiesExpansionComponent expansion = new TerminologyCapabilities.TerminologyCapabilitiesExpansionComponent();
 			Arrays.asList("activeOnly",
+			"check-system-version",
 			"count",
 			"displayLanguage",
 			"excludeNested",
