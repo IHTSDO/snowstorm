@@ -155,9 +155,6 @@ public class CodeSystemService {
 		// Set CodeSystem URI modules
 		Iterable<CodeSystem> codeSystems = repository.findAll();
 		for (CodeSystem codeSystem : codeSystems) {
-			if (codeSystem.isPostcoordinatedNullSafe()) {
-				continue;
-			}
 			if (codeSystem.getUriModuleId() == null) {
 				String defaultModuleId = codeSystemDefaultConfigurationService.getDefaultModuleId(codeSystem.getShortName());
 				if (defaultModuleId != null) {
