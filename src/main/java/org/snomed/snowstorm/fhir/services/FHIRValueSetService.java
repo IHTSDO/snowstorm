@@ -706,15 +706,23 @@ public class FHIRValueSetService implements FHIRConstants {
 				matched.addAll(c.getCodes());
 			}
 			if (c.getAncestor() != null && !c.getAncestor().isEmpty()) {
-				for (String code : allCodes) {
-					Set<String> ancestors = codeToAncestors.getOrDefault(code, Collections.emptySet());
-					if (!Collections.disjoint(ancestors, c.getAncestor())) {
-						matched.add(code);
-					}
-				}
+				matchCodesByAncestor(c, allCodes, codeToAncestors, matched);
 			}
 		}
 		return hasEvaluable ? matched : null;
+	}
+
+	/**
+	 * Adds to {@code matched} every code from {@code allCodes} whose ancestors intersect the constraint's ancestor set.
+	 */
+	private void matchCodesByAncestor(ConceptConstraint c, Set<String> allCodes,
+			Map<String, Set<String>> codeToAncestors, Set<String> matched) {
+		for (String code : allCodes) {
+			Set<String> ancestors = codeToAncestors.getOrDefault(code, Collections.emptySet());
+			if (!Collections.disjoint(ancestors, c.getAncestor())) {
+				matched.add(code);
+			}
+		}
 	}
 
 	/**
@@ -746,31 +754,39 @@ public class FHIRValueSetService implements FHIRConstants {
 			CodeSystem.ConceptDefinitionComponent supplementConcept = supplementByCode.get(concept.getCode());
 			if (supplementConcept == null) continue;
 
-			// Merge designations
-			List<FHIRDesignation> designations = new ArrayList<>(concept.getDesignations());
-			for (CodeSystem.ConceptDefinitionDesignationComponent d : supplementConcept.getDesignation()) {
-				designations.add(new FHIRDesignation(d));
-			}
-			concept.setDesignations(designations);
+			mergeSupplementDesignations(concept, supplementConcept);
+			mergeSupplementExtensionsAsProperties(concept, supplementConcept);
+			mergeSupplementFormalProperties(concept, supplementConcept);
+		}
+	}
 
-			// Merge supplement extensions as properties (mirrors saveAllConceptsOfCodeSystemVersion behaviour)
-			for (Extension ext : supplementConcept.getExtension()) {
-				if (ext.getValue() == null) continue;
-				try {
-					FHIRProperty property = new FHIRProperty(ext.getUrl(), null,
-							ext.getValue().primitiveValue(),
-							FHIRProperty.typeToFHIRPropertyType(ext.getValue()));
-					concept.getProperties().computeIfAbsent(ext.getUrl(), k -> new ArrayList<>()).add(property);
-				} catch (IllegalArgumentException ignored) {
-					// Unknown extension type — skip, same as storage path
-				}
-			}
+	private void mergeSupplementDesignations(FHIRConcept concept, CodeSystem.ConceptDefinitionComponent supplementConcept) {
+		List<FHIRDesignation> designations = new ArrayList<>(concept.getDesignations());
+		for (CodeSystem.ConceptDefinitionDesignationComponent d : supplementConcept.getDesignation()) {
+			designations.add(new FHIRDesignation(d));
+		}
+		concept.setDesignations(designations);
+	}
 
-			// Merge formal properties
-			for (CodeSystem.ConceptPropertyComponent prop : supplementConcept.getProperty()) {
-				concept.getProperties().computeIfAbsent(prop.getCode(), k -> new ArrayList<>())
-						.add(new FHIRProperty(prop));
+	/** Mirrors saveAllConceptsOfCodeSystemVersion behaviour: treat supplement extensions as properties. */
+	private void mergeSupplementExtensionsAsProperties(FHIRConcept concept, CodeSystem.ConceptDefinitionComponent supplementConcept) {
+		for (Extension ext : supplementConcept.getExtension()) {
+			if (ext.getValue() == null) continue;
+			try {
+				FHIRProperty property = new FHIRProperty(ext.getUrl(), null,
+						ext.getValue().primitiveValue(),
+						FHIRProperty.typeToFHIRPropertyType(ext.getValue()));
+				concept.getProperties().computeIfAbsent(ext.getUrl(), k -> new ArrayList<>()).add(property);
+			} catch (IllegalArgumentException ignored) {
+				// Unknown extension type — skip, same as storage path
 			}
+		}
+	}
+
+	private void mergeSupplementFormalProperties(FHIRConcept concept, CodeSystem.ConceptDefinitionComponent supplementConcept) {
+		for (CodeSystem.ConceptPropertyComponent prop : supplementConcept.getProperty()) {
+			concept.getProperties().computeIfAbsent(prop.getCode(), k -> new ArrayList<>())
+					.add(new FHIRProperty(prop));
 		}
 	}
 

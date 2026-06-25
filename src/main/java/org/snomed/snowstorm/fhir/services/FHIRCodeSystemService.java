@@ -573,44 +573,54 @@ public class FHIRCodeSystemService implements TxResourceAware {
 		org.snomed.snowstorm.core.data.domain.CodeSystem snomedCodeSystem = resolveSnomedCodeSystem(params);
 
 		if (params.isUnversionedSnomed()) {
-			if (params.getVersion() != null) {
-				// xsct/module/version/date: specific dated unpublished snapshot
-				CodeSystemVersion snomedVersion = snomedCodeSystemService.findVersion(snomedCodeSystem.getShortName(), Integer.parseInt(params.getVersion()));
-				if (snomedVersion == null) {
-					throw exception(format("The requested unpublished SNOMED CT version %s was not found.",
-							params.toDiagnosticString()), OperationOutcome.IssueType.NOTFOUND, 404);
-				}
-				if (!snomedVersion.isInternalRelease()) {
-					throw exception(format("The requested SNOMED CT version %s is a published release. " +
-							"Use 'http://snomed.info/sct' to reference a published version.", params.toDiagnosticString()),
-							OperationOutcome.IssueType.INVARIANT, 400);
-				}
-				snomedVersion.setCodeSystem(snomedCodeSystem);
+			return resolveUnversionedSnomedVersion(snomedCodeSystem, params);
+		} else {
+			return resolveVersionedSnomedVersion(snomedCodeSystem, params);
+		}
+	}
+
+	private FHIRCodeSystemVersion resolveUnversionedSnomedVersion(org.snomed.snowstorm.core.data.domain.CodeSystem snomedCodeSystem,
+	                                                              FHIRCodeSystemVersionParams params) {
+		if (params.getVersion() != null) {
+			// xsct/module/version/date: specific dated unpublished snapshot
+			CodeSystemVersion snomedVersion = snomedCodeSystemService.findVersion(snomedCodeSystem.getShortName(), Integer.parseInt(params.getVersion()));
+			if (snomedVersion == null) {
+				throw exception(format("The requested unpublished SNOMED CT version %s was not found.",
+						params.toDiagnosticString()), OperationOutcome.IssueType.NOTFOUND, 404);
+			}
+			if (!snomedVersion.isInternalRelease()) {
+				throw exception(format("The requested SNOMED CT version %s is a published release. " +
+						"Use 'http://snomed.info/sct' to reference a published version.", params.toDiagnosticString()),
+						OperationOutcome.IssueType.INVARIANT, 400);
+			}
+			snomedVersion.setCodeSystem(snomedCodeSystem);
+			return new FHIRCodeSystemVersion(snomedVersion, true);
+		}
+		return new FHIRCodeSystemVersion(snomedCodeSystem, true);
+	}
+
+	private FHIRCodeSystemVersion resolveVersionedSnomedVersion(org.snomed.snowstorm.core.data.domain.CodeSystem snomedCodeSystem,
+	                                                            FHIRCodeSystemVersionParams params) {
+		if (params.getVersion() != null) {
+			CodeSystemVersion snomedVersion = resolveSnomedVersion(snomedCodeSystem, params);
+			if (snomedVersion.isInternalRelease()) {
 				return new FHIRCodeSystemVersion(snomedVersion, true);
 			}
-			return new FHIRCodeSystemVersion(snomedCodeSystem, true);
-		} else {
-			if (params.getVersion() != null) {
-				CodeSystemVersion snomedVersion = resolveSnomedVersion(snomedCodeSystem, params);
-				if (snomedVersion.isInternalRelease()) {
-					return new FHIRCodeSystemVersion(snomedVersion, true);
-				}
-				return new FHIRCodeSystemVersion(snomedVersion);
-			}
-			// No specific version requested - try latest published, fall back to code system branch (MAIN)
-			CodeSystemVersion latestVersion = snomedCodeSystemService.findLatestVisibleVersion(snomedCodeSystem.getShortName());
-			if (latestVersion == null) {
-				latestVersion = snomedCodeSystemService.findLatestImportedVersion(snomedCodeSystem.getShortName());
-			}
-			if (latestVersion != null) {
-				latestVersion.setCodeSystem(snomedCodeSystem);
-				if (latestVersion.isInternalRelease()) {
-					return new FHIRCodeSystemVersion(latestVersion, true);
-				}
-				return new FHIRCodeSystemVersion(latestVersion);
-			}
-			return new FHIRCodeSystemVersion(snomedCodeSystem, true);
+			return new FHIRCodeSystemVersion(snomedVersion);
 		}
+		// No specific version requested - try latest published, fall back to code system branch (MAIN)
+		CodeSystemVersion latestVersion = snomedCodeSystemService.findLatestVisibleVersion(snomedCodeSystem.getShortName());
+		if (latestVersion == null) {
+			latestVersion = snomedCodeSystemService.findLatestImportedVersion(snomedCodeSystem.getShortName());
+		}
+		if (latestVersion != null) {
+			latestVersion.setCodeSystem(snomedCodeSystem);
+			if (latestVersion.isInternalRelease()) {
+				return new FHIRCodeSystemVersion(latestVersion, true);
+			}
+			return new FHIRCodeSystemVersion(latestVersion);
+		}
+		return new FHIRCodeSystemVersion(snomedCodeSystem, true);
 	}
 
 	private org.snomed.snowstorm.core.data.domain.CodeSystem resolveSnomedCodeSystem(FHIRCodeSystemVersionParams params) {

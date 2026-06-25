@@ -228,23 +228,30 @@ public class FHIRHelper implements FHIRConstants {
 		Map<String, Resource> overlay = new LinkedHashMap<>();
 		for (Parameters.ParametersParameterComponent param : FHIRValueSetProviderHelper.findParametersByName(parsed, "tx-resource")) {
 			Resource resource = param.getResource();
-			String url = null;
-			String version = null;
-			if (resource instanceof CodeSystem cs) {
-				url = cs.getUrl();
-				version = cs.hasVersion() ? cs.getVersion() : null;
-			} else if (resource instanceof ValueSet vs) {
-				url = vs.getUrl();
-				version = vs.hasVersion() ? vs.getVersion() : null;
-			}
-			if (url != null && !url.isBlank()) {
-				// Key by url|version so same-URL resources at different versions coexist.
-				// Unversioned resources are stored under the plain URL.
-				String key = version != null ? url + "|" + version : url;
+			String key = txResourceOverlayKey(resource);
+			if (key != null) {
 				overlay.put(key, resource);
 			}
 		}
 		return Collections.unmodifiableMap(overlay);
+	}
+
+	private static String txResourceOverlayKey(Resource resource) {
+		String url = null;
+		String version = null;
+		if (resource instanceof CodeSystem cs) {
+			url = cs.getUrl();
+			version = cs.hasVersion() ? cs.getVersion() : null;
+		} else if (resource instanceof ValueSet vs) {
+			url = vs.getUrl();
+			version = vs.hasVersion() ? vs.getVersion() : null;
+		}
+		if (url == null || url.isBlank()) {
+			return null;
+		}
+		// Key by url|version so same-URL resources at different versions coexist.
+		// Unversioned resources are stored under the plain URL.
+		return version != null ? url + "|" + version : url;
 	}
 
 
@@ -259,25 +266,7 @@ public class FHIRHelper implements FHIRConstants {
 		final List<LanguageDialect> languageDialects = new ArrayList<>();
 		if (designations != null) {
 			for (String designation : designations) {
-				if (designation.length() > MAX_LANGUAGE_CODE_LENGTH) {
-					//in this case we're expecting a designation token
-					//of the form snomed PIPE langrefsetId
-					String[] tokenParts = designation.split(PIPE);
-					if (tokenParts.length < 2 ||
-							!StringUtils.isNumeric(tokenParts[1]) ||
-							// check for SNOMED URI, possibly an extension URI
-							// TODO: version support?
-							!tokenParts[0].matches(SNOMED_URI + "(/\\d*)?")) {
-						throw exception("Malformed designation token '" + designation + "' expected format http://snomed.info/sct(/moduleId) " +
-								"PIPE langrefsetId.", IssueType.VALUE, 400);
-					}
-					LanguageDialect languageDialect = new LanguageDialect(null, Long.parseLong(tokenParts[1]));
-					if (!languageDialects.contains(languageDialect)) {
-						languageDialects.add(languageDialect);
-					}
-				} else {
-					languageDialects.add(dialectService.getLanguageDialect(designation));
-				}
+				addLanguageDialectForDesignation(languageDialects, designation);
 			}
 		} else {
 			if (acceptLanguageHeader != null) {
@@ -288,6 +277,28 @@ public class FHIRHelper implements FHIRConstants {
 			languageDialects.addAll(DEFAULT_LANGUAGE_DIALECTS);
 		}
 		return languageDialects;
+	}
+
+	private void addLanguageDialectForDesignation(List<LanguageDialect> languageDialects, String designation) {
+		if (designation.length() > MAX_LANGUAGE_CODE_LENGTH) {
+			//in this case we're expecting a designation token
+			//of the form snomed PIPE langrefsetId
+			String[] tokenParts = designation.split(PIPE);
+			if (tokenParts.length < 2 ||
+					!StringUtils.isNumeric(tokenParts[1]) ||
+					// check for SNOMED URI, possibly an extension URI
+					// TODO: version support?
+					!tokenParts[0].matches(SNOMED_URI + "(/\\d*)?")) {
+				throw exception("Malformed designation token '" + designation + "' expected format http://snomed.info/sct(/moduleId) " +
+						"PIPE langrefsetId.", IssueType.VALUE, 400);
+			}
+			LanguageDialect languageDialect = new LanguageDialect(null, Long.parseLong(tokenParts[1]));
+			if (!languageDialects.contains(languageDialect)) {
+				languageDialects.add(languageDialect);
+			}
+		} else {
+			languageDialects.add(dialectService.getLanguageDialect(designation));
+		}
 	}
 
 	public void setLanguageOptions(List<LanguageDialect> designations, String displayLanguageStr, String acceptLanguageHeader) {
