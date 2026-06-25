@@ -791,82 +791,87 @@ public class FHIRValueSetService implements FHIRConstants {
 	}
 
 	private List<ValueSet.ValueSetExpansionContainsComponent> createExpansionContents(Page<FHIRConcept> conceptsPage, ValueSet hapiValueSet, Map<String, String> idAndVersionToLanguage, Map<String, String> idAndVersionToUrl, Map<String, String> idToVersionStr, boolean multipleIncludes, ValueSet.ValueSetExpansionComponent expansion, ValueSetExpansionParameters params, String fhirDisplayLanguage) {
-		return conceptsPage.stream().map(concept -> {
-					List<ValueSet.ConceptReferenceComponent> references = hapiValueSet.getCompose().getInclude().stream()
-							.flatMap(set -> set.getConcept().stream()).filter(c -> c.getCode().equals(concept.getCode())).toList();
-
-					ValueSet.ValueSetExpansionContainsComponent component = new ValueSet.ValueSetExpansionContainsComponent()
-							.setSystem(idAndVersionToUrl.get(concept.getCodeSystemVersion()))
-							.setCode(concept.getCode())
-							.setInactiveElement(concept.isActive() ? null : new BooleanType(true))
-							.setDisplay(concept.getDisplay());
-					if (multipleIncludes) {
-						component.setVersion(idToVersionStr.get(concept.getCodeSystemVersion()));
-					}
-					if (!concept.isActive()) {
-						addPropertyToContains(PROPERTY_STATUS, component, new CodeType("inactive"));
-						addPropertyToExpansion(PROPERTY_STATUS, "http://hl7.org/fhir/concept-properties#status", expansion);
-					}
-
-					concept.getProperties().forEach((key, value) -> {
-						if (key.equals(PROPERTY_STATUS)) {
-							value.stream()
-									.filter(x -> x.getValue().equals("retired") || x.getValue().equals("deprecated"))
-									.findFirst()
-									.ifPresent(x -> {
-										if ("retired".equals(x.getValue())) {
-											component.setInactive(true);
-										}
-										addPropertyToContains(PROPERTY_STATUS, component, new CodeType(x.getValue()));
-										addPropertyToExpansion(PROPERTY_STATUS, "http://hl7.org/fhir/concept-properties#status", expansion);
-									});
-						} else if (key.equals("notSelectable") || key.equals("not-selectable")) {
-							value.stream()
-									.filter(val -> val.getValue().equals("true"))
-									.findFirst()
-									.ifPresent(y -> component.setAbstract(true));
-						} else if (key.equals("http://hl7.org/fhir/StructureDefinition/itemWeight")) {
-							value.stream()
-									.findFirst()
-									.ifPresent(y -> {
-										addPropertyToContains(WEIGHT, component, y.toHapiValue(null));
-										addPropertyToExpansion(WEIGHT, "http://hl7.org/fhir/concept-properties#itemWeight", expansion);
-									});
-						} else if (key.equals("http://hl7.org/fhir/StructureDefinition/codesystem-label")) {
-							value.stream()
-									.findFirst()
-									.ifPresent(y -> {
-										addPropertyToContains(LABEL, component, y.toHapiValue(null));
-										addPropertyToExpansion(LABEL, "http://hl7.org/fhir/concept-properties#label", expansion);
-									});
-						} else if (key.equals("http://hl7.org/fhir/StructureDefinition/codesystem-conceptOrder")) {
-							value.stream()
-									.findFirst()
-									.ifPresent(y -> {
-										addPropertyToContains(ORDER, component, new DecimalType(y.toHapiValue(null).primitiveValue()));
-										addPropertyToExpansion(ORDER, "http://hl7.org/fhir/concept-properties#order", expansion);
-									});
-						} else if (key.equals("http://hl7.org/fhir/StructureDefinition/rendering-style") ||
-								key.equals("http://hl7.org/fhir/StructureDefinition/rendering-xhtml")) {
-							value.stream()
-									.findFirst()
-									.ifPresent(y -> component.addExtension(key, y.toHapiValue(null)));
-						}
-					});
-
-					Optional.ofNullable(params.getProperty()).ifPresent(x ->{
-						List<FHIRProperty> properties =concept.getProperties().getOrDefault(x, emptyList());
-						properties.stream()
-								.findFirst()
-								.ifPresent(y->
-										addPropertyToContains(y.getCode(), component, y.toHapiValue(null))
-								);
-					});
-					addInfoFromReferences(component, references);
-					setDisplayAndDesignations(component, concept, idAndVersionToLanguage.get(concept.getCodeSystemVersion()), params.getIncludeDesignationsAsBool(), fhirDisplayLanguage, params.getDesignations());
-					return component;
-				})
+		return conceptsPage.stream()
+				.map(concept -> createExpansionContainsComponent(concept, hapiValueSet, idAndVersionToLanguage, idAndVersionToUrl, idToVersionStr, multipleIncludes, expansion, params, fhirDisplayLanguage))
 				.toList();
+	}
+
+	private ValueSet.ValueSetExpansionContainsComponent createExpansionContainsComponent(FHIRConcept concept, ValueSet hapiValueSet, Map<String, String> idAndVersionToLanguage, Map<String, String> idAndVersionToUrl, Map<String, String> idToVersionStr, boolean multipleIncludes, ValueSet.ValueSetExpansionComponent expansion, ValueSetExpansionParameters params, String fhirDisplayLanguage) {
+		List<ValueSet.ConceptReferenceComponent> references = hapiValueSet.getCompose().getInclude().stream()
+				.flatMap(set -> set.getConcept().stream()).filter(c -> c.getCode().equals(concept.getCode())).toList();
+
+		ValueSet.ValueSetExpansionContainsComponent component = new ValueSet.ValueSetExpansionContainsComponent()
+				.setSystem(idAndVersionToUrl.get(concept.getCodeSystemVersion()))
+				.setCode(concept.getCode())
+				.setInactiveElement(concept.isActive() ? null : new BooleanType(true))
+				.setDisplay(concept.getDisplay());
+		if (multipleIncludes) {
+			component.setVersion(idToVersionStr.get(concept.getCodeSystemVersion()));
+		}
+		if (!concept.isActive()) {
+			addPropertyToContains(PROPERTY_STATUS, component, new CodeType("inactive"));
+			addPropertyToExpansion(PROPERTY_STATUS, "http://hl7.org/fhir/concept-properties#status", expansion);
+		}
+
+		concept.getProperties().forEach((key, value) -> applyConceptPropertyToContains(key, value, component, expansion));
+
+		Optional.ofNullable(params.getProperty()).ifPresent(x ->{
+			List<FHIRProperty> properties =concept.getProperties().getOrDefault(x, emptyList());
+			properties.stream()
+					.findFirst()
+					.ifPresent(y->
+							addPropertyToContains(y.getCode(), component, y.toHapiValue(null))
+					);
+		});
+		addInfoFromReferences(component, references);
+		setDisplayAndDesignations(component, concept, idAndVersionToLanguage.get(concept.getCodeSystemVersion()), params.getIncludeDesignationsAsBool(), fhirDisplayLanguage, params.getDesignations());
+		return component;
+	}
+
+	private void applyConceptPropertyToContains(String key, List<FHIRProperty> value, ValueSet.ValueSetExpansionContainsComponent component, ValueSet.ValueSetExpansionComponent expansion) {
+		if (key.equals(PROPERTY_STATUS)) {
+			value.stream()
+					.filter(x -> x.getValue().equals("retired") || x.getValue().equals("deprecated"))
+					.findFirst()
+					.ifPresent(x -> {
+						if ("retired".equals(x.getValue())) {
+							component.setInactive(true);
+						}
+						addPropertyToContains(PROPERTY_STATUS, component, new CodeType(x.getValue()));
+						addPropertyToExpansion(PROPERTY_STATUS, "http://hl7.org/fhir/concept-properties#status", expansion);
+					});
+		} else if (key.equals("notSelectable") || key.equals("not-selectable")) {
+			value.stream()
+					.filter(val -> val.getValue().equals("true"))
+					.findFirst()
+					.ifPresent(y -> component.setAbstract(true));
+		} else if (key.equals("http://hl7.org/fhir/StructureDefinition/itemWeight")) {
+			value.stream()
+					.findFirst()
+					.ifPresent(y -> {
+						addPropertyToContains(WEIGHT, component, y.toHapiValue(null));
+						addPropertyToExpansion(WEIGHT, "http://hl7.org/fhir/concept-properties#itemWeight", expansion);
+					});
+		} else if (key.equals("http://hl7.org/fhir/StructureDefinition/codesystem-label")) {
+			value.stream()
+					.findFirst()
+					.ifPresent(y -> {
+						addPropertyToContains(LABEL, component, y.toHapiValue(null));
+						addPropertyToExpansion(LABEL, "http://hl7.org/fhir/concept-properties#label", expansion);
+					});
+		} else if (key.equals("http://hl7.org/fhir/StructureDefinition/codesystem-conceptOrder")) {
+			value.stream()
+					.findFirst()
+					.ifPresent(y -> {
+						addPropertyToContains(ORDER, component, new DecimalType(y.toHapiValue(null).primitiveValue()));
+						addPropertyToExpansion(ORDER, "http://hl7.org/fhir/concept-properties#order", expansion);
+					});
+		} else if (key.equals("http://hl7.org/fhir/StructureDefinition/rendering-style") ||
+				key.equals("http://hl7.org/fhir/StructureDefinition/rendering-xhtml")) {
+			value.stream()
+					.findFirst()
+					.ifPresent(y -> component.addExtension(key, y.toHapiValue(null)));
+		}
 	}
 
 	private static void validateExpansionParameters(ValueSetExpansionParameters params) {
