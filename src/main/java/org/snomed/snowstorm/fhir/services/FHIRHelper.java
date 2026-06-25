@@ -19,7 +19,6 @@ import org.snomed.snowstorm.fhir.domain.FHIRCodeSystemVersion;
 import org.snomed.snowstorm.fhir.pojo.CanonicalUri;
 import org.snomed.snowstorm.fhir.pojo.FHIRCodeSystemVersionParams;
 import org.snomed.snowstorm.rest.ControllerHelper;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Component;
 
@@ -42,14 +41,17 @@ public class FHIRHelper implements FHIRConstants {
 
 	private static final Pattern SCT_ID_PATTERN = Pattern.compile("sct_(\\d)+_(\\d){8}");
 
-	@Autowired
-	private DialectConfigurationService dialectService;
+	private final DialectConfigurationService dialectService;
 
 	private FhirContext fhirContext;
 
 	public static final Sort MEMBER_SORT = Sort.sort(ReferenceSetMember.class).by(ReferenceSetMember::getMemberId).descending();
 
 	private static final Logger logger = LoggerFactory.getLogger(FHIRHelper.class);
+
+	public FHIRHelper(DialectConfigurationService dialectService) {
+		this.dialectService = dialectService;
+	}
 
 	public static boolean isSnomedUri(String uri) {
 		return uri != null && (uri.startsWith(SNOMED_URI) || uri.startsWith(SNOMED_URI_UNVERSIONED));

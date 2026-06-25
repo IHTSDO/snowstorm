@@ -1,6 +1,7 @@
 package org.snomed.snowstorm.fhir.services;
 
-import java.util.*;import java.util.stream.StreamSupport;
+import java.util.*;
+import java.util.stream.StreamSupport;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -11,7 +12,6 @@ import org.hl7.fhir.instance.model.api.IBaseResource;
 import org.snomed.snowstorm.fhir.config.FHIRConstants;
 import org.snomed.snowstorm.fhir.domain.*;
 import org.snomed.snowstorm.fhir.repositories.FHIRStructureDefinitionRepository;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
@@ -30,12 +30,15 @@ public class FHIRStructureDefinitionProvider implements IResourceProvider, FHIRC
 	@Value("${snowstorm.rest-api.readonly}")
 	private boolean readOnlyMode;
 
-	@Autowired
-	private FHIRStructureDefinitionRepository structureDefinitionRepository;
-	
-	@Autowired
-	private FHIRHelper fhirHelper;
-	
+	private final FHIRStructureDefinitionRepository structureDefinitionRepository;
+
+	private final FHIRHelper fhirHelper;
+
+	public FHIRStructureDefinitionProvider(FHIRStructureDefinitionRepository structureDefinitionRepository, FHIRHelper fhirHelper) {
+		this.structureDefinitionRepository = structureDefinitionRepository;
+		this.fhirHelper = fhirHelper;
+	}
+
 	@Read
 	public StructureDefinition getStructureDefinition(@IdParam IdType id) {
 		Optional<StructureDefinitionWrapper> sdOpt = structureDefinitionRepository.findById(id.getIdPart());

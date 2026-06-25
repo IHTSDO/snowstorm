@@ -20,7 +20,6 @@ import org.snomed.snowstorm.fhir.domain.FHIRPackageIndexFile;
 import org.snomed.snowstorm.fhir.domain.FHIRValueSet;
 import org.snomed.snowstorm.fhir.pojo.FHIRCodeSystemVersionParams;
 import org.snomed.snowstorm.fhir.pojo.ValueSetExpansionParameters;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -38,25 +37,28 @@ public class FHIRLoadPackageService {
 	@Value("${snowstorm.rest-api.readonly}")
 	private boolean readOnlyMode;
 
-	@Autowired
-	private ObjectMapper mapper;
+	private final ObjectMapper mapper;
 
-	@Autowired
-	private FHIRCodeSystemService codeSystemService;
+	private final FHIRCodeSystemService codeSystemService;
 
-	@Autowired
-	private FHIRValueSetService valueSetService;
+	private final FHIRValueSetService valueSetService;
 
-	@Autowired
-	private FHIRValueSetFinderService valueSetFinderService;
+	private final FHIRValueSetFinderService valueSetFinderService;
 
-	@Autowired
-	private FHIRConceptService fhirConceptService;
+	private final FHIRConceptService fhirConceptService;
 
-	@Autowired
-	private FhirContext fhirContext;
+	private final FhirContext fhirContext;
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
+
+	public FHIRLoadPackageService(ObjectMapper mapper, FHIRCodeSystemService codeSystemService, FHIRValueSetService valueSetService, FHIRValueSetFinderService valueSetFinderService, FHIRConceptService fhirConceptService, FhirContext fhirContext) {
+		this.mapper = mapper;
+		this.codeSystemService = codeSystemService;
+		this.valueSetService = valueSetService;
+		this.valueSetFinderService = valueSetFinderService;
+		this.fhirConceptService = fhirConceptService;
+		this.fhirContext = fhirContext;
+	}
 
 	public void uploadPackageResources(File packageFile, Set<String> resourceUrlsToImport, String submittedFileName, boolean testValueSets) throws IOException {
 		FHIRHelper.readOnlyCheck(readOnlyMode);

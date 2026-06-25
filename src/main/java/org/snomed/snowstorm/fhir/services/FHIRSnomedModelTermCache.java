@@ -5,7 +5,6 @@ import org.snomed.snowstorm.core.data.services.DescriptionService;
 import org.snomed.snowstorm.core.pojo.LanguageDialect;
 import org.snomed.snowstorm.core.util.DescriptionHelper;
 import org.snomed.snowstorm.fhir.domain.FHIRCodeSystemVersion;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
@@ -18,10 +17,13 @@ import java.util.stream.Collectors;
 @Service
 public class FHIRSnomedModelTermCache {
 
-	@Autowired
-	private DescriptionService snomedDescriptionService;
+	private final DescriptionService snomedDescriptionService;
 
 	private final Map<String, Map<String, String>> termCache = new HashMap<>();
+
+	public FHIRSnomedModelTermCache(DescriptionService snomedDescriptionService) {
+		this.snomedDescriptionService = snomedDescriptionService;
+	}
 
 	public synchronized String getSnomedTerm(String snomedCode, FHIRCodeSystemVersion snomedVersion, List<LanguageDialect> languageDialects) {
 		String cacheKey = snomedVersion.getId() + "-" + languageDialects.stream().map(Object::toString).collect(Collectors.joining("|"));

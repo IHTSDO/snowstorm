@@ -12,7 +12,7 @@ import org.snomed.snowstorm.fhir.domain.*;
 import org.snomed.snowstorm.fhir.pojo.CanonicalUri;
 import org.snomed.snowstorm.fhir.services.context.CodeSystemVersionProvider;
 import org.snomed.snowstorm.rest.ControllerHelper;
-import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
@@ -29,15 +29,18 @@ import static org.snomed.snowstorm.fhir.services.FHIRValueSetService.*;
 @Service
 public class FHIRValueSetConstraintsService implements FHIRConstants {
 
-	@Autowired
-	private ReferenceSetMemberService snomedRefsetService;
+	private final ReferenceSetMemberService snomedRefsetService;
 
-	@Autowired
-	private FHIRValueSetFinderService vsFinderService;
+	private final FHIRValueSetFinderService vsFinderService;
 
 	private enum CodeSystemType { SNOMED, LOINC, ICD, GENERIC }
 
 	private final Map<String, Set<String>> codeSystemVersionToRefsetsWithMembersCache = new HashMap<>();
+
+	public FHIRValueSetConstraintsService(ReferenceSetMemberService snomedRefsetService, @Lazy FHIRValueSetFinderService vsFinderService) {
+		this.snomedRefsetService = snomedRefsetService;
+		this.vsFinderService = vsFinderService;
+	}
 
 	CodeSelectionCriteria generateInclusionExclusionConstraints(
 			ValueSet valueSet,

@@ -32,7 +32,6 @@ import org.snomed.snowstorm.fhir.domain.FHIRProperty;
 import org.snomed.snowstorm.fhir.domain.SearchFilter;
 import org.snomed.snowstorm.fhir.pojo.ConceptAndSystemResult;
 import org.snomed.snowstorm.fhir.pojo.FHIRCodeSystemVersionParams;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
@@ -63,32 +62,35 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants,
 	@Value("${snowstorm.rest-api.readonly}")
 	private boolean readOnlyMode;
 
-	@Autowired
-	private FhirContext fhirContext;
+	private final FhirContext fhirContext;
 
-	@Autowired
-	private FHIRCodeSystemService fhirCodeSystemService;
+	private final FHIRCodeSystemService fhirCodeSystemService;
 
-	@Autowired
-	private CodeSystemService snomedCodeSystemService;
+	private final CodeSystemService snomedCodeSystemService;
 
-	@Autowired
-	private MultiSearchService snomedMultiSearchService;
+	private final MultiSearchService snomedMultiSearchService;
 
-	@Autowired
-	private FHIRGraphService graphService;
+	private final FHIRGraphService graphService;
 
-	@Autowired
-	private HapiParametersMapper pMapper;
+	private final HapiParametersMapper pMapper;
 
-	@Autowired
-	private FHIRHelper fhirHelper;
+	private final FHIRHelper fhirHelper;
 
-	@Autowired
-	private FHIRTermCodeSystemStorage termCodeSystemStorage;
+	private final FHIRTermCodeSystemStorage termCodeSystemStorage;
 
-	@Autowired
-	private FHIRConceptService fhirConceptService;
+	private final FHIRConceptService fhirConceptService;
+
+	public FHIRCodeSystemProvider(FhirContext fhirContext, FHIRCodeSystemService fhirCodeSystemService, CodeSystemService snomedCodeSystemService, MultiSearchService snomedMultiSearchService, FHIRGraphService graphService, HapiParametersMapper pMapper, FHIRHelper fhirHelper, FHIRTermCodeSystemStorage termCodeSystemStorage, FHIRConceptService fhirConceptService) {
+		this.fhirContext = fhirContext;
+		this.fhirCodeSystemService = fhirCodeSystemService;
+		this.snomedCodeSystemService = snomedCodeSystemService;
+		this.snomedMultiSearchService = snomedMultiSearchService;
+		this.graphService = graphService;
+		this.pMapper = pMapper;
+		this.fhirHelper = fhirHelper;
+		this.termCodeSystemStorage = termCodeSystemStorage;
+		this.fhirConceptService = fhirConceptService;
+	}
 
 	private static final String[] defaultSortOrder = new String[] { "title", "-date" };
 
