@@ -21,7 +21,6 @@ import org.snomed.snowstorm.fhir.domain.SearchFilter;
 import org.snomed.snowstorm.fhir.pojo.FHIRCodeValidationRequest;
 import org.snomed.snowstorm.fhir.pojo.ValueSetExpansionParameters;
 import org.snomed.snowstorm.fhir.repositories.FHIRValueSetRepository;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -50,20 +49,23 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 	@Value("${snowstorm.rest-api.readonly}")
 	private boolean readOnlyMode;
 
-	@Autowired
-	private FHIRValueSetRepository valuesetRepository;
+	private final FHIRValueSetRepository valuesetRepository;
 
-	@Autowired
-	private FHIRValueSetService valueSetService;
+	private final FHIRValueSetService valueSetService;
 
-	@Autowired
-	private FHIRValueSetFinderService valueSetFinderService;
+	private final FHIRValueSetFinderService valueSetFinderService;
 
-	@Autowired
-	private FhirContext fhirContext;
+	private final FhirContext fhirContext;
 
-	@Autowired
-	private FHIRHelper fhirHelper;
+	private final FHIRHelper fhirHelper;
+
+	public FHIRValueSetProvider(FHIRValueSetRepository valuesetRepository, FHIRValueSetService valueSetService, FHIRValueSetFinderService valueSetFinderService, FhirContext fhirContext, FHIRHelper fhirHelper) {
+		this.valuesetRepository = valuesetRepository;
+		this.valueSetService = valueSetService;
+		this.valueSetFinderService = valueSetFinderService;
+		this.fhirContext = fhirContext;
+		this.fhirHelper = fhirHelper;
+	}
 
 	@Read
 	public ValueSet getValueSet(@IdParam IdType id) {

@@ -14,7 +14,6 @@ import org.snomed.snowstorm.fhir.domain.FHIRConceptMap;
 import org.snomed.snowstorm.fhir.domain.FHIRMapElement;
 import org.snomed.snowstorm.fhir.domain.FHIRMapTarget;
 import org.snomed.snowstorm.rest.ControllerHelper;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
@@ -31,11 +30,14 @@ public class FHIRConceptMapProvider implements IResourceProvider, FHIRConstants 
 	@Value("${snowstorm.rest-api.readonly}")
 	private boolean readOnlyMode;
 
-	@Autowired
-	private FHIRConceptMapService service;
+	private final FHIRConceptMapService service;
 
-	@Autowired
-	private FhirContext fhirContext;
+	private final FhirContext fhirContext;
+
+	public FHIRConceptMapProvider(FHIRConceptMapService service, FhirContext fhirContext) {
+		this.service = service;
+		this.fhirContext = fhirContext;
+	}
 
 	@Read
 	public ConceptMap getConceptMap(@IdParam IdType id) {

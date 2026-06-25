@@ -12,7 +12,6 @@ import org.hl7.fhir.r4.model.OperationOutcome.IssueType;
 import org.hl7.fhir.r4.model.Parameters;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
@@ -25,8 +24,11 @@ public class FHIRBundleProvider implements IResourceProvider {
 
 	private static final Logger log = LoggerFactory.getLogger(FHIRBundleProvider.class);
 
-	@Autowired
-	private FhirContext fhirContext;
+	private final FhirContext fhirContext;
+
+	public FHIRBundleProvider(FhirContext fhirContext) {
+		this.fhirContext = fhirContext;
+	}
 
 	@Transaction
 	public Bundle handleBatch(@TransactionParam Bundle bundle) {

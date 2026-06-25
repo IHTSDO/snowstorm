@@ -5,7 +5,6 @@ import org.hl7.fhir.r4.model.StringType;
 import org.hl7.fhir.r4.model.ValueSet;
 import org.snomed.snowstorm.fhir.domain.FHIRCodeSystemVersion;
 import org.snomed.snowstorm.fhir.domain.FHIRExtension;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -17,8 +16,11 @@ import static org.snomed.snowstorm.fhir.services.FHIRValueSetService.WARNING_DAS
 
 @Service
 public class FHIRWarningsService {
-	@Autowired
-	private FHIRValueSetFinderService valueSetFinderService;
+	private final FHIRValueSetFinderService valueSetFinderService;
+
+	public FHIRWarningsService(FHIRValueSetFinderService valueSetFinderService) {
+		this.valueSetFinderService = valueSetFinderService;
+	}
 
 	public List<ValueSet.ValueSetExpansionParameterComponent> collectCodeSystemSetWarnings(Set<FHIRCodeSystemVersion> codeSystems) {
 		List<ValueSet.ValueSetExpansionParameterComponent> list = new ArrayList<>();
