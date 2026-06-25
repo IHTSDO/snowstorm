@@ -408,14 +408,7 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants,
 						.anyMatch(d -> d.getTerm().equalsIgnoreCase(display));
 				if (inactiveDisplayMatch) {
 					result = true;
-					String activeTerms = concept.getActiveDescriptions().stream()
-							.map(d -> "\"" + d.getTerm() + "\"")
-							.collect(Collectors.joining(","));
-					String msg = format("'%s' is no longer considered a correct display for code '%s' (status = inactive). The correct display is one of %s.",
-							display, code, activeTerms);
-					issues.add(createOperationOutcomeIssueComponent(
-							new CodeableConcept(new Coding(TX_ISSUE_TYPE, "display-comment", null)).setText(msg),
-							OperationOutcome.IssueSeverity.WARNING, PARAM_DISPLAY, IssueType.INVALID, null, null));
+					issues.add(buildInactiveDisplayIssue(concept, code, display));
 				} else {
 					message = "Code exists, but the display term is not recognised.";
 				}
@@ -426,6 +419,23 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants,
 			message = "The code was not found in the specified code system.";
 		}
 
+		return buildSnomedValidateCodeParameters(concept, displayOut, message, result, issues, codeSystemVersion);
+	}
+
+	private OperationOutcome.OperationOutcomeIssueComponent buildInactiveDisplayIssue(Concept concept, String code, String display) {
+		String activeTerms = concept.getActiveDescriptions().stream()
+				.map(d -> "\"" + d.getTerm() + "\"")
+				.collect(Collectors.joining(","));
+		String msg = format("'%s' is no longer considered a correct display for code '%s' (status = inactive). The correct display is one of %s.",
+				display, code, activeTerms);
+		return createOperationOutcomeIssueComponent(
+				new CodeableConcept(new Coding(TX_ISSUE_TYPE, "display-comment", null)).setText(msg),
+				OperationOutcome.IssueSeverity.WARNING, PARAM_DISPLAY, IssueType.INVALID, null, null);
+	}
+
+	private Parameters buildSnomedValidateCodeParameters(Concept concept, String displayOut, String message, boolean result,
+	                                                     List<OperationOutcome.OperationOutcomeIssueComponent> issues,
+	                                                     FHIRCodeSystemVersion codeSystemVersion) {
 		Parameters parameters = new Parameters();
 		if (concept != null) {
 			parameters.addParameter(CODE, new CodeType(concept.getConceptId()));

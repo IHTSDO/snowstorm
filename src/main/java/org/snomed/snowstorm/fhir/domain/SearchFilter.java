@@ -231,7 +231,10 @@ public class SearchFilter {
 	}
 
 	public boolean apply(ValueSet vs, FHIRHelper fhirHelper) {
+		return valueSetMatchesIdentity(vs, fhirHelper) && valueSetMatchesMetadata(vs, fhirHelper);
+	}
 
+	private boolean valueSetMatchesIdentity(ValueSet vs, FHIRHelper fhirHelper) {
 		if (getId() != null && !getId().equals(vs.getId())) {
 			return false;
 		}
@@ -248,10 +251,10 @@ public class SearchFilter {
 			return false;
 		}
 
-		if (getJurisdiction() != null && !fhirHelper.hasJurisdiction(vs, getJurisdiction())) {
-			return false;
-		}
+		return getJurisdiction() == null || fhirHelper.hasJurisdiction(vs, getJurisdiction());
+	}
 
+	private boolean valueSetMatchesMetadata(ValueSet vs, FHIRHelper fhirHelper) {
 		if (!fhirHelper.stringMatches(vs.getName(), getName())) {
 			return false;
 		}
@@ -272,11 +275,7 @@ public class SearchFilter {
 			return false;
 		}
 
-		if (!fhirHelper.stringMatches(vs.getVersion(), getVersion())) {
-			return false;
-		}
-
-		return true;
+		return fhirHelper.stringMatches(vs.getVersion(), getVersion());
 	}
 
 	public boolean apply(StructureDefinition sd, FHIRHelper fhirHelper) {
@@ -284,6 +283,10 @@ public class SearchFilter {
 	}
 
 	public boolean apply(CodeSystem cs, FHIRHelper fhirHelper) {
+		return codeSystemMatchesIdentity(cs, fhirHelper) && codeSystemMatchesMetadata(cs, fhirHelper);
+	}
+
+	private boolean codeSystemMatchesIdentity(CodeSystem cs, FHIRHelper fhirHelper) {
 		if (getId() != null && !getId().equals(cs.getId())) {
 			return false;
 		}
@@ -300,10 +303,10 @@ public class SearchFilter {
 			return false;
 		}
 
-		if (getJurisdiction() != null && !fhirHelper.hasJurisdiction(cs, getJurisdiction())) {
-			return false;
-		}
+		return getJurisdiction() == null || fhirHelper.hasJurisdiction(cs, getJurisdiction());
+	}
 
+	private boolean codeSystemMatchesMetadata(CodeSystem cs, FHIRHelper fhirHelper) {
 		if (!fhirHelper.stringMatches(cs.getName(), getName())) {
 			return false;
 		}
@@ -328,11 +331,7 @@ public class SearchFilter {
 			return false;
 		}
 
-		if (!fhirHelper.stringMatches(cs.getVersion(), getVersion())) {
-			return false;
-		}
-
-		return true;
+		return fhirHelper.stringMatches(cs.getVersion(), getVersion());
 	}
 
 }

@@ -33,24 +33,30 @@ public class ElasticsearchExceptionInterceptor {
 		}
 		if (exception.getMessage() != null && !exception.getMessage().contains("Supplement") && !exception.getMessage().contains("does not exist")) {
 			//Is this a broken or bad test case?
-			if (requestDetails != null && requestDetails.getUserData().values().stream()
-								.anyMatch(p -> {
-									if (!(p instanceof Parameters params)) {
-										return false;
-									}
-									var urlParameter = params.getParameter("url");
-									if (urlParameter == null || urlParameter.getValue() == null) {
-										return false;
-									}
-									String url = urlParameter.getValue().toString();
-									return url.contains("broken") || url.contains("bad");
-								})) {
+			if (isDeliberatelyBrokenTestCase(requestDetails)) {
 				//expected exception - deliberately broken test case
 			} else {
                 logger.error(exception.getMessage(), exception);
 			}
 		}
 		return serverException;
+	}
+
+	private boolean isDeliberatelyBrokenTestCase(RequestDetails requestDetails) {
+		return requestDetails != null && requestDetails.getUserData().values().stream()
+				.anyMatch(this::hasBrokenOrBadUrl);
+	}
+
+	private boolean hasBrokenOrBadUrl(Object p) {
+		if (!(p instanceof Parameters params)) {
+			return false;
+		}
+		var urlParameter = params.getParameter("url");
+		if (urlParameter == null || urlParameter.getValue() == null) {
+			return false;
+		}
+		String url = urlParameter.getValue().toString();
+		return url.contains("broken") || url.contains("bad");
 	}
 
 	private void logRootCauseIfElastic(Throwable exception) {

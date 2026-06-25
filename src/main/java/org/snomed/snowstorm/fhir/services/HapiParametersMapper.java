@@ -118,6 +118,14 @@ public class HapiParametersMapper implements FHIRConstants {
 		parameters.addParameter(DISPLAY, concept.getDisplay());
 		parameters.addParameter(CODE, new CodeType(concept.getCode()));
 
+		addConceptProperties(parameters, codeSystemVersion, concept);
+
+		addConceptDesignations(parameters, concept);
+
+		return parameters;
+	}
+
+	private void addConceptProperties(Parameters parameters, FHIRCodeSystemVersion codeSystemVersion, FHIRConcept concept) {
 		for (Map.Entry<String, List<FHIRProperty>> property : concept.getProperties().entrySet()) {
 			for (FHIRProperty propertyValue : property.getValue()) {
 				String code = propertyValue.getCode();
@@ -136,7 +144,9 @@ public class HapiParametersMapper implements FHIRConstants {
 				}
 			}
 		}
+	}
 
+	private void addConceptDesignations(Parameters parameters, FHIRConcept concept) {
 		for (FHIRDesignation designation : concept.getDesignations()) {
 			Parameters.ParametersParameterComponent desParam = parameters.addParameter().setName(DESIGNATION);
 			if (designation.getLanguage() != null) {
@@ -157,8 +167,6 @@ public class HapiParametersMapper implements FHIRConstants {
 				desParam.addPart().setName(VALUE).setValue(new StringType(designation.getValue()));
 			}
 		}
-
-		return parameters;
 	}
 
 	public Parameters validateCodeResponse(FHIRConcept concept, boolean displayValidOrNull, FHIRCodeSystemVersion codeSystemVersion) {
