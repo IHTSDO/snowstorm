@@ -531,6 +531,25 @@
 			</build>
 		</profile>
 		<profile>
+			<!-- A 3-minute test suite with good coverage -->
+			<id>test-min</id>
+			<build>
+				<plugins>
+					<plugin>
+						<groupId>org.apache.maven.plugins</groupId>
+						<artifactId>maven-surefire-plugin</artifactId>
+						<version>${maven-surefire-plugin.version}</version>
+						<configuration>
+							<includes>
+								<include>ConceptServiceTest</include>
+								<include>org.snomed.snowstorm.fhir.**</include>
+							</includes>
+						</configuration>
+					</plugin>
+				</plugins>
+			</build>
+		</profile>
+		<profile>
 			<id>jenkins-exclude-test</id>
 			<build>
 				<plugins>
