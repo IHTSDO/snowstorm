@@ -20,7 +20,6 @@ import org.snomed.snowstorm.fhir.config.FHIRConstants;
 import org.snomed.snowstorm.fhir.domain.*;
 import org.snomed.snowstorm.fhir.pojo.CanonicalUri;
 import org.snomed.snowstorm.fhir.repositories.FHIRValueSetRepository;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.elasticsearch.client.elc.Queries;
 import org.springframework.stereotype.Service;
@@ -53,23 +52,26 @@ public class FHIRValueSetFinderService implements FHIRConstants, TxResourceAware
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
-	@Autowired
-	private FHIRValueSetRepository valueSetRepository;
+	private final FHIRValueSetRepository valueSetRepository;
 
-	@Autowired
-	private QueryService snomedQueryService;
+	private final QueryService snomedQueryService;
 
-	@Autowired
-	private FHIRConceptService conceptService;
+	private final FHIRConceptService conceptService;
 
-	@Autowired
-	private FHIRValueSetConstraintsService constraintsService;
+	private final FHIRValueSetConstraintsService constraintsService;
 
-	@Autowired
-	private FHIRCodeSystemService codeSystemService;
+	private final FHIRCodeSystemService codeSystemService;
 
-	@Autowired
-	private ECLQueryBuilder eclQueryBuilder;
+	private final ECLQueryBuilder eclQueryBuilder;
+
+	public FHIRValueSetFinderService(FHIRValueSetRepository valueSetRepository, QueryService snomedQueryService, FHIRConceptService conceptService, FHIRValueSetConstraintsService constraintsService, FHIRCodeSystemService codeSystemService, ECLQueryBuilder eclQueryBuilder) {
+		this.valueSetRepository = valueSetRepository;
+		this.snomedQueryService = snomedQueryService;
+		this.conceptService = conceptService;
+		this.constraintsService = constraintsService;
+		this.codeSystemService = codeSystemService;
+		this.eclQueryBuilder = eclQueryBuilder;
+	}
 
 	public static final String REFSETS_WITH_MEMBERS = "Refsets";
 

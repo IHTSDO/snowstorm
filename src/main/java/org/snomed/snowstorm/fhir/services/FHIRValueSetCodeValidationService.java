@@ -16,7 +16,6 @@ import org.snomed.snowstorm.fhir.pojo.FHIRCodeSystemVersionParams;
 import org.snomed.snowstorm.fhir.pojo.FHIRCodeValidationRequest;
 import org.snomed.snowstorm.fhir.services.context.CodeSystemVersionProvider;
 import org.snomed.snowstorm.rest.ControllerHelper;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
@@ -56,23 +55,26 @@ public class FHIRValueSetCodeValidationService implements TxResourceAware {
 	private static final String NONE_IN_VALUE_SET_MSG_ID = "None_of_the_provided_codes_are_in_the_value_set_one";
 	private static final String CS_VERSION_DEF_NOT_FOUND_VALID_VERSIONS = "A definition for CodeSystem '%s' version '%s' could not be found, so the code cannot be validated. Valid versions: %s";
 
-	@Autowired
-	private FHIRValueSetCycleDetectionService cycleDetectionService;
+	private final FHIRValueSetCycleDetectionService cycleDetectionService;
 
-	@Autowired
-	private FHIRValueSetFinderService vsFinderService;
+	private final FHIRValueSetFinderService vsFinderService;
 
-	@Autowired
-	private FHIRCodeSystemService codeSystemService;
+	private final FHIRCodeSystemService codeSystemService;
 
-	@Autowired
-	private FHIRConceptService conceptService;
+	private final FHIRConceptService conceptService;
 
-	@Autowired
-	private FHIRWarningsService warningsService;
+	private final FHIRWarningsService warningsService;
 
-	@Autowired
-	private FHIRValueSetConstraintsService constraintsService;
+	private final FHIRValueSetConstraintsService constraintsService;
+
+	public FHIRValueSetCodeValidationService(FHIRValueSetCycleDetectionService cycleDetectionService, FHIRValueSetFinderService vsFinderService, FHIRCodeSystemService codeSystemService, FHIRConceptService conceptService, FHIRWarningsService warningsService, FHIRValueSetConstraintsService constraintsService) {
+		this.cycleDetectionService = cycleDetectionService;
+		this.vsFinderService = vsFinderService;
+		this.codeSystemService = codeSystemService;
+		this.conceptService = conceptService;
+		this.warningsService = warningsService;
+		this.constraintsService = constraintsService;
+	}
 
 	public Parameters validate(FHIRCodeValidationRequest request) {
 

@@ -15,7 +15,6 @@ import org.snomed.snowstorm.fhir.domain.FHIRConcept;
 import org.snomed.snowstorm.fhir.domain.FHIRDesignation;
 import org.snomed.snowstorm.fhir.domain.FHIRProperty;
 import org.snomed.snowstorm.fhir.pojo.ConceptAndSystemResult;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
@@ -33,17 +32,20 @@ public class HapiParametersMapper implements FHIRConstants {
 
 	private static final String PART_DESCRIPTION = "description";
 
-	@Autowired
-	private ExpressionService expressionService;
+	private final ExpressionService expressionService;
 
-	@Autowired
-	private FHIRHelper fhirHelper;
+	private final FHIRHelper fhirHelper;
 
-	@Autowired
-	private CodeSystemDefaultConfigurationService codeSystemDefaultConfigurationService;
+	private final CodeSystemDefaultConfigurationService codeSystemDefaultConfigurationService;
 
-	@Autowired
-	private ConceptService snomedConceptService;
+	private final ConceptService snomedConceptService;
+
+	public HapiParametersMapper(ExpressionService expressionService, FHIRHelper fhirHelper, CodeSystemDefaultConfigurationService codeSystemDefaultConfigurationService, ConceptService snomedConceptService) {
+		this.expressionService = expressionService;
+		this.fhirHelper = fhirHelper;
+		this.codeSystemDefaultConfigurationService = codeSystemDefaultConfigurationService;
+		this.snomedConceptService = snomedConceptService;
+	}
 
 	public Parameters singleOutValue(String key, String value) {
 		Parameters parameters = new Parameters();

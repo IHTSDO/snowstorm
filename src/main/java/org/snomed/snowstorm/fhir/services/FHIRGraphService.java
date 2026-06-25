@@ -7,7 +7,6 @@ import org.snomed.snowstorm.core.data.domain.QueryConcept;
 import org.snomed.snowstorm.fhir.domain.FHIRCodeSystemVersion;
 import org.snomed.snowstorm.fhir.domain.FHIRConcept;
 import org.snomed.snowstorm.fhir.domain.FHIRGraphNode;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.data.elasticsearch.client.elc.NativeQuery;
@@ -27,11 +26,14 @@ public class FHIRGraphService {
 	private static final String PARENTS = "parents";
 	private static final String ANCESTORS = "ancestors";
 
-	@Autowired
-	private VersionControlHelper snomedVersionControlHelper;
+	private final VersionControlHelper snomedVersionControlHelper;
 
-	@Autowired
-	private ElasticsearchOperations elasticsearchOperations;
+	private final ElasticsearchOperations elasticsearchOperations;
+
+	public FHIRGraphService(VersionControlHelper snomedVersionControlHelper, ElasticsearchOperations elasticsearchOperations) {
+		this.snomedVersionControlHelper = snomedVersionControlHelper;
+		this.elasticsearchOperations = elasticsearchOperations;
+	}
 
 	/**
 	 * Returns true if codeA is an ancestor of codeB

@@ -25,7 +25,6 @@ import org.snomed.snowstorm.fhir.pojo.CanonicalUri;
 import org.snomed.snowstorm.fhir.pojo.ConceptAndSystemResult;
 import org.snomed.snowstorm.fhir.pojo.FHIRCodeSystemVersionParams;
 import org.snomed.snowstorm.fhir.repositories.FHIRCodeSystemRepository;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.elasticsearch.client.elc.NativeQuery;
@@ -47,31 +46,34 @@ public class FHIRCodeSystemService implements TxResourceAware {
 	private static final int PAGESIZE = 1_000;
 	private static final String FIELD_EXTENSIONS_VALUE = "extensions.value";
 
-	@Autowired
-	private ElasticsearchOperations elasticsearchOperations;
+	private final ElasticsearchOperations elasticsearchOperations;
 
-	@Autowired
-	private FHIRCodeSystemRepository codeSystemRepository;
+	private final FHIRCodeSystemRepository codeSystemRepository;
 
-	@Autowired
-	private FHIRConceptService conceptService;
+	private final FHIRConceptService conceptService;
 
-	@Autowired
-	private CodeSystemService snomedCodeSystemService;
+	private final CodeSystemService snomedCodeSystemService;
 
-	@Autowired
-	private ConceptService snomedConceptService;
+	private final ConceptService snomedConceptService;
 
-	@Autowired
-	private MultiSearchService snomedMultiSearchService;
+	private final MultiSearchService snomedMultiSearchService;
 
-	@Autowired
-	private IdentifierSource identifierSource;
+	private final IdentifierSource identifierSource;
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
-	@Autowired
-	private CodeSystemVersionRepository codeSystemVersionRepository;
+	private final CodeSystemVersionRepository codeSystemVersionRepository;
+
+	public FHIRCodeSystemService(ElasticsearchOperations elasticsearchOperations, FHIRCodeSystemRepository codeSystemRepository, FHIRConceptService conceptService, CodeSystemService snomedCodeSystemService, ConceptService snomedConceptService, MultiSearchService snomedMultiSearchService, IdentifierSource identifierSource, CodeSystemVersionRepository codeSystemVersionRepository) {
+		this.elasticsearchOperations = elasticsearchOperations;
+		this.codeSystemRepository = codeSystemRepository;
+		this.conceptService = conceptService;
+		this.snomedCodeSystemService = snomedCodeSystemService;
+		this.snomedConceptService = snomedConceptService;
+		this.snomedMultiSearchService = snomedMultiSearchService;
+		this.identifierSource = identifierSource;
+		this.codeSystemVersionRepository = codeSystemVersionRepository;
+	}
 
 	public FHIRCodeSystemVersion createUpdate(CodeSystem codeSystem) throws ServiceException {
 		FHIRCodeSystemVersion fhirCodeSystemVersion = new FHIRCodeSystemVersion(codeSystem);

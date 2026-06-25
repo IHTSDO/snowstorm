@@ -24,7 +24,6 @@ import org.snomed.snowstorm.fhir.repositories.FHIRValueSetRepository;
 import org.snomed.snowstorm.fhir.services.context.CodeSystemVersionProvider;
 import org.snomed.snowstorm.rest.ControllerHelper;
 import org.snomed.snowstorm.rest.pojo.SearchAfterPageRequest;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.*;
 import org.springframework.data.elasticsearch.client.elc.NativeQuery;
 import org.springframework.data.elasticsearch.client.elc.NativeQueryBuilder;
@@ -131,40 +130,43 @@ public class FHIRValueSetService implements FHIRConstants {
 		PROPERTY_TO_URL.put("alternateCode", "http://hl7.org/fhir/concept-properties#alternateCode");
 	}
 
-	@Autowired
-	private FHIRCodeSystemService codeSystemService;
+	private final FHIRCodeSystemService codeSystemService;
 
-	@Autowired
-	private FHIRConceptService conceptService;
+	private final FHIRConceptService conceptService;
 
-	@Autowired
-	private FHIRValueSetRepository valueSetRepository;
+	private final FHIRValueSetRepository valueSetRepository;
 
-	@Autowired
-	private QueryService snomedQueryService;
+	private final QueryService snomedQueryService;
 
-	@Autowired
-	private ConceptService snomedConceptService;
+	private final ConceptService snomedConceptService;
 
-	@Autowired
-	private ElasticsearchOperations elasticsearchOperations;
+	private final ElasticsearchOperations elasticsearchOperations;
 
-	@Autowired
-	private FHIRValueSetFinderService vsFinderService;
+	private final FHIRValueSetFinderService vsFinderService;
 
-	@Autowired
-	private FHIRValueSetCycleDetectionService vsCycleDetectionService;
+	private final FHIRValueSetCycleDetectionService vsCycleDetectionService;
 
-	@Autowired
-	private FHIRValueSetCodeValidationService codeValidationService;
+	private final FHIRValueSetCodeValidationService codeValidationService;
 
-	@Autowired
-	private FHIRValueSetConstraintsService constraintsService;
+	private final FHIRValueSetConstraintsService constraintsService;
 
-	@Autowired
-	private FHIRWarningsService warningsService;
+	private final FHIRWarningsService warningsService;
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
+
+	public FHIRValueSetService(FHIRCodeSystemService codeSystemService, FHIRConceptService conceptService, FHIRValueSetRepository valueSetRepository, QueryService snomedQueryService, ConceptService snomedConceptService, ElasticsearchOperations elasticsearchOperations, FHIRValueSetFinderService vsFinderService, FHIRValueSetCycleDetectionService vsCycleDetectionService, FHIRValueSetCodeValidationService codeValidationService, FHIRValueSetConstraintsService constraintsService, FHIRWarningsService warningsService) {
+		this.codeSystemService = codeSystemService;
+		this.conceptService = conceptService;
+		this.valueSetRepository = valueSetRepository;
+		this.snomedQueryService = snomedQueryService;
+		this.snomedConceptService = snomedConceptService;
+		this.elasticsearchOperations = elasticsearchOperations;
+		this.vsFinderService = vsFinderService;
+		this.vsCycleDetectionService = vsCycleDetectionService;
+		this.codeValidationService = codeValidationService;
+		this.constraintsService = constraintsService;
+		this.warningsService = warningsService;
+	}
 
 	public Page<FHIRValueSet> findAll(Pageable pageable) {
 		NativeQuery searchQuery = new NativeQueryBuilder()

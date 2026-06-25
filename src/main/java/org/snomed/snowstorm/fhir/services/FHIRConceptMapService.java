@@ -18,7 +18,6 @@ import org.snomed.snowstorm.fhir.pojo.FHIRCodeSystemVersionParams;
 import org.snomed.snowstorm.fhir.pojo.FHIRSnomedConceptMapConfig;
 import org.snomed.snowstorm.fhir.repositories.FHIRConceptMapRepository;
 import org.snomed.snowstorm.fhir.repositories.FHIRMapElementRepository;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
@@ -47,38 +46,41 @@ public class FHIRConceptMapService {
 
 	private static final PageRequest PAGE_OF_ONE_THOUSAND = PageRequest.of(0, 1_000);
 
-	@Autowired
-	private FHIRConceptMapRepository conceptMapRepository;
+	private final FHIRConceptMapRepository conceptMapRepository;
 
-	@Autowired
-	private ElasticsearchOperations elasticsearchOperations;
+	private final ElasticsearchOperations elasticsearchOperations;
 
-	@Autowired
-	private FHIRMapElementRepository mapElementRepository;
+	private final FHIRMapElementRepository mapElementRepository;
 
-	@Autowired
-	private FHIRCodeSystemService fhirCodeSystemService;
+	private final FHIRCodeSystemService fhirCodeSystemService;
 
-	@Autowired
-	private ReferenceSetMemberService snomedRefsetMemberService;
+	private final ReferenceSetMemberService snomedRefsetMemberService;
 
-	@Autowired
-	private ConceptService snomedConceptService;
+	private final ConceptService snomedConceptService;
 
-	@Autowired
-	private FHIRConceptMapImplicitConfig implicitMapConfig;
+	private final FHIRConceptMapImplicitConfig implicitMapConfig;
 
-	@Autowired
-	private FHIRConceptService conceptService;
+	private final FHIRConceptService conceptService;
 
-	@Autowired
-	private FHIRSnomedModelTermCache snomedModelTermCache;
+	private final FHIRSnomedModelTermCache snomedModelTermCache;
 
 	// Implicit ConceptMaps - format http://snomed.info/sct[/(module)[/version/(version)]]?fhir_cm=(sctid)
 	private List<FHIRSnomedConceptMapConfig> snomedMaps;
 
 	// Map of SNOMED CT map correlation concepts to FHIR equivalence codes - http://hl7.org/fhir/concept-map-equivalence
 	private Map<String, Enumerations.ConceptMapEquivalence> snomedCorrelationToFhirEquivalenceMap;
+
+	public FHIRConceptMapService(FHIRConceptMapRepository conceptMapRepository, ElasticsearchOperations elasticsearchOperations, FHIRMapElementRepository mapElementRepository, FHIRCodeSystemService fhirCodeSystemService, ReferenceSetMemberService snomedRefsetMemberService, ConceptService snomedConceptService, FHIRConceptMapImplicitConfig implicitMapConfig, FHIRConceptService conceptService, FHIRSnomedModelTermCache snomedModelTermCache) {
+		this.conceptMapRepository = conceptMapRepository;
+		this.elasticsearchOperations = elasticsearchOperations;
+		this.mapElementRepository = mapElementRepository;
+		this.fhirCodeSystemService = fhirCodeSystemService;
+		this.snomedRefsetMemberService = snomedRefsetMemberService;
+		this.snomedConceptService = snomedConceptService;
+		this.implicitMapConfig = implicitMapConfig;
+		this.conceptService = conceptService;
+		this.snomedModelTermCache = snomedModelTermCache;
+	}
 
 	@PostConstruct
 	public void init() {

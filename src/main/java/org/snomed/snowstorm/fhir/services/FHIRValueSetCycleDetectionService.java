@@ -2,7 +2,6 @@ package org.snomed.snowstorm.fhir.services;
 
 import org.hl7.fhir.r4.model.*;
 import org.snomed.snowstorm.fhir.domain.ValueSetCycleElement;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
@@ -15,8 +14,11 @@ import static org.snomed.snowstorm.fhir.services.FHIRValueSetService.VS_INVALID;
 @Service
 public class FHIRValueSetCycleDetectionService {
 
-	@Autowired
-	private FHIRValueSetFinderService vsFinderService;
+	private final FHIRValueSetFinderService vsFinderService;
+
+	public FHIRValueSetCycleDetectionService(FHIRValueSetFinderService vsFinderService) {
+		this.vsFinderService = vsFinderService;
+	}
 
 	public void verifyNoCycles(ValueSet hapiValueSet) {
 		List<ValueSetCycleElement> valueSetCycle = getValueSetIncludeExcludeCycle(hapiValueSet);

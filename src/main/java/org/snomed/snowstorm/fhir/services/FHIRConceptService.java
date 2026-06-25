@@ -15,7 +15,6 @@ import org.snomed.snowstorm.fhir.domain.FHIRCodeSystemVersion;
 import org.snomed.snowstorm.fhir.domain.FHIRConcept;
 import org.snomed.snowstorm.fhir.domain.FHIRProperty;
 import org.snomed.snowstorm.fhir.repositories.FHIRConceptRepository;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -41,13 +40,16 @@ public class FHIRConceptService {
 	public static final String PARENT = "parent";
 	public static final String CHILD = "child";
 
-	@Autowired
-	private FHIRConceptRepository conceptRepository;
+	private final FHIRConceptRepository conceptRepository;
 
-	@Autowired
-	private ElasticsearchOperations elasticsearchOperations;
+	private final ElasticsearchOperations elasticsearchOperations;
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
+
+	public FHIRConceptService(FHIRConceptRepository conceptRepository, ElasticsearchOperations elasticsearchOperations) {
+		this.conceptRepository = conceptRepository;
+		this.elasticsearchOperations = elasticsearchOperations;
+	}
 
 	public void saveAllConceptsOfCodeSystemVersion(TermCodeSystemVersion termCodeSystemVersion, FHIRCodeSystemVersion codeSystemVersion) {
 
