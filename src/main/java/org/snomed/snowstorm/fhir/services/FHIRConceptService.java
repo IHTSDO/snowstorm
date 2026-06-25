@@ -100,29 +100,7 @@ public class FHIRConceptService {
 
 		FHIRGraphBuilder graphBuilder = new FHIRGraphBuilder();
 		if (Objects.isNull(codeSystemVersion.getHierarchyMeaning()) || "is-a".equals(codeSystemVersion.getHierarchyMeaning())) {
-			// Record transitive closure of concepts for subsumption testing
-			for (FHIRConcept concept : concepts) {
-				for (String parentCode : concept.getParents()) {
-					graphBuilder.addParent(concept.getCode(), parentCode);
-				}
-			}
-			// Add parent and child properties if missing
-			Map<String, String> conceptDisplayMap = concepts.stream()
-					.filter(concept -> concept.getDisplay() != null)
-					.collect(Collectors.toMap(FHIRConcept::getCode, FHIRConcept::getDisplay));
-			for (FHIRConcept concept : concepts) {
-				Map<String, List<FHIRProperty>> properties = concept.getProperties();
-
-				Collection<String> parents = graphBuilder.getNodeParents(concept.getCode());
-				properties.computeIfAbsent(PARENT, k -> parents.stream()
-					.map(parent -> new FHIRProperty(PARENT, conceptDisplayMap.get(parent), parent, "CODING"))
-					.toList());
-
-				Collection<String> children = graphBuilder.getNodeChildren(concept.getCode());
-				properties.computeIfAbsent(CHILD, k -> children.stream()
-					.map(child -> new FHIRProperty(CHILD, conceptDisplayMap.get(child), child, "CODING"))
-					.toList());
-			}
+			buildHierarchyGraphAndProperties(concepts, graphBuilder);
 		}
 
 		Set<String> props = new HashSet<>();
@@ -136,6 +114,36 @@ public class FHIRConceptService {
 				.forEach(concept -> props.addAll(concept.getProperties().keySet()));
 
 		logger.info("Saving {} '{}' fhir concepts. All properties: {}", concepts.size(), idWithVersion, props);
+		saveConceptsInBatches(concepts, graphBuilder, idWithVersion);
+	}
+
+	private void buildHierarchyGraphAndProperties(Collection<FHIRConcept> concepts, FHIRGraphBuilder graphBuilder) {
+		// Record transitive closure of concepts for subsumption testing
+		for (FHIRConcept concept : concepts) {
+			for (String parentCode : concept.getParents()) {
+				graphBuilder.addParent(concept.getCode(), parentCode);
+			}
+		}
+		// Add parent and child properties if missing
+		Map<String, String> conceptDisplayMap = concepts.stream()
+				.filter(concept -> concept.getDisplay() != null)
+				.collect(Collectors.toMap(FHIRConcept::getCode, FHIRConcept::getDisplay));
+		for (FHIRConcept concept : concepts) {
+			Map<String, List<FHIRProperty>> properties = concept.getProperties();
+
+			Collection<String> parents = graphBuilder.getNodeParents(concept.getCode());
+			properties.computeIfAbsent(PARENT, k -> parents.stream()
+				.map(parent -> new FHIRProperty(PARENT, conceptDisplayMap.get(parent), parent, "CODING"))
+				.toList());
+
+			Collection<String> children = graphBuilder.getNodeChildren(concept.getCode());
+			properties.computeIfAbsent(CHILD, k -> children.stream()
+				.map(child -> new FHIRProperty(CHILD, conceptDisplayMap.get(child), child, "CODING"))
+				.toList());
+		}
+	}
+
+	private void saveConceptsInBatches(Collection<FHIRConcept> concepts, FHIRGraphBuilder graphBuilder, String idWithVersion) {
 		float allSize = concepts.size();
 		int tenPercent = concepts.size() / 10;
 		if (tenPercent == 0) {

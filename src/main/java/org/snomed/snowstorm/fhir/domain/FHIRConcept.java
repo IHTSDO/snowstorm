@@ -138,48 +138,54 @@ public class FHIRConcept implements FHIRGraphNode {
 				.findFirst().ifPresentOrElse(x -> active = false, ()-> active = true);
 		properties.put(INACTIVE,Collections.singletonList(new FHIRProperty(INACTIVE,null,Boolean.toString(!isActive()),FHIRProperty.BOOLEAN_TYPE)));
 		extensions = new HashMap<>();
-		definitionConcept.getExtension().forEach(e -> {
-			String url = e.getUrl();
-			if (e.getValue() != null) {
-				FHIRProperty property = new FHIRProperty(
-						url,
-						null,
-						e.getValue().primitiveValue(),
-						FHIRProperty.typeToFHIRPropertyType(e.getValue())
-				);
-				extensions.computeIfAbsent(url, k -> new ArrayList<>()).add(property);
-				// Promote structuredefinition-standards-status to a formal status property
-				if (FHIR_STRUCTURE_DEFINITION_STRUCTUREDEFINITION_STANDARDS_STATUS.equals(url)) {
-					String statusValue = e.getValue().primitiveValue();
-					if ("deprecated".equals(statusValue) || STATUS_RETIRED.equals(statusValue)) {
-						properties.computeIfAbsent(PROPERTY_STATUS, k -> new ArrayList<>())
-								.add(new FHIRProperty(PROPERTY_STATUS, null, statusValue, FHIRProperty.CODE_TYPE));
-					}
-				}
-			}
-		});
+		definitionConcept.getExtension().forEach(this::addExtensionFromDefinition);
 		parents = new HashSet<>();
 		for (CodeSystem.ConceptPropertyComponent propertyComponent : definitionConcept.getProperty()) {
-			if (properties.get(propertyComponent.getCode())==null && !propertyComponent.getCode().contains(EXTENSION_MARKER)){
-				properties.put(propertyComponent.getCode(),new ArrayList<>());
-			}
-			try{
-				if(!propertyComponent.getCode().contains(EXTENSION_MARKER)){
-					properties.get(propertyComponent.getCode()).add(new FHIRProperty(propertyComponent));
-				}
-			} catch( UnsupportedOperationException e){
-				List<FHIRProperty> unmodifiableList = properties.get(propertyComponent.getCode());
-				List<FHIRProperty> modifiableList = new ArrayList<>();
-				modifiableList.addAll(unmodifiableList);
-				properties.put(propertyComponent.getCode(), modifiableList);
-				properties.get(propertyComponent.getCode()).add(new FHIRProperty(propertyComponent));
-			}
+			addPropertyFromDefinition(propertyComponent);
 
 			if (propertyComponent.getCode().equals("parent") || propertyComponent.getCode().equals("subsumedBy")) {
 				parents.add(propertyComponent.hasValueCoding() ? propertyComponent.getValueCoding().getCode() : propertyComponent.getValue().toString());
 			}
 		}
 		// Ancestors will be set before save
+	}
+
+	private void addExtensionFromDefinition(org.hl7.fhir.r4.model.Extension e) {
+		String url = e.getUrl();
+		if (e.getValue() != null) {
+			FHIRProperty property = new FHIRProperty(
+					url,
+					null,
+					e.getValue().primitiveValue(),
+					FHIRProperty.typeToFHIRPropertyType(e.getValue())
+			);
+			extensions.computeIfAbsent(url, k -> new ArrayList<>()).add(property);
+			// Promote structuredefinition-standards-status to a formal status property
+			if (FHIR_STRUCTURE_DEFINITION_STRUCTUREDEFINITION_STANDARDS_STATUS.equals(url)) {
+				String statusValue = e.getValue().primitiveValue();
+				if ("deprecated".equals(statusValue) || STATUS_RETIRED.equals(statusValue)) {
+					properties.computeIfAbsent(PROPERTY_STATUS, k -> new ArrayList<>())
+							.add(new FHIRProperty(PROPERTY_STATUS, null, statusValue, FHIRProperty.CODE_TYPE));
+				}
+			}
+		}
+	}
+
+	private void addPropertyFromDefinition(CodeSystem.ConceptPropertyComponent propertyComponent) {
+		if (properties.get(propertyComponent.getCode())==null && !propertyComponent.getCode().contains(EXTENSION_MARKER)){
+			properties.put(propertyComponent.getCode(),new ArrayList<>());
+		}
+		try{
+			if(!propertyComponent.getCode().contains(EXTENSION_MARKER)){
+				properties.get(propertyComponent.getCode()).add(new FHIRProperty(propertyComponent));
+			}
+		} catch( UnsupportedOperationException e){
+			List<FHIRProperty> unmodifiableList = properties.get(propertyComponent.getCode());
+			List<FHIRProperty> modifiableList = new ArrayList<>();
+			modifiableList.addAll(unmodifiableList);
+			properties.put(propertyComponent.getCode(), modifiableList);
+			properties.get(propertyComponent.getCode()).add(new FHIRProperty(propertyComponent));
+		}
 	}
 
 	public FHIRConcept(ConceptMini snomedConceptMini, FHIRCodeSystemVersion codeSystemVersion, boolean includeDesignations) {

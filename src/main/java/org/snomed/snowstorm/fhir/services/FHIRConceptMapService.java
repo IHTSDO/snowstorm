@@ -264,59 +264,70 @@ public class FHIRConceptMapService {
 
 		List<FHIRMapElement> generatedElements = members.stream()
 				.sorted(mapComparator)
-				.map(referenceSetMember -> {
-					String targetCode = getTargetCode(hasSnomedSource, hasSnomedTarget, referenceSetMember);
-					if (targetCode == null) return null;
-					String equivalence = map.getSnomedRefsetEquivalence();
-					FHIRMapTarget mapTarget = new FHIRMapTarget(targetCode, equivalence, null);
-					mapTargetsByCode.computeIfAbsent(targetCode, key -> new ArrayList<>()).add(mapTarget);
-					String message = null;
-					String mapGroup = referenceSetMember.getAdditionalField("mapGroup");
-					if (mapGroup != null) {
-						String mapPriority = referenceSetMember.getAdditionalField("mapPriority");
-						String mapRule = referenceSetMember.getAdditionalField("mapRule");
-						String mapAdvice = referenceSetMember.getAdditionalField("mapAdvice");
-						String correlationId = referenceSetMember.getAdditionalField("correlationId");
-						Enumerations.ConceptMapEquivalence mapEquivalence = snomedCorrelationToFhirEquivalenceMap.get(correlationId);
-						mapTarget.setEquivalence(mapEquivalence != null ? mapEquivalence.toCode() : null);
-						String mapCategoryId = referenceSetMember.getAdditionalField("mapCategoryId");
-						String mapCategoryMessage = "";
-
-						// mapCategoryId null for complex map, only used in extended map
-						if (mapCategoryId != null) {
-							String mapCategoryTerm = snomedModelTermCache.getSnomedTerm(mapCategoryId, snomedVersion, languageDialects);
-							mapCategoryMessage = format(", Map Category:'%s'", mapCategoryTerm);
-						}
-
-						message = format("Please observe the following map advice. Group:%s, Priority:%s, Rule:%s, Advice:'%s'%s.",
-								mapGroup, mapPriority, mapRule, mapAdvice, mapCategoryMessage);
-					}
-					return new FHIRMapElement()
-							.setCode(coding.getCode())
-							.setTarget(Collections.singletonList(mapTarget))
-							.setMessage(message);
-				})
+				.map(referenceSetMember -> buildImplicitSnomedMapElement(referenceSetMember, map, coding,
+						hasSnomedSource, hasSnomedTarget, snomedVersion, languageDialects, mapTargetsByCode))
 				.filter(Objects::nonNull)
 				.filter(element -> element.getTarget().get(0).getCode() != null)
 				.toList();
 
 		// Grab target display terms
-		if (!mapTargetsByCode.isEmpty()) {
-			if (hasSnomedTarget) {
-				Map<String, ConceptMini> conceptMiniMap = snomedConceptService.findConceptMinis(snomedVersion.getSnomedBranch(), mapTargetsByCode.keySet(), languageDialects)
-						.getResultsMap();
-				for (Map.Entry<String, ConceptMini> entry : conceptMiniMap.entrySet()) {
-					mapTargetsByCode.get(entry.getKey()).forEach(mapTarget -> mapTarget.setDisplay(entry.getValue().getPt().getTerm()));
-				}
-			} else {
-				Map<String, String> codeDisplayTerms = getCodeDisplayTerms(mapTargetsByCode.keySet(), targetSystem);
-				for (Map.Entry<String, String> entry : codeDisplayTerms.entrySet()) {
-					mapTargetsByCode.get(entry.getKey()).forEach(mapTarget -> mapTarget.setDisplay(entry.getValue()));
-				}
-			}
-		}
+		fillMapTargetDisplayTerms(mapTargetsByCode, hasSnomedTarget, targetSystem, snomedVersion, languageDialects);
 
 		return generatedElements;
+	}
+
+	private FHIRMapElement buildImplicitSnomedMapElement(ReferenceSetMember referenceSetMember, FHIRConceptMap map, Coding coding,
+			boolean hasSnomedSource, boolean hasSnomedTarget, FHIRCodeSystemVersion snomedVersion,
+			List<LanguageDialect> languageDialects, Map<String, List<FHIRMapTarget>> mapTargetsByCode) {
+		String targetCode = getTargetCode(hasSnomedSource, hasSnomedTarget, referenceSetMember);
+		if (targetCode == null) return null;
+		String equivalence = map.getSnomedRefsetEquivalence();
+		FHIRMapTarget mapTarget = new FHIRMapTarget(targetCode, equivalence, null);
+		mapTargetsByCode.computeIfAbsent(targetCode, key -> new ArrayList<>()).add(mapTarget);
+		String message = null;
+		String mapGroup = referenceSetMember.getAdditionalField("mapGroup");
+		if (mapGroup != null) {
+			String mapPriority = referenceSetMember.getAdditionalField("mapPriority");
+			String mapRule = referenceSetMember.getAdditionalField("mapRule");
+			String mapAdvice = referenceSetMember.getAdditionalField("mapAdvice");
+			String correlationId = referenceSetMember.getAdditionalField("correlationId");
+			Enumerations.ConceptMapEquivalence mapEquivalence = snomedCorrelationToFhirEquivalenceMap.get(correlationId);
+			mapTarget.setEquivalence(mapEquivalence != null ? mapEquivalence.toCode() : null);
+			String mapCategoryId = referenceSetMember.getAdditionalField("mapCategoryId");
+			String mapCategoryMessage = "";
+
+			// mapCategoryId null for complex map, only used in extended map
+			if (mapCategoryId != null) {
+				String mapCategoryTerm = snomedModelTermCache.getSnomedTerm(mapCategoryId, snomedVersion, languageDialects);
+				mapCategoryMessage = format(", Map Category:'%s'", mapCategoryTerm);
+			}
+
+			message = format("Please observe the following map advice. Group:%s, Priority:%s, Rule:%s, Advice:'%s'%s.",
+					mapGroup, mapPriority, mapRule, mapAdvice, mapCategoryMessage);
+		}
+		return new FHIRMapElement()
+				.setCode(coding.getCode())
+				.setTarget(Collections.singletonList(mapTarget))
+				.setMessage(message);
+	}
+
+	private void fillMapTargetDisplayTerms(Map<String, List<FHIRMapTarget>> mapTargetsByCode, boolean hasSnomedTarget,
+			String targetSystem, FHIRCodeSystemVersion snomedVersion, List<LanguageDialect> languageDialects) {
+		if (mapTargetsByCode.isEmpty()) {
+			return;
+		}
+		if (hasSnomedTarget) {
+			Map<String, ConceptMini> conceptMiniMap = snomedConceptService.findConceptMinis(snomedVersion.getSnomedBranch(), mapTargetsByCode.keySet(), languageDialects)
+					.getResultsMap();
+			for (Map.Entry<String, ConceptMini> entry : conceptMiniMap.entrySet()) {
+				mapTargetsByCode.get(entry.getKey()).forEach(mapTarget -> mapTarget.setDisplay(entry.getValue().getPt().getTerm()));
+			}
+		} else {
+			Map<String, String> codeDisplayTerms = getCodeDisplayTerms(mapTargetsByCode.keySet(), targetSystem);
+			for (Map.Entry<String, String> entry : codeDisplayTerms.entrySet()) {
+				mapTargetsByCode.get(entry.getKey()).forEach(mapTarget -> mapTarget.setDisplay(entry.getValue()));
+			}
+		}
 	}
 
 	public Set<FHIRSnomedConceptMapConfig> getConfiguredMapsWithNonSnomedTarget(Set<String> refsetIds) {
