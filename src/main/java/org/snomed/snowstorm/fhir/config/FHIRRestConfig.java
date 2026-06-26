@@ -15,6 +15,7 @@ import org.springframework.context.annotation.Lazy;
 
 import java.io.IOException;
 import java.nio.file.Files;
+import java.nio.file.attribute.PosixFilePermissions;
 
 @Configuration
 public class FHIRRestConfig {
@@ -43,8 +44,20 @@ public class FHIRRestConfig {
 	public ServletRegistrationBean<FHIRLoadPackageServlet> addBundleServlet() throws IOException {
 		ServletRegistrationBean<FHIRLoadPackageServlet> registrationBean = new ServletRegistrationBean<>(new FHIRLoadPackageServlet(), "/fhir-admin/load-package");
 		registrationBean.setMultipartConfig(
-				new MultipartConfigElement(Files.createTempDirectory("fhir-bundle-upload").toFile().getAbsolutePath(), MB_IN_BYTES * 200L, MB_IN_BYTES * 200L, 0));
+				new MultipartConfigElement(createSecureUploadDir(), MB_IN_BYTES * 200L, MB_IN_BYTES * 200L, 0));
 		return registrationBean;
+	}
+
+	// Creates an upload directory accessible by the owner only, avoiding the world-writable default of the shared temp directory.
+	private static String createSecureUploadDir() throws IOException {
+		try {
+			return Files.createTempDirectory("fhir-bundle-upload",
+					PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rwx------")))
+					.toAbsolutePath().toString();
+		} catch (UnsupportedOperationException e) {
+			// Non-POSIX filesystem (e.g. Windows), where the per-user temp directory is already private.
+			return Files.createTempDirectory("fhir-bundle-upload").toAbsolutePath().toString();
+		}
 	}
 
 }
