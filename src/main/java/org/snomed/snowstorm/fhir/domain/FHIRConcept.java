@@ -132,7 +132,7 @@ public class FHIRConcept implements FHIRGraphNode {
 				.collect(Collectors.toList());
 
 		properties = new HashMap<>();
-		Optional.ofNullable(definitionConcept.getDefinition()).ifPresent(x -> properties.put("definition",Collections.singletonList(new FHIRProperty("definition",null,x,FHIRProperty.STRING_TYPE))));
+		Optional.ofNullable(definitionConcept.getDefinition()).ifPresent(x -> properties.put(Fields.DEFINITION,Collections.singletonList(new FHIRProperty(Fields.DEFINITION,null,x,FHIRProperty.STRING_TYPE))));
 		definitionConcept.getProperty().stream()
 				.filter(FHIRConcept::isPropertyInactive)
 				.findFirst().ifPresentOrElse(x -> active = false, ()-> active = true);

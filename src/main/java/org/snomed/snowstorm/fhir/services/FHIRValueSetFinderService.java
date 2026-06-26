@@ -609,11 +609,10 @@ public class FHIRValueSetFinderService implements FHIRConstants, TxResourceAware
 	}
 
 	private void handleCodeConstraint(ConceptConstraint inclusion, BoolQuery.Builder query) {
-		switch (inclusion.getType()) {
-			case MATCH_REGEX ->
-					query.must(regexpQuery(FHIRConcept.Fields.CODE, firstOrNull(inclusion.getCodes())));
-			default ->
-					query.must(termsQuery(FHIRConcept.Fields.CODE, inclusion.getCodes()));
+		if (inclusion.getType() == ConceptConstraint.Type.MATCH_REGEX) {
+			query.must(regexpQuery(FHIRConcept.Fields.CODE, firstOrNull(inclusion.getCodes())));
+		} else {
+			query.must(termsQuery(FHIRConcept.Fields.CODE, inclusion.getCodes()));
 		}
 	}
 
@@ -621,11 +620,10 @@ public class FHIRValueSetFinderService implements FHIRConstants, TxResourceAware
 	                                    BoolQuery.Builder query,
 	                                    String field,
 	                                    Set<String> values) {
-		switch (inclusion.getType()) {
-			case MATCH_REGEX ->
-					query.must(regexpQuery(field, firstOrNull(values)));
-			default ->
-					query.must(termsQuery(field, values));
+		if (inclusion.getType() == ConceptConstraint.Type.MATCH_REGEX) {
+			query.must(regexpQuery(field, firstOrNull(values)));
+		} else {
+			query.must(termsQuery(field, values));
 		}
 	}
 

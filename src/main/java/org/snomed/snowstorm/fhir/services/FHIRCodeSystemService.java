@@ -9,7 +9,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.core.data.domain.CodeSystemVersion;
 import org.snomed.snowstorm.core.data.domain.Concept;
-import org.snomed.snowstorm.core.data.repositories.CodeSystemVersionRepository;
 import org.snomed.snowstorm.core.data.services.CodeSystemService;
 import org.snomed.snowstorm.core.data.services.ConceptService;
 import org.snomed.snowstorm.core.data.services.MultiSearchService;
@@ -62,9 +61,7 @@ public class FHIRCodeSystemService implements TxResourceAware {
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
-	private final CodeSystemVersionRepository codeSystemVersionRepository;
-
-	public FHIRCodeSystemService(ElasticsearchOperations elasticsearchOperations, FHIRCodeSystemRepository codeSystemRepository, FHIRConceptService conceptService, CodeSystemService snomedCodeSystemService, ConceptService snomedConceptService, MultiSearchService snomedMultiSearchService, IdentifierSource identifierSource, CodeSystemVersionRepository codeSystemVersionRepository) {
+	public FHIRCodeSystemService(ElasticsearchOperations elasticsearchOperations, FHIRCodeSystemRepository codeSystemRepository, FHIRConceptService conceptService, CodeSystemService snomedCodeSystemService, ConceptService snomedConceptService, MultiSearchService snomedMultiSearchService, IdentifierSource identifierSource) {
 		this.elasticsearchOperations = elasticsearchOperations;
 		this.codeSystemRepository = codeSystemRepository;
 		this.conceptService = conceptService;
@@ -72,7 +69,6 @@ public class FHIRCodeSystemService implements TxResourceAware {
 		this.snomedConceptService = snomedConceptService;
 		this.snomedMultiSearchService = snomedMultiSearchService;
 		this.identifierSource = identifierSource;
-		this.codeSystemVersionRepository = codeSystemVersionRepository;
 	}
 
 	public FHIRCodeSystemVersion createUpdate(CodeSystem codeSystem) throws ServiceException {
