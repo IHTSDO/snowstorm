@@ -66,8 +66,6 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants,
 
 	private final FHIRCodeSystemService fhirCodeSystemService;
 
-	private final CodeSystemService snomedCodeSystemService;
-
 	private final MultiSearchService snomedMultiSearchService;
 
 	private final FHIRGraphService graphService;
@@ -80,10 +78,9 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants,
 
 	private final FHIRConceptService fhirConceptService;
 
-	public FHIRCodeSystemProvider(FhirContext fhirContext, FHIRCodeSystemService fhirCodeSystemService, CodeSystemService snomedCodeSystemService, MultiSearchService snomedMultiSearchService, FHIRGraphService graphService, HapiParametersMapper pMapper, FHIRHelper fhirHelper, FHIRTermCodeSystemStorage termCodeSystemStorage, FHIRConceptService fhirConceptService) {
+	public FHIRCodeSystemProvider(FhirContext fhirContext, FHIRCodeSystemService fhirCodeSystemService, MultiSearchService snomedMultiSearchService, FHIRGraphService graphService, HapiParametersMapper pMapper, FHIRHelper fhirHelper, FHIRTermCodeSystemStorage termCodeSystemStorage, FHIRConceptService fhirConceptService) {
 		this.fhirContext = fhirContext;
 		this.fhirCodeSystemService = fhirCodeSystemService;
-		this.snomedCodeSystemService = snomedCodeSystemService;
 		this.snomedMultiSearchService = snomedMultiSearchService;
 		this.graphService = graphService;
 		this.pMapper = pMapper;
@@ -482,82 +479,104 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants,
 
 		// A supplement cannot be used as a system for code validation — even when supplied as a tx-resource
 		if ("supplement".equals(codeSystemVersion.getContent())) {
-			String message = format("CodeSystem %s is a supplement, so can't be used as a value in Coding.system", codeSystemVersion.getCanonical());
-			CodeableConcept cc = new CodeableConcept(new Coding(TX_ISSUE_TYPE, "invalid-data", null)).setText(message);
-			OperationOutcome oo = FHIRHelper.createOperationOutcomeWithIssue(cc, OperationOutcome.IssueSeverity.ERROR,
-					"Coding.system", IssueType.INVALID, null, null);
-			Parameters parameters = new Parameters();
-			parameters.addParameter(CODE, new CodeType(code));
-			parameters.addParameter(new Parameters.ParametersParameterComponent(new StringType(PARAM_ISSUES)).setResource(oo));
-			parameters.addParameter(MESSAGE, message);
-			parameters.addParameter(RESULT, false);
-			parameters.addParameter(PARAM_SYSTEM, new UriType(codeSystemParams.getCodeSystem()));
-			return parameters;
+			return buildSupplementSystemError(code, codeSystemVersion, codeSystemParams);
 		}
 
 		FHIRConcept concept = findInlineConcept(codeSystemVersion, code)
 				.orElseGet(() -> fhirConceptService.findConcept(codeSystemVersion, code));
-		if (concept != null) {
-			boolean displayValidOrNull = display == null ||
-					display.equals(concept.getDisplay()) ||
-					concept.getDesignations().stream().anyMatch(d -> display.equals(d.getValue()));
-
-			List<OperationOutcome.OperationOutcomeIssueComponent> issues = new ArrayList<>();
-			String extraMessage = null;
-			String conceptStatus = null;
-
-			// Warn if the provided display matches a withdrawn/inactive designation
-			if (display != null && displayValidOrNull && !display.equals(concept.getDisplay())) {
-				FHIRDesignation matchingDesignation = concept.getDesignations().stream()
-						.filter(d -> display.equals(d.getValue()))
-						.findFirst().orElse(null);
-				if (matchingDesignation != null && isDesignationWithdrawn(matchingDesignation)) {
-					String msg = format("'%s' is no longer considered a correct display for code '%s' (status = deprecated). The correct display is one of \"%s\".",
-							display, code, concept.getDisplay());
-					issues.add(createOperationOutcomeIssueComponent(
-							new CodeableConcept(new Coding(TX_ISSUE_TYPE, "display-comment", null)).setText(msg),
-							OperationOutcome.IssueSeverity.WARNING, PARAM_DISPLAY, IssueType.INVALID, null, null));
-				}
-			}
-
-			// Warn if the concept itself is deprecated
-			conceptStatus = concept.getProperties().getOrDefault("status", Collections.emptyList()).stream()
-					.filter(p -> "deprecated".equals(p.getValue()) || "retired".equals(p.getValue()))
-					.map(FHIRProperty::getValue)
-					.findFirst().orElse(null);
-			if (conceptStatus != null) {
-				String msg = format("The concept '%s' is deprecated and its use should be reviewed", code);
-				extraMessage = msg;
-				issues.add(createOperationOutcomeIssueComponent(
-						new CodeableConcept(new Coding(TX_ISSUE_TYPE, "code-comment", null)).setText(msg),
-						OperationOutcome.IssueSeverity.WARNING, "code", IssueType.BUSINESSRULE, null, null));
-			}
-
-			// Build response in expected order: code, display, [issues], [message], result, [status], system
-			Parameters response = new Parameters();
-			response.addParameter(CODE, new CodeType(concept.getCode()));
-			response.addParameter(DISPLAY, concept.getDisplay());
-			if (!issues.isEmpty()) {
-				response.addParameter(createParameterComponentWithOperationOutcomeWithIssues(issues));
-			}
-			if (extraMessage != null) {
-				response.addParameter(MESSAGE, extraMessage);
-			} else if (!displayValidOrNull) {
-				response.addParameter(MESSAGE, "The code exists but the display is not valid.");
-			}
-			response.addParameter(RESULT, displayValidOrNull);
-			if (conceptStatus != null) {
-				response.addParameter("status", new CodeType(conceptStatus));
-			}
-			response.addParameter(SYSTEM, new UriType(FHIRHelper.isSnomedUri(codeSystemVersion.getUrl()) ? SNOMED_URI : codeSystemVersion.getUrl()));
-			if (!"0".equals(codeSystemVersion.getVersion())) {
-				response.addParameter(VERSION, codeSystemVersion.getVersion());
-			}
-
-			return response;
-		} else {
+		if (concept == null) {
 			return pMapper.resultFalse(code, codeSystemVersion);
 		}
+
+		return buildConceptValidationResponse(concept, code, display, codeSystemVersion);
+	}
+
+	private Parameters buildSupplementSystemError(String code, FHIRCodeSystemVersion codeSystemVersion,
+	                                              FHIRCodeSystemVersionParams codeSystemParams) {
+		String message = format("CodeSystem %s is a supplement, so can't be used as a value in Coding.system", codeSystemVersion.getCanonical());
+		CodeableConcept cc = new CodeableConcept(new Coding(TX_ISSUE_TYPE, "invalid-data", null)).setText(message);
+		OperationOutcome oo = FHIRHelper.createOperationOutcomeWithIssue(cc, OperationOutcome.IssueSeverity.ERROR,
+				"Coding.system", IssueType.INVALID, null, null);
+		Parameters parameters = new Parameters();
+		parameters.addParameter(CODE, new CodeType(code));
+		parameters.addParameter(new Parameters.ParametersParameterComponent(new StringType(PARAM_ISSUES)).setResource(oo));
+		parameters.addParameter(MESSAGE, message);
+		parameters.addParameter(RESULT, false);
+		parameters.addParameter(PARAM_SYSTEM, new UriType(codeSystemParams.getCodeSystem()));
+		return parameters;
+	}
+
+	private Parameters buildConceptValidationResponse(FHIRConcept concept, String code, String display,
+	                                                  FHIRCodeSystemVersion codeSystemVersion) {
+		boolean displayValidOrNull = display == null ||
+				display.equals(concept.getDisplay()) ||
+				concept.getDesignations().stream().anyMatch(d -> display.equals(d.getValue()));
+
+		List<OperationOutcome.OperationOutcomeIssueComponent> issues = new ArrayList<>();
+		addWithdrawnDisplayWarning(issues, concept, code, display, displayValidOrNull);
+		String conceptStatus = getDeprecatedStatus(concept);
+		String extraMessage = addDeprecatedConceptWarning(issues, code, conceptStatus);
+
+		// Build response in expected order: code, display, [issues], [message], result, [status], system
+		Parameters response = new Parameters();
+		response.addParameter(CODE, new CodeType(concept.getCode()));
+		response.addParameter(DISPLAY, concept.getDisplay());
+		if (!issues.isEmpty()) {
+			response.addParameter(createParameterComponentWithOperationOutcomeWithIssues(issues));
+		}
+		if (extraMessage != null) {
+			response.addParameter(MESSAGE, extraMessage);
+		} else if (!displayValidOrNull) {
+			response.addParameter(MESSAGE, "The code exists but the display is not valid.");
+		}
+		response.addParameter(RESULT, displayValidOrNull);
+		if (conceptStatus != null) {
+			response.addParameter("status", new CodeType(conceptStatus));
+		}
+		response.addParameter(SYSTEM, new UriType(FHIRHelper.isSnomedUri(codeSystemVersion.getUrl()) ? SNOMED_URI : codeSystemVersion.getUrl()));
+		if (!"0".equals(codeSystemVersion.getVersion())) {
+			response.addParameter(VERSION, codeSystemVersion.getVersion());
+		}
+
+		return response;
+	}
+
+	// Warn if the provided display matches a withdrawn/inactive designation
+	private void addWithdrawnDisplayWarning(List<OperationOutcome.OperationOutcomeIssueComponent> issues,
+	                                        FHIRConcept concept, String code, String display, boolean displayValidOrNull) {
+		if (display == null || !displayValidOrNull || display.equals(concept.getDisplay())) {
+			return;
+		}
+		FHIRDesignation matchingDesignation = concept.getDesignations().stream()
+				.filter(d -> display.equals(d.getValue()))
+				.findFirst().orElse(null);
+		if (matchingDesignation != null && isDesignationWithdrawn(matchingDesignation)) {
+			String msg = format("'%s' is no longer considered a correct display for code '%s' (status = deprecated). The correct display is one of \"%s\".",
+					display, code, concept.getDisplay());
+			issues.add(createOperationOutcomeIssueComponent(
+					new CodeableConcept(new Coding(TX_ISSUE_TYPE, "display-comment", null)).setText(msg),
+					OperationOutcome.IssueSeverity.WARNING, PARAM_DISPLAY, IssueType.INVALID, null, null));
+		}
+	}
+
+	private String getDeprecatedStatus(FHIRConcept concept) {
+		return concept.getProperties().getOrDefault("status", Collections.emptyList()).stream()
+				.filter(p -> "deprecated".equals(p.getValue()) || "retired".equals(p.getValue()))
+				.map(FHIRProperty::getValue)
+				.findFirst().orElse(null);
+	}
+
+	// Warn if the concept itself is deprecated; returns the warning message, or null if not deprecated
+	private String addDeprecatedConceptWarning(List<OperationOutcome.OperationOutcomeIssueComponent> issues,
+	                                           String code, String conceptStatus) {
+		if (conceptStatus == null) {
+			return null;
+		}
+		String msg = format("The concept '%s' is deprecated and its use should be reviewed", code);
+		issues.add(createOperationOutcomeIssueComponent(
+				new CodeableConcept(new Coding(TX_ISSUE_TYPE, "code-comment", null)).setText(msg),
+				OperationOutcome.IssueSeverity.WARNING, "code", IssueType.BUSINESSRULE, null, null));
+		return msg;
 	}
 
 	private boolean isDesignationWithdrawn(FHIRDesignation designation) {
