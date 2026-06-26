@@ -206,7 +206,29 @@ public class HapiParametersMapper implements FHIRConstants {
 	                           ConceptAndSystemResult conceptAndSystemResult, List<LanguageDialect> languageDialects) {
 		boolean allProperties = properties.contains(FhirSctProperty.ALL_PROPERTIES);
 
-		// Attribute relationships (non-IS-A inferred)
+		addRelationshipProperties(parameters, c);
+		addEffectiveTimeProperty(parameters, c);
+		parameters.addParameter(createProperty(FhirSctProperty.INACTVE, !c.isActive(), FHIRProperty.BOOLEAN_TYPE));
+		addModuleProperty(parameters, c, conceptAndSystemResult, languageDialects);
+
+		if (allProperties || properties.contains(FhirSctProperty.SUFFICIENTLY_DEFINED)) {
+			Boolean sufficientlyDefined = c.getDefinitionStatusId().equals(Concepts.DEFINED);
+			parameters.addParameter(createProperty(FhirSctProperty.SUFFICIENTLY_DEFINED, sufficientlyDefined, FHIRProperty.BOOLEAN_TYPE));
+		}
+
+		if (allProperties || properties.contains(FhirSctProperty.NORMAL_FORM_TERSE)) {
+			Expression expression = expressionService.getExpression(c, false);
+			parameters.addParameter(createProperty(FhirSctProperty.NORMAL_FORM_TERSE, expression.toString(false), FHIRProperty.STRING_TYPE));
+		}
+
+		if (allProperties || properties.contains(FhirSctProperty.NORMAL_FORM)) {
+			Expression expression = expressionService.getExpression(c, false);
+			parameters.addParameter(createProperty(FhirSctProperty.NORMAL_FORM, expression.toString(true), FHIRProperty.STRING_TYPE));
+		}
+	}
+
+	// Attribute relationships (non-IS-A inferred)
+	private void addRelationshipProperties(Parameters parameters, Concept c) {
 		for (Relationship rel : c.getRelationships(true, null, null, Concepts.INFERRED_RELATIONSHIP)) {
 			if (!Concepts.ISA.equals(rel.getTypeId())) {
 				Parameters.ParametersParameterComponent property = new Parameters.ParametersParameterComponent().setName(PROPERTY);
@@ -223,51 +245,41 @@ public class HapiParametersMapper implements FHIRConstants {
 				parameters.addParameter(property);
 			}
 		}
+	}
 
-		// effectiveTime as valueDateTime
-		if (c.getEffectiveTime() != null) {
-			String raw = String.valueOf(c.getEffectiveTime());
-			String formatted = raw.length() == 8
-					? raw.substring(0, 4) + "-" + raw.substring(4, 6) + "-" + raw.substring(6, 8)
-					: raw;
-			Parameters.ParametersParameterComponent prop = new Parameters.ParametersParameterComponent().setName(PROPERTY);
-			prop.addPart().setName(CODE).setValue(FhirSctProperty.EFFECTIVE_TIME.toCodeType());
-			prop.addPart().setName(VALUE).setValue(new DateTimeType(formatted));
-			parameters.addParameter(prop);
+	// effectiveTime as valueDateTime
+	private void addEffectiveTimeProperty(Parameters parameters, Concept c) {
+		if (c.getEffectiveTime() == null) {
+			return;
 		}
+		String raw = String.valueOf(c.getEffectiveTime());
+		String formatted = raw.length() == 8
+				? raw.substring(0, 4) + "-" + raw.substring(4, 6) + "-" + raw.substring(6, 8)
+				: raw;
+		Parameters.ParametersParameterComponent prop = new Parameters.ParametersParameterComponent().setName(PROPERTY);
+		prop.addPart().setName(CODE).setValue(FhirSctProperty.EFFECTIVE_TIME.toCodeType());
+		prop.addPart().setName(VALUE).setValue(new DateTimeType(formatted));
+		parameters.addParameter(prop);
+	}
 
-		parameters.addParameter(createProperty(FhirSctProperty.INACTVE, !c.isActive(), FHIRProperty.BOOLEAN_TYPE));
-
-		if (c.getModuleId() != null) {
-			Parameters.ParametersParameterComponent moduleProp = new Parameters.ParametersParameterComponent().setName(PROPERTY);
-			moduleProp.addPart().setName(CODE).setValue(FhirSctProperty.MODULE_ID.toCodeType());
-			String branchPath = conceptAndSystemResult.codeSystemVersion().getSnomedBranch();
-			if (branchPath != null) {
-				Map<String, ConceptMini> moduleMinis = snomedConceptService.findConceptMinis(
-						branchPath, Collections.singleton(c.getModuleId()), languageDialects).getResultsMap();
-				ConceptMini moduleMini = moduleMinis.get(c.getModuleId());
-				if (moduleMini != null && moduleMini.getPt() != null) {
-					moduleProp.addPart().setName(PART_DESCRIPTION).setValue(new StringType(moduleMini.getPt().getTerm()));
-				}
+	private void addModuleProperty(Parameters parameters, Concept c,
+	                               ConceptAndSystemResult conceptAndSystemResult, List<LanguageDialect> languageDialects) {
+		if (c.getModuleId() == null) {
+			return;
+		}
+		Parameters.ParametersParameterComponent moduleProp = new Parameters.ParametersParameterComponent().setName(PROPERTY);
+		moduleProp.addPart().setName(CODE).setValue(FhirSctProperty.MODULE_ID.toCodeType());
+		String branchPath = conceptAndSystemResult.codeSystemVersion().getSnomedBranch();
+		if (branchPath != null) {
+			Map<String, ConceptMini> moduleMinis = snomedConceptService.findConceptMinis(
+					branchPath, Collections.singleton(c.getModuleId()), languageDialects).getResultsMap();
+			ConceptMini moduleMini = moduleMinis.get(c.getModuleId());
+			if (moduleMini != null && moduleMini.getPt() != null) {
+				moduleProp.addPart().setName(PART_DESCRIPTION).setValue(new StringType(moduleMini.getPt().getTerm()));
 			}
-			moduleProp.addPart().setName(VALUE).setValue(new CodeType(c.getModuleId()));
-			parameters.addParameter(moduleProp);
 		}
-
-		if (allProperties || properties.contains(FhirSctProperty.SUFFICIENTLY_DEFINED)) {
-			Boolean sufficientlyDefined = c.getDefinitionStatusId().equals(Concepts.DEFINED);
-			parameters.addParameter(createProperty(FhirSctProperty.SUFFICIENTLY_DEFINED, sufficientlyDefined, FHIRProperty.BOOLEAN_TYPE));
-		}
-
-		if (allProperties || properties.contains(FhirSctProperty.NORMAL_FORM_TERSE)) {
-			Expression expression = expressionService.getExpression(c, false);
-			parameters.addParameter(createProperty(FhirSctProperty.NORMAL_FORM_TERSE, expression.toString(false), FHIRProperty.STRING_TYPE));
-		}
-
-		if (allProperties || properties.contains(FhirSctProperty.NORMAL_FORM)) {
-			Expression expression = expressionService.getExpression(c, false);
-			parameters.addParameter(createProperty(FhirSctProperty.NORMAL_FORM, expression.toString(true), FHIRProperty.STRING_TYPE));
-		}
+		moduleProp.addPart().setName(VALUE).setValue(new CodeType(c.getModuleId()));
+		parameters.addParameter(moduleProp);
 	}
 
 	private void addParents(Parameters parameters, Concept c) {
