@@ -408,7 +408,7 @@ public class FHIRValueSetService implements FHIRConstants {
 			}
 		}
 
-		if (expansionRequestExceedsLimits(conceptsPage, pageRequest, params)) {
+		if (expansionRequestExceedsLimits(conceptsPage, params)) {
 			String message = format("The value set '%s' expansion has too many codes to produce (>%d)", hapiValueSet.getUrl(), pageRequest.getPageSize());
 			throw exception(message, OperationOutcome.IssueType.TOOCOSTLY, 404, null, new CodeableConcept(new Coding()).setText(message));
 		}
@@ -639,21 +639,10 @@ public class FHIRValueSetService implements FHIRConstants {
 
 			final Set<String> finalIncludedCodes = includedCodes;
 			for (CodeSystem.ConceptDefinitionComponent def : allDefs) {
-				String code = def.getCode();
-				if (excludedCodes.contains(code)) continue;
-				if (finalIncludedCodes != null && !finalIncludedCodes.contains(code)) continue;
-
-				FHIRConcept concept = new FHIRConcept(def, version);
-				// Apply extensions-as-properties merge (mirrors FHIRConceptService.saveAllConceptsOfCodeSystemVersion)
-				concept.getExtensions().forEach((key, value) -> concept.getProperties().put(key, value));
-
-				if (activeOnly && !concept.isActive()) continue;
-				if (filter != null && !filter.isBlank()) {
-					String lowerFilter = filter.toLowerCase();
-					String display = concept.getDisplay() != null ? concept.getDisplay() : "";
-					if (!code.toLowerCase().contains(lowerFilter) && !display.toLowerCase().contains(lowerFilter)) continue;
+				FHIRConcept concept = buildInlineConceptIfIncluded(def, version, excludedCodes, finalIncludedCodes, activeOnly, filter);
+				if (concept != null) {
+					allConcepts.add(concept);
 				}
-				allConcepts.add(concept);
 			}
 		}
 
@@ -669,6 +658,26 @@ public class FHIRValueSetService implements FHIRConstants {
 		int toIndex = Math.min(offset + pageRequest.getPageSize(), total);
 		List<FHIRConcept> page = offset < total ? new ArrayList<>(allConcepts.subList(offset, toIndex)) : new ArrayList<>();
 		return new PageImpl<>(page, pageRequest, total);
+	}
+
+	// Returns the concept to include in the inline expansion, or null when it is excluded/filtered out.
+	private FHIRConcept buildInlineConceptIfIncluded(CodeSystem.ConceptDefinitionComponent def, FHIRCodeSystemVersion version,
+			Set<String> excludedCodes, Set<String> finalIncludedCodes, boolean activeOnly, String filter) {
+		String code = def.getCode();
+		if (excludedCodes.contains(code)) return null;
+		if (finalIncludedCodes != null && !finalIncludedCodes.contains(code)) return null;
+
+		FHIRConcept concept = new FHIRConcept(def, version);
+		// Apply extensions-as-properties merge (mirrors FHIRConceptService.saveAllConceptsOfCodeSystemVersion)
+		concept.getExtensions().forEach((key, value) -> concept.getProperties().put(key, value));
+
+		if (activeOnly && !concept.isActive()) return null;
+		if (filter != null && !filter.isBlank()) {
+			String lowerFilter = filter.toLowerCase();
+			String display = concept.getDisplay() != null ? concept.getDisplay() : "";
+			if (!code.toLowerCase().contains(lowerFilter) && !display.toLowerCase().contains(lowerFilter)) return null;
+		}
+		return concept;
 	}
 
 	private void collectInlineConcepts(CodeSystem.ConceptDefinitionComponent parent,
@@ -845,7 +854,7 @@ public class FHIRValueSetService implements FHIRConstants {
 					.filter(val -> val.getValue().equals("true"))
 					.findFirst()
 					.ifPresent(y -> component.setAbstract(true));
-		} else if (key.equals("http://hl7.org/fhir/StructureDefinition/itemWeight")) {
+		} else if (key.equals(HL7_SD_ITEM_WEIGHT)) {
 			value.stream()
 					.findFirst()
 					.ifPresent(y -> {
@@ -884,7 +893,7 @@ public class FHIRValueSetService implements FHIRConstants {
 		notSupported(VERSION, params.getVersion());// Not part of the FHIR API spec but requested under MAINT-1363
 	}
 
-	private boolean expansionRequestExceedsLimits(Page<FHIRConcept> conceptsPage, PageRequest pageRequest, ValueSetExpansionParameters params) {
+	private boolean expansionRequestExceedsLimits(Page<FHIRConcept> conceptsPage, ValueSetExpansionParameters params) {
 		// If the user explicitly requested a count, honour it up to the absolute maximum — not too costly.
 		if (params.getCount() != null && params.getCount() <= MAXIMUM_PAGESIZE) {
 			return false;
@@ -1195,7 +1204,7 @@ public class FHIRValueSetService implements FHIRConstants {
 						if (Arrays.asList(FHIRValueSetService.URLS).contains(re.getUrl())){
 							Extension property = new Extension();
 							switch (re.getUrl()){
-								case "http://hl7.org/fhir/StructureDefinition/itemWeight":
+								case HL7_SD_ITEM_WEIGHT:
 									removeExtension(component,HL7_SD_EVS_CONTAINS_PROPERTY,CODE ,new CodeType(WEIGHT));
 									property.addExtension(CODE,new CodeType(WEIGHT));
 									property.addExtension(VALUE, re.getValue());

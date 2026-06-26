@@ -2,12 +2,12 @@ package org.snomed.snowstorm.fhir.domain;
 
 public enum SubsumesResult {
 
-	equivalent("equivalent"),
-	subsumes("subsumes"),
-	subsumed_by("subsumed-by"),
-	not_subsumed("not-subsumed");
+	EQUIVALENT("equivalent"),
+	SUBSUMES("subsumes"),
+	SUBSUMED_BY("subsumed-by"),
+	NOT_SUBSUMED("not-subsumed");
 
-	private String text;
+	private final String text;
 
 	SubsumesResult(String text) {
 		this.text = text;
