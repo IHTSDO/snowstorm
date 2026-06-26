@@ -487,50 +487,56 @@ public class FHIRCodeSystemService implements TxResourceAware {
 			// Check the request-scoped tx-resource overlay before hitting Elasticsearch.
 			// ID-based lookups bypass the overlay since tx-resources are addressed by canonical URL.
 			if (id == null) {
-				if (isWildcardVersion(versionParam)) {
-					// Wildcard (e.g. "1.x.x"): return the highest inline version matching the pattern.
-					FHIRCodeSystemVersion wildcardMatch = getInlineVersionsByUrl(urlParam).stream()
-							.filter(v -> versionMatchesPattern(v.getVersion(), versionParam))
-							.max(Comparator.comparing(FHIRCodeSystemVersion::getVersion))
-							.orElse(null);
-					if (wildcardMatch != null) {
-						return wildcardMatch;
-					}
-				} else if (versionParam == null) {
-					// Versionless: return the latest inline version, mirroring ES's findFirstByUrlOrderByVersionDesc.
-					FHIRCodeSystemVersion latestInline = getInlineVersionsByUrl(urlParam).stream()
-							.max(Comparator.comparing(FHIRCodeSystemVersion::getVersion))
-							.orElse(null);
-					if (latestInline != null) {
-						return latestInline;
-					}
-				} else {
-					// Exact version: look up directly by URL+version.
-					Resource inlined = TxResourceContext.lookup(urlParam, versionParam);
-					if (inlined instanceof CodeSystem cs) {
-						return TxResourceOverlay.toVersion(cs);
-					}
+				FHIRCodeSystemVersion overlayMatch = findInlineOverlayVersion(urlParam, versionParam);
+				if (overlayMatch != null) {
+					return overlayMatch;
 				}
 			}
 
-			if (id != null) {
-				version = codeSystemRepository.findFirstByIdOrderByVersionDesc(id).orElse(null);
-			} else if (versionParam != null && urlParam != null) {
-				if (isWildcardVersion(versionParam)) {
-					version = codeSystemRepository.findAllByUrl(urlParam).stream()
-							.filter(v -> versionMatchesPattern(v.getVersion(), versionParam))
-							.max(Comparator.comparing(FHIRCodeSystemVersion::getVersion))
-							.orElse(null);
-				} else {
-					version = codeSystemRepository.findByUrlAndVersion(urlParam, versionParam);
-				}
-			} else {
-				version = codeSystemRepository.findFirstByUrlOrderByVersionDesc(urlParam);
-			}
+			version = findNonSnomedVersionFromRepository(id, urlParam, versionParam);
 		}
 
 		unwrap(version);
 		return version;
+	}
+
+	// Resolves a version from the request-scoped tx-resource overlay, or null if there is no inline match.
+	private FHIRCodeSystemVersion findInlineOverlayVersion(String urlParam, String versionParam) {
+		if (isWildcardVersion(versionParam)) {
+			// Wildcard (e.g. "1.x.x"): return the highest inline version matching the pattern.
+			return getInlineVersionsByUrl(urlParam).stream()
+					.filter(v -> versionMatchesPattern(v.getVersion(), versionParam))
+					.max(Comparator.comparing(FHIRCodeSystemVersion::getVersion))
+					.orElse(null);
+		}
+		if (versionParam == null) {
+			// Versionless: return the latest inline version, mirroring ES's findFirstByUrlOrderByVersionDesc.
+			return getInlineVersionsByUrl(urlParam).stream()
+					.max(Comparator.comparing(FHIRCodeSystemVersion::getVersion))
+					.orElse(null);
+		}
+		// Exact version: look up directly by URL+version.
+		Resource inlined = TxResourceContext.lookup(urlParam, versionParam);
+		if (inlined instanceof CodeSystem cs) {
+			return TxResourceOverlay.toVersion(cs);
+		}
+		return null;
+	}
+
+	private FHIRCodeSystemVersion findNonSnomedVersionFromRepository(String id, String urlParam, String versionParam) {
+		if (id != null) {
+			return codeSystemRepository.findFirstByIdOrderByVersionDesc(id).orElse(null);
+		}
+		if (versionParam != null && urlParam != null) {
+			if (isWildcardVersion(versionParam)) {
+				return codeSystemRepository.findAllByUrl(urlParam).stream()
+						.filter(v -> versionMatchesPattern(v.getVersion(), versionParam))
+						.max(Comparator.comparing(FHIRCodeSystemVersion::getVersion))
+						.orElse(null);
+			}
+			return codeSystemRepository.findByUrlAndVersion(urlParam, versionParam);
+		}
+		return codeSystemRepository.findFirstByUrlOrderByVersionDesc(urlParam);
 	}
 
 	/**
