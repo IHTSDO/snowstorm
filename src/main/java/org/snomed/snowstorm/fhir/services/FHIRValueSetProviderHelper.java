@@ -14,6 +14,8 @@ import org.snomed.snowstorm.fhir.pojo.CanonicalUri;
 import org.snomed.snowstorm.fhir.pojo.ValueSetExpansionParameters;
 
 import java.io.*;
+import java.nio.file.Files;
+import java.nio.file.attribute.PosixFilePermissions;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -185,7 +187,7 @@ class FHIRValueSetProviderHelper {
 		List<FileWithContents> allFilesWithContents = getAllFilesWithContents(resources);
 
 		try {
-            File npmPackage = File.createTempFile("tx-resources-",".tgz");
+            File npmPackage = createSecureTempFile("tx-resources-", ".tgz");
             npmPackage.deleteOnExit();
 			FileOutputStream fop = new FileOutputStream(npmPackage);
 			BufferedOutputStream bop = new BufferedOutputStream(fop);
@@ -205,6 +207,17 @@ class FHIRValueSetProviderHelper {
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         }
+	}
+
+	// Creates a temp file readable/writable by the owner only, avoiding the world-readable default of the shared temp directory.
+	private static File createSecureTempFile(String prefix, String suffix) throws IOException {
+		try {
+			return Files.createTempFile(prefix, suffix,
+					PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rw-------"))).toFile();
+		} catch (UnsupportedOperationException e) {
+			// Non-POSIX filesystem (e.g. Windows), where the per-user temp directory is already private.
+			return File.createTempFile(prefix, suffix);
+		}
 	}
 
 	private static void addContentToArchive(List<FileWithContents> allFilesWithContents, TarArchiveOutputStream tarArchiveOutputStream) throws IOException {
