@@ -342,11 +342,11 @@ public class FHIRValueSetFinderService implements FHIRConstants, TxResourceAware
 	}
 
 	private boolean isCodeIncludedInCriteria(String code, FHIRCodeSystemVersion version, CodeSelectionCriteria criteria) {
-		AndConstraints andConstraints = criteria.getInclusionConstraints().get(version);
-		if (andConstraints == null) return false;
-		if (andConstraints.isEmpty()) return true;
-		for (AndConstraints.OrConstraints orConstraints : andConstraints.getAndConstraints()) {
-			boolean orSatisfied = orConstraints.getOrConstraints().stream().anyMatch(constraint -> {
+		ConjunctionConstraints conjunctionConstraints = criteria.getInclusionConstraints().get(version);
+		if (conjunctionConstraints == null) return false;
+		if (conjunctionConstraints.isEmpty()) return true;
+		for (ConjunctionConstraints.DisjunctionConstraints disjunctionConstraints : conjunctionConstraints.getDisjunctionConstraints()) {
+			boolean orSatisfied = disjunctionConstraints.getConstraints().stream().anyMatch(constraint -> {
 				Collection<String> constraintCodes = constraint.getCodes();
 				if (constraintCodes != null && !constraintCodes.isEmpty()) {
 					return constraintCodes.contains(code);
@@ -377,8 +377,8 @@ public class FHIRValueSetFinderService implements FHIRConstants, TxResourceAware
 		} else {
 			// Just a set of concept codes
 			Set<String> codes = new HashSet<>();
-			codeSelectionCriteria.getInclusionConstraints().values().stream().flatMap(andConstraints -> andConstraints.constraintsFlattened().stream()).forEach(include -> codes.addAll(include.getCodes()));
-			codeSelectionCriteria.getExclusionConstraints().values().stream().flatMap(andConstraints -> andConstraints.constraintsFlattened().stream()).forEach(include -> codes.removeAll(include.getCodes()));
+			codeSelectionCriteria.getInclusionConstraints().values().stream().flatMap(conjunctionConstraints -> conjunctionConstraints.constraintsFlattened().stream()).forEach(include -> codes.addAll(include.getCodes()));
+			codeSelectionCriteria.getExclusionConstraints().values().stream().flatMap(conjunctionConstraints -> conjunctionConstraints.constraintsFlattened().stream()).forEach(include -> codes.removeAll(include.getCodes()));
 			conceptQuery.conceptIds(codes);
 			if (activeOnly) {
 				conceptQuery.activeFilter(activeOnly);
@@ -416,12 +416,12 @@ public class FHIRValueSetFinderService implements FHIRConstants, TxResourceAware
 
 		// Attempt to combine value set constraints to reduce the required Elasticsearch clause count.
 		// (Some LOINC nested value sets exceed the default 1024 clause limit).
-		Map<FHIRCodeSystemVersion, AndConstraints> inclusionConstraints = constraintsService.combineConstraints(codeSelectionCriteria.getInclusionConstraints());
+		Map<FHIRCodeSystemVersion, ConjunctionConstraints> inclusionConstraints = constraintsService.combineConstraints(codeSelectionCriteria.getInclusionConstraints());
 		Set<CodeSelectionCriteria> nestedSelections = constraintsService.combineConstraints(codeSelectionCriteria.getNestedSelections(), codeSelectionCriteria.getValueSetUserRef());
-		Map<FHIRCodeSystemVersion, AndConstraints> exclusionConstraints = codeSelectionCriteria.getExclusionConstraints();
+		Map<FHIRCodeSystemVersion, ConjunctionConstraints> exclusionConstraints = codeSelectionCriteria.getExclusionConstraints();
 
 		// Inclusions
-		for (Map.Entry<FHIRCodeSystemVersion, AndConstraints> versionInclusionConstraints : inclusionConstraints.entrySet()) {
+		for (Map.Entry<FHIRCodeSystemVersion, ConjunctionConstraints> versionInclusionConstraints : inclusionConstraints.entrySet()) {
 			BoolQuery.Builder versionQueryBuilder = getInclusionQueryBuilder(versionInclusionConstraints, codeSelectionCriteria.getValueSetUserRef());
 			valueSetQuery.should(versionQueryBuilder.build()._toQuery());// Must match at least one of these
 		}
@@ -433,7 +433,7 @@ public class FHIRValueSetFinderService implements FHIRConstants, TxResourceAware
 		}
 
 		// Exclusions
-		for (Map.Entry<FHIRCodeSystemVersion, AndConstraints> versionExclusionConstraints : exclusionConstraints.entrySet()) {
+		for (Map.Entry<FHIRCodeSystemVersion, ConjunctionConstraints> versionExclusionConstraints : exclusionConstraints.entrySet()) {
 			BoolQuery.Builder versionQueryBuilder = getInclusionQueryBuilder(versionExclusionConstraints, codeSelectionCriteria.getValueSetUserRef());
 			valueSetQuery.mustNot(versionQueryBuilder.build()._toQuery());
 		}
@@ -454,7 +454,7 @@ public class FHIRValueSetFinderService implements FHIRConstants, TxResourceAware
 		Stream.concat(
 				codeSelectionCriteria.getInclusionConstraints().values().stream(),
 				codeSelectionCriteria.getExclusionConstraints().values().stream()
-		).flatMap(andConstraints -> andConstraints.constraintsFlattened().stream())
+		).flatMap(conjunctionConstraints -> conjunctionConstraints.constraintsFlattened().stream())
 				.filter(ConceptConstraint::hasEcl)
 				.forEach(constraint -> validateEclConceptsExist(constraint.getEcl(), branchPath));
 	}
@@ -558,16 +558,16 @@ public class FHIRValueSetFinderService implements FHIRConstants, TxResourceAware
 	}
 
 	@NotNull
-	private BoolQuery.Builder getInclusionQueryBuilder(Map.Entry<FHIRCodeSystemVersion, AndConstraints> versionInclusionConstraints, String valueSetUserRef) {
+	private BoolQuery.Builder getInclusionQueryBuilder(Map.Entry<FHIRCodeSystemVersion, ConjunctionConstraints> versionInclusionConstraints, String valueSetUserRef) {
 		BoolQuery.Builder versionQueryBuilder = bool().must(termQuery(FHIRConcept.Fields.CODE_SYSTEM_VERSION, versionInclusionConstraints.getKey().getId()));
 
-		AndConstraints andConstraints = versionInclusionConstraints.getValue();
-		if(!andConstraints.getAndConstraints().isEmpty()) {
+		ConjunctionConstraints conjunctionConstraints = versionInclusionConstraints.getValue();
+		if(!conjunctionConstraints.getDisjunctionConstraints().isEmpty()) {
 			BoolQuery.Builder conjunctionQueries = bool();
-			for (AndConstraints.OrConstraints orConstraints : andConstraints.getAndConstraints()) {
-				if (!orConstraints.getOrConstraints().isEmpty()) {
+			for (ConjunctionConstraints.DisjunctionConstraints disjunctionConstraints : conjunctionConstraints.getDisjunctionConstraints()) {
+				if (!disjunctionConstraints.getConstraints().isEmpty()) {
 					BoolQuery.Builder disjunctionQueries = bool();
-					for (ConceptConstraint constraint : orConstraints.getOrConstraints()) {
+					for (ConceptConstraint constraint : disjunctionConstraints.getConstraints()) {
 						BoolQuery.Builder disjunctionQueryBuilder = bool();
 						addQueryCriteria(constraint, disjunctionQueryBuilder, valueSetUserRef);
 						disjunctionQueries.should(disjunctionQueryBuilder.build()._toQuery());// "disjunctionQueries" contains only "should" conditions, Elasticsearch forces at least one of them to match.

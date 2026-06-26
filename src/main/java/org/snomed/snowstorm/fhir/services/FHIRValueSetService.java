@@ -618,10 +618,10 @@ public class FHIRValueSetService implements FHIRConstants {
 			// Determine included codes using proper AND-of-ORs evaluation.
 			// null means "all" (no constraint narrowed the set).
 			Set<String> includedCodes = null;
-			AndConstraints andConstraints = codeSelectionCriteria.getInclusionConstraints().get(version);
-			if (andConstraints != null) {
-				for (AndConstraints.OrConstraints orGroup : andConstraints.getAndConstraints()) {
-					Set<String> orMatched = resolveInlineOrConstraints(orGroup.getOrConstraints(), allInlineCodes, codeToAncestors);
+			ConjunctionConstraints conjunctionConstraints = codeSelectionCriteria.getInclusionConstraints().get(version);
+			if (conjunctionConstraints != null) {
+				for (ConjunctionConstraints.DisjunctionConstraints orGroup : conjunctionConstraints.getDisjunctionConstraints()) {
+					Set<String> orMatched = resolveInlineDisjunctionConstraints(orGroup.getConstraints(), allInlineCodes, codeToAncestors);
 					if (orMatched == null) continue; // unevaluable (e.g. ECL) — treat as unconstrained
 					if (includedCodes == null) includedCodes = orMatched;
 					else includedCodes.retainAll(orMatched);
@@ -630,7 +630,7 @@ public class FHIRValueSetService implements FHIRConstants {
 
 			// Determine excluded codes
 			Set<String> excludedCodes = new HashSet<>();
-			AndConstraints exclConstraints = codeSelectionCriteria.getExclusionConstraints().get(version);
+			ConjunctionConstraints exclConstraints = codeSelectionCriteria.getExclusionConstraints().get(version);
 			if (exclConstraints != null) {
 				for (ConceptConstraint constraint : exclConstraints.constraintsFlattened()) {
 					if (constraint.getCodes() != null) excludedCodes.addAll(constraint.getCodes());
@@ -695,7 +695,7 @@ public class FHIRValueSetService implements FHIRConstants {
 	 * Returns the union of all codes matching any evaluable constraint, or null if none are evaluable
 	 * (meaning the group imposes no restriction on inline concepts).
 	 */
-	private Set<String> resolveInlineOrConstraints(Set<ConceptConstraint> orGroup, Set<String> allCodes,
+	private Set<String> resolveInlineDisjunctionConstraints(Set<ConceptConstraint> orGroup, Set<String> allCodes,
 			Map<String, Set<String>> codeToAncestors) {
 		Set<String> matched = new HashSet<>();
 		boolean hasEvaluable = false;
