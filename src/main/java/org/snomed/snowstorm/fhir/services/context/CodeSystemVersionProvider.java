@@ -59,100 +59,138 @@ public class CodeSystemVersionProvider {
 		// Track whether the include specified a version explicitly
 		boolean hadExplicitVersion = componentVersion != null;
 
-		// Apply force system version if systems match
-		boolean forceVersionWasApplied = false;
-		if (forceSystemVersion != null && componentSystem.equals(forceSystemVersion.getSystem()) && forceSystemVersion.getVersion() != null) {
-			componentVersion = forceSystemVersion.getVersion();
-			forceVersionWasApplied = true;
-
-			// Apply system version if no version set and systems match
-		} else if (componentVersion == null) {
-			String componentSystemTmp = componentSystem;
-			CanonicalUri systemVersion = systemVersionParam.stream()
-					.filter(canonicalUri1 -> componentSystemTmp.equals(canonicalUri1.getSystem()) ||
-							(isSnomedUri(componentSystemTmp) && isSnomedUri(canonicalUri1.getSystem())))// Both SCT, may not be equal if one using xsct
-					.findFirst().orElse(null);
-			if (systemVersion != null) {
-				componentVersion = systemVersion.getVersion();
-				// Take system too, in case it's unversioned snomed (sctx)
-				componentSystem = systemVersion.getSystem();
-				systemVersionWasUsedAsDefault = true;
-			} else if (allowCheckSystemVersionAsFallback && checkSystemVersion != null && checkSystemVersion.getVersion() != null &&
-					(componentSystem.equals(checkSystemVersion.getSystem()) ||
-					(isSnomedUri(componentSystem) && isSnomedUri(checkSystemVersion.getSystem())))) {
-				// Fall back to check-system-version as a default, but only if that version actually exists on this server
-				try {
-					codeSystemService.findCodeSystemVersionOrThrow(
-							FHIRHelper.getCodeSystemVersionParams(null, componentSystem, checkSystemVersion.getVersion(), null));
-					componentVersion = checkSystemVersion.getVersion();
-					// Take system too, in case it's unversioned snomed (sctx)
-					componentSystem = checkSystemVersion.getSystem();
-					checkSystemVersionWasUsedAsDefault = true;
-				} catch (Exception e) {
-					// Version not found on this server — fall through to use the server default version,
-					// then validate against check-system-version below (which will produce a 422)
-				}
-			}
-		}
-
-		// When the include specifies a wildcard version (e.g. "1.x.x") and the CODING carries an
-		// explicit version that matches the wildcard, use the coding's version so that e.g. a coding
-		// with version "1.0.0" is validated against a ValueSet include whose version is "1.x.x".
-		// Note: system-version / check-system-version hints are intentionally excluded here — they
-		// should not override wildcard resolution; the wildcard resolves to the latest matching version
-		// and the check constraint is applied afterwards.
-		if (FHIRCodeSystemService.isWildcardVersion(componentVersion)) {
-			final String componentSystemForWild = componentSystem;
-			final String componentVersionForWild = componentVersion;
-			CanonicalUri matchingHint = codingVersionHints.stream()
-					.filter(h -> componentSystemForWild.equals(h.getSystem()) ||
-							(isSnomedUri(componentSystemForWild) && isSnomedUri(h.getSystem())))
-					.filter(h -> h.getVersion() != null &&
-							FHIRCodeSystemService.versionMatchesPattern(h.getVersion(), componentVersionForWild))
-					.findFirst().orElse(null);
-			if (matchingHint != null) {
-				componentVersion = matchingHint.getVersion();
-				componentSystem = matchingHint.getSystem();
-				systemVersionWasUsedAsDefault = true;
-			}
-		}
+		Resolution res = new Resolution(componentSystem, componentVersion);
+		applyVersionDefaults(res);
+		applyWildcardCodingHint(res);
 
 		FHIRCodeSystemVersion codeSystemVersion = codeSystemService.findCodeSystemVersionOrThrow(
-				FHIRHelper.getCodeSystemVersionParams(null, componentSystem, componentVersion, null));
+				FHIRHelper.getCodeSystemVersionParams(null, res.system, res.version, null));
 
 		// Apply exclude-system param
-		if (excludeSystem != null && componentSystem.equals(excludeSystem.getSystem())) {
-			String excludeSystemVersion = excludeSystem.getVersion();
-			if (excludeSystemVersion == null || excludeSystemVersion.equals(codeSystemVersion.getVersion())) {
-				return codeSystemVersion;
-			}
+		if (isExcludedSystemMatch(res.system, codeSystemVersion)) {
+			return codeSystemVersion;
 		}
 
-		// Validate check-system-version when the resolved version was NOT sourced from check-system-version itself.
-		// This covers:
-		//   (a) includes with an explicit version — same as before
-		//   (b) versionless includes whose check-system-version was not found on the server (fell through to server default)
-		// Force-system-version overrides take precedence over the check constraint for versionless includes.
-		if (checkSystemVersion != null && checkSystemVersion.getVersion() != null && !checkSystemVersionWasUsedAsDefault &&
-				(hadExplicitVersion || !forceVersionWasApplied) &&
-				(checkSystemVersion.getSystem().equals(componentSystem) ||
-				(isSnomedUri(checkSystemVersion.getSystem()) && isSnomedUri(componentSystem))) &&
-				!FHIRCodeSystemService.versionMatchesPattern(codeSystemVersion.getVersion(), checkSystemVersion.getVersion())) {
-				String message = format("The version '%s' is not allowed for system '%s': required to be '%s' by a version-check parameter",
-						codeSystemVersion.getVersion(), codeSystemVersion.getUrl(), checkSystemVersion.getVersion());
-				CodeableConcept detail = new CodeableConcept(new Coding(TX_ISSUE_TYPE, "version-error", null)).setText(message);
-				List<Extension> extensions = Collections.singletonList(new Extension(
-						"http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id", new StringType("VALUESET_VERSION_CHECK")));
-				// Build issue WITHOUT location/expression
-				OperationOutcome.OperationOutcomeIssueComponent issue = new OperationOutcome.OperationOutcomeIssueComponent();
-				issue.setSeverity(OperationOutcome.IssueSeverity.ERROR);
-				issue.setCode(OperationOutcome.IssueType.EXCEPTION);
-				issue.setDetails(detail);
-				issue.setExtension(new ArrayList<>(extensions));
-				versionCheckIssues.add(issue);
-		}
+		addVersionCheckIssueIfViolated(res, codeSystemVersion, hadExplicitVersion);
 
 		return codeSystemVersion;
+	}
+
+	// Applies force-system-version (when systems match), otherwise resolves a versionless include.
+	private void applyVersionDefaults(Resolution res) {
+		if (forceSystemVersion != null && res.system.equals(forceSystemVersion.getSystem()) && forceSystemVersion.getVersion() != null) {
+			res.version = forceSystemVersion.getVersion();
+			res.forceVersionWasApplied = true;
+		} else if (res.version == null) {
+			applyVersionlessDefaults(res);
+		}
+	}
+
+	// Resolves a versionless include using the system-version param, falling back to check-system-version.
+	private void applyVersionlessDefaults(Resolution res) {
+		final String componentSystemTmp = res.system;
+		CanonicalUri systemVersion = systemVersionParam.stream()
+				.filter(canonicalUri1 -> componentSystemTmp.equals(canonicalUri1.getSystem()) ||
+						(isSnomedUri(componentSystemTmp) && isSnomedUri(canonicalUri1.getSystem())))// Both SCT, may not be equal if one using xsct
+				.findFirst().orElse(null);
+		if (systemVersion != null) {
+			res.version = systemVersion.getVersion();
+			// Take system too, in case it's unversioned snomed (sctx)
+			res.system = systemVersion.getSystem();
+			systemVersionWasUsedAsDefault = true;
+		} else if (allowCheckSystemVersionAsFallback && checkSystemVersion != null && checkSystemVersion.getVersion() != null &&
+				(res.system.equals(checkSystemVersion.getSystem()) ||
+				(isSnomedUri(res.system) && isSnomedUri(checkSystemVersion.getSystem())))) {
+			applyCheckSystemVersionFallback(res);
+		}
+	}
+
+	// Falls back to check-system-version as a default, but only if that version actually exists on this server.
+	private void applyCheckSystemVersionFallback(Resolution res) {
+		try {
+			codeSystemService.findCodeSystemVersionOrThrow(
+					FHIRHelper.getCodeSystemVersionParams(null, res.system, checkSystemVersion.getVersion(), null));
+			res.version = checkSystemVersion.getVersion();
+			// Take system too, in case it's unversioned snomed (sctx)
+			res.system = checkSystemVersion.getSystem();
+			checkSystemVersionWasUsedAsDefault = true;
+		} catch (Exception e) {
+			// Version not found on this server — fall through to use the server default version,
+			// then validate against check-system-version below (which will produce a 422)
+		}
+	}
+
+	// When the include specifies a wildcard version (e.g. "1.x.x") and the CODING carries an
+	// explicit version that matches the wildcard, use the coding's version so that e.g. a coding
+	// with version "1.0.0" is validated against a ValueSet include whose version is "1.x.x".
+	// Note: system-version / check-system-version hints are intentionally excluded here — they
+	// should not override wildcard resolution; the wildcard resolves to the latest matching version
+	// and the check constraint is applied afterwards.
+	private void applyWildcardCodingHint(Resolution res) {
+		if (!FHIRCodeSystemService.isWildcardVersion(res.version)) {
+			return;
+		}
+		final String componentSystemForWild = res.system;
+		final String componentVersionForWild = res.version;
+		CanonicalUri matchingHint = codingVersionHints.stream()
+				.filter(h -> componentSystemForWild.equals(h.getSystem()) ||
+						(isSnomedUri(componentSystemForWild) && isSnomedUri(h.getSystem())))
+				.filter(h -> h.getVersion() != null &&
+						FHIRCodeSystemService.versionMatchesPattern(h.getVersion(), componentVersionForWild))
+				.findFirst().orElse(null);
+		if (matchingHint != null) {
+			res.version = matchingHint.getVersion();
+			res.system = matchingHint.getSystem();
+			systemVersionWasUsedAsDefault = true;
+		}
+	}
+
+	private boolean isExcludedSystemMatch(String componentSystem, FHIRCodeSystemVersion codeSystemVersion) {
+		if (excludeSystem == null || !componentSystem.equals(excludeSystem.getSystem())) {
+			return false;
+		}
+		String excludeSystemVersion = excludeSystem.getVersion();
+		return excludeSystemVersion == null || excludeSystemVersion.equals(codeSystemVersion.getVersion());
+	}
+
+	// Validate check-system-version when the resolved version was NOT sourced from check-system-version itself.
+	// This covers:
+	//   (a) includes with an explicit version — same as before
+	//   (b) versionless includes whose check-system-version was not found on the server (fell through to server default)
+	// Force-system-version overrides take precedence over the check constraint for versionless includes.
+	private void addVersionCheckIssueIfViolated(Resolution res, FHIRCodeSystemVersion codeSystemVersion, boolean hadExplicitVersion) {
+		boolean violated = checkSystemVersion != null && checkSystemVersion.getVersion() != null && !checkSystemVersionWasUsedAsDefault &&
+				(hadExplicitVersion || !res.forceVersionWasApplied) &&
+				(checkSystemVersion.getSystem().equals(res.system) ||
+				(isSnomedUri(checkSystemVersion.getSystem()) && isSnomedUri(res.system))) &&
+				!FHIRCodeSystemService.versionMatchesPattern(codeSystemVersion.getVersion(), checkSystemVersion.getVersion());
+		if (!violated) {
+			return;
+		}
+		String message = format("The version '%s' is not allowed for system '%s': required to be '%s' by a version-check parameter",
+				codeSystemVersion.getVersion(), codeSystemVersion.getUrl(), checkSystemVersion.getVersion());
+		CodeableConcept detail = new CodeableConcept(new Coding(TX_ISSUE_TYPE, "version-error", null)).setText(message);
+		List<Extension> extensions = Collections.singletonList(new Extension(
+				"http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id", new StringType("VALUESET_VERSION_CHECK")));
+		// Build issue WITHOUT location/expression
+		OperationOutcome.OperationOutcomeIssueComponent issue = new OperationOutcome.OperationOutcomeIssueComponent();
+		issue.setSeverity(OperationOutcome.IssueSeverity.ERROR);
+		issue.setCode(OperationOutcome.IssueType.EXCEPTION);
+		issue.setDetails(detail);
+		issue.setExtension(new ArrayList<>(extensions));
+		versionCheckIssues.add(issue);
+	}
+
+	// Mutable carrier for the system/version being resolved as defaults and hints are applied.
+	private static final class Resolution {
+		private String system;
+		private String version;
+		private boolean forceVersionWasApplied;
+
+		private Resolution(String system, String version) {
+			this.system = system;
+			this.version = version;
+		}
 	}
 
 	public List<OperationOutcome.OperationOutcomeIssueComponent> getVersionCheckIssues() {
