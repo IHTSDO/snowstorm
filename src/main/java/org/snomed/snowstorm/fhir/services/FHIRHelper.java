@@ -311,7 +311,7 @@ public class FHIRHelper implements FHIRConstants {
 		}
 
 		for (Description d : concept.getDescriptions()) {
-			if (d.hasAcceptability(Concepts.PREFERRED, designations.get(0)) &&
+			if (d.hasAcceptability(Concepts.PREFERRED, designations.getFirst()) &&
 					d.getTypeId().equals(Concepts.SYNONYM)) {
 				return d.getTerm();
 			}
@@ -331,7 +331,7 @@ public class FHIRHelper implements FHIRConstants {
 			LanguageDialect displayDialect = dialectService.getLanguageDialect(displayLanguageStr);
 			//Ensure the display language is first in our list
 			designations.remove(displayDialect);
-			designations.add(0, displayDialect);
+			designations.addFirst(displayDialect);
 		}
 	}
 
@@ -432,13 +432,32 @@ public class FHIRHelper implements FHIRConstants {
 	}
 
 	public static FHIRCodeSystemVersionParams getCodeSystemVersionParams(String systemId, String codeSystemParam, String versionParam, Coding coding) {
+		validateSystemAndCodingConsistency(codeSystemParam, versionParam, coding);
+
+		String codeSystemUrl = resolveCodeSystemUrl(codeSystemParam, coding, systemId);
+		String version = resolveVersion(versionParam, coding);
+
+		FHIRCodeSystemVersionParams codeSystemParams = new FHIRCodeSystemVersionParams(codeSystemUrl);
+		if (version != null) {
+			applyVersion(codeSystemParams, version);
+		}
+		if (systemId != null) {
+			applySystemId(codeSystemParams, systemId);
+		}
+
+		return codeSystemParams;
+	}
+
+	private static void validateSystemAndCodingConsistency(String codeSystemParam, String versionParam, Coding coding) {
 		if (codeSystemParam != null && coding != null && coding.getSystem() != null && !codeSystemParam.equals(coding.getSystem())) {
 			throw exception("Code system defined in system and coding do not match.", IssueType.INVARIANT, 400);
 		}
 		if (versionParam != null && coding != null && coding.getVersion() != null && !versionParam.equals(coding.getVersion())) {
 			throw exception("Version defined in version and coding do not match.", IssueType.INVARIANT, 400);
 		}
+	}
 
+	private static String resolveCodeSystemUrl(String codeSystemParam, Coding coding, String systemId) {
 		String codeSystemUrl = null;
 		if (codeSystemParam != null) {
 			codeSystemUrl = codeSystemParam;
@@ -448,76 +467,81 @@ public class FHIRHelper implements FHIRConstants {
 		if (codeSystemUrl == null && systemId == null) {
 			throw exception("Code system not defined in any parameter.", IssueType.INVARIANT, 400);
 		}
+		return codeSystemUrl;
+	}
 
-		String version = null;
+	private static String resolveVersion(String versionParam, Coding coding) {
 		if (versionParam != null) {
-			version = versionParam;
-		} else if (coding != null) {
-			version = coding.getVersion();
+			return versionParam;
 		}
+		if (coding != null) {
+			return coding.getVersion();
+		}
+		return null;
+	}
 
-		FHIRCodeSystemVersionParams codeSystemParams = new FHIRCodeSystemVersionParams(codeSystemUrl);
-		if (version != null) {
-			if ("*".equals(version)) {
-				throw FHIRHelper.exception("Version '*' is not supported.", OperationOutcome.IssueType.NOTSUPPORTED, 400);
-			}
-			if (codeSystemParams.isSnomed()) {
-				// Parse module and version from snomed version URI
-				// Either "http://snomed.info/sct/[sctid]" or "http://snomed.info/sct/[sctid]/version/[YYYYMMDD]"
-				String versionWithoutParams = version.contains("?") ? version.substring(0, version.indexOf("?")) : version;
-				Matcher matcher = SNOMED_URI_MODULE_PATTERN.matcher(versionWithoutParams);
-				if (matcher.matches()) {
-					codeSystemParams.setSnomedModule(matcher.group(1));
-					if (versionWithoutParams.startsWith(SNOMED_URI_UNVERSIONED)) {
-						codeSystemParams.setUnversioned(true);
-					}
-				} else {
-					matcher = SNOMED_URI_MODULE_AND_VERSION_PATTERN.matcher(versionWithoutParams);
-					if (matcher.matches()) {
-						if (codeSystemParams.isUnversionedSnomed()) {
-							throw exception("A specific version can not be requested when using " +
-									"the '" + SNOMED_URI_UNVERSIONED + "' code system.", IssueType.INVARIANT, 400);
-						}
-						codeSystemParams.setSnomedModule(matcher.group(1));
-						codeSystemParams.setVersion(matcher.group(2));
-						if (versionWithoutParams.startsWith(SNOMED_URI_UNVERSIONED)) {
-							codeSystemParams.setUnversioned(true);
-						}
-					} else {
-						throw exception(format("The version parameter for the '" + SNOMED_URI + "' system must use the format " +
-								"'http://snomed.info/sct/[sctid]' or http://snomed.info/sct/[sctid]/version/[YYYYMMDD]. Version provided does not match: '%s'.", versionWithoutParams),
-								IssueType.INVARIANT, 400);
-					}
-				}
-			} else {
-				// Take version param literally
-				codeSystemParams.setVersion(version);
-			}
+	private static void applyVersion(FHIRCodeSystemVersionParams codeSystemParams, String version) {
+		if ("*".equals(version)) {
+			throw FHIRHelper.exception("Version '*' is not supported.", OperationOutcome.IssueType.NOTSUPPORTED, 400);
 		}
-		if (systemId != null) {
-			if (codeSystemParams.isSnomed()) {
-				Matcher idMatcher = SCT_ID_PATTERN.matcher(systemId);
-				if (!idMatcher.matches()) {
-					throw exception("SNOMED system and id specified but id does not match expected format " +
-							"sct_[moduleId]_[YYYYMMDD].", OperationOutcome.IssueType.CONFLICT, 400);
-				}
-				String moduleFromId = idMatcher.group(1);
-				String versionFromId = idMatcher.group(2);
-				if (codeSystemParams.getSnomedModule() != null && !codeSystemParams.getSnomedModule().equals(moduleFromId)) {
-					throw exception("SNOMED module in system id and uri do not match.", OperationOutcome.IssueType.CONFLICT, 400);
-				}
-				if (codeSystemParams.getVersion() != null && !codeSystemParams.getVersion().equals(versionFromId)) {
-					throw exception("SNOMED version in system id and uri do not match.", OperationOutcome.IssueType.CONFLICT, 400);
-				}
-				// For SNOMED store the parsed module and version, not the id.
-				codeSystemParams.setSnomedModule(moduleFromId);
-				codeSystemParams.setVersion(versionFromId);
-			} else {
-				codeSystemParams.setId(systemId);
-			}
+		if (codeSystemParams.isSnomed()) {
+			parseSnomedVersion(codeSystemParams, version);
+		} else {
+			// Take version param literally
+			codeSystemParams.setVersion(version);
 		}
+	}
 
-		return codeSystemParams;
+	private static void parseSnomedVersion(FHIRCodeSystemVersionParams codeSystemParams, String version) {
+		// Parse module and version from snomed version URI
+		// Either "http://snomed.info/sct/[sctid]" or "http://snomed.info/sct/[sctid]/version/[YYYYMMDD]"
+		String versionWithoutParams = version.contains("?") ? version.substring(0, version.indexOf("?")) : version;
+		Matcher matcher = SNOMED_URI_MODULE_PATTERN.matcher(versionWithoutParams);
+		if (matcher.matches()) {
+			codeSystemParams.setSnomedModule(matcher.group(1));
+			if (versionWithoutParams.startsWith(SNOMED_URI_UNVERSIONED)) {
+				codeSystemParams.setUnversioned(true);
+			}
+			return;
+		}
+		matcher = SNOMED_URI_MODULE_AND_VERSION_PATTERN.matcher(versionWithoutParams);
+		if (!matcher.matches()) {
+			throw exception(format("The version parameter for the '" + SNOMED_URI + "' system must use the format " +
+					"'http://snomed.info/sct/[sctid]' or http://snomed.info/sct/[sctid]/version/[YYYYMMDD]. Version provided does not match: '%s'.", versionWithoutParams),
+					IssueType.INVARIANT, 400);
+		}
+		if (codeSystemParams.isUnversionedSnomed()) {
+			throw exception("A specific version can not be requested when using " +
+					"the '" + SNOMED_URI_UNVERSIONED + "' code system.", IssueType.INVARIANT, 400);
+		}
+		codeSystemParams.setSnomedModule(matcher.group(1));
+		codeSystemParams.setVersion(matcher.group(2));
+		if (versionWithoutParams.startsWith(SNOMED_URI_UNVERSIONED)) {
+			codeSystemParams.setUnversioned(true);
+		}
+	}
+
+	private static void applySystemId(FHIRCodeSystemVersionParams codeSystemParams, String systemId) {
+		if (!codeSystemParams.isSnomed()) {
+			codeSystemParams.setId(systemId);
+			return;
+		}
+		Matcher idMatcher = SCT_ID_PATTERN.matcher(systemId);
+		if (!idMatcher.matches()) {
+			throw exception("SNOMED system and id specified but id does not match expected format " +
+					"sct_[moduleId]_[YYYYMMDD].", OperationOutcome.IssueType.CONFLICT, 400);
+		}
+		String moduleFromId = idMatcher.group(1);
+		String versionFromId = idMatcher.group(2);
+		if (codeSystemParams.getSnomedModule() != null && !codeSystemParams.getSnomedModule().equals(moduleFromId)) {
+			throw exception("SNOMED module in system id and uri do not match.", OperationOutcome.IssueType.CONFLICT, 400);
+		}
+		if (codeSystemParams.getVersion() != null && !codeSystemParams.getVersion().equals(versionFromId)) {
+			throw exception("SNOMED version in system id and uri do not match.", OperationOutcome.IssueType.CONFLICT, 400);
+		}
+		// For SNOMED store the parsed module and version, not the id.
+		codeSystemParams.setSnomedModule(moduleFromId);
+		codeSystemParams.setVersion(versionFromId);
 	}
 
 	public boolean hasUsageContext(MetadataResource r, TokenParam context) {
