@@ -3,6 +3,13 @@ All notable changes to this project will be documented in this file.
 
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 10.12.1 Release (June 2026)
+Maintenance release with bug fixes.
+
+### Fixes
+
+- MAINT-3091 Fix the issue where concepts with published annotations cannot be updated
+
 ## 10.12.0 Release (April 2026)
 Maintenance release with new authoring and search improvements, plus bug fixes and dependency updates.
 
