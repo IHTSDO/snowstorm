@@ -99,50 +99,65 @@ public class FHIRConceptMapProvider implements IResourceProvider, FHIRConstants 
 			TxResourceContext.set(FHIRHelper.extractTxResources(parsed));
 		}
 		try {
-		String url = urlType != null ? urlType.getValueAsString() : null;
-		notSupported("conceptMapVersion", conceptMapVersion);
-		notSupported("reverse", reverse);
-		List<LanguageDialect> languageDialects = ControllerHelper.parseAcceptLanguageHeader(request.getHeader(ACCEPT_LANGUAGE_HEADER));
+			String url = urlType != null ? urlType.getValueAsString() : null;
+			notSupported("conceptMapVersion", conceptMapVersion);
+			notSupported("reverse", reverse);
+			List<LanguageDialect> languageDialects = ControllerHelper.parseAcceptLanguageHeader(request.getHeader(ACCEPT_LANGUAGE_HEADER));
 
-		// Get coding to translate
-		requireExactlyOneOf("code", code, "coding", coding, "codeableConcept", codeableConcept);
-		mutuallyRequired("code", code, "system", system);
-		if (coding == null) {
-			if (code != null) {
-				coding = new Coding(system, code, null).setVersion(version);
-			} else {
-				if (codeableConcept.getCoding().size() > 1) {
-					throw exception("Translation of CodeableConcept with multiple codes is not supported.", IssueType.NOTSUPPORTED, 400);
-				}
-				if (codeableConcept.getCoding().isEmpty()) {
-					throw exception("CodeableConcept contains no coding.", IssueType.INVARIANT, 400);
-				}
-				coding = codeableConcept.getCoding().get(0);
+			// Get coding to translate
+			requireExactlyOneOf("code", code, "coding", coding, "codeableConcept", codeableConcept);
+			mutuallyRequired("code", code, "system", system);
+			coding = resolveSourceCoding(code, system, version, coding, codeableConcept);
+
+			if (url != null && url.startsWith("http://snomed.info") && url.contains("sct/") && coding.getVersion() == null) {
+				coding.setVersion(url.substring(0, url.indexOf("?")));
 			}
-		}
 
-		if (url != null && url.startsWith("http://snomed.info") && url.contains("sct/") && coding.getVersion() == null) {
-			coding.setVersion(url.substring(0, url.indexOf("?")));
-		}
+			Collection<FHIRConceptMap> maps = resolveMaps(conceptMap, url, coding, targetSystem, sourceValueSet, targetValueSet);
+			if (maps.isEmpty()) {
+				throw exception("No suitable map found.", IssueType.NOTFOUND, 404);
+			}
 
-		// Get map
-		Collection<FHIRConceptMap> maps;
+			Map<FHIRConceptMap, Collection<FHIRMapElement>> mapElements = findElementsByMap(maps, coding, targetSystem, languageDialects);
+			return buildTranslationResult(mapElements, targetSystem, coding);
+		} finally {
+			TxResourceContext.clear();
+		}
+	}
+
+	// Resolves the source coding from the mutually-exclusive code / coding / codeableConcept parameters.
+	private Coding resolveSourceCoding(String code, String system, String version, Coding coding, CodeableConcept codeableConcept) {
+		if (coding != null) {
+			return coding;
+		}
+		if (code != null) {
+			return new Coding(system, code, null).setVersion(version);
+		}
+		if (codeableConcept.getCoding().size() > 1) {
+			throw exception("Translation of CodeableConcept with multiple codes is not supported.", IssueType.NOTSUPPORTED, 400);
+		}
+		if (codeableConcept.getCoding().isEmpty()) {
+			throw exception("CodeableConcept contains no coding.", IssueType.INVARIANT, 400);
+		}
+		return codeableConcept.getCoding().getFirst();
+	}
+
+	private Collection<FHIRConceptMap> resolveMaps(ConceptMap conceptMap, String url, Coding coding, String targetSystem, String sourceValueSet, String targetValueSet) {
 		if (conceptMap != null) {
-			maps = Collections.singleton(new FHIRConceptMap(conceptMap));
-		} else {
-			maps = service.findMaps(url, coding, targetSystem, sourceValueSet, targetValueSet);
-			// Check tx-resource overlay if Elasticsearch returned no matches
-			if (maps.isEmpty() && url != null) {
-				org.hl7.fhir.r4.model.Resource inlined = TxResourceContext.get().get(url);
-				if (inlined instanceof ConceptMap txConceptMap) {
-					maps = Collections.singleton(new FHIRConceptMap(txConceptMap));
-				}
+			return Collections.singleton(new FHIRConceptMap(conceptMap));
+		}
+		Collection<FHIRConceptMap> maps = service.findMaps(url, coding, targetSystem, sourceValueSet, targetValueSet);
+		// Check tx-resource overlay if Elasticsearch returned no matches
+		if (maps.isEmpty() && url != null) {
+			org.hl7.fhir.r4.model.Resource inlined = TxResourceContext.get().get(url);
+			if (inlined instanceof ConceptMap txConceptMap) {
+				maps = Collections.singleton(new FHIRConceptMap(txConceptMap));
 			}
 		}
-		if (maps.isEmpty()) {
-			throw exception("No suitable map found.", IssueType.NOTFOUND, 404);
-		}
+		return maps;
+	}
 
+	private Map<FHIRConceptMap, Collection<FHIRMapElement>> findElementsByMap(Collection<FHIRConceptMap> maps, Coding coding, String targetSystem, List<LanguageDialect> languageDialects) {
 		Map<FHIRConceptMap, Collection<FHIRMapElement>> mapElements = new HashMap<>();
 		for (FHIRConceptMap map : maps) {
 			Collection<FHIRMapElement> foundElements = service.findMapElements(map, coding, targetSystem, languageDialects);
@@ -150,41 +165,43 @@ public class FHIRConceptMapProvider implements IResourceProvider, FHIRConstants 
 				mapElements.put(map, foundElements);
 			}
 		}
+		return mapElements;
+	}
 
+	private Parameters buildTranslationResult(Map<FHIRConceptMap, Collection<FHIRMapElement>> mapElements, String targetSystem, Coding coding) {
 		Parameters parameters = new Parameters();
-		if (!mapElements.isEmpty()) {
-			parameters.addParameter("result", true);
-			for (Map.Entry<FHIRConceptMap, Collection<FHIRMapElement>> mapAndElements : mapElements.entrySet()) {
-				FHIRConceptMap map = mapAndElements.getKey();
-				for (FHIRMapElement mapElement : mapAndElements.getValue()) {
-					for (FHIRMapTarget mapTarget : mapElement.getTarget()) {
-						Parameters.ParametersParameterComponent matchParam = new Parameters.ParametersParameterComponent(new StringType("match"));
-						if (mapTarget.getEquivalence() != null) {
-							matchParam.addPart(new Parameters.ParametersParameterComponent(new StringType("equivalence"))
-									.setValue(new CodeType(mapTarget.getEquivalence())));
-
-						}
-						String elementTargetSystem = map.isImplicitSnomedMap() ? map.getTargetUri().replace(WHOLE_SYSTEM_VALUE_SET_URI_POSTFIX, "") : targetSystem;
-						matchParam.addPart(new Parameters.ParametersParameterComponent(new StringType("concept"))
-								.setValue(new Coding(elementTargetSystem, mapTarget.getCode(), mapTarget.getDisplay())));
-						if (mapElement.getMessage() != null) {
-							parameters.addParameter("message", mapElement.getMessage());
-						}
-						matchParam.addPart(new Parameters.ParametersParameterComponent(new StringType("source"))
-								.setValue(new StringType(map.getUrl())));
-						parameters.addParameter(matchParam);
-					}
-				}
-			}
-
+		if (mapElements.isEmpty()) {
+			parameters.addParameter("result", false);
+			parameters.addParameter("message", format("No mapping found for code '%s', system '%s'.", coding.getCode(), coding.getSystem()));
 			return parameters;
 		}
-		parameters.addParameter("result", false);
-		parameters.addParameter("message", format("No mapping found for code '%s', system '%s'.", coding.getCode(), coding.getSystem()));
-		return parameters;
-		} finally {
-			TxResourceContext.clear();
+		parameters.addParameter("result", true);
+		for (Map.Entry<FHIRConceptMap, Collection<FHIRMapElement>> mapAndElements : mapElements.entrySet()) {
+			FHIRConceptMap map = mapAndElements.getKey();
+			for (FHIRMapElement mapElement : mapAndElements.getValue()) {
+				for (FHIRMapTarget mapTarget : mapElement.getTarget()) {
+					if (mapElement.getMessage() != null) {
+						parameters.addParameter("message", mapElement.getMessage());
+					}
+					parameters.addParameter(buildMatchParam(map, mapTarget, targetSystem));
+				}
+			}
 		}
+		return parameters;
+	}
+
+	private Parameters.ParametersParameterComponent buildMatchParam(FHIRConceptMap map, FHIRMapTarget mapTarget, String targetSystem) {
+		Parameters.ParametersParameterComponent matchParam = new Parameters.ParametersParameterComponent(new StringType("match"));
+		if (mapTarget.getEquivalence() != null) {
+			matchParam.addPart(new Parameters.ParametersParameterComponent(new StringType("equivalence"))
+					.setValue(new CodeType(mapTarget.getEquivalence())));
+		}
+		String elementTargetSystem = map.isImplicitSnomedMap() ? map.getTargetUri().replace(WHOLE_SYSTEM_VALUE_SET_URI_POSTFIX, "") : targetSystem;
+		matchParam.addPart(new Parameters.ParametersParameterComponent(new StringType("concept"))
+				.setValue(new Coding(elementTargetSystem, mapTarget.getCode(), mapTarget.getDisplay())));
+		matchParam.addPart(new Parameters.ParametersParameterComponent(new StringType("source"))
+				.setValue(new StringType(map.getUrl())));
+		return matchParam;
 	}
 
 	@Override

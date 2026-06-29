@@ -233,13 +233,7 @@ public class FHIRValueSetService implements FHIRConstants {
 
 		vsCycleDetectionService.verifyNoCycles(hapiValueSet);
 
-		if (params.getVersionValueSet() != null){
-			hapiValueSet.getCompose().getInclude().stream()
-					.filter(ValueSet.ConceptSetComponent::hasValueSet).flatMap(x -> x.getValueSet().stream())
-					.filter(x -> x.getValueAsString().equals(params.getVersionValueSet().getSystem()))
-					.findFirst()
-					.ifPresent(fixVersion -> fixVersion.setValueAsString(params.getVersionValueSet().toString()));
-		}
+		applyVersionValueSetOverride(hapiValueSet, params);
 
 		String filter = params.getFilter();
 		boolean activeOnly = TRUE == params.getActiveOnly();
@@ -258,162 +252,223 @@ public class FHIRValueSetService implements FHIRConstants {
 		CodeSelectionCriteria codeSelectionCriteria = constraintsService.generateInclusionExclusionConstraints(hapiValueSet, codeSystemVersionProvider, activeOnly, true);
 
 		// Fail expand if check-system-version constraint was violated
-		List<OperationOutcome.OperationOutcomeIssueComponent> versionCheckIssues = codeSystemVersionProvider.getVersionCheckIssues();
-		if (!versionCheckIssues.isEmpty()) {
-			OperationOutcome operationOutcome = new OperationOutcome();
-			operationOutcome.setIssue(versionCheckIssues);
-			throw new SnowstormFHIRServerResponseException(422, versionCheckIssues.get(0).getDetails().getText(), operationOutcome);
-		}
+		failIfVersionCheckViolated(codeSystemVersionProvider);
 
 		// Restrict the expansion of ValueSets with multiple code system versions if any are SNOMED CT, to simplify pagination.
 		Set<FHIRCodeSystemVersion> allInclusionVersions = codeSelectionCriteria.gatherAllInclusionVersions();
 		boolean isSnomed = allInclusionVersions.stream().anyMatch(FHIRCodeSystemVersion::isOnSnomedBranch);
-		if (isSnomed) {
-			if (allInclusionVersions.size() > 1) {
-				throw exception("This server does not yet support ValueSet$expand on ValueSets with multiple code systems if any are SNOMED CT, " +
-								"because of the complexities around pagination and result totals.",
-						OperationOutcome.IssueType.NOTSUPPORTED, 400);
-			}
-			if (!codeSelectionCriteria.getNestedSelections().isEmpty()) {
-				throw exception("This server does not yet support ValueSet$expand on SNOMED CT ValueSets with nested value sets, " +
-								"because of the complexities around pagination and result totals.",
-						OperationOutcome.IssueType.NOTSUPPORTED, 400);
-			}
-		}
+		validateSnomedExpansionSupported(isSnomed, allInclusionVersions, codeSelectionCriteria);
 
 		if (allInclusionVersions.isEmpty()) {
 			return hapiValueSet;
 		}
 
-		Page<FHIRConcept> conceptsPage;
-		String copyright = null;
 		boolean includeDesignations = TRUE.equals(params.getIncludeDesignations());
+		Page<FHIRConcept> conceptsPage;
 		if (isSnomed) {
-			// SNOMED CT Expansion
-			// Only expansion of single version is supported.
-			copyright = SNOMED_VALUESET_COPYRIGHT;
-
-			FHIRCodeSystemVersion codeSystemVersion = allInclusionVersions.iterator().next();
-			List<LanguageDialect> languageDialects = ControllerHelper.parseAcceptLanguageHeaderWithDefaultFallback(FHIRHelper.getDisplayLanguage(params.getDisplayLanguage(),displayLanguage));
-
-			// Constraints:
-			// - Elasticsearch prevents us from requesting results beyond the first 10K
-			// Strategy:
-			// - Load concept ids until we reach the requested page
-			// - Then load the concepts for that page
-			int offsetRequested = (int) pageRequest.getOffset();
-			int limitRequested = (int) (pageRequest.getOffset() + pageRequest.getPageSize());
-
-			QueryService.ConceptQueryBuilder conceptQuery = vsFinderService.getSnomedConceptQuery(filter, activeOnly, codeSelectionCriteria, languageDialects, codeSystemVersion.getSnomedBranch());
-
-			int totalResults = 0;
-			List<Long> conceptsToLoad;
-			if (limitRequested > LARGE_PAGE.getPageSize()) {
-				// Have to use search-after feature to paginate to the page requested because of Elasticsearch 10k limit.
-				SearchAfterPage<Long> previousPage = null;
-				List<Long> allConceptIds = new LongArrayList();
-				boolean loadedAll = false;
-				while (allConceptIds.size() < limitRequested && !loadedAll) {
-					PageRequest largePageRequest;
-					if (previousPage == null) {
-						largePageRequest = PageRequest.of(0, LARGE_PAGE.getPageSize(), pageRequest.getSort());
-					} else {
-						int pageSize = Math.min(limitRequested - allConceptIds.size(), LARGE_PAGE.getPageSize());
-						largePageRequest = SearchAfterPageRequest.of(previousPage.getSearchAfter(), pageSize, previousPage.getSort());
-					}
-					SearchAfterPage<Long> page = snomedQueryService.searchForIds(conceptQuery, codeSystemVersion.getSnomedBranch(), largePageRequest);
-					allConceptIds.addAll(page.getContent());
-					loadedAll = page.getNumberOfElements() < largePageRequest.getPageSize();
-					if (previousPage == null) {
-						// Collect results total
-						totalResults = (int) page.getTotalElements();
-					}
-					previousPage = page;
-				}
-				if (allConceptIds.size() > offsetRequested) {
-					conceptsToLoad = new LongArrayList(allConceptIds).subList(offsetRequested, Math.min(limitRequested, allConceptIds.size()));
-				} else {
-					conceptsToLoad = new ArrayList<>();
-				}
-			} else {
-				SearchAfterPage<Long> resultsPage = snomedQueryService.searchForIds(conceptQuery, codeSystemVersion.getSnomedBranch(), pageRequest);
-				conceptsToLoad = resultsPage.getContent();
-				totalResults = (int) resultsPage.getTotalElements();
-			}
-
-			List<FHIRConcept> conceptsOnRequestedPage = new ArrayList<>();
-			if (!conceptsToLoad.isEmpty()) {
-				Map<String, ConceptMini> conceptMinis = snomedConceptService.findConceptMinis(codeSystemVersion.getSnomedBranch(), conceptsToLoad, languageDialects).getResultsMap();
-				for (Long conceptToLoad : conceptsToLoad) {
-					ConceptMini snomedConceptMini = conceptMinis.get(conceptToLoad.toString());
-					if (snomedConceptMini != null) {
-						conceptsOnRequestedPage.add(new FHIRConcept(snomedConceptMini, codeSystemVersion, includeDesignations));
-					}
-				}
-			}
-
-			conceptsPage = new PageImpl<>(conceptsOnRequestedPage, pageRequest, totalResults);
+			conceptsPage = expandSnomedConceptsPage(allInclusionVersions, codeSelectionCriteria, filter, activeOnly, pageRequest, params, displayLanguage, includeDesignations);
 		} else if (allInclusionVersions.stream().allMatch(v -> v.getInlineCodeSystem() != null)) {
 			// All inclusion versions carry inline concepts from the tx-resource overlay — expand in-memory.
 			conceptsPage = buildInlineConceptsPage(allInclusionVersions, codeSelectionCriteria, filter, activeOnly, pageRequest);
 		} else {
-			// FHIR Concept Expansion (non-SNOMED)
-			String sortField = filter != null ? "displayLen" : CODE;
-			pageRequest = getPageRequest(pageRequest, sortField);
-			BoolQuery fhirConceptQuery = vsFinderService.getFhirConceptQuery(codeSelectionCriteria, filter).build();
-
-			int offsetRequested = (int) pageRequest.getOffset();
-			int limitRequested = (int) (pageRequest.getOffset() + pageRequest.getPageSize());
-
-			int totalResults = 0;
-			List<String> conceptsToLoad;
-			if (limitRequested > LARGE_PAGE.getPageSize()) {
-				// Have to use search-after feature to paginate to the page requested because of Elasticsearch 10k limit.
-				SearchAfterPage<String> previousPage = null;
-				List<String> allConceptCodes = new ArrayList<>();
-				boolean loadedAll = false;
-				while (allConceptCodes.size() < limitRequested && !loadedAll) {
-					PageRequest largePageRequest;
-					if (previousPage == null) {
-						largePageRequest = PageRequest.of(0, LARGE_PAGE.getPageSize(), pageRequest.getSort());
-					} else {
-						int pageSize = Math.min(limitRequested - allConceptCodes.size(), LARGE_PAGE.getPageSize());
-						largePageRequest = SearchAfterPageRequest.of(previousPage.getSearchAfter(), pageSize, previousPage.getSort());
-					}
-					SearchAfterPage<String> page = conceptService.findConceptCodes(fhirConceptQuery, largePageRequest);
-					allConceptCodes.addAll(page.getContent());
-					loadedAll = page.getNumberOfElements() < largePageRequest.getPageSize();
-					if (previousPage == null) {
-						// Collect results total
-						totalResults = (int) page.getTotalElements();
-					}
-					previousPage = page;
-				}
-				if (allConceptCodes.size() > offsetRequested) {
-					conceptsToLoad = new ArrayList<>(allConceptCodes).subList(offsetRequested, Math.min(limitRequested, allConceptCodes.size()));
-				} else {
-					conceptsToLoad = new ArrayList<>();
-				}
-				if (!conceptsToLoad.isEmpty()) {
-					BoolQuery.Builder conceptsToLoadQuery = bool()
-							.must(fhirConceptQuery._toQuery())
-							.must(termsQuery(FHIRConcept.Fields.CODE, conceptsToLoad));
-					conceptsPage = conceptService.findConcepts(conceptsToLoadQuery, LARGE_PAGE);
-					conceptsPage = new PageImpl<>(conceptsPage.getContent(), pageRequest, totalResults);
-				} else {
-					conceptsPage = new PageImpl<>(new ArrayList<>(), pageRequest, totalResults);
-				}
-			} else {
-				conceptsPage = conceptService.findConcepts(bool().must(fhirConceptQuery._toQuery()), pageRequest);
-			}
+			conceptsPage = expandFhirConceptsPage(codeSelectionCriteria, filter, pageRequest);
 		}
+		// Only SNOMED expansions carry the SNOMED copyright notice.
+		String copyright = isSnomed ? SNOMED_VALUESET_COPYRIGHT : null;
 
 		if (expansionRequestExceedsLimits(conceptsPage, params)) {
 			String message = format("The value set '%s' expansion has too many codes to produce (>%d)", hapiValueSet.getUrl(), pageRequest.getPageSize());
 			throw exception(message, OperationOutcome.IssueType.TOOCOSTLY, 404, null, new CodeableConcept(new Coding()).setText(message));
 		}
 
-		// Deduplicate inclusion versions by ID (multiple includes may resolve to the same version, e.g. after force-system-version)
+		ExpansionVersionMaps versionMaps = buildExpansionVersionMaps(allInclusionVersions);
+		ValueSet.ValueSetExpansionComponent expansion = createExpansionComponent(params, filter, codeSystemVersionProvider,
+				versionMaps.idToVersionObj, allInclusionVersions, codeSelectionCriteria, hapiValueSet);
+
+		validateAndApplySupplements(hapiValueSet, expansion, conceptsPage);
+
+		Optional.ofNullable(params.getProperty()).ifPresent( x ->{
+					if (!"alternateCode".equals(x)){
+						addPropertyToExpansion(x, getUrlForProperty(x), expansion);
+					}
+				}
+		);
+
+		final String fhirDisplayLanguage = determineFhirDisplayLanguage(params, displayLanguage, expansion, hapiValueSet);
+
+		return finalizeExpansion(hapiValueSet, expansion, conceptsPage, versionMaps, params, fhirDisplayLanguage, copyright);
+	}
+
+	private void applyVersionValueSetOverride(ValueSet hapiValueSet, ValueSetExpansionParameters params) {
+		if (params.getVersionValueSet() != null){
+			hapiValueSet.getCompose().getInclude().stream()
+					.filter(ValueSet.ConceptSetComponent::hasValueSet).flatMap(x -> x.getValueSet().stream())
+					.filter(x -> x.getValueAsString().equals(params.getVersionValueSet().getSystem()))
+					.findFirst()
+					.ifPresent(fixVersion -> fixVersion.setValueAsString(params.getVersionValueSet().toString()));
+		}
+	}
+
+	// Fail expand if a check-system-version constraint was violated during constraint generation.
+	private void failIfVersionCheckViolated(CodeSystemVersionProvider codeSystemVersionProvider) {
+		List<OperationOutcome.OperationOutcomeIssueComponent> versionCheckIssues = codeSystemVersionProvider.getVersionCheckIssues();
+		if (!versionCheckIssues.isEmpty()) {
+			OperationOutcome operationOutcome = new OperationOutcome();
+			operationOutcome.setIssue(versionCheckIssues);
+			throw new SnowstormFHIRServerResponseException(422, versionCheckIssues.get(0).getDetails().getText(), operationOutcome);
+		}
+	}
+
+	// Restrict SNOMED CT expansions with multiple code systems or nested value sets, to simplify pagination.
+	private void validateSnomedExpansionSupported(boolean isSnomed, Set<FHIRCodeSystemVersion> allInclusionVersions, CodeSelectionCriteria codeSelectionCriteria) {
+		if (!isSnomed) {
+			return;
+		}
+		if (allInclusionVersions.size() > 1) {
+			throw exception("This server does not yet support ValueSet$expand on ValueSets with multiple code systems if any are SNOMED CT, " +
+							"because of the complexities around pagination and result totals.",
+					OperationOutcome.IssueType.NOTSUPPORTED, 400);
+		}
+		if (!codeSelectionCriteria.getNestedSelections().isEmpty()) {
+			throw exception("This server does not yet support ValueSet$expand on SNOMED CT ValueSets with nested value sets, " +
+							"because of the complexities around pagination and result totals.",
+					OperationOutcome.IssueType.NOTSUPPORTED, 400);
+		}
+	}
+
+	// SNOMED CT expansion — only single-version expansion is supported.
+	private Page<FHIRConcept> expandSnomedConceptsPage(Set<FHIRCodeSystemVersion> allInclusionVersions,
+			CodeSelectionCriteria codeSelectionCriteria, String filter, boolean activeOnly, PageRequest pageRequest,
+			ValueSetExpansionParameters params, String displayLanguage, boolean includeDesignations) {
+		FHIRCodeSystemVersion codeSystemVersion = allInclusionVersions.iterator().next();
+		List<LanguageDialect> languageDialects = ControllerHelper.parseAcceptLanguageHeaderWithDefaultFallback(FHIRHelper.getDisplayLanguage(params.getDisplayLanguage(),displayLanguage));
+
+		// Constraints:
+		// - Elasticsearch prevents us from requesting results beyond the first 10K
+		// Strategy:
+		// - Load concept ids until we reach the requested page
+		// - Then load the concepts for that page
+		int offsetRequested = (int) pageRequest.getOffset();
+		int limitRequested = (int) (pageRequest.getOffset() + pageRequest.getPageSize());
+
+		QueryService.ConceptQueryBuilder conceptQuery = vsFinderService.getSnomedConceptQuery(filter, activeOnly, codeSelectionCriteria, languageDialects, codeSystemVersion.getSnomedBranch());
+
+		int totalResults;
+		List<Long> conceptsToLoad;
+		if (limitRequested > LARGE_PAGE.getPageSize()) {
+			SnomedIdLoadResult loaded = loadSnomedConceptIdsForPage(conceptQuery, codeSystemVersion, pageRequest, offsetRequested, limitRequested);
+			conceptsToLoad = loaded.conceptsToLoad;
+			totalResults = loaded.totalResults;
+		} else {
+			SearchAfterPage<Long> resultsPage = snomedQueryService.searchForIds(conceptQuery, codeSystemVersion.getSnomedBranch(), pageRequest);
+			conceptsToLoad = resultsPage.getContent();
+			totalResults = (int) resultsPage.getTotalElements();
+		}
+
+		List<FHIRConcept> conceptsOnRequestedPage = new ArrayList<>();
+		if (!conceptsToLoad.isEmpty()) {
+			Map<String, ConceptMini> conceptMinis = snomedConceptService.findConceptMinis(codeSystemVersion.getSnomedBranch(), conceptsToLoad, languageDialects).getResultsMap();
+			for (Long conceptToLoad : conceptsToLoad) {
+				ConceptMini snomedConceptMini = conceptMinis.get(conceptToLoad.toString());
+				if (snomedConceptMini != null) {
+					conceptsOnRequestedPage.add(new FHIRConcept(snomedConceptMini, codeSystemVersion, includeDesignations));
+				}
+			}
+		}
+
+		return new PageImpl<>(conceptsOnRequestedPage, pageRequest, totalResults);
+	}
+
+	// Uses the Elasticsearch search-after feature to paginate past the 10k limit to the requested SNOMED page.
+	private SnomedIdLoadResult loadSnomedConceptIdsForPage(QueryService.ConceptQueryBuilder conceptQuery,
+			FHIRCodeSystemVersion codeSystemVersion, PageRequest pageRequest, int offsetRequested, int limitRequested) {
+		SearchAfterPage<Long> previousPage = null;
+		List<Long> allConceptIds = new LongArrayList();
+		boolean loadedAll = false;
+		int totalResults = 0;
+		while (allConceptIds.size() < limitRequested && !loadedAll) {
+			PageRequest largePageRequest;
+			if (previousPage == null) {
+				largePageRequest = PageRequest.of(0, LARGE_PAGE.getPageSize(), pageRequest.getSort());
+			} else {
+				int pageSize = Math.min(limitRequested - allConceptIds.size(), LARGE_PAGE.getPageSize());
+				largePageRequest = SearchAfterPageRequest.of(previousPage.getSearchAfter(), pageSize, previousPage.getSort());
+			}
+			SearchAfterPage<Long> page = snomedQueryService.searchForIds(conceptQuery, codeSystemVersion.getSnomedBranch(), largePageRequest);
+			allConceptIds.addAll(page.getContent());
+			loadedAll = page.getNumberOfElements() < largePageRequest.getPageSize();
+			if (previousPage == null) {
+				// Collect results total
+				totalResults = (int) page.getTotalElements();
+			}
+			previousPage = page;
+		}
+		List<Long> conceptsToLoad;
+		if (allConceptIds.size() > offsetRequested) {
+			conceptsToLoad = new LongArrayList(allConceptIds).subList(offsetRequested, Math.min(limitRequested, allConceptIds.size()));
+		} else {
+			conceptsToLoad = new ArrayList<>();
+		}
+		return new SnomedIdLoadResult(conceptsToLoad, totalResults);
+	}
+
+	// FHIR Concept Expansion (non-SNOMED).
+	private Page<FHIRConcept> expandFhirConceptsPage(CodeSelectionCriteria codeSelectionCriteria, String filter, PageRequest pageRequest) {
+		String sortField = filter != null ? "displayLen" : CODE;
+		pageRequest = getPageRequest(pageRequest, sortField);
+		BoolQuery fhirConceptQuery = vsFinderService.getFhirConceptQuery(codeSelectionCriteria, filter).build();
+
+		int offsetRequested = (int) pageRequest.getOffset();
+		int limitRequested = (int) (pageRequest.getOffset() + pageRequest.getPageSize());
+
+		if (limitRequested > LARGE_PAGE.getPageSize()) {
+			return loadFhirConceptsPageWithSearchAfter(fhirConceptQuery, pageRequest, offsetRequested, limitRequested);
+		}
+		return conceptService.findConcepts(bool().must(fhirConceptQuery._toQuery()), pageRequest);
+	}
+
+	// Uses the Elasticsearch search-after feature to paginate past the 10k limit to the requested non-SNOMED page.
+	private Page<FHIRConcept> loadFhirConceptsPageWithSearchAfter(BoolQuery fhirConceptQuery, PageRequest pageRequest,
+			int offsetRequested, int limitRequested) {
+		SearchAfterPage<String> previousPage = null;
+		List<String> allConceptCodes = new ArrayList<>();
+		boolean loadedAll = false;
+		int totalResults = 0;
+		while (allConceptCodes.size() < limitRequested && !loadedAll) {
+			PageRequest largePageRequest;
+			if (previousPage == null) {
+				largePageRequest = PageRequest.of(0, LARGE_PAGE.getPageSize(), pageRequest.getSort());
+			} else {
+				int pageSize = Math.min(limitRequested - allConceptCodes.size(), LARGE_PAGE.getPageSize());
+				largePageRequest = SearchAfterPageRequest.of(previousPage.getSearchAfter(), pageSize, previousPage.getSort());
+			}
+			SearchAfterPage<String> page = conceptService.findConceptCodes(fhirConceptQuery, largePageRequest);
+			allConceptCodes.addAll(page.getContent());
+			loadedAll = page.getNumberOfElements() < largePageRequest.getPageSize();
+			if (previousPage == null) {
+				// Collect results total
+				totalResults = (int) page.getTotalElements();
+			}
+			previousPage = page;
+		}
+		List<String> conceptsToLoad;
+		if (allConceptCodes.size() > offsetRequested) {
+			conceptsToLoad = new ArrayList<>(allConceptCodes).subList(offsetRequested, Math.min(limitRequested, allConceptCodes.size()));
+		} else {
+			conceptsToLoad = new ArrayList<>();
+		}
+		if (!conceptsToLoad.isEmpty()) {
+			BoolQuery.Builder conceptsToLoadQuery = bool()
+					.must(fhirConceptQuery._toQuery())
+					.must(termsQuery(FHIRConcept.Fields.CODE, conceptsToLoad));
+			Page<FHIRConcept> conceptsPage = conceptService.findConcepts(conceptsToLoadQuery, LARGE_PAGE);
+			return new PageImpl<>(conceptsPage.getContent(), pageRequest, totalResults);
+		}
+		return new PageImpl<>(new ArrayList<>(), pageRequest, totalResults);
+	}
+
+	// Deduplicate inclusion versions by ID (multiple includes may resolve to the same version, e.g. after force-system-version).
+	private ExpansionVersionMaps buildExpansionVersionMaps(Set<FHIRCodeSystemVersion> allInclusionVersions) {
 		boolean multipleIncludes = allInclusionVersions.size() > 1;
 		Map<String, FHIRCodeSystemVersion> idToVersionObj = allInclusionVersions.stream()
 				.collect(Collectors.toMap(FHIRCodeSystemVersion::getId, v -> v, (a, b) -> a));
@@ -424,11 +479,37 @@ public class FHIRValueSetService implements FHIRConstants {
 				.collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().getVersion()));
 		Map<String, String> idAndVersionToLanguage = allInclusionVersions.stream()
 				.filter(fhirCodeSystemVersion -> fhirCodeSystemVersion.getLanguage() != null).collect(Collectors.toMap(FHIRCodeSystemVersion::getId, FHIRCodeSystemVersion::getLanguage, (a, b) -> a));
+		return new ExpansionVersionMaps(multipleIncludes, idToVersionObj, idAndVersionToUrl, idToVersionStr, idAndVersionToLanguage);
+	}
+
+	// Creates the expansion component and populates its parameters (offset/count/filter, used-codesystem, used-valueset, warnings).
+	private ValueSet.ValueSetExpansionComponent createExpansionComponent(ValueSetExpansionParameters params, String filter,
+			CodeSystemVersionProvider codeSystemVersionProvider, Map<String, FHIRCodeSystemVersion> idToVersionObj,
+			Set<FHIRCodeSystemVersion> allInclusionVersions, CodeSelectionCriteria codeSelectionCriteria, ValueSet hapiValueSet) {
 		ValueSet.ValueSetExpansionComponent expansion = new ValueSet.ValueSetExpansionComponent();
 		String id = UUID.randomUUID().toString();
 		expansion.setId(id);
 		expansion.setIdentifier("urn:uuid:"+id);
 		expansion.setTimestamp(new Date());
+
+		addExpansionRequestParameters(expansion, params, filter, codeSystemVersionProvider);
+		addUsedCodeSystemParameters(expansion, idToVersionObj);
+
+		warningsService.collectCodeSystemSetWarnings(allInclusionVersions).forEach(expansion::addParameter);
+		warningsService.collectValueSetWarnings(codeSelectionCriteria).forEach(expansion::addParameter);
+
+		addUsedValueSetParameters(expansion, hapiValueSet);
+
+		allInclusionVersions.forEach(codeSystemVersion ->
+			orEmpty(codeSystemVersion.getExtensions()).forEach(fe ->
+				hapiValueSet.addExtension(fe.getHapi())));
+
+		return expansion;
+	}
+
+	// Echoes the request parameters (offset/count/filter/activeOnly/... and applied system-version hints) into the expansion.
+	private void addExpansionRequestParameters(ValueSet.ValueSetExpansionComponent expansion, ValueSetExpansionParameters params,
+			String filter, CodeSystemVersionProvider codeSystemVersionProvider) {
 		Optional.ofNullable(params.getOffset()).ifPresent(x->expansion.addParameter(new ValueSet.ValueSetExpansionParameterComponent(new StringType("offset")).setValue(new IntegerType(x))));
 		Optional.ofNullable(params.getCount()).ifPresent(x->expansion.addParameter(new ValueSet.ValueSetExpansionParameterComponent(new StringType("count")).setValue(new IntegerType(x))));
 		Optional.ofNullable(filter).ifPresent(x->expansion.addParameter(new ValueSet.ValueSetExpansionParameterComponent(new StringType("filter")).setValue(new StringType(x))));
@@ -446,9 +527,13 @@ public class FHIRValueSetService implements FHIRConstants {
 					expansion.addParameter(new ValueSet.ValueSetExpansionParameterComponent(new StringType("check-system-version")).setValue(new UriType(x.toString()))));
 		}
 		Optional.ofNullable(params.getDesignations()).ifPresent(x->
-			x.forEach(language -> 
+			x.forEach(language ->
 				expansion.addParameter(new ValueSet.ValueSetExpansionParameterComponent(new StringType("designation")).setValue(new StringType(language)))
 			));
+	}
+
+	// Adds used-codesystem (and codesystem-supplement) parameters for each deduplicated inclusion version.
+	private void addUsedCodeSystemParameters(ValueSet.ValueSetExpansionComponent expansion, Map<String, FHIRCodeSystemVersion> idToVersionObj) {
 		idToVersionObj.values().forEach(codeSystemVersion -> {
 				if (codeSystemVersion.getVersion() != null) {
 					String csUrl = codeSystemVersion.getUrl().replace(SNOMED_URI_UNVERSIONED, SNOMED_URI);
@@ -466,11 +551,10 @@ public class FHIRValueSetService implements FHIRConstants {
 				}
 			}
 		);
+	}
 
-		warningsService.collectCodeSystemSetWarnings(allInclusionVersions).forEach(expansion::addParameter);
-
-		warningsService.collectValueSetWarnings(codeSelectionCriteria).forEach(expansion::addParameter);
-
+	// Adds used-valueset (and version) parameters for each nested value set include, resolving versionless includes to latest.
+	private void addUsedValueSetParameters(ValueSet.ValueSetExpansionComponent expansion, ValueSet hapiValueSet) {
 		hapiValueSet.getCompose().getInclude().stream()
 				.filter(ValueSet.ConceptSetComponent::hasValueSet)
 				.flatMap(x -> x.getValueSet().stream())
@@ -483,17 +567,24 @@ public class FHIRValueSetService implements FHIRConstants {
 					expansion.addParameter(new ValueSet.ValueSetExpansionParameterComponent(new StringType("used-valueset")).setValue(new UriType(uri.toString())));
 					expansion.addParameter(new ValueSet.ValueSetExpansionParameterComponent(new StringType(VERSION)).setValue(new UriType(uri.toString())));
 		});
+	}
 
-		allInclusionVersions.forEach(codeSystemVersion -> 
-			orEmpty(codeSystemVersion.getExtensions()).forEach(fe ->
-				hapiValueSet.addExtension(fe.getHapi())));
-
+	// Validates declared supplements (throwing if missing) and applies tx-resource overlay supplements to the fetched concepts.
+	private void validateAndApplySupplements(ValueSet hapiValueSet, ValueSet.ValueSetExpansionComponent expansion, Page<FHIRConcept> conceptsPage) {
 		// Collect supplement URLs before clearing extensions, for post-check overlay application
 		List<String> supplementUrls = hapiValueSet.getExtension().stream()
 				.filter(e -> HL7_SD_VS_SUPPLEMENT.equals(e.getUrl()))
 				.map(e -> e.getValue().primitiveValue())
 				.toList();
 
+		validateDeclaredSupplements(hapiValueSet, expansion);
+		hapiValueSet.getExtension().clear();
+
+		applyOverlaySupplements(supplementUrls, conceptsPage);
+	}
+
+	// Validates each declared vs-supplement extension: records used-supplement params, or throws 404 if a supplement is missing.
+	private void validateDeclaredSupplements(ValueSet hapiValueSet, ValueSet.ValueSetExpansionComponent expansion) {
 		hapiValueSet.getExtension().forEach(
 				ext ->{
 			if(ext.getUrl().equals(HL7_SD_VS_SUPPLEMENT)) {
@@ -514,10 +605,11 @@ public class FHIRValueSetService implements FHIRConstants {
 				}
 			}
 		});
-		hapiValueSet.getExtension().clear();
+	}
 
-		// Apply concept-level data from any tx-resource supplement that is not persisted in Elasticsearch.
-		// Use TxResourceContext.lookup so versioned resources (stored as url|version) are also found.
+	// Apply concept-level data from any tx-resource supplement that is not persisted in Elasticsearch.
+	// Use TxResourceContext.lookup so versioned resources (stored as url|version) are also found.
+	private void applyOverlaySupplements(List<String> supplementUrls, Page<FHIRConcept> conceptsPage) {
 		for (String supplementUrl : supplementUrls) {
 			String urlBase = supplementUrl.contains("|") ? supplementUrl.substring(0, supplementUrl.indexOf("|")) : supplementUrl;
 			String versionPart = supplementUrl.contains("|") ? supplementUrl.substring(supplementUrl.indexOf("|") + 1) : null;
@@ -526,17 +618,13 @@ public class FHIRValueSetService implements FHIRConstants {
 				applyOverlaySupplementToConcepts(supplementCs, conceptsPage);
 			}
 		}
+	}
 
-		Optional.ofNullable(params.getProperty()).ifPresent( x ->{
-					if (!"alternateCode".equals(x)){
-						addPropertyToExpansion(x, getUrlForProperty(x), expansion);
-					}
-				}
-		);
-
-		final String fhirDisplayLanguage = determineFhirDisplayLanguage(params, displayLanguage, expansion, hapiValueSet);
-
-		List<ValueSet.ValueSetExpansionContainsComponent> expansionContents = createExpansionContents(conceptsPage, hapiValueSet, idAndVersionToLanguage, idAndVersionToUrl, idToVersionStr, multipleIncludes, expansion, params, fhirDisplayLanguage);
+	// Builds the expansion contents, sets totals, marks unclosed/copyright, and clears the compose if not requested.
+	private ValueSet finalizeExpansion(ValueSet hapiValueSet, ValueSet.ValueSetExpansionComponent expansion,
+			Page<FHIRConcept> conceptsPage, ExpansionVersionMaps versionMaps, ValueSetExpansionParameters params,
+			String fhirDisplayLanguage, String copyright) {
+		List<ValueSet.ValueSetExpansionContainsComponent> expansionContents = createExpansionContents(conceptsPage, hapiValueSet, versionMaps.idAndVersionToLanguage, versionMaps.idAndVersionToUrl, versionMaps.idToVersionStr, versionMaps.multipleIncludes, expansion, params, fhirDisplayLanguage);
 		expansion.setContains(expansionContents);
 		expansion.setTotal((int) conceptsPage.getTotalElements());
 		Optional.ofNullable(params.getOffset()).ifPresent(expansion::setOffset);
@@ -563,6 +651,35 @@ public class FHIRValueSetService implements FHIRConstants {
 		}
 
 		return hapiValueSet;
+	}
+
+	// Deduplicated inclusion-version lookup maps used while building the expansion.
+	private static final class ExpansionVersionMaps {
+		private final boolean multipleIncludes;
+		private final Map<String, FHIRCodeSystemVersion> idToVersionObj;
+		private final Map<String, String> idAndVersionToUrl;
+		private final Map<String, String> idToVersionStr;
+		private final Map<String, String> idAndVersionToLanguage;
+
+		private ExpansionVersionMaps(boolean multipleIncludes, Map<String, FHIRCodeSystemVersion> idToVersionObj,
+				Map<String, String> idAndVersionToUrl, Map<String, String> idToVersionStr, Map<String, String> idAndVersionToLanguage) {
+			this.multipleIncludes = multipleIncludes;
+			this.idToVersionObj = idToVersionObj;
+			this.idAndVersionToUrl = idAndVersionToUrl;
+			this.idToVersionStr = idToVersionStr;
+			this.idAndVersionToLanguage = idAndVersionToLanguage;
+		}
+	}
+
+	// Result of paginating SNOMED concept ids to the requested page via search-after.
+	private static final class SnomedIdLoadResult {
+		private final List<Long> conceptsToLoad;
+		private final int totalResults;
+
+		private SnomedIdLoadResult(List<Long> conceptsToLoad, int totalResults) {
+			this.conceptsToLoad = conceptsToLoad;
+			this.totalResults = totalResults;
+		}
 	}
 
 	private static @NotNull PageRequest getPageRequest(PageRequest pageRequest, String sortField) {
@@ -599,51 +716,7 @@ public class FHIRValueSetService implements FHIRConstants {
 		List<FHIRConcept> allConcepts = new ArrayList<>();
 
 		for (FHIRCodeSystemVersion version : versions) {
-			CodeSystem inline = version.getInlineCodeSystem();
-			if (inline == null) continue;
-
-			// Collect all concepts including nested children
-			Set<CodeSystem.ConceptDefinitionComponent> allDefs = new LinkedHashSet<>();
-			for (CodeSystem.ConceptDefinitionComponent root : inline.getConcept()) {
-				collectInlineConcepts(root, allDefs);
-			}
-
-			// Build code→ancestor-set map so ancestor constraints can be evaluated inline.
-			Map<String, Set<String>> codeToAncestors = new HashMap<>();
-			for (CodeSystem.ConceptDefinitionComponent root : inline.getConcept()) {
-				collectInlineAncestors(root, Collections.emptySet(), codeToAncestors);
-			}
-			Set<String> allInlineCodes = allDefs.stream().map(CodeSystem.ConceptDefinitionComponent::getCode).collect(Collectors.toSet());
-
-			// Determine included codes using proper AND-of-ORs evaluation.
-			// null means "all" (no constraint narrowed the set).
-			Set<String> includedCodes = null;
-			ConjunctionConstraints conjunctionConstraints = codeSelectionCriteria.getInclusionConstraints().get(version);
-			if (conjunctionConstraints != null) {
-				for (ConjunctionConstraints.DisjunctionConstraints orGroup : conjunctionConstraints.getDisjunctionConstraints()) {
-					Set<String> orMatched = resolveInlineDisjunctionConstraints(orGroup.getConstraints(), allInlineCodes, codeToAncestors);
-					if (orMatched == null) continue; // unevaluable (e.g. ECL) — treat as unconstrained
-					if (includedCodes == null) includedCodes = orMatched;
-					else includedCodes.retainAll(orMatched);
-				}
-			}
-
-			// Determine excluded codes
-			Set<String> excludedCodes = new HashSet<>();
-			ConjunctionConstraints exclConstraints = codeSelectionCriteria.getExclusionConstraints().get(version);
-			if (exclConstraints != null) {
-				for (ConceptConstraint constraint : exclConstraints.constraintsFlattened()) {
-					if (constraint.getCodes() != null) excludedCodes.addAll(constraint.getCodes());
-				}
-			}
-
-			final Set<String> finalIncludedCodes = includedCodes;
-			for (CodeSystem.ConceptDefinitionComponent def : allDefs) {
-				FHIRConcept concept = buildInlineConceptIfIncluded(def, version, excludedCodes, finalIncludedCodes, activeOnly, filter);
-				if (concept != null) {
-					allConcepts.add(concept);
-				}
-			}
+			allConcepts.addAll(collectInlineConceptsForVersion(version, codeSelectionCriteria, activeOnly, filter));
 		}
 
 		// Sort: by display length when filtering (matches ES behaviour), otherwise by code
@@ -658,6 +731,67 @@ public class FHIRValueSetService implements FHIRConstants {
 		int toIndex = Math.min(offset + pageRequest.getPageSize(), total);
 		List<FHIRConcept> page = offset < total ? new ArrayList<>(allConcepts.subList(offset, toIndex)) : new ArrayList<>();
 		return new PageImpl<>(page, pageRequest, total);
+	}
+
+	// Builds the list of included FHIRConcepts for a single inline (tx-resource overlay) code system version.
+	private List<FHIRConcept> collectInlineConceptsForVersion(FHIRCodeSystemVersion version,
+			CodeSelectionCriteria codeSelectionCriteria, boolean activeOnly, String filter) {
+		CodeSystem inline = version.getInlineCodeSystem();
+		if (inline == null) {
+			return Collections.emptyList();
+		}
+
+		// Collect all concepts including nested children
+		Set<CodeSystem.ConceptDefinitionComponent> allDefs = new LinkedHashSet<>();
+		for (CodeSystem.ConceptDefinitionComponent root : inline.getConcept()) {
+			collectInlineConcepts(root, allDefs);
+		}
+
+		// Build code→ancestor-set map so ancestor constraints can be evaluated inline.
+		Map<String, Set<String>> codeToAncestors = new HashMap<>();
+		for (CodeSystem.ConceptDefinitionComponent root : inline.getConcept()) {
+			collectInlineAncestors(root, Collections.emptySet(), codeToAncestors);
+		}
+		Set<String> allInlineCodes = allDefs.stream().map(CodeSystem.ConceptDefinitionComponent::getCode).collect(Collectors.toSet());
+
+		final Set<String> finalIncludedCodes = computeInlineIncludedCodes(
+				codeSelectionCriteria.getInclusionConstraints().get(version), allInlineCodes, codeToAncestors);
+		Set<String> excludedCodes = computeInlineExcludedCodes(codeSelectionCriteria.getExclusionConstraints().get(version));
+
+		List<FHIRConcept> concepts = new ArrayList<>();
+		for (CodeSystem.ConceptDefinitionComponent def : allDefs) {
+			FHIRConcept concept = buildInlineConceptIfIncluded(def, version, excludedCodes, finalIncludedCodes, activeOnly, filter);
+			if (concept != null) {
+				concepts.add(concept);
+			}
+		}
+		return concepts;
+	}
+
+	// Determine included codes using proper AND-of-ORs evaluation.
+	// null means "all" (no constraint narrowed the set).
+	private Set<String> computeInlineIncludedCodes(ConjunctionConstraints conjunctionConstraints,
+			Set<String> allInlineCodes, Map<String, Set<String>> codeToAncestors) {
+		Set<String> includedCodes = null;
+		if (conjunctionConstraints != null) {
+			for (ConjunctionConstraints.DisjunctionConstraints orGroup : conjunctionConstraints.getDisjunctionConstraints()) {
+				Set<String> orMatched = resolveInlineDisjunctionConstraints(orGroup.getConstraints(), allInlineCodes, codeToAncestors);
+				if (orMatched == null) continue; // unevaluable (e.g. ECL) — treat as unconstrained
+				if (includedCodes == null) includedCodes = orMatched;
+				else includedCodes.retainAll(orMatched);
+			}
+		}
+		return includedCodes;
+	}
+
+	private Set<String> computeInlineExcludedCodes(ConjunctionConstraints exclConstraints) {
+		Set<String> excludedCodes = new HashSet<>();
+		if (exclConstraints != null) {
+			for (ConceptConstraint constraint : exclConstraints.constraintsFlattened()) {
+				if (constraint.getCodes() != null) excludedCodes.addAll(constraint.getCodes());
+			}
+		}
+		return excludedCodes;
 	}
 
 	// Returns the concept to include in the inline expansion, or null when it is excluded/filtered out.
@@ -971,157 +1105,200 @@ public class FHIRValueSetService implements FHIRConstants {
 		List<Pair<LanguageDialect, Double>> weightedLanguages = ControllerHelper.parseAcceptLanguageHeaderWithWeights(displayLanguage, true);
 		String requestedLanguage = determineRequestedLanguage(defaultConceptLanguage, weightedLanguages, languageToDesignation.keySet(), languageToVarieties);
 		String originalDisplayTerm = component.getDisplay();
-		String promotedDesignationLanguage = null;
-
-		if ((component.getDisplay() == null && includeDesignations)
-			|| (displayLanguage != null && defaultConceptLanguage != null && !defaultConceptLanguage.equals(displayLanguage))) {
-			String displayTerm = languageToDesignation.getOrDefault(requestedLanguage, emptyList()).stream()
-					.filter(d -> d.getUse() != null && FHIRConstants.HL7_CS_DESIGNATION_USAGE.equals(d.getUse().getSystem()))
-					.findFirst()
-					.orElse(new ValueSet.ConceptReferenceDesignationComponent())
-					.getValue();
-			if (displayTerm == null) {
-				//Not clear on the use of HL7_DESIGNATION_USAGE.   If we only have one designation in the required language, use it for display
-				List<ValueSet.ConceptReferenceDesignationComponent> designationsInRequestedLanguage = languageToDesignation.getOrDefault(requestedLanguage, emptyList());
-				if (designationsInRequestedLanguage.size() == 1) {
-					component.setDisplay(designationsInRequestedLanguage.get(0).getValue());
-					promotedDesignationLanguage = designationsInRequestedLanguage.get(0).getLanguage();
-				} else {
-					logger.warn("Multiple or no designations found for requested display language '{}', unable to determine single display value for concept code '{}'.",
-							requestedLanguage, component.getCode());
-				}
-			} else {
-				component.setDisplay(displayTerm);
-			}
-		}
+		String promotedDesignationLanguage = promoteDisplayFromDesignations(component, requestedLanguage, includeDesignations,
+				displayLanguage, defaultConceptLanguage, languageToDesignation);
 
 		// Set component designations based on requested languages
-		if (includeDesignations) {
-			List<ValueSet.ConceptReferenceDesignationComponent> newDesignations = new ArrayList<>();
-			//If we replaced the display term and the defaultConceptLanguage is something OTHER than what was requested, then
-			//we're going to replace it.  In that case if we're including designations, then shift the old display term into a designation
-			if(originalDisplayTerm != null && !originalDisplayTerm.equals(component.getDisplay())) {
-				ValueSet.ConceptReferenceDesignationComponent existingDisplayAsDesignation = new ValueSet.ConceptReferenceDesignationComponent();
-				existingDisplayAsDesignation.setValue(originalDisplayTerm);
-				existingDisplayAsDesignation.setLanguage(defaultConceptLanguage);
-				existingDisplayAsDesignation.setUse(new Coding(HL7_CS_TERM_INFRA, PREFERRED_FOR_LANGUAGE, null));
-				newDesignations.add(existingDisplayAsDesignation);
+		buildComponentDesignations(component, includeDesignations, originalDisplayTerm, promotedDesignationLanguage,
+				defaultConceptLanguage, requestedLanguage, languageToDesignation, designationLang, noLanguage);
+	}
+
+	// Promotes a designation to the component display when required, returning the promoted designation's language (or null).
+	private String promoteDisplayFromDesignations(ValueSet.ValueSetExpansionContainsComponent component, String requestedLanguage,
+			boolean includeDesignations, String displayLanguage, String defaultConceptLanguage,
+			Map<String, List<ValueSet.ConceptReferenceDesignationComponent>> languageToDesignation) {
+		if (!((component.getDisplay() == null && includeDesignations)
+			|| (displayLanguage != null && defaultConceptLanguage != null && !defaultConceptLanguage.equals(displayLanguage)))) {
+			return null;
+		}
+		String displayTerm = languageToDesignation.getOrDefault(requestedLanguage, emptyList()).stream()
+				.filter(d -> d.getUse() != null && FHIRConstants.HL7_CS_DESIGNATION_USAGE.equals(d.getUse().getSystem()))
+				.findFirst()
+				.orElse(new ValueSet.ConceptReferenceDesignationComponent())
+				.getValue();
+		if (displayTerm == null) {
+			//Not clear on the use of HL7_DESIGNATION_USAGE.   If we only have one designation in the required language, use it for display
+			List<ValueSet.ConceptReferenceDesignationComponent> designationsInRequestedLanguage = languageToDesignation.getOrDefault(requestedLanguage, emptyList());
+			if (designationsInRequestedLanguage.size() == 1) {
+				component.setDisplay(designationsInRequestedLanguage.get(0).getValue());
+				return designationsInRequestedLanguage.get(0).getLanguage();
 			}
-			// Something I disagree with, and we might want to do this for non-SNOMED system only, but the Validator expects that if a designation
-			// has been promoted to the display term, then we don't also include it as a separate designation.
-			final String wrappedPromotedDesignationLanguage = promotedDesignationLanguage;
-			final String componentDisplay = component.getDisplay();
-			newDesignations.addAll(languageToDesignation.values().stream()
-					.flatMap(List::stream)
-					.filter(d -> designationLang.isEmpty() || designationLang.contains(d.getLanguage()))
-					.filter((d -> !(d.getValue().equals(componentDisplay)
-									&& d.getLanguage().equals(wrappedPromotedDesignationLanguage))))
+			logger.warn("Multiple or no designations found for requested display language '{}', unable to determine single display value for concept code '{}'.",
+					requestedLanguage, component.getCode());
+			return null;
+		}
+		component.setDisplay(displayTerm);
+		return null;
+	}
+
+	private void buildComponentDesignations(ValueSet.ValueSetExpansionContainsComponent component, boolean includeDesignations,
+			String originalDisplayTerm, String promotedDesignationLanguage, String defaultConceptLanguage, String requestedLanguage,
+			Map<String, List<ValueSet.ConceptReferenceDesignationComponent>> languageToDesignation, List<String> designationLang,
+			List<ValueSet.ConceptReferenceDesignationComponent> noLanguage) {
+		if (!includeDesignations) {
+			component.setDesignation(emptyList());
+			return;
+		}
+		List<ValueSet.ConceptReferenceDesignationComponent> newDesignations = new ArrayList<>();
+		addPromotedDisplayAsDesignation(newDesignations, component, originalDisplayTerm, defaultConceptLanguage);
+		addLanguageDesignations(newDesignations, component, languageToDesignation, designationLang, promotedDesignationLanguage, noLanguage);
+		normalizeDisplayUseSystem(newDesignations);
+
+		String displayDesignationLanguage = resolveDisplayDesignationLanguage(promotedDesignationLanguage, requestedLanguage, defaultConceptLanguage);
+		String derivedDisplayValue = deriveDisplayValue(component, newDesignations, displayDesignationLanguage);
+		applyDisplayLanguageAndValue(newDesignations, displayDesignationLanguage, derivedDisplayValue);
+		inferMissingDesignationUse(newDesignations, derivedDisplayValue, displayDesignationLanguage);
+
+		// Remove HL7 "display" designations — redundant with component.display and not expected by the FHIR conformance suite.
+		newDesignations.removeIf(d -> d.getUse() != null
+				&& HL7_CS_DESIGNATION_USAGE.equals(d.getUse().getSystem())
+				&& DISPLAY.equals(d.getUse().getCode()));
+		// Ensure deterministic ordering for designations to avoid flaky expansions.
+		newDesignations.sort(CONCEPT_REFERENCE_DESIGNATION_COMPONENT_COMPARATOR);
+		component.setDesignation(newDesignations);
+	}
+
+	// If we replaced the display term and defaultConceptLanguage differs from what was requested, shift the old display term into a designation.
+	private void addPromotedDisplayAsDesignation(List<ValueSet.ConceptReferenceDesignationComponent> newDesignations,
+			ValueSet.ValueSetExpansionContainsComponent component, String originalDisplayTerm, String defaultConceptLanguage) {
+		if (originalDisplayTerm != null && !originalDisplayTerm.equals(component.getDisplay())) {
+			ValueSet.ConceptReferenceDesignationComponent existingDisplayAsDesignation = new ValueSet.ConceptReferenceDesignationComponent();
+			existingDisplayAsDesignation.setValue(originalDisplayTerm);
+			existingDisplayAsDesignation.setLanguage(defaultConceptLanguage);
+			existingDisplayAsDesignation.setUse(new Coding(HL7_CS_TERM_INFRA, PREFERRED_FOR_LANGUAGE, null));
+			newDesignations.add(existingDisplayAsDesignation);
+		}
+	}
+
+	private void addLanguageDesignations(List<ValueSet.ConceptReferenceDesignationComponent> newDesignations,
+			ValueSet.ValueSetExpansionContainsComponent component,
+			Map<String, List<ValueSet.ConceptReferenceDesignationComponent>> languageToDesignation, List<String> designationLang,
+			String promotedDesignationLanguage, List<ValueSet.ConceptReferenceDesignationComponent> noLanguage) {
+		// Something I disagree with, and we might want to do this for non-SNOMED system only, but the Validator expects that if a designation
+		// has been promoted to the display term, then we don't also include it as a separate designation.
+		final String wrappedPromotedDesignationLanguage = promotedDesignationLanguage;
+		final String componentDisplay = component.getDisplay();
+		newDesignations.addAll(languageToDesignation.values().stream()
+				.flatMap(List::stream)
+				.filter(d -> designationLang.isEmpty() || designationLang.contains(d.getLanguage()))
+				.filter((d -> !(d.getValue().equals(componentDisplay)
+								&& d.getLanguage().equals(wrappedPromotedDesignationLanguage))))
+				.filter(d -> {
+					// For SNOMED, only include FSN and PT (synonym matching the display). Non-SNOMED: keep all.
+					if (!FHIRHelper.isSnomedUri(component.getSystem())) return true;
+					boolean isFsn = d.getUse() != null && "900000000000003001".equals(d.getUse().getCode());
+					boolean isPt = d.getValue() != null && d.getValue().equals(componentDisplay);
+					return isFsn || isPt;
+				})
+				.toList());
+		// For SNOMED, noLanguage designations are also filtered to FSN + PT only
+		if (FHIRHelper.isSnomedUri(component.getSystem())) {
+			newDesignations.addAll(noLanguage.stream()
 					.filter(d -> {
-						// For SNOMED, only include FSN and PT (synonym matching the display). Non-SNOMED: keep all.
-						if (!FHIRHelper.isSnomedUri(component.getSystem())) return true;
 						boolean isFsn = d.getUse() != null && "900000000000003001".equals(d.getUse().getCode());
 						boolean isPt = d.getValue() != null && d.getValue().equals(componentDisplay);
 						return isFsn || isPt;
-					})
-					.toList());
-			// For SNOMED, noLanguage designations are also filtered to FSN + PT only
-			if (FHIRHelper.isSnomedUri(component.getSystem())) {
-				newDesignations.addAll(noLanguage.stream()
-						.filter(d -> {
-							boolean isFsn = d.getUse() != null && "900000000000003001".equals(d.getUse().getCode());
-							boolean isPt = d.getValue() != null && d.getValue().equals(componentDisplay);
-							return isFsn || isPt;
-						}).toList());
-			} else {
-				newDesignations.addAll(noLanguage);
-			}
-			// Some designation sources may populate a Coding with a missing `system`.
-			// Normalize the HL7 "display" use system to ensure stable output.
-			newDesignations.forEach(d -> {
-				if (d.getUse() != null && d.getUse().getSystem() == null && FHIRConstants.DISPLAY.equals(d.getUse().getCode())) {
-					// Replace coding instance to ensure HAPI model state is updated.
-					d.setUse(new Coding(FHIRConstants.HL7_CS_DESIGNATION_USAGE, d.getUse().getCode(), d.getUse().getDisplay()));
-				}
-			});
-
-			// Some serialized designations may retain only the HL7 "display" coding without language/value.
-			// Ensure the HAPI model has stable language/value so validators/tests can match deterministically.
-			final String displayDesignationLanguage;
-			if (promotedDesignationLanguage != null) {
-				displayDesignationLanguage = promotedDesignationLanguage;
-			} else {
-				if (requestedLanguage != null) {
-					displayDesignationLanguage = requestedLanguage;
-				} else {
-					displayDesignationLanguage = defaultConceptLanguage;
-				}
-			}
-
-			// If the ValueSet component display is missing, derive the display value from other in-language designations.
-			final String derivedDisplayValue;
-			if (component.getDisplay() != null) {
-				derivedDisplayValue = component.getDisplay();
-			} else {
-				derivedDisplayValue = newDesignations.stream()
-						.filter(d -> displayDesignationLanguage != null && displayDesignationLanguage.equals(d.getLanguage()))
-						.filter(d -> {
-							Coding use = d.getUse();
-							return !(use != null
-									&& FHIRConstants.HL7_CS_DESIGNATION_USAGE.equals(use.getSystem())
-									&& FHIRConstants.DISPLAY.equals(use.getCode()));
-						})
-						.map(ValueSet.ConceptReferenceDesignationComponent::getValue)
-						.filter(Objects::nonNull)
-						.min(Comparator
-								.<String>comparingInt(String::length)
-								.thenComparing(Comparator.naturalOrder()))
-						.orElse(null);
-			}
-			newDesignations.forEach(d -> {
-				if (d.getUse() != null
-						&& FHIRConstants.HL7_CS_DESIGNATION_USAGE.equals(d.getUse().getSystem())
-						&& FHIRConstants.DISPLAY.equals(d.getUse().getCode())) {
-					if (d.getLanguage() == null && displayDesignationLanguage != null) {
-						d.setLanguage(displayDesignationLanguage);
-					}
-					if (d.getValue() == null && derivedDisplayValue != null) {
-						d.setValue(derivedDisplayValue);
-					}
-				}
-			});
-
-			// If we have the HL7 display designation but the other in-language designations are missing `use`,
-			// infer them (FSN vs synonym) to provide stable output for clients/tests.
-			if (derivedDisplayValue != null && displayDesignationLanguage != null) {
-				List<ValueSet.ConceptReferenceDesignationComponent> noUseInLanguage = newDesignations.stream()
-						.filter(d -> displayDesignationLanguage.equals(d.getLanguage()))
-						.filter(d -> {
-							Coding use = d.getUse();
-							return use == null || use.getSystem() == null || use.getCode() == null;
-						})
-						.toList();
-
-				if (noUseInLanguage.size() == 2) {
-					noUseInLanguage.forEach(d -> {
-						if (derivedDisplayValue.equals(d.getValue())) {
-							// Synonym
-							d.setUse(new Coding(FHIRConstants.SNOMED_URI, Concepts.SYNONYM, null));
-						} else {
-							// Fully specified name
-							d.setUse(new Coding(FHIRConstants.SNOMED_URI, Concepts.FSN, null));
-						}
-					});
-				}
-			}
-			// Remove HL7 "display" designations — redundant with component.display and not expected by the FHIR conformance suite.
-			newDesignations.removeIf(d -> d.getUse() != null
-					&& HL7_CS_DESIGNATION_USAGE.equals(d.getUse().getSystem())
-					&& DISPLAY.equals(d.getUse().getCode()));
-			// Ensure deterministic ordering for designations to avoid flaky expansions.
-			newDesignations.sort(CONCEPT_REFERENCE_DESIGNATION_COMPONENT_COMPARATOR);
-			component.setDesignation(newDesignations);
+					}).toList());
 		} else {
-			component.setDesignation(emptyList());
+			newDesignations.addAll(noLanguage);
+		}
+	}
+
+	// Some designation sources may populate a Coding with a missing `system`. Normalize the HL7 "display" use system to ensure stable output.
+	private void normalizeDisplayUseSystem(List<ValueSet.ConceptReferenceDesignationComponent> newDesignations) {
+		newDesignations.forEach(d -> {
+			if (d.getUse() != null && d.getUse().getSystem() == null && FHIRConstants.DISPLAY.equals(d.getUse().getCode())) {
+				// Replace coding instance to ensure HAPI model state is updated.
+				d.setUse(new Coding(FHIRConstants.HL7_CS_DESIGNATION_USAGE, d.getUse().getCode(), d.getUse().getDisplay()));
+			}
+		});
+	}
+
+	private String resolveDisplayDesignationLanguage(String promotedDesignationLanguage, String requestedLanguage, String defaultConceptLanguage) {
+		if (promotedDesignationLanguage != null) {
+			return promotedDesignationLanguage;
+		}
+		if (requestedLanguage != null) {
+			return requestedLanguage;
+		}
+		return defaultConceptLanguage;
+	}
+
+	// If the ValueSet component display is missing, derive the display value from other in-language designations.
+	private String deriveDisplayValue(ValueSet.ValueSetExpansionContainsComponent component,
+			List<ValueSet.ConceptReferenceDesignationComponent> newDesignations, String displayDesignationLanguage) {
+		if (component.getDisplay() != null) {
+			return component.getDisplay();
+		}
+		return newDesignations.stream()
+				.filter(d -> displayDesignationLanguage != null && displayDesignationLanguage.equals(d.getLanguage()))
+				.filter(d -> {
+					Coding use = d.getUse();
+					return !(use != null
+							&& FHIRConstants.HL7_CS_DESIGNATION_USAGE.equals(use.getSystem())
+							&& FHIRConstants.DISPLAY.equals(use.getCode()));
+				})
+				.map(ValueSet.ConceptReferenceDesignationComponent::getValue)
+				.filter(Objects::nonNull)
+				.min(Comparator
+						.<String>comparingInt(String::length)
+						.thenComparing(Comparator.naturalOrder()))
+				.orElse(null);
+	}
+
+	// Some serialized designations may retain only the HL7 "display" coding without language/value.
+	// Ensure the HAPI model has stable language/value so validators/tests can match deterministically.
+	private void applyDisplayLanguageAndValue(List<ValueSet.ConceptReferenceDesignationComponent> newDesignations,
+			String displayDesignationLanguage, String derivedDisplayValue) {
+		newDesignations.forEach(d -> {
+			if (d.getUse() != null
+					&& FHIRConstants.HL7_CS_DESIGNATION_USAGE.equals(d.getUse().getSystem())
+					&& FHIRConstants.DISPLAY.equals(d.getUse().getCode())) {
+				if (d.getLanguage() == null && displayDesignationLanguage != null) {
+					d.setLanguage(displayDesignationLanguage);
+				}
+				if (d.getValue() == null && derivedDisplayValue != null) {
+					d.setValue(derivedDisplayValue);
+				}
+			}
+		});
+	}
+
+	// If we have the HL7 display designation but the other in-language designations are missing `use`,
+	// infer them (FSN vs synonym) to provide stable output for clients/tests.
+	private void inferMissingDesignationUse(List<ValueSet.ConceptReferenceDesignationComponent> newDesignations,
+			String derivedDisplayValue, String displayDesignationLanguage) {
+		if (derivedDisplayValue == null || displayDesignationLanguage == null) {
+			return;
+		}
+		List<ValueSet.ConceptReferenceDesignationComponent> noUseInLanguage = newDesignations.stream()
+				.filter(d -> displayDesignationLanguage.equals(d.getLanguage()))
+				.filter(d -> {
+					Coding use = d.getUse();
+					return use == null || use.getSystem() == null || use.getCode() == null;
+				})
+				.toList();
+
+		if (noUseInLanguage.size() == 2) {
+			noUseInLanguage.forEach(d -> {
+				if (derivedDisplayValue.equals(d.getValue())) {
+					// Synonym
+					d.setUse(new Coding(FHIRConstants.SNOMED_URI, Concepts.SYNONYM, null));
+				} else {
+					// Fully specified name
+					d.setUse(new Coding(FHIRConstants.SNOMED_URI, Concepts.FSN, null));
+				}
+			});
 		}
 	}
 
