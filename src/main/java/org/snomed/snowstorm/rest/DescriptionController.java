@@ -177,7 +177,7 @@ public class DescriptionController {
 
 	@Operation(summary = "Delete a description.")
 	@DeleteMapping(value = "{branch}/descriptions/{descriptionId}")
-	@PreAuthorize("hasPermission('AUTHOR', #branch)")
+	@PreAuthorize("hasPermission('ADMIN', #branch) || (hasPermission('AUTHOR', #branch) && !#force)")
 	@JsonView(value = View.Component.class)
 	public void deleteDescription(
 			@PathVariable String branch,

@@ -116,7 +116,7 @@ public class RelationshipController {
 
 	@Operation(summary = "Delete a relationship.")
 	@DeleteMapping(value = "{branch}/relationships/{relationshipId}")
-	@PreAuthorize("hasPermission('AUTHOR', #branch)")
+	@PreAuthorize("hasPermission('ADMIN', #branch) || (hasPermission('AUTHOR', #branch) && !#force)")
 	@ResponseStatus(HttpStatus.NO_CONTENT)
 	public void deleteRelationship(
 			@PathVariable String branch,
@@ -129,7 +129,7 @@ public class RelationshipController {
 
 	@Operation(summary = "Batch delete relationships.")
 	@DeleteMapping(value = "{branch}/relationships")
-	@PreAuthorize("hasPermission('AUTHOR', #branch)")
+	@PreAuthorize("hasPermission('ADMIN', #branch) || (hasPermission('AUTHOR', #branch) && !#force)")
 	@ResponseStatus(HttpStatus.NO_CONTENT)
 	public void deleteRelationships(
 			@PathVariable String branch,

@@ -296,7 +296,7 @@ public class ReferenceSetMemberController {
 
 	@Operation(summary = "Delete a reference set member.")
 	@DeleteMapping(value = "/{branch}/members/{uuid}")
-	@PreAuthorize("hasPermission('AUTHOR', #branch)")
+	@PreAuthorize("hasPermission('ADMIN', #branch) || (hasPermission('AUTHOR', #branch) && !#force)")
 	@JsonView(value = View.Component.class)
 	@ResponseStatus(HttpStatus.NO_CONTENT)
 	public void deleteMember(
@@ -310,7 +310,7 @@ public class ReferenceSetMemberController {
 
 	@Operation(summary = "Batch delete reference set members.")
 	@DeleteMapping(value = "/{branch}/members")
-	@PreAuthorize("hasPermission('AUTHOR', #branch)")
+	@PreAuthorize("hasPermission('ADMIN', #branch) || (hasPermission('AUTHOR', #branch) && !#force)")
 	@JsonView(value = View.Component.class)
 	@ResponseStatus(HttpStatus.NO_CONTENT)
 	public void deleteMembers(
