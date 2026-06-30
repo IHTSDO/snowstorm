@@ -1,10 +1,12 @@
 package org.snomed.snowstorm.rest;
 
 import org.junit.jupiter.api.Test;
-import org.snomed.snowstorm.core.data.domain.Concept;
-import org.snomed.snowstorm.core.data.domain.Concepts;
+import org.snomed.snowstorm.core.data.domain.*;
+import org.snomed.snowstorm.core.data.services.ConceptService;
+import org.snomed.snowstorm.core.data.services.ServiceException;
 import org.snomed.snowstorm.rest.pojo.ConceptBulkLoadRequest;
 import org.snomed.snowstorm.rest.pojo.ConceptSearchRequest;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.RequestEntity;
@@ -14,7 +16,12 @@ import java.net.URISyntaxException;
 import java.util.Collections;
 import java.util.List;
 
+import static org.junit.jupiter.api.Assertions.*;
+
 class ConceptControllerSecurityTest extends AbstractControllerSecurityTest {
+
+	@Autowired
+	private ConceptService conceptService;
 
 	@Test
 	void findConcepts() throws URISyntaxException {
@@ -116,7 +123,7 @@ class ConceptControllerSecurityTest extends AbstractControllerSecurityTest {
 		testStatusCode(HttpStatus.FORBIDDEN, extensionAuthorHeaders, request);
 		testStatusCode(HttpStatus.BAD_REQUEST, multiExtensionAuthorHeaders, request);// concept already deleted
 		testStatusCode(HttpStatus.FORBIDDEN, extensionAdminHeaders, request);
-		testStatusCode(HttpStatus.FORBIDDEN, globalAdminHeaders, request);
+		testStatusCode(HttpStatus.BAD_REQUEST, globalAdminHeaders, request);
 
 		// Create concept first
 		testStatusCode(HttpStatus.OK, extensionAuthorHeaders, new RequestEntity<>(new Concept(Concepts.CLINICAL_FINDING).addFSN("Test"), HttpMethod.POST, new URI(
@@ -127,9 +134,57 @@ class ConceptControllerSecurityTest extends AbstractControllerSecurityTest {
 		testStatusCode(HttpStatus.FORBIDDEN, userWithoutRoleHeaders, requestA);
 		testStatusCode(HttpStatus.FORBIDDEN, authorHeaders, requestA);
 		testStatusCode(HttpStatus.OK, extensionAuthorHeaders, requestA);
-		testStatusCode(HttpStatus.BAD_REQUEST, multiExtensionAuthorHeaders, requestA);// concept already deleted
-		testStatusCode(HttpStatus.FORBIDDEN, extensionAdminHeaders, requestA);
-		testStatusCode(HttpStatus.FORBIDDEN, globalAdminHeaders, requestA);
+		testStatusCode(HttpStatus.BAD_REQUEST, multiExtensionAuthorHeaders, requestA);
+		testStatusCode(HttpStatus.BAD_REQUEST, extensionAdminHeaders, requestA);
+		testStatusCode(HttpStatus.BAD_REQUEST, globalAdminHeaders, requestA);
+	}
+
+	@Test
+	void forceDelete_ShouldReturnExpected_WhenAuthorDeleting() throws ServiceException, URISyntaxException {
+		String intMain = "MAIN";
+		Concept concept;
+		CodeSystem codeSystem;
+
+		// 1. Create International Concept
+		concept = new Concept()
+				.addDescription(new Description("Medicine (medicine)").setTypeId(Concepts.FSN))
+				.addDescription(new Description("Medicine").setTypeId(Concepts.SYNONYM))
+				.addAxiom(new Relationship(Concepts.ISA, Concepts.SNOMEDCT_ROOT));
+		concept = conceptService.create(concept, intMain);
+		String conceptId = concept.getConceptId();
+
+		// 2. Version International
+		codeSystem = codeSystemService.find("SNOMEDCT");
+		codeSystemService.createVersion(codeSystem, 20260101, "20260101");
+
+		// 3. Force delete published Concept
+		RequestEntity<Object> deleteRequest = new RequestEntity<>(HttpMethod.DELETE, new URI(url + "/" + intMain + "/concepts/" + conceptId + "?force=true"));
+		testStatusCode(HttpStatus.FORBIDDEN, authorHeaders, deleteRequest);
+		assertNotNull(conceptService.find(conceptId, intMain));
+	}
+
+	@Test
+	void forceDelete_ShouldReturnExpected_WhenAdminDeleting() throws ServiceException, URISyntaxException {
+		String intMain = "MAIN";
+		Concept concept;
+		CodeSystem codeSystem;
+
+		// 1. Create International Concept
+		concept = new Concept()
+				.addDescription(new Description("Medicine (medicine)").setTypeId(Concepts.FSN))
+				.addDescription(new Description("Medicine").setTypeId(Concepts.SYNONYM))
+				.addAxiom(new Relationship(Concepts.ISA, Concepts.SNOMEDCT_ROOT));
+		concept = conceptService.create(concept, intMain);
+		String conceptId = concept.getConceptId();
+
+		// 2. Version International
+		codeSystem = codeSystemService.find("SNOMEDCT");
+		codeSystemService.createVersion(codeSystem, 20260101, "20260101");
+
+		// 3. Force delete published Concept
+		RequestEntity<Object> deleteRequest = new RequestEntity<>(HttpMethod.DELETE, new URI(url + "/" + intMain + "/concepts/" + conceptId + "?force=true"));
+		testStatusCode(HttpStatus.OK, globalAdminHeaders, deleteRequest);
+		assertNull(conceptService.find(conceptId, intMain));
 	}
 
 	@Test

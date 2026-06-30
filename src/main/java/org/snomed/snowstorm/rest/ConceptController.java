@@ -528,7 +528,7 @@ public class ConceptController {
 	}
 
 	@DeleteMapping(value = "/{branch}/concepts/{conceptId}")
-	@PreAuthorize("hasPermission('AUTHOR', #branch)")
+	@PreAuthorize("hasPermission('ADMIN', #branch) || (hasPermission('AUTHOR', #branch) && !#force)")
 	public void deleteConcept(
 			@PathVariable String branch,
 			@PathVariable String conceptId,
