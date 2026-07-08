@@ -23,18 +23,17 @@ public class WebRouteController {
 					description = "Swagger will attempt to follow the 302 redirection, so use developer's tools network tab to view the redirection issued.")
 	@GetMapping(value = "/web-route")
 	@CrossOrigin
-	public ResponseEntity<?> issueRedirect(@RequestParam String uri,
+	public ResponseEntity<Void> issueRedirect(@RequestParam String uri,
 			@RequestParam(required = false) String _format,
 			@RequestHeader(value = "Accept", required = false) String acceptHeader) throws URISyntaxException {
-		try {
-			String redirectionStr = webRoutingService.determineRedirectionString(uri, acceptHeader, _format);
-			HttpHeaders headers = new HttpHeaders();
-			headers.add("Access-Control-Allow-Headers", "x-requested-with, Content-Type");
-			headers.setLocation(new URI(redirectionStr));
-			return new ResponseEntity<Void>(headers,HttpStatus.FOUND);
-		} catch (IllegalArgumentException e) {
-			return new ResponseEntity<>(e.toString(), HttpStatus.BAD_REQUEST);
-		}
+		// IllegalArgumentException is intentionally left to propagate to RestControllerAdvice, which renders it
+		// as JSON. Reflecting the raw, attacker-supplied uri in a String response here previously allowed the
+		// request's Accept header to make Spring emit Content-Type: text/html, turning it into a reflected XSS.
+		String redirectionStr = webRoutingService.determineRedirectionString(uri, acceptHeader, _format);
+		HttpHeaders headers = new HttpHeaders();
+		headers.add("Access-Control-Allow-Headers", "x-requested-with, Content-Type");
+		headers.setLocation(new URI(redirectionStr));
+		return new ResponseEntity<>(headers, HttpStatus.FOUND);
 	}
 
 }
