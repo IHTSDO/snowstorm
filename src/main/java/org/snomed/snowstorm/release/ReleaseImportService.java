@@ -185,9 +185,7 @@ public class ReleaseImportService {
             } else {
                 throw new ResourceNotFoundException(String.format("Release file '%s' not found from Module Storage Coordinator", releaseFilename));
             }
-        } catch (ModuleStorageCoordinatorException.OperationFailedException |
-                 ModuleStorageCoordinatorException.InvalidArgumentsException |
-                 ModuleStorageCoordinatorException.ResourceNotFoundException e) {
+        } catch (ModuleStorageCoordinatorException e) {
             throw new ServiceException("Failed to upgrade the code system " + codeSystem.getShortName(), e);
         }
     }
