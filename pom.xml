@@ -31,6 +31,14 @@
 
 	<dependencies>
 		<dependency>
+			<!-- Override the version pulled in transitively by drools-mvel; 2.4.15.Final's static
+				initializer references the long-removed java.lang.Compiler class, which breaks
+				DroolsValidationService startup on JDK 21+. -->
+			<groupId>org.mvel</groupId>
+			<artifactId>mvel2</artifactId>
+			<version>2.5.2.Final</version>
+		</dependency>
+		<dependency>
 			<groupId>org.apache.jena</groupId>
 			<artifactId>jena-core</artifactId>
 			<exclusions>
