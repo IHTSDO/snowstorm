@@ -46,6 +46,7 @@ public class SyndicationService {
 	private static final long STANDARD_RF2_IMPORT_DURATION_MS = 50L * 60 * 1000;
 	private static final long STANDARD_RF2_PACKAGE_BYTES = SyndicationClient.DEFAULT_RF2_PACKAGE_LENGTH_BYTES;
 	private static final long MIN_RF2_IMPORT_DURATION_MS = 30_000L;
+	public static final String VERSION = "/version/";
 
 	private final SyndicationClient syndicationClient;
 	private final Queue<InstallationTask> installationQueue;
@@ -80,7 +81,7 @@ public class SyndicationService {
 			List<SyndicationFeedEntry> feedEntries = mapEntry.getValue();
 			String titleCleaned = feedEntries.get(0).getTitleCleaned();
 			edition.setTitle(titleCleaned);
-			String versionUriPrefix = mapEntry.getKey() + "/version/";
+			String versionUriPrefix = mapEntry.getKey() + VERSION;
 			edition.setVersionsAvailable(feedEntries.stream().map(entry -> entry.getContentItemVersion().replace(versionUriPrefix, "")).toList());
 			if (titleCleaned.equals("SNOMED CT International Edition")) {
 				internationalEdition = edition;
@@ -136,8 +137,7 @@ public class SyndicationService {
 		if (versionUri == null) {
 			return "";
 		}
-		String marker = "/version/";
-		int idx = versionUri.lastIndexOf(marker);
+		int idx = versionUri.lastIndexOf(VERSION);
 		if (idx <= 0) {
 			return versionUri;
 		}
@@ -157,12 +157,11 @@ public class SyndicationService {
 		if (contentItemVersion == null) {
 			return Optional.empty();
 		}
-		String marker = "/version/";
-		int idx = contentItemVersion.lastIndexOf(marker);
+		int idx = contentItemVersion.lastIndexOf(VERSION);
 		if (idx < 0) {
 			return Optional.empty();
 		}
-		String suffix = contentItemVersion.substring(idx + marker.length());
+		String suffix = contentItemVersion.substring(idx + VERSION.length());
 		if (suffix.length() != 8 || !suffix.chars().allMatch(Character::isDigit)) {
 			return Optional.empty();
 		}
@@ -225,7 +224,7 @@ public class SyndicationService {
 				SyndicationFeed feed = syndicationClient.getFeed();
 
 				// Construct version URI
-				String versionUri = task.getEditionId() + "/version/" + task.getVersion();
+				String versionUri = task.getEditionId() + VERSION + task.getVersion();
 
 				// Find entry
 				SyndicationFeedEntry entry = syndicationClient.findEntry(versionUri, feed);

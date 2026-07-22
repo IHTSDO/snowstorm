@@ -177,7 +177,8 @@ public class SyndicationClient {
 	}
 
 	private File downloadPackage(Pair<SyndicationFeedEntry, SyndicationLink> packageEntry, Pair<String, String> creds,
-			InstallationPackageProgress progress) throws IOException {
+			InstallationPackageProgress progress) throws ServiceException, IOException {
+
 		SyndicationFeedEntry entry = packageEntry.getFirst();
 		SyndicationLink packageLink = packageEntry.getSecond();
 		final String contentItemVersion = entry.getContentItemVersion() != null ? entry.getContentItemVersion() : "(unknown)";
@@ -220,8 +221,7 @@ public class SyndicationClient {
 						return outputFile;
 					});
 		} catch (Exception e) {
-			logger.error("Failed RF2 package download for {}", contentItemVersion, e);
-			throw new IOException(e);
+			throw new ServiceException("Failed RF2 package download for %s".formatted(contentItemVersion), e);
 		}
 		return outputFile;
 	}
