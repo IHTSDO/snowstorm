@@ -170,10 +170,14 @@ public class SyndicationClient {
 				InstallationPackageProgress progress = progressSlots != null && i < progressSlots.size() ? progressSlots.get(i) : null;
 				packageFilePaths.add(downloadPackage(ordered.get(i), creds, progress).getAbsolutePath());
 			}
+			return packageFilePaths;
 		} catch (HttpClientErrorException e) {
+			deleteTempFiles(packageFilePaths);
 			throw new ServiceException(format("Failed to download package due to HTTP error: %s", e.getStatusCode()), e);
+		} catch (IOException | ServiceException e) {
+			deleteTempFiles(packageFilePaths);
+			throw e;
 		}
-		return packageFilePaths;
 	}
 
 	private File downloadPackage(Pair<SyndicationFeedEntry, SyndicationLink> packageEntry, Pair<String, String> creds,
@@ -220,10 +224,33 @@ public class SyndicationClient {
 						}
 						return outputFile;
 					});
+			return outputFile;
 		} catch (Exception e) {
+			deleteTempFile(outputFile);
 			throw new ServiceException("Failed RF2 package download for %s".formatted(contentItemVersion), e);
 		}
-		return outputFile;
+	}
+
+	private void deleteTempFiles(List<String> paths) {
+		if (paths == null) {
+			return;
+		}
+		for (String path : paths) {
+			if (path != null) {
+				deleteTempFile(new File(path));
+			}
+		}
+	}
+
+	private void deleteTempFile(File file) {
+		if (file == null) {
+			return;
+		}
+		try {
+			Files.deleteIfExists(file.toPath());
+		} catch (IOException e) {
+			logger.warn("Failed to delete temp syndication archive {}", file.getAbsolutePath(), e);
+		}
 	}
 
 	public static long parseDeclaredPackageBytes(String lengthString) {

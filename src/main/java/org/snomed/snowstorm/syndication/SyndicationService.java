@@ -23,6 +23,7 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.Date;
@@ -304,11 +305,7 @@ public class SyndicationService {
 					File file = new File(filePath);
 					InstallationPackageProgress pkg = i < packageSlots.size() ? packageSlots.get(i) : null;
 					if (!file.exists()) {
-						logger.warn("Downloaded file does not exist: {}", filePath);
-						if (pkg != null) {
-							pkg.markImportComplete();
-						}
-						continue;
+						throw new ServiceException("Downloaded file does not exist: " + filePath);
 					}
 					long est = estimatedImportMillis(pkg != null ? pkg.getDeclaredSizeBytes() : STANDARD_RF2_PACKAGE_BYTES);
 					if (pkg != null) {
@@ -330,6 +327,8 @@ public class SyndicationService {
 				task.setStatus(InstallationTask.InstallationStatus.FAILED);
 				task.setErrorMessage(e.getMessage());
 				task.setCompletedAt(new Date());
+			} finally {
+				cleanupRemainingDownloadedFiles(task);
 			}
 		} finally {
 			// Restore original SecurityContext
@@ -337,18 +336,23 @@ public class SyndicationService {
 		}
 	}
 
+	private void cleanupRemainingDownloadedFiles(InstallationTask task) {
+		for (String filePath : task.getDownloadedFiles()) {
+			try {
+				Files.deleteIfExists(Path.of(filePath));
+			} catch (IOException e) {
+				logger.warn("Failed to delete temp syndication archive {}", filePath, e);
+			}
+		}
+	}
+
 	private void importFile(InstallationTask task, File file, String branchPath, String filePath, InstallationPackageProgress pkg)
-			throws ReleaseImportException {
+			throws ReleaseImportException, IOException {
 		try (FileInputStream inputStream = new FileInputStream(file)) {
 			String importId = importService.createJob(RF2Type.SNAPSHOT, branchPath, false, false);
 			task.getImportJobIds().add(importId);
 			logger.info("Created import job {} for file {} on branch {}", importId, filePath, branchPath);
 			importService.importArchive(importId, inputStream);
-			if (pkg != null) {
-				pkg.markImportComplete();
-			}
-		} catch (IOException e) {
-			logger.error("Failed to create import job for file {}", filePath, e);
 			if (pkg != null) {
 				pkg.markImportComplete();
 			}
