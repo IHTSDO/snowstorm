@@ -68,6 +68,10 @@ public class CodeSystemService {
 	private static final Pattern VERSION_BRANCH_NAME_PATTERN = Pattern.compile("[0-9]{4}-[0-9]{2}-[0-9]{2}");
 	public static final String VERSION_ALREADY_EXISTS = "Aborting Code System Version creation. This version already exists.";
 
+	public static boolean isEmpty2000Version(CodeSystemVersion version) {
+		return version != null && version.getEffectiveDate() != null && EMPTY_2000_VERSION_DATE == version.getEffectiveDate();
+	}
+
 
     @Value("${code-systems.version.visible.after.published.date}")
 	private Set<String> codeSystemsWithVersionVisibleAfterPublishedDate;

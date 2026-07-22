@@ -611,9 +611,15 @@ public class FHIRCodeSystemService implements TxResourceAware {
 			return new FHIRCodeSystemVersion(snomedVersion);
 		}
 		// No specific version requested - try latest published, fall back to code system branch (MAIN)
-		CodeSystemVersion latestVersion = snomedCodeSystemService.findLatestVisibleVersion(snomedCodeSystem.getShortName());
+		CodeSystemVersion latestVersion = findLatestVisibleSnomedVersionForFhir(snomedCodeSystem.getShortName());
 		if (latestVersion == null) {
-			latestVersion = snomedCodeSystemService.findLatestImportedVersion(snomedCodeSystem.getShortName());
+			latestVersion = findLatestImportedSnomedVersionForFhir(snomedCodeSystem.getShortName());
+		}
+		if (latestVersion == null && params.getSnomedModule() == null) {
+			latestVersion = findLatestVisibleSnomedVersionOfAnyEditionForFhir();
+			if (latestVersion != null) {
+				snomedCodeSystem = latestVersion.getCodeSystem();
+			}
 		}
 		if (latestVersion != null) {
 			latestVersion.setCodeSystem(snomedCodeSystem);
@@ -645,9 +651,9 @@ public class FHIRCodeSystemService implements TxResourceAware {
 		CodeSystemVersion snomedVersion;
 
 		if (version == null) {
-			snomedVersion = snomedCodeSystemService.findLatestVisibleVersion(shortName);
+			snomedVersion = findLatestVisibleSnomedVersionForFhir(shortName);
 			if (snomedVersion == null) {
-				snomedVersion = snomedCodeSystemService.findLatestImportedVersion(shortName);
+				snomedVersion = findLatestImportedSnomedVersionForFhir(shortName);
 			}
 			if (snomedVersion == null) {
 				throw exception(format("The latest version of the requested CodeSystem %s was not found.",
@@ -656,7 +662,7 @@ public class FHIRCodeSystemService implements TxResourceAware {
 			}
 		} else {
 			snomedVersion = snomedCodeSystemService.findVersion(shortName, Integer.parseInt(version));
-			if (snomedVersion == null) {
+			if (snomedVersion == null || CodeSystemService.isEmpty2000Version(snomedVersion)) {
 				throw exception(format("The requested CodeSystem version %s was not found.",
 								params.toDiagnosticString()),
 						OperationOutcome.IssueType.NOTFOUND, 404);
@@ -690,9 +696,11 @@ public class FHIRCodeSystemService implements TxResourceAware {
 		for (org.snomed.snowstorm.core.data.domain.CodeSystem edition : editions) {
 			List<CodeSystemVersion> editionVersions = snomedCodeSystemService.findAllVersions(edition.getShortName(), true, true);
 			for (CodeSystemVersion editionVersion : editionVersions) {
-				editionVersion.setCodeSystem(edition);
+				if (!CodeSystemService.isEmpty2000Version(editionVersion)) {
+					editionVersion.setCodeSystem(edition);
+					allVersions.add(editionVersion);
+				}
 			}
-			allVersions.addAll(editionVersions);
 		}
 		return allVersions;
 	}
@@ -715,6 +723,31 @@ public class FHIRCodeSystemService implements TxResourceAware {
 			conceptService.deleteExistingCodes(versionId);
 			codeSystemRepository.deleteById(versionId);
 		}
+	}
+
+	private CodeSystemVersion findLatestVisibleSnomedVersionForFhir(String shortName) {
+		CodeSystemVersion version = snomedCodeSystemService.findLatestVisibleVersion(shortName);
+		return CodeSystemService.isEmpty2000Version(version) ? null : version;
+	}
+
+	private CodeSystemVersion findLatestImportedSnomedVersionForFhir(String shortName) {
+		for (CodeSystemVersion version : snomedCodeSystemService.findAllVersions(shortName, false, true, true)) {
+			if (!CodeSystemService.isEmpty2000Version(version)) {
+				return version;
+			}
+		}
+		return null;
+	}
+
+	private CodeSystemVersion findLatestVisibleSnomedVersionOfAnyEditionForFhir() {
+		for (org.snomed.snowstorm.core.data.domain.CodeSystem codeSystem : snomedCodeSystemService.findAll()) {
+			CodeSystemVersion version = findLatestVisibleSnomedVersionForFhir(codeSystem.getShortName());
+			if (version != null) {
+				version.setCodeSystem(codeSystem);
+				return version;
+			}
+		}
+		return null;
 	}
 
 	public ConceptAndSystemResult findSnomedConcept(String code, List<LanguageDialect> languageDialects, FHIRCodeSystemVersionParams codeSystemParams) {
