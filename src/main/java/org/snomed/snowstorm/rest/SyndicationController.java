@@ -9,6 +9,7 @@ import org.snomed.snowstorm.syndication.SyndicationSnomedEdition;
 import org.snomed.snowstorm.syndication.dto.InstallEditionRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.io.IOException;
@@ -52,6 +53,7 @@ public class SyndicationController {
 
 	@Operation(summary = "Install a SNOMED CT edition", description = "Queues an installation task to download and import a SNOMED CT edition from the syndication feed")
 	@PostMapping("install")
+	@PreAuthorize("hasPermission('ADMIN', 'global')")
 	public ResponseEntity<InstallationTask> installEdition(@RequestBody InstallEditionRequest request) {
 		if (request.getEditionId() == null || request.getVersion() == null || !request.getVersion().matches("\\d{8}")) {
 			return ResponseEntity.badRequest().build();

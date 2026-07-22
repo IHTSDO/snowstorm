@@ -8,7 +8,7 @@ In this mode all API functions which make changes to content are disabled, they 
 The alternative approach is to enable role based access to the API. In this mode groups of users can be granted the `ADMIN` or `AUTHOR` role either globally or on specific branches.
 If a role is granted on a branch that role will also be granted on ancestor branches but not if that ancestor branch contains a different code system.
 
-The `ADMIN` role is required for functions with `/admin/` in the URL and changing code systems, updating the metadata and lock status of branches and reloading authoring validation rules.
+The `ADMIN` role is required for functions with `/admin/` in the URL and changing code systems, updating the metadata and lock status of branches, reloading authoring validation rules, and installing or upgrading SNOMED CT editions via `POST /syndication/install`.
 
 The `AUTHOR` roles is required for making content changes, for example creating or updating concepts or reference set members or importing RF2.
 
