@@ -295,6 +295,13 @@ public class ConceptDroolsValidationService implements org.ihtsdo.drools.service
 	}
 
 	private Set<String> getConceptIdsByEcl(boolean stated, String ecl) {
-		return queryService.searchForIdStrings(queryService.createQueryBuilder(stated).ecl(ecl));
+		try {
+			return queryService.searchForIdStrings(queryService.createQueryBuilder(stated).ecl(ecl));
+		} catch (Exception e) {
+			// Degrade gracefully so one bad query does not block unrelated validation, but log the full exception
+			// so the failure is diagnosable (see MAINT-3116). Returns a mutable set as callers may add to it.
+			logger.error("ECL query failed during Drools validation. branch='{}', stated={}, ecl='{}'", branchCriteria.getBranchPath(), stated, ecl, e);
+			return new HashSet<>();
+		}
 	}
 }
