@@ -1,17 +1,24 @@
 package org.snomed.snowstorm.fhir.services;
 
+import io.kaicode.elasticvc.api.BranchService;
 import org.hl7.fhir.r4.model.CodeSystem;
 import org.hl7.fhir.r4.model.OperationOutcome;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.snomed.snowstorm.core.data.domain.CodeSystemVersion;
+import org.snomed.snowstorm.core.data.repositories.CodeSystemVersionRepository;
 import org.snomed.snowstorm.core.data.services.CodeSystemService;
 import org.snomed.snowstorm.core.data.services.ServiceException;
 import org.snomed.snowstorm.fhir.domain.FHIRCodeSystemVersion;
+import org.snomed.snowstorm.fhir.pojo.FHIRCodeSystemVersionParams;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import static org.hl7.fhir.r4.model.OperationOutcome.IssueType.INVARIANT;
 import static org.hl7.fhir.r4.model.OperationOutcome.IssueType.NOTFOUND;
 import static org.junit.jupiter.api.Assertions.*;
+import static org.snomed.snowstorm.core.data.services.CodeSystemService.EMPTY_2000_VERSION_DATE;
+import static org.snomed.snowstorm.fhir.config.FHIRConstants.SNOMED_URI;
 
 class FHIRCodeSystemServiceTest extends AbstractFHIRTest {
 
@@ -21,11 +28,35 @@ class FHIRCodeSystemServiceTest extends AbstractFHIRTest {
 	@Autowired
 	private CodeSystemService snomedCodeSystemService;
 
+	@Autowired
+	private BranchService branchService;
+
+	@Autowired
+	private CodeSystemVersionRepository versionRepository;
+
 	@BeforeEach
 	void beforeEachTest() {
 		org.snomed.snowstorm.core.data.domain.CodeSystem codeSystem = snomedCodeSystemService.find("SNOMEDCT-WK-EXP");
 		if (codeSystem != null) {
 			snomedCodeSystemService.deleteCodeSystemAndVersions(codeSystem, true);
+		}
+	}
+
+	@AfterEach
+	void afterEachTest() {
+		restoreInternationalPublishedVersionIfNeeded();
+	}
+
+	private void restoreInternationalPublishedVersionIfNeeded() {
+		org.snomed.snowstorm.core.data.domain.CodeSystem international = snomedCodeSystemService.find(CodeSystemService.SNOMEDCT);
+		if (international == null || snomedCodeSystemService.findVersion(CodeSystemService.SNOMEDCT, 20190131) != null) {
+			return;
+		}
+		String releaseBranchPath = international.getBranchPath() + "/2019-01-31";
+		io.kaicode.elasticvc.domain.Branch branch = branchService.findLatest(releaseBranchPath);
+		if (branch != null) {
+			versionRepository.save(new CodeSystemVersion(CodeSystemService.SNOMEDCT, branch.getHead(), international.getBranchPath(),
+					20190131, "2019-01-31", "", false));
 		}
 	}
 
@@ -148,5 +179,29 @@ class FHIRCodeSystemServiceTest extends AbstractFHIRTest {
 			assertTrue(e.getMessage().startsWith("The URL of this SNOMED CT CodeSystem supplement must have a version that follows the SNOMED CT URI standard and includes a module id. " +
 					"If a namespace was given in the version URL then the module id '11000003104' could be used. "), "Actual message: " + e.getMessage());
 		}
+	}
+
+	@Test
+	void getSnomedVersionOrThrowNeverUsesEmpty2000Version() {
+		org.snomed.snowstorm.core.data.domain.CodeSystem international = snomedCodeSystemService.find(CodeSystemService.SNOMEDCT);
+		org.snomed.snowstorm.core.data.domain.CodeSystemVersion internationalVersion =
+				snomedCodeSystemService.findVersion(CodeSystemService.SNOMEDCT, 20190131);
+		snomedCodeSystemService.deleteVersion(international, internationalVersion);
+		snomedCodeSystemService.getOrCreateEmpty2000Version();
+
+		FHIRCodeSystemVersion resolved = codeSystemService.getSnomedVersionOrThrow(new FHIRCodeSystemVersionParams(SNOMED_URI));
+		assertFalse(resolved.getVersion().contains(String.valueOf(EMPTY_2000_VERSION_DATE)));
+		assertTrue(resolved.getVersion().contains(String.valueOf(sampleVersion)));
+	}
+
+	@Test
+	void getSnomedVersionOrThrowExplicitEmpty2000VersionNotFound() {
+		snomedCodeSystemService.getOrCreateEmpty2000Version();
+
+		SnowstormFHIRServerResponseException exception = assertThrows(SnowstormFHIRServerResponseException.class,
+				() -> codeSystemService.getSnomedVersionOrThrow(new FHIRCodeSystemVersionParams(SNOMED_URI)
+						.setVersion(String.valueOf(EMPTY_2000_VERSION_DATE))));
+		assertEquals(404, exception.getStatusCode());
+		assertEquals(NOTFOUND, exception.getIssueCode());
 	}
 }

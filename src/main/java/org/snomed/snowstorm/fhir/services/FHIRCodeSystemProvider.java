@@ -19,6 +19,7 @@ import org.hl7.fhir.r4.model.*;
 import org.hl7.fhir.r4.model.OperationOutcome.IssueType;
 import org.jetbrains.annotations.NotNull;
 import org.snomed.snowstorm.core.data.domain.Concept;
+import org.snomed.snowstorm.core.data.services.CodeSystemService;
 import org.snomed.snowstorm.core.data.services.MultiSearchService;
 import org.snomed.snowstorm.core.data.services.ServiceException;
 import org.snomed.snowstorm.core.pojo.LanguageDialect;
@@ -172,6 +173,7 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants,
 				sortOn.stream().map(comparatorMap::get).reduce(Comparator::thenComparing).orElseGet(() -> Comparator.comparing(CodeSystem::getId));
 
 		Stream<CodeSystem> snomedCodeSystemStream = snomedMultiSearchService.getAllPublishedVersions().stream()
+				.filter(codeSystemVersion -> !CodeSystemService.isEmpty2000Version(codeSystemVersion))
 				.map(snomedSystemVersion -> new FHIRCodeSystemVersion(snomedSystemVersion).toHapiCodeSystem());
 
 		Stream<CodeSystem> fhirCodeSystemStream = StreamSupport.stream(fhirCodeSystemService.findAll().spliterator(), false)
@@ -193,6 +195,7 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants,
 			}
 		} else {
 			Stream<CodeSystem> snomedPublished = snomedMultiSearchService.getAllPublishedVersions().stream()
+					.filter(codeSystemVersion -> !CodeSystemService.isEmpty2000Version(codeSystemVersion))
 					.map(cv -> new FHIRCodeSystemVersion(cv).toHapiCodeSystem());
 
 			Optional<CodeSystem> snomedCodeSystem = snomedPublished

@@ -7,6 +7,7 @@ import org.hl7.fhir.r4.model.Enumerations;
 import org.hl7.fhir.r4.model.IdType;
 import org.hl7.fhir.r4.model.OperationOutcome;
 import org.snomed.snowstorm.core.data.domain.CodeSystem;
+import org.snomed.snowstorm.core.data.domain.CodeSystemVersion;
 import org.snomed.snowstorm.core.data.domain.ConceptMini;
 import org.snomed.snowstorm.core.data.domain.ReferenceSetMember;
 import org.snomed.snowstorm.core.data.services.CodeSystemService;
@@ -155,7 +156,8 @@ public class FHIRConceptMapService {
 
 	private boolean hasAnyImportedSnomedVersion() {
 		for (CodeSystem edition : codeSystemService.findAll()) {
-			if (codeSystemService.findLatestImportedVersion(edition.getShortName()) != null) {
+			CodeSystemVersion version = codeSystemService.findLatestImportedVersion(edition.getShortName());
+			if (version != null && !CodeSystemService.isEmpty2000Version(version)) {
 				return true;
 			}
 		}
