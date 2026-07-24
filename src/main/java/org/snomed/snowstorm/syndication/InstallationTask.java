@@ -153,6 +153,13 @@ public class InstallationTask {
 		return password;
 	}
 
+	/** Drop credentials and security context once the install no longer needs them. */
+	public void clearSensitiveData() {
+		this.username = null;
+		this.password = null;
+		this.securityContext = null;
+	}
+
 	public List<InstallationPackageProgress> getPackageProgress() {
 		return packageProgress;
 	}
