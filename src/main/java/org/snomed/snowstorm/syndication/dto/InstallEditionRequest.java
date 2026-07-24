@@ -8,6 +8,8 @@ public class InstallEditionRequest {
 	private String editionId;
 	private String version;
 	private List<String> derivativeContentItemVersions;
+	private String username;
+	private String password;
 
 	public InstallEditionRequest() {
 	}
@@ -39,6 +41,22 @@ public class InstallEditionRequest {
 
 	public void setDerivativeContentItemVersions(List<String> derivativeContentItemVersions) {
 		this.derivativeContentItemVersions = derivativeContentItemVersions;
+	}
+
+	public String getUsername() {
+		return username;
+	}
+
+	public void setUsername(String username) {
+		this.username = username;
+	}
+
+	public String getPassword() {
+		return password;
+	}
+
+	public void setPassword(String password) {
+		this.password = password;
 	}
 }
 

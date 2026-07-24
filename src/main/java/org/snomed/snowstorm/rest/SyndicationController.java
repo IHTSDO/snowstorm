@@ -7,9 +7,11 @@ import org.snomed.snowstorm.syndication.SyndicationService;
 import org.snomed.snowstorm.syndication.SyndicationDerivativeOption;
 import org.snomed.snowstorm.syndication.SyndicationSnomedEdition;
 import org.snomed.snowstorm.syndication.dto.InstallEditionRequest;
+import org.snomed.snowstorm.syndication.dto.SyndicationCredentialsStatus;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
 
 import java.io.IOException;
@@ -51,6 +53,13 @@ public class SyndicationController {
 		return syndicationService.getActiveInstallationTasks();
 	}
 
+	@GetMapping("credentials-configured")
+	@Operation(summary = "Check whether MLDS credentials are configured in server config",
+			description = "Returns whether syndication.username and syndication.password are set. Does not expose credentials.")
+	public SyndicationCredentialsStatus getCredentialsConfigured() {
+		return new SyndicationCredentialsStatus(syndicationService.isConfigCredentialsConfigured());
+	}
+
 	@Operation(summary = "Install a SNOMED CT edition", description = "Queues an installation task to download and import a SNOMED CT edition from the syndication feed")
 	@PostMapping("install")
 	@PreAuthorize("hasPermission('ADMIN', 'global')")
@@ -58,8 +67,13 @@ public class SyndicationController {
 		if (request.getEditionId() == null || request.getVersion() == null || !request.getVersion().matches("\\d{8}")) {
 			return ResponseEntity.badRequest().build();
 		}
+		if (!syndicationService.isConfigCredentialsConfigured()
+				&& (!StringUtils.hasText(request.getUsername()) || !StringUtils.hasText(request.getPassword()))) {
+			return ResponseEntity.badRequest().build();
+		}
 		String taskId = syndicationService.installEdition(
-				request.getEditionId(), request.getVersion(), request.getDerivativeContentItemVersions());
+				request.getEditionId(), request.getVersion(), request.getDerivativeContentItemVersions(),
+				request.getUsername(), request.getPassword());
 		InstallationTask task = syndicationService.getInstallationTask(taskId);
 		return ResponseEntity.status(HttpStatus.ACCEPTED).body(task);
 	}

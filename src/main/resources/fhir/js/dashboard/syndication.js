@@ -42,6 +42,18 @@ export const dashboardSyndication = {
 		groups.sort((a, b) => (a.title || '').localeCompare(b.title || '', undefined, { numeric: true }));
 		return groups;
 	},
+	async checkSyndicationConfigCredentials() {
+		try {
+			const res = await fetch('/syndication/credentials-configured');
+			if (res.ok) {
+				const data = await res.json();
+				this.syndicationConfigCredentialsConfigured = !!(data && data.configured);
+			}
+		} catch {
+			this.syndicationConfigCredentialsConfigured = false;
+		}
+	},
+
 	async loadSyndicationEditions() {
 		this.loadingSyndication = true;
 		this.loadingInstalledEditions = true;
@@ -51,7 +63,8 @@ export const dashboardSyndication = {
 		try {
 			[syndRes, csRes] = await Promise.all([
 				fetchWithTimeout('/syndication/snomed-editions', SYNDICATION_TIMEOUT_MS),
-				fetchWithTimeout(this.fhirBaseUrl + '/CodeSystem', AJAX_TIMEOUT_MS)
+				fetchWithTimeout(this.fhirBaseUrl + '/CodeSystem', AJAX_TIMEOUT_MS),
+				this.checkSyndicationConfigCredentials()
 			]);
 			const syndData = await syndRes.json();
 			const csData = await csRes.json();
@@ -279,6 +292,9 @@ export const dashboardSyndication = {
 		this.pendingSyndicationEdition = edition;
 		this.syndicationDerivativeGroups = [];
 		this.syndicationDerivativesError = null;
+		this.syndicationInstallUsername = '';
+		this.syndicationInstallPassword = '';
+		this.syndicationInstallCredentialsError = null;
 		const el = document.getElementById('syndicationDerivativesModal');
 		if (el && typeof bootstrap !== 'undefined') {
 			bootstrap.Modal.getOrCreateInstance(el).show();
@@ -317,6 +333,15 @@ export const dashboardSyndication = {
 
 	confirmSyndicationInstall() {
 		const edition = this.pendingSyndicationEdition;
+		if (!this.syndicationConfigCredentialsConfigured) {
+			const username = (this.syndicationInstallUsername || '').trim();
+			const password = (this.syndicationInstallPassword || '').trim();
+			if (!username || !password) {
+				this.syndicationInstallCredentialsError = 'MLDS username and password are required for this install.';
+				return;
+			}
+		}
+		this.syndicationInstallCredentialsError = null;
 		const selected = [];
 		for (const g of this.syndicationDerivativeGroups) {
 			const pick = g.selectedVersion;
@@ -328,13 +353,15 @@ export const dashboardSyndication = {
 				selected.push(ver.contentItemVersion);
 			}
 		}
+		const installUsername = (this.syndicationInstallUsername || '').trim();
+		const installPassword = (this.syndicationInstallPassword || '').trim();
 		const el = document.getElementById('syndicationDerivativesModal');
 		if (el && typeof bootstrap !== 'undefined') {
 			bootstrap.Modal.getOrCreateInstance(el).hide();
 		}
 		this.pendingSyndicationEdition = null;
 		if (edition) {
-			this.installEdition(edition, selected);
+			this.installEdition(edition, selected, installUsername, installPassword);
 		}
 	},
 
@@ -344,13 +371,16 @@ export const dashboardSyndication = {
 			bootstrap.Modal.getOrCreateInstance(el).hide();
 		}
 		this.pendingSyndicationEdition = null;
+		this.syndicationInstallUsername = '';
+		this.syndicationInstallPassword = '';
+		this.syndicationInstallCredentialsError = null;
 	},
 
 	getInstallStatus(editionId) {
 		return this.installState[editionId] || { status: 'idle' };
 	},
 
-	async installEdition(edition, derivativeContentItemVersions = []) {
+	async installEdition(edition, derivativeContentItemVersions = [], username = '', password = '') {
 		const version = edition.selectedVersion;
 		if (!version) {
 			alert('Please select a version');
@@ -361,11 +391,18 @@ export const dashboardSyndication = {
 			this.installState = { ...this.installState, [editionId]: error != null ? { status, error } : { status } };
 		};
 		setInstallStatus('queued');
+		const body = { editionId, version, derivativeContentItemVersions };
+		if (!this.syndicationConfigCredentialsConfigured) {
+			body.username = username;
+			body.password = password;
+		}
+		this.syndicationInstallUsername = '';
+		this.syndicationInstallPassword = '';
 		try {
 			const res = await fetch('/syndication/install', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ editionId, version, derivativeContentItemVersions })
+				body: JSON.stringify(body)
 			});
 			const data = await res.json();
 			if (!res.ok) throw new Error(data.message || 'Error starting installation');

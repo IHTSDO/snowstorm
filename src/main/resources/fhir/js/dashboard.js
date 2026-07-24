@@ -68,7 +68,11 @@ function createDashboardState() {
 		pendingSyndicationEdition: null,
 		syndicationDerivativeGroups: [],
 		syndicationDerivativesLoading: false,
-		syndicationDerivativesError: null
+		syndicationDerivativesError: null,
+		syndicationConfigCredentialsConfigured: false,
+		syndicationInstallUsername: '',
+		syndicationInstallPassword: '',
+		syndicationInstallCredentialsError: null
 	};
 }
 

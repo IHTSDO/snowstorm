@@ -18,6 +18,7 @@ import org.springframework.data.util.Pair;
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -169,9 +170,15 @@ public class SyndicationService {
 		return Optional.of(Integer.parseInt(suffix));
 	}
 
-	public String installEdition(String editionId, String version, List<String> derivativeContentItemVersions) {
+	public boolean isConfigCredentialsConfigured() {
+		return syndicationClient.isConfigCredentialsConfigured();
+	}
+
+	public String installEdition(String editionId, String version, List<String> derivativeContentItemVersions, String username,
+			String password) {
 		SecurityContext securityContext = SecurityContextHolder.getContext();
-		InstallationTask task = new InstallationTask(editionId, version, derivativeContentItemVersions, securityContext);
+		InstallationTask task = new InstallationTask(editionId, version, derivativeContentItemVersions, username, password,
+				securityContext);
 		installationQueue.offer(task);
 		activeTasks.put(task.getTaskId(), task);
 		logger.info("Created installation task {} for edition {} version {}", task.getTaskId(), editionId, version);
@@ -236,8 +243,8 @@ public class SyndicationService {
 				logger.info("Installation task {}: syndication entry matched {} ({}) — resolving credentials, then building package list.",
 						task.getTaskId(), entry.getContentItemVersion(), entry.getTitleCleaned());
 
-				// Get credentials (blocks on stdin if syndication.username/password unset — see SyndicationClient)
-				Pair<String, String> creds = syndicationClient.getSyndicationCredentials();
+				// Resolve credentials from config or this install request only
+				Pair<String, String> creds = syndicationClient.resolveCredentials(StringUtils.hasText(task.getUsername()) ? Pair.of(task.getUsername(), task.getPassword()) : null);
 				logger.info("Installation task {}: credentials step finished (HTTP Basic for package downloads: {}).",
 						task.getTaskId(), creds != null);
 

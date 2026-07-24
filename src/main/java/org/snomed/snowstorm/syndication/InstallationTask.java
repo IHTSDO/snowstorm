@@ -34,10 +34,15 @@ public class InstallationTask {
 	private SecurityContext securityContext;
 	@JsonIgnore
 	private List<String> derivativeContentItemVersions;
+	@JsonIgnore
+	private String username;
+	@JsonIgnore
+	private String password;
 	private final List<InstallationPackageProgress> packageProgress = new CopyOnWriteArrayList<>();
 	private volatile long versioningStartedAtMillis;
 
-	public InstallationTask(String editionId, String version, List<String> derivativeContentItemVersions, SecurityContext securityContext) {
+	public InstallationTask(String editionId, String version, List<String> derivativeContentItemVersions, String username,
+			String password, SecurityContext securityContext) {
 		this.taskId = UUID.randomUUID().toString();
 		this.editionId = editionId;
 		this.version = version;
@@ -48,6 +53,8 @@ public class InstallationTask {
 		this.securityContext = securityContext;
 		this.derivativeContentItemVersions = derivativeContentItemVersions == null ? Collections.emptyList()
 				: new ArrayList<>(derivativeContentItemVersions);
+		this.username = username;
+		this.password = password;
 	}
 
 	public String getTaskId() {
@@ -136,6 +143,14 @@ public class InstallationTask {
 
 	public void setDerivativeContentItemVersions(List<String> derivativeContentItemVersions) {
 		this.derivativeContentItemVersions = derivativeContentItemVersions;
+	}
+
+	public String getUsername() {
+		return username;
+	}
+
+	public String getPassword() {
+		return password;
 	}
 
 	public List<InstallationPackageProgress> getPackageProgress() {

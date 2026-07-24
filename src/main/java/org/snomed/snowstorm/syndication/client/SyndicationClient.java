@@ -260,34 +260,24 @@ public class SyndicationClient {
 		return Long.parseLong(lengthString.replace(",", ""));
 	}
 
-	public Pair<String, String> getSyndicationCredentials() throws IOException {
-		if (StringUtils.hasText(username) && StringUtils.hasText(password)) {
-			logger.info("Syndication: using credentials from application configuration (username present, length {}).",
-					username.length());
+	public boolean isConfigCredentialsConfigured() {
+		return StringUtils.hasText(username) && StringUtils.hasText(password);
+	}
+
+	public Pair<String, String> resolveCredentials(Pair<String, String> requestCredentials) throws ServiceException {
+		if (isConfigCredentialsConfigured()) {
+			logger.info("Syndication: using credentials from application configuration.");
 			return Pair.of(username, password);
 		}
-
-		logger.warn("Syndication: syndication.username / syndication.password are not set. "
-				+ "The installation thread will block on stdin until credentials are entered. "
-				+ "For server installs, set both properties. Waiting for interactive input now…");
-		Console console = System.console();
-		String enteredUsername;
-		String enteredPassword;
-		if (console != null) {
-			enteredUsername = console.readLine("Syndication username:");
-			enteredPassword = new String(console.readPassword("Syndication password:"));
-		} else {
-			BufferedReader consoleReader = new BufferedReader(new InputStreamReader(System.in));
-			logger.info("Syndication username (stdin):");
-			enteredUsername = consoleReader.readLine();
-			logger.info("Syndication password (stdin):");
-			enteredPassword = consoleReader.readLine();
+		if (requestCredentials != null
+				&& StringUtils.hasText(requestCredentials.getFirst())
+				&& StringUtils.hasText(requestCredentials.getSecond())) {
+			logger.info("Syndication: using credentials from the install request.");
+			return requestCredentials;
 		}
-		if (!StringUtils.hasText(enteredUsername) && !StringUtils.hasText(enteredPassword)) {
-			logger.warn("Syndication credentials are blank. If required use the properties: syndication.username and syndication.password.");
-			return null;
-		}
-		return Pair.of(enteredUsername, enteredPassword);
+		throw new ServiceException(
+				"MLDS credentials are not configured. Set syndication.username and syndication.password in application configuration, "
+						+ "or supply username and password with the syndication install request via the Snowstorm Dashboard.");
 	}
 
 	/**

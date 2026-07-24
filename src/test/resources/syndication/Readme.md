@@ -9,6 +9,8 @@ python -m http.server 8000
 ```
 Set Snowstorm configuration `syndication.url=http://localhost:8000`
 
+When using this mock feed locally, MLDS credentials are not required (leave `syndication.username` and `syndication.password` empty and omit credentials in the dashboard install dialog if the mock server does not require authentication).
+
 ## Content Available
 The RF2 release files included are valid but too small to be meaningful.
 
