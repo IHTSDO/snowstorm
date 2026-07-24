@@ -76,7 +76,7 @@ class SyndicationServiceImportFailureTest {
 		InstallationPackageProgress pkg = new InstallationPackageProgress("http://snomed.info/sct/version/20250301", "Test Edition", 1000);
 		pkg.beginImportEstimate(30_000L);
 
-		when(importService.createJob(eq(RF2Type.SNAPSHOT), eq("MAIN/SNOMEDCT-TEST"), eq(false), eq(false)))
+		when(importService.createJob(RF2Type.SNAPSHOT, "MAIN/SNOMEDCT-TEST", false, false))
 				.thenReturn("import-job-1");
 		doThrow(new ReleaseImportException("Invalid RF2 archive")).when(importService).importArchive(eq("import-job-1"), any());
 

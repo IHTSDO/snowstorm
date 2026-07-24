@@ -305,12 +305,20 @@ public class MultiSearchService implements CommitListener {
 		return new PageImpl<>(concepts, pageRequest, searchHits.getTotalHits());
 	}
 
+	/** Clears published-version and multi-branch caches after version create/delete. */
+	public void clearPublishedVersionCaches() {
+		synchronized (this) {
+			cachedPublishedVersions = null;
+			cachedBranchCriteria = null;
+			publishedBranches.clear();
+		}
+	}
+
 	@Override
 	public void preCommitCompletion(Commit commit) throws IllegalStateException {
 		// Always invalidate published-version caches when a CodeSystem version is created (e.g. RF2 import + versioning).
 		if (BranchMetadataHelper.isCreatingCodeSystemVersion(commit)) {
-			cachedBranchCriteria = null;
-			cachedPublishedVersions = null;
+			clearPublishedVersionCaches();
 			return;
 		}
 		if (cachedBranchCriteria != null) {

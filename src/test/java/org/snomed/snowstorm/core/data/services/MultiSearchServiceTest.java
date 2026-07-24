@@ -9,6 +9,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.snomed.snowstorm.AbstractTest;
 import org.snomed.snowstorm.TestConfig;
 import org.snomed.snowstorm.core.data.domain.CodeSystem;
+import org.snomed.snowstorm.core.data.domain.CodeSystemVersion;
 import org.snomed.snowstorm.core.data.domain.Concept;
 import org.snomed.snowstorm.core.data.domain.Concepts;
 import org.snomed.snowstorm.core.data.domain.Description;
@@ -91,6 +92,22 @@ class MultiSearchServiceTest extends AbstractTest {
 		assertEquals("Clinical finding", descriptions.getContent().get(0).getTerm());
 		assertEquals("MAIN", descriptions.getContent().get(0).getPath());
 
+	}
+
+	@Test
+	void getAllPublishedVersionsInvalidatesCacheOnVersionDelete() throws ServiceException {
+		CodeSystem codeSystem = codeSystemService.createCodeSystem(new CodeSystem("SNOMEDCT", "MAIN"));
+		testUtil.createConceptWithPathIdAndTerm("MAIN", Concepts.CLINICAL_FINDING, "Clinical finding");
+		codeSystemService.createVersion(codeSystem, 20190731, "Int 2019-07-31");
+		codeSystemService.createVersion(codeSystem, 20200131, "Int 2020-01-31");
+
+		assertEquals(2, multiSearchService.getAllPublishedVersions().size());
+
+		CodeSystemVersion olderVersion = codeSystemService.findVersion("SNOMEDCT", 20190731);
+		codeSystemService.deleteVersion(codeSystem, olderVersion);
+
+		assertEquals(1, multiSearchService.getAllPublishedVersions().size());
+		assertEquals(20200131, multiSearchService.getAllPublishedVersions().iterator().next().getEffectiveDate());
 	}
 
 

@@ -90,6 +90,7 @@ public class CodeSystemService {
 	private final ModelMapper modelMapper;
 	private final JmsTemplate jmsTemplate;
 	private final AdminOperationsService adminOperationsService;
+	private final MultiSearchService multiSearchService;
 
 	@Value("${jms.queue.prefix}")
 	private String jmsQueuePrefix;
@@ -123,7 +124,8 @@ public class CodeSystemService {
 			ValidatorService validatorService,
 			ModelMapper modelMapper,
 			JmsTemplate jmsTemplate,
-		@Lazy AdminOperationsService adminOperationsService) {
+			@Lazy AdminOperationsService adminOperationsService,
+			@Lazy MultiSearchService multiSearchService) {
 		this.repository = repository;
 		this.versionRepository = versionRepository;
 		this.codeSystemDefaultConfigurationService = codeSystemDefaultConfigurationService;
@@ -138,6 +140,7 @@ public class CodeSystemService {
 		this.modelMapper = modelMapper;
 		this.jmsTemplate = jmsTemplate;
 		this.adminOperationsService = adminOperationsService;
+		this.multiSearchService = multiSearchService;
 	}
 
 	// Cache to prevent expensive aggregations. Entry per branch. Expires if there is a new commit.
@@ -464,7 +467,7 @@ public class CodeSystemService {
 				}
 			}
 			logger.info("Joining content information for Code System '{}' on branch '{}'", codeSystem.getShortName(), branchPath);
-//			doJoinContentInformation(codeSystem, branchPath, latestBranch);
+			doJoinContentInformation(codeSystem, branchPath, latestBranch);
 		}
 	}
 
@@ -740,6 +743,7 @@ public class CodeSystemService {
 			throw new IllegalArgumentException("The given code system and version do not match.");
 		}
 		versionRepository.delete(version);
+		multiSearchService.clearPublishedVersionCaches();
 	}
 
 	@PreAuthorize("hasPermission('ADMIN', #codeSystem.branchPath)")
@@ -759,6 +763,7 @@ public class CodeSystemService {
 			}
 			adminOperationsService.hardDeleteBranch(codeSystem.getBranchPath());
 		}
+		multiSearchService.clearPublishedVersionCaches();
 		logger.info("Deleted Code System '{}' and versions.", codeSystem.getShortName());
 	}
 

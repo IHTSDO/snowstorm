@@ -198,9 +198,10 @@ class FHIRCodeSystemServiceTest extends AbstractFHIRTest {
 	void getSnomedVersionOrThrowExplicitEmpty2000VersionNotFound() {
 		snomedCodeSystemService.getOrCreateEmpty2000Version();
 
+		FHIRCodeSystemVersionParams params = new FHIRCodeSystemVersionParams(SNOMED_URI)
+				.setVersion(String.valueOf(EMPTY_2000_VERSION_DATE));
 		SnowstormFHIRServerResponseException exception = assertThrows(SnowstormFHIRServerResponseException.class,
-				() -> codeSystemService.getSnomedVersionOrThrow(new FHIRCodeSystemVersionParams(SNOMED_URI)
-						.setVersion(String.valueOf(EMPTY_2000_VERSION_DATE))));
+				() -> codeSystemService.getSnomedVersionOrThrow(params));
 		assertEquals(404, exception.getStatusCode());
 		assertEquals(NOTFOUND, exception.getIssueCode());
 	}
