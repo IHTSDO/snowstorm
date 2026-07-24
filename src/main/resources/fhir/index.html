@@ -956,6 +956,23 @@
 				</template>
 				<h6>Add Derivatives (optional)</h6>
 				<p class="small mb-2">Select any derivatives to combine with the Edition installation. Only refset packages with an effective date on or before your selected edition are listed. Choose a version to include that derivative, or &quot;None&quot; to skip.</p>
+				<template x-if="!syndicationConfigCredentialsConfigured">
+					<div class="border rounded p-3 mb-3 bg-light">
+						<h6 class="mb-2">MLDS credentials</h6>
+						<p class="small text-muted mb-2">Your MLDS username and password are required to download RF2 packages for this install only. They are not stored on the server. Alternatively, set <code>syndication.username</code> and <code>syndication.password</code> in server configuration.</p>
+						<div class="mb-2">
+							<label for="syndicationInstallUsername" class="form-label small mb-1">Username</label>
+							<input type="text" class="form-control form-control-sm" id="syndicationInstallUsername"
+								x-model="syndicationInstallUsername" autocomplete="username">
+						</div>
+						<div class="mb-0">
+							<label for="syndicationInstallPassword" class="form-label small mb-1">Password</label>
+							<input type="password" class="form-control form-control-sm" id="syndicationInstallPassword"
+								x-model="syndicationInstallPassword" autocomplete="current-password">
+						</div>
+						<div x-show="syndicationInstallCredentialsError" class="alert alert-danger py-2 small mt-2 mb-0" x-text="syndicationInstallCredentialsError"></div>
+					</div>
+				</template>
 				<template x-if="syndicationDerivativesLoading">
 					<div class="text-center py-3">
 						<div class="spinner-border spinner-border-sm" role="status"></div>

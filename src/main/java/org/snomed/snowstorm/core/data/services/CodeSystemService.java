@@ -464,7 +464,7 @@ public class CodeSystemService {
 				}
 			}
 			logger.info("Joining content information for Code System '{}' on branch '{}'", codeSystem.getShortName(), branchPath);
-			doJoinContentInformation(codeSystem, branchPath, latestBranch);
+//			doJoinContentInformation(codeSystem, branchPath, latestBranch);
 		}
 	}
 

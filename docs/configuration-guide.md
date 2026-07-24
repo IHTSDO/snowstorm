@@ -52,3 +52,20 @@ Or by setting the same property using a command line argument when starting Snow
 ```
 --spring.autoconfigure.exclude=org.springframework.cloud.aws.autoconfigure.context.ContextStac
 ```
+
+## Syndication / MLDS
+
+Snowstorm can download and import SNOMED CT editions from the MLDS syndication feed. Configure the syndication service using:
+
+```properties
+syndication.url=https://mlds.ihtsdotools.org/api
+syndication.username=
+syndication.password=
+```
+
+- `syndication.url` — base URL of the MLDS syndication API (feed access is unauthenticated).
+- `syndication.username` and `syndication.password` — HTTP Basic credentials used when downloading RF2 package zips from MLDS.
+
+If `syndication.username` and `syndication.password` are not set in server configuration, MLDS credentials can be supplied **per install** via the Snowstorm Dashboard (`/fhir/` → Syndication). Enter your MLDS username and password in the install dialog; they are sent with that install request only and are not stored on the server between installs or users.
+
+For production deployments, setting `syndication.username` and `syndication.password` in configuration (or via Vault/Consul) is recommended so installs do not require manual credential entry.

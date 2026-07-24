@@ -55,7 +55,7 @@ class SyndicationServiceImportFailureTest {
 		assertFalse(missingArchive.exists());
 
 		InstallationTask task = new InstallationTask(
-				"http://snomed.info/sct/900000000000207008", "20250301", null, SecurityContextHolder.getContext());
+				"http://snomed.info/sct/900000000000207008", "20250301", null, null, null, SecurityContextHolder.getContext());
 		InstallationPackageProgress pkg = new InstallationPackageProgress("http://snomed.info/sct/version/20250301", "Test Edition", 1000);
 		pkg.beginImportEstimate(30_000L);
 
@@ -72,7 +72,7 @@ class SyndicationServiceImportFailureTest {
 		assertTrue(archive.createNewFile());
 
 		InstallationTask task = new InstallationTask(
-				"http://snomed.info/sct/900000000000207008", "20250301", null, SecurityContextHolder.getContext());
+				"http://snomed.info/sct/900000000000207008", "20250301", null, null, null, SecurityContextHolder.getContext());
 		InstallationPackageProgress pkg = new InstallationPackageProgress("http://snomed.info/sct/version/20250301", "Test Edition", 1000);
 		pkg.beginImportEstimate(30_000L);
 
