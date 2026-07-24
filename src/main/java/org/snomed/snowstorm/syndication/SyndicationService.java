@@ -40,6 +40,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 @Service
@@ -48,6 +49,8 @@ public class SyndicationService {
 	private static final long STANDARD_RF2_IMPORT_DURATION_MS = 50L * 60 * 1000;
 	private static final long STANDARD_RF2_PACKAGE_BYTES = SyndicationClient.DEFAULT_RF2_PACKAGE_LENGTH_BYTES;
 	private static final long MIN_RF2_IMPORT_DURATION_MS = 30_000L;
+	/** How long COMPLETED/FAILED tasks remain queryable for UI polling before eviction. */
+	static final long COMPLETED_TASK_RETENTION_MS = TimeUnit.HOURS.toMillis(1);
 	public static final String VERSION = "/version/";
 
 	private final SyndicationClient syndicationClient;
@@ -176,32 +179,24 @@ public class SyndicationService {
 
 	public String installEdition(String editionId, String version, List<String> derivativeContentItemVersions, String username,
 			String password) {
+		purgeFinishedTasks();
 		SecurityContext securityContext = SecurityContextHolder.getContext();
 		InstallationTask task = new InstallationTask(editionId, version, derivativeContentItemVersions, username, password,
 				securityContext);
 		installationQueue.offer(task);
 		activeTasks.put(task.getTaskId(), task);
 		logger.info("Created installation task {} for edition {} version {}", task.getTaskId(), editionId, version);
-		
-		// Trigger processing if not already processing
-		if (isProcessing.compareAndSet(false, true)) {
-			executorService.submit(() -> {
-				try {
-					processInstallationTasks();
-				} finally {
-					isProcessing.set(false);
-				}
-			});
-		}
-		
+		tryStartProcessing();
 		return task.getTaskId();
 	}
 
 	public InstallationTask getInstallationTask(String taskId) {
+		purgeFinishedTasks();
 		return activeTasks.get(taskId);
 	}
 
 	public List<InstallationTask> getActiveInstallationTasks() {
+		purgeFinishedTasks();
 		return activeTasks.values().stream()
 				.filter(t -> t.getStatus() == InstallationTask.InstallationStatus.PENDING
 						|| t.getStatus() == InstallationTask.InstallationStatus.IN_PROGRESS)
@@ -209,13 +204,45 @@ public class SyndicationService {
 				.toList();
 	}
 
+	/**
+	 * Start a drain worker if one is not already running. The drain loop re-checks the queue after
+	 * clearing {@code isProcessing} so a task enqueued in that window is not stranded (lost wakeup).
+	 */
+	private void tryStartProcessing() {
+		if (isProcessing.compareAndSet(false, true)) {
+			executorService.submit(this::processInstallationTasks);
+		}
+	}
+
 	private void processInstallationTasks() {
-		while (!installationQueue.isEmpty()) {
-			InstallationTask task = installationQueue.poll();
-			if (task != null) {
-				processTask(task);
+		for (;;) {
+			try {
+				InstallationTask task;
+				while ((task = installationQueue.poll()) != null) {
+					processTask(task);
+				}
+			} finally {
+				isProcessing.set(false);
+			}
+			// Lost-wakeup guard: work may have been offered after the last poll but before the flag cleared.
+			if (installationQueue.isEmpty() || !isProcessing.compareAndSet(false, true)) {
+				return;
 			}
 		}
+	}
+
+	void purgeFinishedTasks() {
+		long cutoff = System.currentTimeMillis() - COMPLETED_TASK_RETENTION_MS;
+		activeTasks.entrySet().removeIf(entry -> {
+			InstallationTask task = entry.getValue();
+			InstallationTask.InstallationStatus status = task.getStatus();
+			if (status != InstallationTask.InstallationStatus.COMPLETED
+					&& status != InstallationTask.InstallationStatus.FAILED) {
+				return false;
+			}
+			Date completedAt = task.getCompletedAt();
+			return completedAt != null && completedAt.getTime() < cutoff;
+		});
 	}
 
 	private void processTask(InstallationTask task) {
@@ -327,6 +354,7 @@ public class SyndicationService {
 
 				task.setStatus(InstallationTask.InstallationStatus.COMPLETED);
 				task.setCompletedAt(new Date());
+				task.clearSensitiveData();
 				logger.info("Completed installation task {} for edition {} version {}", task.getTaskId(), task.getEditionId(), task.getVersion());
 
 			} catch (Exception e) {
@@ -334,6 +362,7 @@ public class SyndicationService {
 				task.setStatus(InstallationTask.InstallationStatus.FAILED);
 				task.setErrorMessage(e.getMessage());
 				task.setCompletedAt(new Date());
+				task.clearSensitiveData();
 			} finally {
 				cleanupRemainingDownloadedFiles(task);
 			}
