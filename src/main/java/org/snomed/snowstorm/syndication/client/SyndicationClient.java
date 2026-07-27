@@ -64,13 +64,17 @@ public class SyndicationClient {
 			xmlBody = xmlBody.replace("xmlns=\"http://www.w3.org/2005/Atom\"", "");
 			SyndicationFeed feed = (SyndicationFeed) jaxbContext.createUnmarshaller().unmarshal(new StringReader(xmlBody));
 			List<SyndicationFeedEntry> sortedEntries = new ArrayList<>(feed.getEntries());
-			sortedEntries.sort(Comparator.comparing(SyndicationFeedEntry::getContentItemVersion, Comparator.reverseOrder()));
+			sortFeedEntries(sortedEntries);
 			feed.setEntries(sortedEntries);
 			return feed;
 		} catch (JAXBException e) {
 			throw new IOException("Failed to read XML feed.", e);
 		}
 	}
+	static void sortFeedEntries(List<SyndicationFeedEntry> entries) {
+		entries.sort(Comparator.comparing(SyndicationFeedEntry::getContentItemVersion, Comparator.nullsLast(Comparator.reverseOrder())));
+	}
+
 	public SyndicationFeedEntry findEntry(String loadVersionUri, SyndicationFeed feed) {
 		for (SyndicationFeedEntry entry : feed.getEntries()) {
 			SyndicationLink zipLink = entry.getZipLink();
@@ -213,7 +217,7 @@ public class SyndicationClient {
 					},
 					clientHttpResponse -> {
 						try (FileOutputStream outputStream = new FileOutputStream(outputFile)) {
-							int bytesWritten = StreamUtil.copyWithProgress(clientHttpResponse.getBody(), outputStream, progressBasisBytes,
+							long bytesWritten = StreamUtil.copyWithProgress(clientHttpResponse.getBody(), outputStream, progressBasisBytes,
 									progressMessageFormat,
 									progress != null ? progress::setDownloadPercent : null);
 							logger.info("Completed RF2 package download: {} ({} bytes)", contentItemVersion, bytesWritten);
@@ -254,10 +258,14 @@ public class SyndicationClient {
 	}
 
 	public static long parseDeclaredPackageBytes(String lengthString) {
-		if (lengthString == null || lengthString.isEmpty()) {
+		if (!StringUtils.hasText(lengthString)) {
 			return DEFAULT_RF2_PACKAGE_LENGTH_BYTES;
 		}
-		return Long.parseLong(lengthString.replace(",", ""));
+		try {
+			return Long.parseLong(lengthString.replace(",", "").trim());
+		} catch (NumberFormatException e) {
+			return DEFAULT_RF2_PACKAGE_LENGTH_BYTES;
+		}
 	}
 
 	public boolean isConfigCredentialsConfigured() {

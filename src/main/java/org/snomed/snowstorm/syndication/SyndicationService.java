@@ -415,11 +415,7 @@ public class SyndicationService {
 	}
 
 	private static String progressSlotTitle(SyndicationFeedEntry entry) {
-		try {
-			return entry.getTitleCleaned();
-		} catch (Exception e) {
-			return entry.getTitle() != null ? entry.getTitle() : "";
-		}
+		return entry.getTitleCleaned();
 	}
 
 	private void validateDerivativeSelections(SyndicationFeed feed, List<String> derivativeUris, int editionEffectiveDate)

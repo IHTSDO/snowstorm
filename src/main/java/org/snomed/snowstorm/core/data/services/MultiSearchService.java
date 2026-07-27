@@ -32,6 +32,7 @@ import org.springframework.util.CollectionUtils;
 
 import java.time.LocalDate;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 import static co.elastic.clients.elasticsearch._types.query_dsl.QueryBuilders.bool;
@@ -68,7 +69,7 @@ public class MultiSearchService implements CommitListener {
 	
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 	
-	private final Map<String, String> publishedBranches = new HashMap<>();
+	private final Map<String, String> publishedBranches = new ConcurrentHashMap<>();
 	
 	private MultiBranchCriteria cachedBranchCriteria = null;
 	private LocalDate cacheDate = null;
@@ -264,6 +265,7 @@ public class MultiSearchService implements CommitListener {
 	}
 
 	public Set<CodeSystemVersion> getAllPublishedVersions() {
+		Set<CodeSystemVersion> snapshot;
 		synchronized (this) {
 			if (cachedPublishedVersions == null) {
 				Set<CodeSystemVersion> codeSystemVersions = new HashSet<>();
@@ -275,8 +277,9 @@ public class MultiSearchService implements CommitListener {
 				}
 				cachedPublishedVersions = codeSystemVersions;
 			}
+			snapshot = cachedPublishedVersions;
 		}
-		return cachedPublishedVersions;
+		return Set.copyOf(snapshot);
 	}
 
 	public CodeSystemVersion getNearestPublishedVersion(String branchPath) {
