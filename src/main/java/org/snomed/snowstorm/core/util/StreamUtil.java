@@ -21,15 +21,15 @@ public class StreamUtil {
 		throw new IllegalStateException(String.format("Duplicate key %s", u.getConceptId()));
 	};
 
-	public static int copyWithProgress(InputStream inputStream, OutputStream outputStream, int totalStreamLength, String messageFormat) throws IOException {
+	public static long copyWithProgress(InputStream inputStream, OutputStream outputStream, int totalStreamLength, String messageFormat) throws IOException {
 		long basis = totalStreamLength <= 0 ? 1L : totalStreamLength;
 		return copyWithProgress(inputStream, outputStream, basis, messageFormat, null);
 	}
 
-	public static int copyWithProgress(InputStream inputStream, OutputStream outputStream, long totalStreamLength,
+	public static long copyWithProgress(InputStream inputStream, OutputStream outputStream, long totalStreamLength,
 			String messageFormat, IntConsumer onPercent) throws IOException {
 		long basis = totalStreamLength <= 0 ? 1L : totalStreamLength;
-		int byteCount = 0;
+		long byteCount = 0;
 		int bytesRead;
 		int percentageLogged = -1;
 		int lastCallbackPercent = -1;

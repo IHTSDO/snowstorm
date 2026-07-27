@@ -32,7 +32,14 @@ public class SyndicationFeedEntry {
 	}
 
 	public String getTitleCleaned() {
-		return title.substring(0, title.indexOf("-")).trim();
+		if (title == null) {
+			return "";
+		}
+		int dash = title.indexOf('-');
+		if (dash > 0) {
+			return title.substring(0, dash).trim();
+		}
+		return title.trim();
 	}
 
 	public void setTitle(String title) {
