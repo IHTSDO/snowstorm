@@ -36,6 +36,9 @@ public class ExportConfiguration {
 	private boolean conceptsAndRelationshipsOnly;
 
 	@Schema(defaultValue = "false")
+	private boolean languageOnly;
+
+	@Schema(defaultValue = "false")
 	private boolean unpromotedChangesOnly;
 
 	@Schema(defaultValue = "false")
@@ -102,6 +105,14 @@ public class ExportConfiguration {
 
 	public void setConceptsAndRelationshipsOnly(boolean conceptsAndRelationshipsOnly) {
 		this.conceptsAndRelationshipsOnly = conceptsAndRelationshipsOnly;
+	}
+
+	public boolean isLanguageOnly() {
+		return languageOnly;
+	}
+
+	public void setLanguageOnly(boolean languageOnly) {
+		this.languageOnly = languageOnly;
 	}
 
 	public boolean isUnpromotedChangesOnly() {
