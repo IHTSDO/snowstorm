@@ -3,6 +3,48 @@ All notable changes to this project will be documented in this file.
 
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 11.0.0 Release (July 2026)
+Major release with Java 25 upgrade and FHIR improvements.
+
+### Breaking
+- Java 25 must be used with this release.
+- MAINT-2824 Fix `$lookup` property names to use `valueCodes` rather than `valueStrings`
+
+### Features
+- ISTO-128 Add FHIR syndication dashboard at `/fhir` with edition install and progress tracking
+- MAINT-2823 Add FHIR `$versions` operation
+- ISTO-65 Add create/update FHIR ConceptMap and populate CodeSystem URI module from config
+- ISTO-64 Add create/delete FHIR CodeSystem expression supplement
+- MAINT-2871 Add FHIR ValueSet constraints support
+- MAINT-2874 Add FHIR deprecated status, supplement lookup and version hints
+- MAINT-2879 Add batch FHIR validation requests
+- MAINT-2717 Implement Component Field validator for import service with filename and line number in exception messages
+
+### Improvements
+- PIP-1042 Upgrade to Java 25 and Docker base image to amazoncorretto:25
+- MAINT-2889 Upgrade Elasticsearch in Docker to 8.19.8 and HAPI FHIR to 7.6.0
+- MAINT-3088 SonarQube code quality improvements across FHIR package
+- MAINT-3100 Add check-system-version to TerminologyCapabilities
+- MAINT-3057 Improve $lookup, $validate-code, ECL validation and ValueSet expansion responses
+- MAINT-2876 Add system-version, force-system-version and check-system-version support; allow multiple CodeSystems with same id
+- MAINT-2875 Improve language handling with weighted Accept-Language headers
+- MAINT-2880 Support ValueSet ECL inclusion with enumerated exclusion criteria
+- MAINT-2877 Add CodeSystem properties and SNOMED Supplements support
+- MAINT-2881 Allow server to fetch tx-resources referenced in ValueSet expansion
+- MAINT-2822 Allow ValueSet uploads up to 100k, add descendent-of filter and create minimal Dockerfile
+- MAINT-2824 Expose alternate identifiers in FHIR response
+- MAINT-3033 Restrict force delete to admin
+- ISTO-134 Set Elasticsearch connection pooling size and timeouts
+- RP-1078 Accommodate Module Storage Coordinator changes
+- RAP-266 Add Quantity refset to application config
+
+### Fixes
+- ISTO-128 Fix CodeSystem caching, uriModule autoconfiguration and sanitize ConceptMap narrative HTML
+- MAINT-3116 Restore exception logging in ConceptDroolsValidationService
+- MAINT-3068 Fix synonym acceptabilityId being changed after activate/inactivate cycle
+- MAINT-2882 Fix NPE in exception interceptor
+- MAINT-2874 Fix fragmented CodeSystems
+
 ## 10.12.1 Release (June 2026)
 Maintenance release with bug fixes.
 
