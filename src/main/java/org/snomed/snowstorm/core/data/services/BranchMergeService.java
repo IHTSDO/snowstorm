@@ -147,11 +147,21 @@ public class BranchMergeService {
 			} catch (IntegrityException e) {
 				mergeJob.setStatus(JobStatus.CONFLICTS);
 				mergeJob.setMessage(e.getMessage());
-				mergeJob.setApiError(ApiErrorFactory.createErrorForMergeConflicts(e.getMessage(), e.getIntegrityIssueReport()));
-				branchMergeJobRepository.save(mergeJob);
+				mergeJob.setEndDate(new Date());
+				try {
+					mergeJob.setApiError(ApiErrorFactory.createErrorForMergeConflicts(e.getMessage(), e.getIntegrityIssueReport()));
+					branchMergeJobRepository.save(mergeJob);
+				} catch (Exception saveException) {
+					logger.error("Failed to persist integrity conflict details for merge job {}. " +
+							"Saving CONFLICTS status without apiError. If this persists, delete the branch-marge index so it can be recreated without legacy nested apiError mappings.",
+							mergeJob.getId(), saveException);
+					mergeJob.setApiError(null);
+					branchMergeJobRepository.save(mergeJob);
+				}
 			} catch (Exception e) {
 				mergeJob.setStatus(JobStatus.FAILED);
 				mergeJob.setMessage(e.getMessage());
+				mergeJob.setEndDate(new Date());
 				branchMergeJobRepository.save(mergeJob);
 				logger.error("Failed to merge branch",e);
 			}
