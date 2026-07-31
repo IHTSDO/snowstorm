@@ -26,12 +26,24 @@ public class ApiError {
 		return message;
 	}
 
+	public void setMessage(String message) {
+		this.message = message;
+	}
+
 	public String getDeveloperMessage() {
 		return developerMessage;
 	}
 
+	public void setDeveloperMessage(String developerMessage) {
+		this.developerMessage = developerMessage;
+	}
+
 	public Map<String, Object> getAdditionalInfo() {
 		return additionalInfo;
+	}
+
+	public void setAdditionalInfo(Map<String, Object> additionalInfo) {
+		this.additionalInfo = additionalInfo;
 	}
 
 	@Override
