@@ -225,6 +225,7 @@ public class ElasticsearchConfig extends ElasticsearchConfiguration {
 		return apiErrorMapping.containsKey("properties") || "object".equals(apiErrorMapping.get("type"));
 	}
 
+	@Override
 	protected Set<Class<?>> scanForEntities(String packageName) {
 		ClassPathScanningCandidateComponentProvider scanner = new ClassPathScanningCandidateComponentProvider(false);
 		scanner.addIncludeFilter(new AnnotationTypeFilter(Document.class));
