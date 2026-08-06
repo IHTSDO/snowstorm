@@ -262,20 +262,18 @@ public class BranchMergeService {
 			}
 		} else {
 			// Promotion
-			// Run integrity check before locking branches. Throwing inside the promotion commit
-			// forces Commit.close()/rollback; if rollback also fails, IntegrityException can be
-			// harder to surface as CONFLICTS on the async merge job.
-			logger.info("Integrity check before promotion of {}", source);
-			IntegrityIssueReport issueReport = integrityService.findChangedComponentsWithBadIntegrityNotFixed(sourceBranch);
-			if (!issueReport.isEmpty()) {
-				logger.error("Aborting promotion of {}. Integrity issues found: {}", source, issueReport);
-				throw new IntegrityException("Aborting promotion of " + source + ". Integrity issues found.", issueReport);
-			}
-
 			// Locks both branches until exiting this try block closes the commit
 			try (Commit commit = branchService.openPromotionCommit(targetBranch.getPath(), source,
 					branchMetadataHelper.getBranchLockMetadata("Promoting changes to " + targetBranch.getPath()),
 					branchMetadataHelper.getBranchLockMetadata("Receiving promotion from " + source))) {
+
+				logger.info("Integrity check before promotion of {}", source);
+				IntegrityIssueReport issueReport = integrityService.findChangedComponentsWithBadIntegrityNotFixed(sourceBranch);
+				if (!issueReport.isEmpty()) {
+					logger.error("Aborting promotion of {}. Integrity issues found: {}", source, issueReport);
+					throw new IntegrityException("Aborting promotion of " + source + ". Integrity issues found.", issueReport);
+					// Throwing an exception before marking the commit as successful automatically rolls back the commit
+				}
 
 				logger.info("Performing promotion {} -> {}", source, target);
 				final Map<String, Set<String>> versionsReplaced = sourceBranch.getVersionsReplaced();
