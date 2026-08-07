@@ -117,6 +117,26 @@ class CodeSystemServiceTest extends AbstractTest {
 	}
 
 	@Test
+	void testDeleteCodeSystemAndVersionsRemovesInternalReleaseVersions() {
+		// Create CodeSystem
+		CodeSystem codeSystem = new CodeSystem("SNOMEDCT-XX", "MAIN/SNOMEDCT-XX");
+		codeSystemService.createCodeSystem(codeSystem);
+
+		// Version CodeSystem
+		codeSystemService.createVersion(codeSystem, 20230101, "Regular release", false);
+		codeSystemService.createVersion(codeSystem, 20230601, "Internal release", true);
+
+		// Assert before deletion
+		assertEquals(2, codeSystemService.findAllVersions("SNOMEDCT-XX", true, true).size());
+
+		// Delete
+		codeSystemService.deleteCodeSystemAndVersions(codeSystem, false);
+
+		// Assert after deletion
+		assertEquals(0, codeSystemService.findAllVersions("SNOMEDCT-XX", true, true).size());
+	}
+
+	@Test
 	void testUpdateCodeSystemBranchMetadata() throws ServiceException {
 		// Create a parent code system
 		CodeSystem codeSystem = new CodeSystem("SNOMEDCT", "MAIN");
