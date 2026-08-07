@@ -754,7 +754,7 @@ public class CodeSystemService {
 					"If you need to start again delete all indices and restart Snowstorm.");
 		}
 		logger.info("Deleting Code System '{}'.", codeSystem.getShortName());
-		List<CodeSystemVersion> allVersions = findAllVersions(codeSystem.getShortName(), true, false);
+		List<CodeSystemVersion> allVersions = findAllVersions(codeSystem.getShortName(), true, true);
 		versionRepository.deleteAll(allVersions);
 		repository.delete(codeSystem);
 		if (deleteBranches) {
