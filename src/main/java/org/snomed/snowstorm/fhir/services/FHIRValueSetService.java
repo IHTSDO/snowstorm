@@ -152,6 +152,10 @@ public class FHIRValueSetService implements FHIRConstants {
 
 	private final FHIRWarningsService warningsService;
 
+	// Largest expansion produced when the client gives no explicit count. Tied to DEFAULT_PAGESIZE because that is the page
+	// size used in that case - a larger limit here would return a truncated page rather than refusing the request.
+	private int defaultMaxExpansionSize = DEFAULT_PAGESIZE;
+
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
 	public FHIRValueSetService(FHIRCodeSystemService codeSystemService, FHIRConceptService conceptService, FHIRValueSetRepository valueSetRepository, QueryService snomedQueryService, ConceptService snomedConceptService, ElasticsearchOperations elasticsearchOperations, FHIRValueSetFinderService vsFinderService, FHIRValueSetCycleDetectionService vsCycleDetectionService, FHIRValueSetCodeValidationService codeValidationService, FHIRValueSetConstraintsService constraintsService, FHIRWarningsService warningsService) {
@@ -277,8 +281,11 @@ public class FHIRValueSetService implements FHIRConstants {
 		String copyright = isSnomed ? SNOMED_VALUESET_COPYRIGHT : null;
 
 		if (expansionRequestExceedsLimits(conceptsPage, params)) {
-			String message = format("The value set '%s' expansion has too many codes to produce (>%d)", hapiValueSet.getUrl(), pageRequest.getPageSize());
-			throw exception(message, OperationOutcome.IssueType.TOOCOSTLY, 404, null, new CodeableConcept(new Coding()).setText(message));
+			// Report the limit that was actually applied, not the page size - those differ when allowMaximumSizeExpansion is set.
+			String message = format("The value set '%s' expansion has too many codes to produce (>%d)", hapiValueSet.getUrl(), expansionSizeLimit(params));
+			// 422 rather than 404: the request is well formed but too expensive to process. A 404 here is
+			// indistinguishable from a genuinely missing ValueSet or CodeSystem version, which this service also returns.
+			throw exception(message, OperationOutcome.IssueType.TOOCOSTLY, 422, null, new CodeableConcept(new Coding()).setText(message));
 		}
 
 		ExpansionVersionMaps versionMaps = buildExpansionVersionMaps(allInclusionVersions);
@@ -1032,9 +1039,12 @@ public class FHIRValueSetService implements FHIRConstants {
 		if (params.getCount() != null && params.getCount() <= MAXIMUM_PAGESIZE) {
 			return false;
 		}
-		// No count specified: apply the default limit unless the client explicitly allows large expansions.
-		int maximumPageSize = params.getAllowMaximumSizeExpansionAsBoolean() ? MAXIMUM_PAGESIZE : DEFAULT_PAGESIZE;
-		return conceptsPage.getTotalElements() > maximumPageSize;
+		return conceptsPage.getTotalElements() > expansionSizeLimit(params);
+	}
+
+	// No count specified: apply the default limit unless the client explicitly allows large expansions.
+	private int expansionSizeLimit(ValueSetExpansionParameters params) {
+		return params.getAllowMaximumSizeExpansionAsBoolean() ? MAXIMUM_PAGESIZE : defaultMaxExpansionSize;
 	}
 
 	static boolean hasDisplayLanguage(ValueSet hapiValueSet) {
