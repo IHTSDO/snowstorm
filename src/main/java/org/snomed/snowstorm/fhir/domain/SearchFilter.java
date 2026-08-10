@@ -72,7 +72,7 @@ public class SearchFilter {
 
 	public SearchFilter withCode(String code) {
 		if (code != null) {
-			throw exception("Server is unwilling to expand all known ValueSets to search for inclusion of any code", IssueType.TOOCOSTLY, 400);
+			throw exception("Server is unwilling to expand all known ValueSets to search for inclusion of any code", IssueType.TOOCOSTLY, 422);
 		}
 		return this;
 	}

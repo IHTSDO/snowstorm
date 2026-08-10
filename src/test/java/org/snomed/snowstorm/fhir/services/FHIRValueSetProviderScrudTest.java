@@ -19,6 +19,7 @@ import java.io.InputStream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class FHIRValueSetProviderScrudTest extends AbstractFHIRTest {
 
@@ -135,7 +136,9 @@ class FHIRValueSetProviderScrudTest extends AbstractFHIRTest {
 		//We do not allow expanding all ValueSets to search for a concept - too costly
 		String url = baseUrl + "/ValueSet?code=foo";
 		ResponseEntity<String> response = restTemplate.exchange(url,HttpMethod.GET, null, String.class);
-		assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+		// Well formed request, refused to protect server resources - not a missing resource.
+		assertEquals(HttpStatus.UNPROCESSABLE_ENTITY, response.getStatusCode());
+		assertTrue(response.getBody().contains("too-costly"));
 	}
 	
 }
