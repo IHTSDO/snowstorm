@@ -16,19 +16,13 @@ import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.config.elasticsearch.DateToLongConverter;
 import org.snomed.snowstorm.config.elasticsearch.LongToDateConverter;
 import org.snomed.snowstorm.core.data.domain.Annotation;
-import org.snomed.snowstorm.core.data.domain.BranchMergeJob;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.beans.factory.config.BeanDefinition;
 import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.ClassPathScanningCandidateComponentProvider;
-import org.springframework.core.type.filter.AnnotationTypeFilter;
-import org.springframework.data.elasticsearch.annotations.Document;
 import org.springframework.data.elasticsearch.client.ClientConfiguration;
 import org.springframework.data.elasticsearch.client.elc.ElasticsearchClients;
 import org.springframework.data.elasticsearch.client.elc.ElasticsearchConfiguration;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
-import org.springframework.data.elasticsearch.core.IndexOperations;
 import org.springframework.data.elasticsearch.core.convert.ElasticsearchCustomConversions;
 import org.springframework.data.elasticsearch.support.HttpHeaders;
 import software.amazon.awssdk.auth.credentials.DefaultCredentialsProvider;
@@ -177,66 +171,5 @@ public class ElasticsearchConfig extends ElasticsearchConfiguration {
 		settings.put("index.number_of_shards", indexShards);
 		settings.put("index.number_of_replicas", indexReplicas);
 		ComponentService.initialiseIndexAndMappingForPersistentClasses(deleteExisting, elasticsearchOperations, settings, entities.toArray(new Class<?>[]{}));
-		recreateBranchMergeJobIndexIfNestedApiErrorMapping(settings);
-	}
-
-	/**
-	 * Legacy BranchMergeJob documents mapped nested apiError maps as dynamic object fields and can leave
-	 * the branch-marge index at/over index.mapping.total_fields.limit (default 1000). New code stores
-	 * apiErrorJson as one text field, but ES rejects any new field once that limit is exceeded
-	 * (document_parsing_exception: Limit of total fields [1000] has been exceeded while adding new fields).
-	 * Merge jobs are ephemeral, so recreate the index when the legacy nested mapping is detected.
-	 */
-	private void recreateBranchMergeJobIndexIfNestedApiErrorMapping(Map<String, Object> settings) {
-		IndexOperations indexOps = elasticsearchOperations.indexOps(BranchMergeJob.class);
-		if (!indexOps.exists()) {
-			return;
-		}
-		Map<String, Object> mapping = indexOps.getMapping();
-		if (!hasNestedApiErrorObjectMapping(mapping)) {
-			return;
-		}
-		String indexName = elasticsearchOperations.getIndexCoordinatesFor(BranchMergeJob.class).getIndexName();
-		logger.warn("Recreating index {} to replace legacy nested apiError object mapping with apiErrorJson " +
-				"(avoids Elasticsearch total_fields limit errors on merge conflict saves)", indexName);
-		indexOps.delete();
-		if (settings == null || settings.isEmpty()) {
-			indexOps.create(indexOps.createSettings(BranchMergeJob.class));
-		} else {
-			indexOps.create(settings);
-		}
-		indexOps.putMapping(indexOps.createMapping(BranchMergeJob.class));
-	}
-
-	@SuppressWarnings("unchecked")
-	public static boolean hasNestedApiErrorObjectMapping(Map<String, Object> mapping) {
-		if (mapping == null) {
-			return false;
-		}
-		Object properties = mapping.get("properties");
-		if (!(properties instanceof Map)) {
-			return false;
-		}
-		Object apiError = ((Map<String, Object>) properties).get("apiError");
-		if (!(apiError instanceof Map)) {
-			return false;
-		}
-		Map<String, Object> apiErrorMapping = (Map<String, Object>) apiError;
-		return apiErrorMapping.containsKey("properties") || "object".equals(apiErrorMapping.get("type"));
-	}
-
-	@Override
-	protected Set<Class<?>> scanForEntities(String packageName) {
-		ClassPathScanningCandidateComponentProvider scanner = new ClassPathScanningCandidateComponentProvider(false);
-		scanner.addIncludeFilter(new AnnotationTypeFilter(Document.class));
-		Set<Class<?>> classes = new HashSet<>();
-		for (BeanDefinition candidate : scanner.findCandidateComponents(packageName)) {
-			try {
-				classes.add(Class.forName(candidate.getBeanClassName()));
-			} catch (ClassNotFoundException e) {
-				logger.error("Failed to load Elasticsearch entity class {}", candidate.getBeanClassName(), e);
-			}
-		}
-		return classes;
 	}
 }
