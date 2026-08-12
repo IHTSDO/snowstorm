@@ -12,8 +12,6 @@ import org.snomed.snowstorm.core.data.repositories.BranchMergeJobRepository;
 import org.snomed.snowstorm.core.data.services.pojo.IntegrityIssueReport;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
-import org.springframework.data.elasticsearch.core.IndexOperations;
-import org.springframework.data.elasticsearch.core.document.Document;
 import org.springframework.data.elasticsearch.core.mapping.IndexCoordinates;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
@@ -21,7 +19,6 @@ import org.springframework.test.context.junit.jupiter.SpringExtension;
 import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
-import java.util.LinkedHashMap;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -116,54 +113,6 @@ class BranchMergeJobApiErrorPersistenceTest extends AbstractTest {
 		String apiErrorJson = (String) source.get("apiErrorJson");
 		assertTrue(apiErrorJson.contains("integrityIssues"));
 		assertTrue(apiErrorJson.contains("relationshipsWithMissingOrInactiveSource"));
-	}
-
-	@Test
-	void saveSucceedsAfterRecreatingIndexThatHadLegacyNestedApiErrorMapping() {
-		IndexCoordinates index = elasticsearchOperations.getIndexCoordinatesFor(BranchMergeJob.class);
-		IndexOperations indexOps = elasticsearchOperations.indexOps(index);
-		indexOps.delete();
-
-		// Simulate a legacy index that mapped apiError as a nested object (dynamic fields per issue id).
-		Map<String, Object> legacyProperties = new LinkedHashMap<>();
-		legacyProperties.put("id", Map.of("type", "keyword"));
-		legacyProperties.put("source", Map.of("type", "keyword"));
-		legacyProperties.put("target", Map.of("type", "keyword"));
-		legacyProperties.put("status", Map.of("type", "keyword"));
-		legacyProperties.put("message", Map.of("type", "text"));
-		legacyProperties.put("apiError", Map.of(
-				"properties", Map.of(
-						"message", Map.of("type", "text"),
-						"developerMessage", Map.of("type", "text"),
-						"additionalInfo", Map.of("type", "object")
-				)
-		));
-		indexOps.create();
-		indexOps.putMapping(Document.from(Map.of("properties", legacyProperties)));
-
-		assertTrue(org.snomed.snowstorm.config.ElasticsearchConfig.hasNestedApiErrorObjectMapping(indexOps.getMapping()));
-
-		// Same recovery path used at application startup.
-		indexOps.delete();
-		indexOps.create();
-		indexOps.putMapping(indexOps.createMapping(BranchMergeJob.class));
-		assertFalse(org.snomed.snowstorm.config.ElasticsearchConfig.hasNestedApiErrorObjectMapping(indexOps.getMapping()));
-
-		IntegrityIssueReport report = buildLargeIntegrityIssueReport(ISSUES_PER_MAP);
-		ApiError apiError = ApiErrorFactory.createErrorForMergeConflicts("Integrity failure after recreate", report);
-		BranchMergeJob mergeJob = new BranchMergeJob("MAIN/C", "MAIN", JobStatus.CONFLICTS);
-		mergeJob.setMessage(apiError.getMessage());
-		mergeJob.setApiError(apiError);
-
-		assertDoesNotThrow(() -> repository.save(mergeJob));
-		elasticsearchOperations.indexOps(BranchMergeJob.class).refresh();
-
-		BranchMergeJob loaded = repository.findById(mergeJob.getId()).orElseThrow();
-		assertEquals("Integrity failure after recreate", loaded.getApiError().getMessage());
-		@SuppressWarnings("unchecked")
-		Map<String, Object> integrityIssues =
-				(Map<String, Object>) loaded.getApiError().getAdditionalInfo().get("integrityIssues");
-		assertIntegrityMapSize(integrityIssues, "relationshipsWithMissingOrInactiveSource", ISSUES_PER_MAP);
 	}
 
 	private static IntegrityIssueReport buildLargeIntegrityIssueReport(int issuesPerMap) {

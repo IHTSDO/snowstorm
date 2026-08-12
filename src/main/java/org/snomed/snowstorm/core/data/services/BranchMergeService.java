@@ -143,31 +143,49 @@ public class BranchMergeService {
 				}
 				mergeJob.setStatus(JobStatus.COMPLETED);
 				mergeJob.setEndDate(new Date());
-				branchMergeJobRepository.save(mergeJob);
+				persistMergeJob(mergeJob);
 			} catch (IntegrityException e) {
+				logger.error("Integrity conflicts during merge job {}", mergeJob.getId(), e);
 				mergeJob.setStatus(JobStatus.CONFLICTS);
 				mergeJob.setMessage(e.getMessage());
 				mergeJob.setEndDate(new Date());
 				try {
 					mergeJob.setApiError(ApiErrorFactory.createErrorForMergeConflicts(e.getMessage(), e.getIntegrityIssueReport()));
-					branchMergeJobRepository.save(mergeJob);
-				} catch (Exception saveException) {
-					logger.error("Failed to persist integrity conflict details for merge job {}. " +
-							"Saving CONFLICTS status without apiError. If this persists, delete the branch-marge index so it can be recreated without legacy nested apiError mappings.",
-							mergeJob.getId(), saveException);
+				} catch (Exception detailsException) {
+					logger.error("Failed to build integrity conflict details for merge job {}", mergeJob.getId(), detailsException);
 					mergeJob.setApiError(null);
-					branchMergeJobRepository.save(mergeJob);
+				}
+				if (!persistMergeJob(mergeJob) && mergeJob.getApiError() != null) {
+					logger.error("Retrying merge job {} CONFLICTS persist without apiError", mergeJob.getId());
+					mergeJob.setApiError(null);
+					persistMergeJob(mergeJob);
 				}
 			} catch (Exception e) {
+				logger.error("Failed to merge branch", e);
 				mergeJob.setStatus(JobStatus.FAILED);
 				mergeJob.setMessage(e.getMessage());
 				mergeJob.setEndDate(new Date());
-				branchMergeJobRepository.save(mergeJob);
-				logger.error("Failed to merge branch",e);
+				persistMergeJob(mergeJob);
 			}
 		});
 
 		return mergeJob;
+	}
+
+	/**
+	 * Persist merge job status without letting repository failures escape the async lambda
+	 * (unobserved Future), which would leave the ES document stuck at IN_PROGRESS.
+	 *
+	 * @return true if save succeeded
+	 */
+	private boolean persistMergeJob(BranchMergeJob mergeJob) {
+		try {
+			branchMergeJobRepository.save(mergeJob);
+			return true;
+		} catch (Exception saveException) {
+			logger.error("Failed to persist merge job {} with status {}", mergeJob.getId(), mergeJob.getStatus(), saveException);
+			return false;
+		}
 	}
 
 	public BranchMergeJob getBranchMergeJobOrThrow(String id) {
