@@ -975,6 +975,22 @@ class ExportServiceTest extends AbstractTest {
 		assertTrue((lines.iterator().next().contains(lateralityMember.getMemberId())));
 	}
 
+	@Test
+	void testAxiomsExportedWhenInNonDefaultModule() throws Exception {
+		// Create CodeSystem
+		codeSystemService.createCodeSystem(new CodeSystem("SNOMEDCT", "MAIN"));
+
+		// Create Axiom
+		String nonDefaultModuleId = "715515008";
+		ReferenceSetMember axiom = new ReferenceSetMember(nonDefaultModuleId, Concepts.OWL_AXIOM_REFERENCE_SET, "123001");
+		axiom.setAdditionalField(ReferenceSetMember.OwlExpressionFields.OWL_EXPRESSION, "SubClassOf(:123001 :100002)");
+		referenceSetMemberService.createMember("MAIN", axiom);
+
+		// Export Axiom
+		List<String> lines = getFileFromSnapshotExport("MAIN", "OWLExpression");
+		assertTrue(lines.stream().anyMatch(line -> line.contains(axiom.getMemberId())));
+	}
+
 	private List<String> getFileFromSnapshotExport(String branchPath, String fileName) throws IOException {
 		// Prepare for export
 		File exportFile = getTempFile("export", ".zip");
