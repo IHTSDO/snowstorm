@@ -332,11 +332,7 @@ public class ExportService {
 							  List<Long> refsetsOfThisType) {
 
 		if (!refsetOnlyExport || refsetIds.contains(refsetToExport.toString())) {
-			if (Concepts.MODULE_DEPENDENCY_REFERENCE_SET.equals(String.valueOf(refsetToExport))) {
-				moduleIds.addAll(sBranchService.getModules(branchPath));
-			}
-
-			BoolQuery.Builder memberQueryBuilder = getContentQuery(exportType, moduleIds, startEffectiveTime, memberBranchCriteria);
+			BoolQuery.Builder memberQueryBuilder = getContentQuery(exportType, getModuleIdsForExport(moduleIds, refsetToExport, branchPath), startEffectiveTime, memberBranchCriteria);
 			memberQueryBuilder.must(termQuery(ReferenceSetMember.Fields.REFSET_ID, refsetToExport));
 			Query memberQuery = memberQueryBuilder.build()._toQuery();
 			long memberCount = elasticsearchOperations.count(getNativeSearchQuery(memberQuery), ReferenceSetMember.class);
@@ -458,4 +454,16 @@ public class ExportService {
 		return new BufferedWriter(new OutputStreamWriter(outputStream));
 	}
 
+	private Set<String> getModuleIdsForExport(Set<String> moduleIds, Long refsetToExport, String branchPath) {
+		if (Concepts.MODULE_DEPENDENCY_REFERENCE_SET.equals(String.valueOf(refsetToExport))) {
+			Set<String> branchModules = sBranchService.getModules(branchPath);
+			if (!branchModules.isEmpty()) {
+				Set<String> expanded = new HashSet<>(moduleIds);
+				expanded.addAll(branchModules);
+				return expanded;
+			}
+		}
+
+		return moduleIds;
+	}
 }
