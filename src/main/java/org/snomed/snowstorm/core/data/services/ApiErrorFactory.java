@@ -10,6 +10,12 @@ import java.util.Map;
 
 public class ApiErrorFactory {
 
+	static final String INTEGRITY_CHECK_DEVELOPER_MESSAGE = "The integrity check API can be used here.";
+
+	static ApiError createErrorForMergeConflicts(String message) {
+		return new ApiError(message, INTEGRITY_CHECK_DEVELOPER_MESSAGE);
+	}
+
 	static ApiError createErrorForMergeConflicts(String message, IntegrityIssueReport integrityIssueReport) {
 		// Use only plain Maps (no custom types) so ApiError JSON round-trips cleanly for ES storage.
 		Map<String, Object> report = new LinkedHashMap<>();
@@ -24,7 +30,7 @@ public class ApiErrorFactory {
 
 		Map<String, Object> info = new HashMap<>();
 		info.put("integrityIssues", report);
-		return new ApiError(message, "The integrity check API can be used here.", info);
+		return new ApiError(message, INTEGRITY_CHECK_DEVELOPER_MESSAGE, info);
 	}
 
 	/**

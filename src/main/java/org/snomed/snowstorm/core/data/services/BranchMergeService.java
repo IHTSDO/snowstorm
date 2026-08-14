@@ -153,11 +153,12 @@ public class BranchMergeService {
 					mergeJob.setApiError(ApiErrorFactory.createErrorForMergeConflicts(e.getMessage(), e.getIntegrityIssueReport()));
 				} catch (Exception detailsException) {
 					logger.error("Failed to build integrity conflict details for merge job {}", mergeJob.getId(), detailsException);
-					mergeJob.setApiError(null);
+					mergeJob.setApiError(ApiErrorFactory.createErrorForMergeConflicts(mergeJob.getMessage()));
 				}
-				if (!persistMergeJob(mergeJob) && mergeJob.getApiError() != null) {
-					logger.error("Retrying merge job {} CONFLICTS persist without apiError", mergeJob.getId());
-					mergeJob.setApiError(null);
+				boolean saved = persistMergeJob(mergeJob);
+				if (!saved && mergeJob.getApiErrorJson() != null) {
+					logger.warn("Merge job {} CONFLICTS persist failed with integrity details; retrying without them", mergeJob.getId());
+					mergeJob.setApiError(ApiErrorFactory.createErrorForMergeConflicts(mergeJob.getMessage()));
 					persistMergeJob(mergeJob);
 				}
 			} catch (Exception e) {
