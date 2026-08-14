@@ -25,13 +25,28 @@ public class BranchMergeJob {
 			.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
 
 	@Id
+	@Field(type = FieldType.Keyword)
 	private String id;
+
+	@Field(type = FieldType.Keyword)
 	private String source;
+
+	@Field(type = FieldType.Keyword)
 	private String target;
+
+	@Field(type = FieldType.Long)
 	private Date scheduledDate;
+
+	@Field(type = FieldType.Long)
 	private Date startDate;
+
+	@Field(type = FieldType.Keyword)
 	private JobStatus status;
+
+	@Field(type = FieldType.Long)
 	private Date endDate;
+
+	@Field(type = FieldType.Text, index = false)
 	private String message;
 
 	/**
