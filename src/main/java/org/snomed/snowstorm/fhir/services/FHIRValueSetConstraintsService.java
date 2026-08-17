@@ -111,7 +111,15 @@ public class FHIRValueSetConstraintsService implements FHIRConstants {
 		if (inlined instanceof ValueSet vs && (uri.getVersion() == null || uri.getVersion().equals(vs.getVersion()))) {
 			return vs;
 		}
+		if (isImplicitValueSetUrl(uri.getSystem())) {
+			// Nested reference to an implicit/intensional value set (e.g. SNOMED CT ECL), rather than a stored resource.
+			return vsFinderService.findOrInferValueSet(null, uri.getSystem(), null, uri.getVersion());
+		}
 		return vsFinderService.findOrThrow(uri.getSystem(), uri.getVersion()).getHapi();
+	}
+
+	private boolean isImplicitValueSetUrl(String url) {
+		return url != null && ((FHIRHelper.isSnomedUri(url) && url.contains(FHIR_VS)) || url.endsWith(FHIR_VS));
 	}
 
 	private void handleNestedValueSetException(CanonicalUri uri,

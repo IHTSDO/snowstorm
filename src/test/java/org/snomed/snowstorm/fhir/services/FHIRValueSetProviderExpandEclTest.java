@@ -174,6 +174,27 @@ class FHIRValueSetProviderExpandEclTest extends AbstractFHIRTest {
 	}
 
 	@Test
+	void testExplicitNestedValueSetExpansion() {
+		ClassLoader classloader = Thread.currentThread().getContextClassLoader();
+		InputStream is = classloader.getResourceAsStream("dummy-fhir-content/exampleVS_nested_valueset.json");
+		assertNotNull(is);
+		ValueSet exampleVS = fhirJsonParser.parseResource(ValueSet.class, is);
+		String vsJson = fhirJsonParser.encodeResourceToString(exampleVS);
+		storeVs("test-nested-vs", vsJson);
+
+		try {
+			//Now expand that ValueSet we just saved
+			String url = baseUrl + "/ValueSet/test-nested-vs/$expand";
+			ResponseEntity<String> response = restTemplate.getForEntity(url, String.class);
+			ValueSet savedVS = fhirJsonParser.parseResource(ValueSet.class, response.getBody());
+			//12 Concepts on MAIN (strict descendants of root)
+			assertEquals(12, savedVS.getExpansion().getTotal(), () -> "Body: " + response.getBody());
+		} finally {
+			deleteVs("test-nested-vs");
+		}
+	}
+
+	@Test
 	void testECLWithUnpublishedVersion() {
 		//Asking for 5 at a time, expect 13 Total - 10 on MAIN + 3 in the sample module + 1 Root concept
 		String url = baseUrl + "/ValueSet/$expand?" +
