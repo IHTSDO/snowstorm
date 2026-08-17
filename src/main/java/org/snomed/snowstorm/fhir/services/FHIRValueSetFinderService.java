@@ -369,8 +369,10 @@ public class FHIRValueSetFinderService implements FHIRConstants, TxResourceAware
 	                                                               List<LanguageDialect> languageDialects, String branchPath) {
 
 		QueryService.ConceptQueryBuilder conceptQuery = snomedQueryService.createQueryBuilder(false);
-		if (codeSelectionCriteria.isAnyECL()) {
-			// ECL search — validate individual constraints before assembling to avoid wrapped parens in error messages
+		if (codeSelectionCriteria.isAnyECL() || !codeSelectionCriteria.getNestedSelections().isEmpty()) {
+			// ECL search — nested value sets are folded in as OR'd sub-expressions, so they also need the ECL path
+			// even when neither the top-level nor nested criteria contain any ECL of their own.
+			// Also validate individual constraints before assembling to avoid wrapped parens in error messages
 			validateEclConstraints(codeSelectionCriteria, branchPath);
 			String ecl = inclusionExclusionClausesToEcl(codeSelectionCriteria);
 			conceptQuery.ecl(ecl);

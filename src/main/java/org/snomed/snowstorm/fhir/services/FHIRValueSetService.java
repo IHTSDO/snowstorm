@@ -261,7 +261,7 @@ public class FHIRValueSetService implements FHIRConstants {
 		// Restrict the expansion of ValueSets with multiple code system versions if any are SNOMED CT, to simplify pagination.
 		Set<FHIRCodeSystemVersion> allInclusionVersions = codeSelectionCriteria.gatherAllInclusionVersions();
 		boolean isSnomed = allInclusionVersions.stream().anyMatch(FHIRCodeSystemVersion::isOnSnomedBranch);
-		validateSnomedExpansionSupported(isSnomed, allInclusionVersions, codeSelectionCriteria);
+		validateSnomedExpansionSupported(isSnomed, allInclusionVersions);
 
 		if (allInclusionVersions.isEmpty()) {
 			return hapiValueSet;
@@ -326,18 +326,15 @@ public class FHIRValueSetService implements FHIRConstants {
 		}
 	}
 
-	// Restrict SNOMED CT expansions with multiple code systems or nested value sets, to simplify pagination.
-	private void validateSnomedExpansionSupported(boolean isSnomed, Set<FHIRCodeSystemVersion> allInclusionVersions, CodeSelectionCriteria codeSelectionCriteria) {
+	// Restrict SNOMED CT expansions with multiple code systems, to simplify pagination.
+	// Nested value sets are supported provided they all resolve to the same single code system version -
+	// the nested criteria are folded into a single ECL query so pagination and totals remain correct.
+	private void validateSnomedExpansionSupported(boolean isSnomed, Set<FHIRCodeSystemVersion> allInclusionVersions) {
 		if (!isSnomed) {
 			return;
 		}
 		if (allInclusionVersions.size() > 1) {
 			throw exception("This server does not yet support ValueSet$expand on ValueSets with multiple code systems if any are SNOMED CT, " +
-							"because of the complexities around pagination and result totals.",
-					OperationOutcome.IssueType.NOTSUPPORTED, 400);
-		}
-		if (!codeSelectionCriteria.getNestedSelections().isEmpty()) {
-			throw exception("This server does not yet support ValueSet$expand on SNOMED CT ValueSets with nested value sets, " +
 							"because of the complexities around pagination and result totals.",
 					OperationOutcome.IssueType.NOTSUPPORTED, 400);
 		}
