@@ -111,6 +111,7 @@ public class SecurityAndUriConfig {
 				"/rebuild/(.*)",
 				"/browser/(.*)/validate/concept",
 				"/browser/(.*)/validate/concepts",
+				"/browser/(.*)/inactivation-reasons",
 				"/browser/(.*)/concepts.*",
 				"/browser/(.*)/descriptions.*",
 				"/browser/(.*)/members.*",

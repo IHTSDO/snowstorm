@@ -296,6 +296,15 @@ public class ConceptController {
 				acceptLanguageHeader);
 	}
 
+	@Operation(summary = "Retrieve concept and description inactivation reasons for a branch.",
+			description = "Exposes Snowstorm's Concepts inactivation indicator and historical association BiMaps together with "
+					+ "cardinality rules used when inactivating concepts and descriptions. "
+					+ "Concept non-current is omitted from description reasons when the branch has cncEnabled=false.")
+	@GetMapping(value = "/browser/{branch}/inactivation-reasons")
+	public InactivationReasonsResponse getInactivationReasons(@PathVariable String branch) {
+		return conceptService.getInactivationReasons(BranchPathUriUtil.decodePath(branch));
+	}
+
 	@Operation(summary = "Load concepts in the browser format.",
 			description = "When enabled 'searchAfter' can be used for unlimited pagination. " +
 					"Load the first page then take the 'searchAfter' value from the response and use that " +
