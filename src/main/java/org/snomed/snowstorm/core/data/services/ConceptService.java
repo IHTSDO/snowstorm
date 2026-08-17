@@ -26,6 +26,9 @@ import org.snomed.snowstorm.core.pojo.BranchTimepoint;
 import org.snomed.snowstorm.core.pojo.LanguageDialect;
 import org.snomed.snowstorm.core.util.PageHelper;
 import org.snomed.snowstorm.core.util.TimerUtil;
+import org.snomed.snowstorm.rest.pojo.InactivationReason;
+import org.snomed.snowstorm.rest.pojo.InactivationReasonsResponse;
+import org.snomed.snowstorm.rest.pojo.ValidAssociation;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.data.domain.Page;
@@ -63,6 +66,7 @@ import static org.springframework.util.CollectionUtils.isEmpty;
 public class ConceptService extends ComponentService {
 
 	private static final Map<ComponentType, Class<? extends DomainEntity<?>>> COMPONENT_DOCUMENT_TYPES = new EnumMap<>(ComponentType.class);
+	private static final int UNBOUNDED_MAX_TARGETS = 99;
 
 	static {
 		COMPONENT_DOCUMENT_TYPES.put(ComponentType.Concept, Concept.class);
@@ -1059,5 +1063,52 @@ public class ConceptService extends ComponentService {
 		logger.info("Concept {} donated from {} to {}", conceptCreated.getConceptId(), sourceBranchPath, destinationBranchPath);
 		concepts.add(new ConceptMini(conceptCreated, languageDialects));
 		return concepts;
+	}
+
+	public InactivationReasonsResponse getInactivationReasons(String branchPath) {
+		branchService.findBranchOrThrow(branchPath, true);
+		return new InactivationReasonsResponse(conceptInactivationReasons(), descriptionService.getInactivationReasons());
+	}
+
+	private static List<InactivationReason> conceptInactivationReasons() {
+		return List.of(
+				inactivationReason(Concepts.DUPLICATE, historicalAssociation(Concepts.REFSET_SAME_AS_ASSOCIATION, 1, 1, true)),
+				inactivationReason(Concepts.AMBIGUOUS, historicalAssociation(Concepts.REFSET_POSSIBLY_EQUIVALENT_TO_ASSOCIATION, 1, UNBOUNDED_MAX_TARGETS, true)),
+				inactivationReason(Concepts.ERRONEOUS, historicalAssociation(Concepts.REFSET_REPLACED_BY_ASSOCIATION, 1, 1, true)),
+				inactivationReason(Concepts.OUTDATED,
+						historicalAssociation(Concepts.REFSET_REPLACED_BY_ASSOCIATION, 1, 1, true),
+						historicalAssociation(Concepts.REFSET_POSSIBLY_REPLACED_BY_ASSOCIATION, 1, UNBOUNDED_MAX_TARGETS, true)),
+				inactivationReason(Concepts.CLASSIFICATION_DERIVED_COMPONENT,
+						historicalAssociation(Concepts.REFSET_REPLACED_BY_ASSOCIATION, 1, 1, true),
+						historicalAssociation(Concepts.REFSET_PARTIALLY_EQUIVALENT_TO_ASSOCIATION, 2, UNBOUNDED_MAX_TARGETS, true)),
+				inactivationReason(Concepts.MEANING_OF_COMPONENT_UNKNOWN),
+				inactivationReason(Concepts.NONCONFORMANCE_TO_EDITORIAL_POLICY,
+						historicalAssociation(Concepts.REFSET_REPLACED_BY_ASSOCIATION, 1, 1, true),
+						historicalAssociation(Concepts.REFSET_ALTERNATIVE_ASSOCIATION, 1, UNBOUNDED_MAX_TARGETS, true))
+		);
+	}
+
+	private static InactivationReason inactivationReason(String id, ValidAssociation... associations) {
+		String name = Concepts.inactivationIndicatorNames.get(id);
+		if (name == null) {
+			throw new IllegalStateException("Unknown inactivation indicator: " + id);
+		}
+		return new InactivationReason(id, name, inactivationReasonDisplayLabel(name), List.of(associations));
+	}
+
+	private static ValidAssociation historicalAssociation(String refsetId, int minTargets, int maxTargets, boolean targetsMustBeActive) {
+		String type = Concepts.historicalAssociationNames.get(refsetId);
+		if (type == null) {
+			throw new IllegalStateException("Unknown historical association refset: " + refsetId);
+		}
+		return new ValidAssociation(type, minTargets, maxTargets, targetsMustBeActive);
+	}
+
+	private static String inactivationReasonDisplayLabel(String name) {
+		if ("CONCEPT_NON_CURRENT".equals(name)) {
+			return "Concept non-current";
+		}
+		String lower = name.replace('_', ' ').toLowerCase(Locale.ROOT);
+		return Character.toUpperCase(lower.charAt(0)) + lower.substring(1);
 	}
 }
