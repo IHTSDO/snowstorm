@@ -1,0 +1,16 @@
+{
+  "resourceType": "ValueSet",
+  "status": "active",
+  "name": "Test nested VS",
+  "id": "test-nested-vs",
+  "title": "Test Nested VS",
+  "version": "0.0.1",
+  "url": "http://snomed.test/fhir/ValueSet/test-nested-vs",
+  "compose": {
+    "include": [
+      {
+        "valueSet": "http://snomed.info/sct?fhir_vs=ecl/<138875005"
+      }
+    ]
+  }
+}
