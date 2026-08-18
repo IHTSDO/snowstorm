@@ -80,6 +80,18 @@ class ConceptControllerSecurityTest extends AbstractControllerSecurityTest {
 	}
 
 	@Test
+	void getInactivationImpact() throws URISyntaxException {
+		RequestEntity<Object> request = new RequestEntity<>(HttpMethod.GET,
+				new URI(url + "/browser/MAIN/concepts/" + Concepts.SNOMEDCT_ROOT + "/inactivation-impact"));
+		testStatusCode(HttpStatus.NOT_FOUND, userWithoutRoleHeaders, request);
+		testStatusCode(HttpStatus.NOT_FOUND, authorHeaders, request);
+		testStatusCode(HttpStatus.NOT_FOUND, extensionAuthorHeaders, request);
+		testStatusCode(HttpStatus.NOT_FOUND, multiExtensionAuthorHeaders, request);
+		testStatusCode(HttpStatus.NOT_FOUND, extensionAdminHeaders, request);
+		testStatusCode(HttpStatus.NOT_FOUND, globalAdminHeaders, request);
+	}
+
+	@Test
 	void updateConcept() throws URISyntaxException {
 		Concept concept = new Concept(Concepts.CLINICAL_FINDING).addFSN("Test");
 		// Create concept first

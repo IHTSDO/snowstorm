@@ -17,6 +17,7 @@ import org.snomed.snowstorm.core.data.services.pojo.RefSetMemberPageWithBucketAg
 import org.snomed.snowstorm.core.pojo.BranchTimepoint;
 import org.snomed.snowstorm.loadtest.ItemsPagePojo;
 import org.snomed.snowstorm.rest.pojo.ConceptBulkLoadRequest;
+import org.snomed.snowstorm.rest.pojo.InactivationImpactResponse;
 import org.snomed.snowstorm.util.ConceptControllerTestConstants;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.configurationprocessor.json.JSONException;
@@ -135,6 +136,19 @@ class ConceptControllerTest extends AbstractTest {
 		CodeSystem codeSystem = new CodeSystem("SNOMEDCT", "MAIN");
 		codeSystemService.createCodeSystem(codeSystem);
 		codeSystemService.createVersion(codeSystem, 20190731, "");
+	}
+
+	@Test
+	void testInactivationImpactEndpoint() {
+		InactivationImpactResponse response = this.restTemplate.getForObject(
+				"http://localhost:" + port + "/browser/MAIN/projectA/concepts/257751006/inactivation-impact",
+				InactivationImpactResponse.class);
+		assertNotNull(response);
+		assertNotNull(response.affectedChildren());
+		assertNotNull(response.affectedAttributeConcepts());
+		assertNotNull(response.affectedGcis());
+		assertNotNull(response.existingHistoricalAssociations());
+		assertEquals(0, response.totalAffectedConcepts());
 	}
 
 	@Test
