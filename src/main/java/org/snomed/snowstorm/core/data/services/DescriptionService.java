@@ -41,8 +41,6 @@ import org.snomed.snowstorm.core.util.DescriptionHelper;
 import org.snomed.snowstorm.core.util.TimerUtil;
 import org.snomed.snowstorm.ecl.ECLQueryService;
 import org.snomed.snowstorm.ecl.domain.expressionconstraint.SExpressionConstraint;
-import org.snomed.snowstorm.rest.pojo.InactivationReason;
-import org.snomed.snowstorm.rest.pojo.ValidAssociation;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
@@ -77,7 +75,6 @@ public class DescriptionService extends ComponentService {
 
 	// Query value used to prevent matching
 	private static final String NO_MATCH = "no-match";
-	private static final int UNBOUNDED_MAX_TARGETS = 99;
 
 	@Autowired
 	private SearchLanguagesConfiguration searchLanguagesConfiguration;
@@ -1104,39 +1101,6 @@ public class DescriptionService extends ComponentService {
 		query.addSort(Sort.by(Description.Fields.TERM_LEN));
 		query.addSort(Sort.by("_score"));
 		return query;
-	}
-
-	public List<InactivationReason> getInactivationReasons() {
-		return List.of(
-				inactivationReason(Concepts.OUTDATED),
-				inactivationReason(Concepts.GRAMMATICAL_DESCRIPTION_ERROR),
-				inactivationReason(Concepts.NOT_SEMANTICALLY_EQUIVALENT, historicalAssociation(Concepts.REFSET_REFERS_TO_ASSOCIATION, 1, UNBOUNDED_MAX_TARGETS, true)),
-				inactivationReason(Concepts.NONCONFORMANCE_TO_EDITORIAL_POLICY)
-		);
-	}
-
-	private static InactivationReason inactivationReason(String id, ValidAssociation... associations) {
-		String name = Concepts.inactivationIndicatorNames.get(id);
-		if (name == null) {
-			throw new IllegalStateException("Unknown inactivation indicator: " + id);
-		}
-		return new InactivationReason(id, name, inactivationReasonDisplayLabel(name), List.of(associations));
-	}
-
-	private static ValidAssociation historicalAssociation(String refsetId, int minTargets, int maxTargets, boolean targetsMustBeActive) {
-		String type = Concepts.historicalAssociationNames.get(refsetId);
-		if (type == null) {
-			throw new IllegalStateException("Unknown historical association refset: " + refsetId);
-		}
-		return new ValidAssociation(type, minTargets, maxTargets, targetsMustBeActive);
-	}
-
-	private static String inactivationReasonDisplayLabel(String name) {
-		if ("CONCEPT_NON_CURRENT".equals(name)) {
-			return "Concept non-current";
-		}
-		String lower = name.replace('_', ' ').toLowerCase(Locale.ROOT);
-		return Character.toUpperCase(lower.charAt(0)) + lower.substring(1);
 	}
 
 	private record SemanticTagCacheEntry(long branchHeadTime, Map<String, Long> tagCounts) {
