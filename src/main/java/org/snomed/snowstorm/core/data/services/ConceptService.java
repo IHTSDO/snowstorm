@@ -1077,14 +1077,16 @@ public class ConceptService extends ComponentService {
 				inactivationReason(Concepts.ERRONEOUS, historicalAssociation(Concepts.REFSET_REPLACED_BY_ASSOCIATION, 1, 1, true)),
 				inactivationReason(Concepts.OUTDATED,
 						historicalAssociation(Concepts.REFSET_REPLACED_BY_ASSOCIATION, 1, 1, true),
-						historicalAssociation(Concepts.REFSET_POSSIBLY_REPLACED_BY_ASSOCIATION, 1, UNBOUNDED_MAX_TARGETS, true)),
+						historicalAssociation(Concepts.REFSET_POSSIBLY_REPLACED_BY_ASSOCIATION, 1, UNBOUNDED_MAX_TARGETS, true),
+						new ValidAssociation("NO_ASSOCIATION_REQUIRED", 0, 0, false)),
 				inactivationReason(Concepts.CLASSIFICATION_DERIVED_COMPONENT,
 						historicalAssociation(Concepts.REFSET_REPLACED_BY_ASSOCIATION, 1, 1, true),
 						historicalAssociation(Concepts.REFSET_PARTIALLY_EQUIVALENT_TO_ASSOCIATION, 2, UNBOUNDED_MAX_TARGETS, true)),
 				inactivationReason(Concepts.MEANING_OF_COMPONENT_UNKNOWN),
 				inactivationReason(Concepts.NONCONFORMANCE_TO_EDITORIAL_POLICY,
 						historicalAssociation(Concepts.REFSET_REPLACED_BY_ASSOCIATION, 1, 1, true),
-						historicalAssociation(Concepts.REFSET_ALTERNATIVE_ASSOCIATION, 1, UNBOUNDED_MAX_TARGETS, true))
+						historicalAssociation(Concepts.REFSET_ALTERNATIVE_ASSOCIATION, 1, UNBOUNDED_MAX_TARGETS, true),
+						new ValidAssociation("NO_ASSOCIATION_REQUIRED", 0, 0, false))
 		);
 	}
 
