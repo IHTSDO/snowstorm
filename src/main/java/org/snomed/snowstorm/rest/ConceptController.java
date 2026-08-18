@@ -79,6 +79,9 @@ public class ConceptController {
 	private PartialHierarchyService partialHierarchyService;
 
 	@Autowired
+	private InactivationService inactivationService;
+
+	@Autowired
 	private ExpressionService expressionService;
 
 	@Autowired
@@ -302,7 +305,7 @@ public class ConceptController {
 					+ "Concept non-current is omitted from description reasons when the branch has cncEnabled=false.")
 	@GetMapping(value = "/browser/{branch}/inactivation-reasons")
 	public InactivationReasonsResponse getInactivationReasons(@PathVariable String branch) {
-		return conceptService.getInactivationReasons(BranchPathUriUtil.decodePath(branch));
+		return inactivationService.getInactivationReasons(BranchPathUriUtil.decodePath(branch));
 	}
 
 	@Operation(summary = "Load concepts in the browser format.",
@@ -405,6 +408,23 @@ public class ConceptController {
 		ConceptHistory conceptHistory = conceptService.loadConceptHistory(conceptId, branch, showFutureVersions, showInternalReleases);
 
 		return ControllerHelper.throwIfNotFound("conceptHistory", conceptHistory);
+	}
+
+	@Operation(summary = "Summarise the stated-form impact of inactivating a concept.",
+			description = "Runs stated ECL for immediate children (`<! conceptId`) and inbound attribute usages (`*: * = conceptId`), "
+					+ "loads GCI axioms and historical association members targeting the concept, and returns current parents "
+					+ "plus proposed parents (the inactivated concept's stated parents) in one response for inactivation review tabs.")
+	@GetMapping(value = "/browser/{branch}/concepts/{conceptId}/inactivation-impact")
+	@JsonView(value = View.Component.class)
+	public InactivationImpactResponse getInactivationImpact(
+			@PathVariable String branch,
+			@PathVariable String conceptId,
+			@RequestHeader(value = "Accept-Language", defaultValue = Config.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) {
+
+		return inactivationService.getInactivationImpact(
+				BranchPathUriUtil.decodePath(branch),
+				conceptId,
+				ControllerHelper.parseAcceptLanguageHeaderWithDefaultFallback(acceptLanguageHeader));
 	}
 
 	@GetMapping(value = "/{branch}/concepts/{conceptId}/descriptions")

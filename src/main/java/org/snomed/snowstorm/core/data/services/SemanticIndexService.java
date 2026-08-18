@@ -74,6 +74,19 @@ public class SemanticIndexService {
 	}
 
 	/**
+	 * Load stated or inferred {@link QueryConcept} documents for the given concept ids in a single Elasticsearch query.
+	 */
+	public Map<Long, QueryConcept> loadQueryConcepts(String branch, Collection<Long> conceptIds, boolean stated) {
+		if (conceptIds == null || conceptIds.isEmpty()) {
+			return Collections.emptyMap();
+		}
+		if (conceptIds.size() > LARGE_PAGE.getPageSize()) {
+			throw new TooCostlyException("Search concept ids over 10k is too costly.");
+		}
+		return fetchQueryConcepts(branch, conceptIds, stated);
+	}
+
+	/**
 	 * Bulk-loads {@link QueryConcept} documents for the subgraph above the given seeds using at most two Elasticsearch queries:
 	 * one for the seeds, one for ancestors not present in the first result.
 	 */
