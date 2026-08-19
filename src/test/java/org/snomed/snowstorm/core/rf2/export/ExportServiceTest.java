@@ -9,6 +9,7 @@ import org.snomed.snowstorm.TestConfig;
 import org.snomed.snowstorm.config.Config;
 import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.domain.jobs.ExportConfiguration;
+import org.snomed.snowstorm.core.data.domain.jobs.ExportStatus;
 import org.snomed.snowstorm.core.data.services.*;
 import org.snomed.snowstorm.core.rf2.RF2Constants;
 import org.snomed.snowstorm.core.rf2.RF2Type;
@@ -21,6 +22,7 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.util.*;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
@@ -991,15 +993,55 @@ class ExportServiceTest extends AbstractTest {
 		assertTrue(lines.stream().anyMatch(line -> line.contains(axiom.getMemberId())));
 	}
 
+	@Test
+	void exportShouldRetryWhenInitiallyLocked() throws ServiceException, IOException {
+		// Create CodeSystem
+		CodeSystem codeSystem = codeSystemService.createCodeSystem(new CodeSystem("SNOMEDCT-XX", "MAIN/SNOMEDCT-XX"));
+		String branchPath = codeSystem.getBranchPath();
+
+		// Add Concept
+		Concept concept = conceptService.create(new Concept()
+				.addDescription(new Description("Medicine (medicine)").setTypeId(FSN))
+				.addDescription(new Description("Medicine").setTypeId(SYNONYM))
+				.addAxiom(new Relationship(ISA, SNOMEDCT_ROOT))
+				.addRelationship(new Relationship(ISA, SNOMEDCT_ROOT))
+				.setModuleId(CORE_MODULE), branchPath);
+		String medicineId = concept.getConceptId();
+
+		// CodeSystem starts versioning
+		branchService.lockBranch(branchPath, "Versioning CodeSystem");
+
+		// Prepare to export
+		String exportId = exportService.createJob(new ExportConfiguration(branchPath, RF2Type.DELTA));
+
+		// First export
+		assertThrows(IllegalStateException.class, () -> getFileFromExport(exportId, "sct2_Concept_"));
+
+		// CodeSystem finished versioning
+		branchService.unlock(branchPath);
+
+		// Export again
+		List<String> lines = getFileFromExport(exportId, "sct2_Concept_");
+		assertTrue(lines.stream().anyMatch(line -> line.contains(medicineId)));
+	}
+
 	private List<String> getFileFromSnapshotExport(String branchPath, String fileName) throws IOException {
+		ExportConfiguration exportConfiguration = new ExportConfiguration(branchPath, RF2Type.SNAPSHOT);
+		exportService.createJob(exportConfiguration);
+		return getFileFromExport(exportConfiguration, fileName);
+	}
+
+	private List<String> getFileFromExport(String exportId, String fileName) throws IOException {
+		return getFileFromExport(exportService.getExportJobOrThrow(exportId), fileName);
+	}
+
+	private List<String> getFileFromExport(ExportConfiguration exportConfiguration, String fileName) throws IOException {
 		// Prepare for export
 		File exportFile = getTempFile("export", ".zip");
 		exportFile.deleteOnExit();
 
 		// Export content
 		try (FileOutputStream outputStream = new FileOutputStream(exportFile)) {
-			ExportConfiguration exportConfiguration = new ExportConfiguration(branchPath, RF2Type.SNAPSHOT);
-			exportService.createJob(exportConfiguration);
 			exportService.exportRF2Archive(exportConfiguration, outputStream);
 		}
 
