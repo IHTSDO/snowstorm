@@ -182,7 +182,7 @@ public class MultiSearchService implements CommitListener {
 		Set<Long> conceptIdsMatched = new LongOpenHashSet();
 		try (final SearchHitsIterator<Description> descriptions = elasticsearchOperations.searchForStream(new NativeQueryBuilder()
 				.withQuery(descriptionQuery)
-				.withSourceFilter(new FetchSourceFilter(true, new String[]{Description.Fields.CONCEPT_ID}, null))
+				.withSourceFilter(new FetchSourceFilter(null, new String[]{Description.Fields.CONCEPT_ID}, null))
 				.withPageable(LARGE_PAGE).build(), Description.class)) {
 			while (descriptions.hasNext()) {
 				conceptIdsMatched.add(Long.valueOf(descriptions.next().getContent().getConceptId()));
@@ -197,7 +197,7 @@ public class MultiSearchService implements CommitListener {
 							.must(termsQuery(Concept.Fields.CONCEPT_ID, conceptIdsMatched)))
 					)
 					.withFilter(bool(b ->b.must(termQuery(Concept.Fields.ACTIVE, conceptActiveFlag))))
-					.withSourceFilter(new FetchSourceFilter(true, new String[]{Concept.Fields.CONCEPT_ID}, null))
+					.withSourceFilter(new FetchSourceFilter(null, new String[]{Concept.Fields.CONCEPT_ID}, null))
 					.withPageable(LARGE_PAGE).build(), Concept.class)) {
 				while (concepts.hasNext()) {
 					result.add(Long.valueOf(concepts.next().getContent().getConceptId()));

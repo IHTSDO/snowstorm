@@ -328,7 +328,7 @@ public class BranchMergeService {
 								.must(termQuery(PATH, path))
 								.mustNot(existsQuery(END)))
 				)
-				.withSourceFilter(new FetchSourceFilter(true, new String[]{
+				.withSourceFilter(new FetchSourceFilter(null, new String[]{
 						PATH, RELEASED, RELEASED_EFFECTIVE_TIME,
 						ReferenceSetMember.Fields.MEMBER_ID, ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID,
 						ReferenceSetMember.Fields.REFSET_ID
@@ -360,7 +360,7 @@ public class BranchMergeService {
 											.must(termQuery(idField, componentId))
 											.mustNot(existsQuery(END)))
 							)
-							.withSourceFilter(new FetchSourceFilter(true, new String[]{
+							.withSourceFilter(new FetchSourceFilter(null, new String[]{
 									PATH, RELEASED, RELEASED_EFFECTIVE_TIME,
 									ReferenceSetMember.Fields.MEMBER_ID, ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID,
 									ReferenceSetMember.Fields.REFSET_ID
@@ -409,7 +409,7 @@ public class BranchMergeService {
 				bool(b -> b
 						.must(changesOnBranchCriteria.getEntityBranchCriteria(componentClass))
 						.must(clause)))
-				.withSourceFilter(new FetchSourceFilter(true, new String[]{idField}, null))
+				.withSourceFilter(new FetchSourceFilter(null, new String[]{idField}, null))
 				.withPageable(LARGE_PAGE);
 		try (SearchHitsIterator<T> stream = elasticsearchOperations.searchForStream(changesQueryBuilder.build(), componentClass)) {
 			stream.forEachRemaining(hit -> componentsChangedOnBranch.add(hit.getContent().getId()));
@@ -428,7 +428,7 @@ public class BranchMergeService {
 						// Version must come from an ancestor branch
 						.mustNot(termQuery("path", path))))
 				.withFilter(termsQuery(idField, componentsChangedOnBranch))
-				.withSourceFilter(new FetchSourceFilter(true, new String[]{idField}, null))
+				.withSourceFilter(new FetchSourceFilter(null, new String[]{idField}, null))
 				.withPageable(LARGE_PAGE);
 		try (SearchHitsIterator<T> stream = elasticsearchOperations.searchForStream(parentQueryBuilder.build(), componentClass)) {
 			stream.forEachRemaining(hit -> duplicateComponents.add(hit.getContent().getId()));
@@ -476,7 +476,7 @@ public class BranchMergeService {
 				.withQuery(bool(b -> b.must(entityBranchCriteria)
 						.must(termQuery("path", branch))))
 				.withPageable(ComponentService.LARGE_PAGE)
-				.withSourceFilter(new FetchSourceFilter(true, new String[]{idField}, null)).build(), clazz)) {
+				.withSourceFilter(new FetchSourceFilter(null, new String[]{idField}, null)).build(), clazz)) {
 			conceptStream.forEachRemaining(c -> ids.add(c.getContent().getId()));
 		}
 
@@ -488,7 +488,7 @@ public class BranchMergeService {
 							.mustNot(termQuery("path", branch))))
 					.withFilter(termsQuery(idField, idsBatch))
 					.withPageable(ComponentService.LARGE_PAGE)
-					.withSourceFilter(new FetchSourceFilter(true, new String[]{idField}, null)).build(), clazz)) {
+					.withSourceFilter(new FetchSourceFilter(null, new String[]{idField}, null)).build(), clazz)) {
 				conceptStream.forEachRemaining(c -> {
 					if(ids.contains(c.getContent().getId())) {
 						duplicateIds.add(c.getContent().getId());

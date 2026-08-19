@@ -251,7 +251,7 @@ public class DescriptionService extends ComponentService {
 			// Apply semantic tag filter
 			fsnQueryBuilder
 					.withPageable(LARGE_PAGE)
-					.withSourceFilter(new FetchSourceFilter(true, new String[]{Description.Fields.CONCEPT_ID}, null));
+					.withSourceFilter(new FetchSourceFilter(null, new String[]{Description.Fields.CONCEPT_ID}, null));
 
 			Set<Long> conceptSemanticTagMatches = new LongOpenHashSet();
 			if (allSemanticTags.size() == 1) {
@@ -387,7 +387,7 @@ public class DescriptionService extends ComponentService {
 				.withQuery(bool(bq -> bq
 						.must(branchCriteria.getEntityBranchCriteria(Concept.class))
 						.must(termQuery(Concept.Fields.ACTIVE, true))))
-				.withSourceFilter(new FetchSourceFilter(true, new String[]{Concept.Fields.CONCEPT_ID}, null))
+				.withSourceFilter(new FetchSourceFilter(null, new String[]{Concept.Fields.CONCEPT_ID}, null))
 				.withPageable(LARGE_PAGE).build(), Concept.class)) {
 			stream.forEachRemaining(hit -> activeConcepts.add(hit.getContent().getConceptIdAsLong()));
 		}
@@ -755,7 +755,7 @@ public class DescriptionService extends ComponentService {
 		Query descriptionQuery = descriptionQueryBuilder.build()._toQuery();
 		NativeQueryBuilder searchQueryBuilder = new NativeQueryBuilder()
 				.withQuery(descriptionQuery)
-				.withSourceFilter(new FetchSourceFilter(true, new String[]{Description.Fields.DESCRIPTION_ID, Description.Fields.CONCEPT_ID}, null));
+				.withSourceFilter(new FetchSourceFilter(null, new String[]{Description.Fields.DESCRIPTION_ID, Description.Fields.CONCEPT_ID}, null));
 
 		NativeQuery query = searchQueryBuilder.withPageable(PAGE_OF_ONE).build();
 		query.setTrackTotalHits(true);
@@ -831,7 +831,7 @@ public class DescriptionService extends ComponentService {
 			NativeQuery nativeSearchQuery = new NativeQueryBuilder()
 					.withQuery(queryBuilder.build()._toQuery())
 					.withFilter(termsQuery(ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID, descriptionToConceptMap.keySet()))
-					.withSourceFilter(new FetchSourceFilter(true, new String[]{ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID}, null))
+					.withSourceFilter(new FetchSourceFilter(null, new String[]{ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID}, null))
 					.withPageable(LARGE_PAGE)
 					.build();
 			Set<Long> filteredDescriptionIds = new LongOpenHashSet();
@@ -867,7 +867,7 @@ public class DescriptionService extends ComponentService {
 										.filter(termsQuery(Concept.Fields.CONCEPT_ID, conceptIdsToSearch)))
 								)
 								.withSort(SortOptions.of(sb -> sb.field(fs -> fs.field("_doc"))))
-								.withSourceFilter(new FetchSourceFilter(true, new String[]{Concept.Fields.CONCEPT_ID}, null))
+								.withSourceFilter(new FetchSourceFilter(null, new String[]{Concept.Fields.CONCEPT_ID}, null))
 								.withPageable(LARGE_PAGE)
 								.build(), Concept.class)) {
 					stream.forEachRemaining(hit -> filteredConceptIds.add(hit.getContent().getConceptIdAsLong()));
@@ -889,7 +889,7 @@ public class DescriptionService extends ComponentService {
 										.filter(termsQuery(ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID, conceptIdsToSearch)))
 								)
 								.withSort(SortOptions.of(sb -> sb.field(fs -> fs.field("_doc"))))
-								.withSourceFilter(new FetchSourceFilter(true, new String[]{ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID}, null))
+								.withSourceFilter(new FetchSourceFilter(null, new String[]{ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID}, null))
 								.withPageable(LARGE_PAGE)
 								.build(), ReferenceSetMember.class)) {
 					stream.forEachRemaining(hit -> filteredConceptIds.add(parseLong(hit.getContent().getReferencedComponentId())));

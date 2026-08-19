@@ -81,7 +81,7 @@ public class ConceptSelectorHelper {
 
 		NativeQueryBuilder searchQueryBuilder = new NativeQueryBuilder()
 				.withQuery(query)
-				.withSourceFilter(new FetchSourceFilter(true, new String[]{QueryConcept.Fields.CONCEPT_ID}, null));
+				.withSourceFilter(new FetchSourceFilter(null, new String[]{QueryConcept.Fields.CONCEPT_ID}, null));
 
 		if (filterByConceptIds != null) {
 			searchQueryBuilder.withFilter(termsQuery(QueryConcept.Fields.CONCEPT_ID, filterByConceptIds));
@@ -126,7 +126,7 @@ public class ConceptSelectorHelper {
 
 		NativeQueryBuilder searchQueryBuilder = new NativeQueryBuilder()
 				.withQuery(query)
-				.withSourceFilter(new FetchSourceFilter(true, getRequiredFields(inclusionFilter), null));
+				.withSourceFilter(new FetchSourceFilter(null, getRequiredFields(inclusionFilter), null));
 
 		if (filterByConceptIds != null) {
 			searchQueryBuilder.withFilter(termsQuery(QueryConcept.Fields.CONCEPT_ID, filterByConceptIds));

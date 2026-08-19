@@ -347,7 +347,7 @@ public class AdminOperationsService {
 		NativeQueryBuilder queryBuilder = new NativeQueryBuilder()
 				.withQuery(bool(b -> b.must(branchCriteria.getEntityBranchCriteria(Relationship.class))
 						.must(termQuery(Relationship.Fields.EFFECTIVE_TIME, effectiveTime))))
-				.withSourceFilter(new FetchSourceFilter(true, new String[]{Relationship.Fields.RELATIONSHIP_ID}, null))
+				.withSourceFilter(new FetchSourceFilter(null, new String[]{Relationship.Fields.RELATIONSHIP_ID}, null))
 				.withPageable(LARGE_PAGE);
 		try (SearchHitsIterator<Relationship> stream = elasticsearchOperations.searchForStream(queryBuilder.build(), Relationship.class)) {
 			stream.forEachRemaining(hit -> {
@@ -670,7 +670,7 @@ public class AdminOperationsService {
 					try (final SearchHitsIterator<Description> stream = elasticsearchOperations.searchForStream(new NativeQueryBuilder()
 							.withQuery(bool(b -> b.must(branchCriteria.getEntityBranchCriteria(Description.class))
 									.must(termsQuery(Description.Fields.DESCRIPTION_ID, descriptionIds))))
-							.withSourceFilter(new FetchSourceFilter(true, new String[]{Description.Fields.DESCRIPTION_ID, Description.Fields.CONCEPT_ID}, null))
+							.withSourceFilter(new FetchSourceFilter(null, new String[]{Description.Fields.DESCRIPTION_ID, Description.Fields.CONCEPT_ID}, null))
 							.build(), Description.class)) {
 						stream.forEachRemaining(hit -> verifiedConceptIds.add(hit.getContent().getConceptId()));
 					}
