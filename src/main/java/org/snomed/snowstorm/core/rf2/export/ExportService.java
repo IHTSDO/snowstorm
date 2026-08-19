@@ -100,6 +100,11 @@ public class ExportService {
 			if (exportConfiguration.getStartDate() != null) {
 				throw new IllegalStateException("Export already started.");
 			}
+
+			if (branchService.findBranchOrThrow(exportConfiguration.getBranchPath()).isLocked()) {
+				throw new IllegalStateException(format("Branch %s is already locked", exportConfiguration.getBranchPath()));
+			}
+
 			exportConfiguration.setStartDate(new Date());
 			exportConfiguration.setStatus(ExportStatus.RUNNING);
 			exportConfigurationRepository.save(exportConfiguration);
