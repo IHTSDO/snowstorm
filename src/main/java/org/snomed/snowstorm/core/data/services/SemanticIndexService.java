@@ -127,7 +127,7 @@ public class SemanticIndexService {
 						.must(branchCriteria.getEntityBranchCriteria(QueryConcept.class))
 						.must(termsQuery(QueryConcept.Fields.CONCEPT_ID, conceptIds))
 						.must(termQuery(QueryConcept.Fields.STATED, stated))))
-				.withSourceFilter(new FetchSourceFilter(true, new String[]{
+				.withSourceFilter(new FetchSourceFilter(null, new String[]{
 						QueryConcept.Fields.CONCEPT_ID,
 						QueryConcept.Fields.PARENTS,
 						QueryConcept.Fields.ANCESTORS

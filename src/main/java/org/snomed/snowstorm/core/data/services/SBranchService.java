@@ -103,7 +103,7 @@ public class SBranchService {
 				.withQuery(bool(bq -> bq
 						.must(termQuery("path", path))
 						.must(RangeQuery.of(r -> r.date(nrq -> nrq.field("start").gte(String.valueOf(timestamp.getTime()))))._toQuery())))
-				.withSourceFilter(new FetchSourceFilter(true, new String[]{"path", "start", "end", "head", "base", "locked"}, null))
+				.withSourceFilter(new FetchSourceFilter(null, new String[]{"path", "start", "end", "head", "base", "locked"}, null))
 				.withSort(s -> s.field(fb -> fb.field("start")))
 				.withPageable(pageable);
 
