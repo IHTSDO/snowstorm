@@ -136,7 +136,7 @@ public class ExtensionAdditionalLanguageRefsetUpgradeService {
 						.must(branchCriteria.getEntityBranchCriteria(ReferenceSetMember.class))
 						.must(termQuery(REFSET_ID, config.getLanguageRefsetIdToCopyFrom()))))
 				.withFilter(termQuery(ACTIVE, true))
-				.withSourceFilter(new FetchSourceFilter(true, new String[]{REFERENCED_COMPONENT_ID, ACTIVE, ACCEPTABILITY_ID_FIELD_PATH}, null))
+				.withSourceFilter(new FetchSourceFilter(null, new String[]{REFERENCED_COMPONENT_ID, ACTIVE, ACCEPTABILITY_ID_FIELD_PATH}, null))
 				.withPageable(LARGE_PAGE);
 
 		try (final SearchHitsIterator<ReferenceSetMember> referencedComponents = elasticsearchOperations.searchForStream(searchQueryBuilder.build(), ReferenceSetMember.class)) {
@@ -153,7 +153,7 @@ public class ExtensionAdditionalLanguageRefsetUpgradeService {
 				.withQuery(bool(b -> b
 						.must(branchCriteria.getEntityBranchCriteria(ReferenceSetMember.class))
 						.must(termQuery(REFSET_ID, languageRefsetId))))
-				.withSourceFilter(new FetchSourceFilter(true, new String[]{ MEMBER_ID, REFERENCED_COMPONENT_ID, ACTIVE, ACCEPTABILITY_ID_FIELD_PATH, CONCEPT_ID}, null))
+				.withSourceFilter(new FetchSourceFilter(null, new String[]{ MEMBER_ID, REFERENCED_COMPONENT_ID, ACTIVE, ACCEPTABILITY_ID_FIELD_PATH, CONCEPT_ID}, null))
 				.withPageable(LARGE_PAGE);
 		if (lastDependantEffectiveTime != null) {
 			// for roll up upgrade every 6 months for example

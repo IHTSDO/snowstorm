@@ -205,7 +205,7 @@ public class ImportComponentFactoryImpl extends ImpotentComponentFactory {
 							.must(replacementOfThisEffectiveTimeAllowed ?
 									RangeQuery.of(r -> r.number(nrq -> nrq.field(SnomedComponent.Fields.EFFECTIVE_TIME).gt((double)effectiveTime)))._toQuery()
 									: RangeQuery.of(r -> r.number(nrq -> nrq.field(SnomedComponent.Fields.EFFECTIVE_TIME).gte((double)effectiveTime)))._toQuery())))
-					.withSourceFilter(new FetchSourceFilter(true, new String[]{idField}, null))// Only fetch the id
+					.withSourceFilter(new FetchSourceFilter(null, new String[]{idField}, null))// Only fetch the id
 					.withPageable(LARGE_PAGE)
 					.build(), componentClass)) {
 				componentsWithSameOrLaterEffectiveTime.forEachRemaining(hit -> {

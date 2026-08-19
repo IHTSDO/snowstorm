@@ -148,7 +148,7 @@ public class ConceptChangeHelper {
                 .withQuery(updatesQuery)
                 .withPageable(LARGE_PAGE)
                 .withSort(SortOptions.of(s -> s.field(f -> f.field("start"))))
-                .withSourceFilter(new FetchSourceFilter(true, new String[]{Concept.Fields.CONCEPT_ID}, null))
+                .withSourceFilter(new FetchSourceFilter(null, new String[]{Concept.Fields.CONCEPT_ID}, null))
                 .build();
         try (final SearchHitsIterator<Concept> stream = elasticsearchOperations.searchForStream(conceptsWithNewVersionsQuery, Concept.class)) {
             stream.forEachRemaining(hit -> changedConcepts.add(parseLong(hit.getContent().getConceptId())));
@@ -158,7 +158,7 @@ public class ConceptChangeHelper {
         AtomicLong descriptions = new AtomicLong();
         NativeQuery descQuery = newSearchQuery(updatesQuery)
                 .withFilter(termQuery(Description.Fields.TYPE_ID, Concepts.FSN))
-                .withSourceFilter(new FetchSourceFilter(true, new String[]{Description.Fields.CONCEPT_ID}, null))
+                .withSourceFilter(new FetchSourceFilter(null, new String[]{Description.Fields.CONCEPT_ID}, null))
                 .build();
         try (final SearchHitsIterator<Description> stream = elasticsearchOperations.searchForStream(descQuery, Description.class)) {
             stream.forEachRemaining(hit -> {
@@ -171,7 +171,7 @@ public class ConceptChangeHelper {
         logger.debug("Collecting relationship changes for change report: branch {} time range {} to {}", path, start, end);
         AtomicLong relationships = new AtomicLong();
         NativeQuery relQuery = newSearchQuery(updatesQuery)
-                .withSourceFilter(new FetchSourceFilter(true, new String[]{Relationship.Fields.SOURCE_ID}, null))
+                .withSourceFilter(new FetchSourceFilter(null, new String[]{Relationship.Fields.SOURCE_ID}, null))
                 .build();
         try (final SearchHitsIterator<Relationship> stream = elasticsearchOperations.searchForStream(relQuery, Relationship.class)) {
             stream.forEachRemaining(hit -> {
@@ -184,7 +184,7 @@ public class ConceptChangeHelper {
         logger.debug("Collecting refset member changes for change report: branch {} time range {} to {}", path, start, end);
         NativeQuery memberQuery = newSearchQuery(updatesQuery)
                 .withFilter(bool(b -> b.must(existsQuery(ReferenceSetMember.Fields.CONCEPT_ID))))
-                .withSourceFilter(new FetchSourceFilter(true, new String[]{ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID, ReferenceSetMember.Fields.CONCEPT_ID}, null))
+                .withSourceFilter(new FetchSourceFilter(null, new String[]{ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID, ReferenceSetMember.Fields.CONCEPT_ID}, null))
                 .build();
         AtomicInteger count = new AtomicInteger();
         try (final SearchHitsIterator<ReferenceSetMember> stream = elasticsearchOperations.searchForStream(memberQuery, ReferenceSetMember.class)) {
@@ -204,7 +204,7 @@ public class ConceptChangeHelper {
                         .mustNot(termQuery(Description.Fields.TYPE_ID, Concepts.FSN))
                         .must(termsQuery(Description.Fields.DESCRIPTION_ID, referenceComponentIdToConceptMap.keySet()))
                         .must(termQuery(SnomedComponent.Fields.ACTIVE, true))))
-                .withSourceFilter(new FetchSourceFilter(true, new String[]{Description.Fields.DESCRIPTION_ID}, null))
+                .withSourceFilter(new FetchSourceFilter(null, new String[]{Description.Fields.DESCRIPTION_ID}, null))
                 .withPageable(LARGE_PAGE);
         timerUtil.checkpoint("Created synonym query with " + referenceComponentIdToConceptMap.size() + " description ids in filter");
         count.set(0);
@@ -222,7 +222,7 @@ public class ConceptChangeHelper {
                         .must(existsQuery(ReferenceSetMember.Fields.CONCEPT_ID))
                         .must(termsQuery(ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID, synonymAndTextDefIds))
                         .must(termQuery(ReferenceSetMember.LanguageFields.ACCEPTABILITY_ID_FIELD_PATH, Concepts.PREFERRED))))
-                .withSourceFilter(new FetchSourceFilter(true, new String[]{ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID}, null))
+                .withSourceFilter(new FetchSourceFilter(null, new String[]{ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID}, null))
                 .build();
         count.set(0);
         try (final SearchHitsIterator<ReferenceSetMember> stream = elasticsearchOperations.searchForStream(languageMemberQuery, ReferenceSetMember.class)) {
@@ -255,7 +255,7 @@ public class ConceptChangeHelper {
                         .mustNot(getNonStatedRelationshipClause())))
                 .withPageable(LARGE_PAGE);
         if (limitFieldsFetched.length > 0) {
-            builder.withSourceFilter(new FetchSourceFilter(true, limitFieldsFetched, null));
+            builder.withSourceFilter(new FetchSourceFilter(null, limitFieldsFetched, null));
         }
         return builder;
     }
@@ -314,7 +314,7 @@ public class ConceptChangeHelper {
                                         .must(termQuery(SnomedComponent.Fields.PATH, branchPath))
                                         .mustNot(termsQuery(Concept.Fields.CONCEPT_ID, conceptsReplacedOnBranch)))
                         )
-                        .withSourceFilter(new FetchSourceFilter(true, new String[]{Concept.Fields.CONCEPT_ID, SnomedComponent.Fields.END}, null))
+                        .withSourceFilter(new FetchSourceFilter(null, new String[]{Concept.Fields.CONCEPT_ID, SnomedComponent.Fields.END}, null))
                         .withSort(SortOptions.of(s -> s.field(f -> f.field(SnomedComponent.Fields.START).order(SortOrder.Desc))))
                         // Group by conceptId. Query will return most recent document for each Concept.
                         .withFieldCollapse(FieldCollapse.of(f -> f.field(Concept.Fields.CONCEPT_ID)))
@@ -335,7 +335,7 @@ public class ConceptChangeHelper {
                                     .must(termsQuery(SnomedComponent.Fields.PATH, branchPathAncestors))
                                     .mustNot(existsQuery("end")))
                     )
-                    .withSourceFilter(new FetchSourceFilter(true, new String[]{Concept.Fields.CONCEPT_ID}, null))
+                    .withSourceFilter(new FetchSourceFilter(null, new String[]{Concept.Fields.CONCEPT_ID}, null))
                     .build(), Concept.class)) {
                 // Concept exists on an ancestor, therefore promoted rather than deleted.
                 stream.forEachRemaining(hit -> conceptsEndedOnBranch.removeIf(id -> id.equals(hit.getContent().getConceptId())));
@@ -353,7 +353,7 @@ public class ConceptChangeHelper {
                                     .must(termQuery(SnomedComponent.Fields.PATH, branchPath))
                                     .mustNot(existsQuery(SnomedComponent.Fields.END))
                     ))
-                    .withSourceFilter(new FetchSourceFilter(true, new String[]{Concept.Fields.CONCEPT_ID}, null))
+                    .withSourceFilter(new FetchSourceFilter(null, new String[]{Concept.Fields.CONCEPT_ID}, null))
                     .build(), Concept.class)) {
                 // Concept not replaced on current branch, therefore deleted.
                 stream.forEachRemaining(hit -> conceptsReplacedOnBranch.removeIf(id -> id.equals(hit.getContent().getConceptId())));
@@ -377,7 +377,7 @@ public class ConceptChangeHelper {
                         bool(b -> b
                                 .must(termsQuery("_id", internalIds)) // ES identifier, not an SCT identifier.
                 ))
-                .withSourceFilter(new FetchSourceFilter(true, new String[]{Concept.Fields.CONCEPT_ID}, null))
+                .withSourceFilter(new FetchSourceFilter(null, new String[]{Concept.Fields.CONCEPT_ID}, null))
                 .build(), Concept.class)) {
             stream.forEachRemaining(hit -> conceptIds.add(hit.getContent().getConceptId()));
         }
@@ -398,7 +398,7 @@ public class ConceptChangeHelper {
         Set<String> conceptsWithModifiedDescriptions = new HashSet<>();
         try (final SearchHitsIterator<Description> stream = elasticsearchOperations.searchForStream(new NativeQueryBuilder()
                 .withQuery(queryModifiedDescriptions.build()._toQuery())
-                .withSourceFilter(new FetchSourceFilter(true, new String[]{Description.Fields.CONCEPT_ID}, null))
+                .withSourceFilter(new FetchSourceFilter(null, new String[]{Description.Fields.CONCEPT_ID}, null))
                 .withSort(SortOptions.of(s -> s.field(f -> f.field(SnomedComponent.Fields.START).order(SortOrder.Desc))))
                 .build(), Description.class)) {
             stream.forEachRemaining(hit -> conceptsWithModifiedDescriptions.add(hit.getContent().getConceptId()));
