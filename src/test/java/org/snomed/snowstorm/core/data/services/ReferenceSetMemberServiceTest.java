@@ -71,6 +71,8 @@ class ReferenceSetMemberServiceTest extends AbstractTest {
 
 		assertEquals(0, memberService.findMembers(MAIN, new MemberSearchRequest().active(true).referenceSet(Concepts.REFSET_HISTORICAL_ASSOCIATION), PAGE).getTotalElements());
 		assertEquals(1, memberService.findMembers(MAIN, new MemberSearchRequest().active(true).referenceSet("<<" + Concepts.REFSET_HISTORICAL_ASSOCIATION), PAGE).getTotalElements());
+		assertEquals(1, memberService.findMembers(MAIN, new MemberSearchRequest().active(true).refsetType(Concepts.REFSET_HISTORICAL_ASSOCIATION), PAGE).getTotalElements());
+		assertEquals(0, memberService.findMembers(MAIN, new MemberSearchRequest().active(true).refsetType(Concepts.REFSET_SIMPLE), PAGE).getTotalElements());
 
 		memberService.deleteMember(MAIN, members.getContent().get(0).getMemberId());
 
@@ -335,6 +337,11 @@ class ReferenceSetMemberServiceTest extends AbstractTest {
 
 		assertEquals(1, memberService.findReferenceSetMembersWithAggregations(MAIN, PageRequest.of(0, 10), new MemberSearchRequest().referenceSet(Concepts.REFSET_POSSIBLY_EQUIVALENT_TO_ASSOCIATION))
 				.getBuckets().get(AGGREGATION_MEMBER_COUNTS_BY_REFERENCE_SET).size());
+
+		PageWithBucketAggregations<ReferenceSetMember> byType = memberService.findReferenceSetMembersWithAggregations(MAIN, PageRequest.of(0, 10),
+				new MemberSearchRequest().refsetType(Concepts.REFSET_HISTORICAL_ASSOCIATION));
+		assertEquals(1, byType.getBuckets().get(AGGREGATION_MEMBER_COUNTS_BY_REFERENCE_SET).size());
+		assertEquals(1, byType.getBuckets().get(AGGREGATION_MEMBER_COUNTS_BY_REFERENCE_SET).get(Concepts.REFSET_POSSIBLY_EQUIVALENT_TO_ASSOCIATION).intValue());
 
 	}
 
