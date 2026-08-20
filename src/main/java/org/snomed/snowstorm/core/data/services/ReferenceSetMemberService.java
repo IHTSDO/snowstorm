@@ -212,6 +212,13 @@ public class ReferenceSetMemberService extends ComponentService {
 			List<Long> conceptIds = getConceptIds(branchCriteria, referenceSet);
 			builder.must(termsQuery(ReferenceSetMember.Fields.REFSET_ID, conceptIds));
 		}
+		String refsetType = searchRequest.getRefsetType();
+		if (!Strings.isNullOrEmpty(refsetType)) {
+			// A SCTID is treated as a type: include the type itself and all descendant reference sets
+			String conceptIdOrECL = refsetType.matches("\\d+") ? "<<" + refsetType : refsetType;
+			List<Long> conceptIds = getConceptIds(branchCriteria, conceptIdOrECL);
+			builder.must(termsQuery(ReferenceSetMember.Fields.REFSET_ID, conceptIds));
+		}
 		String module = searchRequest.getModule();
 		if (!Strings.isNullOrEmpty(module)) {
 			List<Long> conceptIds = getConceptIds(branchCriteria, module);
