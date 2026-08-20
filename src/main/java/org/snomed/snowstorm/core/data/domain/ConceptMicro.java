@@ -1,12 +1,20 @@
 package org.snomed.snowstorm.core.data.domain;
 
 
+import com.fasterxml.jackson.annotation.JsonView;
+import org.snomed.snowstorm.rest.View;
+
 import java.util.Objects;
 
 public class ConceptMicro {
 
+	@JsonView(View.Component.class)
 	private final String id;
+
+	@JsonView(View.Component.class)
 	private Boolean primitive;
+
+	@JsonView(View.Component.class)
 	private String term;
 	
 	public ConceptMicro(ConceptMini mini) {
