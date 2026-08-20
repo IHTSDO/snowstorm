@@ -8,6 +8,7 @@ public class MemberSearchRequest {
 	private Boolean active;
 	private Boolean isNullEffectiveTime;
 	private String referenceSet;
+	private String refsetType;
 	private String module;
 	private Collection<? extends Serializable> referencedComponentIds;
 	private String owlExpressionConceptId;
@@ -43,6 +44,19 @@ public class MemberSearchRequest {
 
 	public String getReferenceSet() {
 		return referenceSet;
+	}
+
+	/**
+	 * @param refsetType Filter by the reference set type, can be a concept id or an ECL expression.
+	 *                   A concept id is treated as the type and its descendants (ECL {@code <<id}).
+	 */
+	public MemberSearchRequest refsetType(String refsetType) {
+		this.refsetType = refsetType;
+		return this;
+	}
+
+	public String getRefsetType() {
+		return refsetType;
 	}
 
 	public MemberSearchRequest module(String module) {
