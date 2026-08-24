@@ -51,7 +51,8 @@ If you conduct security research in good faith and strictly in accordance with t
 * Authorisation: We consider your research to be authorised within the meaning of Section 1 of the UK Computer Misuse Act 1990 (and equivalent international legislation).
 * Legal Protection: SNOMED International will not initiate or support legal action, nor report your activities to law enforcement, for accidental or good-faith research that complies with this policy.
 * Data Privacy: You must comply with the UK Data Protection Act 2018 and UK GDPR (and equivalent international Data Protection legislation). Research must not involve accessing, modifying, exfiltrating, or retaining any personal data or private user credentials.
-* If your research involves data destruction, extortion, exfiltration of personal data, or intentional disruption of systems, your access is unauthorised, you are in breach of this policy, and no Safe Harbor protection applies.
+
+If your research involves data destruction, extortion, exfiltration of personal data, or intentional disruption of systems, your access is unauthorised, you are in breach of this policy, and no Safe Harbor protection applies.
 
 ## Alternative Contact
 
