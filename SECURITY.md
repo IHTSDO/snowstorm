@@ -37,6 +37,22 @@ What we **can** offer is credit: with your permission, we will publicly acknowle
 
 This policy covers vulnerabilities in code maintained in this repository. Vulnerabilities in third-party dependencies should ideally be reported upstream to the relevant project directly, but we're happy to be a relay if you're unsure where to send it — please still use private reporting rather than a public issue.
 
+## Out of Scope/Prohibited Testing
+
+* Attacks against SNOMED International hosted environments or public infrastructure (including DoS/DDoS). Please test using local, self-hosted builds of the repository.
+* Abuse of CI/CD pipelines, build systems, or GitHub Actions.
+* Social engineering, phishing, or physical attacks against maintainers, staff, or contributors.
+* Publicly submitting exploit code or backdoors via open Pull Requests or public Issues.
+
+## Safe Harbor
+
+If you conduct security research in good faith and strictly in accordance with this policy:
+
+* Authorisation: We consider your research to be authorised within the meaning of Section 1 of the UK Computer Misuse Act 1990 (and equivalent international legislation).
+* Legal Protection: SNOMED International will not initiate or support legal action, nor report your activities to law enforcement, for accidental or good-faith research that complies with this policy.
+* Data Privacy: You must comply with the UK Data Protection Act 2018 and UK GDPR (and equivalent international Data Protection legislation). Research must not involve accessing, modifying, exfiltrating, or retaining any personal data or private user credentials.
+* If your research involves data destruction, extortion, exfiltration of personal data, or intentional disruption of systems, your access is unauthorised, you are in breach of this policy, and no Safe Harbor protection applies.
+
 ## Alternative Contact
 
 If you're unable to use GitHub's private vulnerability reporting, you can reach us at **security@snomed.org**.
