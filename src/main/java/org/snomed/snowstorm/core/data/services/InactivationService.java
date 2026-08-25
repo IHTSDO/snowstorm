@@ -136,18 +136,16 @@ public class InactivationService {
 		}
 		Map<String, ConceptMini> minis = conceptService.findConceptMinis(branchPath, miniIds, languageDialects).getResultsMap();
 
-		List<ConceptMicro> proposedParents = parentsOf(Long.parseLong(conceptId), queryConcepts, minis);
-
 		List<InactivationImpactConcept> affectedChildren = childIds.stream()
-				.map(id -> toImpactConcept(id, queryConcepts, minis, proposedParents))
+				.map(id -> toImpactConcept(id, queryConcepts, minis))
 				.sorted(impactComparator())
 				.toList();
 		List<InactivationImpactConcept> affectedAttributeConcepts = attributeIds.stream()
-				.map(id -> toImpactConcept(id, queryConcepts, minis, proposedParents))
+				.map(id -> toImpactConcept(id, queryConcepts, minis))
 				.sorted(impactComparator())
 				.toList();
 		List<InactivationImpactConcept> affectedGcis = gciIds.stream()
-				.map(id -> toImpactConcept(id, queryConcepts, minis, proposedParents))
+				.map(id -> toImpactConcept(id, queryConcepts, minis))
 				.sorted(impactComparator())
 				.toList();
 		joinReferencedComponents(historicalMembers, minis, descriptions);
@@ -189,9 +187,9 @@ public class InactivationService {
 	}
 
 	private InactivationImpactConcept toImpactConcept(Long conceptId, Map<Long, QueryConcept> queryConcepts,
-			Map<String, ConceptMini> minis, List<ConceptMicro> proposedParents) {
+			Map<String, ConceptMini> minis) {
 		return new InactivationImpactConcept(toConceptMicro(conceptId.toString(), minis),
-				parentsOf(conceptId, queryConcepts, minis), proposedParents);
+				parentsOf(conceptId, queryConcepts, minis));
 	}
 
 	private static void joinReferencedComponents(List<ReferenceSetMember> members, Map<String, ConceptMini> minis,
