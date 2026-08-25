@@ -88,15 +88,11 @@ class InactivationServiceTest extends AbstractTest {
 		assertEquals("Child of disease (disorder)", child.concept().getTerm());
 		assertEquals(List.of(new ConceptMicro(TO_INACTIVATE, "Disease to inactivate (disorder)")), child.currentParents());
 		assertEquals("Disease to inactivate (disorder)", child.currentParents().get(0).getTerm());
-		assertEquals(List.of(new ConceptMicro(CLINICAL_FINDING, "Clinical finding (finding)")), child.proposedParents());
-		assertEquals("Clinical finding (finding)", child.proposedParents().get(0).getTerm());
 
 		assertEquals(1, response.affectedAttributeConcepts().size());
 		InactivationImpactConcept attribute = response.affectedAttributeConcepts().get(0);
 		assertEquals(ATTRIBUTE_SOURCE, attribute.concept().getId());
 		assertEquals("Finding with site (finding)", attribute.concept().getTerm());
-		assertEquals(List.of(new ConceptMicro(CLINICAL_FINDING, "Clinical finding (finding)")), attribute.proposedParents());
-		assertEquals("Clinical finding (finding)", attribute.proposedParents().get(0).getTerm());
 
 		assertEquals(1, response.affectedGcis().size());
 		InactivationImpactConcept gci = response.affectedGcis().get(0);

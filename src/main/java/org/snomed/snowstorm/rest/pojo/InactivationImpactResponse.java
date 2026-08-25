@@ -16,7 +16,6 @@ public record InactivationImpactResponse(
 
 	public record InactivationImpactConcept(
 			@JsonView(View.Component.class) ConceptMicro concept,
-			@JsonView(View.Component.class) List<ConceptMicro> currentParents,
-			@JsonView(View.Component.class) List<ConceptMicro> proposedParents) {
+			@JsonView(View.Component.class) List<ConceptMicro> currentParents) {
 	}
 }
