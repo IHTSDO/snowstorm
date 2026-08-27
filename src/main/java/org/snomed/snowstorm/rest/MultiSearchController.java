@@ -9,6 +9,7 @@ import org.snomed.snowstorm.core.data.domain.Concept;
 import org.snomed.snowstorm.core.data.domain.ConceptMini;
 import org.snomed.snowstorm.core.data.domain.Description;
 import org.snomed.snowstorm.core.data.services.ConceptService;
+import org.snomed.snowstorm.core.data.services.DescriptionService;
 import org.snomed.snowstorm.core.data.services.MultiSearchService;
 import org.snomed.snowstorm.core.data.services.TooCostlyException;
 import org.snomed.snowstorm.core.data.services.pojo.ConceptCriteria;
@@ -60,6 +61,9 @@ public class MultiSearchController {
 			@Parameter(description = "Set of description types to include. Pick descendants of '900000000000446008 | Description type (core metadata concept) |'.")
 			@RequestParam(required = false) Set<Long> type,
 
+			@Parameter(description = "Term search mode. STANDARD uses multi-prefix matching. WHOLE_WORD matches complete words only. EXACT matches the full description term (case-insensitive).")
+			@RequestParam(defaultValue = "STANDARD") DescriptionService.SearchMode searchMode,
+
 			@RequestParam(required = false) Boolean conceptActive,
 			@RequestParam(defaultValue = "ALL_PUBLISHED_CONTENT") ContentScope contentScope,
 			@RequestParam(defaultValue = "0") int offset,
@@ -75,7 +79,8 @@ public class MultiSearchController {
 				.modules(module)
 				.searchLanguageCodes(language)
 				.type(type)
-				.conceptActive(conceptActive);
+				.conceptActive(conceptActive)
+				.searchMode(searchMode);
 		descriptionCriteria
 				.ecl(ecl);
 
@@ -99,6 +104,9 @@ public class MultiSearchController {
 			@Parameter(description = "Set of description types to include. Pick descendants of '900000000000446008 | Description type (core metadata concept) |'.")
 			@RequestParam(required = false) Set<Long> type,
 
+			@Parameter(description = "Term search mode. STANDARD uses multi-prefix matching. WHOLE_WORD matches complete words only. EXACT matches the full description term (case-insensitive).")
+			@RequestParam(defaultValue = "STANDARD") DescriptionService.SearchMode searchMode,
+
 			@RequestParam(required = false) Boolean conceptActive,
 			@RequestParam(defaultValue = "ALL_PUBLISHED_CONTENT") ContentScope contentScope,
 			@RequestParam(defaultValue = "0") int offset,
@@ -115,7 +123,8 @@ public class MultiSearchController {
 				.modules(module)
 				.searchLanguageCodes(language)
 				.type(type)
-				.conceptActive(conceptActive);
+				.conceptActive(conceptActive)
+				.searchMode(searchMode);
 		descriptionCriteria
 				.ecl(ecl)
 				.includeBranches(includeBranches);
@@ -139,6 +148,9 @@ public class MultiSearchController {
 			@Parameter(description = "Set of description types to include. Pick descendants of '900000000000446008 | Description type (core metadata concept) |'.")
 			@RequestParam(required = false) Set<Long> type,
 
+			@Parameter(description = "Term search mode. STANDARD uses multi-prefix matching. WHOLE_WORD matches complete words only. EXACT matches the full description term (case-insensitive).")
+			@RequestParam(defaultValue = "STANDARD") DescriptionService.SearchMode searchMode,
+
 			@RequestParam(required = false) Boolean conceptActive,
 			@RequestParam(defaultValue = "ALL_PUBLISHED_CONTENT") ContentScope contentScope,
 			@RequestParam(defaultValue = "0") int offset,
@@ -154,7 +166,8 @@ public class MultiSearchController {
 				.modules(module)
 				.searchLanguageCodes(language)
 				.type(type)
-				.conceptActive(conceptActive);
+				.conceptActive(conceptActive)
+				.searchMode(searchMode);
 
 		PageRequest pageRequest = ControllerHelper.getPageRequest(offset, limit);
 		PageWithBucketAggregations<Description> page = multiSearchService.findDescriptionsReferenceSets(descriptionCriteria, pageRequest);

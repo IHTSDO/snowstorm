@@ -107,7 +107,7 @@ public class DescriptionService extends ComponentService {
 	private int aggregationMaxProcessableResultsSize;
 
 	public enum SearchMode {
-		STANDARD, REGEX, WHOLE_WORD, WILDCARD
+		STANDARD, REGEX, WHOLE_WORD, WILDCARD, EXACT
 	}
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
@@ -945,7 +945,13 @@ public class DescriptionService extends ComponentService {
 			typedSearchTermQuery.must(termQuery(Description.Fields.DESCRIPTION_ID, term));
 		} else {
 			BoolQuery.Builder termFilter = bool();
-			if (searchMode == SearchMode.REGEX) {
+			if (searchMode == SearchMode.EXACT) {
+				final String exactTerm = term;
+				termFilter.must(Query.of(q -> q.term(t -> t
+						.field(Description.Fields.TERM)
+						.value(exactTerm)
+						.caseInsensitive(true))));
+			} else if (searchMode == SearchMode.REGEX) {
 				// https://www.elastic.co/guide/en/elasticsearch/reference/master/query-dsl-query-string-query.html#_regular_expressions
 				if (term.startsWith("^")) {
 					term = term.substring(1);
