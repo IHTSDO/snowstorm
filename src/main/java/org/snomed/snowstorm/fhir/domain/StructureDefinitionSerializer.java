@@ -1,12 +1,11 @@
 package org.snomed.snowstorm.fhir.domain;
 
-import java.io.IOException;
-
 import org.hl7.fhir.r4.model.StructureDefinition;
 
-import com.fasterxml.jackson.core.JsonGenerator;
-import com.fasterxml.jackson.databind.SerializerProvider;
-import com.fasterxml.jackson.databind.ser.std.StdSerializer;
+import tools.jackson.core.JacksonException;
+import tools.jackson.core.JsonGenerator;
+import tools.jackson.databind.SerializationContext;
+import tools.jackson.databind.ser.std.StdSerializer;
 
 import ca.uhn.fhir.parser.IParser;
 
@@ -15,7 +14,7 @@ public class StructureDefinitionSerializer extends StdSerializer<StructureDefini
 	private static final long serialVersionUID = -2394473877974921774L;
 
 	public StructureDefinitionSerializer() {
-		this(null);
+		this(StructureDefinition.class);
 	}
 
 	public StructureDefinitionSerializer(Class<StructureDefinition> t) {
@@ -23,8 +22,8 @@ public class StructureDefinitionSerializer extends StdSerializer<StructureDefini
 	}
  
 	@Override
-	public void serialize(StructureDefinition vs, JsonGenerator jgen, SerializerProvider provider)
-			throws IOException {
+	public void serialize(StructureDefinition vs, JsonGenerator jgen, SerializationContext provider)
+			throws JacksonException {
 		IParser fhirParser = StructureDefinitionWrapper.getFhirParser();
 		String json = fhirParser.encodeResourceToString(vs);
 		jgen.writeString(json);

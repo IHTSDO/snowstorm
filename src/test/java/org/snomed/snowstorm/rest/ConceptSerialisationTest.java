@@ -1,8 +1,12 @@
 package org.snomed.snowstorm.rest;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.ObjectWriter;
+import com.fasterxml.jackson.annotation.JsonInclude;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.DeserializationFeature;
+import tools.jackson.databind.json.JsonMapper;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectWriter;
+import org.ihtsdo.drools.domain.Component;
 import org.ihtsdo.drools.response.InvalidContent;
 import org.ihtsdo.drools.response.Severity;
 import org.junit.jupiter.api.Test;
@@ -10,6 +14,8 @@ import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.repositories.config.ConceptStoreMixIn;
 import org.snomed.snowstorm.core.data.repositories.config.DescriptionStoreMixIn;
 import org.snomed.snowstorm.core.data.repositories.config.RelationshipStoreMixIn;
+import org.snomed.snowstorm.rest.config.ComponentMixIn;
+import org.snomed.snowstorm.rest.config.InvalidContentMixIn;
 import org.snomed.snowstorm.validation.domain.DroolsConcept;
 
 import java.io.IOException;
@@ -19,12 +25,25 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class ConceptSerialisationTest {
 
-	private final ObjectMapper generalObjectMapper = new ObjectMapper();
+	/*
+	Mirrors SecurityAndUriConfig.getGeneralMapper(). This was previously a bare ObjectMapper, whose
+	Jackson 2 default of DEFAULT_VIEW_INCLUSION=true let untagged properties survive a view - a
+	configuration production has never used, since it disables view inclusion. Now that the mapper
+	matches production the REST tests below can exercise the real @JsonView filtering.
+	*/
+	private final ObjectMapper generalObjectMapper = JsonMapper.builderWithJackson2Defaults()
+			.disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
+			.changeDefaultPropertyInclusion(inclusion -> inclusion.withValueInclusion(JsonInclude.Include.NON_NULL).withContentInclusion(JsonInclude.Include.NON_NULL))
+			// These two carry the @JsonView tags for the Drools validation types, so the view keeps them
+			.addMixIn(InvalidContent.class, InvalidContentMixIn.class)
+			.addMixIn(Component.class, ComponentMixIn.class)
+			.build();
 
-	private final ObjectMapper storeObjectMapper = new ObjectMapper()
+	private final ObjectMapper storeObjectMapper = JsonMapper.builderWithJackson2Defaults()
 			.addMixIn(Concept.class, ConceptStoreMixIn.class)
 			.addMixIn(Relationship.class, RelationshipStoreMixIn.class)
-			.addMixIn(Description.class, DescriptionStoreMixIn.class);
+			.addMixIn(Description.class, DescriptionStoreMixIn.class)
+			.build();
 
 	@Test
 	void testDeserialisation() throws IOException {
@@ -54,35 +73,87 @@ class ConceptSerialisationTest {
 	}
 
 	@Test
-	void testRESTApiSerialisation() throws JsonProcessingException {
-		ObjectWriter restApiWriter = generalObjectMapper.writerWithView(View.Component.class).forType(ConceptView.class);
+	void testRESTApiSerialisation() throws JacksonException {
+		// As the REST layer writes it: @JsonView(View.Component) from the controller method, and no forType -
+		// AbstractJacksonHttpMessageConverter only narrows to the declared type for container types.
+		ObjectWriter restApiWriter = generalObjectMapper.writerWithView(View.Component.class);
 		Concept concept = new Concept("123", null, true, "33", "900000000000074008");
 		concept.setDescendantCount(123L);
 		final String conceptJson = restApiWriter.writeValueAsString(concept);
 		System.out.println(conceptJson);
-		assertFalse(conceptJson.contains("internalId"));
-		assertFalse(conceptJson.contains("path"));
-		assertFalse(conceptJson.contains("start"));
-		assertFalse(conceptJson.contains("end"));
-		assertFalse(conceptJson.contains("effectiveTimeI"));
-		assertFalse(conceptJson.contains("releaseHash"));
-		assertFalse(conceptJson.contains("allOwlAxiomMembers"));
-		assertFalse(conceptJson.contains("descendantCount"));
+		// Property names are matched with their quotes and colon: a bare "end" also matches descendantCount
+		assertFalse(conceptJson.contains("\"internalId\":"));
+		assertFalse(conceptJson.contains("\"path\":"));
+		assertFalse(conceptJson.contains("\"start\":"));
+		assertFalse(conceptJson.contains("\"end\":"));
+		assertFalse(conceptJson.contains("\"effectiveTimeI\":"));
+		assertFalse(conceptJson.contains("\"releaseHash\":"));
+		assertFalse(conceptJson.contains("\"allOwlAxiomMembers\":"));
 
-		assertTrue(conceptJson.contains("fsn"));
-		assertTrue(conceptJson.contains("pt"));
-		assertTrue(conceptJson.contains("descriptions"));
-		assertTrue(conceptJson.contains("relationships"));
-		assertTrue(conceptJson.contains("classAxioms"));
-		assertTrue(conceptJson.contains("gciAxioms"));
+		// descendantCount is @JsonView(View.Component) tagged and the API does return it when populated.
+		// It was previously absent here only because the test narrowed the writer to ConceptView, which
+		// the REST layer does not do for a single (non-container) return value.
+		assertTrue(conceptJson.contains("\"descendantCount\":"));
+		assertTrue(conceptJson.contains("\"fsn\":"));
+		assertTrue(conceptJson.contains("\"pt\":"));
+		assertTrue(conceptJson.contains("\"descriptions\":"));
+		assertTrue(conceptJson.contains("\"relationships\":"));
+		assertTrue(conceptJson.contains("\"classAxioms\":"));
+		assertTrue(conceptJson.contains("\"gciAxioms\":"));
+	}
+
+	/*
+	The ConceptView surface as the REST API actually exercises it, in both directions and nothing else:
+	write a response the way the controllers do (@JsonView(View.Component), runtime class - see
+	testRESTApiSerialisation), then read it back the way createConcept/updateConcept bind it
+	(@RequestBody ConceptView). That is the round trip a client performs when it GETs a browser concept,
+	edits it and PUTs it back, and it is the only place ConceptView is load-bearing: both controllers
+	cast the bound body straight to Concept, which is safe only because of @JsonDeserializeAs.
+
+	Note ConceptView is never the *serialisation* type - every ConceptView return value is a single
+	object, and AbstractJacksonHttpMessageConverter narrows to the declared type only for container
+	types - so there is deliberately no test writing through forType(ConceptView.class). Under the
+	production mapper that combination emits "{}" anyway: the @JsonView tags are on Concept, not on the
+	interface, leaving every property untagged for DEFAULT_VIEW_INCLUSION=false to drop.
+	*/
+	@Test
+	void testConceptViewSurvivesRESTApiRoundTrip() throws JacksonException {
+		Concept concept = new Concept("123", null, true, "33", "900000000000074008");
+		concept.addDescription(new Description("d1", "Round trip test"));
+		concept.addRelationship(new Relationship("r1", "116680003", "102263004"));
+		concept.addAxiom(new Relationship("116680003", "102263004"));
+		concept.addGeneralConceptInclusionAxiom(new Relationship("116680003", "138875005"));
+		concept.addIdentifier(new Identifier("alt-1", null, true, "33", "705114005", "123"));
+
+		// Out: exactly as the controllers write a response
+		String responseJson = generalObjectMapper.writerWithView(View.Component.class).writeValueAsString(concept);
+		System.out.println(responseJson);
+
+		// In: exactly as createConcept/updateConcept bind a request body
+		ConceptView roundTripped = generalObjectMapper.readValue(responseJson, ConceptView.class);
+
+		// The cast both controllers perform on the bound body
+		assertInstanceOf(Concept.class, roundTripped);
+
+		assertEquals("123", roundTripped.getConceptId());
+		assertTrue(roundTripped.isActive());
+		assertEquals("33", roundTripped.getModuleId());
+		assertEquals("900000000000074008", roundTripped.getDefinitionStatusId());
+		assertEquals(1, roundTripped.getDescriptions().size());
+		assertEquals("Round trip test", roundTripped.getDescription("d1").getTerm());
+		assertEquals(1, roundTripped.getRelationships().size());
+		assertEquals(1, roundTripped.getClassAxioms().size());
+		assertEquals(1, roundTripped.getGciAxioms().size());
+		assertEquals(1, roundTripped.getIdentifiers().size());
+		assertEquals("alt-1", roundTripped.getIdentifiers().get(0).getAlternateIdentifier());
 	}
 
 	@Test
-	void testCreateConceptFailsAfterValidationSerialisation() throws JsonProcessingException {
+	void testCreateConceptFailsAfterValidationSerialisation() throws JacksonException {
 		final Concept concept = new Concept("123", null, true, "33", "900000000000074008");
 		final InvalidContent invalidContent = new InvalidContent("123", new DroolsConcept(concept), "This is a test to see the serialised content", Severity.ERROR);
 		concept.setValidationResults(Collections.singletonList(invalidContent));
-		final String conceptJson = generalObjectMapper.writerWithView(View.Component.class).forType(ConceptView.class).writeValueAsString(concept);
+		final String conceptJson = generalObjectMapper.writerWithView(View.Component.class).writeValueAsString(concept);
 		assertNotNull(conceptJson);
 		assertTrue(conceptJson.contains("conceptId"));
 		assertTrue(conceptJson.contains("component"));
@@ -98,7 +169,7 @@ class ConceptSerialisationTest {
 	}
 
 	@Test
-	void testStoreSerialisation() throws JsonProcessingException {
+	void testStoreSerialisation() throws JacksonException {
 		// Dummy data to serialise
 		Concept concept = new Concept("123", null, true, "33", "900000000000074008");
 		concept.setDescendantCount(123L);
@@ -150,7 +221,7 @@ class ConceptSerialisationTest {
 	}
 
 	@Test
-	public void writeValueAsString_ShouldReturnCorrectString_WhenWritingOldDomain() throws JsonProcessingException {
+	public void writeValueAsString_ShouldReturnCorrectString_WhenWritingOldDomain() throws JacksonException {
 		//given
 		final Relationship relationship = new Relationship("200001001", 20170131, true, "900000000000012004", "900000000000441003", "138875005", 0, "116680003", "900000000000011006", "900000000000451002");
 
@@ -165,7 +236,7 @@ class ConceptSerialisationTest {
 	}
 
 	@Test
-	public void writeValueAsString_ShouldReturnCorrectString_WhenWritingConcreteString() throws JsonProcessingException {
+	public void writeValueAsString_ShouldReturnCorrectString_WhenWritingConcreteString() throws JacksonException {
 		//given
 		final Relationship relationship = new Relationship("200001001", 20170131, true, "900000000000012004", "900000000000441003", "\"Two pills two times a day.\"", 0, "116680003", "900000000000011006", "900000000000451002");
 		relationship.setConcreteValue("\"Two pills two times a day.\"", "str");
@@ -181,7 +252,7 @@ class ConceptSerialisationTest {
 	}
 
 	@Test
-	public void writeValueAsString_ShouldReturnCorrectString_WhenWritingConcreteInteger() throws JsonProcessingException {
+	public void writeValueAsString_ShouldReturnCorrectString_WhenWritingConcreteInteger() throws JacksonException {
 		//given
 		final Relationship relationship = new Relationship("200001001", 20170131, true, "900000000000012004", "900000000000441003", "#3.14", 0, "116680003", "900000000000011006", "900000000000451002");
 		relationship.setConcreteValue("#2", "int");
@@ -197,7 +268,7 @@ class ConceptSerialisationTest {
 	}
 
 	@Test
-	public void writeValueAsString_ShouldReturnCorrectString_WhenWritingConcreteDecimal() throws JsonProcessingException {
+	public void writeValueAsString_ShouldReturnCorrectString_WhenWritingConcreteDecimal() throws JacksonException {
 		//given
 		final Relationship relationship = new Relationship("200001001", 20170131, true, "900000000000012004", "900000000000441003", "#3.14", 0, "116680003", "900000000000011006", "900000000000451002");
 		relationship.setConcreteValue("#3.14", "dec");
@@ -221,7 +292,7 @@ class ConceptSerialisationTest {
 	 * Therefore, the assertion is for the format of Relationship.Value.
 	 * */
 	@Test
-	public void writeValueAsString_ShouldNotReturnRelationshipValueField_WhenWritingConcreteData() throws JsonProcessingException {
+	public void writeValueAsString_ShouldNotReturnRelationshipValueField_WhenWritingConcreteData() throws JacksonException {
 		//given
 		final Relationship relationship = new Relationship("200001001", 20170131, true, "900000000000012004", "900000000000441003", "#3.14", 0, "116680003", "900000000000011006", "900000000000451002");
 		relationship.setConcreteValue("#3.14", "dec");

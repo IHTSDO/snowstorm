@@ -2,9 +2,9 @@ package org.snomed.snowstorm;
 
 import co.elastic.clients.elasticsearch._types.query_dsl.MatchAllQuery;
 import co.elastic.clients.elasticsearch._types.query_dsl.QueryBuilders;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.ObjectWriter;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectWriter;
 import com.google.common.collect.Sets;
 import io.kaicode.elasticvc.api.BranchService;
 import org.junit.jupiter.api.AfterEach;
@@ -22,7 +22,7 @@ import org.snomed.snowstorm.ecl.ReferencedConceptsLookupService;
 import org.snomed.snowstorm.rest.View;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.data.elasticsearch.client.elc.NativeQuery;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
@@ -71,7 +71,7 @@ public abstract class AbstractTest {
 	@Autowired
 	private IdentifierComponentService identifierComponentService;
 
-	@MockBean
+	@MockitoBean
 	protected CommitServiceHookClient commitServiceHookClient; // Mocked as calls on external service.
 
 	@Autowired
@@ -172,7 +172,7 @@ public abstract class AbstractTest {
 			final ObjectWriter componentWriter = objectMapper.writerWithView(View.Component.class);
 			String conceptJson = componentWriter.writeValueAsString(concept);
 			return objectMapper.readValue(conceptJson, Concept.class);
-		} catch (JsonProcessingException e) {
+		} catch (JacksonException e) {
 			throw new RuntimeException(e);
 		}
 	}

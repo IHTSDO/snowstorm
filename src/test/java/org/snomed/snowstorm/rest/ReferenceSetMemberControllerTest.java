@@ -9,7 +9,8 @@ import org.snomed.snowstorm.core.data.services.ReferenceSetMemberService;
 import org.snomed.snowstorm.loadtest.ItemsPagePojo;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.web.client.TestRestTemplate;
+import org.springframework.boot.resttestclient.TestRestTemplate;
+import org.springframework.boot.resttestclient.autoconfigure.AutoConfigureTestRestTemplate;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpEntity;
@@ -22,9 +23,12 @@ import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import org.springframework.http.HttpHeaders;
 
 @ActiveProfiles("test")
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, classes = TestConfig.class)
+// Boot 4 no longer auto-registers TestRestTemplate; it needs this annotation.
+@AutoConfigureTestRestTemplate
 class ReferenceSetMemberControllerTest extends AbstractTest {
 	private static final ParameterizedTypeReference<ItemsPagePojo<ReferenceSetMember>> FIND_REFSET_MEMBERS_RESPONSE_TYPE = new ParameterizedTypeReference<>() {
 	};
@@ -98,18 +102,18 @@ class ReferenceSetMemberControllerTest extends AbstractTest {
 	}
 
 	private ItemsPagePojo<ReferenceSetMember> findRefsetMembers() {
-		return this.restTemplate.exchange("http://localhost:" + port + "/MAIN/members", HttpMethod.GET, new HttpEntity<>(null), FIND_REFSET_MEMBERS_RESPONSE_TYPE).getBody();
+		return this.restTemplate.exchange("http://localhost:" + port + "/MAIN/members", HttpMethod.GET, new HttpEntity<>((HttpHeaders) null), FIND_REFSET_MEMBERS_RESPONSE_TYPE).getBody();
 	}
 
 	private ItemsPagePojo<ReferenceSetMember> findRefsetMembers(int offset, int limit) {
-		return this.restTemplate.exchange("http://localhost:" + port + "/MAIN/members?offset=" + offset + "&limit=" + limit, HttpMethod.GET, new HttpEntity<>(null), FIND_REFSET_MEMBERS_RESPONSE_TYPE).getBody();
+		return this.restTemplate.exchange("http://localhost:" + port + "/MAIN/members?offset=" + offset + "&limit=" + limit, HttpMethod.GET, new HttpEntity<>((HttpHeaders) null), FIND_REFSET_MEMBERS_RESPONSE_TYPE).getBody();
 	}
 
 	private ItemsPagePojo<ReferenceSetMember> findRefsetMembers(String searchAfter) {
-		return this.restTemplate.exchange("http://localhost:" + port + "/MAIN/members?searchAfter=" + searchAfter, HttpMethod.GET, new HttpEntity<>(null), FIND_REFSET_MEMBERS_RESPONSE_TYPE).getBody();
+		return this.restTemplate.exchange("http://localhost:" + port + "/MAIN/members?searchAfter=" + searchAfter, HttpMethod.GET, new HttpEntity<>((HttpHeaders) null), FIND_REFSET_MEMBERS_RESPONSE_TYPE).getBody();
 	}
 
 	private ItemsPagePojo<ReferenceSetMember> findRefsetMembers(String searchAfter, int limit) {
-		return this.restTemplate.exchange("http://localhost:" + port + "/MAIN/members?searchAfter=" + searchAfter + "&limit=" + limit, HttpMethod.GET, new HttpEntity<>(null), FIND_REFSET_MEMBERS_RESPONSE_TYPE).getBody();
+		return this.restTemplate.exchange("http://localhost:" + port + "/MAIN/members?searchAfter=" + searchAfter + "&limit=" + limit, HttpMethod.GET, new HttpEntity<>((HttpHeaders) null), FIND_REFSET_MEMBERS_RESPONSE_TYPE).getBody();
 	}
 }

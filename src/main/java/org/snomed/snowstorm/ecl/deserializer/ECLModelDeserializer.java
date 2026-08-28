@@ -1,10 +1,9 @@
 package org.snomed.snowstorm.ecl.deserializer;
 
-import com.fasterxml.jackson.core.JsonParser;
-import com.fasterxml.jackson.databind.DeserializationContext;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.deser.std.StdDeserializer;
+import tools.jackson.core.JsonParser;
+import tools.jackson.databind.DeserializationContext;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.deser.std.StdDeserializer;
 import org.snomed.langauges.ecl.domain.expressionconstraint.ExpressionConstraint;
 import org.snomed.langauges.ecl.domain.refinement.Refinement;
 import org.snomed.snowstorm.core.data.services.RuntimeServiceException;
@@ -13,33 +12,34 @@ import org.snomed.snowstorm.ecl.domain.expressionconstraint.SDottedExpressionCon
 import org.snomed.snowstorm.ecl.domain.expressionconstraint.SRefinedExpressionConstraint;
 import org.snomed.snowstorm.ecl.domain.expressionconstraint.SSubExpressionConstraint;
 import org.snomed.snowstorm.ecl.domain.refinement.SEclRefinement;
-
-import java.io.IOException;
+import tools.jackson.core.JacksonException;
 
 public class ECLModelDeserializer extends StdDeserializer<ExpressionConstraint> {
 
-	private final ObjectMapper mapper;
-
-	public ECLModelDeserializer(ObjectMapper mapper, Class<?> vc) {
-		super(vc);
-		this.mapper = mapper;
+	public ECLModelDeserializer() {
+		super(ExpressionConstraint.class);
 	}
 
+	/*
+	Jackson 3 mappers are immutable, so a deserializer can no longer hold the mapper it is being
+	registered on. readTreeAsValue resolves against the calling context, which carries the fully
+	configured mapper - including this module - so nested constraints still deserialise.
+	*/
 	@Override
-	public ExpressionConstraint deserialize(JsonParser jsonParser, DeserializationContext deserializationContext) throws IOException {
-		JsonNode node = jsonParser.getCodec().readTree(jsonParser);
+	public ExpressionConstraint deserialize(JsonParser jsonParser, DeserializationContext deserializationContext) throws JacksonException {
+		JsonNode node = deserializationContext.readTree(jsonParser);
 		if (node.get("dottedAttributes") != null) {
-			return mapper.readValue(node.toString(), SDottedExpressionConstraint.class);
+			return deserializationContext.readTreeAsValue(node, SDottedExpressionConstraint.class);
 		}
 		if (node.get("eclRefinement") != null) {
-			return mapper.readValue(node.toString(), SRefinedExpressionConstraint.class);
+			return deserializationContext.readTreeAsValue(node, SRefinedExpressionConstraint.class);
 		}
 		if (node.get("conjunctionExpressionConstraints") != null ||
 				node.get("disjunctionExpressionConstraints") != null ||
 				node.get("exclusionExpressionConstraints") != null) {
-			return mapper.readValue(node.toString(), SCompoundExpressionConstraint.class);
+			return deserializationContext.readTreeAsValue(node, SCompoundExpressionConstraint.class);
 		}
-		return mapper.readValue(node.toString(), SSubExpressionConstraint.class);
+		return deserializationContext.readTreeAsValue(node, SSubExpressionConstraint.class);
 	}
 
 	public static void expressionConstraintToString(ExpressionConstraint expressionConstraint, StringBuffer buffer) {

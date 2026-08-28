@@ -1,9 +1,10 @@
 package org.snomed.snowstorm.core.data.domain;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.DeserializationFeature;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.DeserializationFeature;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.core.data.services.ApiError;
@@ -21,8 +22,11 @@ import java.util.UUID;
 public class BranchMergeJob {
 
 	private static final Logger logger = LoggerFactory.getLogger(BranchMergeJob.class);
-	private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper()
-			.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+	// apiErrorJson is persisted in Elasticsearch, and ApiError.additionalInfo is a Map<String, Object>
+	// that can hold enums or dates - so this uses the same Jackson 2 defaults as every other mapper.
+	private static final ObjectMapper OBJECT_MAPPER = JsonMapper.builderWithJackson2Defaults()
+			.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
+			.build();
 
 	@Id
 	@Field(type = FieldType.Keyword)
@@ -127,7 +131,7 @@ public class BranchMergeJob {
 		}
 		try {
 			this.apiErrorJson = OBJECT_MAPPER.writeValueAsString(apiError);
-		} catch (JsonProcessingException e) {
+		} catch (JacksonException e) {
 			throw new IllegalStateException("Failed to serialise merge apiError for storage", e);
 		}
 	}
@@ -143,7 +147,7 @@ public class BranchMergeJob {
 		}
 		try {
 			return OBJECT_MAPPER.readValue(apiErrorJson, ApiError.class);
-		} catch (JsonProcessingException e) {
+		} catch (JacksonException e) {
 			logger.error("Failed to deserialise apiErrorJson for merge job {}; returning null", id, e);
 			return null;
 		}

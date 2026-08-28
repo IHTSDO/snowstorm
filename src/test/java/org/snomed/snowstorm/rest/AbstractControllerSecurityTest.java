@@ -12,7 +12,8 @@ import org.snomed.snowstorm.core.data.services.PermissionService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.web.client.TestRestTemplate;
+import org.springframework.boot.resttestclient.TestRestTemplate;
+import org.springframework.boot.resttestclient.autoconfigure.AutoConfigureTestRestTemplate;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.http.*;
 import org.springframework.test.context.ActiveProfiles;
@@ -25,6 +26,8 @@ import static org.junit.jupiter.api.Assertions.*;
 @ExtendWith(SpringExtension.class)
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, classes = TestConfig.class)
 @ActiveProfiles(profiles = {"test", "secure-test"})
+// Boot 4 no longer auto-registers TestRestTemplate; it needs this annotation.
+@AutoConfigureTestRestTemplate
 public abstract class AbstractControllerSecurityTest extends AbstractTest {
 
 	@LocalServerPort

@@ -2,7 +2,6 @@ package org.snomed.snowstorm.config;
 
 import io.kaicode.rest.util.branchpathrewrite.BranchPathUriUtil;
 import org.snomed.snowstorm.core.data.services.PermissionService;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.config.BeanDefinition;
 import org.springframework.beans.factory.config.BeanFactoryPostProcessor;
 import org.springframework.context.annotation.Bean;
@@ -11,22 +10,26 @@ import org.springframework.context.annotation.Lazy;
 import org.springframework.security.access.PermissionEvaluator;
 import org.springframework.security.access.expression.method.DefaultMethodSecurityExpressionHandler;
 import org.springframework.security.access.expression.method.MethodSecurityExpressionHandler;
-import org.springframework.security.config.annotation.method.configuration.EnableGlobalMethodSecurity;
-import org.springframework.security.config.annotation.method.configuration.GlobalMethodSecurityConfiguration;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.core.Authentication;
 
 import java.io.Serializable;
 
+/*
+ * @EnableGlobalMethodSecurity / GlobalMethodSecurityConfiguration were deprecated in Spring
+ * Security 5.6 and are non-functional in 7 - the registrar still ships but the advisor it looks for
+ * (MethodSecurityMetadataSourceAdvisor) was dropped from spring-security-core, so the context fails
+ * to start. The replacement is @EnableMethodSecurity plus a MethodSecurityExpressionHandler bean.
+ */
 @Configuration
-@EnableGlobalMethodSecurity(prePostEnabled = true)
-public class MethodSecurityConfig extends GlobalMethodSecurityConfiguration {
+@EnableMethodSecurity(prePostEnabled = true)
+public class MethodSecurityConfig {
 
-	@Autowired
-	@Lazy
-	private PermissionEvaluator permissionEvaluator;
-
-	@Override
-	protected MethodSecurityExpressionHandler createExpressionHandler() {
+	// static, as the reference documentation prescribes: @EnableMethodSecurity's advisors need this bean
+	// while bean post processors are still being registered, and a static factory method avoids
+	// instantiating this configuration class (and everything it holds) that early.
+	@Bean
+	public static MethodSecurityExpressionHandler methodSecurityExpressionHandler(@Lazy PermissionEvaluator permissionEvaluator) {
 		DefaultMethodSecurityExpressionHandler expressionHandler =
 				new DefaultMethodSecurityExpressionHandler();
 		expressionHandler.setPermissionEvaluator(permissionEvaluator);

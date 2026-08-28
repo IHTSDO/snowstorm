@@ -19,6 +19,7 @@ import java.net.URISyntaxException;
 import java.util.LinkedHashMap;
 
 import static org.junit.jupiter.api.Assertions.*;
+import org.springframework.http.HttpHeaders;
 
 class BranchControllerTest extends AbstractControllerSecurityTest {
 
@@ -84,7 +85,7 @@ class BranchControllerTest extends AbstractControllerSecurityTest {
 		// given
 		String requestUrl = url + "/branches/MAIN/actions/set-author-flag";
 		SetAuthorFlag setAuthorFlag = new SetAuthorFlag("complex", true);
-		RequestEntity<Object> request = new RequestEntity<>(setAuthorFlag, null, HttpMethod.POST, new URI(requestUrl));
+		RequestEntity<Object> request = new RequestEntity<>(setAuthorFlag, (HttpHeaders) null, HttpMethod.POST, new URI(requestUrl));
 
 		// when & then
 		testStatusCode(HttpStatus.FORBIDDEN, userWithoutRoleHeaders, request);
@@ -95,7 +96,7 @@ class BranchControllerTest extends AbstractControllerSecurityTest {
 		// given
 		String requestUrl = url + "/branches/MAIN/IDoNotExist/actions/set-author-flag";
 		SetAuthorFlag setAuthorFlag = new SetAuthorFlag("complex", true);
-		RequestEntity<Object> request = new RequestEntity<>(setAuthorFlag, null, HttpMethod.POST, new URI(requestUrl));
+		RequestEntity<Object> request = new RequestEntity<>(setAuthorFlag, (HttpHeaders) null, HttpMethod.POST, new URI(requestUrl));
 
 		// when & then
 		testStatusCode(HttpStatus.NOT_FOUND, authorHeaders, request);
@@ -106,7 +107,7 @@ class BranchControllerTest extends AbstractControllerSecurityTest {
 		// given
 		String requestUrl = url + "/branches/MAIN/actions/set-author-flag";
 		SetAuthorFlag setAuthorFlag = new SetAuthorFlag(null, true);
-		RequestEntity<Object> request = new RequestEntity<>(setAuthorFlag, null, HttpMethod.POST, new URI(requestUrl));
+		RequestEntity<Object> request = new RequestEntity<>(setAuthorFlag, (HttpHeaders) null, HttpMethod.POST, new URI(requestUrl));
 
 		// when & then
 		testStatusCode(HttpStatus.BAD_REQUEST, authorHeaders, request);
@@ -117,7 +118,7 @@ class BranchControllerTest extends AbstractControllerSecurityTest {
 		// given
 		String requestUrl = url + "/branches/MAIN/actions/set-author-flag";
 		SetAuthorFlag setAuthorFlag = new SetAuthorFlag("complex", true);
-		RequestEntity<Object> request = new RequestEntity<>(setAuthorFlag, null, HttpMethod.POST, new URI(requestUrl));
+		RequestEntity<Object> request = new RequestEntity<>(setAuthorFlag, (HttpHeaders) null, HttpMethod.POST, new URI(requestUrl));
 
 		// when
 		ResponseEntity<Object> responseEntity = testExchange(authorHeaders, request);
@@ -134,7 +135,7 @@ class BranchControllerTest extends AbstractControllerSecurityTest {
 
 		// first request
 		SetAuthorFlag setAuthorFlag = new SetAuthorFlag("complex", true);
-		RequestEntity<Object> request = new RequestEntity<>(setAuthorFlag, null, HttpMethod.POST, new URI(requestUrl));
+		RequestEntity<Object> request = new RequestEntity<>(setAuthorFlag, (HttpHeaders) null, HttpMethod.POST, new URI(requestUrl));
 
 		ResponseEntity<Object> responseEntity = testExchange(authorHeaders, request);
 		LinkedHashMap<String, Object> authorFlags = getAuthorFlags(responseEntity);
@@ -145,7 +146,7 @@ class BranchControllerTest extends AbstractControllerSecurityTest {
 		// second request
 		setAuthorFlag.setName("simple");
 		setAuthorFlag.setValue(true);
-		request = new RequestEntity<>(setAuthorFlag, null, HttpMethod.POST, new URI(requestUrl));
+		request = new RequestEntity<>(setAuthorFlag, (HttpHeaders) null, HttpMethod.POST, new URI(requestUrl));
 
 		responseEntity = testExchange(authorHeaders, request);
 		authorFlags = getAuthorFlags(responseEntity);
@@ -162,7 +163,7 @@ class BranchControllerTest extends AbstractControllerSecurityTest {
 		branchService.updateMetadata("MAIN", metadata);
 		String requestUrl = url + "/branches/MAIN/actions/set-author-flag";
 		SetAuthorFlag setAuthorFlag = new SetAuthorFlag("complex", true);
-		RequestEntity<Object> request = new RequestEntity<>(setAuthorFlag, null, HttpMethod.POST, new URI(requestUrl));
+		RequestEntity<Object> request = new RequestEntity<>(setAuthorFlag, (HttpHeaders) null, HttpMethod.POST, new URI(requestUrl));
 
 		// when
 		ResponseEntity<Object> responseEntity = testExchange(authorHeaders, request);

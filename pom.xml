@@ -6,11 +6,11 @@
 	<description>SNOMED CT Terminology Server Using Elasticsearch</description>
 
 	<artifactId>snowstorm</artifactId>
-	<version>11.1.0-SNAPSHOT</version>
+	<version>12.0.0-SNAPSHOT</version>
 	<parent>
 		<groupId>org.snomed</groupId>
 		<artifactId>snomed-parent-bom</artifactId>
-		<version>4.1.0-SNAPSHOT</version>
+		<version>5.0.0-SNAPSHOT</version>
 	</parent>
 
 	<properties>
@@ -19,7 +19,15 @@
 		<commons-io.version>2.21.0</commons-io.version>
 
 		<!--
-		Current Elasticsearch _Server_ version is 8.11.1
+		snomed-parent-bom 5.0.0 manages Spring Boot 4.1.0, Spring 7.0.8, Spring Security 7.1.0,
+		spring-data-elasticsearch 6.1.0, Elasticsearch 9.5.2, HAPI FHIR 8.10.1, springdoc 3.1.0,
+		mvel2 2.5.2.Final, Jackson 2.21.4 / jackson-annotations 2.21 and maven-compiler-plugin
+		3.15.0, so none of those need overriding here. What remains below is what the BOM does not
+		(yet) cover.
+		-->
+
+		<!--
+		Current Elasticsearch _Server_ version is 9.5.2
 		N.B. Remember to keep TestConfig.ELASTIC_SEARCH_SERVER_VERSION and getting-started guide updated.
 		-->
 		<docker.registry>docker.io</docker.registry>
@@ -31,12 +39,11 @@
 
 	<dependencies>
 		<dependency>
-			<!-- Override the version pulled in transitively by drools-mvel; 2.4.15.Final's static
-				initializer references the long-removed java.lang.Compiler class, which breaks
-				DroolsValidationService startup on JDK 21+. -->
+			<!-- Declared to override the version pulled in transitively by drools-mvel; 2.4.15.Final's
+				static initializer references the long-removed java.lang.Compiler class, which breaks
+				DroolsValidationService startup on JDK 21+. Version managed by the BOM. -->
 			<groupId>org.mvel</groupId>
 			<artifactId>mvel2</artifactId>
-			<version>2.5.2.Final</version>
 		</dependency>
 		<dependency>
 			<groupId>org.apache.jena</groupId>
@@ -51,11 +58,29 @@
 		<dependency>
 			<groupId>org.apache.jena</groupId>
 			<artifactId>jena-arq</artifactId>
+			<exclusions>
+				<exclusion>
+					<!-- Bundles the Jakarta JSON-P 2.0 API and shadows the 2.1 API the ES 9 client needs. -->
+					<groupId>org.glassfish</groupId>
+					<artifactId>jakarta.json</artifactId>
+				</exclusion>
+			</exclusions>
 		</dependency>
 		<dependency>
 			<!-- jena-arq excludes libthrift via snomed-parent-bom; declare it directly so Jena RIOT (Thrift) initialises. Version managed by BOM. -->
 			<groupId>org.apache.thrift</groupId>
 			<artifactId>libthrift</artifactId>
+		</dependency>
+		<dependency>
+			<!--
+			Jakarta JSON-P 2.1 API (Parsson supplies the impl), required by the Elasticsearch 9
+			client for JsonConfig.KeyStrategy. Declared directly so it lands ahead of Jena's
+			org.glassfish:jakarta.json 2.0.1, which bundles the 2.0 API and would shadow it -
+			without that, every spring-data-elasticsearch repository fails to instantiate.
+			Version managed by Spring Boot via the BOM.
+			-->
+			<groupId>jakarta.json</groupId>
+			<artifactId>jakarta.json-api</artifactId>
 		</dependency>
 
 		<dependency>
@@ -116,6 +141,48 @@
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-web</artifactId>
+		</dependency>
+		<!--
+		Spring Boot 4 split spring-boot-autoconfigure into per-feature modules.
+		Snowstorm references these classes directly (mostly to exclude their auto-configuration),
+		so the modules now have to be declared explicitly.
+		-->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-restclient</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-tomcat</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-elasticsearch</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-data-elasticsearch</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-flyway</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-jdbc</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-hibernate</artifactId>
+		</dependency>
+		<!-- JmsTemplate/ActiveMQ auto-configuration also moved out of spring-boot-autoconfigure. -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-jms</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-activemq</artifactId>
 		</dependency>
 		<dependency>
 			<groupId>org.apache.tomcat.embed</groupId>
@@ -239,6 +306,27 @@
 					<artifactId>springdoc-openapi-ui</artifactId>
 				</exclusion>
 				<exclusion>
+					<!-- HAPI 8.10 pulls springdoc 2.8.17, which is Boot 3 only. The exclusion above
+						 names only the old artifact id and does not catch this one. -->
+					<groupId>org.springdoc</groupId>
+					<artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+				</exclusion>
+				<exclusion>
+					<!-- HAPI -> jena-arq -> Jakarta JSON-P 2.0 API; breaks the ES 9 client. -->
+					<groupId>org.glassfish</groupId>
+					<artifactId>jakarta.json</artifactId>
+				</exclusion>
+				<exclusion>
+					<!--
+					HAPI pins swagger-annotations-jakarta to 2.2.30 and wins on nearest-definition
+					over springdoc's swagger-core/models 2.2.47, whose AnnotationsUtils calls
+					Schema.$dynamicRef() - absent in 2.2.30 - killing /v3/api-docs. Excluded so
+					springdoc drives the swagger version and the three stay aligned by construction.
+					-->
+					<groupId>io.swagger.core.v3</groupId>
+					<artifactId>swagger-annotations-jakarta</artifactId>
+				</exclusion>
+				<exclusion>
 					<groupId>org.xerial</groupId>
 					<artifactId>sqlite-jdbc</artifactId>
 				</exclusion>
@@ -308,6 +396,12 @@
 			</exclusions>
 		</dependency>
 		<dependency>
+			<!-- Boot 4 moved TestRestTemplate out of spring-boot-test into this module. -->
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-resttestclient</artifactId>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
 			<groupId>org.junit.jupiter</groupId>
 			<artifactId>junit-jupiter-engine</artifactId>
 			<scope>test</scope>
@@ -351,6 +445,13 @@
 				<type>pom</type>
 				<scope>import</scope>
 			</dependency>
+
+			<!--
+			Do NOT import hapi-fhir-bom here to manage the org.hl7.fhir.* modules - it manages
+			spring-data-commons down to 3.3.5 and breaks the Elasticsearch repositories. Those
+			modules are versioned by snomed-parent-bom's ${fhir-core.version} instead.
+			-->
+
 		</dependencies>
 	</dependencyManagement>
 	<build>

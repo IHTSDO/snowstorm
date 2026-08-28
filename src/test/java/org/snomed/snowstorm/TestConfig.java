@@ -7,9 +7,9 @@ import org.snomed.snowstorm.config.Config;
 import org.snomed.snowstorm.core.data.services.traceability.TraceabilityLogService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
-import org.springframework.boot.autoconfigure.data.elasticsearch.ElasticsearchDataAutoConfiguration;
-import org.springframework.boot.autoconfigure.elasticsearch.ElasticsearchRestClientAutoConfiguration;
-import org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration;
+import org.springframework.boot.data.elasticsearch.autoconfigure.DataElasticsearchAutoConfiguration;
+import org.springframework.boot.elasticsearch.autoconfigure.ElasticsearchRestClientAutoConfiguration;
+import org.springframework.boot.jdbc.autoconfigure.DataSourceAutoConfiguration;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.PropertySource;
 import org.springframework.data.elasticsearch.client.ClientConfiguration;
@@ -25,11 +25,14 @@ import jakarta.annotation.PostConstruct;
 @SpringBootApplication(
 		exclude = {
 				ElasticsearchRestClientAutoConfiguration.class,
-				ElasticsearchDataAutoConfiguration.class,
+				DataElasticsearchAutoConfiguration.class,
 				DataSourceAutoConfiguration.class})
 public class TestConfig extends Config {
 
-	private static final String ELASTIC_SEARCH_SERVER_VERSION = "8.11.1";
+	// spring-data-elasticsearch 6 forces the Elasticsearch 9 client, which negotiates
+	// "compatible-with=9" media types that an 8.x server rejects outright. Kept in step with
+	// ${elasticsearch.version} from snomed-parent-bom.
+	private static final String ELASTIC_SEARCH_SERVER_VERSION = "9.5.2";
 
 	// set it to true to use local instance instead of test container
 	static final boolean useLocalElasticsearch = false;

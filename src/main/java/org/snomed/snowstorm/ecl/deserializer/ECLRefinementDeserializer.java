@@ -1,29 +1,23 @@
 package org.snomed.snowstorm.ecl.deserializer;
 
-import com.fasterxml.jackson.core.JsonParser;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.DeserializationContext;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.deser.std.StdDeserializer;
+import tools.jackson.core.JsonParser;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.DeserializationContext;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.deser.std.StdDeserializer;
 import org.snomed.langauges.ecl.domain.refinement.EclRefinement;
 import org.snomed.snowstorm.ecl.domain.refinement.SEclRefinement;
 
-import java.io.IOException;
-
 public class ECLRefinementDeserializer extends StdDeserializer<EclRefinement> {
 
-	private final ObjectMapper mapper;
-
-	public ECLRefinementDeserializer(ObjectMapper mapper, Class a) {
-		super(a);
-		this.mapper = mapper;
+	public ECLRefinementDeserializer() {
+		super(EclRefinement.class);
 	}
 
 	@Override
-	public EclRefinement deserialize(JsonParser jsonParser, DeserializationContext deserializationContext) throws IOException, JsonProcessingException {
-		JsonNode node = jsonParser.getCodec().readTree(jsonParser);
-		return mapper.readValue(node.toString(), SEclRefinement.class);
+	public EclRefinement deserialize(JsonParser jsonParser, DeserializationContext deserializationContext) throws JacksonException {
+		JsonNode node = deserializationContext.readTree(jsonParser);
+		return deserializationContext.readTreeAsValue(node, SEclRefinement.class);
 
 //		if (node.get("subRefinement") != null) {
 //			return mapper.readValue(node.toString(), SEclRefinement.class);

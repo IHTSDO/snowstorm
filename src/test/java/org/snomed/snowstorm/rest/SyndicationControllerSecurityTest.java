@@ -5,7 +5,7 @@ import org.junit.jupiter.api.Test;
 import org.snomed.snowstorm.syndication.InstallationTask;
 import org.snomed.snowstorm.syndication.SyndicationService;
 import org.snomed.snowstorm.syndication.dto.InstallEditionRequest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.RequestEntity;
@@ -21,7 +21,7 @@ import static org.mockito.Mockito.when;
 
 class SyndicationControllerSecurityTest extends AbstractControllerSecurityTest {
 
-	@MockBean
+	@MockitoBean
 	private SyndicationService syndicationService;
 
 	@BeforeEach

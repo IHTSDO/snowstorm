@@ -1,11 +1,12 @@
 package org.snomed.snowstorm.core.data.domain;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.DeserializationFeature;
+import tools.jackson.databind.json.JsonMapper;
+import tools.jackson.databind.ObjectMapper;
 import com.google.common.collect.Sets;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.http.converter.json.Jackson2ObjectMapperBuilder;
 
 import java.io.IOException;
 import java.util.HashMap;
@@ -21,11 +22,9 @@ class QueryConceptTest {
 
 	@BeforeEach
 	void setup() {
-		objectMapper = Jackson2ObjectMapperBuilder
-				.json()
-				.defaultViewInclusion(false)
-				.failOnUnknownProperties(false)
-				.serializationInclusion(JsonInclude.Include.NON_NULL)
+		objectMapper = JsonMapper.builderWithJackson2Defaults()
+				.disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
+				.changeDefaultPropertyInclusion(inclusion -> inclusion.withValueInclusion(JsonInclude.Include.NON_NULL).withContentInclusion(JsonInclude.Include.NON_NULL))
 				.build();
 	}
 

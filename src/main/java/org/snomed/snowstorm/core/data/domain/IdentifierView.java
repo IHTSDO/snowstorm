@@ -1,9 +1,9 @@
 package org.snomed.snowstorm.core.data.domain;
 
-import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
+import com.fasterxml.jackson.annotation.JsonDeserializeAs;
 
 
-@JsonDeserialize(as = Identifier.class)
+@JsonDeserializeAs(Identifier.class)
 public interface IdentifierView {
 
 	String getAlternateIdentifier();
