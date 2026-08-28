@@ -5,7 +5,8 @@ import org.snomed.snowstorm.AbstractTest;
 import org.snomed.snowstorm.TestConfig;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.web.client.TestRestTemplate;
+import org.springframework.boot.resttestclient.TestRestTemplate;
+import org.springframework.boot.resttestclient.autoconfigure.AutoConfigureTestRestTemplate;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -28,6 +29,8 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, classes = TestConfig.class)
 @TestPropertySource(properties = "uri.dereferencing.prefix=http://example.com/")
+// Boot 4 no longer auto-registers TestRestTemplate; it needs this annotation.
+@AutoConfigureTestRestTemplate
 class WebRouteControllerTest extends AbstractTest {
 
 	@LocalServerPort
@@ -39,7 +42,7 @@ class WebRouteControllerTest extends AbstractTest {
 	@Test
 	void testErrorResponseNeverReflectsRawMarkupFromUri() {
 		String uriParam = "http://example.com/t<tag>marker</tag>";
-		URI url = UriComponentsBuilder.fromHttpUrl("http://localhost:" + port + "/web-route")
+		URI url = UriComponentsBuilder.fromUriString("http://localhost:" + port + "/web-route")
 				.queryParam("uri", uriParam)
 				.build()
 				.encode()

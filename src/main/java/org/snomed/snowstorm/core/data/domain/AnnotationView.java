@@ -1,9 +1,9 @@
 package org.snomed.snowstorm.core.data.domain;
 
-import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
+import com.fasterxml.jackson.annotation.JsonDeserializeAs;
 import org.snomed.snowstorm.core.pojo.TermLangPojo;
 
-@JsonDeserialize(as = Annotation.class)
+@JsonDeserializeAs(Annotation.class)
 public interface AnnotationView {
 
 	String getAnnotationId();

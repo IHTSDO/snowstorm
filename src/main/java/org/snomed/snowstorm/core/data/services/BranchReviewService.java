@@ -1,7 +1,8 @@
 package org.snomed.snowstorm.core.data.services;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.ObjectReader;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectReader;
 import com.google.common.collect.Sets;
 import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.api.PathUtil;
@@ -23,7 +24,6 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
 import jakarta.annotation.PostConstruct;
-import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.function.Function;
@@ -288,7 +288,7 @@ public class BranchReviewService {
 
 				concepts.add(concept);
 			}
-		} catch (IOException e) {
+		} catch (JacksonException e) {
 			throw new ServiceException("Failed to deserialise manually merged concept from temp store. mergeReview:" + mergeReview.getId() + ", conceptId:" + manuallyMergedConcept.getConceptId(), e);
 		}
 		branchMergeService.mergeBranchSync(mergeReview.getSourcePath(), mergeReview.getTargetPath(), concepts);
@@ -421,7 +421,7 @@ public class BranchReviewService {
 		try {
 			String conceptJson = objectMapper.writeValueAsString(manuallyMergedConcept);
 			manuallyMergedConceptRepository.save(new ManuallyMergedConcept(mergeReview.getId(), conceptId, conceptJson, false));
-		} catch (IOException e) {
+		} catch (JacksonException e) {
 			throw new ServiceException("Failed to serialise manually merged concept.", e);
 		}
 	}

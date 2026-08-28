@@ -5,7 +5,7 @@ import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.core.data.services.classification.pojo.ClassificationStatusResponse;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
-import org.springframework.boot.web.client.RestTemplateBuilder;
+import org.springframework.boot.restclient.RestTemplateBuilder;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
 

@@ -24,7 +24,7 @@ import java.util.Map;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * Verifies BranchMergeJob apiError persistence against Elasticsearch 8 (Testcontainers 8.11.1).
+ * Verifies BranchMergeJob apiError persistence against the Elasticsearch version TestConfig starts.
  * Nested integrity maps must not be indexed as dynamic object fields or ES hits
  * index.mapping.total_fields.limit (default 1000).
  */

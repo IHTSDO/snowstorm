@@ -12,7 +12,7 @@ public class SimpleAggregation extends Aggregation {
 	private final long count;
 
 	public SimpleAggregation(String name, String bucket, long count) {
-		super(name, Aggregate.of(a -> a.bucketMetricValue(bm -> bm.keys(bucket).value(count))));
+		super(name, Aggregate.of(a -> a.bucketMetricValue(bm -> bm.keys(bucket).value((double) count))));
 		this.bucket = bucket;
 		this.count = count;
 	}

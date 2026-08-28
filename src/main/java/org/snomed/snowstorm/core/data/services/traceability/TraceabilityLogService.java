@@ -2,8 +2,9 @@ package org.snomed.snowstorm.core.data.services.traceability;
 
 import co.elastic.clients.elasticsearch._types.query_dsl.Query;
 import com.fasterxml.jackson.annotation.JsonInclude;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 import com.google.common.collect.Iterables;
 import io.kaicode.elasticvc.api.BranchCriteria;
 import io.kaicode.elasticvc.api.CommitListener;
@@ -28,7 +29,6 @@ import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.data.elasticsearch.core.SearchHitsIterator;
 import org.springframework.data.elasticsearch.core.query.FetchSourceFilter;
 import org.springframework.data.elasticsearch.client.elc.NativeQueryBuilder;
-import org.springframework.http.converter.json.Jackson2ObjectMapperBuilder;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -73,8 +73,13 @@ public class TraceabilityLogService implements CommitListener {
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
 	public TraceabilityLogService() {
-		objectMapper = Jackson2ObjectMapperBuilder.json()
-				.serializationInclusion(JsonInclude.Include.NON_NULL)
+		// This log is consumed downstream, so it uses the same Jackson 2 defaults as the REST mapper
+		// to keep the emitted JSON byte-identical.
+		objectMapper = JsonMapper.builderWithJackson2Defaults()
+				// Value and content inclusion, matching what serializationInclusion(NON_NULL) used to set.
+				.changeDefaultPropertyInclusion(inclusion -> inclusion
+						.withValueInclusion(JsonInclude.Include.NON_NULL)
+						.withContentInclusion(JsonInclude.Include.NON_NULL))
 				.build();
 	}
 
@@ -200,7 +205,7 @@ public class TraceabilityLogService implements CommitListener {
 
 		try {
 			logger.info("{}", objectMapper.writeValueAsString(activity));
-		} catch (JsonProcessingException e) {
+		} catch (JacksonException e) {
 			logger.error("Failed to serialize activity {} to JSON.", activity.getCommitTimestamp());
 		}
 

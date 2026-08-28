@@ -22,6 +22,7 @@ import java.nio.file.Files;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.snomed.snowstorm.rest.ControllerTestHelper.waitForStatus;
+import org.springframework.http.HttpHeaders;
 
 class ImportControllerTest extends AbstractControllerSecurityTest {
 
@@ -36,7 +37,7 @@ class ImportControllerTest extends AbstractControllerSecurityTest {
 		importCreationRequest.setCreateCodeSystemVersion(true);
 		importCreationRequest.setType(RF2Type.SNAPSHOT);
 
-		RequestEntity<Object> request = new RequestEntity<>(importCreationRequest, null, HttpMethod.POST, URI.create(url + "/imports/start-local-file-import"));
+		RequestEntity<Object> request = new RequestEntity<>(importCreationRequest, (HttpHeaders) null, HttpMethod.POST, URI.create(url + "/imports/start-local-file-import"));
 		ResponseEntity<String> response = testStatusCode(HttpStatus.CREATED, authorHeaders, request);
 		waitForStatus(response, ImportJob.ImportStatus.COMPLETED.name(), ImportJob.ImportStatus.FAILED.name(), authorHeaders, restTemplate);
 		// Check local file still exists
@@ -53,7 +54,7 @@ class ImportControllerTest extends AbstractControllerSecurityTest {
 		importCreationRequest.setCreateCodeSystemVersion(true);
 		importCreationRequest.setType(RF2Type.SNAPSHOT);
 
-		RequestEntity<Object> request = new RequestEntity<>(importCreationRequest, null, HttpMethod.POST, URI.create(url + "/imports"));
+		RequestEntity<Object> request = new RequestEntity<>(importCreationRequest, (HttpHeaders) null, HttpMethod.POST, URI.create(url + "/imports"));
 		ResponseEntity<String> response = testStatusCode(HttpStatus.CREATED, authorHeaders, request);
 		URI location = response.getHeaders().getLocation();
 

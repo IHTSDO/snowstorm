@@ -1,7 +1,7 @@
 package org.snomed.snowstorm.config.elasticsearch;
 
 import org.springframework.data.elasticsearch.core.mapping.IndexCoordinates;
-import org.springframework.data.util.TypeInformation;
+import org.springframework.data.core.TypeInformation;
 
 public class SnowstormSimpleElasticsearchPersistentEntity<T> {
 

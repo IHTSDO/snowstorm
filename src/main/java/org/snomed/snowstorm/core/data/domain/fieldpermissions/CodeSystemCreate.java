@@ -1,9 +1,9 @@
 package org.snomed.snowstorm.core.data.domain.fieldpermissions;
 
-import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
+import com.fasterxml.jackson.annotation.JsonDeserializeAs;
 import org.snomed.snowstorm.core.data.domain.CodeSystem;
 
-@JsonDeserialize(as = CodeSystem.class)
+@JsonDeserializeAs(CodeSystem.class)
 public interface CodeSystemCreate {
 
 	String getShortName();

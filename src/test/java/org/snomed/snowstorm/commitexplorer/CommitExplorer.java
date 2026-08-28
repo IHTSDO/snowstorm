@@ -9,8 +9,8 @@ import org.snomed.snowstorm.core.data.domain.SnomedComponent;
 import org.snomed.snowstorm.core.util.AggregationUtils;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
-import org.springframework.boot.autoconfigure.data.elasticsearch.ElasticsearchDataAutoConfiguration;
-import org.springframework.boot.autoconfigure.elasticsearch.ElasticsearchRestClientAutoConfiguration;
+import org.springframework.boot.data.elasticsearch.autoconfigure.DataElasticsearchAutoConfiguration;
+import org.springframework.boot.elasticsearch.autoconfigure.ElasticsearchRestClientAutoConfiguration;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.ApplicationContext;
 import org.springframework.data.domain.PageRequest;
@@ -169,7 +169,7 @@ public class CommitExplorer {
 	@TestConfiguration
 	@SpringBootApplication(
 			exclude = {
-					ElasticsearchDataAutoConfiguration.class,
+					DataElasticsearchAutoConfiguration.class,
 					ElasticsearchRestClientAutoConfiguration.class,
 			}
 	)

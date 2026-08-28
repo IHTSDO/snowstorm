@@ -32,7 +32,6 @@ import static io.kaicode.elasticvc.domain.Commit.CommitType.CONTENT;
 import static co.elastic.clients.elasticsearch._types.query_dsl.QueryBuilders.*;
 import static io.kaicode.elasticvc.helper.QueryHelper.*;
 import static org.snomed.snowstorm.config.Config.BATCH_SAVE_SIZE;
-import static org.springframework.data.elasticsearch.core.query.ScriptType.INLINE;
 
 @Service
 public class ConceptDefinitionStatusUpdateService extends ComponentService implements CommitListener {
@@ -232,7 +231,7 @@ public class ConceptDefinitionStatusUpdateService extends ComponentService imple
 		List<UpdateQuery> updateQueries = new ArrayList<>();
 		for (Concept concept : concepts) {
 			String script = "ctx._source.definitionStatusId='" + concept.getDefinitionStatusId() + "'";
-			updateQueries.add(UpdateQuery.builder(concept.getInternalId()).withScript(script).withScriptType(INLINE).build());
+			updateQueries.add(UpdateQuery.builder(concept.getInternalId()).withScript(script).build());
 		}
 		if (!updateQueries.isEmpty()) {
 			elasticsearchOperations.bulkUpdate(updateQueries, elasticsearchOperations.getIndexCoordinatesFor(Concept.class));

@@ -1,6 +1,7 @@
 package org.snomed.snowstorm.syndication.client;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 import jakarta.xml.bind.JAXBException;
 import org.junit.jupiter.api.Test;
 import org.snomed.snowstorm.core.data.services.ServiceException;
@@ -53,7 +54,7 @@ class SyndicationClientCredentialsTest {
 		InstallationTask task = new InstallationTask(
 				"http://snomed.info/sct/900000000000207008", "20250301", null, "secretUser", "secretPass",
 				SecurityContextHolder.getContext());
-		String json = new ObjectMapper().writeValueAsString(task);
+		String json = JsonMapper.builderWithJackson2Defaults().build().writeValueAsString(task);
 		assertFalse(json.contains("secretUser"));
 		assertFalse(json.contains("secretPass"));
 		assertFalse(json.contains("username"));

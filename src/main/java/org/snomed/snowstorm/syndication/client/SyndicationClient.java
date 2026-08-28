@@ -8,7 +8,7 @@ import org.snomed.snowstorm.core.data.services.ServiceException;
 import org.snomed.snowstorm.core.util.StreamUtil;
 import org.snomed.snowstorm.syndication.InstallationPackageProgress;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.web.client.RestTemplateBuilder;
+import org.springframework.boot.restclient.RestTemplateBuilder;
 import org.springframework.data.util.Pair;
 import org.springframework.http.*;
 import org.springframework.http.converter.StringHttpMessageConverter;

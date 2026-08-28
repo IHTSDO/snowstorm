@@ -1,10 +1,10 @@
 package org.snomed.snowstorm.core.data.domain;
 
-import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
+import com.fasterxml.jackson.annotation.JsonDeserializeAs;
 
 import java.util.Map;
 
-@JsonDeserialize(as = ReferenceSetMember.class)
+@JsonDeserializeAs(ReferenceSetMember.class)
 public interface ReferenceSetMemberView {
 
 	String getMemberId();

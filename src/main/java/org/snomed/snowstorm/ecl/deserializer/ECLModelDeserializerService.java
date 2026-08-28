@@ -1,8 +1,9 @@
 package org.snomed.snowstorm.ecl.deserializer;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.module.SimpleModule;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
+import tools.jackson.databind.module.SimpleModule;
 import org.snomed.langauges.ecl.domain.expressionconstraint.ExpressionConstraint;
 import org.snomed.langauges.ecl.domain.expressionconstraint.SubExpressionConstraint;
 import org.snomed.langauges.ecl.domain.filter.*;
@@ -17,10 +18,8 @@ public class ECLModelDeserializerService {
 	private final ObjectMapper mapper;
 
 	public ECLModelDeserializerService() {
-		mapper = new ObjectMapper();
-
 		SimpleModule module = new SimpleModule();
-		final ECLModelDeserializer deserializer = new ECLModelDeserializer(mapper, null);
+		final ECLModelDeserializer deserializer = new ECLModelDeserializer();
 		module.addDeserializer(ExpressionConstraint.class, deserializer);
 		module.addDeserializer(SubExpressionConstraint.class, new SubExpressionDeserializer(deserializer));
 
@@ -46,10 +45,12 @@ public class ECLModelDeserializerService {
 		module.addDeserializer(MemberFieldFilter.class, new GenericJsonDeserializer<>(SMemberFieldFilter.class));
 		module.addDeserializer(HistorySupplement.class, new GenericJsonDeserializer<>(SHistorySupplement.class));
 
-		mapper.registerModule(module);
+		// Jackson 3 mappers are immutable - modules are contributed at build time.
+		// The ECL model comes from snomed-ecl-parser, written against Jackson 2 binding rules.
+		mapper = JsonMapper.builderWithJackson2Defaults().addModule(module).build();
 	}
 
-	public String convertECLModelToString(String eclModelJsonString) throws JsonProcessingException {
+	public String convertECLModelToString(String eclModelJsonString) throws JacksonException {
 		final ExpressionConstraint expressionConstraint = mapper.readValue(eclModelJsonString, ExpressionConstraint.class);
 
 		StringBuffer buffer = new StringBuffer();

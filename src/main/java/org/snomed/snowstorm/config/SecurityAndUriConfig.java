@@ -1,8 +1,6 @@
 package org.snomed.snowstorm.config;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.SerializationFeature;
 import com.google.common.collect.Lists;
 import io.kaicode.elasticvc.domain.Branch;
 import io.kaicode.rest.util.branchpathrewrite.BranchPathUriRewriteFilter;
@@ -32,7 +30,6 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.domain.Page;
 import org.springframework.http.HttpMethod;
-import org.springframework.http.converter.json.Jackson2ObjectMapperBuilder;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configuration.WebSecurityCustomizer;
@@ -43,6 +40,9 @@ import org.springframework.security.web.access.intercept.AuthorizationFilter;
 import org.springframework.security.web.firewall.DefaultHttpFirewall;
 import org.springframework.security.web.firewall.HttpFirewall;
 import org.springframework.web.bind.annotation.GetMapping;
+import tools.jackson.databind.DeserializationFeature;
+import tools.jackson.databind.SerializationFeature;
+import tools.jackson.databind.json.JsonMapper;
 
 import java.util.Collections;
 import java.util.List;
@@ -76,23 +76,33 @@ public class SecurityAndUriConfig {
 	};
 
 	@Bean
-	public ObjectMapper getGeneralMapper() {
-		Jackson2ObjectMapperBuilder builder = Jackson2ObjectMapperBuilder
-				.json()
-				.defaultViewInclusion(false)
-				.failOnUnknownProperties(false)
-				.serializationInclusion(JsonInclude.Include.NON_NULL)
-				.mixIn(Page.class, PageMixin.class)
-				.mixIn(Branch.class, BranchMixIn.class)
-				.mixIn(BranchPojo.class, BranchMixIn.class)
-				.mixIn(Classification.class, ClassificationMixIn.class)
-				.mixIn(CodeSystemVersion.class, CodeSystemVersionMixIn.class)
-				.mixIn(InvalidContent.class, InvalidContentMixIn.class)
-				.mixIn(Component.class, ComponentMixIn.class)
-				.mixIn(ReferenceSetType.class, ReferenceSetTypeMixin.class);
+	public JsonMapper getGeneralMapper() {
+		/*
+		builderWithJackson2Defaults() is Jackson's migration helper. It restores the Jackson 2 defaults
+		that Jackson 3 changed - dates, property order, enum naming, constructor vs setter binding -
+		any of which would silently alter the JSON contract. The two settings below are Snowstorm's own
+		departures from those defaults, so they stay explicit. View inclusion needs no line: Jackson 3
+		leaves it off, which is what this mapper has always wanted.
+		*/
+		JsonMapper.Builder builder = JsonMapper.builderWithJackson2Defaults()
+				.disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
+				// Both halves are needed: Jackson2ObjectMapperBuilder.serializationInclusion(NON_NULL) set value
+				// and content inclusion, so setting only the value half would start emitting null map values
+				// and null collection elements that the REST API has never included.
+				.changeDefaultPropertyInclusion(inclusion -> inclusion
+						.withValueInclusion(JsonInclude.Include.NON_NULL)
+						.withContentInclusion(JsonInclude.Include.NON_NULL))
+				.addMixIn(Page.class, PageMixin.class)
+				.addMixIn(Branch.class, BranchMixIn.class)
+				.addMixIn(BranchPojo.class, BranchMixIn.class)
+				.addMixIn(Classification.class, ClassificationMixIn.class)
+				.addMixIn(CodeSystemVersion.class, CodeSystemVersionMixIn.class)
+				.addMixIn(InvalidContent.class, InvalidContentMixIn.class)
+				.addMixIn(Component.class, ComponentMixIn.class)
+				.addMixIn(ReferenceSetType.class, ReferenceSetTypeMixin.class);
 
 		if (jsonIndentOutput) {
-			builder.featuresToEnable(SerializationFeature.INDENT_OUTPUT);
+			builder.enable(SerializationFeature.INDENT_OUTPUT);
 		}
 
 		return builder.build();

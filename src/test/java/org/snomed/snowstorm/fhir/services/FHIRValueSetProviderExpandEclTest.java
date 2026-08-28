@@ -1,6 +1,6 @@
 package org.snomed.snowstorm.fhir.services;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
+import tools.jackson.core.JacksonException;
 import org.hl7.fhir.r4.model.ValueSet;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
@@ -219,7 +219,7 @@ class FHIRValueSetProviderExpandEclTest extends AbstractFHIRTest {
 	}
 
 	@Test
-	void testECLWithDesignationUseContextExpansion() throws JsonProcessingException {
+	void testECLWithDesignationUseContextExpansion() throws JacksonException {
 		String url = baseUrl + "/ValueSet/$expand?url=http://snomed.info/sct?fhir_vs=ecl/257751006&includeDesignations=true&_format=json";  //&displayLanguage=en-US
 		ValueSet valueSet = getValueSet(url);
 		assertEquals(1, valueSet.getExpansion().getContains().size());
