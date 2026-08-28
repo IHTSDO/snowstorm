@@ -3,11 +3,37 @@ All notable changes to this project will be documented in this file.
 
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [DRAFT] 11.1.0 Release
-Major upgrade of HL7 FHIR API.
+## [DRAFT] 12.0.0 Release
+Major release with Spring Boot 4, Elasticsearch 9 and Jackson 3 upgrades, plus HL7 FHIR API improvements.
+
+### Breaking
+- Elasticsearch 9 must be used with this release. Snowstorm cannot run against Elasticsearch 8 — the client negotiates version 9 media types that an 8.x server rejects. Existing clusters must be upgraded before upgrading Snowstorm, see the [Elasticsearch 9 upgrade guide](docs/elasticsearch9-upgrade.md).
+
+### Features
+- AP2-146 Add concept inactivation impact endpoint
+- AP2-146 Add Concept/Description inactivation reasons endpoint
+- AP2-143 Add refsetType option to reference set member search
+- ISTO-154 Add partial-hierarchy to concept API
+- ISTO-153 Add fast language-only RF2 export
+- MAINT-1947 Add FHIR support for nested implicit ValueSets
+- RAP-191 Export concrete additional relationships
 
 ### Improvements
-- Add CORS headers to allow any origin by default. Can be disabled using `snowstorm.rest-api.allowAnyOrigin=false` flag.
+- PIP-1183 Upgrade to Spring Boot 4.1.0, Spring Framework 7.0.8, Spring Security 7.1.0 and Jackson 3.1.4 via snomed-parent-bom 5.0.0
+- PIP-1183 Upgrade to Elasticsearch 9.5.2 and spring-data-elasticsearch 6.1.0
+- PIP-1183 Upgrade HAPI FHIR to 8.10.1
+- PIP-1183 Add Elasticsearch 8 to 9 upgrade guide
+- ISTO-148 Add CORS headers to allow any origin by default. Can be disabled using `snowstorm.rest-api.allowAnyOrigin=false` flag.
+- AP2-146 Update historical associations
+- AP2-146 Add JsonView annotation to ConceptMicro
+- MAINT-2912 Run the integrity check before locking branches during promotion and persist apiError as a non-indexed JSON string
+- MAINT-3020 Allow retry when a branch is initially locked
+- MAINT-2903 Limit default module id export to MDRS
+- MAINT-3076 Include internal releases during deletion
+- MAINT-2962 Return 422 rather than 404 for a request that is too costly to compute
+
+### Fixes
+- MAINT-3126 Fix FetchSourceFilter to return selected fields only instead of the entire document
 
 ## 11.0.0 Release (July 2026)
 Major release with Java 25 upgrade and FHIR improvements.
