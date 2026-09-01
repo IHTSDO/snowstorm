@@ -11,7 +11,7 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-public class ConceptHistoryTest {
+class ConceptHistoryTest {
     private final ObjectMapper objectMapper = JsonMapper.builderWithJackson2Defaults().build();
 
     private static void assertIndexIsValue(List<String> effectiveTimes, String expectedEffectiveTime, int index) {
@@ -19,7 +19,7 @@ public class ConceptHistoryTest {
     }
 
     @Test
-    public void conceptHistory_ShouldDeserializeAsExpected() throws JacksonException {
+    void conceptHistory_ShouldDeserializeAsExpected() throws JacksonException {
         //given
         final ConceptHistory conceptHistory = new ConceptHistory(Concepts.ISA);
         conceptHistory.addToHistory("20200131", "MAIN", ComponentType.Concept);
@@ -34,7 +34,7 @@ public class ConceptHistoryTest {
     }
 
     @Test
-    public void getHistory_ShouldReturnElementsInDescendingOrder() {
+    void getHistory_ShouldReturnElementsInDescendingOrder() {
         //given
         ConceptHistory conceptHistory = new ConceptHistory("12345678910");
         String[] effectiveDates = {
