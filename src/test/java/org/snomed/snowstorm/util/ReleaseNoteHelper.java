@@ -137,7 +137,7 @@ public class ReleaseNoteHelper {
 	@SuppressWarnings("unchecked")
 	private Map<String, Object> getFromAPI(String issueKey) {
 		try {
-			RestTemplate restTemplate = new RestTemplateBuilder().rootUri(JIRA_API_URL).basicAuthentication(USER_EMAIL_ADDR, API_TOKEN).build();
+			RestTemplate restTemplate = new RestTemplateBuilder().baseUri(JIRA_API_URL).basicAuthentication(USER_EMAIL_ADDR, API_TOKEN).build();
 			return restTemplate.getForObject("/issue/" + issueKey, Map.class);
 		} catch (Exception e) {
 			LOGGER.error("Failed to get issues", e);

@@ -43,7 +43,7 @@ class RemoteClassificationServiceClient {
 											 @Value("${classification-service.message.status.destination}") String messageStatusDestination) {
 		this.messageStatusDestination = messageStatusDestination;
 		restTemplate = new RestTemplateBuilder()
-				.rootUri(serviceUrl)
+				.baseUri(serviceUrl)
 				.basicAuthentication(serviceUsername, servicePassword)
 				.build();
 	}
