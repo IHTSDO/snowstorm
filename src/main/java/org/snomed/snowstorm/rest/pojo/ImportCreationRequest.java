@@ -9,7 +9,7 @@ public class ImportCreationRequest {
 
 	private RF2Type type;
 
-	@Schema(example = "MAIN", required = true)
+	@Schema(example = "MAIN", requiredMode = Schema.RequiredMode.REQUIRED)
 	private String branchPath;
 
 	@Schema(defaultValue = "false")
