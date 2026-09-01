@@ -69,7 +69,7 @@ public class WebRoutingService {
 				throw new IllegalArgumentException("URI Redirection needed to find a BRANCH, but no concept was found");
 			}
 
-			if (Boolean.TRUE.equals(versionConceptFound.getValue())) {
+			if (versionConceptFound.isTrue()) {
 				template = template.replace("{BRANCH}", version.getBranchPath());
 			} else {
 				template = template.replace("{BRANCH}", concept.getPath());
