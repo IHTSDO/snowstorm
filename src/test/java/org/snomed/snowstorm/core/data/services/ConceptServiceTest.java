@@ -11,7 +11,6 @@ import io.kaicode.elasticvc.api.ComponentService;
 import io.kaicode.elasticvc.api.VersionControlHelper;
 import io.kaicode.elasticvc.domain.Branch;
 import io.kaicode.elasticvc.domain.Commit;
-import io.kaicode.elasticvc.domain.Metadata;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
@@ -719,21 +718,11 @@ class ConceptServiceTest extends AbstractTest {
 		List<Description> activeDescriptions = descriptions.stream().filter(Description::isActive).sorted(Comparator.comparing(Description::getTerm)).collect(Collectors.toList());
 		assertEquals(2, activeDescriptions.size(),
 				"Two descriptions are still active");
-		assertEquals("CONCEPT_NON_CURRENT", activeDescriptions.get(0).getInactivationIndicator(),
-				"Active descriptions automatically have inactivation indicator");
-		assertEquals("CONCEPT_NON_CURRENT", activeDescriptions.get(1).getInactivationIndicator(),
-				"Active descriptions automatically have inactivation indicator");
 		Description unversionedDescription = activeDescriptions.get(1);
 		assertEquals("Unversioned description", unversionedDescription.getTerm(),
 				"Unversioned description is still active and has not been deleted");
 		assertTrue(unversionedDescription.isActive(),
 				"Unversioned description is still active and has not been deleted");
-
-		// Assert that inactive descriptions also have concept non current indicator applied automatically too.
-		Optional<Description> inactiveDescription = descriptions.stream().filter(d -> !d.isActive()).findFirst();
-		assertTrue(inactiveDescription.isPresent(), "One description is still inactive");
-		assertEquals("CONCEPT_NON_CURRENT", inactiveDescription.get().getInactivationIndicator(),
-				"Inactive description automatically has inactivation indicator");
 
 		assertFalse(inactiveConcept.getClassAxioms().iterator().next().isActive(),
 				"Axiom is inactive.");
@@ -776,19 +765,13 @@ class ConceptServiceTest extends AbstractTest {
 		Description inactiveDescription = inactiveDescriptionOptional.get();
 		assertEquals("900000000000207008", inactiveDescription.getModuleId());
 
-		// Check description inactivation indicator reference set member was created
-		Page<ReferenceSetMember> descriptionInactivationMembers = 
+		// Check no description inactivation indicator reference set member was created
+		Page<ReferenceSetMember> descriptionInactivationMembers =
 				referenceSetMemberService.findMembers(path, new MemberSearchRequest()
 						.referenceSet(DESCRIPTION_INACTIVATION_INDICATOR_REFERENCE_SET)
 						.referencedComponentId(inactiveDescription.getDescriptionId()),
 						PageRequest.of(0, 1));
-		assertEquals(1, descriptionInactivationMembers.getTotalElements());
-		ReferenceSetMember descriptionInactivationIndicatorMember = descriptionInactivationMembers.get().iterator().next();
-		assertNotNull(descriptionInactivationIndicatorMember);
-		assertTrue(descriptionInactivationIndicatorMember.isActive());
-		assertEquals(Concepts.DESCRIPTION_INACTIVATION_INDICATOR_REFERENCE_SET, descriptionInactivationIndicatorMember.getRefsetId());
-		assertEquals(CONCEPT_NON_CURRENT, descriptionInactivationIndicatorMember.getAdditionalField("valueId"));
-		assertEquals("900000000000207008", descriptionInactivationIndicatorMember.getModuleId());
+		assertEquals(0, descriptionInactivationMembers.getTotalElements());
 	}
 	
 	@Test
@@ -919,14 +902,6 @@ class ConceptServiceTest extends AbstractTest {
 		assertEquals(concept.getId(), associationTargetMember.getReferencedComponentId());
 		assertEquals("87100004", associationTargetMember.getAdditionalField("targetComponentId"));
 
-		Set<Description> descriptions = concept.getDescriptions();
-		List<Description> activeDescriptions = descriptions.stream().filter(Description::isActive).sorted(Comparator.comparing(Description::getTerm)).collect(Collectors.toList());
-		assertEquals(1, activeDescriptions.size(),
-				"One descriptions are still active");
-		assertEquals("CONCEPT_NON_CURRENT", activeDescriptions.get(0).getInactivationIndicator(),
-				"Active descriptions automatically have inactivation indicator");
-		final ReferenceSetMember descriptionInactivationIndicatorMember = activeDescriptions.get(0).getInactivationIndicatorMember();
-
 		assertFalse(concept.getClassAxioms().iterator().next().isActive(), "Axiom is inactive.");
 
 		// Version code system
@@ -983,14 +958,6 @@ class ConceptServiceTest extends AbstractTest {
 		assertEquals(associationTargetMember.getId(), secondTimeAssociationTargetMember.getId(),
 				"Original association refset member must be reused because the value is the same.");
 
-		// Same for the description inactivation indicator
-		activeDescriptions = concept.getDescriptions().stream().filter(Description::isActive).sorted(Comparator.comparing(Description::getTerm)).collect(Collectors.toList());
-		assertEquals(1, activeDescriptions.size());
-		assertEquals("CONCEPT_NON_CURRENT", activeDescriptions.get(0).getInactivationIndicator(),
-				"Active descriptions automatically have inactivation indicator");
-		final ReferenceSetMember secondTimeDescriptionInactivationIndicatorMember = activeDescriptions.get(0).getInactivationIndicatorMember();
-		assertEquals(descriptionInactivationIndicatorMember.getId(), secondTimeDescriptionInactivationIndicatorMember.getId(),
-				"Original inactivation indicator refset member must be reused because the value is the same.");
 	}
 	
 	@Test
@@ -3073,161 +3040,6 @@ class ConceptServiceTest extends AbstractTest {
 	}
 
 	@Test
-	void update_ShouldCreateCNC_WhenNothingConfigured() throws ServiceException {
-		String intMain = "MAIN";
-		Map<String, String> intPreferred = Map.of(US_EN_LANG_REFSET, descriptionAcceptabilityNames.get(PREFERRED), GB_EN_LANG_REFSET, descriptionAcceptabilityNames.get(PREFERRED));
-		String ci = "CASE_INSENSITIVE";
-		Concept concept;
-		CodeSystem codeSystem;
-
-		// Create Concept
-		concept = new Concept()
-				.addDescription(new Description("Medicine (medicine)").setTypeId(FSN).setCaseSignificance(ci).setAcceptabilityMap(intPreferred))
-				.addDescription(new Description("Medicine").setTypeId(SYNONYM).setCaseSignificance(ci).setAcceptabilityMap(intPreferred))
-				.addAxiom(new Relationship(ISA, SNOMEDCT_ROOT))
-				.addRelationship(new Relationship(ISA, SNOMEDCT_ROOT));
-		concept = conceptService.create(concept, intMain);
-		String medicineId = concept.getConceptId();
-
-		// Version International
-		codeSystem = codeSystemService.find("SNOMEDCT");
-		codeSystemService.createVersion(codeSystem, 20250101, "20250101");
-
-		// Assert
-		concept = conceptService.find(medicineId, intMain);
-		assertEquals(0, getDescriptionByTerm(concept, "Medicine (medicine)").getInactivationIndicatorMembers().size());
-		assertEquals(0, getDescriptionByTerm(concept, "Medicine").getInactivationIndicatorMembers().size());
-
-		// Inactivate Concept
-		concept = conceptService.find(medicineId, intMain);
-		concept.setActive(false);
-		concept = conceptService.update(concept, intMain);
-
-		// Assert
-		assertEquals(1, getDescriptionByTerm(concept, "Medicine (medicine)").getInactivationIndicatorMembers().size());
-		assertEquals(1, getDescriptionByTerm(concept, "Medicine").getInactivationIndicatorMembers().size());
-	}
-
-	@Test
-	void update_ShouldCreateCNC_WhenEnabled() throws ServiceException {
-		String intMain = "MAIN";
-		Map<String, String> intPreferred = Map.of(US_EN_LANG_REFSET, descriptionAcceptabilityNames.get(PREFERRED), GB_EN_LANG_REFSET, descriptionAcceptabilityNames.get(PREFERRED));
-		String ci = "CASE_INSENSITIVE";
-		Concept concept;
-		CodeSystem codeSystem;
-
-		// Configure for CNC
-		setCncEnabled(intMain, true);
-
-		// Create Concept
-		concept = new Concept()
-				.addDescription(new Description("Medicine (medicine)").setTypeId(FSN).setCaseSignificance(ci).setAcceptabilityMap(intPreferred))
-				.addDescription(new Description("Medicine").setTypeId(SYNONYM).setCaseSignificance(ci).setAcceptabilityMap(intPreferred))
-				.addAxiom(new Relationship(ISA, SNOMEDCT_ROOT))
-				.addRelationship(new Relationship(ISA, SNOMEDCT_ROOT));
-		concept = conceptService.create(concept, intMain);
-		String medicineId = concept.getConceptId();
-
-		// Version International
-		codeSystem = codeSystemService.find("SNOMEDCT");
-		codeSystemService.createVersion(codeSystem, 20250101, "20250101");
-
-		// Assert
-		concept = conceptService.find(medicineId, intMain);
-		assertEquals(0, getDescriptionByTerm(concept, "Medicine (medicine)").getInactivationIndicatorMembers().size());
-		assertEquals(0, getDescriptionByTerm(concept, "Medicine").getInactivationIndicatorMembers().size());
-
-		// Inactivate Concept
-		concept = conceptService.find(medicineId, intMain);
-		concept.setActive(false);
-		concept = conceptService.update(concept, intMain);
-
-		// Assert
-		assertEquals(1, getDescriptionByTerm(concept, "Medicine (medicine)").getInactivationIndicatorMembers().size());
-		assertEquals(1, getDescriptionByTerm(concept, "Medicine").getInactivationIndicatorMembers().size());
-	}
-
-	@Test
-	void update_ShouldNotCreateCNC_WhenDisabled() throws ServiceException {
-		String intMain = "MAIN";
-		Map<String, String> intPreferred = Map.of(US_EN_LANG_REFSET, descriptionAcceptabilityNames.get(PREFERRED), GB_EN_LANG_REFSET, descriptionAcceptabilityNames.get(PREFERRED));
-		String ci = "CASE_INSENSITIVE";
-		Concept concept;
-		CodeSystem codeSystem;
-
-		// Configure for CNC
-		setCncEnabled(intMain, false);
-
-		// Create Concept
-		concept = new Concept()
-				.addDescription(new Description("Medicine (medicine)").setTypeId(FSN).setCaseSignificance(ci).setAcceptabilityMap(intPreferred))
-				.addDescription(new Description("Medicine").setTypeId(SYNONYM).setCaseSignificance(ci).setAcceptabilityMap(intPreferred))
-				.addAxiom(new Relationship(ISA, SNOMEDCT_ROOT))
-				.addRelationship(new Relationship(ISA, SNOMEDCT_ROOT));
-		concept = conceptService.create(concept, intMain);
-		String medicineId = concept.getConceptId();
-
-		// Version International
-		codeSystem = codeSystemService.find("SNOMEDCT");
-		codeSystemService.createVersion(codeSystem, 20250101, "20250101");
-
-		// Assert
-		concept = conceptService.find(medicineId, intMain);
-		assertEquals(0, getDescriptionByTerm(concept, "Medicine (medicine)").getInactivationIndicatorMembers().size());
-		assertEquals(0, getDescriptionByTerm(concept, "Medicine").getInactivationIndicatorMembers().size());
-
-		// Inactivate Concept
-		concept = conceptService.find(medicineId, intMain);
-		concept.setActive(false);
-		concept = conceptService.update(concept, intMain);
-
-		// Assert
-		assertEquals(0, getDescriptionByTerm(concept, "Medicine (medicine)").getInactivationIndicatorMembers().size());
-		assertEquals(0, getDescriptionByTerm(concept, "Medicine").getInactivationIndicatorMembers().size());
-	}
-
-	@Test
-	void update_ShouldNotCreateCNC_WhenDisabledYetRequestedTo() throws ServiceException {
-		String intMain = "MAIN";
-		Map<String, String> intPreferred = Map.of(US_EN_LANG_REFSET, descriptionAcceptabilityNames.get(PREFERRED), GB_EN_LANG_REFSET, descriptionAcceptabilityNames.get(PREFERRED));
-		String ci = "CASE_INSENSITIVE";
-		Concept concept;
-		CodeSystem codeSystem;
-
-		// Configure for CNC
-		setCncEnabled(intMain, false);
-
-		// Create Concept
-		concept = new Concept()
-				.addDescription(new Description("Medicine (medicine)").setTypeId(FSN).setCaseSignificance(ci).setAcceptabilityMap(intPreferred))
-				.addDescription(new Description("Medicine").setTypeId(SYNONYM).setCaseSignificance(ci).setAcceptabilityMap(intPreferred))
-				.addAxiom(new Relationship(ISA, SNOMEDCT_ROOT))
-				.addRelationship(new Relationship(ISA, SNOMEDCT_ROOT));
-		concept = conceptService.create(concept, intMain);
-		String medicineId = concept.getConceptId();
-
-		// Version International
-		codeSystem = codeSystemService.find("SNOMEDCT");
-		codeSystemService.createVersion(codeSystem, 20250101, "20250101");
-
-		// Assert
-		concept = conceptService.find(medicineId, intMain);
-		assertEquals(0, getDescriptionByTerm(concept, "Medicine (medicine)").getInactivationIndicatorMembers().size());
-		assertEquals(0, getDescriptionByTerm(concept, "Medicine").getInactivationIndicatorMembers().size());
-
-		// Inactivate Concept
-		concept = conceptService.find(medicineId, intMain);
-		concept.setActive(false);
-		// User explicitly asks for CNC
-		getDescriptionByTerm(concept, "Medicine").setInactivationIndicator("CONCEPT_NON_CURRENT");
-		concept = conceptService.update(concept, intMain);
-
-		// Assert
-		assertEquals(0, getDescriptionByTerm(concept, "Medicine (medicine)").getInactivationIndicatorMembers().size());
-		assertEquals(0, getDescriptionByTerm(concept, "Medicine").getInactivationIndicatorMembers().size());
-	}
-
-	@Test
 	void update_ShouldThrowException_WhenRequestingUnknownInactivationIndicator() throws ServiceException {
 		String intMain = "MAIN";
 		Map<String, String> intPreferred = Map.of(US_EN_LANG_REFSET, descriptionAcceptabilityNames.get(PREFERRED), GB_EN_LANG_REFSET, descriptionAcceptabilityNames.get(PREFERRED));
@@ -3235,9 +3047,6 @@ class ConceptServiceTest extends AbstractTest {
 		Concept concept;
 		CodeSystem codeSystem;
 
-		// Configure for CNC
-		setCncEnabled(intMain, false);
-
 		// Create Concept
 		concept = new Concept()
 				.addDescription(new Description("Medicine (medicine)").setTypeId(FSN).setCaseSignificance(ci).setAcceptabilityMap(intPreferred))
@@ -3259,21 +3068,13 @@ class ConceptServiceTest extends AbstractTest {
 		// Inactivate Concept
 		concept = conceptService.find(medicineId, intMain);
 		concept.setActive(false);
-		// User explicitly asks for CNC
 		getDescriptionByTerm(concept, "Medicine").setInactivationIndicator("I_DONT_EXIST");
 
-		// Assert exception thrown
+		// Assert exception thrown for unknown indicator
 		Concept finalConcept = concept;
 		assertThrows(IllegalArgumentException.class, () -> {
 			conceptService.update(finalConcept, intMain);
 		});
-	}
-
-	private void setCncEnabled(String branchPath, boolean value) {
-		Branch branchOrThrow = branchService.findBranchOrThrow(branchPath, true);
-		Metadata metadata = branchOrThrow.getMetadata();
-		metadata.putString(Config.CNC_ENABLED, String.valueOf(value));
-		branchService.updateMetadata(branchPath, metadata);
 	}
 
 	private Description getDescriptionByTerm(Concept concept, String term) {

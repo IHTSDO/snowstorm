@@ -168,7 +168,6 @@ public class CodeSystemUpgradeService {
 
 			if (contentAutomations) {
 				logger.info("Running upgrade content automations on {}.", branchPath);
-				upgradeInactivationService.findAndUpdateDescriptionsInactivation(codeSystem);
 				upgradeInactivationService.findAndUpdateLanguageRefsets(codeSystem);
 				upgradeInactivationService.findAndUpdateAdditionalAxioms(codeSystem);
 				logger.info("Completed upgrade content automations on {}.", branchPath);
