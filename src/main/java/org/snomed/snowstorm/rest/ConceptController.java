@@ -301,8 +301,7 @@ public class ConceptController {
 
 	@Operation(summary = "Retrieve concept and description inactivation reasons for a branch.",
 			description = "Exposes Snowstorm's Concepts inactivation indicator and historical association BiMaps together with "
-					+ "cardinality rules used when inactivating concepts and descriptions. "
-					+ "Concept non-current is omitted from description reasons when the branch has cncEnabled=false.")
+					+ "cardinality rules used when inactivating concepts and descriptions.")
 	@GetMapping(value = "/browser/{branch}/inactivation-reasons")
 	public InactivationReasonsResponse getInactivationReasons(@PathVariable String branch) {
 		return inactivationService.getInactivationReasons(BranchPathUriUtil.decodePath(branch));

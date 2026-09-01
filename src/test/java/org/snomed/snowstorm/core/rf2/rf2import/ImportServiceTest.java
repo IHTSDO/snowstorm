@@ -863,6 +863,21 @@ class ImportServiceTest extends AbstractTest {
 	}
 
 	@Test
+	void testImportSnapshotCreatesCncIndicators() throws ReleaseImportException, FileNotFoundException {
+		// given
+		String importId = importService.createJob(RF2Type.SNAPSHOT, "MAIN", true, false);
+
+		// when
+		importService.importArchive(importId, new FileInputStream(rf2Archive));
+
+		// then
+		Concept inactiveConcept = conceptService.find("118225008", "MAIN");
+		Description inactiveDescription = inactiveConcept.getDescription("697843019");
+		assertNotNull(inactiveDescription);
+		assertEquals("CONCEPT_NON_CURRENT", inactiveDescription.getInactivationIndicator());
+	}
+
+	@Test
 	void testImportWithAdditionalDependency() throws IOException, ReleaseImportException {
 		// Create LOINC code system and version
 		CodeSystem loinc = new CodeSystem("SNOMEDCT-LOINC", "MAIN/SNOMEDCT-LOINC");

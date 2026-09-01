@@ -534,7 +534,7 @@ class BranchMergeServiceTest extends AbstractTest {
 		MemberSearchRequest descriptionInactivationMemberSearchRequest = new MemberSearchRequest()
 				.referenceSet(Concepts.DESCRIPTION_INACTIVATION_INDICATOR_REFERENCE_SET)
 				.referencedComponentId(concept.getDescriptions().iterator().next().getId());
-		assertEquals(1, memberService.findMembers(taskA1, descriptionInactivationMemberSearchRequest, LARGE_PAGE).getTotalElements());
+		assertEquals(0, memberService.findMembers(taskA1, descriptionInactivationMemberSearchRequest, LARGE_PAGE).getTotalElements());
 
 		// On branch A2 inactivate conceptA with OUTDATED reason and
 		concept = simulateRestTransfer(conceptService.find(conceptAId, taskA2));
@@ -543,13 +543,13 @@ class BranchMergeServiceTest extends AbstractTest {
 		concept.setAssociationTargets(Maps.newHashMap("REPLACED_BY", Sets.newHashSet(conceptBId)));
 		conceptService.update(concept, taskA2);
 		assertEquals(2, memberService.findMembers(taskA2, conceptAId, LARGE_PAGE).getTotalElements());
-		assertEquals(1, memberService.findMembers(taskA2, descriptionInactivationMemberSearchRequest, LARGE_PAGE).getTotalElements());
+		assertEquals(0, memberService.findMembers(taskA2, descriptionInactivationMemberSearchRequest, LARGE_PAGE).getTotalElements());
 
 		// Promote task A1
 		assertEquals(1, memberService.findMembers("MAIN/A", conceptAId, LARGE_PAGE).getTotalElements());
 		branchMergeService.mergeBranchSync(taskA1, "MAIN/A", Collections.emptySet());
 		assertEquals(2, memberService.findMembers("MAIN/A", conceptAId, LARGE_PAGE).getTotalElements());
-		assertEquals(1, memberService.findMembers(taskA1, descriptionInactivationMemberSearchRequest, LARGE_PAGE).getTotalElements());
+		assertEquals(0, memberService.findMembers(taskA1, descriptionInactivationMemberSearchRequest, LARGE_PAGE).getTotalElements());
 
 		// Rebase the diverged branch supplying the A2 concept version as the manually merged concept
 		// Serialise and deserialise to simulate transfer over REST. References to specific refset members will be lost.
@@ -558,7 +558,7 @@ class BranchMergeServiceTest extends AbstractTest {
 		Page<ReferenceSetMember> members = memberService.findMembers(taskA2, conceptAId, LARGE_PAGE);
 		members.getContent().forEach(System.out::println);
 		assertEquals(2, members.getTotalElements());
-		assertEquals(1, memberService.findMembers(taskA2, descriptionInactivationMemberSearchRequest, LARGE_PAGE).getTotalElements());
+		assertEquals(0, memberService.findMembers(taskA2, descriptionInactivationMemberSearchRequest, LARGE_PAGE).getTotalElements());
 	}
 
 	@Test
@@ -679,7 +679,7 @@ class BranchMergeServiceTest extends AbstractTest {
 		MemberSearchRequest descriptionInactivationMemberSearchRequest = new MemberSearchRequest()
 				.referenceSet(Concepts.DESCRIPTION_INACTIVATION_INDICATOR_REFERENCE_SET)
 				.referencedComponentId(concept.getDescriptions().iterator().next().getId());
-		assertEquals(1, memberService.findMembers(taskA1, descriptionInactivationMemberSearchRequest, LARGE_PAGE).getTotalElements());
+		assertEquals(0, memberService.findMembers(taskA1, descriptionInactivationMemberSearchRequest, LARGE_PAGE).getTotalElements());
 
 		// On branch A2 inactivate conceptA with OUTDATED reason and
 		concept = conceptService.find(conceptAId, taskA2);
@@ -688,13 +688,13 @@ class BranchMergeServiceTest extends AbstractTest {
 		concept.setAssociationTargets(Maps.newHashMap("POSSIBLY_EQUIVALENT_TO", Sets.newHashSet(conceptBId)));
 		conceptService.update(concept, taskA2);
 		assertEquals(2, memberService.findMembers(taskA2, conceptAId, LARGE_PAGE).getTotalElements());
-		assertEquals(1, memberService.findMembers(taskA2, descriptionInactivationMemberSearchRequest, LARGE_PAGE).getTotalElements());
+		assertEquals(0, memberService.findMembers(taskA2, descriptionInactivationMemberSearchRequest, LARGE_PAGE).getTotalElements());
 
 		// Promote task A1
 		assertEquals(1, memberService.findMembers("MAIN/A", conceptAId, LARGE_PAGE).getTotalElements());
 		branchMergeService.mergeBranchSync(taskA1, "MAIN/A", Collections.emptySet());
 		assertEquals(2, memberService.findMembers("MAIN/A", conceptAId, LARGE_PAGE).getTotalElements());
-		assertEquals(1, memberService.findMembers(taskA1, descriptionInactivationMemberSearchRequest, LARGE_PAGE).getTotalElements());
+		assertEquals(0, memberService.findMembers(taskA1, descriptionInactivationMemberSearchRequest, LARGE_PAGE).getTotalElements());
 
 		// Rebase the diverged branch supplying the A2 concept version as the manually merged concept
 		// Serialise and deserialise to simulate transfer over REST. References to specific refset members will be lost.
@@ -703,7 +703,7 @@ class BranchMergeServiceTest extends AbstractTest {
 		Page<ReferenceSetMember> members = memberService.findMembers(taskA2, conceptAId, LARGE_PAGE);
 		members.getContent().forEach(System.out::println);
 		assertEquals(2, members.getTotalElements());
-		assertEquals(1, memberService.findMembers(taskA2, descriptionInactivationMemberSearchRequest, LARGE_PAGE).getTotalElements());
+		assertEquals(0, memberService.findMembers(taskA2, descriptionInactivationMemberSearchRequest, LARGE_PAGE).getTotalElements());
 	}
 
 	@Test
@@ -746,7 +746,7 @@ class BranchMergeServiceTest extends AbstractTest {
 		MemberSearchRequest descriptionInactivationMemberSearchRequest = new MemberSearchRequest()
 				.referenceSet(Concepts.DESCRIPTION_INACTIVATION_INDICATOR_REFERENCE_SET)
 				.referencedComponentId(concept.getDescriptions().iterator().next().getId());
-		assertEquals(1, memberService.findMembers(taskA1, descriptionInactivationMemberSearchRequest, LARGE_PAGE).getTotalElements());
+		assertEquals(0, memberService.findMembers(taskA1, descriptionInactivationMemberSearchRequest, LARGE_PAGE).getTotalElements());
 
 		// On branch A2 inactivate conceptA with OUTDATED reason and
 		concept = conceptService.find(conceptAId, taskA2);
@@ -755,13 +755,13 @@ class BranchMergeServiceTest extends AbstractTest {
 		concept.setAssociationTargets(Maps.newHashMap("POSSIBLY_EQUIVALENT_TO", Sets.newHashSet(conceptBId)));
 		conceptService.update(concept, taskA2);
 		assertEquals(2, memberService.findMembers(taskA2, conceptAId, LARGE_PAGE).getTotalElements());
-		assertEquals(1, memberService.findMembers(taskA2, descriptionInactivationMemberSearchRequest, LARGE_PAGE).getTotalElements());
+		assertEquals(0, memberService.findMembers(taskA2, descriptionInactivationMemberSearchRequest, LARGE_PAGE).getTotalElements());
 
 		// Promote task A1
 		assertEquals(1, memberService.findMembers("MAIN/A", conceptAId, LARGE_PAGE).getTotalElements());
 		branchMergeService.mergeBranchSync(taskA1, "MAIN/A", Collections.emptySet());
 		assertEquals(2, memberService.findMembers("MAIN/A", conceptAId, LARGE_PAGE).getTotalElements());
-		assertEquals(1, memberService.findMembers(taskA1, descriptionInactivationMemberSearchRequest, LARGE_PAGE).getTotalElements());
+		assertEquals(0, memberService.findMembers(taskA1, descriptionInactivationMemberSearchRequest, LARGE_PAGE).getTotalElements());
 
 		// Create and version code system
 		//codeSystemService.createCodeSystem(new CodeSystem("SNOMEDCT-A", "MAIN/A"));
