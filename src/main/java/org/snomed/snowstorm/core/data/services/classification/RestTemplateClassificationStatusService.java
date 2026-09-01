@@ -27,7 +27,7 @@ public class RestTemplateClassificationStatusService implements ClassificationSt
 		}
 
 		restTemplate = new RestTemplateBuilder()
-				.rootUri(serviceUrl)
+				.baseUri(serviceUrl)
 				.basicAuthentication(serviceUsername, servicePassword)
 				.build();
 

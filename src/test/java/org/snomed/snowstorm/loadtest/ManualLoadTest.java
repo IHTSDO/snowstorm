@@ -92,7 +92,7 @@ class ManualLoadTest {
 					}
 					return httpResponse;
 				})
-				.rootUri(SNOWSTORM_API_URI)
+				.baseUri(SNOWSTORM_API_URI)
 				.build();
 
 		objectMapper = JsonMapper.builderWithJackson2Defaults()
