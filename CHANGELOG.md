@@ -8,6 +8,7 @@ Major release with Spring Boot 4, Elasticsearch 9 and Jackson 3 upgrades, plus H
 
 ### Breaking
 - Elasticsearch 9 must be used with this release. Snowstorm cannot run against Elasticsearch 8 — the client negotiates version 9 media types that an 8.x server rejects. Existing clusters must be upgraded before upgrading Snowstorm, see the [Elasticsearch 9 upgrade guide](docs/elasticsearch9-upgrade.md).
+- PIP-1183 The `error` field returned for a request that is too costly to compute is now `UNPROCESSABLE_CONTENT` rather than `UNPROCESSABLE_ENTITY`. The HTTP status code is unchanged at 422; Spring Framework 7 renamed the constant to match RFC 9110. Clients matching on the `error` string must be updated.
 
 ### Features
 - AP2-146 Add concept inactivation impact endpoint
@@ -23,6 +24,7 @@ Major release with Spring Boot 4, Elasticsearch 9 and Jackson 3 upgrades, plus H
 - PIP-1183 Upgrade to Elasticsearch 9.5.2 and spring-data-elasticsearch 6.1.0
 - PIP-1183 Upgrade HAPI FHIR to 8.10.1
 - PIP-1183 Add Elasticsearch 8 to 9 upgrade guide
+- PIP-1183 Replace deprecated Spring Data, Spring Framework, Commons Lang and Swagger APIs
 - ISTO-148 Add CORS headers to allow any origin by default. Can be disabled using `snowstorm.rest-api.allowAnyOrigin=false` flag.
 - AP2-146 Update historical associations
 - AP2-146 Add JsonView annotation to ConceptMicro
