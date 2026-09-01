@@ -62,11 +62,11 @@ public class RestControllerAdvice {
 	}
 
 	@ExceptionHandler(TooCostlyException.class)
-	@ResponseStatus(HttpStatus.UNPROCESSABLE_ENTITY)
+	@ResponseStatus(HttpStatus.UNPROCESSABLE_CONTENT)
 	@ResponseBody
 	public Map<String,Object> handleTooExpensiveException(TooCostlyException exception) {
 		HashMap<String, Object> result = new HashMap<>();
-		result.put("error", HttpStatus.UNPROCESSABLE_ENTITY);
+		result.put("error", HttpStatus.UNPROCESSABLE_CONTENT);
 		result.put("message", exception.getMessage());
 		logger.info("Too Costly request {}", exception.getMessage());
 		logger.debug("Too Costly request {}", exception.getMessage(), exception);
