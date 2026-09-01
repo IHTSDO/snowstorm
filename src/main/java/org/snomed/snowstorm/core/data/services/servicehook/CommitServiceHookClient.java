@@ -39,7 +39,7 @@ public class CommitServiceHookClient implements CommitListener {
 		this.blockPromotion = Boolean.parseBoolean(blockPromotion);
 		if (!StringUtils.isEmpty(serviceUrl)) {
 			final RestTemplateBuilder builder = new RestTemplateBuilder()
-					.rootUri(serviceUrl);
+					.baseUri(serviceUrl);
 			restTemplate = builder.build();
 		} else {
 			logger.info("CommitServiceHookClient is muted as service url not configured.");

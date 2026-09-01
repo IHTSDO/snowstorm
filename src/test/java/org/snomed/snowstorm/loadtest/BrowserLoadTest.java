@@ -62,7 +62,7 @@ public class BrowserLoadTest {
 				return new ClientHttpResponseWithCachedBody(httpResponse, responseBody);
 			}
 			return httpResponse;
-		}).rootUri(SNOWSTORM_API_URI).build();
+		}).baseUri(SNOWSTORM_API_URI).build();
 
 		ExecutorService executorService = Executors.newCachedThreadPool();
 		Set<Future> futures = new HashSet<>();

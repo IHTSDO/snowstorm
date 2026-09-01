@@ -42,7 +42,7 @@ public class SyndicationClient {
 			@Value("${syndication.password}") String password) throws JAXBException {
 
 		restTemplate = new RestTemplateBuilder()
-				.rootUri(url)
+				.baseUri(url)
 				.messageConverters(new StringHttpMessageConverter())
 				.build();
 		jaxbContext = JAXBContext.newInstance(SyndicationFeed.class);
