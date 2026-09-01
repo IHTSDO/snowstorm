@@ -221,7 +221,7 @@ class ConceptSerialisationTest {
 	}
 
 	@Test
-	public void writeValueAsString_ShouldReturnCorrectString_WhenWritingOldDomain() throws JacksonException {
+    void writeValueAsString_ShouldReturnCorrectString_WhenWritingOldDomain() throws JacksonException {
 		//given
 		final Relationship relationship = new Relationship("200001001", 20170131, true, "900000000000012004", "900000000000441003", "138875005", 0, "116680003", "900000000000011006", "900000000000451002");
 
@@ -236,7 +236,7 @@ class ConceptSerialisationTest {
 	}
 
 	@Test
-	public void writeValueAsString_ShouldReturnCorrectString_WhenWritingConcreteString() throws JacksonException {
+    void writeValueAsString_ShouldReturnCorrectString_WhenWritingConcreteString() throws JacksonException {
 		//given
 		final Relationship relationship = new Relationship("200001001", 20170131, true, "900000000000012004", "900000000000441003", "\"Two pills two times a day.\"", 0, "116680003", "900000000000011006", "900000000000451002");
 		relationship.setConcreteValue("\"Two pills two times a day.\"", "str");
@@ -252,7 +252,7 @@ class ConceptSerialisationTest {
 	}
 
 	@Test
-	public void writeValueAsString_ShouldReturnCorrectString_WhenWritingConcreteInteger() throws JacksonException {
+    void writeValueAsString_ShouldReturnCorrectString_WhenWritingConcreteInteger() throws JacksonException {
 		//given
 		final Relationship relationship = new Relationship("200001001", 20170131, true, "900000000000012004", "900000000000441003", "#3.14", 0, "116680003", "900000000000011006", "900000000000451002");
 		relationship.setConcreteValue("#2", "int");
@@ -268,7 +268,7 @@ class ConceptSerialisationTest {
 	}
 
 	@Test
-	public void writeValueAsString_ShouldReturnCorrectString_WhenWritingConcreteDecimal() throws JacksonException {
+    void writeValueAsString_ShouldReturnCorrectString_WhenWritingConcreteDecimal() throws JacksonException {
 		//given
 		final Relationship relationship = new Relationship("200001001", 20170131, true, "900000000000012004", "900000000000441003", "#3.14", 0, "116680003", "900000000000011006", "900000000000451002");
 		relationship.setConcreteValue("#3.14", "dec");
@@ -292,7 +292,7 @@ class ConceptSerialisationTest {
 	 * Therefore, the assertion is for the format of Relationship.Value.
 	 * */
 	@Test
-	public void writeValueAsString_ShouldNotReturnRelationshipValueField_WhenWritingConcreteData() throws JacksonException {
+    void writeValueAsString_ShouldNotReturnRelationshipValueField_WhenWritingConcreteData() throws JacksonException {
 		//given
 		final Relationship relationship = new Relationship("200001001", 20170131, true, "900000000000012004", "900000000000441003", "#3.14", 0, "116680003", "900000000000011006", "900000000000451002");
 		relationship.setConcreteValue("#3.14", "dec");
