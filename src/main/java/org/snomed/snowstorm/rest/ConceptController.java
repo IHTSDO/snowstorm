@@ -197,9 +197,9 @@ public class ConceptController {
 
 		queryBuilder.getDescriptionCriteria().preferredOrAcceptableValues(preferredOrAcceptableIn, preferredIn, acceptableIn);
 
-		PageRequest pageRequest = getPageRequestWithSort(offset, limit, searchAfter, Sort.sort(Concept.class).by(Concept::getConceptId).descending());
+		PageRequest pageRequest = getPageRequestWithSort(offset, limit, searchAfter, Sort.by(Concept.Fields.CONCEPT_ID).descending());
 		if (ecl != null) {
-			pageRequest = getPageRequestWithSort(offset, limit, searchAfter, Sort.sort(QueryConcept.class).by(QueryConcept::getConceptIdL).descending());
+			pageRequest = getPageRequestWithSort(offset, limit, searchAfter, Sort.by(QueryConcept.Fields.CONCEPT_ID).descending());
 		}
 		if (returnIdOnly) {
 			SearchAfterPage<Long> longsPage = queryService.searchForIds(queryBuilder, branch, pageRequest);
@@ -327,7 +327,7 @@ public class ConceptController {
 				throw new IllegalArgumentException("Unlimited pagination of the full concept representation is disabled in this deployment.");
 			}
 		}
-		PageRequest pageRequest = getPageRequestWithSort(number, size, searchAfter, Sort.sort(Concept.class).by(Concept::getConceptId).descending());
+		PageRequest pageRequest = getPageRequestWithSort(number, size, searchAfter, Sort.by(Concept.Fields.CONCEPT_ID).descending());
 		conceptIds = PageHelper.subList(conceptIds, number, size);
 
 		Page<Concept> page = conceptService.find(conceptIds, ControllerHelper.parseAcceptLanguageHeaderWithDefaultFallback(acceptLanguageHeader), BranchPathUriUtil.decodePath(branch), pageRequest);

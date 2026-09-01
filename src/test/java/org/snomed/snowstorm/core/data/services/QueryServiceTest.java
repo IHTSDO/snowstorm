@@ -274,7 +274,7 @@ class QueryServiceTest extends AbstractTest {
 		String ecl = "( *: 116676008 |Associated morphology (attribute)|= 415582006 |Stenosis (morphologic abnormality)|). 363698007 |Finding site (attribute)|";
 		queryBuilder.ecl(ecl);
 
-		Sort sort = Sort.sort(QueryConcept.class).by(QueryConcept::getConceptIdL).descending();
+		Sort sort = Sort.by(QueryConcept.Fields.CONCEPT_ID).descending();
 
 		ItemsPage<ConceptMini> resultsPageOne = new ItemsPage<>(service.search(queryBuilder, PATH, SearchAfterPageRequest.of(0, 1, sort)));
 		assertEquals(1, resultsPageOne.getItems().size());
