@@ -42,7 +42,7 @@ import java.util.stream.Collectors;
 @RequestMapping(produces = "application/json")
 public class ReferenceSetMemberController {
 
-	private static final Sort SORT_BY_MEMBER_ID_DESC = Sort.sort(ReferenceSetMember.class).by(ReferenceSetMember::getMemberId).descending();
+	private static final Sort SORT_BY_MEMBER_ID_DESC = Sort.by(ReferenceSetMember.Fields.MEMBER_ID).descending();
 
 	@Autowired
 	private ReferenceSetMemberService memberService;

@@ -96,7 +96,7 @@ public class QueryService implements ApplicationContextAware {
 
 			SExpressionConstraint expressionConstraint = (SExpressionConstraint) eclQueryService.createQuery(ecl);
 			if (ECLQueryService.isMemberFieldsSearch(expressionConstraint)) {
-				pageRequest = updatePageRequestSort(pageRequest, Sort.sort(ReferenceSetMember.class).by(ReferenceSetMember::getMemberId).descending());
+				pageRequest = updatePageRequestSort(pageRequest, Sort.by(ReferenceSetMember.Fields.MEMBER_ID).descending());
 				SearchAfterPage<ReferenceSetMember> members = eclQueryService.findReferenceSetMembersWithSpecificFields(ecl, conceptQuery.stated, branchCriteria, pageRequest);
 				SSubExpressionConstraint subExpressionConstraint = (SSubExpressionConstraint) expressionConstraint;
 				List<String> memberFieldsToReturn = subExpressionConstraint.getMemberFieldsToReturn();
@@ -209,7 +209,7 @@ public class QueryService implements ApplicationContextAware {
 			} else {
 				// Concept id search
 				Query conceptBoolQuery = getSearchByConceptIdQuery(conceptQuery, branchCriteria);
-				pageRequest = updatePageRequestSort(pageRequest, Sort.sort(Concept.class).by(Concept::getConceptId).descending());
+				pageRequest = updatePageRequestSort(pageRequest, Sort.by(Concept.Fields.CONCEPT_ID).descending());
 				NativeQuery query = new NativeQueryBuilder()
 						.withQuery(conceptBoolQuery)
 						.withSourceFilter(new FetchSourceFilter(null, new String[]{Concept.Fields.CONCEPT_ID}, null))

@@ -241,7 +241,7 @@ public class FHIRValueSetService implements FHIRConstants {
 
 		String filter = params.getFilter();
 		boolean activeOnly = TRUE == params.getActiveOnly();
-		PageRequest pageRequest = params.getPageRequest(Sort.sort(QueryConcept.class).by(QueryConcept::getConceptIdL).descending());
+		PageRequest pageRequest = params.getPageRequest(Sort.by(QueryConcept.Fields.CONCEPT_ID).descending());
 
 		// Resolve the set of code system versions that will actually be used. Includes some input parameter validation.
 		Set<CanonicalUri> systemVersionParam = params.getSystemVersion() != null ? Collections.singleton(params.getSystemVersion()) : Collections.emptySet();
