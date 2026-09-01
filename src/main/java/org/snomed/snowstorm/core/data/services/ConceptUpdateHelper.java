@@ -7,7 +7,6 @@ import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.api.ComponentService;
 import io.kaicode.elasticvc.api.VersionControlHelper;
 import io.kaicode.elasticvc.domain.*;
-import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.otf.owltoolkit.conversion.ConversionException;
@@ -38,7 +37,6 @@ import java.util.stream.Collectors;
 
 import static co.elastic.clients.elasticsearch._types.query_dsl.QueryBuilders.bool;
 import static io.kaicode.elasticvc.helper.QueryHelper.termsQuery;
-import static org.snomed.snowstorm.core.data.domain.Concepts.CONCEPT_NON_CURRENT;
 
 @Service
 public class ConceptUpdateHelper extends ComponentService {
@@ -181,15 +179,10 @@ public class ConceptUpdateHelper extends ComponentService {
 						}
 					});
 					newVersionConcept.getAllOwlAxiomMembers().forEach(axiom -> axiom.setActive(false));
-					newVersionConcept.getDescriptions().forEach(description -> {
-						if (StringUtils.isEmpty(description.getInactivationIndicator())) {
-							description.setInactivationIndicator(InactivationIndicatorUtil.getInactivationIndicator(branch, Concepts.CONCEPT_NON_CURRENT));
-						}
-					});
 				}
 
 				// Create or update concept inactivation indicator refset members based on the json inactivation map
-				updateInactivationIndicator(newVersionConcept, existingConcept, existingConceptFromParent, refsetMembersToPersist, Concepts.CONCEPT_INACTIVATION_INDICATOR_REFERENCE_SET, defaultModuleId, branch);
+				updateInactivationIndicator(newVersionConcept, existingConcept, existingConceptFromParent, refsetMembersToPersist, Concepts.CONCEPT_INACTIVATION_INDICATOR_REFERENCE_SET, defaultModuleId);
 
 				// Create or update concept historical association refset members based on the json inactivation map
 				updateAssociations(newVersionConcept, existingConcept, existingConceptFromParent, refsetMembersToPersist, defaultModuleId);
@@ -225,7 +218,7 @@ public class ConceptUpdateHelper extends ComponentService {
 
 				// Description inactivation indicator changes
 				updateInactivationIndicator(description, existingDescription, existingDescriptionFromParent, refsetMembersToPersist,
-						Concepts.DESCRIPTION_INACTIVATION_INDICATOR_REFERENCE_SET, defaultModuleId, branch);
+						Concepts.DESCRIPTION_INACTIVATION_INDICATOR_REFERENCE_SET, defaultModuleId);
 
 				// Description association changes
 				updateAssociations(description, existingDescription, existingDescriptionFromParent, refsetMembersToPersist, defaultModuleId);
@@ -412,13 +405,12 @@ public class ConceptUpdateHelper extends ComponentService {
 			SnomedComponentWithInactivationIndicator existingConceptFromParent,
 			Collection<ReferenceSetMember> refsetMembersToPersist,
 			String indicatorReferenceSet,
-			String defaultModuleId,
-		 	Branch branch) {
+			String defaultModuleId) {
 
 		if (newComponent instanceof Description newDescription) {
 			if (newDescription.isActive()) {
 				for (ReferenceSetMember inactivationIndicatorMember : newDescription.getInactivationIndicatorMembers()) {
-					if (inactivationIndicatorMember.isActive() && !inactivationIndicatorMember.getAdditionalField("valueId").equals(CONCEPT_NON_CURRENT)) {
+					if (inactivationIndicatorMember.isActive()) {
 						inactivationIndicatorMember.setActive(false);
 					}
 				}
@@ -426,8 +418,8 @@ public class ConceptUpdateHelper extends ComponentService {
 		}
 
 		String newIndicatorName = newComponent.getInactivationIndicator();
-		final String newIndicatorId = newIndicatorName != null ? InactivationIndicatorUtil.getInactivationIndicatorInverse(branch, newIndicatorName) : null;
-		if (isInactivationIndicatorNotRecognised(newIndicatorName, branch)) {
+		final String newIndicatorId = newIndicatorName != null ? InactivationIndicatorUtil.getInactivationIndicatorInverse(newIndicatorName) : null;
+		if (isInactivationIndicatorNotRecognised(newIndicatorName)) {
 			throw new IllegalArgumentException(newComponent.getClass().getSimpleName() + " inactivation indicator not recognised '" + newIndicatorName + "'.");
 		}
 		Map<String, Set<String>> membersRequired = new HashMap<>();
@@ -868,13 +860,8 @@ public class ConceptUpdateHelper extends ComponentService {
 		return versionControlHelper;
 	}
 
-	private boolean isInactivationIndicatorNotRecognised(String newIndicatorName, Branch branch) {
-		boolean requestedCNC = Objects.equals(newIndicatorName, "CONCEPT_NON_CURRENT") || Objects.equals(newIndicatorName, CONCEPT_NON_CURRENT);
-		if (requestedCNC) {
-			return false;
-		}
-
-		final String newIndicatorId = newIndicatorName != null ? InactivationIndicatorUtil.getInactivationIndicatorInverse(branch, newIndicatorName) : null;
+	private boolean isInactivationIndicatorNotRecognised(String newIndicatorName) {
+		final String newIndicatorId = newIndicatorName != null ? InactivationIndicatorUtil.getInactivationIndicatorInverse(newIndicatorName) : null;
 		return newIndicatorName != null && newIndicatorId == null;
 	}
 }
