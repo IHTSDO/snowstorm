@@ -8,6 +8,7 @@
 - [Importing a new International Edition](#importing-a-new-international-edition)
 - [Upgrading an Extension/Edition to the new International Edition](#upgrading-an-extensionedition-to-the-new-international-edition)
 - [Upgrading to a new local Edition or Extension](#upgrading-to-a-new-local-edition-or-extension)
+- [UK Edition loading tips](#uk-edition-loading-tips)
 - [Rolling back changes](#rolling-back-changes)
 
 
@@ -25,8 +26,7 @@ _However please be aware that these terms are not always used consistently!_
 A few known exceptions to the rule worth being aware of:
 
 - **Spanish Edition**: referred to as an _Edition_ when in fact the package is an _Extension_ and should be loaded as documented below.
-- **UK Edition**: packaged as a single zip file, but actually contains full International Edition folder and a UK Extension folder. 
-Snowstorm is not able to process this directory structure so it's best to create a separate zip file containing just the UK Extension folder and load as documented below.
+- **UK Edition**: use the TRUD **SNOMED CT UK Monolith Edition, RF2: Snapshot** (`uk_sct2mo_*.zip`). Older `SnomedCT_UKEditionRF_*` packages put the International Edition and the UK Extension in one zip; Snowstorm cannot load that layout. See [UK Edition loading tips](#uk-edition-loading-tips).
 
 In the case of real editions (for example the US, Canada and Australia editions) loading the International Edition is not required and you could load the edition directly into MAIN the same way as the International Edition.
 
@@ -140,6 +140,57 @@ You can tail the system log to see how this is progressing, or simply to the imp
 
 And that's it... rinse and repeat for the next time...
 
+
+## UK Edition loading tips
+
+The UK Edition of SNOMED CT needs some extra handling. It is larger than most editions, and some packages put multiple concept files in one zip. It loads well in Snowstorm if you follow these steps.
+
+### Use the Monolith Snapshot package
+
+This is labelled in TRUD as **SNOMED CT UK Monolith Edition, RF2: Snapshot**.
+
+The download filename has the form `uk_sct2mo_39.4.0_20250115000001Z.zip`.
+
+Other distribution formats, for example `SnomedCT_UKEditionRF_PRODUCTION20250115.zip`, will **not** load correctly. Those older packages contain a full International Edition folder and a UK Extension folder; Snowstorm cannot process that directory structure. If you only have that layout, create a separate zip of the UK Extension folder and load it as an extension as documented above.
+
+### Increase the max-terms count
+
+The default `elasticsearch.index.max.terms.count` is `500000`. Recent UK monolith packages need more than `1000000` (that value fails as of March 2026; `1500000` succeeds).
+
+Add this to the Java startup command, or put it in a config file. See the [Configuration Guide](configuration-guide.md).
+
+```
+--elasticsearch.index.max.terms.count=1500000
+```
+
+### Assign enough memory when loading
+
+The monolith loads in Docker with about 12g overall: Elasticsearch 6g and Snowstorm 4g. Recommended changes against the repo `docker-compose.yml`:
+
+```yaml
+services:
+  elasticsearch:
+    environment:
+      - "ES_JAVA_OPTS=-Xms6g -Xmx6g"
+    mem_reservation: 6g
+
+  snowstorm:
+    entrypoint: [
+      "java",
+      "-Xms4g",
+      "-Xmx4g",
+      "--add-opens", "java.base/java.lang=ALL-UNNAMED",
+      "--add-opens", "java.base/java.util=ALL-UNNAMED",
+      "-jar", "/app/snowstorm.jar"
+    ]
+    command: [
+      "--elasticsearch.urls=http://es:9200",
+      "--elasticsearch.index.max.terms.count=1500000"
+    ]
+    mem_reservation: 4g
+```
+
+Set Docker's overall memory limit to 12g or above.
 
 ## Rolling back changes
 Sometimes content changes are imported into a Snowstorm instance for preview, before they are part of a proper release. 
