@@ -10,6 +10,7 @@ Before anything, get hold of the most recent [SNOMED CT International Edition RF
 - [Generated Delta File Warning](#generated-delta-file-warning)
 - [Loading Release Full Files](#loading-release-full-files)
 - [Stopping After Loading](#stopping-after-loading)
+- [UK Edition](updating-snomed-and-extensions.md#uk-edition-loading-tips)
 
 ## Loading Release Snapshot
 

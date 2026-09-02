@@ -37,6 +37,14 @@ For example by starting Snowstorm with an extra JVM parameter:
 --snowstorm.rest-api.readonly=true
 ```
 
+Large editions such as the UK monolith also need a higher Elasticsearch terms-query limit (default `500000` in `application.properties`). For example:
+
+```bash
+--elasticsearch.index.max.terms.count=1500000
+```
+
+See [UK Edition loading tips](updating-snomed-and-extensions.md#uk-edition-loading-tips).
+
 #### Note - when running in an AWS environment
 
 Snowstorm uses Spring Cloud libraries which will detect when the application is run in AWS. The libraries expect there to be credentials in the environment which can be used to load resources from S3. If there are no credentials available startup will fail with the following error reported `com.amazonaws.SdkClientException: Unable to load AWS credentials from any provider in the chain`.
