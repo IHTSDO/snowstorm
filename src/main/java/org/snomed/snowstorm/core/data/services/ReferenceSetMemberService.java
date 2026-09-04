@@ -14,6 +14,7 @@ import io.kaicode.elasticvc.domain.Metadata;
 import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.longs.LongArraySet;
+import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 import it.unimi.dsi.fastutil.longs.LongSet;
 
 import org.slf4j.Logger;
@@ -546,12 +547,16 @@ public class ReferenceSetMemberService extends ComponentService {
 		NativeQuery query = new NativeQueryBuilder()
 				.withQuery(memberQueryBuilder.build()._toQuery())
 				.withSourceFilter(new FetchSourceFilter(null, new String[]{ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID}, null))
-				.withSort(SortOptions.of(s -> s.field(f -> f.field("_doc"))))// Fastest unordered sort
+				// Fastest sort. Valid only because this is a scroll, which pins one shard copy and freezes its
+				// segment readers, so every document is visited exactly once, and because the caller imposes
+				// the order on the result. _doc ordinals differ between shard copies, so a _doc sort must never
+				// be used for a query paged across separate requests.
+				.withSort(SortOptions.of(s -> s.field(f -> f.field("_doc"))))
 				.withPageable(LARGE_PAGE)
 				.build();
 
 		// Stream results
-		Set<Long> conceptIds = new LongArraySet();
+		Set<Long> conceptIds = new LongOpenHashSet();
 		try (SearchHitsIterator<ReferenceSetMember> stream = elasticsearchOperations.searchForStream(query, ReferenceSetMember.class)) {
 			stream.forEachRemaining(member -> conceptIds.add(parseLong(member.getContent().getReferencedComponentId())));
 		}
