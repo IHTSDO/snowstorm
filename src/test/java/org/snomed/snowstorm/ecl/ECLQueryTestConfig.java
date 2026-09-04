@@ -34,6 +34,9 @@ public abstract class ECLQueryTestConfig  extends TestConfig {
 	@Autowired
 	PermissionService permissionService;
 
+	@Autowired
+	ReferencedConceptsLookupService referencedConceptsLookupService;
+
 	public void deleteAll() throws InterruptedException {
 		try {
 			branchService.deleteAll();
@@ -41,6 +44,10 @@ public abstract class ECLQueryTestConfig  extends TestConfig {
 			codeSystemService.deleteAll();
 			classificationService.deleteAll();
 			permissionService.deleteAll();
+			// ConceptService.deleteAll does not clear the concepts lookup index. A lookup left on MAIN by an
+			// earlier fixture still has no end date, so it matches the criteria of the MAIN rebuilt below and
+			// answers member of queries with the previous fixture's members.
+			referencedConceptsLookupService.deleteAll();
 		} catch (Exception e) {
 			logger.error(e.getMessage(), e);
 			throw e;
