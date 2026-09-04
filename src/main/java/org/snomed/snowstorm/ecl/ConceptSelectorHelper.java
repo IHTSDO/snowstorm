@@ -64,7 +64,13 @@ public class ConceptSelectorHelper {
 		sExpressionConstraint.addCriteria(refinementBuilder, prefetchResult::set, triedCache);
 
 		if (prefetchResult.isSet()) {
-			return getPage(pageRequest, prefetchResult.getIds());
+			List<Long> ids = prefetchResult.getIds();
+			// Prefetched ids arrive in Elasticsearch storage order, which is not stable between the primary and
+			// replica copies of a shard. Sort to match the order applied by fetchIds below, otherwise the same
+			// query can return the same concepts in a different order on each call and searchAfter paging,
+			// which resumes by locating the previous page's last id, silently skips or repeats concepts.
+			ids.sort(LongComparators.OPPOSITE_COMPARATOR);
+			return getPage(pageRequest, ids);
 		} else {
 			return fetchIds(queryBuilder.build()._toQuery(), conceptIdFilter, refinementBuilder, pageRequest);
 		}
