@@ -3,6 +3,7 @@ package org.snomed.snowstorm.ecl;
 import jakarta.annotation.PostConstruct;
 import org.snomed.snowstorm.core.data.domain.Concept;
 import org.snomed.snowstorm.core.data.domain.Concepts;
+import org.snomed.snowstorm.core.data.domain.Description;
 import org.snomed.snowstorm.core.data.domain.ReferenceSetMember;
 import org.snomed.snowstorm.core.data.domain.Relationship;
 import org.snomed.snowstorm.core.data.services.ServiceException;
@@ -72,6 +73,8 @@ public class ECLResultOrderingTestConfig extends ECLQueryTestConfig {
 
 		for (String conceptId : MEMBER_IDS_ASCENDING) {
 			allConcepts.add(new Concept(conceptId)
+					// Shared term, so a description filter selects every member
+					.addDescription(new Description("Orderable structure " + conceptId))
 					.addRelationship(new Relationship(ISA, BODY_STRUCTURE))
 					.addRelationship(new Relationship(LATERALITY, RIGHT)));
 		}
