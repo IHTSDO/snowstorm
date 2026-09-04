@@ -3,6 +3,7 @@ package org.snomed.snowstorm.ecl.domain.expressionconstraint;
 import co.elastic.clients.elasticsearch._types.query_dsl.BoolQuery;
 import io.kaicode.elasticvc.api.BranchCriteria;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
+import it.unimi.dsi.fastutil.longs.LongComparators;
 import it.unimi.dsi.fastutil.longs.LongLinkedOpenHashSet;
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 
@@ -130,7 +131,8 @@ public class SCompoundExpressionConstraint extends CompoundExpressionConstraint 
 
 	private LongArrayList sortedList(Set<Long> result) {
 		LongArrayList longs = new LongArrayList(result);
-		longs.sort(null);
+		// Descending, to match the order used everywhere else that ECL results are sorted
+		longs.sort(LongComparators.OPPOSITE_COMPARATOR);
 		return longs;
 	}
 
