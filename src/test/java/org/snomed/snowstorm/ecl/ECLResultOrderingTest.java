@@ -102,6 +102,17 @@ class ECLResultOrderingTest {
 				selectConceptIds("^" + REFSET_WITHOUT_LOOKUP + " {{ C active = true }}"));
 	}
 
+	/**
+	 * The description filter path streams descriptions with no sort of its own, so without the sort applied to the
+	 * prefetched ids these results have no defined order at all.
+	 */
+	@Test
+	void memberOfWithDescriptionFilterIsSorted() {
+		assertEquals(
+				descending(MEMBER_IDS_ASCENDING),
+				selectConceptIds("^" + REFSET_WITHOUT_LOOKUP + " {{ term = \"Orderable\" }}"));
+	}
+
 	@Test
 	void refinedMemberOfIsSorted() {
 		assertEquals(
