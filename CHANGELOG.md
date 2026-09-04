@@ -36,6 +36,7 @@ Major release with Spring Boot 4, Elasticsearch 9 and Jackson 3 upgrades, plus H
 
 ### Fixes
 - MAINT-3126 Fix FetchSourceFilter to return selected fields only instead of the entire document
+- BROWSE-863 Fix ECL member of queries returning concepts in an unpredictable order. `^<refsetId>`, and its compound and filtered forms, were returned in Elasticsearch storage order, which differs between the primary and replica copies of a shard, so the same query could return the same concepts in a different order on each call. This made `searchAfter` paging unsound: concepts were silently skipped or repeated, the latter paging forever. ECL concept results are now consistently ordered by concept id descending. Note that `^<refsetId> AND ...` and `^<refsetId> OR ...` previously returned ascending order and now return descending, matching every other ECL query.
 
 ## 11.0.0 Release (July 2026)
 Major release with Java 25 upgrade and FHIR improvements.
