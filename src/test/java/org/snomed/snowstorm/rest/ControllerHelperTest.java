@@ -16,6 +16,7 @@ import java.util.UUID;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
+import static org.snomed.snowstorm.config.Config.DEFAULT_LANGUAGE_DIALECTS;
 
 class ControllerHelperTest {
 	private final HttpServletRequest httpServletRequest = mock(HttpServletRequest.class);
@@ -73,5 +74,27 @@ class ControllerHelperTest {
 
 		//then
 		assertEquals("es", languageDialects.get(0).getLanguageCode());
+	}
+
+	@Test
+	void parseAcceptLanguageHeader_ShouldIgnoreUnrecognisedLanguageTag() {
+		List<LanguageDialect> languageDialects = ControllerHelper.parseAcceptLanguageHeader("haw");
+
+		assertEquals(0, languageDialects.size());
+	}
+
+	@Test
+	void parseAcceptLanguageHeaderWithDefaultFallback_ShouldReturnDefaults_WhenLanguageTagUnrecognised() {
+		List<LanguageDialect> languageDialects = ControllerHelper.parseAcceptLanguageHeaderWithDefaultFallback("haw");
+
+		assertEquals(DEFAULT_LANGUAGE_DIALECTS, languageDialects);
+	}
+
+	@Test
+	void parseAcceptLanguageHeaderWithDefaultFallback_ShouldKeepRecognisedTags_AndSkipUnrecognised() {
+		List<LanguageDialect> languageDialects = ControllerHelper.parseAcceptLanguageHeaderWithDefaultFallback("haw,fr");
+
+		assertEquals("fr", languageDialects.get(0).getLanguageCode());
+		assertEquals(DEFAULT_LANGUAGE_DIALECTS, languageDialects.subList(1, languageDialects.size()));
 	}
 }
