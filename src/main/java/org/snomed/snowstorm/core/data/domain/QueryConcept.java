@@ -10,6 +10,7 @@ import org.springframework.data.elasticsearch.annotations.Field;
 import org.springframework.data.elasticsearch.annotations.FieldType;
 
 import java.text.DecimalFormat;
+import java.text.DecimalFormatSymbols;
 import java.util.*;
 
 /**
@@ -321,7 +322,7 @@ public class QueryConcept extends DomainEntity<QueryConcept> implements FHIRGrap
 							builder.append("#");
 							if (value instanceof Double || value instanceof Float) {
 								// Maximum decimal places is 6 - See https://confluence.ihtsdotools.org/display/mag/Concrete+Domain+Decimal+Places+and+Rounding
-								valueString = new DecimalFormat("#0.0#####").format(value);
+								valueString = new DecimalFormat("#0.0#####",  new DecimalFormatSymbols(Locale.ROOT)).format(value);
 							} else {
 								valueString = value.toString();
 							}
