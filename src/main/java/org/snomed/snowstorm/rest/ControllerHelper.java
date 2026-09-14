@@ -183,44 +183,52 @@ public class ControllerHelper {
 		String[] acceptLanguageList = acceptLanguageHeader.toLowerCase().split(",");
 
 		for (String acceptLanguage : acceptLanguageList) {
-			if (acceptLanguage.isEmpty()) {
-				continue;
-			}
-
-			String[] valueAndWeight = acceptLanguage.split(";");
-			String value = valueAndWeight[0];
-			double weight;
-			try {
-				weight = (valueAndWeight.length < 2) ? 0.1
-						: Double.parseDouble(valueAndWeight[1].substring(2));
-			} catch (NumberFormatException | StringIndexOutOfBoundsException e) {
-				continue;
-			}
-
-			String languageCode;
-			Long languageReferenceSet = null;
-
-			if ("*".equals(value) && wildcard) {
-				languageCode = value;
-			} else {
-				LanguageParseResult result = parseLanguageValue(value);
-				if (result == null) {
-					// Unrecognised language tag — skip and let callers fall back to defaults
-					continue;
-				}
-				languageCode = result.code;
-				languageReferenceSet = result.refset;
-			}
-
-			Pair<LanguageDialect, Double> languageDialect =
-					new ImmutablePair<>(new LanguageDialect(languageCode, languageReferenceSet), weight);
-
-			if (!languageDialectsAndWeights.contains(languageDialect)) {
+			Pair<LanguageDialect, Double> languageDialect = parseAcceptLanguageEntry(acceptLanguage, wildcard);
+			if (languageDialect != null && !languageDialectsAndWeights.contains(languageDialect)) {
 				// Would normally use a Set here, but the order may be important
 				languageDialectsAndWeights.add(languageDialect);
 			}
 		}
 		return languageDialectsAndWeights;
+	}
+
+	private static Pair<LanguageDialect, Double> parseAcceptLanguageEntry(String acceptLanguage, boolean wildcard) {
+		if (acceptLanguage.isEmpty()) {
+			return null;
+		}
+
+		String[] valueAndWeight = acceptLanguage.split(";");
+		String value = valueAndWeight[0];
+		Double weight = parseAcceptLanguageWeight(valueAndWeight);
+		if (weight == null) {
+			return null;
+		}
+
+		String languageCode;
+		Long languageReferenceSet = null;
+
+		if ("*".equals(value) && wildcard) {
+			languageCode = value;
+		} else {
+			LanguageParseResult result = parseLanguageValue(value);
+			if (result == null) {
+				// Unrecognised language tag — skip and let callers fall back to defaults
+				return null;
+			}
+			languageCode = result.code;
+			languageReferenceSet = result.refset;
+		}
+
+		return new ImmutablePair<>(new LanguageDialect(languageCode, languageReferenceSet), weight);
+	}
+
+	private static Double parseAcceptLanguageWeight(String[] valueAndWeight) {
+		try {
+			return (valueAndWeight.length < 2) ? 0.1
+					: Double.parseDouble(valueAndWeight[1].substring(2));
+		} catch (NumberFormatException | StringIndexOutOfBoundsException e) {
+			return null;
+		}
 	}
 
 	private static class LanguageParseResult {
