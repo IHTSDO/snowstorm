@@ -189,8 +189,13 @@ public class ControllerHelper {
 
 			String[] valueAndWeight = acceptLanguage.split(";");
 			String value = valueAndWeight[0];
-			double weight = (valueAndWeight.length < 2) ? 0.1
-					: Double.parseDouble(valueAndWeight[1].substring(2));
+			double weight;
+			try {
+				weight = (valueAndWeight.length < 2) ? 0.1
+						: Double.parseDouble(valueAndWeight[1].substring(2));
+			} catch (NumberFormatException | StringIndexOutOfBoundsException e) {
+				continue;
+			}
 
 			String languageCode;
 			Long languageReferenceSet = null;
@@ -199,6 +204,10 @@ public class ControllerHelper {
 				languageCode = value;
 			} else {
 				LanguageParseResult result = parseLanguageValue(value);
+				if (result == null) {
+					// Unrecognised language tag — skip and let callers fall back to defaults
+					continue;
+				}
 				languageCode = result.code;
 				languageReferenceSet = result.refset;
 			}
@@ -259,7 +268,7 @@ public class ControllerHelper {
 			return new LanguageParseResult(matcher.group(1), parseLong(matcher.group(3)));
 		}
 
-		throw new IllegalArgumentException("Invalid displayLanguage: '" + value + "'");
+		return null;
 	}
 
 
