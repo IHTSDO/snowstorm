@@ -17,6 +17,8 @@
 		<packageName>${project.artifactId}</packageName>
 
 		<commons-io.version>2.21.0</commons-io.version>
+		<!-- Override Spring Boot's managed Kotlin 2.3.21 to address CVE-2026-53914 (NVD CPE flags all Kotlin < 2.4.20). -->
+		<kotlin.version>2.4.20</kotlin.version>
 
 		<!--
 		snomed-parent-bom 5.0.0 manages Spring Boot 4.1.0, Spring 7.0.8, Spring Security 7.1.0,
@@ -451,6 +453,13 @@
 			spring-data-commons down to 3.3.5 and breaks the Elasticsearch repositories. Those
 			modules are versioned by snomed-parent-bom's ${fhir-core.version} instead.
 			-->
+
+			<!-- Force Kotlin past Spring Boot's 2.3.21 pin (CVE-2026-53914 / NVD CPE jetbrains:kotlin). -->
+			<dependency>
+				<groupId>org.jetbrains.kotlin</groupId>
+				<artifactId>kotlin-stdlib</artifactId>
+				<version>${kotlin.version}</version>
+			</dependency>
 
 		</dependencies>
 	</dependencyManagement>
