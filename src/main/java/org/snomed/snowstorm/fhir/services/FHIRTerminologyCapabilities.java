@@ -38,7 +38,7 @@ public class FHIRTerminologyCapabilities extends TerminologyCapabilities impleme
 
 		List<CodeSystemVersion> allSnomedVersions = codeSystemService.findAllSnomedVersions();
 		for (CodeSystemVersion systemVersion : allSnomedVersions) {
-			FHIRCodeSystemVersion fhirCSVersion = new FHIRCodeSystemVersion(systemVersion);
+			FHIRCodeSystemVersion fhirCSVersion = codeSystemService.toFhirCodeSystemVersion(systemVersion);
 			codeSystemsByUri.computeIfAbsent(fhirCSVersion.getUrl(), k -> new ArrayList<>()).add(fhirCSVersion);
 		}
 

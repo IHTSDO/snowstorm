@@ -174,7 +174,7 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants,
 
 		Stream<CodeSystem> snomedCodeSystemStream = snomedMultiSearchService.getAllPublishedVersions().stream()
 				.filter(codeSystemVersion -> !CodeSystemService.isEmpty2000Version(codeSystemVersion))
-				.map(snomedSystemVersion -> new FHIRCodeSystemVersion(snomedSystemVersion).toHapiCodeSystem());
+				.map(snomedSystemVersion -> fhirCodeSystemService.toFhirCodeSystemVersion(snomedSystemVersion).toHapiCodeSystem());
 
 		Stream<CodeSystem> fhirCodeSystemStream = StreamSupport.stream(fhirCodeSystemService.findAll().spliterator(), false)
 				.map(FHIRCodeSystemVersion::toHapiCodeSystem);
@@ -196,7 +196,7 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants,
 		} else {
 			Stream<CodeSystem> snomedPublished = snomedMultiSearchService.getAllPublishedVersions().stream()
 					.filter(codeSystemVersion -> !CodeSystemService.isEmpty2000Version(codeSystemVersion))
-					.map(cv -> new FHIRCodeSystemVersion(cv).toHapiCodeSystem());
+					.map(cv -> fhirCodeSystemService.toFhirCodeSystemVersion(cv).toHapiCodeSystem());
 
 			Optional<CodeSystem> snomedCodeSystem = snomedPublished
 					.filter(cs -> cs.getId().equals(idPart))
