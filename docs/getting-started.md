@@ -6,7 +6,7 @@
   - At least 8G of memory
   - SSD Hard Drive
 - Software Requirements
-  - Java 17
+  - Java 25
   - HTTP Proxy software recommended to provide SSL (e.g. Nginx or Apache 2)
   - Maven 3 (optional - to rebuild the software)
 - Other Resource Requirements

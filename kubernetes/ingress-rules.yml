@@ -1,16 +1,21 @@
-apiVersion: extensions/v1beta1
+apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: production-snowstorm
 spec:
+  # Set this to the ingress controller you have installed, e.g. nginx, traefik or haproxy.
+  # ingressClassName: nginx
   rules:
   - host: snowstorm.example.com
     http:
       paths:
-      - backend:
-          serviceName: snowstorm-front
-          servicePort: 8080
-        path: /
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: snowstorm-front
+            port:
+              number: 8080
   tls:
   - hosts:
     - snowstorm.example.com

@@ -25,6 +25,9 @@ Major release with Spring Boot 4, Elasticsearch 9 and Jackson 3 upgrades, plus H
 - PIP-1183 Upgrade HAPI FHIR to 8.10.1
 - PIP-1183 Add Elasticsearch 8 to 9 upgrade guide
 - PIP-1183 Replace deprecated Spring Data, Spring Framework, Commons Lang and Swagger APIs
+- PIP-1192 Update the Kubernetes manifests for Elasticsearch 9 and fix the deployment: the Ingress now uses `networking.k8s.io/v1` in place of the removed `extensions/v1beta1`, Elasticsearch starts as a native sidecar so Snowstorm no longer crash-loops against a cluster that is not listening yet, and Snowstorm connects over localhost rather than a Service that has no endpoints until the pod is ready
+- PIP-1192 Update the Docker base image to `amazoncorretto:25`, matching the Java version the project is built with
+- PIP-1192 Update the getting started, Docker and Jib guides for Elasticsearch 9 and Java 25
 - ISTO-148 Add CORS headers to allow any origin by default. Can be disabled using `snowstorm.rest-api.allowAnyOrigin=false` flag.
 - AP2-146 Update historical associations
 - AP2-146 Add JsonView annotation to ConceptMicro

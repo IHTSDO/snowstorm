@@ -6,6 +6,13 @@ metadata:
     app: snowstorm
 spec:
   replicas: 1
+  # Recreate, not the default RollingUpdate: the Elasticsearch data directory is a hostPath
+  # and Elasticsearch takes an exclusive lock on it. A rolling update would start the new pod
+  # while the old one still holds that lock, so the new Elasticsearch would fail with
+  # 'failed to obtain node locks' - and since it gates Snowstorm's start, the rollout would
+  # never complete. Recreate stops the old pod first, at the cost of downtime during updates.
+  strategy:
+    type: Recreate
   selector:
     matchLabels:
       app: snowstorm
@@ -14,9 +21,14 @@ spec:
       labels:
         app: snowstorm
     spec:
-      containers:
+      # Elasticsearch runs as a native sidecar (an initContainer with restartPolicy: Always,
+      # GA in Kubernetes 1.29) so that it is started and its startupProbe has passed before
+      # Snowstorm starts. Plain containers in a pod start in parallel, which left Snowstorm
+      # crash-looping against a cluster that was not listening yet.
+      initContainers:
       - name: snowstorm-elasticsearch
-        image: docker.elastic.co/elasticsearch/elasticsearch:7.7.0
+        restartPolicy: Always
+        image: docker.elastic.co/elasticsearch/elasticsearch:9.5.2
         volumeMounts:
           - name: elasticsearch-data
             mountPath: /usr/share/elasticsearch/data
@@ -24,28 +36,47 @@ spec:
         - containerPort: 9200
           protocol: TCP
         env:
+        # Elasticsearch 8 onwards forms a cluster and enables security by default.
+        # Single-node discovery and disabled security match the docker-compose.yml setup.
+        # Enable xpack.security and give Snowstorm credentials if this is exposed beyond the cluster.
+        - name: discovery.type
+          value: "single-node"
+        - name: xpack.security.enabled
+          value: "false"
         - name: ES_JAVA_OPTS
           value: "-Xms4g -Xmx4g"
-        livenessProbe:
-          exec:
-            command:
-            - curl
-            - -f
-            - http://snowstorm-elasticsearch:9200
-          initialDelaySeconds: 120
+        startupProbe:
+          httpGet:
+            path: /
+            port: 9200
           periodSeconds: 10
           failureThreshold: 60
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 9200
+          periodSeconds: 30
+          failureThreshold: 3
+      containers:
       - name: snowstorm-front
-        image: snomedinternational/snowstorm:5.0.7 
+        # Pinned to the release this manifest was written for. Snowstorm 12.0.0 requires
+        # Elasticsearch 9; do not pair an older Snowstorm tag with the 9.x image above.
+        image: snomedinternational/snowstorm:12.0.0
         env:
-        - name: ES_JAVA_OPTS
-          value: "-Xms2g -Xmx4g"
+        # The Snowstorm image is built by Jib; its java entrypoint reads JAVA_TOOL_OPTIONS.
+        # ES_JAVA_OPTS has no effect here. JAVA_TOOL_OPTIONS is split on whitespace, so
+        # --add-opens must use its '=' form - the space-separated form fails to start the JVM.
+        - name: JAVA_TOOL_OPTIONS
+          value: "-Xms2g -Xmx4g --add-opens=java.base/java.lang=ALL-UNNAMED --add-opens=java.base/java.util=ALL-UNNAMED"
         imagePullPolicy: Always
         ports:
         - containerPort: 8080
           protocol: TCP
         args:
-          - "--elasticsearch.urls=http://snowstorm-elasticsearch:9200"
+          # localhost, not the snowstorm-elasticsearch Service: both containers share this
+          # pod, and the Service has no endpoints until the pod is Ready - which cannot
+          # happen until Snowstorm has connected. The Service remains for external access.
+          - "--elasticsearch.urls=http://localhost:9200"
       volumes:
       - name: elasticsearch-data
         hostPath:
@@ -78,4 +109,3 @@ spec:
         targetPort: 9200
     selector:
       app: snowstorm
-
