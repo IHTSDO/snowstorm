@@ -22,6 +22,18 @@ public class CodeSystemDefaultConfigurationService {
 		return config;
 	}
 
+	public CodeSystemDefaultConfiguration findByShortName(String codeSystemShortName) {
+		if (configurations == null || codeSystemShortName == null) {
+			return null;
+		}
+		for (CodeSystemDefaultConfiguration codeSystemConfiguration : configurations) {
+			if (codeSystemConfiguration.shortName().equalsIgnoreCase(codeSystemShortName)) {
+				return codeSystemConfiguration;
+			}
+		}
+		return null;
+	}
+
 	public CodeSystemDefaultConfiguration findByModule(String moduleId) {
 		for (CodeSystemDefaultConfiguration codeSystemConfiguration : configurations) {
 			if (codeSystemConfiguration.module().equals(moduleId)) {
@@ -41,10 +53,9 @@ public class CodeSystemDefaultConfigurationService {
 	}
 	
 	public String getDefaultModuleId(String codeSystemShortName) {
-		for (CodeSystemDefaultConfiguration codeSystemConfiguration : configurations) {
-			if (codeSystemConfiguration.shortName().equalsIgnoreCase(codeSystemShortName)) {
-				return codeSystemConfiguration.module();
-			}
+		CodeSystemDefaultConfiguration configuration = findByShortName(codeSystemShortName);
+		if (configuration != null) {
+			return configuration.module();
 		}
 		if (codeSystemShortName != null) {
 			Matcher m = SNOMEDCT_MODULE_SHORT_NAME.matcher(codeSystemShortName);

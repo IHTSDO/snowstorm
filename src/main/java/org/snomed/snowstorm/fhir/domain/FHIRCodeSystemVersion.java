@@ -10,6 +10,7 @@ import org.joda.time.format.DateTimeFormatter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.core.data.domain.CodeSystemVersion;
+import org.snomed.snowstorm.core.data.services.pojo.CodeSystemDefaultConfiguration;
 import org.snomed.snowstorm.fhir.services.FHIRCodeSystemService;
 import org.snomed.snowstorm.fhir.services.FHIRHelper;
 import org.springframework.data.annotation.Id;
@@ -131,7 +132,11 @@ public class FHIRCodeSystemVersion {
 	}
 
 	public FHIRCodeSystemVersion(CodeSystemVersion snomedVersion) {
-		this(snomedVersion.getCodeSystem(), false);
+		this(snomedVersion, null);
+	}
+
+	public FHIRCodeSystemVersion(CodeSystemVersion snomedVersion, CodeSystemDefaultConfiguration configuration) {
+		this(snomedVersion.getCodeSystem(), false, configuration);
 		url = SNOMED_URI;
 
 		String moduleId = snomedVersion.getCodeSystem().getUriModuleId();
@@ -151,7 +156,11 @@ public class FHIRCodeSystemVersion {
 	}
 
 	public FHIRCodeSystemVersion(CodeSystemVersion snomedVersion, boolean unversioned) {
-		this(snomedVersion);
+		this(snomedVersion, unversioned, null);
+	}
+
+	public FHIRCodeSystemVersion(CodeSystemVersion snomedVersion, boolean unversioned, CodeSystemDefaultConfiguration configuration) {
+		this(snomedVersion, configuration);
 		if (unversioned) {
 			String moduleId = snomedVersion.getCodeSystem().getUriModuleId();
 			url = SNOMED_URI_UNVERSIONED;
@@ -161,11 +170,16 @@ public class FHIRCodeSystemVersion {
 	}
 
 	public FHIRCodeSystemVersion(org.snomed.snowstorm.core.data.domain.CodeSystem snomedCodeSystem, boolean unversioned) {
+		this(snomedCodeSystem, unversioned, null);
+	}
+
+	public FHIRCodeSystemVersion(org.snomed.snowstorm.core.data.domain.CodeSystem snomedCodeSystem, boolean unversioned,
+								 CodeSystemDefaultConfiguration configuration) {
 		name = SNOMED_CT;
 		url = SNOMED_URI;
 		title = snomedCodeSystem.getName();
 		status = Enumerations.PublicationStatus.ACTIVE.toCode();
-		publisher = snomedCodeSystem.getOwner() != null ? snomedCodeSystem.getOwner() : SNOMED_INTERNATIONAL;
+		publisher = publisherFromConfigOrOwner(snomedCodeSystem, configuration);
 		hierarchyMeaning = CodeSystem.CodeSystemHierarchyMeaning.ISA.toCode();
 		compositional = true;
 		String moduleId = snomedCodeSystem.getUriModuleId();
@@ -182,6 +196,14 @@ public class FHIRCodeSystemVersion {
 			availableLanguages = new HashSet<>(languages.keySet());
 		}
 		this.snomedCodeSystem = snomedCodeSystem;
+	}
+
+	private static String publisherFromConfigOrOwner(org.snomed.snowstorm.core.data.domain.CodeSystem snomedCodeSystem,
+													 CodeSystemDefaultConfiguration configuration) {
+		if (configuration != null && StringUtils.isNotBlank(configuration.owner())) {
+			return configuration.owner();
+		}
+		return snomedCodeSystem.getOwner() != null ? snomedCodeSystem.getOwner() : SNOMED_INTERNATIONAL;
 	}
 
 	public CodeSystem toHapiCodeSystem() {

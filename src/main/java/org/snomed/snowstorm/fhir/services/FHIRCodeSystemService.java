@@ -9,10 +9,12 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.core.data.domain.CodeSystemVersion;
 import org.snomed.snowstorm.core.data.domain.Concept;
+import org.snomed.snowstorm.core.data.services.CodeSystemDefaultConfigurationService;
 import org.snomed.snowstorm.core.data.services.CodeSystemService;
 import org.snomed.snowstorm.core.data.services.ConceptService;
 import org.snomed.snowstorm.core.data.services.MultiSearchService;
 import org.snomed.snowstorm.core.data.services.ServiceException;
+import org.snomed.snowstorm.core.data.services.pojo.CodeSystemDefaultConfiguration;
 import org.snomed.snowstorm.core.data.services.identifier.IdentifierService;
 import org.snomed.snowstorm.core.data.services.identifier.IdentifierSource;
 import org.snomed.snowstorm.core.data.services.pojo.ConceptCriteria;
@@ -59,9 +61,11 @@ public class FHIRCodeSystemService implements TxResourceAware {
 
 	private final IdentifierSource identifierSource;
 
+	private final CodeSystemDefaultConfigurationService codeSystemDefaultConfigurationService;
+
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
-	public FHIRCodeSystemService(ElasticsearchOperations elasticsearchOperations, FHIRCodeSystemRepository codeSystemRepository, FHIRConceptService conceptService, CodeSystemService snomedCodeSystemService, ConceptService snomedConceptService, MultiSearchService snomedMultiSearchService, IdentifierSource identifierSource) {
+	public FHIRCodeSystemService(ElasticsearchOperations elasticsearchOperations, FHIRCodeSystemRepository codeSystemRepository, FHIRConceptService conceptService, CodeSystemService snomedCodeSystemService, ConceptService snomedConceptService, MultiSearchService snomedMultiSearchService, IdentifierSource identifierSource, CodeSystemDefaultConfigurationService codeSystemDefaultConfigurationService) {
 		this.elasticsearchOperations = elasticsearchOperations;
 		this.codeSystemRepository = codeSystemRepository;
 		this.conceptService = conceptService;
@@ -69,6 +73,7 @@ public class FHIRCodeSystemService implements TxResourceAware {
 		this.snomedConceptService = snomedConceptService;
 		this.snomedMultiSearchService = snomedMultiSearchService;
 		this.identifierSource = identifierSource;
+		this.codeSystemDefaultConfigurationService = codeSystemDefaultConfigurationService;
 	}
 
 	public FHIRCodeSystemVersion createUpdate(CodeSystem codeSystem) throws ServiceException {
@@ -162,7 +167,7 @@ public class FHIRCodeSystemService implements TxResourceAware {
 		org.snomed.snowstorm.core.data.domain.CodeSystem savedCodeSystem =
 				snomedCodeSystemService.createCodeSystem(newCodeSystem);
 
-		return new FHIRCodeSystemVersion(savedCodeSystem, true);
+		return toFhirCodeSystemVersion(savedCodeSystem, true);
 	}
 
 	private void validateHasSupplements(CodeSystem codeSystem) {
@@ -596,9 +601,9 @@ public class FHIRCodeSystemService implements TxResourceAware {
 						OperationOutcome.IssueType.INVARIANT, 400);
 			}
 			snomedVersion.setCodeSystem(snomedCodeSystem);
-			return new FHIRCodeSystemVersion(snomedVersion, true);
+			return toFhirCodeSystemVersion(snomedVersion, true);
 		}
-		return new FHIRCodeSystemVersion(snomedCodeSystem, true);
+		return toFhirCodeSystemVersion(snomedCodeSystem, true);
 	}
 
 	private FHIRCodeSystemVersion resolveVersionedSnomedVersion(org.snomed.snowstorm.core.data.domain.CodeSystem snomedCodeSystem,
@@ -606,9 +611,9 @@ public class FHIRCodeSystemService implements TxResourceAware {
 		if (params.getVersion() != null) {
 			CodeSystemVersion snomedVersion = resolveSnomedVersion(snomedCodeSystem, params);
 			if (snomedVersion.isInternalRelease()) {
-				return new FHIRCodeSystemVersion(snomedVersion, true);
+				return toFhirCodeSystemVersion(snomedVersion, true);
 			}
-			return new FHIRCodeSystemVersion(snomedVersion);
+			return toFhirCodeSystemVersion(snomedVersion);
 		}
 		// No specific version requested - try latest published, fall back to code system branch (MAIN)
 		CodeSystemVersion latestVersion = findLatestVisibleSnomedVersionForFhir(snomedCodeSystem.getShortName());
@@ -624,11 +629,11 @@ public class FHIRCodeSystemService implements TxResourceAware {
 		if (latestVersion != null) {
 			latestVersion.setCodeSystem(snomedCodeSystem);
 			if (latestVersion.isInternalRelease()) {
-				return new FHIRCodeSystemVersion(latestVersion, true);
+				return toFhirCodeSystemVersion(latestVersion, true);
 			}
-			return new FHIRCodeSystemVersion(latestVersion);
+			return toFhirCodeSystemVersion(latestVersion);
 		}
-		return new FHIRCodeSystemVersion(snomedCodeSystem, true);
+		return toFhirCodeSystemVersion(snomedCodeSystem, true);
 	}
 
 	private org.snomed.snowstorm.core.data.domain.CodeSystem resolveSnomedCodeSystem(FHIRCodeSystemVersionParams params) {
@@ -767,7 +772,7 @@ public class FHIRCodeSystemService implements TxResourceAware {
 					// Recover published version where this concept was found
 					CodeSystemVersion systemVersion = snomedMultiSearchService.getNearestPublishedVersion(bareConcept.getPath());
 					if (systemVersion != null) {
-						codeSystemVersion = new FHIRCodeSystemVersion(systemVersion);
+						codeSystemVersion = toFhirCodeSystemVersion(systemVersion);
 						// Load whole concept for this code
 						concept = snomedConceptService.find(code, languageDialects, codeSystemVersion.getSnomedBranch());
 					}
@@ -846,5 +851,28 @@ public class FHIRCodeSystemService implements TxResourceAware {
 
 		logger.debug("QUERY: {}", searchQuery.getQuery());
 		return toPage(elasticsearchOperations.search(searchQuery, FHIRCodeSystemVersion.class), pageRequest);
+	}
+
+	public FHIRCodeSystemVersion toFhirCodeSystemVersion(CodeSystemVersion snomedVersion) {
+		return toFhirCodeSystemVersion(snomedVersion, false);
+	}
+
+	public FHIRCodeSystemVersion toFhirCodeSystemVersion(CodeSystemVersion snomedVersion, boolean unversioned) {
+		return new FHIRCodeSystemVersion(snomedVersion, unversioned, configurationFor(snomedVersion));
+	}
+
+	public FHIRCodeSystemVersion toFhirCodeSystemVersion(org.snomed.snowstorm.core.data.domain.CodeSystem snomedCodeSystem, boolean unversioned) {
+		return new FHIRCodeSystemVersion(snomedCodeSystem, unversioned, configurationFor(snomedCodeSystem));
+	}
+
+	private CodeSystemDefaultConfiguration configurationFor(CodeSystemVersion snomedVersion) {
+		if (snomedVersion.getCodeSystem() != null) {
+			return configurationFor(snomedVersion.getCodeSystem());
+		}
+		return codeSystemDefaultConfigurationService.findByShortName(snomedVersion.getShortName());
+	}
+
+	private CodeSystemDefaultConfiguration configurationFor(org.snomed.snowstorm.core.data.domain.CodeSystem snomedCodeSystem) {
+		return snomedCodeSystem == null ? null : codeSystemDefaultConfigurationService.findByShortName(snomedCodeSystem.getShortName());
 	}
 }
