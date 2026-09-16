@@ -1,5 +1,5 @@
-# Use official OpenJDK as base image
-FROM openjdk:17-jdk
+# Use Amazon Corretto as base image, matching the docker.base-image property in pom.xml
+FROM amazoncorretto:25
 
 # Set up environment variables
 ENV APP_HOME=/app

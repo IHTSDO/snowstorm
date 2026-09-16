@@ -15,7 +15,7 @@ Note: in order to achieve this the base image must support the desired platforms
 
 ### Amazon Corretto
 
-The [Amazon Corretto](https://hub.docker.com/_/amazoncorretto) OpenJDK 11 base image supports both `linux/amd64` and `linux/arm64`. 
+The [Amazon Corretto](https://hub.docker.com/_/amazoncorretto) OpenJDK 25 base image supports both `linux/amd64` and `linux/arm64`. 
 
 
 ## Build to remote container registry
@@ -52,13 +52,13 @@ docker run -d -p 5001:5000 --name registry registry:2
 2. Set `docker.registry` property in pom.xml
 
 ```
-<docker.registry>localhost:5001/</docker.registry>
+<docker.registry>localhost:5001</docker.registry>
 ```
 
 3. Set `docker.allowInsecureRegistries` property in `pom.xml`
 
 ```
-<docker.allowInsecureRegistries>true<docker.allowInsecureRegistries>
+<docker.allowInsecureRegistries>true</docker.allowInsecureRegistries>
 ```
 
 4. Run the build

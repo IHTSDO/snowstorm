@@ -4,6 +4,8 @@
 
 Snowstorm is an open source terminology server with special support for SNOMED CT. It is built on top of Elasticsearch, with a focus on performance and enterprise scalability.
 
+Snowstorm 12.0.0 onwards requires **Elasticsearch 9** and **Java 25**. Elasticsearch 8.x is no longer supported; the client negotiates version 9 media types that an 8.x server rejects. See the [Elasticsearch 9 upgrade guide](docs/elasticsearch9-upgrade.md) to migrate an existing cluster.
+
 SNOMED International is not able to offer commercial support for this product. 
 Support is provided by the community via this repository.
 
@@ -49,6 +51,7 @@ The Authoring Platform is used for the maintenance of the International Edition 
     - [Security Configuration Guide](docs/security-configuration.md)
     - [Nginx Setup (SSL)](docs/nginx-setup.md)
   - [Docker Quickstart](docs/using-docker.md)
+  - [Elasticsearch 9 Upgrade Guide](docs/elasticsearch9-upgrade.md)
   - [Elasticsearch Index Mapping Changes](docs/index-mapping-changes.md)
 - Loading SNOMED CT content
   - [Loading SNOMED](docs/loading-snomed.md)
