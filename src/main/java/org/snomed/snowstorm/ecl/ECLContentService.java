@@ -3,6 +3,7 @@ package org.snomed.snowstorm.ecl;
 import co.elastic.clients.elasticsearch._types.query_dsl.BoolQuery;
 import co.elastic.clients.elasticsearch._types.query_dsl.Query;
 import co.elastic.clients.elasticsearch._types.query_dsl.RangeQuery;
+import com.google.common.collect.Iterables;
 import io.kaicode.elasticvc.api.BranchCriteria;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 import it.unimi.dsi.fastutil.longs.LongArraySet;
@@ -41,6 +42,7 @@ import jakarta.annotation.PostConstruct;
 import java.util.*;
 import java.util.stream.Collectors;
 
+import static io.kaicode.elasticvc.api.ComponentService.CLAUSE_LIMIT;
 import static io.kaicode.elasticvc.api.ComponentService.LARGE_PAGE;
 import static java.lang.Long.parseLong;
 import static co.elastic.clients.elasticsearch._types.query_dsl.QueryBuilders.*;
@@ -82,6 +84,9 @@ public class ECLContentService {
 	private boolean conceptsLookupEnabled;
 
 	private SExpressionConstraint historyMaxECL;
+
+	// Number of concept ids sent per concept filter query, see setConceptIdBatchSize.
+	private int conceptIdBatchSize = CLAUSE_LIMIT;
 
 	private static final List<Long> HISTORY_PROFILE_MIN = Collections.singletonList(parseLong(Concepts.REFSET_SAME_AS_ASSOCIATION));
 
@@ -197,6 +202,22 @@ public class ECLContentService {
 		return queryService.findParentIdsAsUnion(branchCriteria, stated, conceptIds);
 	}
 
+	/**
+	 * Overrides the number of concept ids sent per concept filter query, which defaults to {@code CLAUSE_LIMIT}.
+	 * Intended for tests: fixtures hold far fewer concepts than the default, so the batching in
+	 * {@link #applyConceptFilters} would otherwise always run in a single pass and go uncovered.
+	 */
+	public void setConceptIdBatchSize(int conceptIdBatchSize) {
+		if (conceptIdBatchSize <= 0) {
+			throw new IllegalArgumentException("conceptIdBatchSize must be greater than zero.");
+		}
+		this.conceptIdBatchSize = conceptIdBatchSize;
+	}
+
+	public int getConceptIdBatchSize() {
+		return conceptIdBatchSize;
+	}
+
 	public Set<Long> applyConceptFilters(List<ConceptFilterConstraint> conceptFilters, Set<Long> conceptIdsToFilter, BranchCriteria branchCriteria, boolean stated) {
 
 		BoolQuery.Builder superQueryBuilder = bool().must(branchCriteria.getEntityBranchCriteria(Concept.class));
@@ -218,14 +239,22 @@ public class ECLContentService {
 			superQueryBuilder.must(conceptFilterBuilder.build()._toQuery());
 		}
 
-		NativeQueryBuilder queryBuilder = new NativeQueryBuilder()
-				.withQuery(superQueryBuilder.build()._toQuery())
-				.withFilter(termsQuery(Concept.Fields.CONCEPT_ID, conceptIdsToFilter))
-				.withSourceFilter(new FetchSourceFilter(null, new String[]{Concept.Fields.CONCEPT_ID}, null))
-				.withPageable(LARGE_PAGE);
+		// Build this once, outside the batch loop: Elasticsearch object builders are single use.
+		Query conceptFilterQuery = superQueryBuilder.build()._toQuery();
+
 		Set<Long> conceptIds = new LongOpenHashSet();
-		try (SearchHitsIterator<Concept> stream = elasticsearchOperations.searchForStream(queryBuilder.build(), Concept.class)) {
-			stream.forEachRemaining(hit -> conceptIds.add(hit.getContent().getConceptIdAsLong()));
+		// Concept ids are chunked to stay within the Elasticsearch index.max_terms_count limit, which a wildcard
+		// sub-expression with a concept filter can otherwise exceed. The batches match disjoint sets of concepts,
+		// so the results merge without deduplication.
+		for (List<Long> conceptIdBatch : Iterables.partition(conceptIdsToFilter, conceptIdBatchSize)) {
+			NativeQueryBuilder queryBuilder = new NativeQueryBuilder()
+					.withQuery(conceptFilterQuery)
+					.withFilter(termsQuery(Concept.Fields.CONCEPT_ID, conceptIdBatch))
+					.withSourceFilter(new FetchSourceFilter(null, new String[]{Concept.Fields.CONCEPT_ID}, null))
+					.withPageable(LARGE_PAGE);
+			try (SearchHitsIterator<Concept> stream = elasticsearchOperations.searchForStream(queryBuilder.build(), Concept.class)) {
+				stream.forEachRemaining(hit -> conceptIds.add(hit.getContent().getConceptIdAsLong()));
+			}
 		}
 
 		return conceptIds;
