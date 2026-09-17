@@ -4,6 +4,7 @@ import com.google.common.collect.Sets;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.snomed.snowstorm.TestConfig;
 import org.snomed.snowstorm.core.data.domain.Concepts;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.test.context.ContextConfiguration;
@@ -21,8 +22,11 @@ import static org.snomed.snowstorm.core.data.domain.Concepts.REFSET_MRCM_ATTRIBU
  * In this test suite we run all the same ECL query tests again against the stated form
  * but the data is set up using axioms without any stated relationships.
  */
+// TestConfig is registered alongside the fixture config so that its @PostConstruct creates the Elasticsearch
+// indices. Without it the only config bean is the fixture, which autowires ClassificationService, forcing that
+// bean's index existence check to run before the inherited TestConfig.init() can create the indices.
 @ExtendWith(SpringExtension.class)
-@ContextConfiguration(classes = ECLQueryServiceStatedAxiomTestConfig.class)
+@ContextConfiguration(classes = {TestConfig.class, ECLQueryServiceStatedAxiomTestConfig.class})
 class ECLQueryServiceStatedAxiomTest extends AbstractECLQueryServiceTest {
 
 	@BeforeEach

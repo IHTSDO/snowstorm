@@ -15,6 +15,7 @@ import org.snomed.snowstorm.core.data.services.pojo.MemberSearchRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
 
@@ -29,6 +30,11 @@ import static org.snomed.snowstorm.core.data.domain.Concepts.REFSET_SAME_AS_ASSO
 
 @ExtendWith(SpringExtension.class)
 @ContextConfiguration(classes = {TestConfig.class, ECLQueryServiceFilterTestConfig.class})
+// This class and ECLFilterChunkingTest share a context cache key, so the second to run would otherwise be
+// given the cached context without a second @PostConstruct. The fixture only populates its data in
+// @PostConstruct, and every other fixture's deleteAll wipes the shared Elasticsearch instance in between, so
+// that reused context would find an empty index. Dirtying forces a rebuild, and with it a fresh fixture.
+@DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 class ECLQueryServiceFilterTest {
 
 	@Autowired

@@ -19,6 +19,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
+import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
 
@@ -60,6 +61,11 @@ import static org.snomed.snowstorm.config.ElasticsearchConfig.INDEX_MAX_TERMS_CO
  */
 @ExtendWith(SpringExtension.class)
 @ContextConfiguration(classes = {TestConfig.class, ECLQueryServiceFilterTestConfig.class})
+// This class and ECLQueryServiceFilterTest share a context cache key, so the second to run would otherwise be
+// given the cached context without a second @PostConstruct. The fixture only populates its data in
+// @PostConstruct, and every other fixture's deleteAll wipes the shared Elasticsearch instance in between, so
+// that reused context would find an empty index. Dirtying forces a rebuild, and with it a fresh fixture.
+@DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 class ECLFilterChunkingTest {
 
 	// Small enough to force many batches over the fixture, and unlikely to divide the concept count exactly, so the
