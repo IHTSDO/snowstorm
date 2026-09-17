@@ -95,7 +95,6 @@ class ECLValidatorTest extends AbstractTest {
 		assertException(ecl, "246075003");
 	}
 
-	@Test
 	private void assertException(String eclExpression, String... conceptIds) {
 		String exceptionMessage = EXCEPTION_MESSAGE + join(CONCEPT_IDS_DELIMITER, conceptIds) + ".";
 		IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () -> eclValidator.validate(eclExpression, BRANCH));
