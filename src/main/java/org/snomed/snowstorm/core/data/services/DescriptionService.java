@@ -76,6 +76,9 @@ public class DescriptionService extends ComponentService {
 	// Query value used to prevent matching
 	private static final String NO_MATCH = "no-match";
 
+	// Number of concept ids sent per description query, see setConceptIdBatchSize.
+	private int conceptIdBatchSize = CLAUSE_LIMIT;
+
 	@Autowired
 	private SearchLanguagesConfiguration searchLanguagesConfiguration;
 
@@ -590,27 +593,52 @@ public class DescriptionService extends ComponentService {
 				.collect(Collectors.toSet());
 	}
 
+	/**
+	 * Overrides the number of concept ids sent per description query, which defaults to {@code CLAUSE_LIMIT}.
+	 * Intended for tests: fixtures hold far fewer concepts than the default, so the batching in
+	 * {@link #executeDescriptionQuery} would otherwise always run in a single pass and go uncovered.
+	 */
+	public void setConceptIdBatchSize(int conceptIdBatchSize) {
+		if (conceptIdBatchSize <= 0) {
+			throw new IllegalArgumentException("conceptIdBatchSize must be greater than zero.");
+		}
+		this.conceptIdBatchSize = conceptIdBatchSize;
+	}
+
+	public int getConceptIdBatchSize() {
+		return conceptIdBatchSize;
+	}
+
 	private SortedMap<Long, Long> executeDescriptionQuery(Collection<Long> conceptIds,
 	                                                      BranchCriteria branchCriteria,
 	                                                      BoolQuery.Builder masterQuery) {
-		BoolQuery.Builder criteria = bool()
-				.must(branchCriteria.getEntityBranchCriteria(Description.class))
-				.filter(termsQuery(Description.Fields.CONCEPT_ID, conceptIds))
-				.must(masterQuery.build()._toQuery());
+		// Build these once, outside the batch loop: Elasticsearch object builders are single use.
+		Query masterDescriptionQuery = masterQuery.build()._toQuery();
+		Query descriptionBranchCriteria = branchCriteria.getEntityBranchCriteria(Description.class);
 
 		SortedMap<Long, Long> map = new Long2ObjectLinkedOpenHashMap<>();
-		NativeQueryBuilder builder = new NativeQueryBuilder()
-				.withQuery(criteria.build()._toQuery())
-				.withSourceFilter(new FetchSourceFilter(null,
-						new String[]{Description.Fields.DESCRIPTION_ID, Description.Fields.CONCEPT_ID}, null))
-				.withPageable(LARGE_PAGE);
+		// Concept ids are chunked to stay within the Elasticsearch index.max_terms_count limit, which a wildcard
+		// sub-expression with a description filter can otherwise exceed. Each description has exactly one concept id,
+		// so the batches match disjoint sets of descriptions and the results merge without deduplication.
+		for (List<Long> conceptIdBatch : Iterables.partition(conceptIds, conceptIdBatchSize)) {
+			BoolQuery.Builder criteria = bool()
+					.must(descriptionBranchCriteria)
+					.filter(termsQuery(Description.Fields.CONCEPT_ID, conceptIdBatch))
+					.must(masterDescriptionQuery);
 
-		try (SearchHitsIterator<Description> stream =
-				     elasticsearchOperations.searchForStream(builder.build(), Description.class)) {
-			stream.forEachRemaining(hit -> {
-				Description d = hit.getContent();
-				map.put(Long.parseLong(d.getDescriptionId()), Long.parseLong(d.getConceptId()));
-			});
+			NativeQueryBuilder builder = new NativeQueryBuilder()
+					.withQuery(criteria.build()._toQuery())
+					.withSourceFilter(new FetchSourceFilter(null,
+							new String[]{Description.Fields.DESCRIPTION_ID, Description.Fields.CONCEPT_ID}, null))
+					.withPageable(LARGE_PAGE);
+
+			try (SearchHitsIterator<Description> stream =
+					     elasticsearchOperations.searchForStream(builder.build(), Description.class)) {
+				stream.forEachRemaining(hit -> {
+					Description d = hit.getContent();
+					map.put(Long.parseLong(d.getDescriptionId()), Long.parseLong(d.getConceptId()));
+				});
+			}
 		}
 		return map;
 	}
