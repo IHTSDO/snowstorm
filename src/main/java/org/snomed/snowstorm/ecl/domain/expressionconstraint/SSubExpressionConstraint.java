@@ -203,63 +203,81 @@ public class SSubExpressionConstraint extends SubExpressionConstraint implements
 	public void addCriteria(RefinementBuilder refinementBuilder, Consumer<List<Long>> filteredOrSupplementedContentCallback, boolean triedCache) {
 		BoolQuery.Builder query = refinementBuilder.getQueryBuilder();
 
-		if (shouldFetchConceptIds(refinementBuilder)) {
-			// Fetching required
-			ECLContentService eclContentService = refinementBuilder.getEclContentService();
-			BranchCriteria branchCriteria = refinementBuilder.getBranchCriteria();
-			boolean stated = refinementBuilder.isStated();
-
-			SortedSet<Long> unconstrainedFilterResults = null;
-			// Nothing to prefetch: run the filters on their own rather than fetching every concept id on the branch
-			// only to hand it straight back to the filter query.
-			if (isUnconstrainedApartFromFilters()) {
-				unconstrainedFilterResults = applyFilters(null, eclContentService, branchCriteria, stated);
-				if (unconstrainedFilterResults != null && unconstrainedFilterResults.size() <= maxTermsCount) {
-					// Constrain the semantic index query with what the filters matched. No prefetch callback is set, so
-					// the caller runs that query rather than taking these ids as the answer, which is what keeps the
-					// branch, stated and active criteria applied.
-					query.must(termsQuery(QueryConcept.Fields.CONCEPT_ID, unconstrainedFilterResults));
-					return;
-				}
-				// More ids than the semantic index will accept in a terms clause, which would trade the rejected
-				// filter query for a rejected semantic index one. Fall through and intersect with the branch's concept
-				// ids in memory instead, as this method did before the filters were given their own pass.
-			}
-
-			// Cache results before applying filters, apart from member queries with field filters.
-			Collection<Long> prefetchedConceptIds = null;
-			if (isNestedExpressionConstraintMemberOfQuery() || (operator == Operator.memberOf && (memberFilterConstraints != null || triedCache))) {
-				// If there is a member filter constraint we can assume the results set will be fairly small / not reusable.
-				// If there are no filters this
-				// Fetch without cache.
- 				prefetchedConceptIds = doAddCriteria(refinementBuilder, query);
-			}
-
-			if (prefetchedConceptIds == null) {
-				if (operator != null && isNestedExpressionConstraintMemberOfQuery()) {
-					// No need to fetch nested expression constraint again as nested results applied to query filter already
-					// See doAddCriteria method and applyConceptCriteriaWithOperator return null on purpose for this scenario
-					return;
-				} else {
-					// Grab all concept ids using query without filters, should be cached
-					SSubExpressionConstraint sSubExpressionConstraint = cloneWithoutFiltersOrSupplements();
-					prefetchedConceptIds = eclContentService.fetchAllIdsWithCaching(sSubExpressionConstraint, branchCriteria, stated);
-				}
-			}
-
-			SortedSet<Long> conceptIdSortedSet = new LongLinkedOpenHashSet(prefetchedConceptIds);
-			if (unconstrainedFilterResults != null) {
-				// The filters have already run unconstrained, and they are per concept predicates, so narrowing their
-				// results by the prefetched ids gives the same set as running them over those ids would.
-				conceptIdSortedSet.retainAll(unconstrainedFilterResults);
-			} else {
-				conceptIdSortedSet = applyFilters(conceptIdSortedSet, eclContentService, branchCriteria, stated);
-			}
-			query.must(termsQuery(QueryConcept.Fields.CONCEPT_ID, conceptIdSortedSet));
-			filteredOrSupplementedContentCallback.accept(new LongArrayList(conceptIdSortedSet));
-		} else {
+		if (!shouldFetchConceptIds(refinementBuilder)) {
 			doAddCriteria(refinementBuilder, query);
+			return;
 		}
+
+		// Nothing to prefetch: run the filters on their own rather than fetching every concept id on the branch only
+		// to hand it straight back to the filter query.
+		SortedSet<Long> unconstrainedFilterResults = isUnconstrainedApartFromFilters()
+				? applyFilters(null, refinementBuilder.getEclContentService(), refinementBuilder.getBranchCriteria(), refinementBuilder.isStated())
+				: null;
+		if (unconstrainedFilterResults != null && unconstrainedFilterResults.size() <= maxTermsCount) {
+			// Constrain the semantic index query with what the filters matched. No prefetch callback is set, so the
+			// caller runs that query rather than taking these ids as the answer, which is what keeps the branch,
+			// stated and active criteria applied.
+			query.must(termsQuery(QueryConcept.Fields.CONCEPT_ID, unconstrainedFilterResults));
+			return;
+		}
+		// Either the filters do not stand alone here, or they matched more ids than the semantic index will accept in
+		// a terms clause, which would trade the rejected filter query for a rejected semantic index one. Prefetch the
+		// branch's concept ids and intersect in memory instead, as this method did before the filters were given
+		// their own pass.
+		Collection<Long> prefetchedConceptIds = prefetchConceptIds(refinementBuilder, query, triedCache);
+		if (prefetchedConceptIds == null) {
+			return;
+		}
+
+		SortedSet<Long> conceptIdSortedSet = narrowByFilters(refinementBuilder, prefetchedConceptIds, unconstrainedFilterResults);
+		query.must(termsQuery(QueryConcept.Fields.CONCEPT_ID, conceptIdSortedSet));
+		filteredOrSupplementedContentCallback.accept(new LongArrayList(conceptIdSortedSet));
+	}
+
+	/**
+	 * Fetches the concept ids this sub-expression selects before its filters are applied.
+	 *
+	 * @return the concept ids, or null when a nested member of query has already been applied to the query by
+	 *         {@link #doAddCriteria} and the caller has nothing further to add.
+	 */
+	@Nullable
+	private Collection<Long> prefetchConceptIds(RefinementBuilder refinementBuilder, BoolQuery.Builder query, boolean triedCache) {
+		// Fetch without the cache for member queries with field filters, where the result set is likely to be fairly
+		// small and not reusable.
+		if (isNestedExpressionConstraintMemberOfQuery() || (operator == Operator.memberOf && (memberFilterConstraints != null || triedCache))) {
+			Collection<Long> memberQueryConceptIds = doAddCriteria(refinementBuilder, query);
+			if (memberQueryConceptIds != null) {
+				return memberQueryConceptIds;
+			}
+		}
+		if (operator != null && isNestedExpressionConstraintMemberOfQuery()) {
+			// No need to fetch nested expression constraint again as nested results applied to query filter already.
+			// See doAddCriteria and applyConceptCriteriaWithOperator, which return null on purpose for this scenario.
+			return null;
+		}
+		// Grab all concept ids using query without filters, should be cached
+		return refinementBuilder.getEclContentService().fetchAllIdsWithCaching(
+				cloneWithoutFiltersOrSupplements(), refinementBuilder.getBranchCriteria(), refinementBuilder.isStated());
+	}
+
+	/**
+	 * Narrows the prefetched concept ids by this sub-expression's filters.
+	 *
+	 * @param unconstrainedFilterResults what the filters matched when they were able to run on their own, or null when
+	 *                                   they still have to be applied to the prefetched ids.
+	 */
+	private SortedSet<Long> narrowByFilters(RefinementBuilder refinementBuilder, Collection<Long> prefetchedConceptIds,
+			@Nullable SortedSet<Long> unconstrainedFilterResults) {
+
+		SortedSet<Long> conceptIdSortedSet = new LongLinkedOpenHashSet(prefetchedConceptIds);
+		if (unconstrainedFilterResults == null) {
+			return applyFilters(conceptIdSortedSet, refinementBuilder.getEclContentService(),
+					refinementBuilder.getBranchCriteria(), refinementBuilder.isStated());
+		}
+		// The filters have already run unconstrained, and they are per concept predicates, so narrowing their results
+		// by the prefetched ids gives the same set as running them over those ids would.
+		conceptIdSortedSet.retainAll(unconstrainedFilterResults);
+		return conceptIdSortedSet;
 	}
 
 	private boolean shouldFetchConceptIds(RefinementBuilder refinementBuilder) {
