@@ -15,6 +15,7 @@ import org.snomed.snowstorm.fhir.domain.FHIRConcept;
 import org.snomed.snowstorm.fhir.domain.FHIRDesignation;
 import org.snomed.snowstorm.fhir.domain.FHIRProperty;
 import org.snomed.snowstorm.fhir.pojo.ConceptAndSystemResult;
+import org.snomed.snowstorm.rest.ControllerHelper;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
@@ -110,12 +111,12 @@ public class HapiParametersMapper implements FHIRConstants {
 		parameters.addParameter(VERSION, codeSystem.getVersion());
 	}
 
-	public Parameters mapToFHIR(FHIRCodeSystemVersion codeSystemVersion, FHIRConcept concept) {
+	public Parameters mapToFHIR(FHIRCodeSystemVersion codeSystemVersion, FHIRConcept concept, String displayLanguage, String acceptLanguageHeader) {
 		Parameters parameters = new Parameters();
 		Optional.of(codeSystemVersion.getName()).ifPresent(x->parameters.addParameter("name", x));
 		parameters.addParameter(SYSTEM, new UriType(codeSystemVersion.getUrl()));
 		parameters.addParameter(VERSION, codeSystemVersion.getVersion());
-		parameters.addParameter(DISPLAY, concept.getDisplay());
+		parameters.addParameter(DISPLAY, getDisplay(codeSystemVersion, concept, displayLanguage, acceptLanguageHeader));
 		parameters.addParameter(CODE, new CodeType(concept.getCode()));
 
 		addConceptProperties(parameters, codeSystemVersion, concept);
@@ -123,6 +124,43 @@ public class HapiParametersMapper implements FHIRConstants {
 		addConceptDesignations(parameters, concept);
 
 		return parameters;
+	}
+
+	// The concept display is the display in the code system's language (English when none is declared). Per requested
+	// language, in order: the display if it is in that language, else the first current designation in it, matching the
+	// exact tag before the primary subtag; a display in a regional variant of the requested language counts as exact.
+	// The SNOMED path does the equivalent through FHIRHelper.getPreferredTerm.
+	// displayLanguage is matched as given because the dialect parser keeps only the primary subtag.
+	private static String getDisplay(FHIRCodeSystemVersion codeSystemVersion, FHIRConcept concept, String displayLanguage, String acceptLanguageHeader) {
+		String conceptLanguage = codeSystemVersion.getLanguage() != null ? codeSystemVersion.getLanguage() : "en";
+		List<String> languages = new ArrayList<>();
+		if (displayLanguage != null) {
+			languages.add(displayLanguage);
+		}
+		languages.addAll(LanguageDialect.toLanguageCodes(ControllerHelper.parseAcceptLanguageHeader(acceptLanguageHeader)));
+		for (String language : languages) {
+			for (boolean exact : new boolean[]{true, false}) {
+				if (concept.getDisplay() != null && (languageMatches(conceptLanguage, language, exact)
+						|| exact && conceptLanguage.regionMatches(true, 0, language + "-", 0, language.length() + 1))) {
+					return concept.getDisplay();
+				}
+				for (FHIRDesignation designation : concept.getDesignations()) {
+					if (designation.getLanguage() != null && designation.getValue() != null && !designation.isWithdrawn()
+							&& languageMatches(designation.getLanguage(), language, exact)) {
+						return designation.getValue();
+					}
+				}
+			}
+		}
+		return concept.getDisplay();
+	}
+
+	private static boolean languageMatches(String have, String want, boolean exact) {
+		if (exact) {
+			return have.equalsIgnoreCase(want);
+		}
+		String haveLanguage = Locale.forLanguageTag(have).getLanguage();
+		return !haveLanguage.isEmpty() && haveLanguage.equals(Locale.forLanguageTag(want).getLanguage());
 	}
 
 	private void addConceptProperties(Parameters parameters, FHIRCodeSystemVersion codeSystemVersion, FHIRConcept concept) {
