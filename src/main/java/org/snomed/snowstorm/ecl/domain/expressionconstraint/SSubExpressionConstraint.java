@@ -6,6 +6,7 @@ import io.kaicode.elasticvc.api.BranchCriteria;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 import it.unimi.dsi.fastutil.longs.LongLinkedOpenHashSet;
 
+import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.langauges.ecl.domain.ConceptReference;
@@ -213,7 +214,7 @@ public class SSubExpressionConstraint extends SubExpressionConstraint implements
 			// only to hand it straight back to the filter query.
 			if (isUnconstrainedApartFromFilters()) {
 				unconstrainedFilterResults = applyFilters(null, eclContentService, branchCriteria, stated);
-				if (unconstrainedFilterResults.size() <= maxTermsCount) {
+				if (unconstrainedFilterResults != null && unconstrainedFilterResults.size() <= maxTermsCount) {
 					// Constrain the semantic index query with what the filters matched. No prefetch callback is set, so
 					// the caller runs that query rather than taking these ids as the answer, which is what keeps the
 					// branch, stated and active criteria applied.
@@ -270,8 +271,11 @@ public class SSubExpressionConstraint extends SubExpressionConstraint implements
 	 * @param conceptIdSortedSet the concepts the filters must narrow, or null when nothing constrains this
 	 *                           sub-expression but the filters themselves and they select on their own.
 	 *                           An empty set is different: it means nothing matched, so there is nothing left to narrow.
+	 * @return the concepts matching every filter, or null when given null and there was no concept or description
+	 *         filter to select with, which {@link #isUnconstrainedApartFromFilters()} rules out for that mode.
 	 */
-	private SortedSet<Long> applyFilters(SortedSet<Long> conceptIdSortedSet, ECLContentService eclContentService, BranchCriteria branchCriteria, boolean stated) {
+	@Nullable
+	private SortedSet<Long> applyFilters(@Nullable SortedSet<Long> conceptIdSortedSet, ECLContentService eclContentService, BranchCriteria branchCriteria, boolean stated) {
 		if (conceptIdSortedSet == null || !conceptIdSortedSet.isEmpty()) {
 			// Apply filter constraints
 			if (getConceptFilterConstraints() != null) {
@@ -288,8 +292,10 @@ public class SSubExpressionConstraint extends SubExpressionConstraint implements
 					conceptIdSortedSet = new LongLinkedOpenHashSet(descriptionToConceptMap.values());
 				}
 			}
-			// Add history supplement
-			if (getHistorySupplement() != null) {
+			// Add history supplement. This extends a selection that already exists, so it needs a base set to work
+			// from. isUnconstrainedApartFromFilters limits the null mode to concept and description filters, so a
+			// query that asked for a history supplement never reaches here with null.
+			if (getHistorySupplement() != null && conceptIdSortedSet != null) {
 				Set<Long> historicConcepts = eclContentService.findHistoricConcepts(conceptIdSortedSet, getHistorySupplement(), branchCriteria);
 				conceptIdSortedSet.addAll(historicConcepts);
 			}

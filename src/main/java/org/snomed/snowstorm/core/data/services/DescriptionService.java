@@ -27,6 +27,7 @@ import org.apache.lucene.analysis.standard.StandardAnalyzer;
 import org.apache.lucene.analysis.tokenattributes.CharTermAttribute;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.jetbrains.annotations.Nullable;
 import org.snomed.langauges.ecl.domain.ConceptReference;
 import org.snomed.langauges.ecl.domain.expressionconstraint.SubExpressionConstraint;
 import org.snomed.langauges.ecl.domain.filter.*;
@@ -517,7 +518,7 @@ public class DescriptionService extends ComponentService {
 	}
 
 	public SortedMap<Long, Long> applyDescriptionFilter(
-			Collection<Long> conceptIds,
+			@Nullable Collection<Long> conceptIds,
 			List<TermFilter> termFilters,
 			List<LanguageFilter> languageFilters,
 			List<DescriptionTypeFilter> descriptionTypeFilters,
@@ -610,7 +611,7 @@ public class DescriptionService extends ComponentService {
 		return termsBatchSize;
 	}
 
-	private SortedMap<Long, Long> executeDescriptionQuery(Collection<Long> conceptIds,
+	private SortedMap<Long, Long> executeDescriptionQuery(@Nullable Collection<Long> conceptIds,
 	                                                      BranchCriteria branchCriteria,
 	                                                      BoolQuery.Builder masterQuery) {
 		// Build these once, outside the batch loop: Elasticsearch object builders are single use.
@@ -633,7 +634,7 @@ public class DescriptionService extends ComponentService {
 	}
 
 	private void collectDescriptionMatches(Query descriptionBranchCriteria, Query masterDescriptionQuery,
-	                                       List<Long> conceptIdBatch, SortedMap<Long, Long> map) {
+	                                       @Nullable List<Long> conceptIdBatch, SortedMap<Long, Long> map) {
 		BoolQuery.Builder criteria = bool()
 				.must(descriptionBranchCriteria)
 				.must(masterDescriptionQuery);
