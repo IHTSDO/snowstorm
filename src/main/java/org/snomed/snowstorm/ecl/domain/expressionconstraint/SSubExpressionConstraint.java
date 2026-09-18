@@ -92,6 +92,23 @@ public class SSubExpressionConstraint extends SubExpressionConstraint implements
 		return conceptFilterConstraints != null || descriptionFilterConstraints != null || getHistorySupplement() != null;
 	}
 
+	/**
+	 * True when the filters are the only thing constraining this sub-expression, so there is no concept id set for them
+	 * to narrow. Fetching every concept id on the branch only to hand it straight back to the filter query as a terms
+	 * clause is the slowest way to run the filter, and on a full edition it breaches index.max_terms_count. The filter
+	 * queries select the matching concepts perfectly well on their own.
+	 * <p>
+	 * History supplements and member filters are excluded because they read the incoming concept ids rather than
+	 * standing alone.
+	 */
+	@JsonIgnore
+	public boolean isUnconstrainedApartFromFilters() {
+		return getHistorySupplement() == null
+				&& memberFilterConstraints == null
+				&& (conceptFilterConstraints != null || descriptionFilterConstraints != null)
+				&& cloneWithoutFiltersOrSupplements().isUnconstrained();
+	}
+
 	@Override
 	public Optional<Page<Long>> select(RefinementBuilder refinementBuilder) {
 		if (isUnconstrained()) {
@@ -191,6 +208,23 @@ public class SSubExpressionConstraint extends SubExpressionConstraint implements
 			BranchCriteria branchCriteria = refinementBuilder.getBranchCriteria();
 			boolean stated = refinementBuilder.isStated();
 
+			SortedSet<Long> unconstrainedFilterResults = null;
+			// Nothing to prefetch: run the filters on their own rather than fetching every concept id on the branch
+			// only to hand it straight back to the filter query.
+			if (isUnconstrainedApartFromFilters()) {
+				unconstrainedFilterResults = applyFilters(null, eclContentService, branchCriteria, stated);
+				if (unconstrainedFilterResults.size() <= maxTermsCount) {
+					// Constrain the semantic index query with what the filters matched. No prefetch callback is set, so
+					// the caller runs that query rather than taking these ids as the answer, which is what keeps the
+					// branch, stated and active criteria applied.
+					query.must(termsQuery(QueryConcept.Fields.CONCEPT_ID, unconstrainedFilterResults));
+					return;
+				}
+				// More ids than the semantic index will accept in a terms clause, which would trade the rejected
+				// filter query for a rejected semantic index one. Fall through and intersect with the branch's concept
+				// ids in memory instead, as this method did before the filters were given their own pass.
+			}
+
 			// Cache results before applying filters, apart from member queries with field filters.
 			Collection<Long> prefetchedConceptIds = null;
 			if (isNestedExpressionConstraintMemberOfQuery() || (operator == Operator.memberOf && (memberFilterConstraints != null || triedCache))) {
@@ -213,7 +247,13 @@ public class SSubExpressionConstraint extends SubExpressionConstraint implements
 			}
 
 			SortedSet<Long> conceptIdSortedSet = new LongLinkedOpenHashSet(prefetchedConceptIds);
-			conceptIdSortedSet = applyFilters(conceptIdSortedSet, eclContentService, branchCriteria, stated);
+			if (unconstrainedFilterResults != null) {
+				// The filters have already run unconstrained, and they are per concept predicates, so narrowing their
+				// results by the prefetched ids gives the same set as running them over those ids would.
+				conceptIdSortedSet.retainAll(unconstrainedFilterResults);
+			} else {
+				conceptIdSortedSet = applyFilters(conceptIdSortedSet, eclContentService, branchCriteria, stated);
+			}
 			query.must(termsQuery(QueryConcept.Fields.CONCEPT_ID, conceptIdSortedSet));
 			filteredOrSupplementedContentCallback.accept(new LongArrayList(conceptIdSortedSet));
 		} else {
@@ -226,13 +266,19 @@ public class SSubExpressionConstraint extends SubExpressionConstraint implements
 				(refinementBuilder.shouldPrefetchMemberOfQueryResults() != null && refinementBuilder.shouldPrefetchMemberOfQueryResults()));
 	}
 
+	/**
+	 * @param conceptIdSortedSet the concepts the filters must narrow, or null when nothing constrains this
+	 *                           sub-expression but the filters themselves and they select on their own.
+	 *                           An empty set is different: it means nothing matched, so there is nothing left to narrow.
+	 */
 	private SortedSet<Long> applyFilters(SortedSet<Long> conceptIdSortedSet, ECLContentService eclContentService, BranchCriteria branchCriteria, boolean stated) {
-		if (!conceptIdSortedSet.isEmpty()) {
+		if (conceptIdSortedSet == null || !conceptIdSortedSet.isEmpty()) {
 			// Apply filter constraints
 			if (getConceptFilterConstraints() != null) {
 				Set<Long> results = eclContentService.applyConceptFilters(getConceptFilterConstraints(), conceptIdSortedSet, branchCriteria, stated);
 				// Need to keep the original order
-				conceptIdSortedSet = new LongLinkedOpenHashSet(conceptIdSortedSet.stream().filter(results::contains).toList());
+				conceptIdSortedSet = conceptIdSortedSet == null ? new LongLinkedOpenHashSet(results)
+						: new LongLinkedOpenHashSet(conceptIdSortedSet.stream().filter(results::contains).toList());
 			}
 			if (getDescriptionFilterConstraints() != null) {
 				// For each filter constraint all sub-filters (term, language, etc) must apply.
