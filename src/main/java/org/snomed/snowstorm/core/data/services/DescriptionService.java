@@ -76,8 +76,8 @@ public class DescriptionService extends ComponentService {
 	// Query value used to prevent matching
 	private static final String NO_MATCH = "no-match";
 
-	// Number of concept ids sent per description query, see setConceptIdBatchSize.
-	private int conceptIdBatchSize = CLAUSE_LIMIT;
+	// Number of ids sent per terms clause when filtering descriptions, see setTermsBatchSize.
+	private int termsBatchSize = CLAUSE_LIMIT;
 
 	@Autowired
 	private SearchLanguagesConfiguration searchLanguagesConfiguration;
@@ -594,19 +594,20 @@ public class DescriptionService extends ComponentService {
 	}
 
 	/**
-	 * Overrides the number of concept ids sent per description query, which defaults to {@code CLAUSE_LIMIT}.
-	 * Intended for tests: fixtures hold far fewer concepts than the default, so the batching in
-	 * {@link #executeDescriptionQuery} would otherwise always run in a single pass and go uncovered.
+	 * Overrides the number of ids sent per terms clause when filtering descriptions, which defaults to
+	 * {@code CLAUSE_LIMIT}. Intended for tests: fixtures hold far fewer components than the default, so the batching in
+	 * {@link #executeDescriptionQuery} and {@link #resolveAcceptableDescriptions} would otherwise always run in a
+	 * single pass and go uncovered.
 	 */
-	public void setConceptIdBatchSize(int conceptIdBatchSize) {
-		if (conceptIdBatchSize <= 0) {
-			throw new IllegalArgumentException("conceptIdBatchSize must be greater than zero.");
+	public void setTermsBatchSize(int termsBatchSize) {
+		if (termsBatchSize <= 0) {
+			throw new IllegalArgumentException("termsBatchSize must be greater than zero.");
 		}
-		this.conceptIdBatchSize = conceptIdBatchSize;
+		this.termsBatchSize = termsBatchSize;
 	}
 
-	public int getConceptIdBatchSize() {
-		return conceptIdBatchSize;
+	public int getTermsBatchSize() {
+		return termsBatchSize;
 	}
 
 	private SortedMap<Long, Long> executeDescriptionQuery(Collection<Long> conceptIds,
@@ -617,30 +618,42 @@ public class DescriptionService extends ComponentService {
 		Query descriptionBranchCriteria = branchCriteria.getEntityBranchCriteria(Description.class);
 
 		SortedMap<Long, Long> map = new Long2ObjectLinkedOpenHashMap<>();
-		// Concept ids are chunked to stay within the Elasticsearch index.max_terms_count limit, which a wildcard
-		// sub-expression with a description filter can otherwise exceed. Each description has exactly one concept id,
-		// so the batches match disjoint sets of descriptions and the results merge without deduplication.
-		for (List<Long> conceptIdBatch : Iterables.partition(conceptIds, conceptIdBatchSize)) {
-			BoolQuery.Builder criteria = bool()
-					.must(descriptionBranchCriteria)
-					.filter(termsQuery(Description.Fields.CONCEPT_ID, conceptIdBatch))
-					.must(masterDescriptionQuery);
-
-			NativeQueryBuilder builder = new NativeQueryBuilder()
-					.withQuery(criteria.build()._toQuery())
-					.withSourceFilter(new FetchSourceFilter(null,
-							new String[]{Description.Fields.DESCRIPTION_ID, Description.Fields.CONCEPT_ID}, null))
-					.withPageable(LARGE_PAGE);
-
-			try (SearchHitsIterator<Description> stream =
-					     elasticsearchOperations.searchForStream(builder.build(), Description.class)) {
-				stream.forEachRemaining(hit -> {
-					Description d = hit.getContent();
-					map.put(Long.parseLong(d.getDescriptionId()), Long.parseLong(d.getConceptId()));
-				});
-			}
+		if (conceptIds == null) {
+			// Nothing constrains the sub-expression but this filter, so it selects on its own in a single pass.
+			collectDescriptionMatches(descriptionBranchCriteria, masterDescriptionQuery, null, map);
+			return map;
+		}
+		// Concept ids are chunked to stay within the Elasticsearch index.max_terms_count limit, which a sub-expression
+		// matching most of the branch can otherwise exceed. Each description has exactly one concept id, so the
+		// batches match disjoint sets of descriptions and the results merge without deduplication.
+		for (List<Long> conceptIdBatch : Iterables.partition(conceptIds, termsBatchSize)) {
+			collectDescriptionMatches(descriptionBranchCriteria, masterDescriptionQuery, conceptIdBatch, map);
 		}
 		return map;
+	}
+
+	private void collectDescriptionMatches(Query descriptionBranchCriteria, Query masterDescriptionQuery,
+	                                       List<Long> conceptIdBatch, SortedMap<Long, Long> map) {
+		BoolQuery.Builder criteria = bool()
+				.must(descriptionBranchCriteria)
+				.must(masterDescriptionQuery);
+		if (conceptIdBatch != null) {
+			criteria.filter(termsQuery(Description.Fields.CONCEPT_ID, conceptIdBatch));
+		}
+
+		NativeQueryBuilder builder = new NativeQueryBuilder()
+				.withQuery(criteria.build()._toQuery())
+				.withSourceFilter(new FetchSourceFilter(null,
+						new String[]{Description.Fields.DESCRIPTION_ID, Description.Fields.CONCEPT_ID}, null))
+				.withPageable(LARGE_PAGE);
+
+		try (SearchHitsIterator<Description> stream =
+				     elasticsearchOperations.searchForStream(builder.build(), Description.class)) {
+			stream.forEachRemaining(hit -> {
+				Description d = hit.getContent();
+				map.put(Long.parseLong(d.getDescriptionId()), Long.parseLong(d.getConceptId()));
+			});
+		}
 	}
 
 	private void applyDialectFilters(List<DialectFilter> dialectFilters,
@@ -663,25 +676,32 @@ public class DescriptionService extends ComponentService {
 	                                                Set<Long> descriptionIds,
 	                                                BranchCriteria branchCriteria,
 	                                                ECLQueryService eclQueryService) {
-		BoolQuery.Builder masterQuery = bool()
-				.must(branchCriteria.getEntityBranchCriteria(ReferenceSetMember.class))
-				.must(termQuery(SnomedComponent.Fields.ACTIVE, true))
-				.filter(termsQuery(ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID, descriptionIds));
-
+		// Build these once, outside the batch loop: Elasticsearch object builders are single use.
+		Query memberBranchCriteria = branchCriteria.getEntityBranchCriteria(ReferenceSetMember.class);
+		Query acceptabilityQuery = buildAcceptabilityQuery(filter, branchCriteria, eclQueryService).build()._toQuery();
 		boolean equals = isEquals(filter.getBooleanComparisonOperator());
-		BoolQuery.Builder acceptabilityQuery = buildAcceptabilityQuery(filter, branchCriteria, eclQueryService);
-		addClause(acceptabilityQuery.build()._toQuery(), masterQuery, equals);
-
-		NativeQueryBuilder builder = new NativeQueryBuilder()
-				.withQuery(masterQuery.build()._toQuery())
-				.withSourceFilter(new FetchSourceFilter(null, new String[]{ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID}, null))
-				.withPageable(LARGE_PAGE);
 
 		Set<Long> acceptable = new LongOpenHashSet();
-		try (SearchHitsIterator<ReferenceSetMember> stream =
-				     elasticsearchOperations.searchForStream(builder.build(), ReferenceSetMember.class)) {
-			stream.forEachRemaining(hit ->
-					acceptable.add(Long.parseLong(hit.getContent().getReferencedComponentId())));
+		// Description ids are chunked for the same reason concept ids are in executeDescriptionQuery: a filter over
+		// most of the branch otherwise exceeds index.max_terms_count. Each description belongs to one batch, so the
+		// batches match disjoint sets of members and the results merge without deduplication.
+		for (List<Long> descriptionIdBatch : Iterables.partition(descriptionIds, termsBatchSize)) {
+			BoolQuery.Builder masterQuery = bool()
+					.must(memberBranchCriteria)
+					.must(termQuery(SnomedComponent.Fields.ACTIVE, true))
+					.filter(termsQuery(ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID, descriptionIdBatch));
+			addClause(acceptabilityQuery, masterQuery, equals);
+
+			NativeQueryBuilder builder = new NativeQueryBuilder()
+					.withQuery(masterQuery.build()._toQuery())
+					.withSourceFilter(new FetchSourceFilter(null, new String[]{ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID}, null))
+					.withPageable(LARGE_PAGE);
+
+			try (SearchHitsIterator<ReferenceSetMember> stream =
+					     elasticsearchOperations.searchForStream(builder.build(), ReferenceSetMember.class)) {
+				stream.forEachRemaining(hit ->
+						acceptable.add(Long.parseLong(hit.getContent().getReferencedComponentId())));
+			}
 		}
 		return acceptable;
 	}

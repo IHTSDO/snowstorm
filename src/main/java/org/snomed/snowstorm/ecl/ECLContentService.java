@@ -243,21 +243,32 @@ public class ECLContentService {
 		Query conceptFilterQuery = superQueryBuilder.build()._toQuery();
 
 		Set<Long> conceptIds = new LongOpenHashSet();
-		// Concept ids are chunked to stay within the Elasticsearch index.max_terms_count limit, which a wildcard
-		// sub-expression with a concept filter can otherwise exceed. The batches match disjoint sets of concepts,
-		// so the results merge without deduplication.
+		if (conceptIdsToFilter == null) {
+			// Nothing constrains the sub-expression but this filter, so it selects on its own in a single pass.
+			collectConceptFilterMatches(conceptFilterQuery, null, conceptIds);
+			return conceptIds;
+		}
+		// Concept ids are chunked to stay within the Elasticsearch index.max_terms_count limit, which a sub-expression
+		// matching most of the branch can otherwise exceed. The batches match disjoint sets of concepts, so the
+		// results merge without deduplication.
 		for (List<Long> conceptIdBatch : Iterables.partition(conceptIdsToFilter, conceptIdBatchSize)) {
-			NativeQueryBuilder queryBuilder = new NativeQueryBuilder()
-					.withQuery(conceptFilterQuery)
-					.withFilter(termsQuery(Concept.Fields.CONCEPT_ID, conceptIdBatch))
-					.withSourceFilter(new FetchSourceFilter(null, new String[]{Concept.Fields.CONCEPT_ID}, null))
-					.withPageable(LARGE_PAGE);
-			try (SearchHitsIterator<Concept> stream = elasticsearchOperations.searchForStream(queryBuilder.build(), Concept.class)) {
-				stream.forEachRemaining(hit -> conceptIds.add(hit.getContent().getConceptIdAsLong()));
-			}
+			collectConceptFilterMatches(conceptFilterQuery, conceptIdBatch, conceptIds);
 		}
 
 		return conceptIds;
+	}
+
+	private void collectConceptFilterMatches(Query conceptFilterQuery, List<Long> conceptIdBatch, Set<Long> conceptIds) {
+		NativeQueryBuilder queryBuilder = new NativeQueryBuilder()
+				.withQuery(conceptFilterQuery)
+				.withSourceFilter(new FetchSourceFilter(null, new String[]{Concept.Fields.CONCEPT_ID}, null))
+				.withPageable(LARGE_PAGE);
+		if (conceptIdBatch != null) {
+			queryBuilder.withFilter(termsQuery(Concept.Fields.CONCEPT_ID, conceptIdBatch));
+		}
+		try (SearchHitsIterator<Concept> stream = elasticsearchOperations.searchForStream(queryBuilder.build(), Concept.class)) {
+			stream.forEachRemaining(hit -> conceptIds.add(hit.getContent().getConceptIdAsLong()));
+		}
 	}
 
 	public SortedMap<Long, Long> applyDescriptionFilter(Collection<Long> conceptIds, DescriptionFilterConstraint descriptionFilter, BranchCriteria branchCriteria, boolean stated) {

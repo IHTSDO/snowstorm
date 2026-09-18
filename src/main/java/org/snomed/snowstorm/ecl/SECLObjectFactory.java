@@ -19,10 +19,23 @@ import java.util.List;
 
 public class SECLObjectFactory extends ECLObjectFactory {
 
-	private final int maxTermsCount;
+	private int maxTermsCount;
 
 	public SECLObjectFactory(int maxTermsCount) {
 		this.maxTermsCount = maxTermsCount;
+	}
+
+	/**
+	 * Overrides the terms clause limit given to each parsed sub-expression, which defaults to
+	 * {@code elasticsearch.index.max.terms.count}. Intended for tests: fixtures hold far fewer concepts than the
+	 * default, so the fallback in {@link SSubExpressionConstraint#addCriteria} would otherwise never be reached.
+	 */
+	public void setMaxTermsCount(int maxTermsCount) {
+		this.maxTermsCount = maxTermsCount;
+	}
+
+	public int getMaxTermsCount() {
+		return maxTermsCount;
 	}
 
 	@Override
