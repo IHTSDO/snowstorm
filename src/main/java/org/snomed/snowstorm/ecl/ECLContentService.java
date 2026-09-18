@@ -11,6 +11,7 @@ import it.unimi.dsi.fastutil.longs.LongComparators;
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.langauges.ecl.domain.ConceptReference;
@@ -218,7 +219,7 @@ public class ECLContentService {
 		return conceptIdBatchSize;
 	}
 
-	public Set<Long> applyConceptFilters(List<ConceptFilterConstraint> conceptFilters, Set<Long> conceptIdsToFilter, BranchCriteria branchCriteria, boolean stated) {
+	public Set<Long> applyConceptFilters(List<ConceptFilterConstraint> conceptFilters, @Nullable Set<Long> conceptIdsToFilter, BranchCriteria branchCriteria, boolean stated) {
 
 		BoolQuery.Builder superQueryBuilder = bool().must(branchCriteria.getEntityBranchCriteria(Concept.class));
 		for (ConceptFilterConstraint conceptFilter : conceptFilters) {
@@ -258,7 +259,7 @@ public class ECLContentService {
 		return conceptIds;
 	}
 
-	private void collectConceptFilterMatches(Query conceptFilterQuery, List<Long> conceptIdBatch, Set<Long> conceptIds) {
+	private void collectConceptFilterMatches(Query conceptFilterQuery, @Nullable List<Long> conceptIdBatch, Set<Long> conceptIds) {
 		NativeQueryBuilder queryBuilder = new NativeQueryBuilder()
 				.withQuery(conceptFilterQuery)
 				.withSourceFilter(new FetchSourceFilter(null, new String[]{Concept.Fields.CONCEPT_ID}, null))
@@ -271,7 +272,7 @@ public class ECLContentService {
 		}
 	}
 
-	public SortedMap<Long, Long> applyDescriptionFilter(Collection<Long> conceptIds, DescriptionFilterConstraint descriptionFilter, BranchCriteria branchCriteria, boolean stated) {
+	public SortedMap<Long, Long> applyDescriptionFilter(@Nullable Collection<Long> conceptIds, DescriptionFilterConstraint descriptionFilter, BranchCriteria branchCriteria, boolean stated) {
 
 		BoolQuery.Builder masterDescriptionQuery = bool();
 

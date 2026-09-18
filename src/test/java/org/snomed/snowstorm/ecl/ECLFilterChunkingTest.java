@@ -210,18 +210,14 @@ class ECLFilterChunkingTest {
 	@Test
 	void descriptionFilterExceedsMaxTermsCountWithoutChunking() throws IOException {
 		// Read this before lowering the limit, since loading every concept mini would itself breach it.
-		int conceptCount = countAllConcepts();
-		assertTrue(conceptCount > LOW_MAX_TERMS_COUNT,
-				"The fixture must hold more concepts than the lowered limit, otherwise the unbatched query would not "
-						+ "breach it. Concepts: " + conceptCount + ", limit: " + LOW_MAX_TERMS_COUNT);
+		assertFixtureHoldsMoreConceptsThanTheLimit();
 
 		lowerMaxTermsCount(Description.class);
 
 		// Production batch size, so all concept ids go into a single terms query, exactly as before this fix.
 		Exception rejected = assertThrows(Exception.class, () -> selectWithFreshCache(ROOT_DESCRIPTION_FILTER_ECL),
 				"The unbatched description query should breach index.max_terms_count.");
-		assertTrue(describeCauseChain(rejected).contains(INDEX_MAX_TERMS_COUNT),
-				"Expected an index.max_terms_count rejection but got: " + describeCauseChain(rejected));
+		assertRejectedForMaxTermsCount(rejected);
 
 		// Same query and same limit, only now the concept ids are chunked below it.
 		setBatchSizes(TEST_BATCH_SIZE);
@@ -235,17 +231,13 @@ class ECLFilterChunkingTest {
 	 */
 	@Test
 	void conceptFilterExceedsMaxTermsCountWithoutChunking() throws IOException {
-		int conceptCount = countAllConcepts();
-		assertTrue(conceptCount > LOW_MAX_TERMS_COUNT,
-				"The fixture must hold more concepts than the lowered limit, otherwise the unbatched query would not "
-						+ "breach it. Concepts: " + conceptCount + ", limit: " + LOW_MAX_TERMS_COUNT);
+		assertFixtureHoldsMoreConceptsThanTheLimit();
 
 		lowerMaxTermsCount(Concept.class);
 
 		Exception rejected = assertThrows(Exception.class, () -> selectWithFreshCache(ROOT_NARROW_CONCEPT_FILTER_ECL),
 				"The unbatched concept filter query should breach index.max_terms_count.");
-		assertTrue(describeCauseChain(rejected).contains(INDEX_MAX_TERMS_COUNT),
-				"Expected an index.max_terms_count rejection but got: " + describeCauseChain(rejected));
+		assertRejectedForMaxTermsCount(rejected);
 
 		setBatchSizes(TEST_BATCH_SIZE);
 		assertFalse(selectWithFreshCache(ROOT_NARROW_CONCEPT_FILTER_ECL).isEmpty(),
@@ -261,14 +253,13 @@ class ECLFilterChunkingTest {
 		int descriptionCount = countDescriptionsUnderTheDialectFilter();
 		assertTrue(descriptionCount > LOW_DESCRIPTION_MAX_TERMS_COUNT,
 				"The filter must reach more descriptions than the lowered limit, otherwise this passes vacuously. "
-						+ "Descriptions: " + descriptionCount + ", limit: " + LOW_DESCRIPTION_MAX_TERMS_COUNT);
+						+ countAndLimit("Descriptions", descriptionCount, LOW_DESCRIPTION_MAX_TERMS_COUNT));
 
 		lowerMaxTermsCount(ReferenceSetMember.class, LOW_DESCRIPTION_MAX_TERMS_COUNT);
 
 		Exception rejected = assertThrows(Exception.class, () -> selectWithFreshCache(DIALECT_FILTER_ECL),
 				"The unbatched acceptability query should breach index.max_terms_count.");
-		assertTrue(describeCauseChain(rejected).contains(INDEX_MAX_TERMS_COUNT),
-				"Expected an index.max_terms_count rejection but got: " + describeCauseChain(rejected));
+		assertRejectedForMaxTermsCount(rejected);
 
 		setBatchSizes(TEST_BATCH_SIZE);
 		assertFalse(selectWithFreshCache(DIALECT_FILTER_ECL).isEmpty(),
@@ -282,10 +273,7 @@ class ECLFilterChunkingTest {
 	 */
 	@Test
 	void filteredWildcardSendsNoConceptIdsToTheDescriptionQuery() throws IOException {
-		int conceptCount = countAllConcepts();
-		assertTrue(conceptCount > LOW_MAX_TERMS_COUNT,
-				"The fixture must hold more concepts than the lowered limit, otherwise this passes vacuously. Concepts: "
-						+ conceptCount + ", limit: " + LOW_MAX_TERMS_COUNT);
+		assertFixtureHoldsMoreConceptsThanTheLimit();
 
 		lowerMaxTermsCount(Description.class);
 
@@ -297,10 +285,7 @@ class ECLFilterChunkingTest {
 
 	@Test
 	void filteredWildcardSendsNoConceptIdsToTheConceptQuery() throws IOException {
-		int conceptCount = countAllConcepts();
-		assertTrue(conceptCount > LOW_MAX_TERMS_COUNT,
-				"The fixture must hold more concepts than the lowered limit, otherwise this passes vacuously. Concepts: "
-						+ conceptCount + ", limit: " + LOW_MAX_TERMS_COUNT);
+		assertFixtureHoldsMoreConceptsThanTheLimit();
 
 		lowerMaxTermsCount(Concept.class);
 
@@ -320,7 +305,7 @@ class ECLFilterChunkingTest {
 		Set<String> expected = selectWithFreshCache(CONCEPT_FILTER_ECL);
 		assertTrue(expected.size() > LOW_MAX_TERMS_COUNT,
 				"The filter must match more concepts than the lowered limit, otherwise the fallback never triggers. "
-						+ "Matched: " + expected.size() + ", limit: " + LOW_MAX_TERMS_COUNT);
+						+ countAndLimit("Matched", expected.size(), LOW_MAX_TERMS_COUNT));
 
 		// The semantic index is the index the concept ids would land on, and the parser bound mirrors its setting.
 		lowerMaxTermsCount(QueryConcept.class);
@@ -368,6 +353,32 @@ class ECLFilterChunkingTest {
 		elasticsearchClient.indices().putSettings(request -> request
 				.index(indexName)
 				.settings(settings -> settings.maxTermsCount(maxTermsCount)));
+	}
+
+	/**
+	 * Every lowered limit test needs the fixture to hold more concepts than the limit, otherwise the query stays under
+	 * it for the wrong reason and the test passes without proving anything. Call this before lowering the limit, since
+	 * counting the concepts would itself breach it.
+	 */
+	private void assertFixtureHoldsMoreConceptsThanTheLimit() {
+		int conceptCount = countAllConcepts();
+		assertTrue(conceptCount > LOW_MAX_TERMS_COUNT,
+				"The fixture must hold more concepts than the lowered limit, otherwise this test proves nothing. "
+						+ countAndLimit("Concepts", conceptCount, LOW_MAX_TERMS_COUNT));
+	}
+
+	private void assertRejectedForMaxTermsCount(Exception rejected) {
+		String causeChain = describeCauseChain(rejected);
+		assertTrue(causeChain.contains(INDEX_MAX_TERMS_COUNT),
+				"Expected an index.max_terms_count rejection but got: " + causeChain);
+	}
+
+	/**
+	 * The tail shared by the precondition messages, each of which checks that the fixture exceeds a lowered limit so
+	 * that the test cannot pass for the wrong reason.
+	 */
+	private static String countAndLimit(String what, int count, int limit) {
+		return what + ": " + count + ", limit: " + limit;
 	}
 
 	/**
