@@ -7,7 +7,6 @@ import co.elastic.clients.elasticsearch._types.query_dsl.BoolQuery;
 import co.elastic.clients.elasticsearch._types.query_dsl.Operator;
 import co.elastic.clients.elasticsearch._types.query_dsl.Query;
 import com.google.common.base.Strings;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import io.kaicode.elasticvc.api.BranchCriteria;
 import io.kaicode.elasticvc.api.BranchService;
@@ -69,6 +68,7 @@ import static org.snomed.snowstorm.core.data.domain.ReferenceSetMember.Fields.RE
 import static org.snomed.snowstorm.core.data.domain.ReferenceSetMember.LanguageFields.ACCEPTABILITY_ID_FIELD_PATH;
 import static org.snomed.snowstorm.core.data.domain.SnomedComponent.Fields.ACTIVE;
 import static org.snomed.snowstorm.core.util.AggregationUtils.getAggregations;
+import static org.snomed.snowstorm.core.util.CollectionUtils.partition;
 
 
 @Service
@@ -329,7 +329,7 @@ public class DescriptionService extends ComponentService {
 
 		// Fetch Descriptions
 		Map<String, Description> descriptionIdMap = new HashMap<>();
-		for (List<String> conceptIds : Iterables.partition(allConceptIds, CLAUSE_LIMIT)) {
+		for (List<String> conceptIds : partition(allConceptIds, CLAUSE_LIMIT)) {
 			queryBuilder.withQuery(bool(bq -> bq
 							.must(branchCriteria.getEntityBranchCriteria(Description.class))
 							.must(termsQuery("conceptId", conceptIds))))
@@ -431,7 +431,7 @@ public class DescriptionService extends ComponentService {
 			componentIds = descriptionIdMap.keySet();
 		}
 		final NativeQueryBuilder queryBuilder = new NativeQueryBuilder();
-		for (List<String> componentIdsSegment : Iterables.partition(componentIds, CLAUSE_LIMIT)) {
+		for (List<String> componentIdsSegment : partition(componentIds, CLAUSE_LIMIT)) {
 			queryBuilder.withQuery(bool(bq -> bq
 							.must(branchCriteria.getEntityBranchCriteria(ReferenceSetMember.class))
 							.must(termsQuery("refsetId", Concepts.inactivationAndAssociationRefsets))
@@ -477,7 +477,7 @@ public class DescriptionService extends ComponentService {
 
 	private void joinLangRefsetMembers(BranchCriteria branchCriteria, Set<String> allConceptIds, Map<String, Description> descriptionIdMap) {
 		NativeQueryBuilder queryBuilder = new NativeQueryBuilder();
-		for (List<String> conceptIds : Iterables.partition(allConceptIds, CLAUSE_LIMIT)) {
+		for (List<String> conceptIds : partition(allConceptIds, CLAUSE_LIMIT)) {
 
 			queryBuilder.withQuery(bool(bq -> bq
 							.must(branchCriteria.getEntityBranchCriteria(ReferenceSetMember.class))
@@ -627,7 +627,7 @@ public class DescriptionService extends ComponentService {
 		// Concept ids are chunked to stay within the Elasticsearch index.max_terms_count limit, which a sub-expression
 		// matching most of the branch can otherwise exceed. Each description has exactly one concept id, so the
 		// batches match disjoint sets of descriptions and the results merge without deduplication.
-		for (List<Long> conceptIdBatch : Iterables.partition(conceptIds, termsBatchSize)) {
+		for (List<Long> conceptIdBatch : partition(conceptIds, termsBatchSize)) {
 			collectDescriptionMatches(descriptionBranchCriteria, masterDescriptionQuery, conceptIdBatch, map);
 		}
 		return map;
@@ -686,7 +686,7 @@ public class DescriptionService extends ComponentService {
 		// Description ids are chunked for the same reason concept ids are in executeDescriptionQuery: a filter over
 		// most of the branch otherwise exceeds index.max_terms_count. Each description belongs to one batch, so the
 		// batches match disjoint sets of members and the results merge without deduplication.
-		for (List<Long> descriptionIdBatch : Iterables.partition(descriptionIds, termsBatchSize)) {
+		for (List<Long> descriptionIdBatch : partition(descriptionIds, termsBatchSize)) {
 			BoolQuery.Builder masterQuery = bool()
 					.must(memberBranchCriteria)
 					.must(termQuery(SnomedComponent.Fields.ACTIVE, true))

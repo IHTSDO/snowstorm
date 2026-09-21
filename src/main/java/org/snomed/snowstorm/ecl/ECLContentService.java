@@ -3,7 +3,6 @@ package org.snomed.snowstorm.ecl;
 import co.elastic.clients.elasticsearch._types.query_dsl.BoolQuery;
 import co.elastic.clients.elasticsearch._types.query_dsl.Query;
 import co.elastic.clients.elasticsearch._types.query_dsl.RangeQuery;
-import com.google.common.collect.Iterables;
 import io.kaicode.elasticvc.api.BranchCriteria;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 import it.unimi.dsi.fastutil.longs.LongArraySet;
@@ -50,6 +49,7 @@ import static co.elastic.clients.elasticsearch._types.query_dsl.QueryBuilders.*;
 import static io.kaicode.elasticvc.helper.QueryHelper.*;
 import static org.snomed.snowstorm.core.data.domain.SnomedComponent.Fields.ACTIVE;
 import static org.snomed.snowstorm.core.util.CollectionUtils.orEmpty;
+import static org.snomed.snowstorm.core.util.CollectionUtils.partition;
 
 /**
  * Service responsible for selecting SNOMED CT content on behalf of the ECL implementation.
@@ -252,7 +252,7 @@ public class ECLContentService {
 		// Concept ids are chunked to stay within the Elasticsearch index.max_terms_count limit, which a sub-expression
 		// matching most of the branch can otherwise exceed. The batches match disjoint sets of concepts, so the
 		// results merge without deduplication.
-		for (List<Long> conceptIdBatch : Iterables.partition(conceptIdsToFilter, conceptIdBatchSize)) {
+		for (List<Long> conceptIdBatch : partition(conceptIdsToFilter, conceptIdBatchSize)) {
 			collectConceptFilterMatches(conceptFilterQuery, conceptIdBatch, conceptIds);
 		}
 
