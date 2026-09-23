@@ -110,10 +110,17 @@ public class ExportService {
 			exportConfigurationRepository.save(exportConfiguration);
 		}
 
-		File exportFile = exportRF2ArchiveFile(exportConfiguration.getBranchPath(), exportConfiguration.getFilenameEffectiveDate(),
-				exportConfiguration.getType(), exportConfiguration.isConceptsAndRelationshipsOnly(), exportConfiguration.isLanguageOnly(), exportConfiguration.isUnpromotedChangesOnly(),
-				exportConfiguration.getTransientEffectiveTime(), exportConfiguration.getStartEffectiveTime(), exportConfiguration.getModuleIds(),
-				exportConfiguration.isLegacyZipNaming(), exportConfiguration.getRefsetIds(), exportConfiguration.getId());
+		File exportFile;
+		try {
+			exportFile = exportRF2ArchiveFile(exportConfiguration.getBranchPath(), exportConfiguration.getFilenameEffectiveDate(),
+					exportConfiguration.getType(), exportConfiguration.isConceptsAndRelationshipsOnly(), exportConfiguration.isLanguageOnly(), exportConfiguration.isUnpromotedChangesOnly(),
+					exportConfiguration.getTransientEffectiveTime(), exportConfiguration.getStartEffectiveTime(), exportConfiguration.getModuleIds(),
+					exportConfiguration.isLegacyZipNaming(), exportConfiguration.getRefsetIds(), exportConfiguration.getId());
+		} catch (ExportException | IllegalStateException e) {
+			exportConfiguration.setStatus(ExportStatus.FAILED);
+			exportConfigurationRepository.save(exportConfiguration);
+			throw e;
+		}
 
 		logger.debug("Transmitting {} export file {}", exportConfiguration.getId(), exportFile);
 		try (FileInputStream inputStream = new FileInputStream(exportFile)) {
@@ -160,7 +167,7 @@ public class ExportService {
 
 				exportConfiguration.setExportFilePath(file.getAbsolutePath());
 				exportConfiguration.setStatus(ExportStatus.COMPLETED);
-			} catch (ExportException | SecurityException e) {
+			} catch (ExportException | SecurityException | IllegalStateException e) {
 				exportConfiguration.setExportFilePath(null);
 				exportConfiguration.setStatus(ExportStatus.FAILED);
 			} finally {
@@ -223,8 +230,8 @@ public class ExportService {
 			}
 		}
 
+		branchService.lockBranch(branchPath, branchMetadataHelper.getBranchLockMetadata("Exporting RF2 " + exportType.getName()));
 		try {
-			branchService.lockBranch(branchPath, branchMetadataHelper.getBranchLockMetadata("Exporting RF2 " + exportType.getName()));
 			File exportFile = File.createTempFile("export-" + new Date().getTime(), ".zip");
 			try (ZipOutputStream zipOutputStream = new ZipOutputStream(new FileOutputStream(exportFile))) {
 
