@@ -1025,6 +1025,35 @@ class ExportServiceTest extends AbstractTest {
 		assertTrue(lines.stream().anyMatch(line -> line.contains(medicineId)));
 	}
 
+	@Test
+	void exportShouldNotReleaseLockHeldByAnotherOperation() {
+		String branchPath = "MAIN/locked-by-other";
+		branchService.create(branchPath);
+		branchService.lockBranch(branchPath, "Another operation");
+
+		assertThrows(IllegalStateException.class, () -> exportService.exportRF2ArchiveFile(branchPath, "20260923", RF2Type.DELTA, false));
+
+		assertTrue(branchService.findLatest(branchPath).isLocked());
+	}
+
+	@Test
+	void asyncExportShouldFailWhenBranchLocked() throws InterruptedException {
+		String branchPath = "MAIN/locked-async";
+		branchService.create(branchPath);
+		branchService.lockBranch(branchPath, "Another operation");
+		String exportId = exportService.createJob(new ExportConfiguration(branchPath, RF2Type.DELTA));
+
+		exportService.exportRF2ArchiveAsync(exportService.getExportJobOrThrow(exportId));
+
+		ExportStatus status = null;
+		for (int i = 0; i < 100 && status != ExportStatus.FAILED && status != ExportStatus.COMPLETED; i++) {
+			Thread.sleep(100);
+			status = exportService.getExportJobOrThrow(exportId).getStatus();
+		}
+		assertEquals(ExportStatus.FAILED, status);
+		assertTrue(branchService.findLatest(branchPath).isLocked());
+	}
+
 	private List<String> getFileFromSnapshotExport(String branchPath, String fileName) throws IOException {
 		ExportConfiguration exportConfiguration = new ExportConfiguration(branchPath, RF2Type.SNAPSHOT);
 		exportService.createJob(exportConfiguration);

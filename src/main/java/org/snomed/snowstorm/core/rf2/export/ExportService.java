@@ -111,10 +111,18 @@ public class ExportService {
 			exportConfigurationRepository.save(exportConfiguration);
 		}
 
-		File exportFile = exportRF2ArchiveFile(exportConfiguration.getBranchPath(), exportConfiguration.getFilenameEffectiveDate(),
-				exportConfiguration.getType(), exportConfiguration.isConceptsAndRelationshipsOnly(), exportConfiguration.isUnpromotedChangesOnly(),
-				exportConfiguration.getTransientEffectiveTime(), exportConfiguration.getStartEffectiveTime(), exportConfiguration.getModuleIds(),
-				exportConfiguration.isLegacyZipNaming(), exportConfiguration.getRefsetIds(), exportConfiguration.getId());
+		File exportFile;
+		try {
+			exportFile = exportRF2ArchiveFile(exportConfiguration.getBranchPath(), exportConfiguration.getFilenameEffectiveDate(),
+					exportConfiguration.getType(), exportConfiguration.isConceptsAndRelationshipsOnly(), exportConfiguration.isUnpromotedChangesOnly(),
+					exportConfiguration.getTransientEffectiveTime(), exportConfiguration.getStartEffectiveTime(), exportConfiguration.getModuleIds(),
+					exportConfiguration.isLegacyZipNaming(), exportConfiguration.getRefsetIds(), exportConfiguration.getId());
+		} catch (ExportException | IllegalStateException e) {
+			exportConfiguration.setStatus(ExportStatus.FAILED);
+			exportConfigurationRepository.save(exportConfiguration);
+			throw e;
+		}
+
 		logger.info("Transmitting " + exportConfiguration.getId() + " export file " + exportFile);
 		try (FileInputStream inputStream = new FileInputStream(exportFile)) {
 			long fileSize = Files.size(exportFile.toPath());
