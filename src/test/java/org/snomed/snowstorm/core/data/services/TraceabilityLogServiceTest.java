@@ -421,12 +421,14 @@ class TraceabilityLogServiceTest extends AbstractTest {
 		final Collection<Activity.ConceptActivity> changes = rebaseActivity.getChanges();
 		assertEquals(1, changes.size());
 		final Activity.ConceptActivity activity = changes.iterator().next();
-		assertEquals(3, activity.getComponentChanges().size());
-
-		assertEquals("[ComponentChange{componentType=CONCEPT, componentSubType=null, componentId='x', changeType=UPDATE, effectiveTimeNull=false}, " +
-						"ComponentChange{componentType=DESCRIPTION, componentSubType=900000000000003001, componentId='x', changeType=UPDATE, effectiveTimeNull=false}, " +
-						"ComponentChange{componentType=REFERENCE_SET_MEMBER, componentSubType=900000000000509007, componentId='x', changeType=UPDATE, effectiveTimeNull=false}]",
-				toString(activity.getComponentChanges()));
+		// Choosing the parent side makes the description change on MAIN/B cease to exist. It is logged as superseded, so earlier changes on
+		// MAIN/B no longer count and nothing is expected in the delta for it. It is not a deletion.
+		// The concept and lang refset member were not changed on MAIN/B, and the merge restores the MAIN versions rather than writing copies.
+		assertEquals(1, activity.getComponentChanges().size(), toString(activity.getComponentChanges()));
+		final Activity.ComponentChange change = activity.getComponentChanges().iterator().next();
+		assertEquals(Activity.ComponentType.DESCRIPTION, change.getComponentType());
+		assertTrue(change.isSuperseded(), change.toString());
+		assertNotEquals(Activity.ChangeType.DELETE, change.getChangeType());
 	}
 
 	@Test
@@ -468,12 +470,12 @@ class TraceabilityLogServiceTest extends AbstractTest {
 		final Collection<Activity.ConceptActivity> changes = rebaseActivity.getChanges();
 		assertEquals(1, changes.size());
 		final Activity.ConceptActivity activity = changes.iterator().next();
-		assertEquals(3, activity.getComponentChanges().size());
-
-		assertEquals("[ComponentChange{componentType=CONCEPT, componentSubType=null, componentId='x', changeType=UPDATE, effectiveTimeNull=false}, " +
-						"ComponentChange{componentType=DESCRIPTION, componentSubType=900000000000003001, componentId='x', changeType=UPDATE, effectiveTimeNull=true}, " +
-						"ComponentChange{componentType=REFERENCE_SET_MEMBER, componentSubType=900000000000509007, componentId='x', changeType=UPDATE, effectiveTimeNull=false}]",
-				toString(activity.getComponentChanges()));
+		// Choosing the MAIN/B side keeps its description change, which still differs from MAIN.
+		// The concept and lang refset member match MAIN, so the merge restores the MAIN versions rather than writing copies.
+		assertEquals(1, activity.getComponentChanges().size(), toString(activity.getComponentChanges()));
+		final Activity.ComponentChange change = activity.getComponentChanges().iterator().next();
+		assertEquals(Activity.ComponentType.DESCRIPTION, change.getComponentType());
+		assertEquals(Activity.ChangeType.UPDATE, change.getChangeType());
 	}
 
 	@Test
@@ -548,6 +550,8 @@ class TraceabilityLogServiceTest extends AbstractTest {
 		concept = conceptService.find(conceptId, projectA.getPath());
 		assertEquals("20220131", concept.getEffectiveTime());
 		assertEquals("20220131", concept.getRelationship(relationshipId).getEffectiveTime());
+		// The reverted change restores the MAIN version rather than keeping an identical copy on project A
+		assertEquals("MAIN", concept.getRelationship(relationshipId).getPath());
 
 		// Create project B and make inactivation for the same relationship as above
 		Branch projectB = branchService.create("MAIN/B");
@@ -559,30 +563,20 @@ class TraceabilityLogServiceTest extends AbstractTest {
 		branchMergeService.mergeBranchSync(projectB.getPath(), "MAIN", Collections.singleton(conceptService.find(conceptId, projectB.getPath())));
 
 		// Rebase project A from MAIN without manual merge concepts
-		// Inferred relationship changes don't trigger merge review see details in mergeBranchSync() method
-		// The version on project A is ended and the version from MAIN is chosen by default
+		// Project A holds no version of the relationship, so there is nothing to resolve: the version from MAIN is simply visible
 		branchMergeService.mergeBranchSync("MAIN", projectA.getPath(), Collections.emptyList());
 
-		// Check the effectiveTimeNull is set to true in saved relationship after rebase
+		// Check project A sees the inactivation from project B, which is not yet released
 		concept = conceptService.find(conceptId, projectA.getPath());
+		assertFalse(concept.getRelationship(relationshipId).isActive());
 		assertNull(concept.getRelationship(relationshipId).getEffectiveTime());
 
+		// No content on project A was superseded by the rebase, so no component changes are logged
 		Activity rebaseActivity = getTraceabilityActivity();
 		assertEquals(REBASE, rebaseActivity.getActivityType());
 		assertEquals("MAIN/A", rebaseActivity.getBranchPath());
 		assertEquals("MAIN", rebaseActivity.getSourceBranch());
-		assertFalse(rebaseActivity.getChanges().isEmpty());
-
-		final Collection<Activity.ConceptActivity> changes = rebaseActivity.getChanges();
-		assertFalse(changes.isEmpty());
-		Activity.ConceptActivity conceptActivity = changes.iterator().next();
-		assertEquals(conceptId, conceptActivity.getConceptId());
-		assertEquals(1,  conceptActivity.getComponentChanges().size());
-		Activity.ComponentChange componentChange = conceptActivity.getComponentChanges().iterator().next();
-		assertEquals(relationshipId, componentChange.getComponentId());
-		assertEquals(Activity.ChangeType.UPDATE, componentChange.getChangeType());
-		assertTrue(componentChange.isSuperseded());
-		assertFalse(componentChange.isEffectiveTimeNull());
+		assertTrue(rebaseActivity.getChanges().isEmpty());
 	}
 
 	@Test
@@ -762,6 +756,45 @@ class TraceabilityLogServiceTest extends AbstractTest {
 		final Set<Activity.ComponentChange> componentChanges = activity.getChanges().iterator().next().getComponentChanges();
 		assertEquals(1, componentChanges.size());
 		assertEquals(Activity.ChangeType.UPDATE, componentChanges.iterator().next().getChangeType());
+	}
+
+	@Test
+	void testRevertedChangeOnTaskIsLoggedAsSuperseded() throws ServiceException, InterruptedException {
+		// Released concept with a preferred synonym
+		Concept concept = conceptService.create(new Concept("1000001").addFSN("Disease (disorder)")
+				.addDescription(new Description("Disease").setTypeId(SYNONYM)
+						.addLanguageRefsetMember(US_EN_LANG_REFSET, PREFERRED)
+						.addLanguageRefsetMember(GB_EN_LANG_REFSET, PREFERRED)), MAIN);
+		final CodeSystem codeSystem = codeSystemService.createCodeSystem(new CodeSystem("SNOMEDCT", MAIN));
+		codeSystemService.createVersion(codeSystem, 20230131, "20230131 release");
+		final String synonymId = concept.getDescriptions().stream().filter(d -> SYNONYM.equals(d.getTypeId())).findFirst().orElseThrow().getDescriptionId();
+		branchService.create("MAIN/A");
+
+		// Inactivate the synonym on the task
+		concept = conceptService.find(concept.getConceptId(), "MAIN/A");
+		concept.getDescription(synonymId).setActive(false);
+		concept.getDescription(synonymId).clearLanguageRefsetMembers();
+		conceptService.update(concept, "MAIN/A");
+		clearActivities();
+
+		// Reactivate it, which restores the parent versions rather than writing copies
+		concept = conceptService.find(concept.getConceptId(), "MAIN/A");
+		concept.getDescription(synonymId).setActive(true);
+		concept.getDescription(synonymId).clearLanguageRefsetMembers();
+		concept.getDescription(synonymId).setAcceptabilityMap(new HashMap<>(Map.of(US_EN_LANG_REFSET, PREFERRED_CONSTANT, GB_EN_LANG_REFSET, PREFERRED_CONSTANT)));
+		conceptService.update(concept, "MAIN/A");
+		assertEquals("MAIN", conceptService.find(concept.getConceptId(), "MAIN/A").getDescription(synonymId).getPath());
+
+		// The changes on the task cease to exist. They are logged as superseded changes, not deletions,
+		// so the earlier changes on the task no longer count and nothing is expected in the delta for these components.
+		Activity activity = getTraceabilityActivity();
+		assertNotNull(activity);
+		final Set<Activity.ComponentChange> componentChanges = activity.getChanges().iterator().next().getComponentChanges();
+		assertEquals(3, componentChanges.size(), toString(componentChanges));
+		assertEquals(1, componentChanges.stream().filter(change -> change.getComponentType() == Activity.ComponentType.DESCRIPTION).count(), toString(componentChanges));
+		assertEquals(2, componentChanges.stream().filter(change -> change.getComponentType() == Activity.ComponentType.REFERENCE_SET_MEMBER).count(), toString(componentChanges));
+		assertTrue(componentChanges.stream().allMatch(Activity.ComponentChange::isSuperseded), toString(componentChanges));
+		assertTrue(componentChanges.stream().noneMatch(change -> change.getChangeType() == Activity.ChangeType.DELETE), toString(componentChanges));
 	}
 
 	@Test

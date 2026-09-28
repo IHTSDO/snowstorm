@@ -77,6 +77,7 @@ public class TraceabilityLogServiceHelper {
 		final Collection<T> components = componentResult.values();
 
 		final Map<String, Set<String>> rebaseDuplicatesRemoved = commit.isRebase() ? BranchMetadataHelper.getRebaseDuplicatesRemoved(commit) : Collections.emptyMap();
+		final Set<String> componentsRestored = findComponentsWithAncestorVersionRestored(clazz, commit);
 
 		// Use new and ended sets to work out if components was created, updated or deleted
 		components.forEach(component -> {
@@ -91,11 +92,31 @@ public class TraceabilityLogServiceHelper {
 				if (commit.isRebase() && rebaseDuplicatesRemoved.computeIfAbsent(clazz.getSimpleName(), key -> Collections.emptySet()).contains(componentId)) {
 					// Component in child branch is replaced by newer version in parent branch. Log as change, not deletion.
 					component.markChanged();
+				} else if (componentsRestored.contains(componentId)) {
+					// Change in this branch was reverted, so the version from the parent branch is visible again.
+					// Log as change, not deletion, so that it is superseded and earlier changes on this branch no longer count.
+					component.markChanged();
 				} else {
 					component.markDeleted();
 				}
 			}
 		});
 		return components;
+	}
+
+	private <T extends SnomedComponent<T>> Set<String> findComponentsWithAncestorVersionRestored(Class<T> clazz, Commit commit) {
+		final Set<String> versionsRestored = commit.getEntityVersionsRestored().getOrDefault(clazz.getSimpleName(), Collections.emptySet());
+		if (versionsRestored.isEmpty()) {
+			return Collections.emptySet();
+		}
+		final Set<String> componentIds = new HashSet<>();
+		final NativeQuery query = new NativeQueryBuilder()
+				.withQuery(termsQuery("_id", versionsRestored))
+				.withPageable(LARGE_PAGE)
+				.build();
+		try (final SearchHitsIterator<T> stream = elasticsearchOperations.searchForStream(query, clazz)) {
+			stream.forEachRemaining(hit -> componentIds.add(hit.getContent().getId()));
+		}
+		return componentIds;
 	}
 }
