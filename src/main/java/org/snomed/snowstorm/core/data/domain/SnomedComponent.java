@@ -144,6 +144,15 @@ public abstract class SnomedComponent<C> extends DomainEntity<C> implements IdAn
 		return StringUtils.arrayToDelimitedString(getReleaseHashObjects(), "|");
 	}
 
+	/**
+	 * Components with the same release hash as the version visible on the ancestor branches are not saved on a child branch,
+	 * the ancestor version is restored instead. This stops reverted changes growing versionsReplaced and showing up in reviews.
+	 */
+	@Override
+	public boolean isSameContentAs(C ancestorVersion) {
+		return ancestorVersion instanceof SnomedComponent<?> ancestorComponent && buildReleaseHash().equals(ancestorComponent.buildReleaseHash());
+	}
+
 	protected abstract Object[] getReleaseHashObjects();
 
 	public boolean isActive() {
