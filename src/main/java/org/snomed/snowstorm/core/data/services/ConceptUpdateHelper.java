@@ -308,6 +308,10 @@ public class ConceptUpdateHelper extends ComponentService {
 				// Description language refset members
 				markDeletionsAndUpdates(description, existingDescription, existingDescriptionFromParent, Description::getLangRefsetMembers,
 						defaultModuleId, expectedExtensionModules, refsetMembersToPersist, rebaseConflictSave);
+
+				if (rebaseConflictSave) {
+					keepInactiveLangRefsetMembersFromThisBranch(description, existingDescription, commit.getBranch().getPath(), refsetMembersToPersist);
+				}
 			}
 
 			// Detach concept's components to ensure concept persisted without collections
@@ -824,6 +828,28 @@ public class ConceptUpdateHelper extends ComponentService {
 
 			}
 		});
+	}
+
+	/**
+	 * During a rebase the manually merged concept is the resolved version, but the lang refset members of an inactive description
+	 * are not represented in it, so an inactive member version from this branch would not be persisted. The rebase duplicate removal
+	 * would then end it in favour of any newer parent version, losing the inactivation. Persisting it again in the rebase commit
+	 * replaces the parent version instead, as happens for every other component of the merged concept.
+	 */
+	private void keepInactiveLangRefsetMembersFromThisBranch(Description newDescription, Description existingDescription, String branchPath,
+			List<ReferenceSetMember> refsetMembersToPersist) {
+
+		if (existingDescription == null) {
+			return;
+		}
+		Set<ReferenceSetMember> newMembers = newDescription.getLangRefsetMembers();
+		for (ReferenceSetMember existingMember : existingDescription.getLangRefsetMembers()) {
+			if (!existingMember.isActive() && branchPath.equals(existingMember.getPath())
+					&& !newMembers.contains(existingMember) && !refsetMembersToPersist.contains(existingMember)) {
+				existingMember.setChanged(true);
+				refsetMembersToPersist.add(existingMember);
+			}
+		}
 	}
 
 	private static <T> Predicate<T> distinctByKey(Function<? super T, ?> keyExtractor) {
