@@ -1402,6 +1402,92 @@ class BranchMergeServiceTest extends AbstractTest {
 	}
 
 	@Test
+	void testRevertedDescriptionChangeOnChildRestoresParentVersions() throws ServiceException {
+		final String conceptId = "100001000";
+		final String descriptionId = "10000011";
+		createAndReleaseConceptWithPreferredDescription(conceptId, descriptionId);
+
+		Description descriptionOnMain = conceptService.find(conceptId, "MAIN").getDescription(descriptionId);
+		Set<String> mainInternalIds = new HashSet<>();
+		mainInternalIds.add(descriptionOnMain.getInternalId());
+		descriptionOnMain.getLangRefsetMembers().forEach(member -> mainInternalIds.add(member.getInternalId()));
+
+		// Inactivate the description on the child
+		Concept conceptOnA = conceptService.find(conceptId, "MAIN/A");
+		conceptOnA.getDescription(descriptionId).setActive(false);
+		conceptOnA.getDescription(descriptionId).clearLanguageRefsetMembers();
+		conceptService.update(conceptOnA, "MAIN/A");
+		assertEquals("MAIN/A", conceptService.find(conceptId, "MAIN/A").getDescription(descriptionId).getPath());
+
+		// Reactivate it again, which reverts all content to the parent versions
+		conceptOnA = conceptService.find(conceptId, "MAIN/A");
+		conceptOnA.getDescription(descriptionId).setActive(true);
+		conceptOnA.getDescription(descriptionId).clearLanguageRefsetMembers();
+		conceptOnA.getDescription(descriptionId).setAcceptabilityMap(new HashMap<>(Map.of(
+				US_EN_LANG_REFSET, PREFERRED_CONSTANT,
+				GB_EN_LANG_REFSET, PREFERRED_CONSTANT)));
+		conceptService.update(conceptOnA, "MAIN/A");
+
+		// The parent versions are visible again and no longer replaced
+		Description descriptionOnA = conceptService.find(conceptId, "MAIN/A").getDescription(descriptionId);
+		assertTrue(descriptionOnA.isActive());
+		assertEquals("MAIN", descriptionOnA.getPath());
+		for (ReferenceSetMember member : descriptionOnA.getLangRefsetMembers()) {
+			assertTrue(member.isActive());
+			assertEquals("MAIN", member.getPath(), "Lang refset member " + member.getMemberId());
+		}
+		assertNoneReplaced("MAIN/A", mainInternalIds);
+
+		// Promotion writes nothing new to the parent for these components
+		branchMergeService.mergeBranchSync("MAIN/A", "MAIN", null);
+		Description descriptionOnMainAfterPromotion = conceptService.find(conceptId, "MAIN").getDescription(descriptionId);
+		assertEquals(descriptionOnMain.getInternalId(), descriptionOnMainAfterPromotion.getInternalId());
+	}
+
+	@Test
+	void testRevertedLangRefsetMemberUpdateOnChildRestoresParentVersion() throws ServiceException {
+		final String conceptId = "100001000";
+		final String descriptionId = "10000011";
+		createAndReleaseConceptWithPreferredDescription(conceptId, descriptionId);
+
+		ReferenceSetMember memberOnMain = conceptService.find(conceptId, "MAIN").getDescription(descriptionId)
+				.getLangRefsetMembersMap().get(US_EN_LANG_REFSET).iterator().next();
+
+		// Change the acceptability on the child and then change it back
+		ReferenceSetMember member = memberService.findMember("MAIN/A", memberOnMain.getMemberId());
+		member.setAdditionalField(ReferenceSetMember.LanguageFields.ACCEPTABILITY_ID, ACCEPTABLE);
+		memberService.updateMember("MAIN/A", member);
+		assertEquals("MAIN/A", memberService.findMember("MAIN/A", memberOnMain.getMemberId()).getPath());
+
+		member = memberService.findMember("MAIN/A", memberOnMain.getMemberId());
+		member.setAdditionalField(ReferenceSetMember.LanguageFields.ACCEPTABILITY_ID, PREFERRED);
+		memberService.updateMember("MAIN/A", member);
+
+		ReferenceSetMember memberOnA = memberService.findMember("MAIN/A", memberOnMain.getMemberId());
+		assertEquals(PREFERRED, memberOnA.getAdditionalField(ReferenceSetMember.LanguageFields.ACCEPTABILITY_ID));
+		assertEquals("MAIN", memberOnA.getPath());
+		assertNoneReplaced("MAIN/A", Set.of(memberOnMain.getInternalId()));
+	}
+
+	private void createAndReleaseConceptWithPreferredDescription(String conceptId, String descriptionId) throws ServiceException {
+		Concept concept = new Concept(conceptId, Concepts.CORE_MODULE)
+				.addDescription(new Description(descriptionId, "Orig")
+						.addLanguageRefsetMember(US_EN_LANG_REFSET, Concepts.PREFERRED)
+						.addLanguageRefsetMember(GB_EN_LANG_REFSET, Concepts.PREFERRED));
+		conceptService.create(concept, "MAIN");
+		codeSystemService.createVersion(codeSystemService.find(SNOMEDCT), 2021_07_01, "");
+		branchMergeService.rebaseSync("MAIN/A", null);
+	}
+
+	private void assertNoneReplaced(String branchPath, Set<String> internalIds) {
+		Set<String> allReplaced = branchService.findLatest(branchPath).getVersionsReplaced().values().stream()
+				.flatMap(Collection::stream).collect(Collectors.toSet());
+		for (String internalId : internalIds) {
+			assertFalse(allReplaced.contains(internalId), "Version " + internalId + " should not be in versionsReplaced of " + branchPath);
+		}
+	}
+
+	@Test
 	void testConflictConceptReleasedAndModifiedHistoricalAssociation() throws ServiceException {
 		final String conceptId = "100001000";
 		final String descriptionId = "10000011";
