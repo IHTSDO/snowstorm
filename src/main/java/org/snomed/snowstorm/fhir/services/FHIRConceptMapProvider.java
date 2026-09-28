@@ -91,9 +91,11 @@ public class FHIRConceptMapProvider implements IResourceProvider, FHIRConstants 
 			@OperationParam(name="coding") Coding coding,
 			@OperationParam(name="codeableConcept") CodeableConcept codeableConcept,
 			@OperationParam(name="target") String targetValueSet,
-			@OperationParam(name="targetsystem") String targetSystem,
+			@OperationParam(name="targetsystem") String targetSystemR4,
+			@OperationParam(name="targetSystem") String targetSystemR5,
 			@OperationParam(name="reverse") BooleanType reverse) {
 
+		String targetSystem = targetSystemR4 != null ? targetSystemR4 : targetSystemR5;
 		if (request.getMethod().equals(RequestMethod.POST.name()) && rawBody != null) {
 			List<Parameters.ParametersParameterComponent> parsed = fhirContext.newJsonParser().parseResource(Parameters.class, rawBody).getParameter();
 			TxResourceContext.set(FHIRHelper.extractTxResources(parsed));
@@ -196,7 +198,12 @@ public class FHIRConceptMapProvider implements IResourceProvider, FHIRConstants 
 			matchParam.addPart(new Parameters.ParametersParameterComponent(new StringType("equivalence"))
 					.setValue(new CodeType(mapTarget.getEquivalence())));
 		}
-		String elementTargetSystem = map.isImplicitSnomedMap() ? map.getTargetUri().replace(WHOLE_SYSTEM_VALUE_SET_URI_POSTFIX, "") : targetSystem;
+		String elementTargetSystem = targetSystem;
+		if (mapTarget.getSystem() != null) {
+			elementTargetSystem = mapTarget.getSystem();
+		} else if (map.isImplicitSnomedMap()) {
+			elementTargetSystem = map.getTargetUri().replace(WHOLE_SYSTEM_VALUE_SET_URI_POSTFIX, "");
+		}
 		matchParam.addPart(new Parameters.ParametersParameterComponent(new StringType("concept"))
 				.setValue(new Coding(elementTargetSystem, mapTarget.getCode(), mapTarget.getDisplay())));
 		matchParam.addPart(new Parameters.ParametersParameterComponent(new StringType("source"))

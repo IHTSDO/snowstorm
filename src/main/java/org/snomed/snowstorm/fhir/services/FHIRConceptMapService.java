@@ -9,10 +9,15 @@ import org.hl7.fhir.r4.model.OperationOutcome;
 import org.snomed.snowstorm.core.data.domain.CodeSystem;
 import org.snomed.snowstorm.core.data.domain.CodeSystemVersion;
 import org.snomed.snowstorm.core.data.domain.ConceptMini;
+import org.snomed.snowstorm.core.data.domain.Identifier;
 import org.snomed.snowstorm.core.data.domain.ReferenceSetMember;
+import org.snomed.snowstorm.core.data.services.CodeSystemDefaultConfigurationService;
 import org.snomed.snowstorm.core.data.services.CodeSystemService;
 import org.snomed.snowstorm.core.data.services.ConceptService;
+import org.snomed.snowstorm.core.data.services.IdentifierComponentService;
 import org.snomed.snowstorm.core.data.services.ReferenceSetMemberService;
+import org.snomed.snowstorm.core.data.services.pojo.CodeSystemDefaultConfiguration;
+import org.snomed.snowstorm.core.data.services.pojo.IdentifierSearchRequest;
 import org.snomed.snowstorm.core.data.services.pojo.MemberSearchRequest;
 import org.snomed.snowstorm.core.pojo.LanguageDialect;
 import org.snomed.snowstorm.fhir.config.FHIRConceptMapImplicitConfig;
@@ -47,6 +52,11 @@ public class FHIRConceptMapService {
 
 	public static final String WHOLE_SYSTEM_VALUE_SET_URI_POSTFIX = "?fhir_vs";
 
+	// Not a reference set, the map is generated from the alternate identifiers of the loaded extensions
+	public static final String ALTERNATE_IDENTIFIER_MAP_KEY = "equivalentConcept";
+
+	public static final String ALTERNATE_IDENTIFIER_MAP_URL = SNOMED_URI + "?fhir_cm=" + ALTERNATE_IDENTIFIER_MAP_KEY;
+
 	private static final PageRequest PAGE_OF_ONE_THOUSAND = PageRequest.of(0, 1_000);
 
 	private final FHIRConceptMapRepository conceptMapRepository;
@@ -69,13 +79,18 @@ public class FHIRConceptMapService {
 
 	private final FHIRSnomedModelTermCache snomedModelTermCache;
 
+	private final CodeSystemDefaultConfigurationService codeSystemDefaultConfigurationService;
+
+	private final IdentifierComponentService identifierComponentService;
+
 	// Implicit ConceptMaps - format http://snomed.info/sct[/(module)[/version/(version)]]?fhir_cm=(sctid)
 	private List<FHIRSnomedConceptMapConfig> snomedMaps;
 
 	// Map of SNOMED CT map correlation concepts to FHIR equivalence codes - http://hl7.org/fhir/concept-map-equivalence
 	private Map<String, Enumerations.ConceptMapEquivalence> snomedCorrelationToFhirEquivalenceMap;
 
-	public FHIRConceptMapService(FHIRConceptMapRepository conceptMapRepository, ElasticsearchOperations elasticsearchOperations, FHIRMapElementRepository mapElementRepository, FHIRCodeSystemService fhirCodeSystemService, CodeSystemService codeSystemService, ReferenceSetMemberService snomedRefsetMemberService, ConceptService snomedConceptService, FHIRConceptMapImplicitConfig implicitMapConfig, FHIRConceptService conceptService, FHIRSnomedModelTermCache snomedModelTermCache) {
+	public FHIRConceptMapService(FHIRConceptMapRepository conceptMapRepository, ElasticsearchOperations elasticsearchOperations, FHIRMapElementRepository mapElementRepository, FHIRCodeSystemService fhirCodeSystemService, CodeSystemService codeSystemService, ReferenceSetMemberService snomedRefsetMemberService, ConceptService snomedConceptService, FHIRConceptMapImplicitConfig implicitMapConfig, FHIRConceptService conceptService, FHIRSnomedModelTermCache snomedModelTermCache,
+			CodeSystemDefaultConfigurationService codeSystemDefaultConfigurationService, IdentifierComponentService identifierComponentService) {
 		this.conceptMapRepository = conceptMapRepository;
 		this.elasticsearchOperations = elasticsearchOperations;
 		this.mapElementRepository = mapElementRepository;
@@ -86,6 +101,8 @@ public class FHIRConceptMapService {
 		this.implicitMapConfig = implicitMapConfig;
 		this.conceptService = conceptService;
 		this.snomedModelTermCache = snomedModelTermCache;
+		this.codeSystemDefaultConfigurationService = codeSystemDefaultConfigurationService;
+		this.identifierComponentService = identifierComponentService;
 	}
 
 	@PostConstruct
@@ -149,6 +166,9 @@ public class FHIRConceptMapService {
 	public List<FHIRConceptMap> findAll() {
 		// Load first 1000 until we can figure out pagination
 		List<FHIRConceptMap> maps = new ArrayList<>(hasAnyImportedSnomedVersion() ? getSnomedMaps() : List.of());
+		if (!findAlternateSchemaBranches().isEmpty()) {
+			maps.add(buildAlternateIdentifierMap());
+		}
 		PageRequest pageRequest = PageRequest.of(0, PAGE_OF_ONE_THOUSAND.getPageSize() - maps.size());
 		maps.addAll(conceptMapRepository.findAll(pageRequest).getContent());
 		return maps;
@@ -184,6 +204,38 @@ public class FHIRConceptMapService {
 			generatedMaps.add(map);
 		}
 		return generatedMaps;
+	}
+
+	private FHIRConceptMap buildAlternateIdentifierMap() {
+		FHIRConceptMap map = new FHIRConceptMap();
+		map.setId("snomed_implicit_map_" + ALTERNATE_IDENTIFIER_MAP_KEY);
+		map.setUrl(ALTERNATE_IDENTIFIER_MAP_URL);
+		map.setName("SNOMED CT alternate identifiers");
+		map.setAlternateIdentifierMap(true);
+		return map;
+	}
+
+	// Branch of the latest version of each loaded code system that is configured with an alternate identifier schema
+	private Map<CodeSystemDefaultConfiguration, String> findAlternateSchemaBranches() {
+		Map<CodeSystemDefaultConfiguration, String> branches = new LinkedHashMap<>();
+		orEmpty(codeSystemDefaultConfigurationService.getConfigurations()).stream()
+				.filter(config -> config.alternateSchemaUri() != null && config.alternateSchemaSctid() != null)
+				.sorted(comparing(CodeSystemDefaultConfiguration::shortName))
+				.forEach(config -> {
+					CodeSystemVersion version = findLatestNonEmptyVersion(config.shortName());
+					if (version != null) {
+						branches.put(config, version.getBranchPath());
+					}
+				});
+		return branches;
+	}
+
+	private CodeSystemVersion findLatestNonEmptyVersion(String shortName) {
+		CodeSystemVersion version = codeSystemService.findLatestVisibleVersion(shortName);
+		if (version == null || CodeSystemService.isEmpty2000Version(version)) {
+			version = codeSystemService.findLatestImportedVersion(shortName);
+		}
+		return version == null || CodeSystemService.isEmpty2000Version(version) ? null : version;
 	}
 
 	Collection<FHIRConceptMap> findMaps(String url, Coding coding, String targetSystem, String sourceValueSet, String targetValueSet) {
@@ -234,12 +286,50 @@ public class FHIRConceptMapService {
 					.filter(map -> snomedPredicates.stream().allMatch(predicate -> predicate.test(map))).toList());
 		}
 
+		if (url == null || url.equals(ALTERNATE_IDENTIFIER_MAP_URL)) {
+			Set<String> alternateSchemaUris = findAlternateSchemaBranches().keySet().stream()
+					.map(CodeSystemDefaultConfiguration::alternateSchemaUri)
+					.collect(Collectors.toSet());
+			if (!alternateSchemaUris.isEmpty() && isAlternateIdentifierMapMatch(coding, targetSystem, sourceValueSet, targetValueSet, alternateSchemaUris)) {
+				maps.add(buildAlternateIdentifierMap());
+			}
+		}
+
 		return maps;
+	}
+
+	private boolean isAlternateIdentifierMapMatch(Coding coding, String targetSystem, String sourceValueSet, String targetValueSet, Set<String> alternateSchemaUris) {
+		if ((sourceValueSet != null && !sourceValueSet.endsWith(WHOLE_SYSTEM_VALUE_SET_URI_POSTFIX))
+				|| (targetValueSet != null && !targetValueSet.endsWith(WHOLE_SYSTEM_VALUE_SET_URI_POSTFIX))) {
+			return false;
+		}
+		String source = coding != null ? coding.getSystem() : wholeSystemOf(sourceValueSet);
+		String target = targetSystem != null ? targetSystem : wholeSystemOf(targetValueSet);
+		boolean snomedSource = FHIRHelper.isSnomedUri(source);
+		if (source != null && !snomedSource && !alternateSchemaUris.contains(source)) {
+			return false;
+		}
+		if (target == null) {
+			return true;
+		}
+		boolean snomedTarget = FHIRHelper.isSnomedUri(target);
+		if (!snomedTarget && !alternateSchemaUris.contains(target)) {
+			return false;
+		}
+		// One side must be SNOMED CT and the other an alternate identifier schema
+		return source == null || snomedSource != snomedTarget;
+	}
+
+	private static String wholeSystemOf(String valueSet) {
+		return valueSet != null ? valueSet.replace(WHOLE_SYSTEM_VALUE_SET_URI_POSTFIX, "") : null;
 	}
 
 	public Collection<FHIRMapElement> findMapElements(FHIRConceptMap map, Coding coding, String targetSystem, List<LanguageDialect> languageDialects) {
 		if (map.isImplicitSnomedMap()) {
 			return generateImplicitSnomedMapElements(map, coding, targetSystem, languageDialects);
+		}
+		if (map.isAlternateIdentifierMap()) {
+			return generateAlternateIdentifierMapElements(coding, targetSystem, languageDialects);
 		}
 
 		List<FHIRConceptMapGroup> groups = map.getGroup().stream()
@@ -289,9 +379,77 @@ public class FHIRConceptMapService {
 				.toList();
 
 		// Grab target display terms
-		fillMapTargetDisplayTerms(mapTargetsByCode, hasSnomedTarget, targetSystem, snomedVersion, languageDialects);
+		fillMapTargetDisplayTerms(mapTargetsByCode, hasSnomedTarget, targetSystem, snomedVersion.getSnomedBranch(), languageDialects);
 
 		return generatedElements;
+	}
+
+	private Collection<FHIRMapElement> generateAlternateIdentifierMapElements(Coding coding, String targetSystem, List<LanguageDialect> languageDialects) {
+		Map<CodeSystemDefaultConfiguration, String> alternateSchemaBranches = findAlternateSchemaBranches();
+		if (FHIRHelper.isSnomedUri(coding.getSystem())) {
+			return generateAlternateIdentifierTargets(coding, selectBranchesForSnomedSource(coding, targetSystem, alternateSchemaBranches));
+		}
+		return alternateSchemaBranches.entrySet().stream()
+				.filter(entry -> entry.getKey().alternateSchemaUri().equals(coding.getSystem()))
+				.findFirst()
+				.map(entry -> generateSnomedTargets(coding, entry.getKey(), entry.getValue(), languageDialects))
+				.orElse(Collections.emptyList());
+	}
+
+	private Map<CodeSystemDefaultConfiguration, String> selectBranchesForSnomedSource(Coding coding, String targetSystem,
+			Map<CodeSystemDefaultConfiguration, String> alternateSchemaBranches) {
+		Map<CodeSystemDefaultConfiguration, String> selected = new LinkedHashMap<>(alternateSchemaBranches);
+		selected.keySet().removeIf(config -> targetSystem != null && !config.alternateSchemaUri().equals(targetSystem));
+		if (coding.getVersion() == null) {
+			return selected;
+		}
+		// A version of an alternate schema code system limits the search to that version, any other version searches all of them
+		FHIRCodeSystemVersion requestedVersion = fhirCodeSystemService.findCodeSystemVersionOrThrow(
+				FHIRHelper.getCodeSystemVersionParams((IdType) null, null, null, coding));
+		String requestedShortName = requestedVersion.getSnomedCodeSystem() != null ? requestedVersion.getSnomedCodeSystem().getShortName() : null;
+		for (CodeSystemDefaultConfiguration config : alternateSchemaBranches.keySet()) {
+			if (config.shortName().equalsIgnoreCase(requestedShortName)) {
+				return selected.containsKey(config) ? Map.of(config, requestedVersion.getSnomedBranch()) : Collections.emptyMap();
+			}
+		}
+		return selected;
+	}
+
+	private List<FHIRMapElement> generateAlternateIdentifierTargets(Coding coding, Map<CodeSystemDefaultConfiguration, String> branches) {
+		List<FHIRMapElement> elements = new ArrayList<>();
+		for (Map.Entry<CodeSystemDefaultConfiguration, String> entry : branches.entrySet()) {
+			CodeSystemDefaultConfiguration config = entry.getKey();
+			IdentifierSearchRequest searchRequest = new IdentifierSearchRequest()
+					.active(true)
+					.identifierSchemeId(config.alternateSchemaSctid())
+					.referencedComponentId(coding.getCode());
+			Map<String, List<FHIRMapTarget>> mapTargetsByCode = new HashMap<>();
+			for (Identifier identifier : identifierComponentService.findIdentifiers(entry.getValue(), searchRequest, PAGE_OF_ONE_THOUSAND)) {
+				FHIRMapTarget mapTarget = new FHIRMapTarget(identifier.getAlternateIdentifier(), Enumerations.ConceptMapEquivalence.EQUIVALENT.toCode(), null)
+						.setSystem(config.alternateSchemaUri());
+				mapTargetsByCode.computeIfAbsent(mapTarget.getCode(), key -> new ArrayList<>()).add(mapTarget);
+				elements.add(new FHIRMapElement().setCode(coding.getCode()).setTarget(Collections.singletonList(mapTarget)));
+			}
+			fillMapTargetDisplayTerms(mapTargetsByCode, false, config.alternateSchemaUri(), entry.getValue(), null);
+		}
+		return elements;
+	}
+
+	private List<FHIRMapElement> generateSnomedTargets(Coding coding, CodeSystemDefaultConfiguration config, String branch, List<LanguageDialect> languageDialects) {
+		IdentifierSearchRequest searchRequest = new IdentifierSearchRequest()
+				.active(true)
+				.identifierSchemeId(config.alternateSchemaSctid())
+				.alternateIdentifier(coding.getCode());
+		List<FHIRMapElement> elements = new ArrayList<>();
+		Map<String, List<FHIRMapTarget>> mapTargetsByCode = new HashMap<>();
+		for (Identifier identifier : identifierComponentService.findIdentifiers(branch, searchRequest, PAGE_OF_ONE_THOUSAND)) {
+			FHIRMapTarget mapTarget = new FHIRMapTarget(identifier.getReferencedComponentId(), Enumerations.ConceptMapEquivalence.EQUIVALENT.toCode(), null)
+					.setSystem(SNOMED_URI);
+			mapTargetsByCode.computeIfAbsent(mapTarget.getCode(), key -> new ArrayList<>()).add(mapTarget);
+			elements.add(new FHIRMapElement().setCode(coding.getCode()).setTarget(Collections.singletonList(mapTarget)));
+		}
+		fillMapTargetDisplayTerms(mapTargetsByCode, true, SNOMED_URI, branch, languageDialects);
+		return elements;
 	}
 
 	private FHIRMapElement buildImplicitSnomedMapElement(ReferenceSetMember referenceSetMember, FHIRConceptMap map, Coding coding,
@@ -330,12 +488,12 @@ public class FHIRConceptMapService {
 	}
 
 	private void fillMapTargetDisplayTerms(Map<String, List<FHIRMapTarget>> mapTargetsByCode, boolean hasSnomedTarget,
-			String targetSystem, FHIRCodeSystemVersion snomedVersion, List<LanguageDialect> languageDialects) {
+			String targetSystem, String snomedBranch, List<LanguageDialect> languageDialects) {
 		if (mapTargetsByCode.isEmpty()) {
 			return;
 		}
 		if (hasSnomedTarget) {
-			Map<String, ConceptMini> conceptMiniMap = snomedConceptService.findConceptMinis(snomedVersion.getSnomedBranch(), mapTargetsByCode.keySet(), languageDialects)
+			Map<String, ConceptMini> conceptMiniMap = snomedConceptService.findConceptMinis(snomedBranch, mapTargetsByCode.keySet(), languageDialects)
 					.getResultsMap();
 			for (Map.Entry<String, ConceptMini> entry : conceptMiniMap.entrySet()) {
 				mapTargetsByCode.get(entry.getKey()).forEach(mapTarget -> mapTarget.setDisplay(entry.getValue().getPt().getTerm()));

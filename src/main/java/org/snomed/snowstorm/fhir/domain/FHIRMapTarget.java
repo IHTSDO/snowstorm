@@ -3,6 +3,7 @@ package org.snomed.snowstorm.fhir.domain;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import org.hl7.fhir.r4.model.ConceptMap;
 import org.hl7.fhir.r4.model.Enumerations;
+import org.springframework.data.annotation.Transient;
 import org.springframework.data.elasticsearch.annotations.Field;
 import org.springframework.data.elasticsearch.annotations.FieldType;
 
@@ -21,6 +22,11 @@ public class FHIRMapTarget {
 
 	@Field(type = FieldType.Keyword)
 	private String comment;
+
+	// Only set on generated targets whose system differs per target
+	@Transient
+	@JsonIgnore
+	private String system;
 
 	public FHIRMapTarget() {
 	}
@@ -80,6 +86,15 @@ public class FHIRMapTarget {
 
 	public void setComment(String comment) {
 		this.comment = comment;
+	}
+
+	public String getSystem() {
+		return system;
+	}
+
+	public FHIRMapTarget setSystem(String system) {
+		this.system = system;
+		return this;
 	}
 
 	@Override
