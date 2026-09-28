@@ -79,6 +79,9 @@ public class FHIRConceptMap {
 	@JsonIgnore
 	private String snomedRefsetEquivalence;
 
+	@JsonIgnore
+	private boolean alternateIdentifierMap;
+
 	public FHIRConceptMap() {
 		group = new ArrayList<>();
 	}
@@ -158,7 +161,12 @@ public class FHIRConceptMap {
 			map.addGroup(mapGroup.getHapi());
 		}
 
-		if (id != null && id.startsWith("snomed_implicit_map_")) {
+		if (alternateIdentifierMap) {
+			Narrative text = new Narrative();
+			text.setStatus(Narrative.NarrativeStatus.GENERATED);
+			text.setDivAsString("This SNOMED CT Implicit Concept Map is generated using the alternate identifiers of the loaded SNOMED CT extensions.");
+			map.setText(text);
+		} else if (id != null && id.startsWith("snomed_implicit_map_")) {
 			Narrative text = new Narrative();
 			text.setStatus(Narrative.NarrativeStatus.GENERATED);
 			text.setDivAsString(format("This SNOMED CT Implicit Concept Map from %s to %s is generated using Reference Set %s.",
@@ -319,5 +327,13 @@ public class FHIRConceptMap {
 
 	public void setSnomedRefsetEquivalence(String snomedRefsetEquivalence) {
 		this.snomedRefsetEquivalence = snomedRefsetEquivalence;
+	}
+
+	public boolean isAlternateIdentifierMap() {
+		return alternateIdentifierMap;
+	}
+
+	public void setAlternateIdentifierMap(boolean alternateIdentifierMap) {
+		this.alternateIdentifierMap = alternateIdentifierMap;
 	}
 }
