@@ -1402,6 +1402,64 @@ class BranchMergeServiceTest extends AbstractTest {
 	}
 
 	@Test
+	void testManualMergeKeepsChildLangRefsetInactivationWhenParentChangeWasNoOp() throws ServiceException {
+		final String conceptId = "100001000";
+		final String descriptionId = "10000011";
+
+		// Release a concept with a preferred description
+		Concept releaseVersionConcept = new Concept(conceptId, Concepts.CORE_MODULE)
+				.addDescription(new Description(descriptionId, "Orig")
+						.addLanguageRefsetMember(US_EN_LANG_REFSET, Concepts.PREFERRED)
+						.addLanguageRefsetMember(GB_EN_LANG_REFSET, Concepts.PREFERRED));
+		conceptService.create(releaseVersionConcept, "MAIN");
+		codeSystemService.createVersion(codeSystemService.find(SNOMEDCT), 2021_07_01, "");
+		branchMergeService.rebaseSync("MAIN/A", null);
+
+		// On the child, inactivate the description, which inactivates its lang refset members
+		Concept conceptOnA = conceptService.find(conceptId, "MAIN/A");
+		conceptOnA.getDescription(descriptionId).setActive(false);
+		conceptOnA.getDescription(descriptionId).clearLanguageRefsetMembers();
+		conceptService.update(conceptOnA, "MAIN/A");
+		assertLangRefsetMembersActive(conceptService.find(conceptId, "MAIN/A").getDescription(descriptionId), false);
+
+		// On the parent, inactivate and then reactivate the same description.
+		// The content ends up as released but new versions of the description and its members are written.
+		Concept conceptOnMain = conceptService.find(conceptId, "MAIN");
+		conceptOnMain.getDescription(descriptionId).setActive(false);
+		conceptOnMain.getDescription(descriptionId).clearLanguageRefsetMembers();
+		conceptService.update(conceptOnMain, "MAIN");
+		conceptOnMain = conceptService.find(conceptId, "MAIN");
+		conceptOnMain.getDescription(descriptionId).setActive(true);
+		conceptOnMain.getDescription(descriptionId).clearLanguageRefsetMembers();
+		conceptOnMain.getDescription(descriptionId).setAcceptabilityMap(new HashMap<>(Map.of(
+				US_EN_LANG_REFSET, PREFERRED_CONSTANT,
+				GB_EN_LANG_REFSET, PREFERRED_CONSTANT)));
+		conceptService.update(conceptOnMain, "MAIN");
+		Description descriptionOnMain = conceptService.find(conceptId, "MAIN").getDescription(descriptionId);
+		assertTrue(descriptionOnMain.isActive());
+		assertEquals(2021_07_01, descriptionOnMain.getEffectiveTimeI());
+		assertLangRefsetMembersActive(descriptionOnMain, true);
+
+		// Rebase the child, keeping the child's version of the concept in the manual merge
+		conceptOnA = conceptService.find(conceptId, "MAIN/A");
+		branchMergeService.rebaseSync("MAIN/A", Collections.singleton(conceptOnA));
+
+		// The child's lang refset member inactivations must survive the rebase
+		Description mergedDescription = conceptService.find(conceptId, "MAIN/A").getDescription(descriptionId);
+		assertFalse(mergedDescription.isActive());
+		assertLangRefsetMembersActive(mergedDescription, false);
+	}
+
+	private void assertLangRefsetMembersActive(Description description, boolean expectedActive) {
+		for (String langRefset : List.of(US_EN_LANG_REFSET, GB_EN_LANG_REFSET)) {
+			Set<ReferenceSetMember> members = description.getLangRefsetMembersMap().get(langRefset);
+			assertNotNull(members, "No " + langRefset + " members on description " + description.getDescriptionId());
+			assertEquals(1, members.size());
+			assertEquals(expectedActive, members.iterator().next().isActive(), "Active state of " + langRefset + " member");
+		}
+	}
+
+	@Test
 	void testConflictConceptReleasedAndModifiedHistoricalAssociation() throws ServiceException {
 		final String conceptId = "100001000";
 		final String descriptionId = "10000011";
