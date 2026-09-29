@@ -273,7 +273,8 @@ public class FHIRValueSetService implements FHIRConstants {
 			conceptsPage = expandSnomedConceptsPage(allInclusionVersions, codeSelectionCriteria, filter, activeOnly, pageRequest, params, displayLanguage, includeDesignations);
 		} else if (allInclusionVersions.stream().allMatch(v -> v.getInlineCodeSystem() != null)) {
 			// All inclusion versions carry inline concepts from the tx-resource overlay — expand in-memory.
-			conceptsPage = buildInlineConceptsPage(allInclusionVersions, codeSelectionCriteria, filter, activeOnly, pageRequest);
+			conceptsPage = buildInlineConceptsPage(allInclusionVersions, codeSelectionCriteria, filter,
+					FHIRValueSetConstraintsService.adjustActiveOnlyFlag(hapiValueSet.getCompose(), activeOnly, true), pageRequest);
 		} else {
 			conceptsPage = expandFhirConceptsPage(codeSelectionCriteria, filter, pageRequest);
 		}
@@ -849,6 +850,10 @@ public class FHIRValueSetService implements FHIRConstants {
 		for (ConceptConstraint c : orGroup) {
 			if (c.hasEcl()) continue; // ECL requires SNOMED — skip
 			hasEvaluable = true;
+			// activeOnly-only constraint selects every code; inactive ones are dropped in buildInlineConceptIfIncluded
+			if (c.getCodes() == null && c.getParent() == null && c.getAncestor() == null && c.getProperties() == null) {
+				matched.addAll(allCodes);
+			}
 			if (c.getCodes() != null && !c.getCodes().isEmpty()) {
 				matched.addAll(c.getCodes());
 			}
@@ -955,7 +960,7 @@ public class FHIRValueSetService implements FHIRConstants {
 		if (multipleIncludes) {
 			component.setVersion(idToVersionStr.get(concept.getCodeSystemVersion()));
 		}
-		if (!concept.isActive()) {
+		if (!concept.isActive() && !hasRetiredStatus(concept)) {
 			addPropertyToContains(PROPERTY_STATUS, component, new CodeType("inactive"));
 			addPropertyToExpansion(PROPERTY_STATUS, "http://hl7.org/fhir/concept-properties#status", expansion);
 		}
@@ -973,6 +978,11 @@ public class FHIRValueSetService implements FHIRConstants {
 		addInfoFromReferences(component, references);
 		setDisplayAndDesignations(component, concept, idAndVersionToLanguage.get(concept.getCodeSystemVersion()), params.getIncludeDesignationsAsBool(), fhirDisplayLanguage, params.getDesignations());
 		return component;
+	}
+
+	private static boolean hasRetiredStatus(FHIRConcept concept) {
+		return concept.getProperties().getOrDefault(PROPERTY_STATUS, emptyList()).stream()
+				.anyMatch(p -> "retired".equals(p.getValue()));
 	}
 
 	private void applyConceptPropertyToContains(String key, List<FHIRProperty> value, ValueSet.ValueSetExpansionContainsComponent component, ValueSet.ValueSetExpansionComponent expansion) {
