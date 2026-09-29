@@ -57,6 +57,7 @@ public class FHIRValueSetService implements FHIRConstants {
 	public static final String LABEL = "label";
 	public static final String NOT_FOUND = "not-found";
 	private static final String PROPERTY_STATUS = "status";
+	private static final String RETIRED = "retired";
 	public static final String ORDER = "order";
 	public static final String VS_INVALID = "vs-invalid";
 	public static final String WARNING_DASH = "warning-";
@@ -71,7 +72,7 @@ public class FHIRValueSetService implements FHIRConstants {
 	public static final String HL7_SD_VS_EXPANSION_PARAMETER = "http://hl7.org/fhir/StructureDefinition/valueset-expansion-parameter";
 	public static final String HL7_SD_VS_LABEL = "http://hl7.org/fhir/StructureDefinition/valueset-label";
 	public static final String HL7_SD_VS_SUPPLEMENT = "http://hl7.org/fhir/StructureDefinition/valueset-supplement";
-	
+
 	public static final String MISSING_VALUESET = "https://github.com/IHTSDO/snowstorm/missing-valueset";
 	public static final String VS_DEF_NOT_FOUND = "A definition for the value Set '%s' could not be found";
 
@@ -323,7 +324,7 @@ public class FHIRValueSetService implements FHIRConstants {
 		if (!versionCheckIssues.isEmpty()) {
 			OperationOutcome operationOutcome = new OperationOutcome();
 			operationOutcome.setIssue(versionCheckIssues);
-			throw new SnowstormFHIRServerResponseException(422, versionCheckIssues.get(0).getDetails().getText(), operationOutcome);
+			throw new SnowstormFHIRServerResponseException(422, versionCheckIssues.getFirst().getDetails().getText(), operationOutcome);
 		}
 	}
 
@@ -899,8 +900,8 @@ public class FHIRValueSetService implements FHIRConstants {
 	private void applyOverlaySupplementToConcepts(CodeSystem supplement, Page<FHIRConcept> conceptsPage) {
 		if (supplement.getConcept().isEmpty()) return;
 
-		Map<String, CodeSystem.ConceptDefinitionComponent> supplementByCode = supplement.getConcept().stream()
-				.collect(Collectors.toMap(CodeSystem.ConceptDefinitionComponent::getCode, c -> c, (a, b) -> a));
+		Map<String, CodeSystem.ConceptDefinitionComponent> supplementByCode = new HashMap<>();
+		supplement.getConcept().forEach(c -> supplementByCode.putIfAbsent(c.getCode(), c));
 
 		for (FHIRConcept concept : conceptsPage) {
 			CodeSystem.ConceptDefinitionComponent supplementConcept = supplementByCode.get(concept.getCode());
@@ -982,16 +983,16 @@ public class FHIRValueSetService implements FHIRConstants {
 
 	private static boolean hasRetiredStatus(FHIRConcept concept) {
 		return concept.getProperties().getOrDefault(PROPERTY_STATUS, emptyList()).stream()
-				.anyMatch(p -> "retired".equals(p.getValue()));
+				.anyMatch(p -> RETIRED.equals(p.getValue()));
 	}
 
 	private void applyConceptPropertyToContains(String key, List<FHIRProperty> value, ValueSet.ValueSetExpansionContainsComponent component, ValueSet.ValueSetExpansionComponent expansion) {
 		if (key.equals(PROPERTY_STATUS)) {
 			value.stream()
-					.filter(x -> x.getValue().equals("retired") || x.getValue().equals("deprecated"))
+					.filter(x -> x.getValue().equals(RETIRED) || x.getValue().equals("deprecated"))
 					.findFirst()
 					.ifPresent(x -> {
-						if ("retired".equals(x.getValue())) {
+						if (RETIRED.equals(x.getValue())) {
 							component.setInactive(true);
 						}
 						addPropertyToContains(PROPERTY_STATUS, component, new CodeType(x.getValue()));
@@ -1107,7 +1108,7 @@ public class FHIRValueSetService implements FHIRConstants {
 								if (locale == null) {
 									throw new IllegalArgumentException("Unable to determine locale for language tag: " + d.getLanguage());
 								}
-								languageToVarieties.computeIfAbsent(locale.getLanguage(), k -> new ArrayList<>()).add(locale);
+								languageToVarieties.computeIfAbsent(locale.getLanguage(), _ -> new ArrayList<>()).add(locale);
 							}
 							return d.getLanguage();
 						}));
@@ -1147,8 +1148,8 @@ public class FHIRValueSetService implements FHIRConstants {
 			//Not clear on the use of HL7_DESIGNATION_USAGE.   If we only have one designation in the required language, use it for display
 			List<ValueSet.ConceptReferenceDesignationComponent> designationsInRequestedLanguage = languageToDesignation.getOrDefault(requestedLanguage, emptyList());
 			if (designationsInRequestedLanguage.size() == 1) {
-				component.setDisplay(designationsInRequestedLanguage.get(0).getValue());
-				return designationsInRequestedLanguage.get(0).getLanguage();
+				component.setDisplay(designationsInRequestedLanguage.getFirst().getValue());
+				return designationsInRequestedLanguage.getFirst().getLanguage();
 			}
 			logger.warn("Multiple or no designations found for requested display language '{}', unable to determine single display value for concept code '{}'.",
 					requestedLanguage, component.getCode());
@@ -1323,7 +1324,7 @@ public class FHIRValueSetService implements FHIRConstants {
 	private static String determineRequestedLanguage(String defaultConceptLanguage, List<Pair<LanguageDialect, Double>> weightedLanguages, Set<String> availableVarieties, Map<String, List<Locale>> languageToVarieties) {
 		List<Pair<LanguageDialect,Double>> allowedLanguages = new ArrayList<>(weightedLanguages.stream().filter(x -> (x.getRight()>0d)).toList());
 		allowedLanguages.sort( (a,b) -> a.getRight().compareTo(b.getRight())*-1);
-		String requestedLanguage = allowedLanguages.isEmpty() ?defaultConceptLanguage:allowedLanguages.get(0).getLeft().getLanguageCode();
+		String requestedLanguage = allowedLanguages.isEmpty() ?defaultConceptLanguage:allowedLanguages.getFirst().getLeft().getLanguageCode();
 		if (requestedLanguage != null && !availableVarieties.contains(requestedLanguage)){
 			Locale requested = Locale.forLanguageTag(requestedLanguage);
 			if(languageToVarieties.get(requested.getLanguage())==null){
