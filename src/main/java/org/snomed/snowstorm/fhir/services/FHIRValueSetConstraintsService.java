@@ -56,7 +56,7 @@ public class FHIRValueSetConstraintsService implements FHIRConstants {
 		return criteria;
 	}
 
-	private boolean adjustActiveOnlyFlag(ValueSet.ValueSetComposeComponent compose,
+	static boolean adjustActiveOnlyFlag(ValueSet.ValueSetComposeComponent compose,
 	                                     boolean activeOnly,
 	                                     boolean isExpandFlow) {
 		if (!activeOnly && isExpandFlow && compose.hasInactive()) {

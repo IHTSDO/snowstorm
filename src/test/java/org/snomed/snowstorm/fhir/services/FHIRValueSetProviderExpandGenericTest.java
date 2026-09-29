@@ -199,6 +199,91 @@ class FHIRValueSetProviderExpandGenericTest extends AbstractFHIRTest {
 	}
 
 	@Test
+	void testExpandTxResourceWholeCodeSystemActiveOnly() {
+		assertExpand(expandInlineWholeCodeSystem("", true), 2, "[a|'A', b1|'B1']");
+	}
+
+	@Test
+	void testExpandTxResourceWholeCodeSystemComposeExcludesInactive() {
+		assertExpand(expandInlineWholeCodeSystem("\"inactive\": false,", false), 2, "[a|'A', b1|'B1']");
+	}
+
+	@Test
+	void testExpandTxResourceRetiredCodeHasSingleStatus() {
+		ResponseEntity<String> response = expandInlineWholeCodeSystem("", false);
+		assertExpand(response, 3, "[a|'A', b|'B', b1|'B1']");
+		ValueSet.ValueSetExpansionContainsComponent retired = fhirJsonParser.parseResource(ValueSet.class, response.getBody())
+				.getExpansion().getContains().stream().filter(c -> c.getCode().equals("b")).findFirst().orElseThrow();
+		assertTrue(retired.getInactive());
+		List<String> statuses = retired.getExtensionsByUrl(FHIRValueSetService.HL7_SD_EVS_CONTAINS_PROPERTY).stream()
+				.filter(e -> "status".equals(e.getExtensionString("code")))
+				.map(e -> e.getExtensionByUrl("value").getValue().primitiveValue())
+				.toList();
+		assertEquals(List.of("retired"), statuses);
+	}
+
+	private ResponseEntity<String> expandInlineWholeCodeSystem(String composeInactive, boolean activeOnly) {
+		HttpEntity<String> expandRequest = new HttpEntity<>("""
+                {
+                	"resourceType": "Parameters",
+                	"parameter": [
+                		{
+                			"name": "valueSet",
+                			"resource": {
+                				"resourceType": "ValueSet",
+                				"url": "http://example.com/fhir/vs/inline-all",
+                				"compose": {
+                					%s
+                					"include": [
+                						{
+                							"system": "http://example.com/fhir/cs/inline"
+                						}
+                					]
+                				}
+                			}
+                		},
+                		{
+                			"name": "tx-resource",
+                			"resource": {
+                				"resourceType": "CodeSystem",
+                				"url": "http://example.com/fhir/cs/inline",
+                				"version": "1",
+                				"status": "active",
+                				"content": "complete",
+                				"concept": [
+                					{
+                						"code": "a",
+                						"display": "A"
+                					},
+                					{
+                						"code": "b",
+                						"display": "B",
+                						"property": [
+                							{
+                								"code": "status",
+                								"valueCode": "retired"
+                							}
+                						],
+                						"concept": [
+                							{
+                								"code": "b1",
+                								"display": "B1"
+                							}
+                						]
+                					}
+                				]
+                			}
+                		},
+                		{
+                			"name": "activeOnly",
+                			"valueBoolean": %s
+                		}
+                	]
+                }""".formatted(composeInactive, activeOnly), headers);
+		return restTemplate.exchange(baseUrl + "/ValueSet/$expand", HttpMethod.POST, expandRequest, String.class);
+	}
+
+	@Test
 	void testSearchMultipleWordsOrPrefixes() {
 		// "display": "additive, propagating",
 		System.out.println("----------");
