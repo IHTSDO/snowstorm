@@ -1,7 +1,6 @@
 package org.snomed.snowstorm.rest.config;
 
 import co.elastic.clients.elasticsearch._types.ElasticsearchException;
-import co.elastic.clients.elasticsearch._types.ErrorResponse;
 import io.kaicode.elasticvc.api.BranchNotFoundException;
 import org.apache.catalina.connector.ClientAbortException;
 import org.slf4j.Logger;
@@ -10,6 +9,7 @@ import org.snomed.langauges.ecl.ECLException;
 import org.snomed.snowstorm.core.data.services.NotFoundException;
 import org.snomed.snowstorm.core.data.services.TooCostlyException;
 import org.snomed.snowstorm.core.data.services.postcoordination.TransformationException;
+import org.snomed.snowstorm.core.util.ElasticsearchErrorUtil;
 import org.springframework.data.elasticsearch.UncategorizedElasticsearchException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -132,44 +132,11 @@ public class RestControllerAdvice {
 	public ResponseEntity<Map<String, Object>> handleElasticsearchException(Exception exception) {
 		logger.error(exception.getMessage(), exception);
 
-		ErrorResponse errorResponse = getErrorResponse(exception);
-		HttpStatus status = getHttpStatus(errorResponse);
-		String message = getMessage(errorResponse, exception);
+		HttpStatus status = ElasticsearchErrorUtil.findErrorResponse(exception)
+				.map(errorResponse -> HttpStatus.resolve(errorResponse.status()))
+				.orElse(HttpStatus.INTERNAL_SERVER_ERROR);
+		String message = ElasticsearchErrorUtil.getFirstRootCauseReason(exception).orElse(exception.getMessage());
 
 		return ResponseEntity.status(status).body(Map.of("error", status, "message", message));
-	}
-
-	private ErrorResponse getErrorResponse(Exception exception) {
-		if (exception instanceof UncategorizedElasticsearchException uncategorizedElasticsearchException) {
-			Throwable rootCause = uncategorizedElasticsearchException.getRootCause();
-			if (rootCause instanceof ElasticsearchException elasticsearchException) {
-				return elasticsearchException.response();
-			}
-		} else if (exception instanceof ElasticsearchException elasticsearchException) {
-			return elasticsearchException.response();
-		}
-
-		return null;
-	}
-
-	private HttpStatus getHttpStatus(ErrorResponse errorResponse) {
-		if (errorResponse != null) {
-			HttpStatus resolved = HttpStatus.resolve(errorResponse.status());
-			if (resolved != null) {
-				return resolved;
-			}
-		}
-
-		return HttpStatus.INTERNAL_SERVER_ERROR;
-	}
-
-	private String getMessage(ErrorResponse errorResponse, Exception exception) {
-		if (errorResponse != null && !errorResponse.error().rootCause().isEmpty()) {
-			String reason = errorResponse.error().rootCause().getFirst().reason();
-			if (reason != null) {
-				return reason;
-			}
-		}
-		return exception.getMessage();
 	}
 }
