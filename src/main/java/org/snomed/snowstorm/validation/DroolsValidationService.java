@@ -5,6 +5,7 @@ import io.kaicode.elasticvc.api.BranchCriteria;
 import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.api.VersionControlHelper;
 import io.kaicode.elasticvc.domain.Branch;
+import io.kaicode.elasticvc.domain.Metadata;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 import org.ihtsdo.drools.RuleExecutor;
 import org.ihtsdo.drools.RuleExecutorFactory;
@@ -105,7 +106,7 @@ public class DroolsValidationService {
 		// Get drools assertion groups to run
 		Branch branchWithInheritedMetadata = branchService.findBranchOrThrow(branchPath, true);
 		String assertionGroupNamesMetaString = branchWithInheritedMetadata.getMetadata().getString(BranchMetadataKeys.ASSERTION_GROUP_NAMES);
-		Set<String> assertionExclusionList = getAssertionExclusionList(branchWithInheritedMetadata);
+		Set<String> assertionExclusionList = getAssertionExclusionList(branchWithInheritedMetadata.getMetadata());
 		if (assertionGroupNamesMetaString == null) {
 			throw new ServiceException("'" + BranchMetadataKeys.ASSERTION_GROUP_NAMES + "' not set on branch metadata for Snomed-Drools validation configuration.");
 		}
@@ -172,12 +173,51 @@ public class DroolsValidationService {
 	}
 
 	@Nullable
-	private Set<String> getAssertionExclusionList(Branch branch) {
-		Set<String> assertionExclusionList = null;
-		if (branch.getMetadata() != null && branch.getMetadata().containsKey(BranchMetadataKeys.ASSERTION_EXCLUSION_LIST)) {
-			assertionExclusionList = new HashSet<>(branch.getMetadata().getList(BranchMetadataKeys.ASSERTION_EXCLUSION_LIST));
+	private Set<String> getAssertionExclusionList(Metadata branchMetadata) {
+		if (branchMetadata == null) {
+			return null;
 		}
-		return assertionExclusionList;
+
+		Map<String, Object> metadataMap = branchMetadata.getAsMap();
+		Object exclusionMap = metadataMap.get(BranchMetadataKeys.ASSERTION_EXCLUSION_MAP);
+		Object exclusionList = metadataMap.get(BranchMetadataKeys.ASSERTION_EXCLUSION_LIST);
+		boolean hasExclusionMap = exclusionMap instanceof Map<?, ?>;
+		boolean hasExclusionList = exclusionList instanceof Collection<?>;
+		if (!hasExclusionMap && !hasExclusionList) {
+			return null;
+		}
+
+		Set<String> exclusions = new LinkedHashSet<>();
+		if (hasExclusionMap) {
+			String defaultModuleId = branchMetadata.getString(BranchMetadataKeys.DEFAULT_MODULE_ID);
+			collectAssertionExclusionsFromMap(exclusions, (Map<?, ?>) exclusionMap, defaultModuleId);
+		}
+		if (hasExclusionList) {
+			addExclusionUuids(exclusions, (Collection<?>) exclusionList);
+		}
+		return exclusions;
+	}
+
+	private void collectAssertionExclusionsFromMap(Set<String> exclusions, Map<?, ?> exclusionMap, String defaultModuleId) {
+		for (Map.Entry<?, ?> entry : exclusionMap.entrySet()) {
+			if (isApplicableExclusionKey(String.valueOf(entry.getKey()), defaultModuleId) && entry.getValue() instanceof Collection<?> uuids) {
+				addExclusionUuids(exclusions, uuids);
+			}
+		}
+	}
+
+	private void addExclusionUuids(Set<String> exclusions, Collection<?> uuids) {
+		uuids.stream()
+				.filter(Objects::nonNull)
+				.map(Object::toString)
+				.map(String::trim)
+				.filter(StringUtils::hasLength)
+				.forEach(exclusions::add);
+	}
+
+	private boolean isApplicableExclusionKey(String key, String defaultModuleId) {
+		return BranchMetadataKeys.ASSERTION_EXCLUSION_DEFAULT.equals(key)
+				|| (StringUtils.hasLength(defaultModuleId) && defaultModuleId.equals(key));
 	}
 
 	private void setReleaseHashAndEffectiveTime(Set<Concept> concepts, BranchCriteria branchCriteria) {
