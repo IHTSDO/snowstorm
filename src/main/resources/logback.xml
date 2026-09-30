@@ -1,5 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <configuration>
+	<conversionRule conversionWord="esEx" class="org.snomed.snowstorm.config.ElasticsearchRootCauseThrowableConverter"/>
+	<!-- Must be set before defaults.xml, which builds the log patterns from it -->
+	<property name="LOG_EXCEPTION_CONVERSION_WORD" value="%esEx"/>
 	<include resource="org/springframework/boot/logging/logback/defaults.xml"/>
 	<include resource="org/springframework/boot/logging/logback/console-appender.xml"/>
 	<root level="INFO">

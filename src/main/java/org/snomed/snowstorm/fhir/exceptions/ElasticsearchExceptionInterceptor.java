@@ -5,13 +5,11 @@ import ca.uhn.fhir.interceptor.api.Interceptor;
 import ca.uhn.fhir.interceptor.api.Pointcut;
 import ca.uhn.fhir.rest.api.server.RequestDetails;
 import ca.uhn.fhir.rest.server.exceptions.BaseServerResponseException;
-import co.elastic.clients.elasticsearch._types.ElasticsearchException;
-import co.elastic.clients.elasticsearch._types.ErrorCause;
 import org.hl7.fhir.instance.model.api.IBaseOperationOutcome;
 import org.hl7.fhir.r4.model.Parameters;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.data.elasticsearch.UncategorizedElasticsearchException;
+import org.snomed.snowstorm.core.util.ElasticsearchErrorUtil;
 
 @Interceptor
 public class ElasticsearchExceptionInterceptor {
@@ -60,15 +58,8 @@ public class ElasticsearchExceptionInterceptor {
 	}
 
 	private void logRootCauseIfElastic(Throwable exception) {
-		if (exception instanceof UncategorizedElasticsearchException uncategorizedElasticsearchException) {
-			Throwable rootCause = uncategorizedElasticsearchException.getRootCause();
-			if (rootCause != null && rootCause instanceof ElasticsearchException esException) {
-				ErrorCause rootErrorCause = esException.response().error().rootCause().get(0);
-				logger.error("Elasticsearch error root cause: {}", rootErrorCause);
-			}
-		} else if (exception.getCause() != null) {
-			logRootCauseIfElastic(exception.getCause());
-		}
+		ElasticsearchErrorUtil.getRootCauses(exception).stream().findFirst()
+				.ifPresent(rootCause -> logger.error("Elasticsearch error root cause: {}", rootCause));
 	}
 }
 

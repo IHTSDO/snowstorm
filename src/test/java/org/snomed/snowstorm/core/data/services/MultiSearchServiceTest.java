@@ -14,12 +14,15 @@ import org.snomed.snowstorm.core.data.domain.Concept;
 import org.snomed.snowstorm.core.data.domain.Concepts;
 import org.snomed.snowstorm.core.data.domain.Description;
 import org.snomed.snowstorm.core.data.services.pojo.MultiSearchDescriptionCriteria;
+import org.snomed.snowstorm.core.util.ElasticsearchErrorUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.elasticsearch.UncategorizedElasticsearchException;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
+
+import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -159,12 +162,14 @@ class MultiSearchServiceTest extends AbstractTest {
 	@Test
 	void testExceptionHandling() {
 		// assert throws exception
-		Throwable rootCause = assertThrows(UncategorizedElasticsearchException.class, this::simulateElasticsearchException).getRootCause();
+		UncategorizedElasticsearchException exception = assertThrows(UncategorizedElasticsearchException.class, this::simulateElasticsearchException);
+		Throwable rootCause = exception.getRootCause();
 		assertTrue(rootCause instanceof ElasticsearchException);
 		ErrorResponse errorResponse = ((ElasticsearchException) rootCause).response();
 		assertNotNull(errorResponse);
 		assertEquals(400, errorResponse.status());
 		assertTrue(errorResponse.toString().contains("\"type\":\"query_shard_exception\",\"reason\":\"failed to create query: For input string: \\\"2024-09-01\\\""), "Error response: " + errorResponse);
+		assertEquals(Optional.of("failed to create query: For input string: \"2024-09-01\""), ElasticsearchErrorUtil.getFirstRootCauseReason(exception));
 	}
 
 	private Page<Description> runSearch(String term) {
