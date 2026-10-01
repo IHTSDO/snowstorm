@@ -364,6 +364,27 @@ class ECLQueryServiceFilterTest {
 	}
 
 	@Test
+	public void testMemberFilterWithoutMemberOf() {
+		Set<String> expected = new HashSet<>(select("^ 447562003 |ICD-10 complex map reference set| {{ M active = 1 }}"));
+		expected.addAll(select("^ " + REFSET_SAME_AS_ASSOCIATION + " {{ M active = 1 }}"));
+		assertEquals(expected, select("^ (447562003 |ICD-10 complex map reference set| OR " + REFSET_SAME_AS_ASSOCIATION + ") {{ M active = 1 }}"));
+		assertTrue(select("<< ^ 447562003 |ICD-10 complex map reference set| {{ M mapTarget = \"J45.9\" }}").contains("427603009"));
+
+		assertMemberFilterWithoutMemberOfRejected("(^ 447562003 |ICD-10 complex map reference set|) {{ M active = 1 }}");
+		assertMemberFilterWithoutMemberOfRejected("(^ 447562003 OR ^ " + REFSET_SAME_AS_ASSOCIATION + ") {{ M active = 1 }}");
+		assertMemberFilterWithoutMemberOfRejected("(^ 447562003 AND ^ " + REFSET_SAME_AS_ASSOCIATION + ") {{ M active = 1 }}");
+		assertMemberFilterWithoutMemberOfRejected("(^ 447562003 MINUS ^ " + REFSET_SAME_AS_ASSOCIATION + ") {{ M active = 1 }}");
+		assertMemberFilterWithoutMemberOfRejected("(^ 447562003 : 116676008 = *) {{ M active = 1 }}");
+		assertMemberFilterWithoutMemberOfRejected("<< 404684003 {{ M active = 1 }}");
+		assertMemberFilterWithoutMemberOfRejected("447562003 {{ M active = 1 }}");
+	}
+
+	private void assertMemberFilterWithoutMemberOfRejected(String ecl) {
+		ECLException exception = assertThrows(ECLException.class, () -> select(ecl));
+		assertTrue(exception.getMessage().startsWith("Member filters must directly follow the memberOf operator"), exception.getMessage());
+	}
+
+	@Test
 	public void testMemberSelectFields() {
 		assertEquals(newArrayList("200001", "200002"), selectList("^ (< 900000000000522004 |historical association|)"));
 		assertEquals(newArrayList("200001", "200002", "200002"), selectList("^ [referencedComponentId] (< 900000000000522004 |historical association|)"));
