@@ -6,6 +6,7 @@ import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.snomed.langauges.ecl.ECLException;
 import org.snomed.snowstorm.TestConfig;
 import org.snomed.snowstorm.core.data.domain.ConceptMini;
 import org.snomed.snowstorm.core.data.domain.ReferenceSetMember;
@@ -26,6 +27,8 @@ import static com.google.common.collect.Lists.newArrayList;
 import static com.google.common.collect.Sets.newHashSet;
 import static io.kaicode.elasticvc.domain.Branch.MAIN;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.snomed.snowstorm.core.data.domain.Concepts.REFSET_SAME_AS_ASSOCIATION;
 
 @ExtendWith(SpringExtension.class)
@@ -340,6 +343,24 @@ class ECLQueryServiceFilterTest {
 
 		// Find referencedComponentId of refset members that refer to inactive or missing concepts.
 		assertEquals(newArrayList("101010101001"), selectList("^ [referencedComponentId] 447562003 |ICD-10 complex map reference set| {{ M referencedComponentId != * {{ C active = true }} }}"));
+	}
+
+	@Test
+	public void testMemberFilterKeywordWithWrongValueType() {
+		assertEquals(newHashSet("427603009", "708094006"), select("^ 447562003 |ICD-10 complex map reference set| {{ M moduleId = 900000000000207008 }}"));
+
+		assertWrongValueTypeRejected("{{ M moduleId = \"900000000000207008\" }}", "moduleId");
+		assertWrongValueTypeRejected("{{ M MODULEID = \"900000000000207008\" }}", "MODULEID");
+		assertWrongValueTypeRejected("{{ M active = \"1\" }}", "active");
+		assertWrongValueTypeRejected("{{ M active = \"true\" }}", "active");
+		assertWrongValueTypeRejected("{{ M effectiveTime = 20250101 }}", "effectiveTime");
+		assertWrongValueTypeRejected("{{ M effectiveTime = #20250101 }}", "effectiveTime");
+		assertWrongValueTypeRejected("{{ M mapGroup = #1, moduleId = \"900000000000207008\" }}", "moduleId");
+	}
+
+	private void assertWrongValueTypeRejected(String memberFilter, String fieldName) {
+		ECLException exception = assertThrows(ECLException.class, () -> select("^ 447562003 |ICD-10 complex map reference set| " + memberFilter));
+		assertTrue(exception.getMessage().startsWith("Member filter '" + fieldName + "' expects "), exception.getMessage());
 	}
 
 	@Test

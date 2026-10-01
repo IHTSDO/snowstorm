@@ -1,5 +1,6 @@
 package org.snomed.snowstorm.ecl;
 
+import org.snomed.langauges.ecl.ECLException;
 import org.snomed.langauges.ecl.ECLObjectFactory;
 import org.snomed.langauges.ecl.domain.ConceptReference;
 import org.snomed.langauges.ecl.domain.expressionconstraint.CompoundExpressionConstraint;
@@ -16,8 +17,17 @@ import org.snomed.snowstorm.ecl.domain.filter.*;
 import org.snomed.snowstorm.ecl.domain.refinement.*;
 
 import java.util.List;
+import java.util.Map;
 
 public class SECLObjectFactory extends ECLObjectFactory {
+
+	// A member filter keyword only becomes a field filter when its value has the wrong type,
+	// which would otherwise query a non-existent additional field and silently match nothing.
+	private static final Map<String, String> MEMBER_FILTER_KEYWORD_EXPECTED_VALUES = Map.of(
+			"moduleid", "a concept reference or expression without quotes, e.g. moduleId = 900000000000207008",
+			"active", "1, 0, true or false without quotes, e.g. active = 1 (the wildcard active = * is not yet supported)",
+			"effectivetime", "a quoted date, e.g. effectiveTime >= \"20250101\""
+	);
 
 	private int maxTermsCount;
 
@@ -160,6 +170,10 @@ public class SECLObjectFactory extends ECLObjectFactory {
 
 	@Override
 	public MemberFieldFilter getMemberFieldFilter(String fieldName) {
+		String expectedValue = MEMBER_FILTER_KEYWORD_EXPECTED_VALUES.get(fieldName.toLowerCase());
+		if (expectedValue != null) {
+			throw new ECLException(String.format("Member filter '%s' expects %s.", fieldName, expectedValue));
+		}
 		return new SMemberFieldFilter(fieldName);
 	}
 
