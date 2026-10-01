@@ -10,6 +10,7 @@ import org.junit.jupiter.api.Test;
 import org.snomed.snowstorm.AbstractTest;
 import org.snomed.snowstorm.TestConfig;
 import org.snomed.snowstorm.config.Config;
+import org.snomed.snowstorm.rest.pojo.BrowserDescriptionSearchResult;
 import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.services.CodeSystemService;
 import org.snomed.snowstorm.core.data.services.ConceptService;
@@ -62,6 +63,7 @@ class DescriptionControllerTest extends AbstractTest {
 
     @Autowired
     private BranchService branchService;
+
 
     @BeforeEach
     void setup() throws ServiceException {
@@ -382,6 +384,85 @@ class DescriptionControllerTest extends AbstractTest {
 
         Set<Description> query2 = getDescriptionsByText(intMain, "un patient");
         assertEquals(6, query2.size());
+    }
+
+    @Test
+    void testSearchingWithAndWithoutHyphen() throws ServiceException, JSONException {
+        // Create CodeSystem
+        String intMain = "MAIN";
+        codeSystemService.createCodeSystem(new CodeSystem(SNOMEDCT, Branch.MAIN));
+
+        // Create Concepts
+        Concept concept = conceptService.create(
+                new Concept()
+                        .addDescription(new Description("Infection (infection)").setTypeId(FSN))
+                        .addDescription(new Description("Infection").setTypeId(SYNONYM))
+                        .addAxiom(new Relationship(ISA, SNOMEDCT_ROOT))
+                        .addRelationship(new Relationship(ISA, SNOMEDCT_ROOT)),
+                intMain);
+        String infectionId = concept.getConceptId();
+
+        concept = conceptService.create(
+                new Concept()
+                        .addDescription(new Description("Cross-infection (disorder)").setTypeId(FSN))
+                        .addDescription(new Description("Cross-infection").setTypeId(SYNONYM))
+                        .addAxiom(new Relationship(ISA, infectionId))
+                        .addRelationship(new Relationship(ISA, infectionId)),
+                intMain);
+        String crossInfectionHyphenatedId = concept.getConceptId();
+
+        concept = conceptService.create(
+                new Concept()
+                        .addDescription(new Description("Cross infection (disorder)").setTypeId(FSN))
+                        .addDescription(new Description("Cross infection").setTypeId(SYNONYM))
+                        .addAxiom(new Relationship(ISA, infectionId))
+                        .addRelationship(new Relationship(ISA, infectionId)),
+                intMain);
+        String crossInfectionSpacedId = concept.getConceptId();
+
+        concept = conceptService.create(
+                new Concept()
+                        .addDescription(new Description("Infection-cross (disorder)").setTypeId(FSN))
+                        .addDescription(new Description("Infection-cross").setTypeId(SYNONYM))
+                        .addAxiom(new Relationship(ISA, infectionId))
+                        .addRelationship(new Relationship(ISA, infectionId)),
+                intMain);
+        String infectionCrossHyphenatedId = concept.getConceptId();
+
+        concept = conceptService.create(
+                new Concept()
+                        .addDescription(new Description("Infection cross (disorder)").setTypeId(FSN))
+                        .addDescription(new Description("Infection cross").setTypeId(SYNONYM))
+                        .addAxiom(new Relationship(ISA, infectionId))
+                        .addRelationship(new Relationship(ISA, infectionId)),
+                intMain);
+        String infectionCrossSpacedId = concept.getConceptId();
+
+        concept = conceptService.create(
+                new Concept()
+                        .addDescription(new Description("Cross roads infection (disorder)").setTypeId(FSN))
+                        .addDescription(new Description("Cross roads infection").setTypeId(SYNONYM))
+                        .addAxiom(new Relationship(ISA, infectionId))
+                        .addRelationship(new Relationship(ISA, infectionId)),
+                intMain);
+        String crossRoadsInfectionId = concept.getConceptId();
+
+        // Search
+        Set<String> hyphenatedConceptIds = getConceptIdsByText(intMain, "cross-infection");
+        Set<String> spacedConceptIds = getConceptIdsByText(intMain, "cross infection");
+
+        // Assert
+        assertThat(spacedConceptIds).containsExactlyInAnyOrder(crossInfectionHyphenatedId, crossInfectionSpacedId, infectionCrossHyphenatedId, infectionCrossSpacedId, crossRoadsInfectionId);
+        assertThat(hyphenatedConceptIds).containsExactlyInAnyOrder(crossInfectionHyphenatedId, crossInfectionSpacedId);
+    }
+
+    private Set<String> getConceptIdsByText(String branchPath, String text) throws JSONException {
+        String url = "http://localhost:" + port + "/browser/" + branchPath + "/descriptions?term=" + text;
+        ResponseEntity<String> response = restTemplate.getForEntity(url, String.class);
+        JSONObject jsonObject = new JSONObject(response.getBody());
+        Type type = new TypeToken<Set<BrowserDescriptionSearchResult>>() {}.getType();
+        Set<BrowserDescriptionSearchResult> results = new Gson().fromJson(jsonObject.get("items").toString(), type);
+        return results.stream().map(r -> r.getConcept().getConceptId()).collect(toSet());
     }
 
     private Set<Description> getDescriptionsByText(String branchPath, String text) throws JSONException {
