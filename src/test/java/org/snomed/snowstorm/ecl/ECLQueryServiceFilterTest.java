@@ -284,7 +284,7 @@ class ECLQueryServiceFilterTest {
 	}
 
 	@Test
-	public void testDefinitionStatusFilter() {
+	void testDefinitionStatusFilter() {
 		assertEquals(newHashSet("100001", "100002", "698271000"), select("< 64572001 |Disease| {{ C definitionStatus = primitive }}"));
 		assertEquals(newHashSet("100001", "100002", "698271000"), select("< 64572001 |Disease| {{ C definitionStatus != defined }}"));
 		assertEquals(newHashSet("100001", "100002", "698271000"), select("< 64572001 |Disease| {{ C definitionStatusId = 900000000000074008 |Primitive| }}"));
@@ -296,7 +296,7 @@ class ECLQueryServiceFilterTest {
 	}
 
 	@Test
-	public void testModuleFilter() {
+	void testModuleFilter() {
 		assertEquals(newHashSet("100001", "100002", "698271000"), select("< 64572001 |Disease| {{ C moduleId = 900000000000207008 }}"));
 		assertEquals(newHashSet("100001", "100002", "698271000"), select("< 64572001 |Disease| {{ C moduleId = << 900000000000207008 }}"));
 		assertEquals(newHashSet(), select("< 64572001 |Disease| {{ C moduleId = < 900000000000207008 }}"));
@@ -306,7 +306,7 @@ class ECLQueryServiceFilterTest {
 	}
 
 	@Test
-	public void testEffectiveTimeFilter() {
+	void testEffectiveTimeFilter() {
 		assertEquals(newHashSet("64572001"), select("<< 64572001 |Disease| {{ C effectiveTime = \"20200131\" }}"));
 		assertEquals(newHashSet("100001", "100002", "100003", "698271000"), select("<< 64572001 |Disease| {{ C effectiveTime != \"20200131\" }}"));
 		assertEquals(newHashSet("100001", "100002", "100003", "698271000"), select("<< 64572001 |Disease| {{ C effectiveTime > \"20200131\" }}"));
@@ -315,7 +315,7 @@ class ECLQueryServiceFilterTest {
 	}
 
 	@Test
-	public void testMemberActiveFilter() {
+	void testMemberActiveFilter() {
 		assertEquals(newHashSet("100001", "100002", "200001", "200002"), select("^ 816080008"));
 		assertEquals(newHashSet("100001", "100002"), select("^ 816080008 {{ C active = 1 }}"));
 		assertEquals(newHashSet("100001", "100002"), select("^ 816080008 {{ C active = true }}"));
@@ -330,7 +330,7 @@ class ECLQueryServiceFilterTest {
 	}
 
 	@Test
-	public void testMemberFieldFilter() {
+	void testMemberFieldFilter() {
 		assertEquals(newHashSet("427603009"), select("^ 447562003 |ICD-10 complex map reference set| {{ M mapTarget = \"J45.9\" }}"));
 		assertEquals(newHashSet("427603009", "708094006"), select("^ 447562003 |ICD-10 complex map reference set| {{ M mapTarget = \"J45\" }}"));
 		assertEquals(newHashSet(), select("^ 447562003 |ICD-10 complex map reference set| {{ M mapTarget = wild:\"J45\" }}"));
@@ -346,7 +346,7 @@ class ECLQueryServiceFilterTest {
 	}
 
 	@Test
-	public void testMemberFilterKeywordWithWrongValueType() {
+	void testMemberFilterKeywordWithWrongValueType() {
 		assertEquals(newHashSet("427603009", "708094006"), select("^ 447562003 |ICD-10 complex map reference set| {{ M moduleId = 900000000000207008 }}"));
 
 		assertWrongValueTypeRejected("{{ M moduleId = \"900000000000207008\" }}", "moduleId");
@@ -364,7 +364,7 @@ class ECLQueryServiceFilterTest {
 	}
 
 	@Test
-	public void testMemberFilterWithoutMemberOf() {
+	void testMemberFilterWithoutMemberOf() {
 		Set<String> expected = new HashSet<>(select("^ 447562003 |ICD-10 complex map reference set| {{ M active = 1 }}"));
 		expected.addAll(select("^ " + REFSET_SAME_AS_ASSOCIATION + " {{ M active = 1 }}"));
 		assertEquals(expected, select("^ (447562003 |ICD-10 complex map reference set| OR " + REFSET_SAME_AS_ASSOCIATION + ") {{ M active = 1 }}"));
@@ -385,13 +385,13 @@ class ECLQueryServiceFilterTest {
 	}
 
 	@Test
-	public void testMemberSelectFields() {
+	void testMemberSelectFields() {
 		assertEquals(newArrayList("200001", "200002"), selectList("^ (< 900000000000522004 |historical association|)"));
 		assertEquals(newArrayList("200001", "200002", "200002"), selectList("^ [referencedComponentId] (< 900000000000522004 |historical association|)"));
 	}
 
 	@Test
-	public void historySupplement() {
+	void historySupplement() {
 		Page<ReferenceSetMember> members = memberService.findMembers(MAIN, new MemberSearchRequest().referenceSet(REFSET_SAME_AS_ASSOCIATION), PageRequest.of(0, 10));
 		for (ReferenceSetMember member : members) {
 			System.out.println(member);
