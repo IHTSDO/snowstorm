@@ -9,6 +9,7 @@ import it.unimi.dsi.fastutil.longs.LongLinkedOpenHashSet;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.snomed.langauges.ecl.ECLException;
 import org.snomed.langauges.ecl.domain.ConceptReference;
 import org.snomed.langauges.ecl.domain.expressionconstraint.ExpressionConstraint;
 import org.snomed.langauges.ecl.domain.expressionconstraint.SubExpressionConstraint;
@@ -186,6 +187,15 @@ public class SSubExpressionConstraint extends SubExpressionConstraint implements
 	@Override
 	public void setNestedExpressionConstraint(ExpressionConstraint nestedExpressionConstraint) {
 		super.setNestedExpressionConstraint(nestedExpressionConstraint);
+	}
+
+	@Override
+	public void addMemberFilterConstraint(MemberFilterConstraint memberFilterConstraint) {
+		// The grammar accepts member filters without memberOf, but the ECL spec does not, and they were silently ignored.
+		if (operator != Operator.memberOf) {
+			throw new ECLException("Member filters must directly follow the memberOf operator (^), e.g. ^ (A OR B) {{ M ... }} rather than (^ A OR ^ B) {{ M ... }}.");
+		}
+		super.addMemberFilterConstraint(memberFilterConstraint);
 	}
 
 	private SSubExpressionConstraint cloneWithoutFiltersOrSupplements() {
