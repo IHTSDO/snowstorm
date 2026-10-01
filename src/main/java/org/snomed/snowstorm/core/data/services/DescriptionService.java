@@ -1131,7 +1131,10 @@ public class DescriptionService extends ComponentService {
 					regexBuilder.append("[").append(Character.toLowerCase(c)).append(Character.toUpperCase(c)).append("]");
 				} else if (Character.isDigit(c)){
 					regexBuilder.append(c);
-				} else {
+				} else if (c == '-') {
+					regexBuilder.append("[\\- ]");
+				}
+				else {
 					regexBuilder.append("\\").append(c);
 				}
 			}
