@@ -19,7 +19,7 @@ Elasticsearch will work best with another 4G of memory left free on the server f
 
 ## Setup
 ### Install Elasticsearch
-Download and install [Elasticsearch version 9](https://www.elastic.co/downloads/past-releases/elasticsearch-9-5-2) (tested against 9.5.2). Elasticsearch 8.x is no longer supported; the client negotiates version 9 media types that an 8.x server rejects.
+Download and install [Elasticsearch 9.5.2 or later](https://www.elastic.co/downloads/past-releases/elasticsearch-9-5-2). Elasticsearch 8.x is no longer supported; the client negotiates version 9 media types that an 8.x server rejects.
 
 When running snowstorm locally, you can disable security in Elasticsearch by setting xpack.security.enabled to false in the _config/elasticsearch.yml_ file:
 ```
