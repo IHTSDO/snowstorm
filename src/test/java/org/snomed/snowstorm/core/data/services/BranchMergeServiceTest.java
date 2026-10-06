@@ -6264,4 +6264,157 @@ class BranchMergeServiceTest extends AbstractTest {
 			return null;
 		}).when(commitServiceHookClient).preCommitCompletion(any());
 	}
+
+	@Test
+	public void testMAINT2190() throws ServiceException {
+		Map<String, String> preferred = Map.of(US_EN_LANG_REFSET, descriptionAcceptabilityNames.get(PREFERRED), GB_EN_LANG_REFSET, descriptionAcceptabilityNames.get(PREFERRED));
+		Map<String, String> acceptable = Map.of(US_EN_LANG_REFSET, descriptionAcceptabilityNames.get(PREFERRED), GB_EN_LANG_REFSET, descriptionAcceptabilityNames.get(ACCEPTABLE));
+		Concept concept;
+		Map<String, List<ReferenceSetMember>> members;
+		CodeSystem codeSystem;
+
+		// Line 0: Create initial content
+		String vehicleId = conceptService.create(new Concept()
+				.addDescription(new Description("Vehicle (vehicle)").setTypeId(FSN).setAcceptabilityMap(preferred))
+				.addDescription(new Description("Vehicle").setTypeId(SYNONYM).setAcceptabilityMap(acceptable))
+				.addAxiom(new Relationship(ISA, SNOMEDCT_ROOT)), "MAIN").getConceptId();
+
+		String carId = conceptService.create(new Concept()
+				.addDescription(new Description("Car (car)").setTypeId(FSN).setAcceptabilityMap(preferred))
+				.addDescription(new Description("Car").setTypeId(SYNONYM).setAcceptabilityMap(acceptable))
+				.addAxiom(new Relationship(ISA, SNOMEDCT_ROOT)), "MAIN").getConceptId();
+
+		String sportsCarId = conceptService.create(new Concept()
+				.addDescription(new Description("Sports car (sports car)").setTypeId(FSN).setAcceptabilityMap(preferred))
+				.addDescription(new Description("Sports car").setTypeId(SYNONYM).setAcceptabilityMap(acceptable))
+				.addAxiom(new Relationship(ISA, SNOMEDCT_ROOT)), "MAIN").getConceptId();
+
+		codeSystem = codeSystemService.find("SNOMEDCT");
+		codeSystemService.createVersion(codeSystem, 20230101, "20230101");
+
+		// Line 1:- Inactivate Sports Car
+		concept = conceptService.find(sportsCarId, "MAIN");
+		concept = simulateRestTransfer(concept);
+		concept.setActive(false);
+		concept.setInactivationIndicator("OUTDATED");
+		concept.setAssociationTargets(Map.of(Concepts.historicalAssociationNames.get(REFSET_REPLACED_BY_ASSOCIATION), Sets.newHashSet(carId)));
+		conceptService.update(concept, "MAIN");
+
+		members = groupByRefsetId(memberService.findMembers("MAIN", new MemberSearchRequest().referencedComponentId(sportsCarId), PageRequest.of(0, 10)).getContent());
+		members.get(CONCEPT_INACTIVATION_INDICATOR_REFERENCE_SET).forEach(referenceSetMember -> {
+			assertNull(referenceSetMember.getEffectiveTime());
+			assertTrue(referenceSetMember.isActive());
+			assertFalse(referenceSetMember.isReleased());
+			assertEquals(OUTDATED, referenceSetMember.getAdditionalField("valueId"));
+		});
+
+		members.get(REFSET_REPLACED_BY_ASSOCIATION).forEach(referenceSetMember -> {
+			assertNull(referenceSetMember.getEffectiveTime());
+			assertTrue(referenceSetMember.isActive());
+			assertFalse(referenceSetMember.isReleased());
+			assertEquals(carId, referenceSetMember.getAdditionalField("targetComponentId"));
+		});
+
+		// Line 2: Version content
+		codeSystem = codeSystemService.find("SNOMEDCT");
+		codeSystemService.createVersion(codeSystem, 20230201, "20230201");
+
+		// Line 3: Re-activate Sports Car
+		concept = conceptService.find(sportsCarId, "MAIN");
+		concept = simulateRestTransfer(concept);
+		concept.setActive(true);
+		concept.setInactivationIndicator(null);
+		concept.setAssociationTargets(null);
+		concept = conceptService.update(concept, "MAIN");
+
+		members = groupByRefsetId(memberService.findMembers("MAIN", new MemberSearchRequest().referencedComponentId(sportsCarId), PageRequest.of(0, 10)).getContent());
+		members.get(CONCEPT_INACTIVATION_INDICATOR_REFERENCE_SET).forEach(referenceSetMember -> {
+			assertNull(referenceSetMember.getEffectiveTime());
+			assertFalse(referenceSetMember.isActive());
+			assertTrue(referenceSetMember.isReleased());
+			assertEquals(OUTDATED, referenceSetMember.getAdditionalField("valueId"));
+		});
+
+		members.get(REFSET_REPLACED_BY_ASSOCIATION).forEach(referenceSetMember -> {
+			assertNull(referenceSetMember.getEffectiveTime());
+			assertFalse(referenceSetMember.isActive());
+			assertTrue(referenceSetMember.isReleased());
+			assertEquals(carId, referenceSetMember.getAdditionalField("targetComponentId"));
+		});
+
+		// Line 4: Version content
+		codeSystem = codeSystemService.find("SNOMEDCT");
+		codeSystemService.createVersion(codeSystem, 20230301, "20230301");
+
+		// Line 5: Re-inactivate Sports Car
+		concept = conceptService.find(sportsCarId, "MAIN");
+		concept = simulateRestTransfer(concept);
+		concept.setActive(false);
+		concept.setInactivationIndicator("AMBIGUOUS");
+		concept.setAssociationTargets(Map.of(Concepts.historicalAssociationNames.get(REFSET_REPLACED_BY_ASSOCIATION), Sets.newHashSet(vehicleId)));
+		conceptService.update(concept, "MAIN");
+
+		members = groupByRefsetId(memberService.findMembers("MAIN", new MemberSearchRequest().referencedComponentId(sportsCarId), PageRequest.of(0, 10)).getContent());
+		members.get(CONCEPT_INACTIVATION_INDICATOR_REFERENCE_SET).forEach(referenceSetMember -> {
+			assertNull(referenceSetMember.getEffectiveTime());
+			assertTrue(referenceSetMember.isActive());
+			assertTrue(referenceSetMember.isReleased());
+			assertEquals(AMBIGUOUS, referenceSetMember.getAdditionalField("valueId"));
+		});
+
+		members.get(REFSET_REPLACED_BY_ASSOCIATION).forEach(referenceSetMember -> {
+			assertNull(referenceSetMember.getEffectiveTime());
+			assertTrue(referenceSetMember.isActive());
+			assertTrue(referenceSetMember.isReleased());
+			assertEquals(vehicleId, referenceSetMember.getAdditionalField("targetComponentId"));
+		});
+
+		// Line 6: Change association mid-authoring cycle
+		concept = conceptService.find(sportsCarId, "MAIN");
+		concept = simulateRestTransfer(concept);
+		concept.setActive(false);
+		concept.setInactivationIndicator("AMBIGUOUS");
+		concept.setAssociationTargets(Map.of(Concepts.historicalAssociationNames.get(REFSET_POSSIBLY_EQUIVALENT_TO_ASSOCIATION), Sets.newHashSet(vehicleId)));
+		conceptService.update(concept, "MAIN");
+
+		members = groupByRefsetId(memberService.findMembers("MAIN", new MemberSearchRequest().referencedComponentId(sportsCarId), PageRequest.of(0, 10)).getContent());
+		members.get(CONCEPT_INACTIVATION_INDICATOR_REFERENCE_SET).forEach(referenceSetMember -> {
+			assertNull(referenceSetMember.getEffectiveTime());
+			assertTrue(referenceSetMember.isActive());
+			assertTrue(referenceSetMember.isReleased());
+			assertEquals(AMBIGUOUS, referenceSetMember.getAdditionalField("valueId"));
+		});
+
+		members.get(REFSET_REPLACED_BY_ASSOCIATION).forEach(referenceSetMember -> {
+			// Previous release state restored
+			assertEquals(20230301, referenceSetMember.getEffectiveTimeI());
+			assertFalse(referenceSetMember.isActive());
+			assertTrue(referenceSetMember.isReleased());
+			assertEquals(carId, referenceSetMember.getAdditionalField("targetComponentId"));
+		});
+
+		members.get(REFSET_POSSIBLY_EQUIVALENT_TO_ASSOCIATION).forEach(referenceSetMember -> {
+			assertNull(referenceSetMember.getEffectiveTimeI());
+			assertTrue(referenceSetMember.isActive());
+			assertFalse(referenceSetMember.isReleased());
+			assertEquals(vehicleId, referenceSetMember.getAdditionalField("targetComponentId"));
+		});
+	}
+
+	private Map<String, List<ReferenceSetMember>> groupByRefsetId(List<ReferenceSetMember> members) {
+		Map<String, List<ReferenceSetMember>> groups = new HashMap<>();
+
+		for (ReferenceSetMember referenceSetMember : members) {
+			String refsetId = referenceSetMember.getRefsetId();
+			List<ReferenceSetMember> referenceSetMembers = groups.get(refsetId);
+			if (referenceSetMembers == null) {
+				referenceSetMembers = new ArrayList<>();
+			}
+
+			referenceSetMembers.add(referenceSetMember);
+			groups.put(refsetId, referenceSetMembers);
+		}
+
+		return groups;
+	}
 }
