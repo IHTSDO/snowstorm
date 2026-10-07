@@ -5,5 +5,6 @@ public enum ExportStatus {
     RUNNING,
     COMPLETED,
     DOWNLOADED,
-    FAILED
+    FAILED,
+    EXPIRED
 }
