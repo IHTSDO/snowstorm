@@ -18,6 +18,7 @@ public class ExportConfiguration {
 
 	private String id;
 
+	@Field(type = FieldType.Date)
 	private Date startDate;
 
 	@NotNull
