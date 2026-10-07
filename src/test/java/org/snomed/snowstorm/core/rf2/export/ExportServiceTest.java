@@ -10,6 +10,7 @@ import org.snomed.snowstorm.config.Config;
 import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.domain.jobs.ExportConfiguration;
 import org.snomed.snowstorm.core.data.domain.jobs.ExportStatus;
+import org.snomed.snowstorm.core.data.repositories.ExportConfigurationRepository;
 import org.snomed.snowstorm.core.data.services.*;
 import org.snomed.snowstorm.core.rf2.RF2Constants;
 import org.snomed.snowstorm.core.rf2.RF2Type;
@@ -22,8 +23,8 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.OutputStream;
 import java.util.*;
+import java.util.UUID;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
@@ -58,6 +59,9 @@ class ExportServiceTest extends AbstractTest {
 
 	@Autowired
 	private BranchService branchService;
+
+	@Autowired
+	private ExportConfigurationRepository exportConfigurationRepository;
 
 	private String descriptionId;
 	private String textDefId;
@@ -1052,6 +1056,74 @@ class ExportServiceTest extends AbstractTest {
 		}
 		assertEquals(ExportStatus.FAILED, status);
 		assertTrue(branchService.findLatest(branchPath).isLocked());
+	}
+
+	@Test
+	void cleanUpExpiredArchives_deletesFileAndMarksJobFailed() throws IOException {
+		File archive = getTempFile("export-expired", ".zip");
+		assertTrue(archive.exists());
+
+		ExportConfiguration config = new ExportConfiguration("MAIN", RF2Type.DELTA);
+		config.setId(UUID.randomUUID().toString());
+		config.setStatus(ExportStatus.COMPLETED);
+		config.setExportFilePath(archive.getAbsolutePath());
+		config.setStartDate(new Date(System.currentTimeMillis() - 25 * 3_600_000L)); // 25 hours ago — older than default 24 h TTL
+		exportConfigurationRepository.save(config);
+
+		exportService.cleanUpExpiredArchives();
+
+		assertFalse(archive.exists(), "Expired archive file should have been deleted");
+		assertEquals(ExportStatus.EXPIRED, exportService.getExportJobOrThrow(config.getId()).getStatus());
+	}
+
+	@Test
+	void cleanUpExpiredArchives_cleansStalledRunningJob() throws IOException {
+		File archive = getTempFile("export-stalled", ".zip");
+		assertTrue(archive.exists());
+
+		ExportConfiguration config = new ExportConfiguration("MAIN", RF2Type.DELTA);
+		config.setId(UUID.randomUUID().toString());
+		config.setStatus(ExportStatus.RUNNING);
+		config.setExportFilePath(archive.getAbsolutePath());
+		config.setStartDate(new Date(System.currentTimeMillis() - 25 * 3_600_000L)); // crashed 25 hours ago
+		exportConfigurationRepository.save(config);
+
+		exportService.cleanUpExpiredArchives();
+
+		assertFalse(archive.exists(), "Stalled export archive should have been deleted");
+		assertEquals(ExportStatus.EXPIRED, exportService.getExportJobOrThrow(config.getId()).getStatus());
+	}
+
+	@Test
+	void cleanUpExpiredArchives_ignoresPendingJobsWithNoStartDate() {
+		ExportConfiguration config = new ExportConfiguration("MAIN", RF2Type.DELTA);
+		config.setId(UUID.randomUUID().toString());
+		config.setStatus(ExportStatus.PENDING);
+		// startDate intentionally not set — PENDING jobs created via createJob have no startDate
+		exportConfigurationRepository.save(config);
+
+		exportService.cleanUpExpiredArchives();
+
+		assertEquals(ExportStatus.PENDING, exportService.getExportJobOrThrow(config.getId()).getStatus());
+	}
+
+	@Test
+	void cleanUpExpiredArchives_doesNotDeleteRecentArchives() throws IOException {
+		// given
+		File archive = getTempFile("export-recent", ".zip");
+		ExportConfiguration config = new ExportConfiguration("MAIN", RF2Type.DELTA);
+		config.setId(UUID.randomUUID().toString());
+		config.setStatus(ExportStatus.COMPLETED);
+		config.setExportFilePath(archive.getAbsolutePath());
+		config.setStartDate(new Date(System.currentTimeMillis() - 3_600_000L));
+		exportConfigurationRepository.save(config);
+
+		// when
+		exportService.cleanUpExpiredArchives();
+
+		// then
+		assertTrue(archive.exists());
+		assertEquals(ExportStatus.COMPLETED, exportService.getExportJobOrThrow(config.getId()).getStatus());
 	}
 
 	private List<String> getFileFromSnapshotExport(String branchPath, String fileName) throws IOException {

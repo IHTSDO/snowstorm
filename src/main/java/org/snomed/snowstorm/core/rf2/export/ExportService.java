@@ -24,13 +24,18 @@ import org.springframework.data.elasticsearch.client.elc.NativeQueryBuilder;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.data.elasticsearch.core.SearchHit;
 import org.springframework.data.elasticsearch.core.SearchHitsIterator;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;
 
 import java.io.*;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.*;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
@@ -54,7 +59,10 @@ public class ExportService {
 	private final ExecutorService executorService;
 	private final SBranchService sBranchService;
 
-	public ExportService(VersionControlHelper versionControlHelper, ElasticsearchOperations elasticsearchOperations, QueryService queryService, ExportConfigurationRepository exportConfigurationRepository, BranchService branchService, BranchMetadataHelper branchMetadataHelper, CodeSystemService codeSystemService, ExecutorService executorService, SBranchService sBranchService) {
+
+	public ExportService(VersionControlHelper versionControlHelper, ElasticsearchOperations elasticsearchOperations, QueryService queryService,
+						 ExportConfigurationRepository exportConfigurationRepository, BranchService branchService,
+						 BranchMetadataHelper branchMetadataHelper, CodeSystemService codeSystemService, ExecutorService executorService, SBranchService sBranchService) {
 		this.versionControlHelper = versionControlHelper;
 		this.elasticsearchOperations = elasticsearchOperations;
 		this.queryService = queryService;
@@ -134,10 +142,12 @@ public class ExportService {
 			exportConfigurationRepository.save(exportConfiguration);
 			throw new ExportException("Failed to copy RF2 data into output stream.", e);
 		} finally {
-			if (!exportFile.delete()) {
-				logger.warn("Failed to delete temporary file {}", exportFile.getAbsolutePath());
+			try {
+				Files.delete(exportFile.toPath());
+				logger.debug("Deleted {} export file {}", exportConfiguration.getId(), exportFile);
+			} catch (IOException e) {
+				logger.warn("Failed to delete temporary file {}", exportFile.getAbsolutePath(), e);
 			}
-			logger.debug("Deleted {} export file {}", exportConfiguration.getId(), exportFile);
 		}
 	}
 
@@ -179,6 +189,36 @@ public class ExportService {
 		});
 	}
 
+	@Scheduled(fixedDelayString = "${export.async.cleanup-interval-ms:600000}")
+	public void cleanUpExpiredArchives() {
+		try {
+			long now = System.currentTimeMillis();
+			Date yesterday = new Date(now - TimeUnit.DAYS.toMillis(1));
+			Date sixDaysAgo = new Date(now - TimeUnit.DAYS.toMillis(6));
+			PageRequest page = PageRequest.of(0, 1_000, Sort.by(Sort.Direction.DESC, "startDate"));
+			for (ExportConfiguration config : exportConfigurationRepository.findByStartDateBetweenAndStatusIn(sixDaysAgo, yesterday, List.of(ExportStatus.COMPLETED, ExportStatus.RUNNING), page)) {
+				if (deleteArchiveFile(config.getExportFilePath())) {
+					logger.info("Deleted expired export archive {} for branch {} started {}", config.getId(), config.getBranchPath(), config.getStartDate());
+				}
+				config.setStatus(ExportStatus.EXPIRED);
+				exportConfigurationRepository.save(config);
+			}
+		} catch (Exception e) {
+			logger.error("Failed to clean up expired export archives.", e);
+		}
+	}
+
+	private boolean deleteArchiveFile(String path) {
+		if (path != null) {
+			try {
+				return Files.deleteIfExists(Path.of(path));
+			} catch (IOException e) {
+				logger.warn("Failed to delete expired export archive {}", path, e);
+			}
+		}
+		return false;
+	}
+
 	public void copyRF2Archive(ExportConfiguration exportConfiguration, OutputStream outputStream) {
 		File archive = new File(exportConfiguration.getExportFilePath());
 		if (archive.isFile()) {
@@ -189,13 +229,13 @@ public class ExportService {
 			} catch (IOException e) {
 				throw new ExportException("Failed to copy RF2 data into output stream.", e);
 			} finally {
-				boolean delete = archive.delete();
-				if (delete) {
-					logger.error("Deleted {} export file.", exportConfiguration.getId());
+				try {
+					Files.delete(archive.toPath());
+					logger.info("Deleted {} export file.", exportConfiguration.getId());
 					exportConfiguration.setStatus(ExportStatus.DOWNLOADED);
 					exportConfigurationRepository.save(exportConfiguration);
-				} else {
-					logger.error("Failed to delete {} export file.", exportConfiguration.getId());
+				} catch (IOException e) {
+					logger.error("Failed to delete {} export file.", exportConfiguration.getId(), e);
 				}
 			}
 		} else {
