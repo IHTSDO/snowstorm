@@ -2,6 +2,7 @@ package org.snomed.snowstorm.core.data.domain.jobs;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import org.snomed.snowstorm.core.rf2.RF2Type;
+import org.springframework.data.elasticsearch.annotations.DateFormat;
 import org.springframework.data.elasticsearch.annotations.Document;
 import org.springframework.data.elasticsearch.annotations.Field;
 import org.springframework.data.elasticsearch.annotations.FieldType;
@@ -18,6 +19,7 @@ public class ExportConfiguration {
 
 	private String id;
 
+	@Field(type = FieldType.Date, format = DateFormat.epoch_millis)
 	private Date startDate;
 
 	@NotNull
