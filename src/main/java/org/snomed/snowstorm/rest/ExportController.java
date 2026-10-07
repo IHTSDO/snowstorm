@@ -7,6 +7,8 @@ import org.snomed.snowstorm.core.data.domain.jobs.ExportStatus;
 import org.snomed.snowstorm.core.rf2.export.ExportService;
 import org.snomed.snowstorm.rest.pojo.ExportRequestView;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PostAuthorize;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.io.*;
@@ -28,6 +30,7 @@ public class ExportController {
 			description = "Create a job to export an RF2 archive. " +
 					"The 'location' response header contain the URL, including the identifier, of the new resource.")
 	@PostMapping
+	@PreAuthorize("hasPermission('AUTHOR', #exportRequestView.branchPath)")
 	public ResponseEntity<Void> createExportJob(@Valid @RequestBody ExportRequestView exportRequestView) {
 		String id = exportService.createJob(exportRequestView);
 		if (exportRequestView.isStartExport()) {
@@ -39,6 +42,7 @@ public class ExportController {
 
 	@Operation(summary = "Retrieve an export job.")
 	@GetMapping(value = "/{exportId}")
+	@PostAuthorize("hasPermission('AUTHOR', returnObject.branchPath)")
 	public ExportConfiguration getExportJob(@PathVariable String exportId) {
 		return exportService.getExportJobOrThrow(exportId);
 	}
@@ -47,6 +51,7 @@ public class ExportController {
 			description = "NOT SUPPORTED IN SWAGGER UI. Instead open the URL in a new browser tab or make a GET request another way. " +
 					"This endpoint can only be called once per exportId.")
 	@GetMapping(value = "/{exportId}/archive", produces="application/zip")
+	@PreAuthorize("hasPermission('AUTHOR', @exportService.getExportJobOrThrow(#exportId).branchPath)")
 	public void downloadRf2Archive(@PathVariable String exportId, HttpServletResponse response) throws IOException {
 		ExportConfiguration exportConfiguration = exportService.getExportJobOrThrow(exportId);
 		if (!exportConfiguration.isStartExport()) {
@@ -69,6 +74,8 @@ public class ExportController {
 				response.getWriter().write(String.format("Archive %s not ready for download; export in progress.", exportConfiguration.getId()));
 			} else if (Objects.equals(ExportStatus.DOWNLOADED, exportStatus)) {
 				response.getWriter().write(String.format("Archive %s previously downloaded; cannot re-download.", exportConfiguration.getId()));
+			} else if (Objects.equals(ExportStatus.EXPIRED, exportStatus)) {
+				response.getWriter().write(String.format("Archive %s has expired; please create a new export job.", exportConfiguration.getId()));
 			} else {
 				response.getWriter().write(String.format("Export of archive %s failed; cannot download.", exportConfiguration.getId()));
 			}
