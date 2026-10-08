@@ -5,6 +5,8 @@ import io.kaicode.elasticvc.api.VersionControlHelper;
 import org.snomed.otf.owltoolkit.conversion.AxiomRelationshipConversionService;
 import org.snomed.otf.owltoolkit.conversion.ConversionException;
 import org.snomed.otf.owltoolkit.domain.AxiomRepresentation;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.services.pojo.MemberSearchRequest;
 import org.snomed.snowstorm.core.data.services.pojo.SAxiomRepresentation;
@@ -24,6 +26,8 @@ import static org.snomed.otf.owltoolkit.domain.Relationship.ConcreteValue;
 @Service
 public class AxiomConversionService {
 
+	private static final Logger logger = LoggerFactory.getLogger(AxiomConversionService.class);
+
 	@Autowired
 	private ReferenceSetMemberService memberService;
 
@@ -40,8 +44,13 @@ public class AxiomConversionService {
 	}
 
 	public SAxiomRepresentation convertAxiomMemberToAxiomRepresentation(ReferenceSetMember axiomMember) throws ConversionException {
-		AxiomRepresentation axiomRepresentation = axiomRelationshipConversionService.convertAxiomToRelationships(
-				axiomMember.getAdditionalField(ReferenceSetMember.OwlExpressionFields.OWL_EXPRESSION));
+		AxiomRepresentation axiomRepresentation;
+		try {
+			axiomRepresentation = axiomRelationshipConversionService.convertAxiomToRelationships(
+					axiomMember.getAdditionalField(ReferenceSetMember.OwlExpressionFields.OWL_EXPRESSION));
+		} catch (RuntimeException e) {
+			throw toConversionException(axiomMember.getMemberId(), e);
+		}
 
 		if (axiomRepresentation == null) {// Will be null if the axiom is an Ontology Axiom for example a property chain or transitive axiom rather than an Additional Axiom or GCI.
 			return null;
@@ -86,7 +95,17 @@ public class AxiomConversionService {
 	}
 
 	public Set<Long> getReferencedConcepts(String owlExpression) throws ConversionException {
-		return axiomRelationshipConversionService.getIdsOfConceptsNamedInAxiom(owlExpression);
+		try {
+			return axiomRelationshipConversionService.getIdsOfConceptsNamedInAxiom(owlExpression);
+		} catch (RuntimeException e) {
+			throw toConversionException(null, e);
+		}
+	}
+
+	// OWL API runtime exception messages can carry fetched import content, so they must not reach callers - PIP-1335.
+	private ConversionException toConversionException(String memberId, RuntimeException e) {
+		logger.debug("Failed to parse axiom expression for member {}", memberId, e);
+		return new ConversionException("Failed to parse axiom expression" + (memberId != null ? " for member " + memberId : "") + ".");
 	}
 
 	private ReferenceSetMember createMember(Concept concept, Axiom axiom, String owlExpression) {
