@@ -1,11 +1,14 @@
 package org.snomed.snowstorm.rest;
 
+import com.sun.net.httpserver.HttpServer;
+import io.kaicode.elasticvc.api.BranchService;
 import org.junit.jupiter.api.Test;
 import org.snomed.snowstorm.AbstractTest;
 import org.snomed.snowstorm.TestConfig;
 import org.snomed.snowstorm.core.data.domain.Concepts;
 import org.snomed.snowstorm.core.data.domain.ReferenceSetMember;
 import org.snomed.snowstorm.core.data.services.ReferenceSetMemberService;
+import org.snomed.snowstorm.core.data.services.pojo.MemberSearchRequest;
 import org.snomed.snowstorm.loadtest.ItemsPagePojo;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -14,14 +17,20 @@ import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpMethod;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.test.context.ActiveProfiles;
 
+import java.io.IOException;
+import java.net.InetSocketAddress;
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicInteger;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static io.kaicode.elasticvc.api.ComponentService.LARGE_PAGE;
+import static org.junit.jupiter.api.Assertions.*;
 
 @ActiveProfiles("test")
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, classes = TestConfig.class)
@@ -37,6 +46,9 @@ class ReferenceSetMemberControllerTest extends AbstractTest {
 
 	@Autowired
 	private ReferenceSetMemberService referenceSetMemberService;
+
+	@Autowired
+	private BranchService branchService;
 
 	@Test
 	void findRefsetMembers_ShouldPage_WhenGivenSearchAfterRequestParameter() throws InterruptedException {
@@ -95,6 +107,37 @@ class ReferenceSetMemberControllerTest extends AbstractTest {
 
 	private ReferenceSetMember getReferenceSetMember(ItemsPagePojo<ReferenceSetMember> firstPageMembers) {
 		return firstPageMembers.getItems().iterator().next();
+	}
+
+	@Test
+	void createMember_ShouldRejectOwlImport_WithoutFetchingOrLeakingDetail() throws IOException {
+		AtomicInteger importRequests = new AtomicInteger();
+		HttpServer importTarget = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+		importTarget.createContext("/", exchange -> {
+			importRequests.incrementAndGet();
+			exchange.sendResponseHeaders(404, -1);
+			exchange.close();
+		});
+		importTarget.start();
+		try {
+			String owlExpression = "Import(<http://127.0.0.1:" + importTarget.getAddress().getPort() + "/import>) SubClassOf(:404684003 :138875005)";
+			Map<String, Object> member = Map.of(
+					"active", true,
+					"moduleId", Concepts.CORE_MODULE,
+					"refsetId", Concepts.OWL_AXIOM_REFERENCE_SET,
+					"referencedComponentId", "404684003",
+					"additionalFields", Map.of(ReferenceSetMember.OwlExpressionFields.OWL_EXPRESSION, owlExpression));
+
+			ResponseEntity<String> response = restTemplate.postForEntity("http://localhost:" + port + "/MAIN/members", member, String.class);
+
+			assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+			assertFalse(response.getBody().contains("Unsupported axiom expression"), "Toolkit error detail must not reach the caller");
+			assertEquals(0, importRequests.get(), "No request may reach the import URL");
+			assertTrue(referenceSetMemberService.findMembers(MAIN, new MemberSearchRequest().referenceSet(Concepts.OWL_AXIOM_REFERENCE_SET), LARGE_PAGE).isEmpty());
+			assertFalse(branchService.findLatest(MAIN).isLocked(), "Branch should be unlocked after rollback");
+		} finally {
+			importTarget.stop(0);
+		}
 	}
 
 	private ItemsPagePojo<ReferenceSetMember> findRefsetMembers() {
