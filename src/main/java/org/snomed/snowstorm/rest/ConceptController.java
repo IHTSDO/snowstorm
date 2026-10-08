@@ -709,7 +709,7 @@ public class ConceptController {
 			@RequestParam(required = false, defaultValue = "false") boolean includeDependencies) throws ServiceException {
 		String sourceBranchPath = BranchPathUriUtil.decodePath(sourceBranch);
 		if (codeSystemService.findVersion(sourceBranchPath) == null) {
-			throw new ServiceException("Source branch must be a version branch.");
+			throw new IllegalArgumentException("Source branch must be a version branch.");
 		}
 		String destinationBranchPath = BranchPathUriUtil.decodePath(branch);
 		return conceptService.copyConcepts(ecl, sourceBranchPath, destinationBranchPath, includeDependencies);
