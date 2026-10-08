@@ -122,7 +122,8 @@ public class RestControllerAdvice {
 		logger.error(exception.getMessage(), exception);
 		HashMap<String, Object> result = new HashMap<>();
 		result.put("error", HttpStatus.INTERNAL_SERVER_ERROR);
-		result.put("message", exception.getMessage());
+		// Exception text may carry internal or fetched data, so it stays in the log only.
+		result.put("message", "An unexpected error occurred. Please contact support if the problem persists.");
 		return result;
 	}
 

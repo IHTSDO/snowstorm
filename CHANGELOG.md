@@ -3,6 +3,16 @@ All notable changes to this project will be documented in this file.
 
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 11.0.1 Release (October 2026)
+Maintenance release with a security fix.
+
+### Security
+- PIP-1335 Harden OWL axiom expression handling, using snomed-owl-toolkit 6.0.1
+- PIP-1335 Unexpected server errors now return a generic message; details are logged only
+
+### Improvements
+- Upgrade snomed-parent-bom to 4.0.4, including otf-common 8.0.3
+
 ## 11.0.0 Release (July 2026)
 Major release with Java 25 upgrade and FHIR improvements.
 
