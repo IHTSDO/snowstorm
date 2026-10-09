@@ -27,7 +27,6 @@ import org.snomed.snowstorm.fhir.config.FHIRConstants;
 import org.snomed.snowstorm.fhir.domain.FHIRCodeSystemVersion;
 import org.snomed.snowstorm.fhir.domain.FHIRConcept;
 import org.snomed.snowstorm.fhir.domain.FHIRDesignation;
-import org.snomed.snowstorm.fhir.domain.FHIRExtension;
 import org.snomed.snowstorm.fhir.domain.FHIRProperty;
 import org.snomed.snowstorm.fhir.domain.SearchFilter;
 import org.snomed.snowstorm.fhir.pojo.ConceptAndSystemResult;
@@ -308,7 +307,7 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants,
 			if (concept == null) {
 				throw exception(format("Code '%s' not found for system '%s'.", code, fhirCodeSystemVersion.getUrl()), IssueType.NOTFOUND, 404);
 			}
-			return pMapper.mapToFHIR(fhirCodeSystemVersion, concept);
+			return pMapper.mapToFHIR(fhirCodeSystemVersion, concept, displayLanguage, acceptLanguageHeader);
 		}
 	}
 
@@ -552,7 +551,7 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants,
 		FHIRDesignation matchingDesignation = concept.getDesignations().stream()
 				.filter(d -> display.equals(d.getValue()))
 				.findFirst().orElse(null);
-		if (matchingDesignation != null && isDesignationWithdrawn(matchingDesignation)) {
+		if (matchingDesignation != null && matchingDesignation.isWithdrawn()) {
 			String msg = format("'%s' is no longer considered a correct display for code '%s' (status = deprecated). The correct display is one of \"%s\".",
 					display, code, concept.getDisplay());
 			issues.add(createOperationOutcomeIssueComponent(
@@ -579,14 +578,6 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants,
 				new CodeableConcept(new Coding(TX_ISSUE_TYPE, "code-comment", null)).setText(msg),
 				OperationOutcome.IssueSeverity.WARNING, "code", IssueType.BUSINESSRULE, null, null));
 		return msg;
-	}
-
-	private boolean isDesignationWithdrawn(FHIRDesignation designation) {
-		List<FHIRExtension> exts = designation.getExtensions();
-		if (exts == null) return false;
-		return exts.stream().anyMatch(ext ->
-				"http://hl7.org/fhir/StructureDefinition/structuredefinition-standards-status".equals(ext.getUri()) &&
-				("withdrawn".equals(ext.getValue()) || "deprecated".equals(ext.getValue())));
 	}
 
 	private Parameters handleNonSnomedValidationException(SnowstormFHIRServerResponseException e,
