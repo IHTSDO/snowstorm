@@ -28,7 +28,7 @@ spec:
       initContainers:
       - name: snowstorm-elasticsearch
         restartPolicy: Always
-        image: docker.elastic.co/elasticsearch/elasticsearch:9.5.2
+        image: docker.elastic.co/elasticsearch/elasticsearch:9.5.5
         volumeMounts:
           - name: elasticsearch-data
             mountPath: /usr/share/elasticsearch/data

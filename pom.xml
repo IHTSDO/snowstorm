@@ -22,14 +22,14 @@
 
 		<!--
 		snomed-parent-bom 5.0.0 manages Spring Boot 4.1.0, Spring 7.0.8, Spring Security 7.1.0,
-		spring-data-elasticsearch 6.1.0, Elasticsearch 9.5.2, HAPI FHIR 8.10.1, springdoc 3.1.0,
+		spring-data-elasticsearch 6.1.0, Elasticsearch 9.5.5, HAPI FHIR 8.10.1, springdoc 3.1.0,
 		mvel2 2.5.2.Final, Jackson 2.21.4 / jackson-annotations 2.21 and maven-compiler-plugin
 		3.15.0, so none of those need overriding here. What remains below is what the BOM does not
 		(yet) cover.
 		-->
 
 		<!--
-		Current Elasticsearch _Server_ version is 9.5.2
+		Current Elasticsearch _Server_ version is 9.5.5
 		N.B. Remember to keep TestConfig.ELASTIC_SEARCH_SERVER_VERSION and getting-started guide updated.
 		-->
 		<docker.registry>docker.io</docker.registry>
