@@ -7,7 +7,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 Major release with Spring Boot 4, Elasticsearch 9 and Jackson 3 upgrades, plus HL7 FHIR API improvements.
 
 ### Breaking
-- Elasticsearch 9.5.2 onwards must be used with this release. Snowstorm cannot run against Elasticsearch 8 — the client negotiates version 9 media types that an 8.x server rejects. Existing clusters must be upgraded before upgrading Snowstorm, see the [Elasticsearch 9 upgrade guide](docs/elasticsearch9-upgrade.md).
+- Elasticsearch 9.5.5 onwards must be used with this release. Snowstorm cannot run against Elasticsearch 8 — the client negotiates version 9 media types that an 8.x server rejects. Existing clusters must be upgraded before upgrading Snowstorm, see the [Elasticsearch 9 upgrade guide](docs/elasticsearch9-upgrade.md).
 - PIP-1183 The `error` field returned for a request that is too costly to compute is now `UNPROCESSABLE_CONTENT` rather than `UNPROCESSABLE_ENTITY`. The HTTP status code is unchanged at 422; Spring Framework 7 renamed the constant to match RFC 9110. Clients matching on the `error` string must be updated.
 
 ### Features
@@ -22,6 +22,7 @@ Major release with Spring Boot 4, Elasticsearch 9 and Jackson 3 upgrades, plus H
 ### Improvements
 - PIP-1183 Upgrade to Spring Boot 4.1.0, Spring Framework 7.0.8, Spring Security 7.1.0 and Jackson 3.1.4 via snomed-parent-bom 5.0.0
 - PIP-1183 Upgrade to Elasticsearch 9.5.2 and spring-data-elasticsearch 6.1.0
+- PIP-1340 Upgrade Elasticsearch client and server to 9.5.5 for CVE-2026-103009 and CVE-2026-103007
 - PIP-1183 Upgrade HAPI FHIR to 8.10.1
 - PIP-1183 Add Elasticsearch 8 to 9 upgrade guide
 - PIP-1183 Replace deprecated Spring Data, Spring Framework, Commons Lang and Swagger APIs

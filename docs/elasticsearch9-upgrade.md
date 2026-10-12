@@ -1,10 +1,10 @@
 # Elasticsearch 9 upgrade guide
 
-Snowstorm 12.0.0 requires **Elasticsearch 9.5.2 or later** and cannot run against an 8.x server. The Elasticsearch client it now uses negotiates `compatible-with=9` media types, which an 8.x server rejects outright, so every request fails. Upgrading the cluster is not optional when upgrading to Snowstorm 12.
+Snowstorm 12.0.0 requires **Elasticsearch 9.5.5 or later** and cannot run against an 8.x server. The Elasticsearch client it now uses negotiates `compatible-with=9` media types, which an 8.x server rejects outright, so every request fails. Upgrading the cluster is not optional when upgrading to Snowstorm 12.
 
 The cluster upgrade is one-way: a 9.x cluster cannot be downgraded to 8.x. **Take a snapshot before starting** — restoring it to an 8.x cluster is the only way back.
 
-You can skip this guide if you are trying Snowstorm for the first time — start with a fresh installation of Elasticsearch 9.5.2 or later.
+You can skip this guide if you are trying Snowstorm for the first time — start with a fresh installation of Elasticsearch 9.5.5 or later.
 
 If you have been running Snowstorm in Docker and do not need to keep existing data, you can also skip this guide. However, you MUST remove the `elastic` volume declared in [docker-compose.yml](../docker-compose.yml) before starting, for example with `docker compose down -v`, or Elasticsearch 9 will start against a data directory it cannot read. You will then need to import your release files again.
 
@@ -16,11 +16,11 @@ Elasticsearch may still require some indices to be reindexed for its own reasons
 
 ## Order of upgrade
 
-Stop Snowstorm before Step two and keep it stopped until the cluster is on 9.5.2 or later:
+Stop Snowstorm before Step two and keep it stopped until the cluster is on 9.5.5 or later:
 
 1. Upgrade the cluster to 8.19 (Step one)
 2. Stop Snowstorm, then reindex or remove indices created before 8.0.0 (Step two)
-3. Upgrade the cluster to 9.5.2 or later (Step three)
+3. Upgrade the cluster to 9.5.5 or later (Step three)
 4. Start Snowstorm 12 (Step four)
 
 ## Step one - Upgrade the cluster to 8.19 first
@@ -76,7 +76,7 @@ Always create the target index with the saved mapping first. Reindexing into an 
 
 Snapshots of 7.x indices can be read in 9.x through the archive functionality without reindexing. See [Reading indices from older Elasticsearch versions](https://www.elastic.co/docs/deploy-manage/upgrade/deployment-or-cluster/reading-indices-from-older-elasticsearch-versions).
 
-## Step three - Upgrade the cluster to Elasticsearch 9.5.2 or later
+## Step three - Upgrade the cluster to Elasticsearch 9.5.5 or later
 
 If you use Kibana, upgrade it to the same version.
 

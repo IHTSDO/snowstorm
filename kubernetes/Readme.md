@@ -6,7 +6,7 @@ This will not covers how to get SSL certificates (Letsencrypt) neither than the 
 
 ## Prerequisites
 
-These manifests deploy Elasticsearch 9.5.2 alongside Snowstorm. Before applying them:
+These manifests deploy Elasticsearch 9.5.5 alongside Snowstorm. Before applying them:
 
 - Kubernetes 1.29 or later is required. Elasticsearch runs as a native sidecar (an initContainer with `restartPolicy: Always`), which reached GA in 1.29. On an older cluster the API server rejects that field.
 

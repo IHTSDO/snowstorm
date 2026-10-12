@@ -4,7 +4,7 @@
 
 A somewhat obvious point, but please make sure you have installed Docker. Between the two containers started by default, Elasticsearch and Snowstorm, 8Gb memory is used, so make sure that your installation of docker has the necessary memory allocated. The optional SNOMED CT Browser container needs a little more.
 
-The [`docker-compose.yml`](../docker-compose.yml) starts Elasticsearch 9.5.2. If you are upgrading an existing Snowstorm docker deployment from Elasticsearch 8.x, read the [Elasticsearch 9 upgrade guide](elasticsearch9-upgrade.md) first — Elasticsearch 9 will not start against an 8.x data directory, so the existing volume must be migrated or removed.
+The [`docker-compose.yml`](../docker-compose.yml) starts Elasticsearch 9.5.5. If you are upgrading an existing Snowstorm docker deployment from Elasticsearch 8.x, read the [Elasticsearch 9 upgrade guide](elasticsearch9-upgrade.md) first — Elasticsearch 9 will not start against an 8.x data directory, so the existing volume must be migrated or removed.
 
 ## Docker Virtual Memory Limits
 

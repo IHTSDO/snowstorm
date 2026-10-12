@@ -32,7 +32,7 @@ public class TestConfig extends Config {
 	// spring-data-elasticsearch 6 forces the Elasticsearch 9 client, which negotiates
 	// "compatible-with=9" media types that an 8.x server rejects outright. Kept in step with
 	// ${elasticsearch.version} from snomed-parent-bom.
-	private static final String ELASTIC_SEARCH_SERVER_VERSION = "9.5.2";
+	private static final String ELASTIC_SEARCH_SERVER_VERSION = "9.5.5";
 
 	// set it to true to use local instance instead of test container
 	static final boolean useLocalElasticsearch = false;
