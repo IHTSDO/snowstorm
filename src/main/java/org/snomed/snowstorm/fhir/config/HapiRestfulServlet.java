@@ -88,6 +88,8 @@ public class HapiRestfulServlet extends RestfulServer {
 
 	    registerInterceptor(new ElasticsearchExceptionInterceptor());
 
+		registerInterceptor(applicationContext.getBean(FHIRWritePermissionInterceptor.class));
+
         logger.info("FHIR Resource providers and interceptors registered");
     }
 

@@ -157,7 +157,7 @@ public class FHIRHelper implements FHIRConstants {
 			}
 			msg += " The server is in read-only mode.";
 			logger.info(msg);
-			throw exception(msg, IssueType.FORBIDDEN, 401);
+			throw exception(msg, IssueType.FORBIDDEN, 403);
 		}
 	}
 
