@@ -22,7 +22,7 @@ class ECLResultsCacheTest {
 	private static final String PATH = "MAIN";
 	private static final Date HEAD = new Date(1000);
 	private static final PageRequest PAGE = PageRequest.of(0, 10);
-	private static final Function<String, Long> AT_HEAD = path -> HEAD.getTime();
+	private static final Function<String, Date> AT_HEAD = path -> HEAD;
 
 	@Test
 	void test() {
@@ -128,7 +128,7 @@ class ECLResultsCacheTest {
 		cache.get(PATH, newHead, "<< 456", false, PAGE);
 		cache.get(PATH, newHead, "<< 789", false, PAGE);
 
-		Map<String, Map<String, Long>> stats = cache.getStats(Map.of(PATH, newHead.getTime(), "MAIN/A", HEAD.getTime())::get);
+		Map<String, Map<String, Long>> stats = cache.getStats(Map.of(PATH, newHead, "MAIN/A", HEAD)::get);
 		assertEquals(List.of("MAIN", "MAIN/A"), List.copyOf(stats.keySet()));
 		assertEquals(Map.of("size", 2L, "hits-today", 2L, "hits-last7days", 3L, "hits-last30days", 4L), stats.get(PATH));
 		assertEquals(Map.of("size", 1L, "hits-today", 0L, "hits-last7days", 0L, "hits-last30days", 0L), stats.get("MAIN/A"));
