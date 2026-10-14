@@ -5,7 +5,6 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.snomed.snowstorm.core.data.services.*;
 import org.snomed.snowstorm.core.data.services.traceability.TraceabilityLogBackfiller;
-import org.snomed.snowstorm.ecl.BranchVersionECLCache;
 import org.snomed.snowstorm.ecl.ECLQueryService;
 import org.snomed.snowstorm.fix.ContentFixService;
 import org.snomed.snowstorm.fix.ContentFixType;
@@ -318,12 +317,13 @@ public class AdminController {
 	@GetMapping(value = "/cache/ecl/stats")
 	@PreAuthorize("hasPermission('ADMIN', 'global')")
 	public Map<String, Map<String, Long>> getECLCacheStats() {
-		final Map<String, BranchVersionECLCache> cacheMap = eclQueryService.getResultsCache().getCacheMap();
-		Map<String, Map<String, Long>> stats = new LinkedHashMap<>();
-		for (String branch : new TreeSet<>(cacheMap.keySet())) {
-			stats.put(branch, cacheMap.get(branch).getStats());
-		}
-		return stats;
+		return eclQueryService.getResultsCacheStats();
+	}
+
+	@GetMapping(value = "/cache/ecl/summary")
+	@PreAuthorize("hasPermission('ADMIN', 'global')")
+	public Map<String, Long> getECLCacheSummary() {
+		return eclQueryService.getResultsCache().getSummary();
 	}
 
 	@PostMapping(value = "/cache/ecl/clear")
