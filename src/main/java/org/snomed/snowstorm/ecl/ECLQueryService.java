@@ -3,6 +3,8 @@ package org.snomed.snowstorm.ecl;
 import ch.qos.logback.classic.Level;
 import co.elastic.clients.elasticsearch._types.query_dsl.Query;
 import io.kaicode.elasticvc.api.BranchCriteria;
+import io.kaicode.elasticvc.api.BranchService;
+import io.kaicode.elasticvc.domain.Branch;
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 
 import org.slf4j.Logger;
@@ -29,7 +31,9 @@ import org.springframework.stereotype.Service;
 
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Date;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.function.LongPredicate;
 import java.util.stream.Collectors;
@@ -51,6 +55,9 @@ public class ECLQueryService {
 	@Autowired
 	private ECLContentService eclContentService;
 
+	@Autowired
+	private BranchService branchService;
+
 	@Value("${timer.ecl.duration-threshold}")
 	private int eclDurationLoggingThreshold;
 
@@ -61,8 +68,15 @@ public class ECLQueryService {
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
-	public ECLQueryService() {
-		resultsCache = new ECLResultsCache();
+	public ECLQueryService(@Value("${cache.ecl.max-weight:10000000}") long eclCacheMaxWeight) {
+		resultsCache = new ECLResultsCache(eclCacheMaxWeight);
+	}
+
+	public Map<String, Map<String, Long>> getResultsCacheStats() {
+		return resultsCache.getStats(path -> {
+			Branch branch = branchService.findLatest(path);
+			return branch != null ? branch.getHeadTimestamp() : null;
+		});
 	}
 
 	public Page<Long> selectConceptIds(String ecl, BranchCriteria branchCriteria, boolean stated, PageRequest pageRequest) throws ECLException {
@@ -141,9 +155,7 @@ public class ECLQueryService {
 		logger.debug("ECL on path {}, \"{}\"", path, expressionConstraint.toEclString());
 
 		Optional<Page<Long>> pageOptional;
-		if (eclCacheEnabled) {
-			BranchVersionECLCache branchVersionCache = resultsCache.getOrCreateBranchVersionCache(path, branchCriteria.getTimepoint());
-
+		if (eclCacheEnabled && !isOpenCommit(branchCriteria)) {
 			PageRequest queryPageRequest = pageRequest;
 			LongPredicate filter = null;
 			if (conceptIdFilter != null) {
@@ -154,12 +166,11 @@ public class ECLQueryService {
 				filter = fastSet::contains;
 			}
 
-			Page<Long> cachedPage = branchVersionCache.get(ecl, stated, queryPageRequest);
+			Page<Long> cachedPage = resultsCache.get(path, branchCriteria.getTimepoint(), ecl, stated, queryPageRequest);
 			if (cachedPage != null) {
 				final int pageNumber = pageRequest != null ? pageRequest.getPageNumber() : 0;
 				final int pageSize = pageRequest != null ? pageRequest.getPageSize() : -1;
 				logger.info("ECL cache hit {}@{} \"{}\" {}:{}", path, branchCriteria.getTimepoint().getTime(), ecl, pageNumber, pageSize);
-				branchVersionCache.recordHit();
 
 				pageOptional = Optional.of(cachedPage);
 			} else {
@@ -169,7 +180,7 @@ public class ECLQueryService {
 				if (pageOptional.isPresent()) {
 					// Cache results
 					final Page<Long> page = pageOptional.get();
-					branchVersionCache.put(ecl, stated, queryPageRequest, page);
+					resultsCache.put(path, branchCriteria.getTimepoint(), ecl, stated, queryPageRequest, page);
 					eclSlowQueryTimer.checkpoint(String.format("ecl:'%s', with %s results in this page, now cached for this branch/commit/page.", ecl,
 							pageOptional.get().getNumberOfElements()));
 				}
@@ -194,6 +205,18 @@ public class ECLQueryService {
 		}
 
 		return pageOptional.get();
+	}
+
+	// Commit listeners query the open commit while it is still being written, so those results must not be cached.
+	// An open commit's timepoint is after the branch head, and the cache never holds one, so the head is only looked up on a timepoint change.
+	private boolean isOpenCommit(BranchCriteria branchCriteria) {
+		String path = branchCriteria.getBranchPath();
+		Date timepoint = branchCriteria.getTimepoint();
+		if (resultsCache.isCurrentTimepoint(path, timepoint)) {
+			return false;
+		}
+		Branch branch = branchService.findLatest(path);
+		return branch != null && timepoint.after(branch.getHead());
 	}
 
 	private Page<Long> getWildcardPage(BranchCriteria branchCriteria, boolean stated, Collection<Long> conceptIdFilter, PageRequest pageRequest) {
