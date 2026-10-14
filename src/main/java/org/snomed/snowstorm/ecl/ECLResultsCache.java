@@ -20,6 +20,12 @@ import java.util.regex.Pattern;
 
 public class ECLResultsCache {
 
+	// Units of roughly one cached id (~25 bytes). An entry's fixed overhead (key, page, cache node) is a few hundred bytes,
+	// so it is charged even for empty results, otherwise a flood of distinct empty queries escapes the bound.
+	private static final int ENTRY_OVERHEAD_WEIGHT = 14;
+
+	private static final Pattern WHITESPACE = Pattern.compile("\\s+");
+
 	private final Cache<ECLCacheKey, Page<Long>> cache;
 
 	private final long maxWeight;
@@ -27,7 +33,7 @@ public class ECLResultsCache {
 	private final long maxEntryWeight;
 
 	// Caffeine's counters cannot be reset, so the summary reports them relative to the last clear.
-	private volatile CacheStats statsAtLastClear = CacheStats.empty();
+	private final AtomicReference<CacheStats> statsAtLastClear = new AtomicReference<>(CacheStats.empty());
 
 	// Each branch holds results for one timepoint; querying it at another drops them.
 	private final Map<String, Long> currentTimepoints = new ConcurrentHashMap<>();
@@ -36,7 +42,7 @@ public class ECLResultsCache {
 
 	private final AtomicReference<LocalDate> lastHitsPruneDay = new AtomicReference<>();
 
-	private final Supplier<LocalDate> today;
+	private final Supplier<LocalDate> todaySupplier;
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
@@ -44,13 +50,13 @@ public class ECLResultsCache {
 		this(maxWeight, LocalDate::now);
 	}
 
-	ECLResultsCache(long maxWeight, Supplier<LocalDate> today) {
+	ECLResultsCache(long maxWeight, Supplier<LocalDate> todaySupplier) {
 		this.maxWeight = maxWeight;
-		this.today = today;
+		this.todaySupplier = todaySupplier;
 		maxEntryWeight = maxWeight / 10;
 		cache = Caffeine.newBuilder()
 				.maximumWeight(maxWeight)
-				.weigher((ECLCacheKey key, Page<Long> page) -> weigh(key, page))
+				.weigher(ECLResultsCache::weigh)
 				// Evict on the writing thread so the bound holds even under a flood of requests.
 				.executor(Runnable::run)
 				.recordStats()
@@ -83,11 +89,11 @@ public class ECLResultsCache {
 	}
 
 	/**
-	 * @param headTimestamp current head of a branch, or null if it no longer exists. Looked up rather than tracked from commits
-	 *                      because rolling back a completed commit moves the head back without notifying commit listeners.
+	 * @param branchHead current head of a branch, or null if it no longer exists. Looked up rather than tracked from commits
+	 *                   because rolling back a completed commit moves the head back without notifying commit listeners.
 	 */
-	public Map<String, Map<String, Long>> getStats(Function<String, Long> headTimestamp) {
-		LocalDate today = this.today.get();
+	public Map<String, Map<String, Long>> getStats(Function<String, Date> branchHead) {
+		LocalDate today = todaySupplier.get();
 		pruneHits(today);
 		Map<String, Map<Long, Long>> entriesByBranchAndTimepoint = new HashMap<>();
 		for (ECLCacheKey key : cache.asMap().keySet()) {
@@ -99,8 +105,8 @@ public class ECLResultsCache {
 		for (String branch : branches) {
 			Map<String, Long> branchStats = new LinkedHashMap<>();
 			Map<Long, Long> entriesByTimepoint = entriesByBranchAndTimepoint.getOrDefault(branch, Map.of());
-			Long head = entriesByTimepoint.isEmpty() ? null : headTimestamp.apply(branch);
-			branchStats.put("size", head != null ? entriesByTimepoint.getOrDefault(head, 0L) : 0L);
+			Date head = entriesByTimepoint.isEmpty() ? null : branchHead.apply(branch);
+			branchStats.put("size", head != null ? entriesByTimepoint.getOrDefault(head.getTime(), 0L) : 0L);
 			Map<LocalDate, AtomicLong> dayHits = branchDayHits.getOrDefault(branch, Map.of());
 			branchStats.put("hits-today", sumHitsSince(dayHits, today));
 			branchStats.put("hits-last7days", sumHitsSince(dayHits, today.minusDays(7)));
@@ -112,7 +118,7 @@ public class ECLResultsCache {
 
 	public Map<String, Long> getSummary() {
 		cache.cleanUp();
-		CacheStats stats = cache.stats().minus(statsAtLastClear);
+		CacheStats stats = cache.stats().minus(statsAtLastClear.get());
 		Map<String, Long> map = new LinkedHashMap<>();
 		map.put("entries", cache.estimatedSize());
 		map.put("weight", cache.policy().eviction().map(eviction -> eviction.weightedSize().orElse(0)).orElse(0L));
@@ -126,7 +132,7 @@ public class ECLResultsCache {
 	public void clearCache() {
 		currentTimepoints.clear();
 		cache.invalidateAll();
-		statsAtLastClear = cache.stats();
+		statsAtLastClear.set(cache.stats());
 		branchDayHits.clear();
 		logger.info("ECL cache cleared.");
 	}
@@ -138,20 +144,16 @@ public class ECLResultsCache {
 		if (current != null && current == timepoint) {
 			return;
 		}
-		boolean[] switched = {false};
-		currentTimepoints.compute(path, (p, previous) -> {
-			switched[0] = previous != null && previous != timepoint;
-			return timepoint;
-		});
+		Long previous = currentTimepoints.put(path, timepoint);
 		// Only the thread that switched the timepoint scans. A put at another timepoint racing the scan is left to eviction.
-		if (switched[0]) {
+		if (previous != null && previous != timepoint) {
 			cache.asMap().keySet().removeIf(key -> key.path().equals(path) && key.timepoint() != timepoint);
 			logger.info("ECL cache expired {}@{}", path, timepoint);
 		}
 	}
 
 	private void recordHit(String path) {
-		LocalDate today = this.today.get();
+		LocalDate today = todaySupplier.get();
 		pruneHits(today);
 		branchDayHits.computeIfAbsent(path, p -> new ConcurrentHashMap<>())
 				.computeIfAbsent(today, day -> new AtomicLong()).incrementAndGet();
@@ -183,16 +185,10 @@ public class ECLResultsCache {
 		return new ECLCacheKey(path, timepoint.getTime(), normaliseEclString(ecl), stated, pageRequest, searchAfter);
 	}
 
-	// Units of roughly one cached id (~25 bytes). An entry's fixed overhead (key, page, cache node) is a few hundred bytes,
-	// so it is charged even for empty results, otherwise a flood of distinct empty queries escapes the bound.
-	private static final int ENTRY_OVERHEAD_WEIGHT = 14;
-
 	private static int weigh(ECLCacheKey key, Page<Long> page) {
 		int searchAfterWeight = key.searchAfter() != null ? key.searchAfter().toString().length() / 16 : 0;
 		return ENTRY_OVERHEAD_WEIGHT + page.getNumberOfElements() + key.ecl().length() / 16 + searchAfterWeight;
 	}
-
-	private static final Pattern WHITESPACE = Pattern.compile("\\s+");
 
 	// Quoted strings (term filters, concrete values, member field values) are kept as written because they can be case-sensitive.
 	static String normaliseEclString(String ecl) {
@@ -227,13 +223,13 @@ public class ECLResultsCache {
 	}
 
 	private static int closingQuoteEnd(String ecl, int from) {
-		for (int i = from; i < ecl.length(); i++) {
+		int i = from;
+		while (i < ecl.length()) {
 			char c = ecl.charAt(i);
-			if (c == '\\') {
-				i++;
-			} else if (c == '"') {
+			if (c == '"') {
 				return i + 1;
 			}
+			i += c == '\\' ? 2 : 1;
 		}
 		return ecl.length();
 	}

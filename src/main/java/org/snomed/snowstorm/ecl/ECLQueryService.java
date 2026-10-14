@@ -22,8 +22,8 @@ import org.snomed.snowstorm.ecl.domain.expressionconstraint.SExpressionConstrain
 import org.snomed.snowstorm.ecl.domain.expressionconstraint.SSubExpressionConstraint;
 import org.snomed.snowstorm.ecl.validation.ECLPreprocessingService;
 import org.snomed.snowstorm.rest.ControllerHelper;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Slice;
@@ -46,36 +46,39 @@ import static java.lang.Long.parseLong;
 @Service
 public class ECLQueryService {
 
-	@Autowired
-	private ECLQueryBuilder eclQueryBuilder;
+	private final ECLQueryBuilder eclQueryBuilder;
 
-	@Autowired
-	private ECLPreprocessingService eclPreprocessingService;
+	private final ECLPreprocessingService eclPreprocessingService;
 
-	@Autowired
-	private ECLContentService eclContentService;
+	private final ECLContentService eclContentService;
 
-	@Autowired
-	private BranchService branchService;
+	private final BranchService branchService;
 
-	@Value("${timer.ecl.duration-threshold}")
-	private int eclDurationLoggingThreshold;
+	private final int eclDurationLoggingThreshold;
 
-	@Value("${cache.ecl.enabled}")
 	private boolean eclCacheEnabled;
 
 	private final ECLResultsCache resultsCache;
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
-	public ECLQueryService(@Value("${cache.ecl.max-weight:10000000}") long eclCacheMaxWeight) {
+	// Both services depend back on this one, and ECLContentService calls it from @PostConstruct, so they are lazy to break the cycle.
+	public ECLQueryService(ECLQueryBuilder eclQueryBuilder, @Lazy ECLPreprocessingService eclPreprocessingService, @Lazy ECLContentService eclContentService,
+			BranchService branchService, @Value("${timer.ecl.duration-threshold}") int eclDurationLoggingThreshold,
+			@Value("${cache.ecl.enabled}") boolean eclCacheEnabled, @Value("${cache.ecl.max-weight:10000000}") long eclCacheMaxWeight) {
+		this.eclQueryBuilder = eclQueryBuilder;
+		this.eclPreprocessingService = eclPreprocessingService;
+		this.eclContentService = eclContentService;
+		this.branchService = branchService;
+		this.eclDurationLoggingThreshold = eclDurationLoggingThreshold;
+		this.eclCacheEnabled = eclCacheEnabled;
 		resultsCache = new ECLResultsCache(eclCacheMaxWeight);
 	}
 
 	public Map<String, Map<String, Long>> getResultsCacheStats() {
 		return resultsCache.getStats(path -> {
 			Branch branch = branchService.findLatest(path);
-			return branch != null ? branch.getHeadTimestamp() : null;
+			return branch != null ? branch.getHead() : null;
 		});
 	}
 
