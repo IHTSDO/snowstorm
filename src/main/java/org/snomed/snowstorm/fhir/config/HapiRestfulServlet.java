@@ -93,6 +93,8 @@ public class HapiRestfulServlet extends RestfulServer {
 
 	    registerInterceptor(new ElasticsearchExceptionInterceptor());
 
+		registerInterceptor(applicationContext.getBean(FHIRWritePermissionInterceptor.class));
+
 		if (allowAnyOrigin) {
 			CorsConfiguration corsConfig = new CorsConfiguration();
 			corsConfig.addAllowedOriginPattern("*");

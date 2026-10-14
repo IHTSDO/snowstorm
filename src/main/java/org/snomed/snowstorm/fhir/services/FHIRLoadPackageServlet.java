@@ -4,6 +4,7 @@ import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.parser.IParser;
 import org.apache.commons.io.IOUtils;
 import org.hl7.fhir.r4.model.OperationOutcome;
+import org.snomed.snowstorm.fhir.config.FHIRWritePermissionInterceptor;
 import org.springframework.web.context.WebApplicationContext;
 import org.springframework.web.context.support.WebApplicationContextUtils;
 
@@ -32,6 +33,8 @@ public class FHIRLoadPackageServlet extends HttpServlet {
 
 	private FhirContext fhirContext;
 
+	private FHIRWritePermissionInterceptor writePermissionInterceptor;
+
 	@Override
 	public void init(ServletConfig config) throws ServletException {
 		final WebApplicationContext applicationContext =
@@ -42,10 +45,18 @@ public class FHIRLoadPackageServlet extends HttpServlet {
 
 		service = applicationContext.getBean(FHIRLoadPackageService.class);
 		fhirContext = applicationContext.getBean(FhirContext.class);
+		writePermissionInterceptor = applicationContext.getBean(FHIRWritePermissionInterceptor.class);
 	}
 
 	@Override
 	protected void doPost(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
+		// Registered outside both Spring MVC and HAPI, so neither method security nor the HAPI interceptor applies here.
+		try {
+			writePermissionInterceptor.checkGlobalAdmin();
+		} catch (SnowstormFHIRServerResponseException e) {
+			error(e, resp);
+			return;
+		}
 		String contentType = req.getContentType();
 		if (!contentType.startsWith(MULTIPART_FORM_DATA)) {
 			badRequest("Request must use content type " + MULTIPART_FORM_DATA, resp);
