@@ -33,7 +33,7 @@ public class FHIRLoadPackageServlet extends HttpServlet {
 
 	private FhirContext fhirContext;
 
-	private FHIRWritePermissionInterceptor writePermissionInterceptor;
+	private transient FHIRWritePermissionInterceptor writePermissionInterceptor;
 
 	@Override
 	public void init(ServletConfig config) throws ServletException {
