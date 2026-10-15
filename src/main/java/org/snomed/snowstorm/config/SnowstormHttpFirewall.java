@@ -11,8 +11,6 @@ import java.util.regex.Pattern;
 
 public class SnowstormHttpFirewall extends StrictHttpFirewall {
 
-	private static final Pattern ALLOWED_PARAMETER_VALUES = Pattern.compile("[[^\\p{IsControl}]\\t\\n\\r]*");
-
 	private static final Pattern CONTROL_CHARACTER = Pattern.compile("\\p{IsControl}");
 
 	private static final int MAX_MESSAGE_LENGTH = 500;
@@ -20,13 +18,6 @@ public class SnowstormHttpFirewall extends StrictHttpFirewall {
 	public SnowstormHttpFirewall() {
 		setAllowUrlEncodedSlash(true);
 		// Thrown here because StrictHttpFirewall's own messages quote the value, which may be a cookie or token.
-		// Multi-line ECL is sent in query parameters.
-		setAllowedParameterValues(value -> {
-			if (!ALLOWED_PARAMETER_VALUES.matcher(value).matches()) {
-				throw new RequestRejectedException("The request was rejected because a parameter value is not allowed.");
-			}
-			return true;
-		});
 		setAllowedHeaderValues(value -> {
 			if (!ALLOWED_HEADER_VALUES.test(value)) {
 				throw new RequestRejectedException("The request was rejected because a header value is not allowed.");

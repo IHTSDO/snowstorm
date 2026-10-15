@@ -34,10 +34,10 @@ public class SnowstormRequestRejectedHandler implements RequestRejectedHandler {
 	public void handle(HttpServletRequest request, HttpServletResponse response, RequestRejectedException exception) throws IOException {
 		String message = SnowstormHttpFirewall.safeMessage(exception);
 		if (response.isCommitted()) {
-			logger.info("bad request {}, response already committed", message);
+			logger.debug("bad request {}, response already committed", message);
 			return;
 		}
-		logger.info("bad request {}", message);
+		logger.debug("bad request {}", message);
 		// reset() also drops headers set by earlier filters; CORS headers are restored so browsers can read the 400.
 		Map<String, List<String>> corsHeaders = new LinkedHashMap<>();
 		for (String name : response.getHeaderNames()) {

@@ -68,7 +68,7 @@ public class RestControllerAdvice {
 	@ResponseBody
 	public Map<String, Object> handleRequestRejectedException(RequestRejectedException exception) {
 		String message = SnowstormHttpFirewall.safeMessage(exception);
-		logger.info("bad request {}", message);
+		logger.debug("bad request {}", message);
 		return Map.of("error", HttpStatus.BAD_REQUEST, "message", message);
 	}
 

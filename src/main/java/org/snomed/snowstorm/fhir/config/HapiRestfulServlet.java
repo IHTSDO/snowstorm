@@ -5,9 +5,6 @@ import ca.uhn.fhir.parser.LenientErrorHandler;
 import ca.uhn.fhir.parser.StrictErrorHandler;
 import ca.uhn.fhir.rest.api.EncodingEnum;
 import ca.uhn.fhir.rest.server.RestfulServer;
-import jakarta.servlet.ServletException;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.fhir.exceptions.ElasticsearchExceptionInterceptor;
@@ -15,8 +12,6 @@ import org.snomed.snowstorm.fhir.services.*;
 import org.springframework.boot.info.BuildProperties;
 import org.springframework.web.context.WebApplicationContext;
 import org.springframework.web.context.support.WebApplicationContextUtils;
-
-import java.io.IOException;
 
 public class HapiRestfulServlet extends RestfulServer {
 
@@ -32,13 +27,6 @@ public class HapiRestfulServlet extends RestfulServer {
         this.buildProperties = buildProperties;
         this.codeSystemService = codeSystemService;
     }
-
-	@Override
-	protected void service(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
-		// HAPI parses GET query strings itself, so read the parameters here to run the firewall's value checks outside HAPI's error handling.
-		request.getParameterMap();
-		super.service(request, response);
-	}
 
     /**
      * The initialize method is automatically called when the servlet is starting up, so it can be used to configure the
