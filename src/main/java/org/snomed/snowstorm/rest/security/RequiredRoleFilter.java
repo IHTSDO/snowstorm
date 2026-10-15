@@ -8,7 +8,7 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.web.authentication.preauth.PreAuthenticatedAuthenticationToken;
-import org.springframework.util.AntPathMatcher;
+import org.springframework.security.web.util.matcher.RequestMatcher;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import jakarta.servlet.FilterChain;
@@ -16,35 +16,30 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
-import java.util.Collections;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 import java.util.stream.Collectors;
 
 public class RequiredRoleFilter extends OncePerRequestFilter {
 
 	private final String requiredRole;
 
-	private final Set<String> excludedUrlPatterns = new HashSet<>();
+	private final RequestMatcher excludedPaths;
 
 	private final static Logger LOGGER = LoggerFactory.getLogger(RequiredRoleFilter.class);
 
 	public RequiredRoleFilter(String requiredRole) {
-		this(requiredRole, new String[]{});
+		this(requiredRole, request -> false);
 	}
 
-	public RequiredRoleFilter(String requiredRole, String... excludedUrlPatterns) {
+	public RequiredRoleFilter(String requiredRole, RequestMatcher excludedPaths) {
 		this.requiredRole = requiredRole;
-		if (excludedUrlPatterns != null) {
-			Collections.addAll(this.excludedUrlPatterns, excludedUrlPatterns);
-		}
+		this.excludedPaths = excludedPaths;
 	}
 
 	@Override
 	protected boolean shouldNotFilter(HttpServletRequest request) {
 		Authentication authentication = SecurityUtil.getAuthentication();
-		return Strings.isNullOrEmpty(requiredRole) || isPathExcluded(request) || !(authentication instanceof PreAuthenticatedAuthenticationToken);
+		return Strings.isNullOrEmpty(requiredRole) || !(authentication instanceof PreAuthenticatedAuthenticationToken) || excludedPaths.matches(request);
 	}
 
 	@Override
@@ -63,22 +58,4 @@ public class RequiredRoleFilter extends OncePerRequestFilter {
 		filterChain.doFilter(request, response);
 	}
 
-	private boolean isPathExcluded(HttpServletRequest request) {
-		String requestURI = request.getRequestURI();
-		String contextPath = request.getContextPath();
-		if (requestURI != null) {
-			if (requestURI.startsWith(contextPath)) {
-				requestURI = requestURI.substring(contextPath.length());
-			}
-			AntPathMatcher antPathMatcher = new AntPathMatcher();
-			for (String excludedUrlPattern : excludedUrlPatterns) {
-				if (antPathMatcher.match(excludedUrlPattern, requestURI)) {
-					LOGGER.debug("RequiredRoleFilter: path {} is excluded", requestURI);
-					return true;
-				}
-			}
-		}
-		LOGGER.debug("RequiredRoleFilter: path {} is not excluded", requestURI);
-		return false;
-	}
 }
