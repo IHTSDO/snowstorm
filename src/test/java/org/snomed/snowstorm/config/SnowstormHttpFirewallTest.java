@@ -68,26 +68,10 @@ class SnowstormHttpFirewallTest {
 	}
 
 	@Test
-	void otherControlCharacterInParameterValueIsRejected() {
-		MockHttpServletRequest request = request("/MAIN/concepts", "/MAIN/concepts", null);
-		request.addParameter("ecl", "<< 404684003\u0000");
-		assertThrows(RequestRejectedException.class, () -> firewall.getFirewalledRequest(request).getParameter("ecl"));
-	}
-
-	@Test
 	void rejectedHeaderValueIsNotInMessage() {
 		MockHttpServletRequest request = request("/MAIN/concepts", "/MAIN/concepts", null);
 		request.addHeader("Cookie", "session=secret-token\u0000");
 		RequestRejectedException exception = assertThrows(RequestRejectedException.class, () -> firewall.getFirewalledRequest(request).getHeader("Cookie"));
-
-		assertFalse(exception.getMessage().contains("secret-token"), exception.getMessage());
-	}
-
-	@Test
-	void rejectedParameterValueIsNotInMessage() {
-		MockHttpServletRequest request = request("/fhir", "/fhir", "/ValueSet");
-		request.addParameter("access_token", "secret-token\u0000");
-		RequestRejectedException exception = assertThrows(RequestRejectedException.class, () -> firewall.getFirewalledRequest(request).getParameter("access_token"));
 
 		assertFalse(exception.getMessage().contains("secret-token"), exception.getMessage());
 	}

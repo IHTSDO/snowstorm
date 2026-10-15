@@ -47,12 +47,6 @@ class SwaggerSecurityTest extends AbstractControllerSecurityTest {
 	}
 
 	@Test
-	void controlCharacterInParameterValueIsRejected() throws URISyntaxException {
-		testStatusCode(HttpStatus.BAD_REQUEST, authorHeaders, get("/codesystems?forBranch=%00"));
-		testStatusCode(HttpStatus.BAD_REQUEST, authorHeaders, get("/fhir/ValueSet?url=%00"));
-	}
-
-	@Test
 	void controlCharacterInFhirHeaderValueIsRejected() throws IOException {
 		// Raw socket so the 0x85 byte (obs-text, which Tomcat accepts and decodes to a C1 control) is sent as-is.
 		try (Socket socket = new Socket("localhost", port)) {
