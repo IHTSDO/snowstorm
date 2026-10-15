@@ -1,5 +1,6 @@
 package org.snomed.snowstorm.config;
 
+import jakarta.servlet.http.HttpServletRequest;
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.security.web.firewall.HttpFirewall;
@@ -71,7 +72,8 @@ class SnowstormHttpFirewallTest {
 	void rejectedHeaderValueIsNotInMessage() {
 		MockHttpServletRequest request = request("/MAIN/concepts", "/MAIN/concepts", null);
 		request.addHeader("Cookie", "session=secret-token\u0000");
-		RequestRejectedException exception = assertThrows(RequestRejectedException.class, () -> firewall.getFirewalledRequest(request).getHeader("Cookie"));
+		HttpServletRequest firewalledRequest = firewall.getFirewalledRequest(request);
+		RequestRejectedException exception = assertThrows(RequestRejectedException.class, () -> firewalledRequest.getHeader("Cookie"));
 
 		assertFalse(exception.getMessage().contains("secret-token"), exception.getMessage());
 	}

@@ -175,7 +175,7 @@ public class SecurityAndUriConfig {
 
 	@Bean
 	public WebSecurityCustomizer webSecurityCustomizer() {
-		return (web) -> web.httpFirewall(allowUrlEncodedSlashHttpFirewall())
+		return web -> web.httpFirewall(allowUrlEncodedSlashHttpFirewall())
 				.requestRejectedHandler(new SnowstormRequestRejectedHandler(getGeneralMapper()));
 	}
 
