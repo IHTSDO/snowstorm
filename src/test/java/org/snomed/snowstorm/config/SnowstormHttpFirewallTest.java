@@ -5,8 +5,7 @@ import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.security.web.firewall.HttpFirewall;
 import org.springframework.security.web.firewall.RequestRejectedException;
 
-import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.*;
 
 class SnowstormHttpFirewallTest {
 
@@ -73,6 +72,46 @@ class SnowstormHttpFirewallTest {
 		MockHttpServletRequest request = request("/MAIN/concepts", "/MAIN/concepts", null);
 		request.addParameter("ecl", "<< 404684003\u0000");
 		assertThrows(RequestRejectedException.class, () -> firewall.getFirewalledRequest(request).getParameter("ecl"));
+	}
+
+	@Test
+	void rejectedHeaderValueIsNotInMessage() {
+		MockHttpServletRequest request = request("/MAIN/concepts", "/MAIN/concepts", null);
+		request.addHeader("Cookie", "session=secret-token\u0000");
+		RequestRejectedException exception = assertThrows(RequestRejectedException.class, () -> firewall.getFirewalledRequest(request).getHeader("Cookie"));
+
+		assertFalse(exception.getMessage().contains("secret-token"), exception.getMessage());
+	}
+
+	@Test
+	void rejectedParameterValueIsNotInMessage() {
+		MockHttpServletRequest request = request("/fhir", "/fhir", "/ValueSet");
+		request.addParameter("access_token", "secret-token\u0000");
+		RequestRejectedException exception = assertThrows(RequestRejectedException.class, () -> firewall.getFirewalledRequest(request).getParameter("access_token"));
+
+		assertFalse(exception.getMessage().contains("secret-token"), exception.getMessage());
+	}
+
+	@Test
+	void tabInHeaderValueIsAllowed() {
+		MockHttpServletRequest request = request("/MAIN/concepts", "/MAIN/concepts", null);
+		request.addHeader("Accept-Language", "en\tfr");
+		assertDoesNotThrow(() -> firewall.getFirewalledRequest(request).getHeader("Accept-Language"));
+	}
+
+	@Test
+	void safeMessageEscapesControlCharacters() {
+		String message = SnowstormHttpFirewall.safeMessage(new RequestRejectedException("rejected \"\u001b[2J\nfake-line\u0000\""));
+
+		assertTrue(message.contains("\\u001b[2J\\u000afake-line\\u0000"), message);
+		assertFalse(message.chars().anyMatch(Character::isISOControl), message);
+	}
+
+	@Test
+	void safeMessageTruncatesLongValues() {
+		String message = SnowstormHttpFirewall.safeMessage(new RequestRejectedException("x".repeat(10_000)));
+
+		assertEquals(503, message.length());
 	}
 
 	private void assertRejected(MockHttpServletRequest request) {
