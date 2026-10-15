@@ -20,6 +20,7 @@ import org.snomed.snowstorm.rest.ReadOnlyApiWhenEnabled;
 import org.snomed.snowstorm.rest.config.*;
 import org.snomed.snowstorm.rest.pojo.BranchPojo;
 import org.snomed.snowstorm.rest.security.AccessDeniedExceptionHandler;
+import org.snomed.snowstorm.rest.security.ExcludedPathRequestMatcher;
 import org.snomed.snowstorm.rest.security.RequiredRoleFilter;
 import org.springdoc.core.models.GroupedOpenApi;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -36,8 +37,8 @@ import org.springframework.security.config.annotation.web.configuration.WebSecur
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.access.intercept.AuthorizationFilter;
-import org.springframework.security.web.firewall.DefaultHttpFirewall;
 import org.springframework.security.web.firewall.HttpFirewall;
+import org.springframework.security.web.util.matcher.RequestMatcher;
 import org.springframework.web.bind.annotation.GetMapping;
 import tools.jackson.databind.DeserializationFeature;
 import tools.jackson.databind.SerializationFeature;
@@ -73,6 +74,44 @@ public class SecurityAndUriConfig {
 			"/swagger-ui/**",
 			"/v3/api-docs/**"
 	};
+
+	private static final String[] BRANCH_PATH_REWRITE_PATTERNS = {
+			"/branches/(.*)/children",
+			"/branches/(.*)/parents",
+			"/branches/(.*)/metadata",
+			"/branches/(.*)/metadata-upsert",
+			"/branches/(.*)/actions/.*",
+			"/branches/(.*)",
+			"/rebuild/(.*)",
+			"/browser/(.*)/validate/concept",
+			"/browser/(.*)/validate/concepts",
+			"/browser/(.*)/inactivation-reasons",
+			"/browser/(.*)/concepts.*",
+			"/browser/(.*)/descriptions.*",
+			"/browser/(.*)/members.*",
+			"/(.*)/concepts",
+			"/(.*)/concepts/.*",
+			"/(.*)/relationships.*",
+			"/(.*)/descriptions.*",
+			"/(.*)/members.*",
+			"/(.*)/expressions.*",
+			"/(.*)/identifiers",
+			"/(.*)/identifiers/.*",
+			"/(.*)/classifications.*",
+			"/(.*)/integrity-check",
+			"/(.*)/upgrade-integrity-check",
+			"/(.*)/integrity-check-full",
+			"/(.*)/report/.*",
+			"/(.*)/authoring-stats.*",
+			"/mrcm/(.*)/domain-attributes",
+			"/mrcm/(.*)/attribute-values.*",
+			"/mrcm/(.*)/concept-model-attribute-hierarchy",
+			"/admin/(.*)/actions/.*",
+			"/admin/permissions/(.*)/role/.*",
+			"/admin/permissions/(((?!user-group).)(.*))"
+	};
+
+	private final RequestMatcher excludedPathMatcher = new ExcludedPathRequestMatcher(excludedUrlPatterns, BRANCH_PATH_REWRITE_PATTERNS);
 
 	@Bean
 	public JsonMapper getGeneralMapper() {
@@ -110,48 +149,12 @@ public class SecurityAndUriConfig {
 	@Bean
 	public FilterRegistrationBean<BranchPathUriRewriteFilter> getUrlRewriteFilter() {
 		// Encode branch paths in uri to allow request mapping to work
-		return new FilterRegistrationBean<>(new BranchPathUriRewriteFilter(
-				"/branches/(.*)/children",
-				"/branches/(.*)/parents",
-				"/branches/(.*)/metadata",
-				"/branches/(.*)/metadata-upsert",
-				"/branches/(.*)/actions/.*",
-				"/branches/(.*)",
-				"/rebuild/(.*)",
-				"/browser/(.*)/validate/concept",
-				"/browser/(.*)/validate/concepts",
-				"/browser/(.*)/inactivation-reasons",
-				"/browser/(.*)/concepts.*",
-				"/browser/(.*)/descriptions.*",
-				"/browser/(.*)/members.*",
-				"/(.*)/concepts",
-				"/(.*)/concepts/.*",
-				"/(.*)/relationships.*",
-				"/(.*)/descriptions.*",
-				"/(.*)/members.*",
-				"/(.*)/expressions.*",
-				"/(.*)/identifiers",
-				"/(.*)/identifiers/.*",
-				"/(.*)/classifications.*",
-				"/(.*)/integrity-check",
-				"/(.*)/upgrade-integrity-check",
-				"/(.*)/integrity-check-full",
-				"/(.*)/report/.*",
-				"/(.*)/authoring-stats.*",
-				"/mrcm/(.*)/domain-attributes",
-				"/mrcm/(.*)/attribute-values.*",
-				"/mrcm/(.*)/concept-model-attribute-hierarchy",
-				"/admin/(.*)/actions/.*",
-				"/admin/permissions/(.*)/role/.*",
-				"/admin/permissions/(((?!user-group).)(.*))"
-				));
+		return new FilterRegistrationBean<>(new BranchPathUriRewriteFilter(BRANCH_PATH_REWRITE_PATTERNS));
 	}
 
 	@Bean
 	public HttpFirewall allowUrlEncodedSlashHttpFirewall() {
-		DefaultHttpFirewall firewall = new DefaultHttpFirewall();
-		firewall.setAllowUrlEncodedSlash(true);
-		return firewall;
+		return new SnowstormHttpFirewall();
 	}
 
 	@Bean
@@ -181,16 +184,14 @@ public class SecurityAndUriConfig {
 		// Add authentication filters if roles enabled
 		if (rolesEnabled) {
 			http.addFilterBefore(new RequestHeaderAuthenticationDecorator(), AuthorizationFilter.class);
-			http.addFilterAt(new RequiredRoleFilter(requiredRole, excludedUrlPatterns), AuthorizationFilter.class);
+			http.addFilterAt(new RequiredRoleFilter(requiredRole, excludedPathMatcher), AuthorizationFilter.class);
 		}
 
 		// Configure authorization rules
 		http.authorizeHttpRequests(auth -> {
 			// Excluded patterns (swagger, version) - no auth required
 			if (rolesEnabled) {
-				for (String pattern : excludedUrlPatterns) {
-					auth.requestMatchers(pattern).permitAll();
-				}
+				auth.requestMatchers(excludedPathMatcher).permitAll();
 			}
 
 			// Read-only mode: configure allowed POST endpoints and block writes
