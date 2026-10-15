@@ -6,6 +6,7 @@ import org.apache.catalina.connector.ClientAbortException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.langauges.ecl.ECLException;
+import org.snomed.snowstorm.config.SnowstormHttpFirewall;
 import org.snomed.snowstorm.core.data.services.NotFoundException;
 import org.snomed.snowstorm.core.data.services.TooCostlyException;
 import org.snomed.snowstorm.core.data.services.postcoordination.TransformationException;
@@ -15,6 +16,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.web.firewall.RequestRejectedException;
 import org.springframework.web.HttpMediaTypeNotSupportedException;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -59,6 +61,15 @@ public class RestControllerAdvice {
 		logger.info("bad request {}", exception.getMessage());
 		logger.debug("bad request {}", exception.getMessage(), exception);
 		return result;
+	}
+
+	@ExceptionHandler(RequestRejectedException.class)
+	@ResponseStatus(HttpStatus.BAD_REQUEST)
+	@ResponseBody
+	public Map<String, Object> handleRequestRejectedException(RequestRejectedException exception) {
+		String message = SnowstormHttpFirewall.safeMessage(exception);
+		logger.info("bad request {}", message);
+		return Map.of("error", HttpStatus.BAD_REQUEST, "message", message);
 	}
 
 	@ExceptionHandler(TooCostlyException.class)
