@@ -37,6 +37,8 @@ public class RestControllerAdvice {
 
 	private static final Logger logger = LoggerFactory.getLogger(RestControllerAdvice.class);
 
+	private static final String BAD_REQUEST_LOG = "bad request {}";
+
 	@ExceptionHandler({
 			IllegalArgumentException.class,
 			IllegalStateException.class,
@@ -58,8 +60,8 @@ public class RestControllerAdvice {
 		if (exception.getCause() != null) {
 			result.put("causeMessage", exception.getCause().getMessage());
 		}
-		logger.info("bad request {}", exception.getMessage());
-		logger.debug("bad request {}", exception.getMessage(), exception);
+		logger.info(BAD_REQUEST_LOG, exception.getMessage());
+		logger.debug(BAD_REQUEST_LOG, exception.getMessage(), exception);
 		return result;
 	}
 
@@ -68,7 +70,7 @@ public class RestControllerAdvice {
 	@ResponseBody
 	public Map<String, Object> handleRequestRejectedException(RequestRejectedException exception) {
 		String message = SnowstormHttpFirewall.safeMessage(exception);
-		logger.debug("bad request {}", message);
+		logger.debug(BAD_REQUEST_LOG, message);
 		return Map.of("error", HttpStatus.BAD_REQUEST, "message", message);
 	}
 

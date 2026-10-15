@@ -41,26 +41,22 @@ class RequiredRoleFilterTest {
 	void dotDotSegmentInRawUriDoesNotSkipRoleCheck() {
 		authenticateWithRoles("ROLE_other");
 
-		assertThrows(AccessDeniedException.class, () ->
-				filter.doFilter(request("/swagger-ui/../fhir-admin/load-package", "/fhir-admin/load-package", null), new MockHttpServletResponse(), new MockFilterChain()));
-		assertThrows(AccessDeniedException.class, () ->
-				filter.doFilter(request("/swagger-ui/..%2Ffhir/ValueSet", "/fhir", "/ValueSet"), new MockHttpServletResponse(), new MockFilterChain()));
+		assertAccessDenied(request("/swagger-ui/../fhir-admin/load-package", "/fhir-admin/load-package", null));
+		assertAccessDenied(request("/swagger-ui/..%2Ffhir/ValueSet", "/fhir", "/ValueSet"));
 	}
 
 	@Test
 	void decodedPathMatchingExclusionDoesNotSkipRoleCheckWhenRawUriDoesNot() {
 		authenticateWithRoles("ROLE_other");
 
-		assertThrows(AccessDeniedException.class, () ->
-				filter.doFilter(request("/admin/permissions/user-group/x%2F..%2F..%2F..%2F..%2Fswagger-ui%2Fy", "/swagger-ui/y", null), new MockHttpServletResponse(), new MockFilterChain()));
+		assertAccessDenied(request("/admin/permissions/user-group/x%2F..%2F..%2F..%2F..%2Fswagger-ui%2Fy", "/swagger-ui/y", null));
 	}
 
 	@Test
 	void excludedPathRewrittenToBranchControllerDoesNotSkipRoleCheck() {
 		authenticateWithRoles("ROLE_other");
 
-		assertThrows(AccessDeniedException.class, () ->
-				filter.doFilter(request("/swagger-ui/MAIN/concepts", "/swagger-ui/MAIN/concepts", null), new MockHttpServletResponse(), new MockFilterChain()));
+		assertAccessDenied(request("/swagger-ui/MAIN/concepts", "/swagger-ui/MAIN/concepts", null));
 	}
 
 	@Test
@@ -69,8 +65,7 @@ class RequiredRoleFilterTest {
 		MockHttpServletRequest request = request("/swagger-ui/index.html", "/swagger-ui/index.html", null);
 		request.setRequestURI(null);
 
-		assertThrows(AccessDeniedException.class, () ->
-				filter.doFilter(request, new MockHttpServletResponse(), new MockFilterChain()));
+		assertAccessDenied(request);
 	}
 
 	@Test
@@ -81,6 +76,12 @@ class RequiredRoleFilterTest {
 		filter.doFilter(request("/fhir/ValueSet", "/fhir", "/ValueSet"), new MockHttpServletResponse(), chain);
 
 		assertNotNull(chain.getRequest());
+	}
+
+	private void assertAccessDenied(MockHttpServletRequest request) {
+		MockHttpServletResponse response = new MockHttpServletResponse();
+		MockFilterChain chain = new MockFilterChain();
+		assertThrows(AccessDeniedException.class, () -> filter.doFilter(request, response, chain));
 	}
 
 	private static MockHttpServletRequest request(String requestUri, String servletPath, String pathInfo) {
