@@ -32,6 +32,8 @@ public class ECLResultsCache {
 
 	private final long maxEntryWeight;
 
+	private final AtomicLong skippedOversize = new AtomicLong();
+
 	// Caffeine's counters cannot be reset, so the summary reports them relative to the last clear.
 	private final AtomicReference<CacheStats> statsAtLastClear = new AtomicReference<>(CacheStats.empty());
 
@@ -77,7 +79,11 @@ public class ECLResultsCache {
 		ECLCacheKey key = createKey(path, timepoint, ecl, stated, pageRequest);
 		Long current = currentTimepoints.get(path);
 		// A query that finishes after the branch moved to another timepoint is not cached.
-		if ((current != null && current != key.timepoint()) || weigh(key, page) > maxEntryWeight) {
+		if (current != null && current != key.timepoint()) {
+			return;
+		}
+		if (weigh(key, page) > maxEntryWeight) {
+			skippedOversize.incrementAndGet();
 			return;
 		}
 		cache.put(key, page);
@@ -123,9 +129,11 @@ public class ECLResultsCache {
 		map.put("entries", cache.estimatedSize());
 		map.put("weight", cache.policy().eviction().map(eviction -> eviction.weightedSize().orElse(0)).orElse(0L));
 		map.put("max-weight", maxWeight);
+		map.put("max-entry-weight", maxEntryWeight);
 		map.put("hits", stats.hitCount());
 		map.put("misses", stats.missCount());
 		map.put("evictions", stats.evictionCount());
+		map.put("skipped-oversize", skippedOversize.get());
 		return map;
 	}
 
@@ -133,6 +141,7 @@ public class ECLResultsCache {
 		currentTimepoints.clear();
 		cache.invalidateAll();
 		statsAtLastClear.set(cache.stats());
+		skippedOversize.set(0);
 		branchDayHits.clear();
 		logger.info("ECL cache cleared.");
 	}
