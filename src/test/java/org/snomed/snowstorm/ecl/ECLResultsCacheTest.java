@@ -105,8 +105,12 @@ class ECLResultsCacheTest {
 	void testOversizedEntryNotCached() {
 		ECLResultsCache cache = new ECLResultsCache(1_000);
 		cache.put(PATH, HEAD, "<< 123", false, null, page(500));
+		cache.put(PATH, HEAD, "<< 456", false, null, page(5));
 
 		assertNull(cache.get(PATH, HEAD, "<< 123", false, null));
+		Map<String, Long> summary = cache.getSummary();
+		assertEquals(100, summary.get("max-entry-weight"));
+		assertEquals(1, summary.get("skipped-oversize"));
 	}
 
 	@Test
@@ -267,13 +271,16 @@ class ECLResultsCacheTest {
 			cache.get(PATH, HEAD, "<< 123 MINUS " + i, false, PAGE);
 		}
 		cache.get(PATH, HEAD, "<< 456", false, PAGE);
+		cache.put(PATH, HEAD, "<< 789", false, PAGE, page(500));
 		Map<String, Long> before = cache.getSummary();
 		assertTrue(before.get("hits") > 0);
 		assertTrue(before.get("misses") > 0);
 		assertTrue(before.get("evictions") > 0);
+		assertEquals(1, before.get("skipped-oversize"));
 
 		cache.clearCache();
-		assertEquals(Map.of("entries", 0L, "weight", 0L, "max-weight", 1_000L, "hits", 0L, "misses", 0L, "evictions", 0L), cache.getSummary());
+		assertEquals(Map.of("entries", 0L, "weight", 0L, "max-weight", 1_000L, "max-entry-weight", 100L, "hits", 0L, "misses", 0L,
+				"evictions", 0L, "skipped-oversize", 0L), cache.getSummary());
 
 		cache.put(PATH, HEAD, "<< 123", false, PAGE, page(5));
 		cache.get(PATH, HEAD, "<< 123", false, PAGE);
