@@ -6401,6 +6401,111 @@ class BranchMergeServiceTest extends AbstractTest {
 		});
 	}
 
+	@Test
+	void testDonatedLangMemberDoesNotLoseEffectiveTimePostTranslation() throws ServiceException {
+		String intMain = "MAIN";
+		String extMain = "MAIN/SNOMEDCT-EXT";
+		String ci = "CASE_INSENSITIVE";
+		Map<String, String> usPreferred = Map.of(US_EN_LANG_REFSET, descriptionAcceptabilityNames.get(PREFERRED));
+		Map<String, String> usAndGbPreferred = Map.of(US_EN_LANG_REFSET, descriptionAcceptabilityNames.get(PREFERRED), GB_EN_LANG_REFSET, descriptionAcceptabilityNames.get(PREFERRED));
+		CodeSystem codeSystem;
+		Concept concept;
+
+		// Create Extension
+		codeSystemService.createCodeSystem(new CodeSystem("SNOMEDCT-EXT", extMain));
+		concept = conceptService.create(
+				new Concept()
+						.addDescription(new Description("Extension module (module)").setTypeId(FSN).setCaseSignificance(ci).setAcceptabilityMap(usPreferred))
+						.addDescription(new Description("Extension module").setTypeId(SYNONYM).setCaseSignificance(ci).setAcceptabilityMap(usPreferred))
+						.addAxiom(new Relationship(ISA, MODULE)),
+				extMain
+		);
+		String extModuleA = concept.getConceptId();
+		branchService.updateMetadata(extMain, Map.of(Config.DEFAULT_MODULE_ID_KEY, extModuleA));
+
+		// Extension creates a Concept with US & GB lang members
+		concept = conceptService.create(new Concept()
+				.setModuleId(extModuleA)
+				.addDescription(new Description("Medicine (medicine)").setTypeId(FSN).setCaseSignificance(ci).setAcceptabilityMap(usAndGbPreferred))
+				.addDescription(new Description("Medicine").setTypeId(SYNONYM).setCaseSignificance(ci).setAcceptabilityMap(usAndGbPreferred))
+				.addAxiom(new Relationship(ISA, SNOMEDCT_ROOT)), extMain);
+
+		String medicineId = concept.getConceptId();
+		String fsnId = getDescription(concept, "Medicine (medicine)").getDescriptionId();
+		String synId = getDescription(concept, "Medicine").getDescriptionId();
+		String fsnExtUsMemberId = getDescription(concept, "Medicine (medicine)").getLangRefsetMembersMap().get(US_EN_LANG_REFSET).iterator().next().getMemberId();
+		String synExtUsMemberId = getDescription(concept, "Medicine").getLangRefsetMembersMap().get(US_EN_LANG_REFSET).iterator().next().getMemberId();
+
+		// Version
+		codeSystem = codeSystemService.find("SNOMEDCT-EXT");
+		codeSystemService.createVersion(codeSystem, 20260102, "20260102");
+
+		// Inactivate GB members
+		concept = conceptService.find(medicineId, extMain);
+		concept = simulateRestTransfer(concept);
+		getDescription(concept, "Medicine (medicine)").setAcceptabilityMap(usPreferred);
+		getDescription(concept, "Medicine").setAcceptabilityMap(usPreferred);
+		conceptService.update(concept, extMain);
+
+		// Version
+		codeSystem = codeSystemService.find("SNOMEDCT-EXT");
+		codeSystemService.createVersion(codeSystem, 20260103, "20260103");
+
+		// Donate to International
+		conceptService.copyConcepts(medicineId, extMain, intMain, false);
+		concept = conceptService.find(medicineId, intMain);
+		assertNotNull(getDescription(concept, "Medicine (medicine)").getLangRefsetMembersMap().get(US_EN_LANG_REFSET));
+		assertNotNull(getDescription(concept, "Medicine").getLangRefsetMembersMap().get(US_EN_LANG_REFSET));
+
+		// Version
+		codeSystem = codeSystemService.find("SNOMEDCT");
+		codeSystemService.createVersion(codeSystem, 20260201, "20260201");
+
+		// Extension upgrades
+		codeSystem = codeSystemService.find("SNOMEDCT-EXT");
+		codeSystemUpgradeService.upgrade(null, codeSystem, 20260201, false);
+
+		// Assert
+		// FSN
+		List<ReferenceSetMember> fsnMembersPreTranslation = memberService.findMembers(extMain, new MemberSearchRequest().referencedComponentId(fsnId), PageRequest.of(0, 20)).getContent();
+		ReferenceSetMember fsnUsMemberPreTranslation = getMemberById(fsnMembersPreTranslation, fsnExtUsMemberId);
+		assertNotNull(fsnUsMemberPreTranslation);
+		assertTrue(fsnUsMemberPreTranslation.isActive());
+		assertEquals(20260201, fsnUsMemberPreTranslation.getEffectiveTimeI());
+
+		// SYN
+		List<ReferenceSetMember> synMembersPreTranslation = memberService.findMembers(extMain, new MemberSearchRequest().referencedComponentId(synId), PageRequest.of(0, 20)).getContent();
+		ReferenceSetMember synUsMemberPreTranslation = getMemberById(synMembersPreTranslation, synExtUsMemberId);
+		assertNotNull(synUsMemberPreTranslation);
+		assertTrue(synUsMemberPreTranslation.isActive());
+		assertEquals(20260201, synUsMemberPreTranslation.getEffectiveTimeI());
+
+		// Extension adds translation
+		concept = conceptService.find(medicineId, extMain);
+		concept = simulateRestTransfer(concept);
+		concept.addDescription(new Description("Medicinal").setTypeId(SYNONYM).setCaseSignificance(ci).setAcceptabilityMap(usPreferred));
+		conceptService.update(concept, extMain);
+
+		// Assert
+		// FSN
+		List<ReferenceSetMember> fsnMembers = memberService.findMembers(extMain, new MemberSearchRequest().referencedComponentId(fsnId), PageRequest.of(0, 20)).getContent();
+		ReferenceSetMember fsnUsMember = getMemberById(fsnMembers, fsnExtUsMemberId);
+		assertNotNull(fsnUsMember);
+		assertTrue(fsnUsMember.isActive());
+		assertEquals(20260201, fsnUsMember.getEffectiveTimeI());
+
+		// SYN
+		List<ReferenceSetMember> synMembers = memberService.findMembers(extMain, new MemberSearchRequest().referencedComponentId(synId), PageRequest.of(0, 20)).getContent();
+		ReferenceSetMember synUsMember = getMemberById(synMembers, synExtUsMemberId);
+		assertNotNull(synUsMember);
+		assertTrue(synUsMember.isActive());
+		assertEquals(20260201, synUsMember.getEffectiveTimeI());
+	}
+
+	private ReferenceSetMember getMemberById(List<ReferenceSetMember> members, String memberId) {
+		return members.stream().filter(m -> memberId.equals(m.getMemberId())).findFirst().orElse(null);
+	}
+
 	private Map<String, List<ReferenceSetMember>> groupByRefsetId(List<ReferenceSetMember> members) {
 		Map<String, List<ReferenceSetMember>> groups = new HashMap<>();
 
