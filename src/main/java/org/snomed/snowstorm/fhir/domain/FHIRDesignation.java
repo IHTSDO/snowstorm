@@ -132,6 +132,12 @@ public class FHIRDesignation {
 		return coding;
 	}
 
+	public boolean isWithdrawn() {
+		return extensions != null && extensions.stream().anyMatch(ext ->
+				"http://hl7.org/fhir/StructureDefinition/structuredefinition-standards-status".equals(ext.getUri()) &&
+				("withdrawn".equals(ext.getValue()) || "deprecated".equals(ext.getValue())));
+	}
+
 	public String getLanguage() {
 		return language;
 	}
