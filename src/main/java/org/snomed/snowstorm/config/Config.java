@@ -1,11 +1,11 @@
 package org.snomed.snowstorm.config;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import co.elastic.clients.elasticsearch.ElasticsearchClient;
+import co.elastic.clients.elasticsearch._types.ElasticsearchException;
 import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.api.VersionControlHelper;
 import io.kaicode.elasticvc.domain.Commit;
 import jakarta.annotation.PostConstruct;
-import org.elasticsearch.client.Request;
 import org.ihtsdo.otf.resourcemanager.ResourceManager;
 import org.modelmapper.ModelMapper;
 import org.slf4j.Logger;
@@ -28,13 +28,13 @@ import org.snomed.snowstorm.mrcm.MRCMUpdateService;
 import org.snomed.snowstorm.core.data.services.AdditionalDependencyUpdateService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.actuate.autoconfigure.jdbc.DataSourceHealthContributorAutoConfiguration;
+import org.springframework.boot.jdbc.autoconfigure.health.DataSourceHealthContributorAutoConfiguration;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
-import org.springframework.boot.autoconfigure.data.elasticsearch.ElasticsearchDataAutoConfiguration;
-import org.springframework.boot.autoconfigure.elasticsearch.ElasticsearchRestClientAutoConfiguration;
-import org.springframework.boot.autoconfigure.flyway.FlywayAutoConfiguration;
-import org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration;
-import org.springframework.boot.autoconfigure.orm.jpa.HibernateJpaAutoConfiguration;
+import org.springframework.boot.data.elasticsearch.autoconfigure.DataElasticsearchAutoConfiguration;
+import org.springframework.boot.elasticsearch.autoconfigure.ElasticsearchRestClientAutoConfiguration;
+import org.springframework.boot.flyway.autoconfigure.FlywayAutoConfiguration;
+import org.springframework.boot.jdbc.autoconfigure.DataSourceAutoConfiguration;
+import org.springframework.boot.hibernate.autoconfigure.HibernateJpaAutoConfiguration;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
@@ -46,7 +46,7 @@ import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.data.elasticsearch.core.IndexOperations;
 import org.springframework.data.elasticsearch.repository.config.EnableElasticsearchRepositories;
 import org.springframework.jms.core.JmsTemplate;
-import org.springframework.jms.support.converter.MappingJackson2MessageConverter;
+import org.springframework.jms.support.converter.JacksonJsonMessageConverter;
 import org.springframework.jms.support.converter.MessageConverter;
 import org.springframework.jms.support.converter.MessageType;
 import org.springframework.scheduling.annotation.EnableAsync;
@@ -55,12 +55,14 @@ import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 
 import static java.lang.Long.parseLong;
 
 @SpringBootApplication(
 		exclude = {
-				ElasticsearchDataAutoConfiguration.class,
+				DataElasticsearchAutoConfiguration.class,
 				ElasticsearchRestClientAutoConfiguration.class,
 				FlywayAutoConfiguration.class,
 				HibernateJpaAutoConfiguration.class,
@@ -148,6 +150,9 @@ public abstract class Config extends ElasticsearchConfig {
 	private ElasticsearchOperations elasticsearchOperations;
 
 	@Autowired
+	private ElasticsearchClient elasticsearchClient;
+
+	@Autowired
 	private IntegrityService integrityService;
 	
 	@Autowired
@@ -233,6 +238,9 @@ public abstract class Config extends ElasticsearchConfig {
 	}
 
 	@Bean
+	// elasticvc 9 takes a Jackson 3 ObjectMapper. The only such bean is getGeneralMapper() in
+	// SecurityAndUriConfig - Boot's JacksonAutoConfiguration backs off via @ConditionalOnMissingBean -
+	// so BranchService shares the REST mapper, mixins and inclusion settings included, as it did before.
 	public BranchService getBranchService(@Autowired ObjectMapper objectMapper) {
 		return new BranchService(objectMapper);
 	}
@@ -315,7 +323,14 @@ public abstract class Config extends ElasticsearchConfig {
 
 	@Bean // Serialize message content to json using TextMessage
 	public MessageConverter jacksonJmsMessageConverter() {
-		MappingJackson2MessageConverter converter = new MappingJackson2MessageConverter();
+		/*
+		Jackson 3 replacement for MappingJackson2MessageConverter, which is deprecated for removal in
+		Spring 7. The old converter built its own internal mapper; the mapper is supplied explicitly
+		here because Jackson 3's defaults would otherwise change the wire format - Activity's keys get
+		reordered - and these messages are consumed by services outside this repository.
+		*/
+		JacksonJsonMessageConverter converter =
+				new JacksonJsonMessageConverter(JsonMapper.builderWithJackson2Defaults().build());
 		converter.setTargetType(MessageType.TEXT);
 		converter.setTypeIdPropertyName("_type");
 		return converter;
@@ -355,11 +370,15 @@ public abstract class Config extends ElasticsearchConfig {
 			String indexName = elasticsearchOperations.getIndexCoordinatesFor(domainEntityClass).getIndexName();
 			try {
 				indexMaxTermsCount = indexMaxTermsCount <= 65536 ? 65536 : indexMaxTermsCount;
-				Request updateSettingsRequest = new Request("PUT", "/" + indexName + "/_settings");
-				updateSettingsRequest.setJsonEntity("{\"index.max_terms_count\": " + indexMaxTermsCount + "}");
-				elasticsearchRestClient(clientConfiguration()).performRequest(updateSettingsRequest);
+				// This used to be a raw request through the low level RestClient. spring-data-elasticsearch 6
+				// dropped its RestClient bean and the whole legacy client package is deprecated for removal,
+				// so the setting goes through the managed ElasticsearchClient, which needs no lifecycle here.
+				int maxTermsCount = indexMaxTermsCount;
+				elasticsearchClient.indices().putSettings(request -> request
+						.index(indexName)
+						.settings(settings -> settings.maxTermsCount(maxTermsCount)));
 				logger.info("{} is updated to {} for {}", INDEX_MAX_TERMS_COUNT, indexMaxTermsCount, indexName);
-			} catch (IOException e) {
+			} catch (IOException | ElasticsearchException e) {
 				logger.error("Failed to update setting {} on index {}", INDEX_MAX_TERMS_COUNT, indexName, e);
 			}
 		}

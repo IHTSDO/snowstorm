@@ -1,7 +1,7 @@
 package org.snomed.snowstorm.fhir.domain;
 
 import ca.uhn.fhir.jpa.entity.TermConceptProperty;
-import ca.uhn.fhir.jpa.entity.TermConceptPropertyTypeEnum;
+import org.hl7.fhir.common.hapi.validation.util.TermConceptPropertyTypeEnum;
 import org.hl7.fhir.r4.model.*;
 
 import java.util.Arrays;

@@ -137,7 +137,9 @@ class FHIRValueSetProviderScrudTest extends AbstractFHIRTest {
 		String url = baseUrl + "/ValueSet?code=foo";
 		ResponseEntity<String> response = restTemplate.exchange(url,HttpMethod.GET, null, String.class);
 		// Well formed request, refused to protect server resources - not a missing resource.
-		assertEquals(HttpStatus.UNPROCESSABLE_ENTITY, response.getStatusCode());
+		// Spring Framework 7 renamed the 422 constant to UNPROCESSABLE_CONTENT (RFC 9110).
+		// Same status code; asserting on the numeric value keeps this rename-proof.
+		assertEquals(422, response.getStatusCode().value());
 		assertTrue(response.getBody().contains("too-costly"));
 	}
 	

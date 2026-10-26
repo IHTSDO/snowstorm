@@ -2,7 +2,8 @@ package org.snomed.snowstorm.fhir.services;
 
 import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.parser.IParser;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 import jakarta.servlet.http.HttpServletRequest;
 import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
 import org.apache.commons.compress.archivers.tar.TarArchiveOutputStream;
@@ -231,7 +232,7 @@ class FHIRValueSetProviderHelper {
 
 		FHIRIndex fi = new FHIRIndex();
 		fi.setFiles(allFilesWithContents.stream().map(x -> x.indexFile).toList());
-		ObjectMapper mapper = new ObjectMapper();
+		ObjectMapper mapper = JsonMapper.builderWithJackson2Defaults().build();
 		String index = mapper.writeValueAsString(fi);
 
 		TarArchiveEntry entry = new TarArchiveEntry("package/.index.json");

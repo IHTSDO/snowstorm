@@ -1,8 +1,9 @@
 package org.snomed.snowstorm.ecl.deserializer;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.json.JsonMapper;
+import tools.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import org.snomed.langauges.ecl.ECLQueryBuilder;
 import org.snomed.langauges.ecl.domain.expressionconstraint.ExpressionConstraint;
@@ -20,13 +21,16 @@ class ECLModelDeserializerServiceTest {
 
 	public ECLModelDeserializerServiceTest() {
 		eclQueryBuilder = new ECLQueryBuilder(new SECLObjectFactory(1000));
-		objectMapper = new ObjectMapper();
-		objectMapper.setSerializationInclusion(JsonInclude.Include.NON_NULL);
+		// Must match ECLModelDeserializerService's mapper: this one writes the ECL model that the
+		// service then reads back, and the two disagree on enum representation unless both are pinned.
+		objectMapper = JsonMapper.builderWithJackson2Defaults()
+				.changeDefaultPropertyInclusion(inclusion -> inclusion.withValueInclusion(JsonInclude.Include.NON_NULL).withContentInclusion(JsonInclude.Include.NON_NULL))
+				.build();
 		eclModelDeserializerService = new ECLModelDeserializerService();
 	}
 
 	@Test
-	public void testAll() throws JsonProcessingException {
+	public void testAll() throws JacksonException {
 		assertConversionTest("*");
 		assertConversionTest("100000000");
 		assertConversionTest("< 100000000");
@@ -258,11 +262,11 @@ class ECLModelDeserializerServiceTest {
 		assertConversionTest("195967001 |Asthma| {{ + HISTORY }}");
 	}
 
-	private void assertConversionTest(String inputEcl) throws JsonProcessingException {
+	private void assertConversionTest(String inputEcl) throws JacksonException {
 		assertConversionTest(inputEcl, inputEcl);
 	}
 
-	private void assertConversionTest(String inputEcl, String expectedEcl) throws JsonProcessingException {
+	private void assertConversionTest(String inputEcl, String expectedEcl) throws JacksonException {
 		final ExpressionConstraint eclModel = eclQueryBuilder.createQuery(inputEcl);
 		final String eclModelJsonString = objectMapper.writeValueAsString(eclModel);
 		String eclOutputString = eclModelDeserializerService.convertECLModelToString(eclModelJsonString);

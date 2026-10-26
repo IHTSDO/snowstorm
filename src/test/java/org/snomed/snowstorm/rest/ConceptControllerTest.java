@@ -1,7 +1,7 @@
 package org.snomed.snowstorm.rest;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.ObjectMapper;
 import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.api.ComponentService;
 import org.junit.jupiter.api.BeforeEach;
@@ -23,7 +23,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.configurationprocessor.json.JSONException;
 import org.springframework.boot.configurationprocessor.json.JSONObject;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.web.client.TestRestTemplate;
+import org.springframework.boot.resttestclient.TestRestTemplate;
+import org.springframework.boot.resttestclient.autoconfigure.AutoConfigureTestRestTemplate;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.data.domain.PageRequest;
@@ -49,6 +50,8 @@ import static org.snomed.snowstorm.core.data.domain.Concepts.*;
 
 @ActiveProfiles("test")
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, classes = TestConfig.class)
+// Boot 4 no longer auto-registers TestRestTemplate; it needs this annotation.
+@AutoConfigureTestRestTemplate
 class ConceptControllerTest extends AbstractTest {
 
 	@LocalServerPort
@@ -287,7 +290,7 @@ class ConceptControllerTest extends AbstractTest {
 
 		// Expected 1 concept found for US_EN language refset
 	    ResponseEntity<String> responseEntity = this.restTemplate.exchange("http://localhost:" + port + "/MAIN/projectA/concepts?preferredOrAcceptableIn=" + Long.parseLong(Concepts.US_EN_LANG_REFSET) + "&conceptIds=" + conceptId,
-                HttpMethod.GET, new HttpEntity<>(null), String.class);
+                HttpMethod.GET, new HttpEntity<>((HttpHeaders) null), String.class);
         assertEquals(200, responseEntity.getStatusCode().value());
 		String responseBody = responseEntity.getBody();
         assertNotNull(responseBody);
@@ -297,7 +300,7 @@ class ConceptControllerTest extends AbstractTest {
 		// No result for invalid given language refset
 		long belgiumDutchLanguageRefsetId = 31000172101L;
 		responseEntity = this.restTemplate.exchange("http://localhost:" + port + "/MAIN/projectA/concepts?preferredOrAcceptableIn=" + belgiumDutchLanguageRefsetId + "&conceptIds=" + conceptId,
-				HttpMethod.GET, new HttpEntity<>(null), String.class);
+				HttpMethod.GET, new HttpEntity<>((HttpHeaders) null), String.class);
 		assertEquals(200, responseEntity.getStatusCode().value());
 		responseBody = responseEntity.getBody();
 		assertNotNull(responseBody);
@@ -310,7 +313,7 @@ class ConceptControllerTest extends AbstractTest {
 		String validEclExpression = "257751006 |Clinical finding|";
 
 		ResponseEntity<String> responseEntity = this.restTemplate.exchange("http://localhost:" + port + "/MAIN/concepts?ecl=" + validEclExpression,
-				HttpMethod.GET, new HttpEntity<>(null), String.class);
+				HttpMethod.GET, new HttpEntity<>((HttpHeaders) null), String.class);
 		assertEquals(200, responseEntity.getStatusCode().value());
 	}
 
@@ -323,7 +326,7 @@ class ConceptControllerTest extends AbstractTest {
 		String eclExpressionWithInactiveConcept = "257751006 |Clinical finding|";
 
 		ResponseEntity<String> responseEntity = this.restTemplate.exchange("http://localhost:" + port + "/MAIN/concepts?ecl=" + eclExpressionWithInactiveConcept,
-				HttpMethod.GET, new HttpEntity<>(null), String.class);
+				HttpMethod.GET, new HttpEntity<>((HttpHeaders) null), String.class);
 		assertEquals(400, responseEntity.getStatusCode().value());
 		String responseBody = responseEntity.getBody();
 		JSONObject jsonObject = new JSONObject(responseBody);
@@ -337,7 +340,7 @@ class ConceptControllerTest extends AbstractTest {
 		String eclExpressionWithNonexistentConcept = "257751006 |Clinical finding|";
 
 		ResponseEntity<String> responseEntity = this.restTemplate.exchange("http://localhost:" + port + "/MAIN/concepts?ecl=" + eclExpressionWithNonexistentConcept,
-				HttpMethod.GET, new HttpEntity<>(null), String.class);
+				HttpMethod.GET, new HttpEntity<>((HttpHeaders) null), String.class);
 		assertEquals(400, responseEntity.getStatusCode().value());
 		String responseBody = responseEntity.getBody();
 		JSONObject jsonObject = new JSONObject(responseBody);
@@ -445,7 +448,7 @@ class ConceptControllerTest extends AbstractTest {
 
 		// Fetch first page
 		ResponseEntity<ItemsPagePojo<ConceptMini>> responseEntity = this.restTemplate.exchange("http://localhost:" + port + "/MAIN/concepts?activeFilter=true&statedEcl=<138875005&limit=1",
-				HttpMethod.GET, new HttpEntity<>(null), new ParameterizedTypeReference<>() {
+				HttpMethod.GET, new HttpEntity<>((HttpHeaders) null), new ParameterizedTypeReference<>() {
 				});
 		assertEquals(200, responseEntity.getStatusCode().value());
 		ItemsPagePojo<ConceptMini> page = responseEntity.getBody();
@@ -459,7 +462,7 @@ class ConceptControllerTest extends AbstractTest {
 
 		// Fetch second page
 		responseEntity = this.restTemplate.exchange("http://localhost:" + port + "/MAIN/concepts?activeFilter=true&statedEcl=<138875005&limit=1&searchAfter=" + searchAfterFromFirstPage,
-				HttpMethod.GET, new HttpEntity<>(null), new ParameterizedTypeReference<>() {
+				HttpMethod.GET, new HttpEntity<>((HttpHeaders) null), new ParameterizedTypeReference<>() {
 				});
 		assertEquals(200, responseEntity.getStatusCode().value());
 		page = responseEntity.getBody();
@@ -509,7 +512,7 @@ class ConceptControllerTest extends AbstractTest {
 
 		// Fetch all in one page
 		ResponseEntity<ItemsPagePojo<Long>> responseEntity = this.restTemplate.exchange("http://localhost:" + port + "/MAIN/concepts?activeFilter=true&statedEcl=<138875005&returnIdOnly=true&limit=100",
-				HttpMethod.GET, new HttpEntity<>(null), new ParameterizedTypeReference<>() {
+				HttpMethod.GET, new HttpEntity<>((HttpHeaders) null), new ParameterizedTypeReference<>() {
                 });
 		assertEquals(200, responseEntity.getStatusCode().value());
 		ItemsPagePojo<Long> page = responseEntity.getBody();
@@ -520,7 +523,7 @@ class ConceptControllerTest extends AbstractTest {
 
 		// Fetch first page
 		responseEntity = this.restTemplate.exchange("http://localhost:" + port + "/MAIN/concepts?activeFilter=true&statedEcl=<138875005&returnIdOnly=true&limit=1",
-				HttpMethod.GET, new HttpEntity<>(null), new ParameterizedTypeReference<>() {
+				HttpMethod.GET, new HttpEntity<>((HttpHeaders) null), new ParameterizedTypeReference<>() {
                 });
 		assertEquals(200, responseEntity.getStatusCode().value());
 		page = responseEntity.getBody();
@@ -534,7 +537,7 @@ class ConceptControllerTest extends AbstractTest {
 
 		// Fetch second page
 		responseEntity = this.restTemplate.exchange("http://localhost:" + port + "/MAIN/concepts?activeFilter=true&statedEcl=<138875005&returnIdOnly=true&limit=1&searchAfter=" + searchAfterFromFirstPage,
-				HttpMethod.GET, new HttpEntity<>(null), new ParameterizedTypeReference<>() {
+				HttpMethod.GET, new HttpEntity<>((HttpHeaders) null), new ParameterizedTypeReference<>() {
                 });
 		assertEquals(200, responseEntity.getStatusCode().value());
 		page = responseEntity.getBody();
@@ -553,7 +556,7 @@ class ConceptControllerTest extends AbstractTest {
 
 		// Fetch first page
 		ResponseEntity<ItemsPagePojo<ConceptMini>> responseEntity = this.restTemplate.exchange("http://localhost:" + port + "/MAIN/concepts?activeFilter=true&limit=1",
-				HttpMethod.GET, new HttpEntity<>(null), new ParameterizedTypeReference<>() {
+				HttpMethod.GET, new HttpEntity<>((HttpHeaders) null), new ParameterizedTypeReference<>() {
                 });
 		assertEquals(200, responseEntity.getStatusCode().value());
 		ItemsPagePojo<ConceptMini> page = responseEntity.getBody();
@@ -568,7 +571,7 @@ class ConceptControllerTest extends AbstractTest {
 		// Fetch second page
 		System.out.println("searchAfter '" + searchAfterFromFirstPage + "'");
 		responseEntity = this.restTemplate.exchange("http://localhost:" + port + "/MAIN/concepts?activeFilter=true&limit=1&searchAfter=" + searchAfterFromFirstPage,
-				HttpMethod.GET, new HttpEntity<>(null), new ParameterizedTypeReference<>() {
+				HttpMethod.GET, new HttpEntity<>((HttpHeaders) null), new ParameterizedTypeReference<>() {
                 });
 		assertEquals(200, responseEntity.getStatusCode().value());
 		page = responseEntity.getBody();
@@ -585,7 +588,7 @@ class ConceptControllerTest extends AbstractTest {
 		String requestUrl = "http://localhost:" + port + "/browser/MAIN/concepts/12345/history";
 
 		//when
-		ResponseEntity<ConceptHistory> responseEntity = this.restTemplate.exchange(requestUrl, HttpMethod.GET, new HttpEntity<>(null), new ParameterizedTypeReference<>() {
+		ResponseEntity<ConceptHistory> responseEntity = this.restTemplate.exchange(requestUrl, HttpMethod.GET, new HttpEntity<>((HttpHeaders) null), new ParameterizedTypeReference<>() {
         });
 
 		//then
@@ -598,7 +601,7 @@ class ConceptControllerTest extends AbstractTest {
 		String requestUrl = "http://localhost:" + port + "/browser/MAIN/concepts/257751006/history";
 
 		//when
-		ResponseEntity<ConceptHistory> responseEntity = this.restTemplate.exchange(requestUrl, HttpMethod.GET, new HttpEntity<>(null), new ParameterizedTypeReference<>() {
+		ResponseEntity<ConceptHistory> responseEntity = this.restTemplate.exchange(requestUrl, HttpMethod.GET, new HttpEntity<>((HttpHeaders) null), new ParameterizedTypeReference<>() {
         });
 
 		//then
@@ -676,7 +679,7 @@ class ConceptControllerTest extends AbstractTest {
 		methodTestDataFixture.insert();
 
 		//when
-		ResponseEntity<ConceptHistory> responseEntity = this.restTemplate.exchange(requestUrl, HttpMethod.GET, new HttpEntity<>(null), new ParameterizedTypeReference<>() {
+		ResponseEntity<ConceptHistory> responseEntity = this.restTemplate.exchange(requestUrl, HttpMethod.GET, new HttpEntity<>((HttpHeaders) null), new ParameterizedTypeReference<>() {
         });
 		ConceptHistory conceptHistory = responseEntity.getBody();
 		List<ConceptHistory.ConceptHistoryItem> history = conceptHistory.getHistory();
@@ -748,7 +751,7 @@ class ConceptControllerTest extends AbstractTest {
 		methodTestDataFixture.insert();
 
 		//when
-		ResponseEntity<ConceptHistory> responseEntity = this.restTemplate.exchange(requestUrl, HttpMethod.GET, new HttpEntity<>(null), new ParameterizedTypeReference<>() {
+		ResponseEntity<ConceptHistory> responseEntity = this.restTemplate.exchange(requestUrl, HttpMethod.GET, new HttpEntity<>((HttpHeaders) null), new ParameterizedTypeReference<>() {
         });
 		ConceptHistory conceptHistory = responseEntity.getBody();
 		List<ConceptHistory.ConceptHistoryItem> history = conceptHistory.getHistory();
@@ -843,7 +846,7 @@ class ConceptControllerTest extends AbstractTest {
 		methodTestDataFixture.insert();
 
 		//when
-		ResponseEntity<ConceptHistory> responseEntity = this.restTemplate.exchange(requestUrl, HttpMethod.GET, new HttpEntity<>(null), new ParameterizedTypeReference<>() {
+		ResponseEntity<ConceptHistory> responseEntity = this.restTemplate.exchange(requestUrl, HttpMethod.GET, new HttpEntity<>((HttpHeaders) null), new ParameterizedTypeReference<>() {
         });
 		ConceptHistory conceptHistory = responseEntity.getBody();
 		List<ConceptHistory.ConceptHistoryItem> history = conceptHistory.getHistory();
@@ -930,7 +933,7 @@ class ConceptControllerTest extends AbstractTest {
 		methodTestDataFixture.insert();
 
 		//when
-		ResponseEntity<ConceptHistory> responseEntity = this.restTemplate.exchange(requestUrl, HttpMethod.GET, new HttpEntity<>(null), new ParameterizedTypeReference<>() {
+		ResponseEntity<ConceptHistory> responseEntity = this.restTemplate.exchange(requestUrl, HttpMethod.GET, new HttpEntity<>((HttpHeaders) null), new ParameterizedTypeReference<>() {
         });
 		ConceptHistory conceptHistory = responseEntity.getBody();
 		List<ConceptHistory.ConceptHistoryItem> history = conceptHistory.getHistory();
@@ -1017,7 +1020,7 @@ class ConceptControllerTest extends AbstractTest {
 	@Test
 	void testAcceptLanguageHeaderWithWhitespaceBetweenValues() throws URISyntaxException {
 		//given
-		MultiValueMap<String, String> headers = new HttpHeaders();
+		HttpHeaders headers = new HttpHeaders();
 		headers.add("Accept-Language", "en, us");
 		RequestEntity<?> request = new RequestEntity<>(headers, HttpMethod.GET, new URI("http://localhost:" + port + "/browser/MAIN/concepts/257751006"));
 
@@ -1144,7 +1147,7 @@ class ConceptControllerTest extends AbstractTest {
 	}
 
 	@Test
-	void testMemberReturnedInHeadersWhenCreatingReferenceSetConcept() throws ServiceException, JsonProcessingException {
+	void testMemberReturnedInHeadersWhenCreatingReferenceSetConcept() throws ServiceException, JacksonException {
 		// data set up
 		givenReferenceSetsExist();
 		givenRefSetAncestorsExist();
@@ -1170,7 +1173,7 @@ class ConceptControllerTest extends AbstractTest {
 	}
 
 	@Test
-	void testMemberReturnedInHeadersWhenUpdatingReferenceSetConcept() throws ServiceException, JsonProcessingException {
+	void testMemberReturnedInHeadersWhenUpdatingReferenceSetConcept() throws ServiceException, JacksonException {
 		// data set up
 		givenReferenceSetsExist();
 		givenRefSetAncestorsExist();
@@ -1208,7 +1211,7 @@ class ConceptControllerTest extends AbstractTest {
 	}
 
 	@Test
-	void testMemberNotReturnedInHeadersWhenCreatingNonReferenceSetConcept() throws ServiceException, JsonProcessingException {
+	void testMemberNotReturnedInHeadersWhenCreatingNonReferenceSetConcept() throws ServiceException, JacksonException {
 		// data set up
 		givenReferenceSetsExist();
 		givenRefSetAncestorsExist();

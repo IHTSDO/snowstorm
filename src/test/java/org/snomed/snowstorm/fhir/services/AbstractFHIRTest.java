@@ -14,7 +14,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.boot.test.web.client.TestRestTemplate;
+import org.springframework.boot.resttestclient.TestRestTemplate;
+import org.springframework.boot.resttestclient.autoconfigure.AutoConfigureTestRestTemplate;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.http.*;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -36,6 +37,8 @@ import static org.junit.jupiter.api.Assertions.*;
 @ExtendWith(SpringExtension.class)
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, classes = FHIRTestConfig.class)
 @ActiveProfiles({"test", "fhir-test"})
+// Boot 4 no longer auto-registers TestRestTemplate; it needs this annotation.
+@AutoConfigureTestRestTemplate
 public class AbstractFHIRTest {
 
 	public static final String SHOULD_HAVE_THROWN_EXCEPTION_BEFORE_THIS_LINE = "Should have thrown exception before this line.";

@@ -1,12 +1,11 @@
 package org.snomed.snowstorm.fhir.domain;
 
-import java.io.IOException;
-
 import org.hl7.fhir.r4.model.StructureDefinition;
 
-import com.fasterxml.jackson.core.JsonParser;
-import com.fasterxml.jackson.databind.DeserializationContext;
-import com.fasterxml.jackson.databind.deser.std.StdDeserializer;
+import tools.jackson.core.JacksonException;
+import tools.jackson.core.JsonParser;
+import tools.jackson.databind.DeserializationContext;
+import tools.jackson.databind.deser.std.StdDeserializer;
 
 import ca.uhn.fhir.parser.IParser;
 
@@ -15,7 +14,7 @@ public class StructureDefinitionDeserializer extends StdDeserializer<StructureDe
 	private static final long serialVersionUID = -2394473877974921774L;
 
 	public StructureDefinitionDeserializer() {
-		this(null);
+		this(StructureDefinition.class);
 	}
 
 	public StructureDefinitionDeserializer(Class<StructureDefinition> t) {
@@ -24,7 +23,7 @@ public class StructureDefinitionDeserializer extends StdDeserializer<StructureDe
  
 
 	@Override
-	public StructureDefinition deserialize(JsonParser p, DeserializationContext ctxt) throws IOException {
+	public StructureDefinition deserialize(JsonParser p, DeserializationContext ctxt) throws JacksonException {
 		IParser fhirParser = StructureDefinitionWrapper.getFhirParser();
 		String json = p.readValueAsTree().toString();
 		//Remove the leading and trailing quotes and unescape the remaining quotes

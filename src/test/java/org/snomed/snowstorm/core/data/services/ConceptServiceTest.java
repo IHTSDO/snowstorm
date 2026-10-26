@@ -1,8 +1,8 @@
 package org.snomed.snowstorm.core.data.services;
 
-import com.fasterxml.jackson.databind.DeserializationConfig;
-import com.fasterxml.jackson.databind.DeserializationFeature;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.DeserializationFeature;
+import tools.jackson.databind.json.JsonMapper;
+import tools.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
@@ -89,9 +89,9 @@ class ConceptServiceTest extends AbstractTest {
 	@BeforeEach
 	void setup() {
 		testUtil = new ServiceTestUtil(conceptService);
-		objectMapper = new ObjectMapper();
-		DeserializationConfig deserializationConfig = objectMapper.getDeserializationConfig().without(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES);
-		objectMapper.setConfig(deserializationConfig);
+		objectMapper = JsonMapper.builderWithJackson2Defaults()
+				.disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
+				.build();
 		codeSystem = new CodeSystem("SNOMEDCT", "MAIN");
 		codeSystemService.createCodeSystem(codeSystem);
 	}

@@ -1,7 +1,7 @@
 package org.snomed.snowstorm.core.data.services;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.ObjectMapper;
 import io.kaicode.elasticvc.domain.Commit;
 import io.kaicode.elasticvc.domain.Metadata;
 import org.ihtsdo.sso.integration.SecurityUtil;
@@ -98,7 +98,7 @@ public class BranchMetadataHelper {
 		lockMeta.put("context", lockContext);
 		try {
 			return OBJECT_PREFIX + objectMapper.writeValueAsString(lockMeta);
-		} catch (JsonProcessingException e) {
+		} catch (JacksonException e) {
 			throw new RuntimeServiceException("Failed to serialise branch lock metadata", e);
 		}
 	}

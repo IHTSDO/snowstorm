@@ -1,6 +1,6 @@
 package org.snomed.snowstorm.rest;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
+import tools.jackson.core.JacksonException;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.snomed.langauges.ecl.ECLException;
@@ -54,7 +54,7 @@ public class UtilityController {
 	public EclString parseECLModel(@RequestBody String eclModel) {
 		try {
 			return new EclString(eclModelDeserializerService.convertECLModelToString(eclModel));
-		} catch (JsonProcessingException e) {
+		} catch (JacksonException e) {
 			throw new IllegalArgumentException("Failed to parse ECL model.", e);
 		}
 	}

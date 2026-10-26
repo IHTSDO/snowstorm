@@ -1,8 +1,10 @@
 package org.snomed.snowstorm.loadtest;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.DeserializationFeature;
+import tools.jackson.databind.json.JsonMapper;
+import tools.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import org.slf4j.Logger;
@@ -10,12 +12,11 @@ import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.core.data.domain.Concept;
 import org.snomed.snowstorm.core.data.domain.ConceptView;
 import org.snomed.snowstorm.core.data.domain.Concepts;
-import org.springframework.boot.web.client.RestTemplateBuilder;
+import org.springframework.boot.restclient.RestTemplateBuilder;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.*;
 import org.springframework.http.client.ClientHttpRequestInterceptor;
 import org.springframework.http.client.ClientHttpResponse;
-import org.springframework.http.converter.json.Jackson2ObjectMapperBuilder;
 import org.springframework.util.StreamUtils;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestTemplate;
@@ -94,11 +95,9 @@ class ManualLoadTest {
 				.rootUri(SNOWSTORM_API_URI)
 				.build();
 
-		objectMapper = Jackson2ObjectMapperBuilder
-				.json()
-				.defaultViewInclusion(false)
-				.failOnUnknownProperties(false)
-				.serializationInclusion(JsonInclude.Include.NON_NULL)
+		objectMapper = JsonMapper.builderWithJackson2Defaults()
+				.disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
+				.changeDefaultPropertyInclusion(inclusion -> inclusion.withValueInclusion(JsonInclude.Include.NON_NULL).withContentInclusion(JsonInclude.Include.NON_NULL))
 				.build();
 
 		loadTestBranch = createBranch("MAIN", "load-test-" + new SimpleDateFormat("yyyyMMdd-HHmmss").format(new Date()));
@@ -242,12 +241,12 @@ class ManualLoadTest {
 	private String json(Object o) {
 		try {
 			return objectMapper.writeValueAsString(o);
-		} catch (JsonProcessingException e) {
+		} catch (JacksonException e) {
 			throw new RuntimeException(e);
 		}
 	}
 
-	private void validateConcept(String taskBranch, Concept concept) throws JsonProcessingException {
+	private void validateConcept(String taskBranch, Concept concept) throws JacksonException {
 		long startMillis = new Date().getTime();
 		String request = conceptToString(concept);
 		HttpHeaders headers = new HttpHeaders();
@@ -257,7 +256,7 @@ class ManualLoadTest {
 		LOGGER.info("Validated concept {} on {} in {} seconds", concept.getFsn(), taskBranch, recordDuration("validate-concept", startMillis));
 	}
 
-	private Concept createConcept(String taskBranch, Concept concept) throws JsonProcessingException, InterruptedException {
+	private Concept createConcept(String taskBranch, Concept concept) throws JacksonException, InterruptedException {
 		long startMillis = new Date().getTime();
 		Concept newConcept = null;
 		try {
@@ -281,7 +280,7 @@ class ManualLoadTest {
 		return newConcept;
 	}
 
-	private String conceptToString(ConceptView concept) throws JsonProcessingException {
+	private String conceptToString(ConceptView concept) throws JacksonException {
 		// Manually strip the snowstorm fields so it works against SO6 too.
 		return objectMapper.writeValueAsString(concept)
 				.replace("\"grouped\":true,", "")

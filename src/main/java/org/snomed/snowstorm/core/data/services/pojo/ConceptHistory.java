@@ -1,7 +1,9 @@
 package org.snomed.snowstorm.core.data.services.pojo;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonDeserializeAs;
 import com.fasterxml.jackson.annotation.JsonIgnore;
-import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import org.snomed.snowstorm.core.data.domain.ComponentType;
 
 import java.util.*;
@@ -22,6 +24,21 @@ public class ConceptHistory {
 
     public ConceptHistory(String conceptId) {
         this.conceptId = conceptId;
+    }
+
+    /*
+    Deserialisation creator. conceptId is final, and history is final plus initialised inline, so
+    Jackson 2 populated it through getHistory() via MapperFeature.USE_GETTERS_AS_SETTERS - which
+    defaulted to true in Jackson 2 and false in Jackson 3. Without this creator the list silently
+    stayed empty. See the matching creator on ConceptHistoryItem.
+    */
+    @JsonCreator
+    public ConceptHistory(@JsonProperty("conceptId") String conceptId,
+                          @JsonProperty("history") List<ConceptHistoryItem> history) {
+        this.conceptId = conceptId;
+        if (history != null) {
+            this.history.addAll(history);
+        }
     }
 
     public String getConceptId() {
@@ -68,7 +85,7 @@ public class ConceptHistory {
         private final String effectiveTime;
         private final String branch;
 
-        @JsonDeserialize(as = TreeSet.class)
+        @JsonDeserializeAs(TreeSet.class)
         private final Set<ComponentType> componentTypes = new TreeSet<>();
 
         public ConceptHistoryItem() {
@@ -80,6 +97,25 @@ public class ConceptHistory {
             this.effectiveTime = effectiveTime;
             this.branch = branch;
             this.componentTypes.add(componentType);
+        }
+
+        /*
+        Deserialisation creator, shaped like the serialised form. The fields are final, and Jackson 3
+        no longer writes to final fields (MapperFeature.ALLOW_FINAL_FIELDS_AS_MUTATORS defaulted to
+        true in Jackson 2, false in Jackson 3), so without this the no-arg constructor was used and
+        every item came back with null effectiveTime/branch and no componentTypes. The constructor
+        above cannot serve: it takes a single ComponentType, whereas the JSON carries an array.
+        componentTypes is final and initialised inline, so it is populated rather than assigned.
+        */
+        @JsonCreator
+        public ConceptHistoryItem(@JsonProperty("effectiveTime") String effectiveTime,
+                                  @JsonProperty("branch") String branch,
+                                  @JsonProperty("componentTypes") Set<ComponentType> componentTypes) {
+            this.effectiveTime = effectiveTime;
+            this.branch = branch;
+            if (componentTypes != null) {
+                this.componentTypes.addAll(componentTypes);
+            }
         }
 
         public String getEffectiveTime() {

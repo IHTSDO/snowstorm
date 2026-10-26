@@ -1,7 +1,8 @@
 package org.snomed.snowstorm.core.data.services.pojo;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 import org.junit.jupiter.api.Test;
 import org.snomed.snowstorm.core.data.domain.ComponentType;
 import org.snomed.snowstorm.core.data.domain.Concepts;
@@ -11,14 +12,14 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class ConceptHistoryTest {
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final ObjectMapper objectMapper = JsonMapper.builderWithJackson2Defaults().build();
 
     private static void assertIndexIsValue(List<String> effectiveTimes, String expectedEffectiveTime, int index) {
         assertEquals(expectedEffectiveTime, effectiveTimes.get(index));
     }
 
     @Test
-    public void conceptHistory_ShouldDeserializeAsExpected() throws JsonProcessingException {
+    public void conceptHistory_ShouldDeserializeAsExpected() throws JacksonException {
         //given
         final ConceptHistory conceptHistory = new ConceptHistory(Concepts.ISA);
         conceptHistory.addToHistory("20200131", "MAIN", ComponentType.Concept);
