@@ -3,7 +3,7 @@ All notable changes to this project will be documented in this file.
 
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [DRAFT] 12.0.0 Release
+## 12.0.0 Release (October 2026)
 Major release with Spring Boot 4, Elasticsearch 9 and Jackson 3 upgrades, plus HL7 FHIR API improvements.
 
 ### Breaking
@@ -11,43 +11,53 @@ Major release with Spring Boot 4, Elasticsearch 9 and Jackson 3 upgrades, plus H
 - PIP-1183 The `error` field returned for a request that is too costly to compute is now `UNPROCESSABLE_CONTENT` rather than `UNPROCESSABLE_ENTITY`. The HTTP status code is unchanged at 422; Spring Framework 7 renamed the constant to match RFC 9110. Clients matching on the `error` string must be updated.
 
 ### Features
-- AP2-146 Add concept inactivation impact endpoint
-- AP2-146 Add Concept/Description inactivation reasons endpoint
+- AP2-146 Add concept inactivation impact and inactivation reasons endpoints
 - AP2-143 Add refsetType option to reference set member search
-- ISTO-154 Add partial-hierarchy to concept API
-- ISTO-153 Add fast language-only RF2 export
+- CRS-899 Add exact match option to description Multisearch
 - MAINT-1947 Add FHIR support for nested implicit ValueSets
+- MAINT-2837 FHIR: support alternate identifier lookup via the implicit `equivalentConcept` ConceptMap in `$translate`
+- MAINT-3125 Add hyphen-insensitive term search
 - RAP-191 Export concrete additional relationships
 
 ### Improvements
-- PIP-1183 Upgrade to Spring Boot 4.1.0, Spring Framework 7.0.8, Spring Security 7.1.0 and Jackson 3.1.4 via snomed-parent-bom 5.0.0
-- PIP-1183 Upgrade to Elasticsearch 9.5.2 and spring-data-elasticsearch 6.1.0
-- PIP-1340 Upgrade Elasticsearch client and server to 9.5.5 for CVE-2026-103009 and CVE-2026-103007
-- PIP-1183 Upgrade HAPI FHIR to 8.10.1
-- PIP-1183 Add Elasticsearch 8 to 9 upgrade guide
-- PIP-1183 Replace deprecated Spring Data, Spring Framework, Commons Lang and Swagger APIs
-- PIP-1192 Update the Kubernetes manifests for Elasticsearch 9 and fix the deployment: the Ingress now uses `networking.k8s.io/v1` in place of the removed `extensions/v1beta1`, Elasticsearch starts as a native sidecar so Snowstorm no longer crash-loops against a cluster that is not listening yet, and Snowstorm connects over localhost rather than a Service that has no endpoints until the pod is ready
-- PIP-1192 Update the Docker base image to `amazoncorretto:25`, matching the Java version the project is built with
-- PIP-1192 Update the getting started, Docker and Jib guides for Elasticsearch 9 and Java 25
-- ISTO-148 Add CORS headers to allow any origin by default. Can be disabled using `snowstorm.rest-api.allowAnyOrigin=false` flag.
-- AP2-146 Update historical associations
-- AP2-146 Add JsonView annotation to ConceptMicro
+- PIP-1183 Upgrade to Spring Boot 4.1, Spring Framework 7, Elasticsearch 9, HAPI FHIR 8.10.1, and Jackson 3 via snomed-parent-bom 5.0.0; replace deprecated APIs and add Elasticsearch 8-to-9 upgrade guide
+- PIP-1340 Upgrade Elasticsearch client and server
+- PIP-1192 Update Kubernetes manifests, Docker base image, and getting started/Docker/Jib guides for Elasticsearch 9 and Java 25
+- AP2-146 Update historical associations and JsonView annotations; remove `currentParents` from inactivation impact response
+- ISTO-182 Add Korean and Vet Edition to the default application configuration
+- MAINT-2911 FHIR CodeSystem: derive the publisher field from the Extension Configuration Owner
 - MAINT-2912 Run the integrity check before locking branches during promotion and persist apiError as a non-indexed JSON string
+- MAINT-2917 Reject ECL member filters that do not directly follow `memberOf`
+- MAINT-2927 Reject ECL member filter keywords whose value type is incompatible with the filter
+- MAINT-2910 Improve Elasticsearch error logging by extracting and routing root causes through a structured Logback converter
+- MAINT-3131 Simplify Elasticsearch error logging to show only the root cause
 - MAINT-3020 Allow retry when a branch is initially locked
+- MAINT-3040 Improve ECL filter query performance: run filters alone on unconstrained sub-expressions; chunk concept ids in description and concept filter queries; chunk dialect filter ids
+- MAINT-3062 Remove automatic generation of Concept Not Current (CNC) inactivation indicators
 - MAINT-2903 Limit default module id export to MDRS
 - MAINT-3076 Include internal releases during deletion
-- MAINT-2962 Return 422 rather than 404 for a request that is too costly to compute
+- MAINT-3169 Return 422 rather than 404 for a request that is too costly to compute
+- MAINT-3138 Fall back to the default accept language for any unrecognized locale in request headers
+- PIP-1203 Revise Elasticsearch 9 upgrade guide to document 9.5.2 as the minimum supported version
+- PIP-1296 Update dependency
+- PIP-1334 Bound the ECL results cache by entry weight rather than entry count; skip caching results for open (uncommitted) branches; report max entry weight and oversize-skip counts in the cache summary endpoint
+- PIP-1336 Refactor RF2 export controller
+- PIP-1337 Update HTTP request handling
+- PIP-1338 Update FHIR endpoints
 
 ### Fixes
-- MAINT-3126 Fix FetchSourceFilter to return selected fields only instead of the entire document
 - BROWSE-863 Fix ECL member of queries returning concepts in an unpredictable order. `^<refsetId>`, and its compound and filtered forms, were returned in Elasticsearch storage order, which differs between the primary and replica copies of a shard, so the same query could return the same concepts in a different order on each call. This made `searchAfter` paging unsound: concepts were silently skipped or repeated, the latter paging forever. ECL concept results are now consistently ordered by concept id descending. Note that `^<refsetId> AND ...` and `^<refsetId> OR ...` previously returned ascending order and now return descending, matching every other ECL query.
+- MAINT-3122 Fix `activeOnly` filter and retired status handling in inline FHIR ValueSet expansions
+- MAINT-3126 Fix FetchSourceFilter to return selected fields only instead of the entire document
+- MAINT-3146 Fix RF2 export to acquire the branch lock before starting and mark the export as failed when the branch is already locked
+- MAINT-3158 Fix assertion exclusion lookup from `assertionExclusionMap` in branch metadata when multiple exclusions are present
 
 ## 11.0.1 Release (October 2026)
 Maintenance release with a security fix.
 
 ### Security
 - PIP-1335 Harden OWL axiom expression handling, using snomed-owl-toolkit 6.0.1
-- PIP-1335 Unexpected server errors now return a generic message; details are logged only
+- PIP-1335 Improve server error response handling
 
 ### Improvements
 - Upgrade snomed-parent-bom to 4.0.4, including otf-common 8.0.3
