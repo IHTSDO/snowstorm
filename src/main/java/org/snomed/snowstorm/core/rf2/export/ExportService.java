@@ -177,7 +177,7 @@ public class ExportService {
 
 				exportConfiguration.setExportFilePath(file.getAbsolutePath());
 				exportConfiguration.setStatus(ExportStatus.COMPLETED);
-			} catch (ExportException | SecurityException e) {
+			} catch (ExportException | SecurityException | IllegalStateException e) {
 				exportConfiguration.setExportFilePath(null);
 				exportConfiguration.setStatus(ExportStatus.FAILED);
 			} finally {
@@ -270,8 +270,8 @@ public class ExportService {
 			}
 		}
 
+		branchService.lockBranch(branchPath, branchMetadataHelper.getBranchLockMetadata("Exporting RF2 " + exportType.getName()));
 		try {
-			branchService.lockBranch(branchPath, branchMetadataHelper.getBranchLockMetadata("Exporting RF2 " + exportType.getName()));
 			File exportFile = File.createTempFile("export-" + new Date().getTime(), ".zip");
 			try (ZipOutputStream zipOutputStream = new ZipOutputStream(new FileOutputStream(exportFile))) {
 
