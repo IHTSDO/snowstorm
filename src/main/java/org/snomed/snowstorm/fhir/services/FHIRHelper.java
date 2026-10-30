@@ -39,7 +39,7 @@ public class FHIRHelper implements FHIRConstants {
 	public static final int MAXIMUM_PAGESIZE = 100_000;
 	public static final String DEFAULT_VERSION = "1";
 
-	private static final Pattern SCT_ID_PATTERN = Pattern.compile("sct_(\\d)+_(\\d){8}");
+	private static final Pattern SCT_ID_PATTERN = Pattern.compile("sct_(\\d+)_(\\d{8})");
 
 	private final DialectConfigurationService dialectService;
 
@@ -522,8 +522,9 @@ public class FHIRHelper implements FHIRConstants {
 	}
 
 	private static void applySystemId(FHIRCodeSystemVersionParams codeSystemParams, String systemId) {
+		// Set the id first: a "sct_" prefixed id makes the params SNOMED even when no system uri was given.
+		codeSystemParams.setId(systemId);
 		if (!codeSystemParams.isSnomed()) {
-			codeSystemParams.setId(systemId);
 			return;
 		}
 		Matcher idMatcher = SCT_ID_PATTERN.matcher(systemId);
