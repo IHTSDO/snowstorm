@@ -14,6 +14,8 @@ Instead, please use GitHub's private vulnerability reporting feature for this re
 
 This creates a private advisory visible only to us and you, so the issue can be discussed and fixed before it's public.
 
+When reporting a vulnerability through GitHub's Private Vulnerability Reporting form, please also send a brief notification email to **security@snomed.org** to ensure prompt triage.
+
 *(Don't see a Security tab or the report option? Email us instead — see [Alternative contact](#alternative-contact) below.)*
 
 ## What to Expect
