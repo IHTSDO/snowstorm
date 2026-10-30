@@ -522,8 +522,9 @@ public class FHIRHelper implements FHIRConstants {
 	}
 
 	private static void applySystemId(FHIRCodeSystemVersionParams codeSystemParams, String systemId) {
+		// Set the id first: a "sct_" prefixed id makes the params SNOMED even when no system uri was given.
+		codeSystemParams.setId(systemId);
 		if (!codeSystemParams.isSnomed()) {
-			codeSystemParams.setId(systemId);
 			return;
 		}
 		Matcher idMatcher = SCT_ID_PATTERN.matcher(systemId);

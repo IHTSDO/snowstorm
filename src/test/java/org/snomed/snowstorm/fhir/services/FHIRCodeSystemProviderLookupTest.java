@@ -10,39 +10,34 @@ class FHIRCodeSystemProviderLookupTest extends AbstractFHIRTest {
 	@Test
 	void testSingleConceptRecovery() {
 		String url = baseUrl + "/CodeSystem/$lookup?system=http://snomed.info/sct&code=" + sampleSCTID + "&_format=json";
-		Parameters p = getParameters(url);
-		assertNotNull(p);
-		assertEquals("http://snomed.info/sct", p.getParameterValue("system").toString());
-		assertEquals("http://snomed.info/sct/900000000000207008/version/20190131", p.getParameterValue("version").toString());
+		assertLookupSystemAndVersion(url, "http://snomed.info/sct/900000000000207008/version/20190131");
 	}
 
 	@Test
 	void testSingleConceptLookupInternationalSnomedVersion() {
 		String url = baseUrl + "/CodeSystem/$lookup?system=http://snomed.info/sct" +
 				"&version=http://snomed.info/sct/900000000000207008&code=" + sampleSCTID + "&_format=json";
-		Parameters p = getParameters(url);
-		assertNotNull(p);
-		assertEquals("http://snomed.info/sct", p.getParameterValue("system").toString());
-		assertEquals("http://snomed.info/sct/900000000000207008/version/20190131", p.getParameterValue("version").toString());
+		assertLookupSystemAndVersion(url, "http://snomed.info/sct/900000000000207008/version/20190131");
 	}
 
 	@Test
 	void testSingleConceptLookupExtensionSnomedVersionByVersionParam() {
 		String url = baseUrl + "/CodeSystem/$lookup?system=http://snomed.info/sct" +
 				"&version=http://snomed.info/sct/1234000008&code=" + sampleSCTID + "&_format=json";
-		Parameters p = getParameters(url);
-		assertNotNull(p);
-		assertEquals("http://snomed.info/sct", p.getParameterValue("system").toString());
-		assertEquals("http://snomed.info/sct/1234000008/version/20190731", p.getParameterValue("version").toString());
+		assertLookupSystemAndVersion(url, "http://snomed.info/sct/1234000008/version/20190731");
 	}
-	
+
 	@Test
 	void testSingleConceptLookupExtensionSnomedVersionByInstanceUrl() {
 		String url = baseUrl + "/CodeSystem/sct_1234000008_20190731/$lookup?code=" + sampleSCTID + "&_format=json";
+		assertLookupSystemAndVersion(url, "http://snomed.info/sct/1234000008/version/20190731");
+	}
+
+	private void assertLookupSystemAndVersion(String url, String expectedVersion) {
 		Parameters p = getParameters(url);
 		assertNotNull(p);
 		assertEquals("http://snomed.info/sct", p.getParameterValue("system").toString());
-		assertEquals("http://snomed.info/sct/1234000008/version/20190731", p.getParameterValue("version").toString());
+		assertEquals(expectedVersion, p.getParameterValue("version").toString());
 	}
 
 	@Test
