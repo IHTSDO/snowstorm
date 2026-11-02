@@ -75,6 +75,12 @@ public class CodeSystem implements CodeSystemCreate {
 	private String defaultModuleId;
 
 	@Transient
+	private String alternateSchemaUri;
+
+	@Transient
+	private String alternateSchemaSctid;
+
+	@Transient
 	private Integer dependantVersionEffectiveTime;
 
 	@Transient
@@ -229,6 +235,22 @@ public class CodeSystem implements CodeSystemCreate {
 
 	public void setDefaultModuleId(String defaultModuleId) {
 		this.defaultModuleId = defaultModuleId;
+	}
+
+	public String getAlternateSchemaUri() {
+		return alternateSchemaUri;
+	}
+
+	public void setAlternateSchemaUri(String alternateSchemaUri) {
+		this.alternateSchemaUri = alternateSchemaUri;
+	}
+
+	public String getAlternateSchemaSctid() {
+		return alternateSchemaSctid;
+	}
+
+	public void setAlternateSchemaSctid(String alternateSchemaSctid) {
+		this.alternateSchemaSctid = alternateSchemaSctid;
 	}
 
 	public Integer getDependantVersionEffectiveTime() {

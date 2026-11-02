@@ -477,6 +477,8 @@ public class CodeSystemService {
 		codeSystem.setModules(cachedCodeSystem.getModules());
 		codeSystem.setDependantVersionEffectiveTime(cachedCodeSystem.getDependantVersionEffectiveTime());
 		codeSystem.setUriModuleId(cachedCodeSystem.getUriModuleId());
+		codeSystem.setAlternateSchemaUri(cachedCodeSystem.getAlternateSchemaUri());
+		codeSystem.setAlternateSchemaSctid(cachedCodeSystem.getAlternateSchemaSctid());
 	}
 
 	private synchronized void doJoinContentInformation(CodeSystem codeSystem, String branchPath, Branch workingBranch) {
@@ -550,17 +552,17 @@ public class CodeSystemService {
 			List<LanguageDialect> languageDialects = acceptableLanguageCodes.stream().map(LanguageDialect::new).toList();
 			codeSystem.setModules(conceptService.findConceptMinis(branchCriteria, modulesOfActiveMembers.keySet(), languageDialects).getResultsMap().values());
 		}
-
+		Optional<CodeSystemDefaultConfiguration> defaultConfiguration = codeSystemDefaultConfigurationService.getConfigurations().stream()
+				.filter(config -> config.shortName().equals(codeSystem.getShortName()))
+				.findFirst();
 		if (codeSystem.getUriModuleId() == null) {
 			// Populate moduleId
-			String uriModuleId = Concepts.CORE_MODULE;
-			Optional<CodeSystemDefaultConfiguration> defaultConfiguration = codeSystemDefaultConfigurationService.getConfigurations().stream()
-					.filter(config -> config.shortName().equals(codeSystem.getShortName()))
-					.findFirst();
-			if (defaultConfiguration.isPresent()) {
-				uriModuleId = defaultConfiguration.get().module();
-			}
+			String uriModuleId = defaultConfiguration.isPresent() ? defaultConfiguration.get().module() : Concepts.CORE_MODULE;
 			codeSystem.setUriModuleId(uriModuleId);
+		}
+		if (defaultConfiguration.isPresent()) {
+			codeSystem.setAlternateSchemaUri(defaultConfiguration.get().alternateSchemaUri());
+			codeSystem.setAlternateSchemaSctid(defaultConfiguration.get().alternateSchemaSctid());
 		}
 
 		// Add to cache
