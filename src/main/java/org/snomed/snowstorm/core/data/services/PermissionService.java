@@ -105,7 +105,7 @@ public class PermissionService {
 		// Find closest code system
 		String closestCodeSystemBranch = Branch.MAIN;
 		for (String codeSystemBranch : codeSystemBranches) {
-			if (branchPath.contains(codeSystemBranch)) {
+			if (isSameOrUnder(branchPath, codeSystemBranch) && codeSystemBranch.length() > closestCodeSystemBranch.length()) {
 				closestCodeSystemBranch = codeSystemBranch;
 			}
 		}
@@ -121,9 +121,9 @@ public class PermissionService {
 		for (PermissionRecord permissionRecord : allPermissionRecords) {
 			if (permissionRecord.isGlobal() || (
 					// Record applies to the closest code system
-					permissionRecord.getPath().contains(closestCodeSystemBranch)
+					isSameOrUnder(permissionRecord.getPath(), closestCodeSystemBranch)
 					// Branch is same as or sub branch of record branch
-					&& branchPath.contains(permissionRecord.getPath()))) {
+					&& isSameOrUnder(branchPath, permissionRecord.getPath()))) {
 				for (String requiredUserGroup : permissionRecord.getUserGroups()) {
 					if (userGroups.contains(requiredUserGroup)) {
 						grantedBranchRole.add(permissionRecord.getRole());
@@ -164,6 +164,13 @@ public class PermissionService {
 
 	public List<PermissionRecord> findUserGroupPermissions(String userGroup) {
 		return repository.findByUserGroups(userGroup, PAGE_REQUEST).getContent();
+	}
+
+	private static boolean isSameOrUnder(String path, String parent) {
+		if (path == null || parent == null) {
+			return false;
+		}
+		return path.equals(parent) || path.startsWith(parent + "/");
 	}
 
 	private void setGlobalOrBranchRoleGroups(boolean global, String branch, String role, Set<String> userGroups) {

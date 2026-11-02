@@ -82,6 +82,20 @@ class PermissionServiceTest extends AbstractTest {
 	}
 
 	@Test
+	void testRolesDoNotApplyToSiblingBranchesSharingNamePrefix() {
+		// Project role must not leak to sibling projects whose names start with the same text
+		assertEquals(newHashSet(), getRolesForBranch("MAIN/PROJECTAB", "int-projectA-author"));
+		assertEquals(newHashSet(), getRolesForBranch("MAIN/PROJECTA1/task-123", "int-projectA-author"));
+
+		// Extension role must not leak to a sibling of the code system branch
+		assertEquals(newHashSet(), getRolesForBranch("MAIN/SNOMEDCT-ABCD", "abc-author"));
+		assertEquals(newHashSet(), getRolesForBranch("MAIN/SNOMEDCT-ABCD/PROJECTZ", "abc-author"));
+
+		// A sibling of the code system branch belongs to the International code system
+		assertEquals(newHashSet("VIEW", "AUTHOR"), getRolesForBranch("MAIN/SNOMEDCT-ABCD", "int-author"));
+	}
+
+	@Test
 	public void testUpdateGlobalRoles() {
 		assertEquals(newHashSet(), getRolesForBranch("MAIN", "ROLE_global-view2"));
 		permissionService.setGlobalRoleGroups("VIEW", Sets.newHashSet("global-view", "global-view2"));
