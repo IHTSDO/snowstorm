@@ -3,6 +3,12 @@ All notable changes to this project will be documented in this file.
 
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 12.0.1 Release (November 2026)
+Maintenance release with a bug fix.
+
+### Fixes
+- MAINT-3179 Fix branch permission matching so a role applies only to its own branch and descendants.
+
 ## 12.0.0 Release (October 2026)
 Major release with Spring Boot 4, Elasticsearch 9 and Jackson 3 upgrades, plus HL7 FHIR API improvements.
 
