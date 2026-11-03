@@ -1,6 +1,7 @@
 package org.snomed.snowstorm.fhir.services;
 
 import org.hl7.fhir.r4.model.Parameters;
+import org.hl7.fhir.r4.model.PrimitiveType;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -36,8 +37,8 @@ class FHIRCodeSystemProviderLookupTest extends AbstractFHIRTest {
 	private void assertLookupSystemAndVersion(String url, String expectedVersion) {
 		Parameters p = getParameters(url);
 		assertNotNull(p);
-		assertEquals("http://snomed.info/sct", p.getParameterValue("system").toString());
-		assertEquals(expectedVersion, p.getParameterValue("version").toString());
+		assertEquals("http://snomed.info/sct", ((PrimitiveType<?>) p.getParameterValue("system")).getValueAsString());
+		assertEquals(expectedVersion, ((PrimitiveType<?>) p.getParameterValue("version")).getValueAsString());
 	}
 
 	@Test

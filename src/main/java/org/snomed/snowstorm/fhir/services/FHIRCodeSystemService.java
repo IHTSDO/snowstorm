@@ -426,7 +426,8 @@ public class FHIRCodeSystemService implements TxResourceAware {
 			throwExceptionForMissingCodeSystemVersion(systemVersionParams);
 		}
 
-		if (systemVersionParams.getId() != null) {
+		// For SNOMED the id is already validated against any version param when the id is applied
+		if (systemVersionParams.getId() != null && !systemVersionParams.isSnomed()) {
 			verifySystemVersionParams(systemVersionParams, codeSystemVersion);
 		}
 

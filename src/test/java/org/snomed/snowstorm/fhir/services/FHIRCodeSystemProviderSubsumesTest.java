@@ -29,5 +29,18 @@ class FHIRCodeSystemProviderSubsumesTest extends AbstractFHIRTest {
 		url = baseUrl + "/CodeSystem/$subsumes?version=" + version + "&codingA=" + SNOMED_URI + "|" + Concepts.SNOMEDCT_ROOT + "&codingB=" + SNOMED_URI + "|" + sampleSCTID;
 		getParameters(url, 400, "One of id or system parameters must be supplied");
 	}
-	
+
+	@Test
+	void testSubsumptionByInstanceId() {
+		String id = "sct_" + sampleModuleId + "_" + sampleVersion;
+
+		String url = baseUrl + "/CodeSystem/" + id + "/$subsumes?codeA=" + Concepts.SNOMEDCT_ROOT + "&codeB=" + sampleSCTID;
+		Parameters p = getParameters(url);
+		assertEquals("subsumes", toString(getProperty(p, "outcome")));
+
+		url = baseUrl + "/CodeSystem/" + id + "/$subsumes?codeB=" + Concepts.SNOMEDCT_ROOT + "&codeA=" + sampleSCTID;
+		p = getParameters(url);
+		assertEquals("subsumed-by", toString(getProperty(p, "outcome")));
+	}
+
 }
