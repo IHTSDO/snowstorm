@@ -54,6 +54,59 @@ class FHIRHelperTest {
 	}
 
 	@Test
+	void testGetVersionParamsSCTByIdWithMatchingVersionAndNoSystem() {
+		FHIRCodeSystemVersionParams versionParams = FHIRHelper.getCodeSystemVersionParams(
+				"sct_11000221109_20241130", null, "http://snomed.info/sct/11000221109/version/20241130", null);
+		assertTrue(versionParams.isSnomed());
+		assertEquals("11000221109", versionParams.getSnomedModule());
+		assertEquals("20241130", versionParams.getVersion());
+	}
+
+	@Test
+	void testGetVersionParamsSCTByIdVersionMismatchAndNoSystem() {
+		assertThrows(SnowstormFHIRServerResponseException.class, () -> FHIRHelper.getCodeSystemVersionParams(
+				"sct_11000221109_20241130", null, "http://snomed.info/sct/11000221109/version/20250101", null));
+	}
+
+	@Test
+	void testGetVersionParamsSCTByIdDateOnlyVersion() {
+		assertThrows(SnowstormFHIRServerResponseException.class, () -> FHIRHelper.getCodeSystemVersionParams(
+				"sct_11000221109_20241130", null, "20241130", null));
+	}
+
+	@Test
+	void testGetVersionParamsNonSnomedIdKeepsLiteralVersion() {
+		FHIRCodeSystemVersionParams versionParams = FHIRHelper.getCodeSystemVersionParams("my-id", null, "1.0.0", null);
+		assertFalse(versionParams.isSnomed());
+		assertEquals("my-id", versionParams.getId());
+		assertEquals("1.0.0", versionParams.getVersion());
+	}
+
+	@Test
+	void testGetVersionParamsSCTByIdNonSnomedSystem() {
+		assertThrows(SnowstormFHIRServerResponseException.class, () -> FHIRHelper.getCodeSystemVersionParams(
+				"sct_11000221109_20241130", "http://loinc.org", null, null));
+	}
+
+	@Test
+	void testGetVersionParamsSCTByUnversionedId() {
+		FHIRCodeSystemVersionParams versionParams =
+				FHIRHelper.getCodeSystemVersionParams("sct_11000221109_UNVERSIONED", null, null, null);
+		assertTrue(versionParams.isUnversionedSnomed());
+		assertEquals("11000221109", versionParams.getSnomedModule());
+		assertNull(versionParams.getVersion());
+	}
+
+	@Test
+	void testGetVersionParamsSCTByUnversionedDatedId() {
+		FHIRCodeSystemVersionParams versionParams =
+				FHIRHelper.getCodeSystemVersionParams("sct_11000221109_UNVERSIONED_20241130", null, null, null);
+		assertTrue(versionParams.isUnversionedSnomed());
+		assertEquals("11000221109", versionParams.getSnomedModule());
+		assertEquals("20241130", versionParams.getVersion());
+	}
+
+	@Test
 	void testGetVersionParamsSCTByIdNonSnomedSystemKeepsId() {
 		FHIRCodeSystemVersionParams versionParams =
 				FHIRHelper.getCodeSystemVersionParams("my-id", "http://example.com/cs", null, null);

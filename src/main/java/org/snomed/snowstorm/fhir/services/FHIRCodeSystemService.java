@@ -426,8 +426,7 @@ public class FHIRCodeSystemService implements TxResourceAware {
 			throwExceptionForMissingCodeSystemVersion(systemVersionParams);
 		}
 
-		// For SNOMED the id is already validated against any version param when the id is applied
-		if (systemVersionParams.getId() != null && !systemVersionParams.isSnomed()) {
+		if (systemVersionParams.getId() != null) {
 			verifySystemVersionParams(systemVersionParams, codeSystemVersion);
 		}
 
@@ -440,6 +439,10 @@ public class FHIRCodeSystemService implements TxResourceAware {
 		if (requestedCodeSystemUrl != null && !requestedCodeSystemUrl.equals(codeSystemVersion.getUrl())) {
 			throw exception(String.format("The requested system URL '%s' does not match the URL '%s' of the code system found using identifier '%s'.",
 					requestedCodeSystemUrl, codeSystemVersion.getUrl(), codeSystemVersion.getId()), OperationOutcome.IssueType.INVALID, 400);
+		}
+		// SNOMED params hold the short date but the found version is the full URI; the id/version check is done in FHIRHelper.applySystemId.
+		if (systemVersionParams.isSnomed()) {
+			return;
 		}
 		String requestedVersion = systemVersionParams.getVersion();
 		if (requestedVersion != null && !requestedVersion.isEmpty() && !requestedVersion.equals(codeSystemVersion.getVersion())) {

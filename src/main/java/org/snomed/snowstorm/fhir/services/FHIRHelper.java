@@ -40,6 +40,7 @@ public class FHIRHelper implements FHIRConstants {
 	public static final String DEFAULT_VERSION = "1";
 
 	private static final Pattern SCT_ID_PATTERN = Pattern.compile("sct_(\\d+)_(\\d{8})");
+	private static final Pattern SCT_UNVERSIONED_ID_PATTERN = Pattern.compile("sct_(\\d+)_" + UNVERSIONED + "(?:_(\\d{8}))?");
 
 	private final DialectConfigurationService dialectService;
 
@@ -438,6 +439,8 @@ public class FHIRHelper implements FHIRConstants {
 		String version = resolveVersion(versionParam, coding);
 
 		FHIRCodeSystemVersionParams codeSystemParams = new FHIRCodeSystemVersionParams(codeSystemUrl);
+		// Set before the version is applied: an "sct_" id alone makes the params SNOMED, so a version URI must be parsed as SNOMED.
+		codeSystemParams.setId(systemId);
 		if (version != null) {
 			applyVersion(codeSystemParams, version);
 		}
@@ -522,15 +525,23 @@ public class FHIRHelper implements FHIRConstants {
 	}
 
 	private static void applySystemId(FHIRCodeSystemVersionParams codeSystemParams, String systemId) {
-		// Set the id first: a "sct_" prefixed id makes the params SNOMED even when no system uri was given.
-		codeSystemParams.setId(systemId);
 		if (!codeSystemParams.isSnomed()) {
 			return;
 		}
+		String requestedSystem = codeSystemParams.getCodeSystem();
+		if (requestedSystem != null && !isSnomedUri(requestedSystem)) {
+			throw exception(format("SNOMED CT id '%s' specified but requested system '%s' is not a SNOMED CT system.", systemId, requestedSystem),
+					OperationOutcome.IssueType.INVALID, 400);
+		}
 		Matcher idMatcher = SCT_ID_PATTERN.matcher(systemId);
+		boolean unversioned = false;
 		if (!idMatcher.matches()) {
-			throw exception("SNOMED system and id specified but id does not match expected format " +
-					"sct_[moduleId]_[YYYYMMDD].", OperationOutcome.IssueType.CONFLICT, 400);
+			idMatcher = SCT_UNVERSIONED_ID_PATTERN.matcher(systemId);
+			unversioned = idMatcher.matches();
+			if (!unversioned) {
+				throw exception("SNOMED system and id specified but id does not match expected format " +
+						"sct_[moduleId]_[YYYYMMDD] or sct_[moduleId]_UNVERSIONED[_YYYYMMDD].", OperationOutcome.IssueType.CONFLICT, 400);
+			}
 		}
 		String moduleFromId = idMatcher.group(1);
 		String versionFromId = idMatcher.group(2);
@@ -540,9 +551,11 @@ public class FHIRHelper implements FHIRConstants {
 		if (codeSystemParams.getVersion() != null && !codeSystemParams.getVersion().equals(versionFromId)) {
 			throw exception("SNOMED version in system id and uri do not match.", OperationOutcome.IssueType.CONFLICT, 400);
 		}
-		// For SNOMED store the parsed module and version, not the id.
 		codeSystemParams.setSnomedModule(moduleFromId);
 		codeSystemParams.setVersion(versionFromId);
+		if (unversioned) {
+			codeSystemParams.setUnversioned(true);
+		}
 	}
 
 	public boolean hasUsageContext(MetadataResource r, TokenParam context) {
