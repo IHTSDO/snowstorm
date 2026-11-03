@@ -43,4 +43,12 @@ class FHIRCodeSystemProviderSubsumesTest extends AbstractFHIRTest {
 		assertEquals("subsumed-by", toString(getProperty(p, "outcome")));
 	}
 
+	@Test
+	void testSubsumptionByUnversionedInstanceIdWithSnomedSystem() {
+		String url = baseUrl + "/CodeSystem/sct_" + sampleModuleId + "_UNVERSIONED/$subsumes?system=" + SNOMED_URI +
+				"&codeA=" + Concepts.SNOMEDCT_ROOT + "&codeB=" + sampleSCTID;
+		Parameters p = getParameters(url);
+		assertEquals("subsumes", toString(getProperty(p, "outcome")));
+	}
+
 }

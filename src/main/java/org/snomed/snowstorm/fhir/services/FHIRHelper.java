@@ -441,6 +441,10 @@ public class FHIRHelper implements FHIRConstants {
 		FHIRCodeSystemVersionParams codeSystemParams = new FHIRCodeSystemVersionParams(codeSystemUrl);
 		// Set before the version is applied: an "sct_" id alone makes the params SNOMED, so a version URI must be parsed as SNOMED.
 		codeSystemParams.setId(systemId);
+		if (codeSystemParams.isSnomed() && codeSystemUrl != null && !isSnomedUri(codeSystemUrl)) {
+			throw exception(format("SNOMED CT id '%s' specified but requested system '%s' is not a SNOMED CT system.", systemId, codeSystemUrl),
+					OperationOutcome.IssueType.INVALID, 400);
+		}
 		if (version != null) {
 			applyVersion(codeSystemParams, version);
 		}
@@ -528,11 +532,6 @@ public class FHIRHelper implements FHIRConstants {
 		if (!codeSystemParams.isSnomed()) {
 			return;
 		}
-		String requestedSystem = codeSystemParams.getCodeSystem();
-		if (requestedSystem != null && !isSnomedUri(requestedSystem)) {
-			throw exception(format("SNOMED CT id '%s' specified but requested system '%s' is not a SNOMED CT system.", systemId, requestedSystem),
-					OperationOutcome.IssueType.INVALID, 400);
-		}
 		Matcher idMatcher = SCT_ID_PATTERN.matcher(systemId);
 		boolean unversioned = false;
 		if (!idMatcher.matches()) {
@@ -550,6 +549,11 @@ public class FHIRHelper implements FHIRConstants {
 		}
 		if (codeSystemParams.getVersion() != null && !codeSystemParams.getVersion().equals(versionFromId)) {
 			throw exception("SNOMED version in system id and uri do not match.", OperationOutcome.IssueType.CONFLICT, 400);
+		}
+		// A module is only set here if a version uri was given; its sct/xsct form must agree with the id.
+		if (codeSystemParams.getSnomedModule() != null && codeSystemParams.isUnversionedSnomed() != unversioned) {
+			throw exception("SNOMED system id and version uri do not agree on published (sct) or unversioned (xsct) content.",
+					OperationOutcome.IssueType.CONFLICT, 400);
 		}
 		codeSystemParams.setSnomedModule(moduleFromId);
 		codeSystemParams.setVersion(versionFromId);

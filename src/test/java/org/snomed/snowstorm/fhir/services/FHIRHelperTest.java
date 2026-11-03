@@ -89,6 +89,35 @@ class FHIRHelperTest {
 	}
 
 	@Test
+	void testGetVersionParamsSCTByIdNonSnomedSystemWithVersion() {
+		SnowstormFHIRServerResponseException e = assertThrows(SnowstormFHIRServerResponseException.class, () -> FHIRHelper.getCodeSystemVersionParams(
+				"sct_11000221109_20241130", "http://loinc.org", "2.77", null));
+		assertTrue(e.getMessage().contains("is not a SNOMED CT system"), e.getMessage());
+	}
+
+	@Test
+	void testGetVersionParamsSCTByUnversionedIdWithPublishedVersionUri() {
+		SnowstormFHIRServerResponseException e = assertThrows(SnowstormFHIRServerResponseException.class, () -> FHIRHelper.getCodeSystemVersionParams(
+				"sct_11000221109_UNVERSIONED_20241130", null, "http://snomed.info/sct/11000221109/version/20241130", null));
+		assertTrue(e.getMessage().contains("do not agree"), e.getMessage());
+	}
+
+	@Test
+	void testGetVersionParamsSCTByIdWithUnversionedVersionUri() {
+		SnowstormFHIRServerResponseException e = assertThrows(SnowstormFHIRServerResponseException.class, () -> FHIRHelper.getCodeSystemVersionParams(
+				"sct_11000221109_20241130", null, "http://snomed.info/xsct/11000221109", null));
+		assertTrue(e.getMessage().contains("do not agree"), e.getMessage());
+	}
+
+	@Test
+	void testGetVersionParamsSCTByUnversionedIdWithMatchingUnversionedVersionUri() {
+		FHIRCodeSystemVersionParams versionParams = FHIRHelper.getCodeSystemVersionParams(
+				"sct_11000221109_UNVERSIONED", null, "http://snomed.info/xsct/11000221109", null);
+		assertTrue(versionParams.isUnversionedSnomed());
+		assertEquals("11000221109", versionParams.getSnomedModule());
+	}
+
+	@Test
 	void testGetVersionParamsSCTByUnversionedId() {
 		FHIRCodeSystemVersionParams versionParams =
 				FHIRHelper.getCodeSystemVersionParams("sct_11000221109_UNVERSIONED", null, null, null);
