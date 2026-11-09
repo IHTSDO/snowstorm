@@ -25,6 +25,7 @@ import org.springframework.web.context.request.ServletRequestAttributes;
 import org.springframework.web.util.UriComponentsBuilder;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.function.BiConsumer;
 import java.util.regex.Matcher;
@@ -171,6 +172,27 @@ public class ControllerHelper {
 		return languageDialects;
 	}
 
+	/**
+	 * Parses an Accept-Language value into languages ordered by preference, as RFC 9110 defines:
+	 * highest q value first, languages with equal weight in the order given, and q=0 (not acceptable) left out.
+	 * Used by the FHIR API. The native API keeps the written order (see parseAcceptLanguageHeader).
+	 */
+	public static List<LanguageDialect> parseAcceptLanguageHeaderByWeight(String acceptLanguageHeader) {
+		return parseAcceptLanguageHeaderWithWeights(acceptLanguageHeader, false)
+				.stream()
+				.filter(languageAndWeight -> languageAndWeight.getRight() > 0)
+				// Stream sorting is stable, so languages with equal weight keep their order
+				.sorted(Comparator.comparing(Pair<LanguageDialect, Double>::getRight).reversed())
+				.map(Pair::getLeft)
+				.toList();
+	}
+
+	public static List<LanguageDialect> parseAcceptLanguageHeaderByWeightWithDefaultFallback(String acceptLanguageHeader) {
+		List<LanguageDialect> languageDialects = new ArrayList<>(parseAcceptLanguageHeaderByWeight(acceptLanguageHeader));
+		languageDialects.addAll(DEFAULT_LANGUAGE_DIALECTS);
+		return languageDialects;
+	}
+
 	public static List<Pair<LanguageDialect, Double>> parseAcceptLanguageHeaderWithWeights(
 			String acceptLanguageHeader, boolean wildcard) {
 
@@ -224,7 +246,8 @@ public class ControllerHelper {
 
 	private static Double parseAcceptLanguageWeight(String[] valueAndWeight) {
 		try {
-			return (valueAndWeight.length < 2) ? 0.1
+			// RFC 9110 section 12.4.2: a language with no q value has weight 1
+			return (valueAndWeight.length < 2) ? 1.0
 					: Double.parseDouble(valueAndWeight[1].substring(2));
 		} catch (NumberFormatException | StringIndexOutOfBoundsException e) {
 			return null;

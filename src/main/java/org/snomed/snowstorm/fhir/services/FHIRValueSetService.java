@@ -347,7 +347,7 @@ public class FHIRValueSetService implements FHIRConstants {
 			CodeSelectionCriteria codeSelectionCriteria, String filter, boolean activeOnly, PageRequest pageRequest,
 			ValueSetExpansionParameters params, String displayLanguage, boolean includeDesignations) {
 		FHIRCodeSystemVersion codeSystemVersion = allInclusionVersions.iterator().next();
-		List<LanguageDialect> languageDialects = ControllerHelper.parseAcceptLanguageHeaderWithDefaultFallback(FHIRHelper.getDisplayLanguage(params.getDisplayLanguage(),displayLanguage));
+		List<LanguageDialect> languageDialects = ControllerHelper.parseAcceptLanguageHeaderByWeightWithDefaultFallback(FHIRHelper.getDisplayLanguage(params.getDisplayLanguage(),displayLanguage));
 
 		// Constraints:
 		// - Elasticsearch prevents us from requesting results beyond the first 10K

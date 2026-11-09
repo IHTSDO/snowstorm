@@ -271,7 +271,7 @@ public class FHIRHelper implements FHIRConstants {
 			}
 		} else {
 			if (acceptLanguageHeader != null) {
-				languageDialects.addAll(ControllerHelper.parseAcceptLanguageHeader(acceptLanguageHeader));
+				languageDialects.addAll(ControllerHelper.parseAcceptLanguageHeaderByWeight(acceptLanguageHeader));
 			}
 		}
 		if (languageDialects.isEmpty()) {

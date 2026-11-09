@@ -132,7 +132,7 @@ public class FHIRValueSetCodeValidationService implements TxResourceAware {
 		List<LanguageDialect> languageDialects;
 
 		try {
-			languageDialects = ControllerHelper.parseAcceptLanguageHeader(request.getDisplayLanguage());
+			languageDialects = ControllerHelper.parseAcceptLanguageHeaderByWeight(request.getDisplayLanguage());
 		} catch(IllegalArgumentException e) {
 			CodeableConcept cc = new CodeableConcept(new Coding()).setText(e.getMessage());
 			OperationOutcome oo = createOperationOutcomeWithIssue(cc, OperationOutcome.IssueSeverity.ERROR,null, OperationOutcome.IssueType.PROCESSING,null, e.getMessage());
@@ -711,7 +711,7 @@ public class FHIRValueSetCodeValidationService implements TxResourceAware {
 		// Look up the code's display using the valueset's CS version
 		List<LanguageDialect> mismatchDialects;
 		try {
-			mismatchDialects = ControllerHelper.parseAcceptLanguageHeader(request.getDisplayLanguage());
+			mismatchDialects = ControllerHelper.parseAcceptLanguageHeaderByWeight(request.getDisplayLanguage());
 		} catch (IllegalArgumentException ex) {
 			mismatchDialects = Collections.emptyList();
 		}

@@ -107,4 +107,32 @@ class ControllerHelperTest {
 		assertEquals(0.5, weighted.get(0).getRight());
 		assertEquals(1.0, weighted.get(1).getRight());
 	}
+
+	@Test
+	void parseAcceptLanguageHeaderByWeight_ShouldPutHighestWeightFirst() {
+		List<LanguageDialect> languageDialects = ControllerHelper.parseAcceptLanguageHeaderByWeight("en;q=0.5, fr, nl;q=0.8");
+
+		assertEquals(List.of("fr", "nl", "en"), languageDialects.stream().map(LanguageDialect::getLanguageCode).toList());
+	}
+
+	@Test
+	void parseAcceptLanguageHeaderByWeight_ShouldKeepWrittenOrder_WhenWeightsEqual() {
+		List<LanguageDialect> languageDialects = ControllerHelper.parseAcceptLanguageHeaderByWeight("nl, fr, de;q=1.0");
+
+		assertEquals(List.of("nl", "fr", "de"), languageDialects.stream().map(LanguageDialect::getLanguageCode).toList());
+	}
+
+	@Test
+	void parseAcceptLanguageHeaderByWeight_ShouldLeaveOutNotAcceptableLanguages() {
+		List<LanguageDialect> languageDialects = ControllerHelper.parseAcceptLanguageHeaderByWeight("fr, en;q=0");
+
+		assertEquals(List.of("fr"), languageDialects.stream().map(LanguageDialect::getLanguageCode).toList());
+	}
+
+	@Test
+	void parseAcceptLanguageHeader_ShouldKeepWrittenOrder_ForNativeApi() {
+		List<LanguageDialect> languageDialects = ControllerHelper.parseAcceptLanguageHeader("en;q=0.5, fr");
+
+		assertEquals(List.of("en", "fr"), languageDialects.stream().map(LanguageDialect::getLanguageCode).toList());
+	}
 }

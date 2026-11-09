@@ -104,7 +104,7 @@ public class FHIRConceptMapProvider implements IResourceProvider, FHIRConstants 
 			String url = urlType != null ? urlType.getValueAsString() : null;
 			notSupported("conceptMapVersion", conceptMapVersion);
 			notSupported("reverse", reverse);
-			List<LanguageDialect> languageDialects = ControllerHelper.parseAcceptLanguageHeader(request.getHeader(ACCEPT_LANGUAGE_HEADER));
+			List<LanguageDialect> languageDialects = ControllerHelper.parseAcceptLanguageHeaderByWeight(request.getHeader(ACCEPT_LANGUAGE_HEADER));
 
 			// Get coding to translate
 			requireExactlyOneOf("code", code, "coding", coding, "codeableConcept", codeableConcept);
