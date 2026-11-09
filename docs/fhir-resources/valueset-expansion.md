@@ -26,6 +26,9 @@ http://localhost:8080/fhir/ValueSet/$expand?url=http://snomed.info/sct?fhir_vs=i
 #### Expansion of an intentionally defined value set using refset (ICD-10 complex map)
 http://localhost:8080/fhir/ValueSet/$expand?url=http://snomed.info/sct?fhir_vs=refset/447562003
 
+#### Expansion listing all reference sets in an edition (refset with no SCTID). Add an edition to the url to list that edition's reference sets instead.
+http://localhost:8080/fhir/ValueSet/$expand?url=http://snomed.info/sct?fhir_vs=refset
+
 #### Expansion of an intentionally defined value set using nothing!  Returns all concepts.
 http://localhost:8080/fhir/ValueSet/$expand?url=http://snomed.info/sct?fhir_vs
 
