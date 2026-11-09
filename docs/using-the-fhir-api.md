@@ -106,6 +106,10 @@ http://localhost:8080/fhir/metadata?mode=terminology
 
 #### [ConceptMap Translate](fhir-resources/concept-map.md)
 
+### Languages
+
+#### [Languages and Dialects](fhir-resources/language-support.md)
+
 ------
 
 #### Notes on output
