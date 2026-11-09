@@ -1,5 +1,6 @@
 package org.snomed.snowstorm.rest;
 
+import org.apache.commons.lang3.tuple.Pair;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.snomed.snowstorm.core.pojo.LanguageDialect;
@@ -96,5 +97,14 @@ class ControllerHelperTest {
 
 		assertEquals("fr", languageDialects.get(0).getLanguageCode());
 		assertEquals(DEFAULT_LANGUAGE_DIALECTS, languageDialects.subList(1, languageDialects.size()));
+	}
+
+	@Test
+	void parseAcceptLanguageHeaderWithWeights_ShouldWeightUnweightedLanguageAsOne() {
+		// RFC 9110 section 12.4.2: a language with no q value has weight 1
+		List<Pair<LanguageDialect, Double>> weighted = ControllerHelper.parseAcceptLanguageHeaderWithWeights("en;q=0.5, fr", false);
+
+		assertEquals(0.5, weighted.get(0).getRight());
+		assertEquals(1.0, weighted.get(1).getRight());
 	}
 }
