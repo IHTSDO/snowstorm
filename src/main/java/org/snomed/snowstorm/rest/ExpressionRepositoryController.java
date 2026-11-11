@@ -9,6 +9,7 @@ import org.snomed.snowstorm.core.data.services.postcoordination.PostCoordinatedE
 import org.snomed.snowstorm.rest.pojo.CreatePostCoordinatedExpressionRequest;
 import org.snomed.snowstorm.rest.pojo.ItemsPage;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -30,6 +31,7 @@ public class ExpressionRepositoryController {
 		return new ItemsPage<>(expressionRepository.findAll(branch, ControllerHelper.getPageRequest(offset, limit)));
 	}
 
+	@PreAuthorize("hasPermission('AUTHOR', #branch)")
 	@Operation(summary = "Create an expression in the repository", hidden = true)
 	@PutMapping(value = "/{branch}/expressions")
 	public PostCoordinatedExpression createExpression(@PathVariable String branch, @RequestBody CreatePostCoordinatedExpressionRequest request) throws ServiceException {
@@ -37,6 +39,7 @@ public class ExpressionRepositoryController {
 		return expressionRepository.createExpression(branch, request.getCloseToUserForm(), request.getModuleId());
 	}
 
+	@PreAuthorize("hasPermission('AUTHOR', #branch)")
 	@Operation(summary = "Validate and transform a postcoordinated expression.",
             description = "<b>Work In Progress</b>. This endpoint can be used for testing the validation of a postcoordinated expression, stated in close to user form, and " +
                     "any transformation to the classifiable form as required.")
