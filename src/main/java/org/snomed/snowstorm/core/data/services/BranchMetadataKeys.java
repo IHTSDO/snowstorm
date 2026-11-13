@@ -16,4 +16,5 @@ public interface BranchMetadataKeys {
 	String ASSERTION_EXCLUSION_MAP = "assertionExclusionMap";
 	String ASSERTION_EXCLUSION_DEFAULT = "DEFAULT";
 	String IMPORT_TYPE = "importType";
+	String LABELS = "labels";
 }

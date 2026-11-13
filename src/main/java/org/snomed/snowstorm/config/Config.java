@@ -175,6 +175,9 @@ public abstract class Config extends ElasticsearchConfig {
 	@Autowired
 	private AdditionalDependencyUpdateService additionalDependencyUpdateService;
 
+	@Autowired
+	private BranchLabelledEventService branchLabelledEventService;
+
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
 	@PostConstruct
@@ -197,6 +200,7 @@ public abstract class Config extends ElasticsearchConfig {
 		branchService.addCommitListener(eclPreprocessingService);
 		branchService.addCommitListener(commitServiceHookClient);
 		branchService.addCommitListener(additionalDependencyUpdateService);
+		branchService.addCommitListener(branchLabelledEventService);
 		branchService.addCommitListener(traceabilityLogService);
 		branchService.addCommitListener(BranchMetadataHelper::clearTransientMetadata);
 		branchService.addCommitListener(commit -> {
