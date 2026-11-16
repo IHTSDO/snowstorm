@@ -53,15 +53,20 @@ public class BranchLabelledEventService implements CommitListener {
 	}
 
 	private void sendBranchLabelledEvent(Commit commit, Commit.CommitType commitType, List<String> labels) {
-		Map<String, String> message = new HashMap<>();
-		message.put("branchPath", commit.getBranch().getPath());
-		message.put("sourceBranchPath", commit.getSourceBranchPath());
-		message.put("commitType", commitType.name());
-		message.put("labels", String.join(",", labels));
+		Map<String, Object> branch = new HashMap<>();
+		branch.put("branchPath", commit.getBranch().getPath());
+		branch.put("sourceBranchPath", commit.getSourceBranchPath());
+		branch.put("commitType", commitType.name());
+		branch.put("labels", String.join(",", labels));
+
+		String eventType = commitType == Commit.CommitType.PROMOTION ? "PROMOTE" : commitType.name();
+		Map<String, Object> event = new HashMap<>();
+		event.put("event", eventType);
+		event.put("branch", branch);
 
 		try {
 			LOGGER.info("Sending branch labelled event for branch {} ({})", commit.getBranch().getPath(), commitType);
-			jmsTemplate.convertAndSend(jmsQueuePrefix + QUEUE_SUFFIX, message);
+			jmsTemplate.convertAndSend(jmsQueuePrefix + QUEUE_SUFFIX, List.of(event));
 		} catch (Exception e) {
 			LOGGER.error("Failed to send branch labelled event for branch {}", commit.getBranch().getPath(), e);
 		}

@@ -9,6 +9,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jms.annotation.JmsListener;
 import org.springframework.test.context.TestPropertySource;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Stack;
 
@@ -16,7 +17,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 @TestPropertySource(properties = "snowstorm.branch-labelled-event.message.enabled=true")
 class BranchLabelledEventServiceTest extends AbstractTest {
-	private static final Stack<Map<String, Object>> messagesReceived = new Stack<>();
+	private static final Stack<List<Map<String, Object>>> messagesReceived = new Stack<>();
 
 	@Autowired
 	private BranchService branchService;
@@ -33,7 +34,7 @@ class BranchLabelledEventServiceTest extends AbstractTest {
 	}
 
 	@JmsListener(destination = "${jms.queue.prefix}.branch.labelled.event")
-	void messageConsumer(Map<String, Object> message) {
+	void messageConsumer(List<Map<String, Object>> message) {
 		messagesReceived.push(message);
 	}
 
@@ -51,12 +52,16 @@ class BranchLabelledEventServiceTest extends AbstractTest {
 		branchMergeService.mergeBranchSync(task, project, null);
 
 		// Assert
-		Map<String, Object> message = waitForMessage();
+		List<Map<String, Object>> message = waitForMessage();
 		assertNotNull(message, "Expected JMS message for promotion");
-		assertEquals(project, message.get("branchPath"));
-		assertEquals(task, message.get("sourceBranchPath"));
-		assertEquals("PROMOTION", message.get("commitType"));
-		assertEquals("translation", message.get("labels"));
+		assertEquals(1, message.size());
+		Map<String, Object> event = message.get(0);
+		assertEquals("PROMOTE", event.get("event"));
+		Map<String, Object> branch = (Map<String, Object>) event.get("branch");
+		assertEquals(project, branch.get("branchPath"));
+		assertEquals(task, branch.get("sourceBranchPath"));
+		assertEquals("PROMOTION", branch.get("commitType"));
+		assertEquals("translation", branch.get("labels"));
 	}
 
 	@Test
@@ -72,12 +77,16 @@ class BranchLabelledEventServiceTest extends AbstractTest {
 		branchMergeService.mergeBranchSync(MAIN, project, null);
 
 		// Assert
-		Map<String, Object> message = waitForMessage();
+		List<Map<String, Object>> message = waitForMessage();
 		assertNotNull(message, "Expected JMS message for rebase");
-		assertEquals(project, message.get("branchPath"));
-		assertEquals(MAIN, message.get("sourceBranchPath"));
-		assertEquals("REBASE", message.get("commitType"));
-		assertEquals("translation", message.get("labels"));
+		assertEquals(1, message.size());
+		Map<String, Object> event = message.get(0);
+		assertEquals("REBASE", event.get("event"));
+		Map<String, Object> branch = (Map<String, Object>) event.get("branch");
+		assertEquals(project, branch.get("branchPath"));
+		assertEquals(MAIN, branch.get("sourceBranchPath"));
+		assertEquals("REBASE", branch.get("commitType"));
+		assertEquals("translation", branch.get("labels"));
 	}
 
 	@Test
@@ -96,11 +105,11 @@ class BranchLabelledEventServiceTest extends AbstractTest {
 		assertNull(waitForMessageWithTimeout(5));
 	}
 
-	private Map<String, Object> waitForMessage() throws InterruptedException {
+	private List<Map<String, Object>> waitForMessage() throws InterruptedException {
 		return waitForMessageWithTimeout(20);
 	}
 
-	private Map<String, Object> waitForMessageWithTimeout(int maxWaitSeconds) throws InterruptedException {
+	private List<Map<String, Object>> waitForMessageWithTimeout(int maxWaitSeconds) throws InterruptedException {
 		int waited = 0;
 		while (messagesReceived.isEmpty() && waited < maxWaitSeconds) {
 			Thread.sleep(1_000);
