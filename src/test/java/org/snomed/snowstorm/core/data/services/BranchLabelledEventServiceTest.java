@@ -114,9 +114,9 @@ class BranchLabelledEventServiceTest extends AbstractTest {
 		Map<String, Object> event = message.get(0);
 		assertEquals("DELETE", event.get("event"));
 		Map<String, Object> branch = (Map<String, Object>) event.get("branch");
-		assertEquals(project, branch.get("branchPath"));
-		assertEquals(task, branch.get("sourceBranchPath"));
-		assertNull(branch.get("commitType"));
+		assertEquals(task, branch.get("branchPath"));
+		assertFalse(branch.containsKey("sourceBranchPath"));
+		assertFalse(branch.containsKey("commitType"));
 		assertEquals("translation", branch.get("labels"));
 	}
 
@@ -151,9 +151,9 @@ class BranchLabelledEventServiceTest extends AbstractTest {
 		Map<String, Object> event = message.get(0);
 		assertEquals("DELETE", event.get("event"));
 		Map<String, Object> branch = (Map<String, Object>) event.get("branch");
-		assertEquals(project, branch.get("branchPath"));
-		assertEquals(task, branch.get("sourceBranchPath"));
-		assertNull(branch.get("commitType"));
+		assertEquals(task, branch.get("branchPath"));
+		assertFalse(branch.containsKey("sourceBranchPath"));
+		assertFalse(branch.containsKey("commitType"));
 		assertEquals("translation", branch.get("labels"));
 	}
 

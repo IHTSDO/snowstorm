@@ -81,17 +81,21 @@ public class BranchLabelledEventService implements CommitListener {
 		}
 
 		// send event
-		sendEvent(parentPath, childBranchPath, eventType.name(), null, labels);
+		sendEvent(childBranchPath, null, eventType.name(), null, labels);
 	}
 
 	private void sendEvent(String branchPath, String sourceBranchPath, String eventType, String commitType, List<String> labels) {
 		Map<String, Object> branch = new HashMap<>();
 		branch.put("branchPath", branchPath);
-		branch.put("sourceBranchPath", sourceBranchPath);
+		branch.put("labels", String.join(",", labels));
+
+		if (sourceBranchPath != null) {
+			branch.put("sourceBranchPath", sourceBranchPath);
+		}
+
 		if (commitType != null) {
 			branch.put("commitType", commitType);
 		}
-		branch.put("labels", String.join(",", labels));
 
 		Map<String, Object> event = new HashMap<>();
 		event.put("event", eventType);
