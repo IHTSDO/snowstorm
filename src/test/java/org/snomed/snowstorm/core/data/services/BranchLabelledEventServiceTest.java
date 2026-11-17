@@ -10,7 +10,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jms.annotation.JmsListener;
 import org.springframework.test.context.TestPropertySource;
 
-import java.util.List;
 import java.util.Map;
 import java.util.Stack;
 
@@ -18,7 +17,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 @TestPropertySource(properties = "snowstorm.branch-labelled-event.message.enabled=true")
 class BranchLabelledEventServiceTest extends AbstractTest {
-	private static final Stack<List<Map<String, Object>>> messagesReceived = new Stack<>();
+	private static final Stack<Map<String, Object>> messagesReceived = new Stack<>();
 
 	@Autowired
 	private BranchService branchService;
@@ -41,7 +40,7 @@ class BranchLabelledEventServiceTest extends AbstractTest {
 	}
 
 	@JmsListener(destination = "${jms.queue.prefix}.branch.labelled.event")
-	void messageConsumer(List<Map<String, Object>> message) {
+	void messageConsumer(Map<String, Object> message) {
 		messagesReceived.push(message);
 	}
 
@@ -59,10 +58,8 @@ class BranchLabelledEventServiceTest extends AbstractTest {
 		branchMergeService.mergeBranchSync(task, project, null);
 
 		// Assert
-		List<Map<String, Object>> message = waitForMessage();
-		assertNotNull(message, "Expected JMS message for promotion");
-		assertEquals(1, message.size());
-		Map<String, Object> event = message.get(0);
+		Map<String, Object> event = waitForMessage();
+		assertNotNull(event, "Expected JMS message for promotion");
 		assertEquals("PROMOTE", event.get("event"));
 		Map<String, Object> branch = (Map<String, Object>) event.get("branch");
 		assertEquals(project, branch.get("branchPath"));
@@ -84,10 +81,8 @@ class BranchLabelledEventServiceTest extends AbstractTest {
 		branchMergeService.mergeBranchSync(MAIN, project, null);
 
 		// Assert
-		List<Map<String, Object>> message = waitForMessage();
-		assertNotNull(message, "Expected JMS message for rebase");
-		assertEquals(1, message.size());
-		Map<String, Object> event = message.get(0);
+		Map<String, Object> event = waitForMessage();
+		assertNotNull(event, "Expected JMS message for rebase");
 		assertEquals("REBASE", event.get("event"));
 		Map<String, Object> branch = (Map<String, Object>) event.get("branch");
 		assertEquals(project, branch.get("branchPath"));
@@ -107,11 +102,8 @@ class BranchLabelledEventServiceTest extends AbstractTest {
 		adminOperationsService.hardDeleteBranch(task);
 
 		// Assert
-		List<Map<String, Object>> message = waitForMessage();
-		assertNotNull(message);
-		assertEquals(1, message.size());
-
-		Map<String, Object> event = message.get(0);
+		Map<String, Object> event = waitForMessage();
+		assertNotNull(event);
 		assertEquals("DELETE", event.get("event"));
 		Map<String, Object> branch = (Map<String, Object>) event.get("branch");
 		assertEquals(task, branch.get("branchPath"));
@@ -144,11 +136,8 @@ class BranchLabelledEventServiceTest extends AbstractTest {
 		branchLabelledEventService.handleEvent(task, EventType.DELETE);
 
 		// Assert
-		List<Map<String, Object>> message = waitForMessage();
-		assertNotNull(message);
-		assertEquals(1, message.size());
-
-		Map<String, Object> event = message.get(0);
+		Map<String, Object> event = waitForMessage();
+		assertNotNull(event);
 		assertEquals("DELETE", event.get("event"));
 		Map<String, Object> branch = (Map<String, Object>) event.get("branch");
 		assertEquals(task, branch.get("branchPath"));
@@ -173,11 +162,11 @@ class BranchLabelledEventServiceTest extends AbstractTest {
 		assertNull(waitForMessageWithTimeout(5));
 	}
 
-	private List<Map<String, Object>> waitForMessage() throws InterruptedException {
+	private Map<String, Object> waitForMessage() throws InterruptedException {
 		return waitForMessageWithTimeout(20);
 	}
 
-	private List<Map<String, Object>> waitForMessageWithTimeout(int maxWaitSeconds) throws InterruptedException {
+	private Map<String, Object> waitForMessageWithTimeout(int maxWaitSeconds) throws InterruptedException {
 		int waited = 0;
 		while (messagesReceived.isEmpty() && waited < maxWaitSeconds) {
 			Thread.sleep(1_000);

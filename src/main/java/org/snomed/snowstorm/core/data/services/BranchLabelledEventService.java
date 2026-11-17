@@ -103,7 +103,7 @@ public class BranchLabelledEventService implements CommitListener {
 
 		try {
 			LOGGER.info("Sending branch labelled {} event for branch {}", eventType, branchPath);
-			jmsTemplate.convertAndSend(jmsQueuePrefix + QUEUE_SUFFIX, List.of(event));
+			jmsTemplate.convertAndSend(jmsQueuePrefix + QUEUE_SUFFIX, event);
 		} catch (Exception e) {
 			LOGGER.error("Failed to send branch labelled {} event for branch {}", eventType, branchPath, e);
 		}
