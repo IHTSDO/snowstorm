@@ -5,6 +5,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.snomed.snowstorm.AbstractTest;
 import org.snomed.snowstorm.core.data.domain.Concept;
+import org.snomed.snowstorm.rest.pojo.BranchLabelledEventRequest.EventType;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jms.annotation.JmsListener;
 import org.springframework.test.context.TestPropertySource;
@@ -27,6 +28,12 @@ class BranchLabelledEventServiceTest extends AbstractTest {
 
 	@Autowired
 	private ConceptService conceptService;
+
+	@Autowired
+	private AdminOperationsService adminOperationsService;
+
+	@Autowired
+	private BranchLabelledEventService branchLabelledEventService;
 
 	@BeforeEach
 	void clearMessages() {
@@ -86,6 +93,67 @@ class BranchLabelledEventServiceTest extends AbstractTest {
 		assertEquals(project, branch.get("branchPath"));
 		assertEquals(MAIN, branch.get("sourceBranchPath"));
 		assertEquals("REBASE", branch.get("commitType"));
+		assertEquals("translation", branch.get("labels"));
+	}
+
+	@Test
+	void sendsMessageOnHardDelete() throws Exception {
+		// given
+		String project = branchService.create("MAIN/projectD").getPath();
+		String task = branchService.create("MAIN/projectD/taskD").getPath();
+		addBranchLabel(project);
+
+		// Delete
+		adminOperationsService.hardDeleteBranch(task);
+
+		// Assert
+		List<Map<String, Object>> message = waitForMessage();
+		assertNotNull(message);
+		assertEquals(1, message.size());
+
+		Map<String, Object> event = message.get(0);
+		assertEquals("DELETE", event.get("event"));
+		Map<String, Object> branch = (Map<String, Object>) event.get("branch");
+		assertEquals(project, branch.get("branchPath"));
+		assertEquals(task, branch.get("sourceBranchPath"));
+		assertNull(branch.get("commitType"));
+		assertEquals("translation", branch.get("labels"));
+	}
+
+	@Test
+	void doesNotSendMessageWhenNoLabelOnDelete() throws Exception {
+		// given
+		String project = branchService.create("MAIN/projectE").getPath();
+		String task = branchService.create("MAIN/projectE/taskE").getPath();
+
+		// Delete
+		adminOperationsService.hardDeleteBranch(task);
+
+		// Assert no message
+		assertNull(waitForMessageWithTimeout(5));
+	}
+
+	@Test
+	void sendsMessageOnPutLabelledEvent() throws Exception {
+		// given
+		String project = branchService.create("MAIN/projectF").getPath();
+		String task = branchService.create("MAIN/projectF/taskF").getPath();
+		addBranchLabel(project);
+
+		// when
+		branchLabelledEventService.handleEvent(task, EventType.DELETE);
+
+		// Assert
+		List<Map<String, Object>> message = waitForMessage();
+		assertNotNull(message);
+		assertEquals(1, message.size());
+
+		Map<String, Object> event = message.get(0);
+		assertEquals("DELETE", event.get("event"));
+		Map<String, Object> branch = (Map<String, Object>) event.get("branch");
+		assertEquals(project, branch.get("branchPath"));
+		assertEquals(task, branch.get("sourceBranchPath"));
+		assertNull(branch.get("commitType"));
 		assertEquals("translation", branch.get("labels"));
 	}
 

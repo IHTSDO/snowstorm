@@ -7,6 +7,7 @@ import org.junit.jupiter.api.Test;
 import org.snomed.snowstorm.core.data.services.BranchMetadataHelper;
 import org.snomed.snowstorm.core.data.services.IntegrityService;
 import org.snomed.snowstorm.core.data.services.classification.BranchClassificationStatusService;
+import org.snomed.snowstorm.rest.pojo.BranchLabelledEventRequest;
 import org.snomed.snowstorm.rest.pojo.SetAuthorFlag;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpMethod;
@@ -173,6 +174,73 @@ class BranchControllerTest extends AbstractControllerSecurityTest {
 		// then
 		assertEquals("true", authorFlags.get("complex"));
 		assertEquals("common-authoring", receivedMetaData.get("assertionGroupNames"));
+	}
+
+	@Test
+	void fireLabelledEvent_ShouldReturnForbidden_WhenUserHasNoRole() throws URISyntaxException {
+		// given
+		String requestUrl = url + "/branches/MAIN/actions/labelled-event";
+		BranchLabelledEventRequest body = new BranchLabelledEventRequest();
+		body.setEvent(BranchLabelledEventRequest.EventType.DELETE);
+		RequestEntity<Object> request = new RequestEntity<>(body, (HttpHeaders) null, HttpMethod.POST, new URI(requestUrl));
+
+		// when & then
+		testStatusCode(HttpStatus.FORBIDDEN, userWithoutRoleHeaders, request);
+	}
+
+	@Test
+	void fireLabelledEvent_ShouldReturnForbidden_WhenUserIsNotAuthorOnBranch() throws URISyntaxException {
+		// given
+		String requestUrl = url + "/branches/MAIN/actions/labelled-event";
+		BranchLabelledEventRequest body = new BranchLabelledEventRequest();
+		body.setEvent(BranchLabelledEventRequest.EventType.DELETE);
+		RequestEntity<Object> request = new RequestEntity<>(body, (HttpHeaders) null, HttpMethod.POST, new URI(requestUrl));
+
+		// when & then
+		testStatusCode(HttpStatus.FORBIDDEN, extensionAuthorHeaders, request);
+	}
+
+	@Test
+	void fireLabelledEvent_ShouldReturnBadRequest_WhenEventIsNull() throws URISyntaxException {
+		// given
+		String requestUrl = url + "/branches/MAIN/actions/labelled-event";
+		BranchLabelledEventRequest body = new BranchLabelledEventRequest();
+		RequestEntity<Object> request = new RequestEntity<>(body, (HttpHeaders) null, HttpMethod.POST, new URI(requestUrl));
+
+		// when & then
+		testStatusCode(HttpStatus.BAD_REQUEST, authorHeaders, request);
+	}
+
+	@Test
+	void fireLabelledEvent_ShouldReturnOk_WhenAuthorized() throws URISyntaxException {
+		// given
+		String requestUrl = url + "/branches/MAIN/actions/labelled-event";
+		BranchLabelledEventRequest body = new BranchLabelledEventRequest();
+		body.setEvent(BranchLabelledEventRequest.EventType.DELETE);
+		RequestEntity<Object> request = new RequestEntity<>(body, (HttpHeaders) null, HttpMethod.POST, new URI(requestUrl));
+
+		// when & then
+		testStatusCode(HttpStatus.OK, authorHeaders, request);
+	}
+
+	@Test
+	void fireLabelledEvent_ShouldNotDeleteBranch() throws URISyntaxException {
+		// given
+		String projectPath = branchService.create("MAIN/projectA").getPath();
+		String taskPath = branchService.create("MAIN/projectA/taskA").getPath();
+
+		BranchLabelledEventRequest body = new BranchLabelledEventRequest();
+		body.setEvent(BranchLabelledEventRequest.EventType.DELETE);
+
+		// when
+		RequestEntity<Object> taskRequest = new RequestEntity<>(body, (HttpHeaders) null, HttpMethod.POST, new URI(url + "/branches/MAIN/ProjectZ/taskZ/actions/labelled-event"));
+		RequestEntity<Object> projectRequest = new RequestEntity<>(body, (HttpHeaders) null, HttpMethod.POST, new URI(url + "/branches/MAIN/ProjectZ/actions/labelled-event"));
+		testStatusCode(HttpStatus.OK, authorHeaders, taskRequest);
+		testStatusCode(HttpStatus.OK, authorHeaders, projectRequest);
+
+		// then
+		assertNotNull(branchService.findLatest(projectPath));
+		assertNotNull(branchService.findLatest(taskPath));
 	}
 
 	private void assertMetadataContains(String rawJson, String expected) {

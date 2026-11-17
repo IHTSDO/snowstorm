@@ -18,6 +18,7 @@ import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.config.SearchLanguagesConfiguration;
 import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.services.identifier.IdentifierService;
+import org.snomed.snowstorm.rest.pojo.BranchLabelledEventRequest.EventType;
 import org.snomed.snowstorm.core.rf2.RF2Constants;
 import org.snomed.snowstorm.core.util.DescriptionHelper;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -86,6 +87,9 @@ public class AdminOperationsService {
 
 	@Autowired
 	private RelationshipService relationshipService;
+
+	@Autowired
+	private BranchLabelledEventService branchLabelledEventService;
 
 	private Logger logger = LoggerFactory.getLogger(getClass());
 	public static final int ONE_SECOND_IN_MILLIS = 1000;
@@ -308,6 +312,7 @@ public class AdminOperationsService {
 		logger.info("Deleting branch documents for path {}.", path);
 		elasticsearchOperations.delete(deleteQuery, Branch.class, elasticsearchOperations.getIndexCoordinatesFor(Branch.class));
 		elasticsearchOperations.indexOps(Branch.class).refresh();
+		branchLabelledEventService.handleEvent(path, EventType.DELETE);
 	}
 
 	public void deleteExtraInferredRelationships(String branchPath, InputStream relationshipsToKeepInputStream, int effectiveTime) throws IOException {

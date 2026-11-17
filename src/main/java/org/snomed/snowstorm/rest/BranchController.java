@@ -17,6 +17,7 @@ import org.snomed.snowstorm.core.data.domain.review.MergeReviewConceptVersions;
 import org.snomed.snowstorm.core.data.domain.review.ReviewStatus;
 import org.snomed.snowstorm.core.data.domain.security.UserBranchRoles;
 import org.snomed.snowstorm.core.data.services.*;
+import org.snomed.snowstorm.rest.pojo.BranchLabelledEventRequest;
 import org.snomed.snowstorm.core.data.services.classification.BranchClassificationStatusService;
 import org.snomed.snowstorm.core.data.services.pojo.IntegrityIssueReport;
 import org.snomed.snowstorm.rest.pojo.*;
@@ -58,6 +59,9 @@ public class BranchController {
 
 	@Autowired
 	private PermissionService permissionService;
+
+	@Autowired
+	private BranchLabelledEventService branchLabelledEventService;
 
 	@Value("${snowstorm.rest-api.readonly}")
 	private boolean restApiReadOnly;
@@ -125,6 +129,16 @@ public class BranchController {
 		Metadata newMetadata = latestBranch.getMetadata();
 		newMetadata.putAll(metadataToInsert);
 		return getBranchPojo(branchService.updateMetadata(branch, newMetadata)).getMetadata();
+	}
+
+	@Operation(summary = "Fire a labelled event for a branch", description = "Fires a labelled event to the branch event queue for the parent of the given branch, " +
+			"if the parent branch carries labels. Used by external services to signal logical events (e.g. task deletion) on labelled projects.")
+	@PostMapping(value = "/branches/{branch}/actions/labelled-event")
+	@PreAuthorize("hasPermission('AUTHOR', #branch)")
+	public void fireLabelledEvent(@PathVariable String branch, @RequestBody @Valid BranchLabelledEventRequest request) {
+		if (branch != null && !branch.isEmpty()) {
+			branchLabelledEventService.handleEvent(BranchPathUriUtil.decodePath(branch), request.getEvent());
+		}
 	}
 
 	@Operation(summary = "Retrieve a single branch metadata")
