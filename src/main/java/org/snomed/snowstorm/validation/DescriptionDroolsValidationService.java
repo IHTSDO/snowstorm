@@ -164,6 +164,15 @@ public class DescriptionDroolsValidationService implements org.ihtsdo.drools.ser
 		return false;
 	}
 
+	@Override
+	public boolean isInNamedSet(String setKey, String value) {
+		if (setKey == null || value == null) {
+			return false;
+		}
+		Set<String> members = testResourceProvider.getSemanticHierarchyMap().get(setKey);
+		return !CollectionUtils.isEmpty(members) && members.contains(value);
+	}
+
 	private String findStatedHierarchyRootId(org.ihtsdo.drools.domain.Concept concept) {
 		String conceptId = concept.getId();
 		if (!statedHierarchyRootIdCache.containsKey(conceptId)) {
