@@ -7,6 +7,7 @@ import org.junit.jupiter.api.Test;
 import org.snomed.snowstorm.AbstractTest;
 import org.snomed.snowstorm.core.data.domain.CodeSystem;
 import org.snomed.snowstorm.core.data.domain.CodeSystemVersion;
+import org.snomed.snowstorm.rest.pojo.CodeSystemUpdateRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import java.util.Set;
@@ -37,6 +38,51 @@ class CodeSystemServiceTest extends AbstractTest {
 		assertEquals(2, codeSystemService.findAll().size());
 
 		assertEquals(codeSystemBe, codeSystemService.find("SNOMEDCT-BE"));
+	}
+
+	@Test
+	void legacyNamingConventionDefaultsToTrue() {
+		codeSystemService.createCodeSystem(new CodeSystem("SNOMEDCT", "MAIN"));
+
+		assertTrue(codeSystemService.find("SNOMEDCT").isLegacyNamingConvention());
+		assertTrue(codeSystemService.findAllWithoutContentInfo().getFirst().isLegacyNamingConvention());
+	}
+
+	@Test
+	void updateNamingConvention() {
+		codeSystemService.createCodeSystem(new CodeSystem("SNOMEDCT", "MAIN"));
+		codeSystemService.createCodeSystem(new CodeSystem("SNOMEDCT-BE", "MAIN/SNOMEDCT-BE"));
+
+		codeSystemService.updateNamingConvention(codeSystemService.find("SNOMEDCT"), false);
+
+		assertFalse(codeSystemService.find("SNOMEDCT").isLegacyNamingConvention());
+		assertTrue(codeSystemService.find("SNOMEDCT-BE").isLegacyNamingConvention(), "Other code systems are not affected");
+		assertFalse(codeSystemService.findAllWithoutContentInfo().stream()
+				.filter(cs -> cs.getShortName().equals("SNOMEDCT")).findFirst().orElseThrow().isLegacyNamingConvention());
+	}
+
+	@Test
+	void updateKeepsNamingConventionWhenNotInRequest() {
+		codeSystemService.createCodeSystem(new CodeSystem("SNOMEDCT", "MAIN"));
+		codeSystemService.updateNamingConvention(codeSystemService.find("SNOMEDCT"), false);
+
+		codeSystemService.update(codeSystemService.find("SNOMEDCT"), new CodeSystemUpdateRequest("International Edition"));
+
+		CodeSystem codeSystem = codeSystemService.find("SNOMEDCT");
+		assertEquals("International Edition", codeSystem.getName());
+		assertFalse(codeSystem.isLegacyNamingConvention());
+	}
+
+	@Test
+	void updateFromStoredCodeSystemKeepsNamingConvention() {
+		codeSystemService.createCodeSystem(new CodeSystem("SNOMEDCT", "MAIN"));
+		codeSystemService.updateNamingConvention(codeSystemService.find("SNOMEDCT"), false);
+
+		// As used when refreshing code system details from configuration
+		CodeSystem stored = codeSystemService.find("SNOMEDCT");
+		codeSystemService.update(stored, new CodeSystemUpdateRequest(stored));
+
+		assertFalse(codeSystemService.find("SNOMEDCT").isLegacyNamingConvention());
 	}
 
 	@Test

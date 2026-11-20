@@ -23,7 +23,7 @@ import static org.snomed.snowstorm.fhir.config.FHIRConstants.SNOMED_URI;
  */
 @Document(indexName = "#{@indexNameProvider.indexName('codesystem')}", createIndex = false)
 @JsonPropertyOrder({"name", "owner", "shortName", "branchPath", "uriModuleId", "uri", "dependantVersionEffectiveTime", "dailyBuildAvailable", "latestDailyBuild",
-		"countryCode", "defaultLanguageCode", "defaultLanguageReferenceSets", "maintainerType", "latestVersion", "languages", "modules"})
+		"legacyNamingConvention", "countryCode", "defaultLanguageCode", "defaultLanguageReferenceSets", "maintainerType", "latestVersion", "languages", "modules"})
 public class CodeSystem implements CodeSystemCreate {
 
 	public interface Fields {
@@ -70,6 +70,10 @@ public class CodeSystem implements CodeSystemCreate {
 
 	@Field(type = FieldType.Keyword)
 	private String latestDailyBuild;
+
+	// Nullable so that code systems stored before this field existed read as legacy; see isLegacyNamingConvention()
+	@Field(type = FieldType.Boolean)
+	private Boolean legacyNamingConvention;
 
 	@Transient
 	private String defaultModuleId;
@@ -226,6 +230,21 @@ public class CodeSystem implements CodeSystemCreate {
 
 	public void setLatestDailyBuild(String latestDailyBuild) {
 		this.latestDailyBuild = latestDailyBuild;
+	}
+
+	/**
+	 * Whether releases of this code system use the legacy release package and RF2 file naming convention.
+	 * Defaults to true when not set, so a code system keeps the legacy convention until it is explicitly switched over.
+	 */
+	public boolean isLegacyNamingConvention() {
+		return legacyNamingConvention == null || legacyNamingConvention;
+	}
+
+	/**
+	 * @param legacyNamingConvention true for the legacy naming convention, false for the new one, null for the default (legacy)
+	 */
+	public void setLegacyNamingConvention(Boolean legacyNamingConvention) {
+		this.legacyNamingConvention = legacyNamingConvention;
 	}
 
 	@JsonIgnore

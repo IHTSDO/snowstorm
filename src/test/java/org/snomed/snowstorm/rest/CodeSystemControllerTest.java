@@ -488,6 +488,68 @@ class CodeSystemControllerTest extends AbstractTest {
         return (LinkedHashMap<String, Object>) body.get("metadata");
     }
 
+    @Test
+    void findCodeSystem_ShouldReturnLegacyNamingConventionTrue_WhenNotSet() {
+        Map<?, ?> response = testRestTemplate.getForObject(findCodeSystem("SNOMEDCT"), Map.class);
+
+        assertEquals(Boolean.TRUE, response.get("legacyNamingConvention"));
+    }
+
+    @Test
+    void updateNamingConvention_ShouldSwitchCodeSystemToNewConventionAndBack() {
+        testRestTemplate.put(updateNamingConvention("SNOMEDCT", false), null);
+        assertEquals(Boolean.FALSE, testRestTemplate.getForObject(findCodeSystem("SNOMEDCT"), Map.class).get("legacyNamingConvention"));
+        for (String includeContentInfo : List.of("true", "false")) {
+            Map<?, ?> page = testRestTemplate.getForObject(listCodeSystems() + "?includeContentInfo=" + includeContentInfo, Map.class);
+            Map<?, ?> international = ((List<?>) page.get("items")).stream()
+                    .map(Map.class::cast)
+                    .filter(item -> "SNOMEDCT".equals(item.get("shortName")))
+                    .findFirst().orElseThrow();
+            assertEquals(Boolean.FALSE, international.get("legacyNamingConvention"), "includeContentInfo=" + includeContentInfo);
+        }
+
+        testRestTemplate.put(updateNamingConvention("SNOMEDCT", true), null);
+        assertEquals(Boolean.TRUE, testRestTemplate.getForObject(findCodeSystem("SNOMEDCT"), Map.class).get("legacyNamingConvention"));
+    }
+
+    @Test
+    void updateNamingConvention_ShouldReturnNotFound_WhenCodeSystemDoesNotExist() {
+        ResponseEntity<String> response = testRestTemplate.exchange(updateNamingConvention("idontexist", false), HttpMethod.PUT, null, String.class);
+
+        assertEquals(404, response.getStatusCode().value());
+    }
+
+    @Test
+    void updateCodeSystem_ShouldKeepNamingConvention_WhenNotInRequest() {
+        testRestTemplate.put(updateNamingConvention("SNOMEDCT", false), null);
+
+        testRestTemplate.put(findCodeSystem("SNOMEDCT"), Map.of("name", "International Edition"));
+
+        Map<?, ?> response = testRestTemplate.getForObject(findCodeSystem("SNOMEDCT"), Map.class);
+        assertEquals("International Edition", response.get("name"));
+        assertEquals(Boolean.FALSE, response.get("legacyNamingConvention"));
+    }
+
+    @Test
+    void updateCodeSystem_ShouldSetNamingConvention_WhenInRequest() {
+        testRestTemplate.put(findCodeSystem("SNOMEDCT"), Map.of("legacyNamingConvention", false));
+
+        assertEquals(Boolean.FALSE, testRestTemplate.getForObject(findCodeSystem("SNOMEDCT"), Map.class).get("legacyNamingConvention"));
+    }
+
+    @Test
+    void createCodeSystem_ShouldStoreNamingConvention_WhenInRequest() {
+        testRestTemplate.postForEntity(listCodeSystems(), Map.of("shortName", "SNOMEDCT-NEW", "branchPath", "MAIN/SNOMEDCT-NEW", "legacyNamingConvention", false), Void.class);
+        testRestTemplate.postForEntity(listCodeSystems(), Map.of("shortName", "SNOMEDCT-OLD", "branchPath", "MAIN/SNOMEDCT-OLD"), Void.class);
+
+        assertEquals(Boolean.FALSE, testRestTemplate.getForObject(findCodeSystem("SNOMEDCT-NEW"), Map.class).get("legacyNamingConvention"));
+        assertEquals(Boolean.TRUE, testRestTemplate.getForObject(findCodeSystem("SNOMEDCT-OLD"), Map.class).get("legacyNamingConvention"));
+    }
+
+    private String updateNamingConvention(String shortName, boolean legacyNamingConvention) {
+        return "http://localhost:" + port + "/codesystems/" + shortName + "/naming-convention?legacyNamingConvention=" + legacyNamingConvention;
+    }
+
     private String listCodeSystems() {
         return "http://localhost:" + port + "/codesystems";
     }

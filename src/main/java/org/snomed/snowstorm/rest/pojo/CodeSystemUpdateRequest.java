@@ -18,6 +18,9 @@ public class CodeSystemUpdateRequest {
 	@Schema(defaultValue = "false")
 	public boolean dailyBuildAvailable;
 
+	@Schema(description = "True for the legacy release package and RF2 file naming convention, false for the new one. Leave out to keep the current setting.")
+	private Boolean legacyNamingConvention;
+
 	public CodeSystemUpdateRequest() {
 	}
 
@@ -30,6 +33,7 @@ public class CodeSystemUpdateRequest {
 		defaultLanguageCode = codeSystem.getDefaultLanguageCode();
 		defaultLanguageReferenceSets = codeSystem.getDefaultLanguageReferenceSets();
 		dailyBuildAvailable = codeSystem.isDailyBuildAvailable();
+		legacyNamingConvention = codeSystem.isLegacyNamingConvention();
 	}
 
 	public CodeSystemUpdateRequest(String name) {
@@ -88,6 +92,14 @@ public class CodeSystemUpdateRequest {
 
 	public boolean isDailyBuildAvailable() {
 		return dailyBuildAvailable;
+	}
+
+	public Boolean getLegacyNamingConvention() {
+		return legacyNamingConvention;
+	}
+
+	public void setLegacyNamingConvention(Boolean legacyNamingConvention) {
+		this.legacyNamingConvention = legacyNamingConvention;
 	}
 
 }

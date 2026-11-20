@@ -437,6 +437,7 @@ public class CodeSystemService {
 			copy.setDefaultLanguageReferenceSets(stored.getDefaultLanguageReferenceSets() == null ? null : stored.getDefaultLanguageReferenceSets().clone());
 			copy.setDailyBuildAvailable(stored.isDailyBuildAvailable());
 			copy.setLatestDailyBuild(stored.getLatestDailyBuild());
+			copy.setLegacyNamingConvention(stored.isLegacyNamingConvention());
 			copies.add(copy);
 		}
 		return copies;
@@ -731,10 +732,24 @@ public class CodeSystemService {
 	@PreAuthorize("hasPermission('ADMIN', #codeSystem.branchPath)")
 	@CacheEvict(value = {"code-systems", "code-system-branches"}, allEntries = true)
 	public CodeSystem update(CodeSystem codeSystem, CodeSystemUpdateRequest updateRequest) {
+		boolean legacyNamingConvention = codeSystem.isLegacyNamingConvention();
 		modelMapper.map(updateRequest, codeSystem);
+		if (updateRequest.getLegacyNamingConvention() == null) {
+			// Not part of this update, keep the current setting
+			codeSystem.setLegacyNamingConvention(legacyNamingConvention);
+		}
 		validatorService.validate(codeSystem);
 		repository.save(codeSystem);
 		contentInformationCache.remove(codeSystem.getBranchPath());
+		return codeSystem;
+	}
+
+	@PreAuthorize("hasPermission('ADMIN', #codeSystem.branchPath)")
+	@CacheEvict(value = {"code-systems", "code-system-branches"}, allEntries = true)
+	public CodeSystem updateNamingConvention(CodeSystem codeSystem, boolean legacyNamingConvention) {
+		logger.info("Setting legacyNamingConvention to {} for code system {}.", legacyNamingConvention, codeSystem.getShortName());
+		codeSystem.setLegacyNamingConvention(legacyNamingConvention);
+		repository.save(codeSystem);
 		return codeSystem;
 	}
 

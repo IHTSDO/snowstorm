@@ -135,6 +135,19 @@ public class CodeSystemController {
 		return joinUserPermissionsInfo(findCodeSystem(shortName));
 	}
 
+	@Operation(summary = "Set the release naming convention of a code system",
+			description = """
+					Sets whether releases of this code system use the legacy release package and RF2 file naming convention (true)
+					or the new one (false). Code systems use the legacy convention until this is set to false.
+					The current value is returned as legacyNamingConvention when retrieving the code system,
+					so that release tooling can pick the right convention for each release.""")
+	@PutMapping(value = "/{shortName}/naming-convention")
+	public CodeSystem updateNamingConvention(@PathVariable String shortName, @RequestParam boolean legacyNamingConvention) {
+		CodeSystem codeSystem = findCodeSystem(shortName);
+		codeSystemService.updateNamingConvention(codeSystem, legacyNamingConvention);
+		return joinUserPermissionsInfo(findCodeSystem(shortName));
+	}
+
 	@Operation(summary = "Delete a code system", description = "This function deletes the code system and its versions but it does not delete the branches or the content.")
 	@DeleteMapping(value = "/{shortName}")
 	public void deleteCodeSystem(@PathVariable String shortName) {
