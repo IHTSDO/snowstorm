@@ -158,7 +158,9 @@ public class Relationship extends SnomedComponent<Relationship> {
 		this.sourceId = sourceId;
 
 		if (destinationIdOrValue != null) {
-			if (destinationIdOrValue.startsWith("#") || destinationIdOrValue.startsWith("\"")) {
+			// A concrete value: #number, "string", or a bare boolean (concept ids are always numeric)
+			if (destinationIdOrValue.startsWith("#") || destinationIdOrValue.startsWith("\"")
+					|| ConcreteValue.isBooleanLiteral(destinationIdOrValue)) {
 				this.value = destinationIdOrValue;
 				this.destinationId = null;
 			} else {

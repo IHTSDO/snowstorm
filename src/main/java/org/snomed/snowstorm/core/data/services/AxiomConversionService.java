@@ -167,7 +167,13 @@ public class AxiomConversionService {
 			final long internalRelationshipTypeId = internalRelationshipTypeIdString == null ? 0 : parseLong(internalRelationshipTypeIdString);
 
 			if (relationship.isConcrete()) {
-				final ConcreteValue.Type type = ConcreteValue.Type.valueOf(relationship.getConcreteValue().getDataType().name());
+				final org.snomed.snowstorm.core.data.domain.ConcreteValue.DataType dataType = relationship.getConcreteValue().getDataType();
+				if (dataType == org.snomed.snowstorm.core.data.domain.ConcreteValue.DataType.BOOLEAN) {
+					// The OWL toolkit has no boolean concrete type
+					throw new IllegalArgumentException(String.format("Boolean concrete value %s for attribute %s can not be converted to an OWL axiom.",
+							relationship.getConcreteValue().getValue(), relationship.getTypeId()));
+				}
+				final ConcreteValue.Type type = ConcreteValue.Type.valueOf(dataType.name());
 				final ConcreteValue concreteValue = new ConcreteValue(type, relationship.getConcreteValue().getValue());
 				final org.snomed.otf.owltoolkit.domain.Relationship externalConcreteRelationship = new org.snomed.otf.owltoolkit.domain.Relationship(
 						internalRelationshipGroupId,

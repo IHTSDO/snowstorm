@@ -166,4 +166,40 @@ class ConcreteValueTest {
         //then
         assertEquals("3.14", result);
     }
+
+    @Test
+    void from_ShouldReturnBoolean_WhenGivenBareTrueOrFalse() {
+        //when
+        final ConcreteValue trueValue = ConcreteValue.from("true");
+        final ConcreteValue falseValue = ConcreteValue.from("false");
+
+        //then
+        assertEquals(ConcreteValue.DataType.BOOLEAN, trueValue.getDataType());
+        assertEquals("true", trueValue.getValue());
+        assertEquals(ConcreteValue.DataType.BOOLEAN, falseValue.getDataType());
+        assertEquals("false", falseValue.getValue());
+    }
+
+    @Test
+    void booleanValue_ShouldRoundTripWithoutPrefix() {
+        //given
+        final ConcreteValue value = ConcreteValue.from("true");
+
+        //then
+        assertEquals("true", value.getValueWithPrefix());
+        assertEquals("true", value.toString());
+        assertEquals("true", ConcreteValue.removeConcretePrefix("true"));
+    }
+
+    @Test
+    void dataTypeFromShortHand_ShouldReturnBoolean_WhenGivenBool() {
+        assertEquals(ConcreteValue.DataType.BOOLEAN, ConcreteValue.DataType.fromShorthand("bool"));
+    }
+
+    @Test
+    void from_ShouldStillRejectOtherUnprefixedValues() {
+        assertThrows(IllegalArgumentException.class, () -> ConcreteValue.from("TRUE"));
+        assertThrows(IllegalArgumentException.class, () -> ConcreteValue.from("yes"));
+        assertThrows(IllegalArgumentException.class, () -> ConcreteValue.from("10"));
+    }
 }
