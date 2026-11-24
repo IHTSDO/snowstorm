@@ -1,0 +1,2 @@
+id	effectiveTime	active	moduleId	conceptId	languageCode	typeId	term	caseSignificanceId
+7000011101	20260202	1	11000001101	11000001101	en	900000000000003001	XX extension module (core metadata concept)	900000000000448009

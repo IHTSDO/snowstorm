@@ -1,11 +1,10 @@
 package org.snomed.snowstorm.release;
 
-import ca.uhn.fhir.rest.server.exceptions.ResourceNotFoundException;
 import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.domain.Branch;
-import org.ihtsdo.otf.resourcemanager.ResourceManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.snomed.module.storage.Channel;
 import org.snomed.module.storage.ModuleMetadata;
 import org.snomed.module.storage.ModuleStorageCoordinator;
 import org.snomed.module.storage.ModuleStorageCoordinatorException;
@@ -19,16 +18,18 @@ import org.snomed.snowstorm.core.rf2.rf2import.ImportService;
 import org.snomed.snowstorm.core.rf2.rf2import.RF2ImportConfiguration;
 import org.snomed.snowstorm.dailybuild.DailyBuildService;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.core.io.ResourceLoader;
 import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;
 
+import java.io.FileInputStream;
 import java.io.InputStream;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
+import java.util.function.Predicate;
 
 @Service
 public class ReleaseImportService {
-    public static final String PATH_SEPARATOR = "/";
     private final Logger logger = LoggerFactory.getLogger(getClass());
 
     private static final String LOCK_MESSAGE = "Branch locked for new release import.";
@@ -43,10 +44,6 @@ public class ReleaseImportService {
 
     private final ImportService importService;
 
-    private final ResourceManager releaseResourceManager;
-
-    private final ResourceManager internalReleaseResourceManager;
-
     private final ModuleStorageCoordinator moduleStorageCoordinator;
 
     private final CodeSystemService codeSystemService;
@@ -56,14 +53,14 @@ public class ReleaseImportService {
     private final CodeSystemRepository codeSystemRepository;
 
     @Autowired
-    public ReleaseImportService(BranchService branchService, SBranchService sBranchService, IntegrityService integrityService, DailyBuildService dailyBuildService, ImportService importService, ReleaseResourceConfig releaseResourceConfig, InternalReleaseResourceConfig internalReleaseResourceConfig, ResourceLoader resourceLoader, ModuleStorageCoordinator moduleStorageCoordinator, CodeSystemService codeSystemService, CodeSystemUpgradeService codeSystemUpgradeService, CodeSystemRepository codeSystemRepository) {
+    public ReleaseImportService(BranchService branchService, SBranchService sBranchService, IntegrityService integrityService,
+                                DailyBuildService dailyBuildService, ImportService importService, ModuleStorageCoordinator moduleStorageCoordinator,
+                                CodeSystemService codeSystemService, CodeSystemUpgradeService codeSystemUpgradeService, CodeSystemRepository codeSystemRepository) {
         this.branchService = branchService;
         this.sBranchService = sBranchService;
         this.integrityService = integrityService;
         this.dailyBuildService = dailyBuildService;
         this.importService = importService;
-        this.releaseResourceManager = new ResourceManager(releaseResourceConfig, resourceLoader);
-        this.internalReleaseResourceManager = new ResourceManager(internalReleaseResourceConfig, resourceLoader);
         this.moduleStorageCoordinator = moduleStorageCoordinator;
         this.codeSystemService = codeSystemService;
         this.codeSystemUpgradeService = codeSystemUpgradeService;
@@ -71,49 +68,85 @@ public class ReleaseImportService {
     }
 
     public void performScheduledImport(CodeSystem codeSystem) {
-        logger.info("Start performing scheduled import for code system {}", codeSystem.getShortName());
+        logger.debug("Finding RF2 for auto import for {}", codeSystem.getShortName());
         String branchPath = codeSystem.getBranchPath();
         Branch codeSystemBranch = branchService.findBranchOrThrow(branchPath);
         if (codeSystemBranch.isLocked()) {
-            logger.info("Scheduled release import is skipped as branch {} is already locked.", branchPath);
+            logger.info("Auto import skipped - branch {} is already locked.", branchPath);
             return;
         }
 
-        performInternalReleaseImport(codeSystem);
-        performPubicReleaseImport(codeSystem);
-    }
-
-    private void performPubicReleaseImport(CodeSystem codeSystem) {
         try {
-            logger.info("Performing public release import");
-            // check any new release package
-            String releaseFilename = getNewReleaseFilenameIfExists(this.releaseResourceManager, codeSystem);
+            ModuleMetadata moduleMetadata = getLatestUnimportedReleaseFromMSC(codeSystem);
+            if (moduleMetadata == null) {
+                logger.debug("No RF2 found for auto import for {}.", codeSystem.getShortName());
+                return;
+            }
 
-            // perform rollback and import
-            performReleaseSnapshotImport(this.releaseResourceManager, codeSystem, releaseFilename, false);
+            performReleaseSnapshotImport(moduleMetadata, codeSystem, isInternalRelease(moduleMetadata));
         } catch (Exception e) {
-            logger.error("Failed to import the public release package", e);
+            logger.error("Auto import failed for code system {}", codeSystem.getShortName(), e);
         }
     }
 
-    private void performInternalReleaseImport(CodeSystem codeSystem) {
+    private ModuleMetadata getLatestUnimportedReleaseFromMSC(CodeSystem codeSystem) {
+        // Find all by CodeSystem
+        List<ModuleMetadata> releases = getAllReleasesFromMSC(codeSystem);
+
+        // Identify latest version
+        List<CodeSystemVersion> versions = codeSystemService.findAllVersions(codeSystem.getShortName(), true, true);
+        int latestVersionEffectiveTime = versions.isEmpty() ? 0 : versions.getLast().getEffectiveDate();
+
+        // Filter to most recent & available for import
+        return releases.stream()
+                .filter(isPublished())
+                .filter(hasBrowserChannelAvailable())
+                .filter(isNewerThan(latestVersionEffectiveTime))
+                .max(Comparator.comparingInt(ModuleMetadata::getEffectiveTime))
+                .orElse(null);
+    }
+
+    private List<ModuleMetadata> getAllReleasesFromMSC(CodeSystem codeSystem) {
         try {
-            logger.info("Performing internal release import");
-            // check any new release package
-            String releaseFilename = getNewReleaseFilenameIfExists(this.internalReleaseResourceManager, codeSystem);
-
-            // perform rollback and import
-            performReleaseSnapshotImport(this.internalReleaseResourceManager, codeSystem, releaseFilename, true);
-        } catch (Exception e) {
-            logger.error("Failed to import the internal release package", e);
+            String mscCodeSystem = codeSystem.getShortCode() != null ? codeSystem.getShortCode() : "INT";
+            List<ModuleMetadata> allReleases = moduleStorageCoordinator.getAllReleases(mscCodeSystem);
+            return allReleases != null ? allReleases : new ArrayList<>();
+        } catch (ModuleStorageCoordinatorException.ResourceNotFoundException e) {
+            logger.debug("No releases found in MSC for code system {}: {}", codeSystem.getShortName(), e.getMessage());
+            return new ArrayList<>();
+        } catch (ModuleStorageCoordinatorException e) {
+            logger.error("Failed to list releases from MSC for code system {}", codeSystem.getShortName(), e);
+            return new ArrayList<>();
         }
     }
 
-    private void performReleaseSnapshotImport(ResourceManager resourceManager, CodeSystem codeSystem, String releaseFilename, boolean internalRelease) throws ServiceException {
-        if (releaseFilename == null) {
-            return;
-        }
-        logger.info("New release package {} found for code system {} ", releaseFilename, codeSystem.getShortName());
+    private Predicate<ModuleMetadata> isPublished() {
+        return m -> Boolean.TRUE.equals(m.getPublished());
+    }
+
+    private Predicate<ModuleMetadata> hasBrowserChannelAvailable() {
+        return m -> m.getChannel(Channel.Name.BROWSER)
+                .map(ch -> ch.isAvailable() && isKnownVisibility(ch.getPropertyValueAsStringNullable(Channel.Property.Visibility.NAME)))
+                .orElse(false);
+    }
+
+    private boolean isKnownVisibility(String visibility) {
+        return Channel.Property.Visibility.PUBLIC.equals(visibility) || Channel.Property.Visibility.PRIVATE.equals(visibility);
+    }
+
+    private Predicate<ModuleMetadata> isNewerThan(int latestVersionEffectiveTime) {
+        return m -> m.getEffectiveTime() != null && m.getEffectiveTime() > latestVersionEffectiveTime;
+    }
+
+    private boolean isInternalRelease(ModuleMetadata release) {
+        Channel browserChannel = release.getChannelNullable(Channel.Name.BROWSER);
+        String visibility = browserChannel.getPropertyValueAsStringNullable(Channel.Property.Visibility.NAME);
+
+        return !Channel.Property.Visibility.PUBLIC.equals(visibility);
+    }
+
+    private void performReleaseSnapshotImport(ModuleMetadata release, CodeSystem codeSystem, boolean internalRelease) throws ServiceException {
+        logger.info("Importing release package {} for code system {} ({})", release.getFilename(), codeSystem.getShortName(), internalRelease ? "internal" : "public");
         // Lock branch immediately to stop other instances performing daily build/importing a new release
         branchService.lockBranch(codeSystem.getBranchPath(), LOCK_MESSAGE);
         boolean dailyBuildAvailable = codeSystem.isDailyBuildAvailable();
@@ -131,22 +164,25 @@ public class ReleaseImportService {
             branchService.unlock(codeSystem.getBranchPath());
 
             // Upgrade code system if needed
-            performCodeSystemUpgradeIfNeeded(codeSystem, releaseFilename, branchHeadTimestamp);
+            performCodeSystemUpgradeIfNeeded(codeSystem, release, branchHeadTimestamp);
 
-            logger.info("Start release import for code system {}", codeSystem.getShortName());
             RF2ImportConfiguration importConfiguration = new RF2ImportConfiguration(RF2Type.SNAPSHOT, codeSystem.getBranchPath());
             importConfiguration.setCreateCodeSystemVersion(true);
             importConfiguration.setInternalRelease(internalRelease);
             importConfiguration.setClearEffectiveTimes(false);
 
             String importId = importService.createJob(importConfiguration);
-            try (InputStream releaseStream = resourceManager.readResourceStreamOrNullIfNotExists(codeSystem.getShortName() + PATH_SEPARATOR + releaseFilename)) {
-                importService.importArchive(importId, releaseStream);
+            try {
+                logger.info("Downloading release package {} for code system {}", release.getFilename(), codeSystem.getShortName());
+                moduleStorageCoordinator.addFileLocally(release);
+                try (InputStream releaseStream = new FileInputStream(release.getFile())) {
+                    importService.importArchive(importId, releaseStream);
+                }
             } catch (Exception e) {
                 sBranchService.rollbackCommit(codeSystem.getBranchPath(), branchHeadTimestamp);
                 throw new ServiceException("Failed to import the new release into code system " + codeSystem.getShortName(), e);
             }
-            logger.info("Release import completed for code system {}", codeSystem.getShortName());
+            logger.info("Release import completed for code system {} ({})", codeSystem.getShortName(), release.getFilename());
         } finally {
             Branch codeSystemBranch = branchService.findBranchOrThrow(codeSystem.getBranchPath());
             if (codeSystemBranch.isLocked()) {
@@ -159,81 +195,35 @@ public class ReleaseImportService {
         }
     }
 
-    private void performCodeSystemUpgradeIfNeeded(CodeSystem codeSystem, String releaseFilename, long branchHeadTimestamp) throws ServiceException {
-        if (codeSystem.getDependantVersionEffectiveTime() == null) return;
+    private void performCodeSystemUpgradeIfNeeded(CodeSystem codeSystem, ModuleMetadata release, long branchHeadTimestamp) throws ServiceException {
+        if (codeSystem.getDependantVersionEffectiveTime() == null) {
+            return;
+        }
+
+        List<ModuleMetadata> dependencies = release.getDependencies();
+        if (CollectionUtils.isEmpty(dependencies)) {
+            return;
+        }
+
         try {
-            Map<String, List<ModuleMetadata>> allReleases = moduleStorageCoordinator.getAllReleases();
-            List<ModuleMetadata> allModuleMetadata = new ArrayList<>();
-            allReleases.values().forEach(allModuleMetadata::addAll);
-
-            ModuleMetadata moduleMetadata = allModuleMetadata.stream().filter(item -> item.getFilename().equals(releaseFilename)).findFirst().orElse(null);
-            if (moduleMetadata != null) {
-                List<ModuleMetadata> dependencies = moduleMetadata.getDependencies();
-                if (!CollectionUtils.isEmpty(dependencies)) {
-                    ModuleMetadata dependency = dependencies.get(0);
-                    if (dependency.getEffectiveTime() <= codeSystem.getDependantVersionEffectiveTime()) return;
-                    logger.info("Upgrade the code system {} with dependency version {}", codeSystem.getShortName(), dependency.getEffectiveTime());
-                    codeSystemUpgradeService.upgrade(codeSystem.getShortName(), dependency.getEffectiveTime(), false); // Use the method upgrade(String,Integer,boolean) to bypass the security check
-                    Branch extensionBranch = branchService.findLatest(codeSystem.getBranchPath());
-                    IntegrityIssueReport integrityReport = integrityService.findChangedComponentsWithBadIntegrityNotFixed(extensionBranch);
-                    if (!integrityReport.isEmpty()) {
-                        sBranchService.rollbackCommit(codeSystem.getBranchPath(), branchHeadTimestamp);
-                        throw new ServiceException("Bad integrity found on " + codeSystem.getBranchPath());
-                    }
-
-                }
-            } else {
-                throw new ResourceNotFoundException(String.format("Release file '%s' not found from Module Storage Coordinator", releaseFilename));
+            ModuleMetadata dependency = dependencies.getFirst();
+            if (dependency.getEffectiveTime() <= codeSystem.getDependantVersionEffectiveTime()) {
+                logger.debug("Skipping upgrade for code system {} - dependency effectiveTime {} is not newer than current {}", codeSystem.getShortName(), dependency.getEffectiveTime(), codeSystem.getDependantVersionEffectiveTime());
+                return;
             }
-        } catch (ModuleStorageCoordinatorException e) {
+
+            logger.info("Upgrading code system {} to dependency version {}", codeSystem.getShortName(), dependency.getEffectiveTime());
+            codeSystemUpgradeService.upgrade(codeSystem.getShortName(), dependency.getEffectiveTime(), false); // Use the method upgrade(String,Integer,boolean) to bypass the security check
+            Branch extensionBranch = branchService.findLatest(codeSystem.getBranchPath());
+            IntegrityIssueReport integrityReport = integrityService.findChangedComponentsWithBadIntegrityNotFixed(extensionBranch);
+            if (!integrityReport.isEmpty()) {
+                sBranchService.rollbackCommit(codeSystem.getBranchPath(), branchHeadTimestamp);
+                throw new ServiceException("Bad integrity found on " + codeSystem.getBranchPath());
+            }
+        } catch (ServiceException e) {
+            throw e;
+        } catch (Exception e) {
             throw new ServiceException("Failed to upgrade the code system " + codeSystem.getShortName(), e);
         }
-    }
-
-    private String getNewReleaseFilenameIfExists(ResourceManager resourceManager, CodeSystem codeSystem) {
-        Map<Integer, String> effectiveTimeToArchiveFilenameMap = new HashMap<>();
-        Set<String> releaseArchiveFilenames = resourceManager.doListFilenames(codeSystem.getShortName() + PATH_SEPARATOR);
-        logger.debug("Found total release: {} for code system {}", releaseArchiveFilenames.size(), codeSystem.getShortName());
-        List<CodeSystemVersion> codeSystemVersions = this.codeSystemService.findAllVersions(codeSystem.getShortName(), true, true);
-        CodeSystemVersion latestCodeSystemVersion = null;
-        if (codeSystemVersions.isEmpty()) {
-            logger.warn("No versions found for code system {}", codeSystem.getShortName());
-        } else {
-            latestCodeSystemVersion = codeSystemVersions.get(codeSystemVersions.size() - 1);
-        }
-        for (String filename : releaseArchiveFilenames) {
-            if (filename == null || !filename.endsWith(".zip"))
-                continue;
-            
-            // Strip off file separators
-            if (filename.contains(PATH_SEPARATOR)) {
-                filename = filename.substring(filename.lastIndexOf(PATH_SEPARATOR) + 1);
-            }
-            // Check the new release effective time after the latest version
-            if (latestCodeSystemVersion == null || isAfterLatestVersion(filename, latestCodeSystemVersion.getEffectiveDate())) {
-                effectiveTimeToArchiveFilenameMap.put(getEffectiveTimeFromFilename(filename), filename);
-            }
-        }
-
-        // Get the latest release
-        if (!effectiveTimeToArchiveFilenameMap.isEmpty()) {
-            int mostRecentEffectiveTime = effectiveTimeToArchiveFilenameMap.keySet().stream().sorted(Comparator.reverseOrder()).toList().get(0);
-            String mostRecentRelease = effectiveTimeToArchiveFilenameMap.get(mostRecentEffectiveTime);
-            if (effectiveTimeToArchiveFilenameMap.size() > 1) {
-                logger.info("Found total {} release archives. '{}' will be loaded.", effectiveTimeToArchiveFilenameMap.size(), mostRecentRelease);
-            }
-            return mostRecentRelease;
-        }
-        return null;
-    }
-
-    private boolean isAfterLatestVersion(String filename, int latestVersionEffectiveTime) {
-        int effectiveTime = getEffectiveTimeFromFilename(filename);
-        return effectiveTime > latestVersionEffectiveTime;
-    }
-
-    private int getEffectiveTimeFromFilename(String filename) {
-        String[] split = filename.split("_");
-        return Integer.parseInt(split[split.length - 1].substring(0, 8));
     }
 }

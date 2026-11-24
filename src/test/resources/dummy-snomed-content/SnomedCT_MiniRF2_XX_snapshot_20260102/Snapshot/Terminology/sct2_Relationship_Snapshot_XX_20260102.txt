@@ -1,0 +1,4 @@
+#
+# Comments are removed by unit test
+#
+id	effectiveTime	active	moduleId	sourceId	destinationId	relationshipGroup	typeId	characteristicTypeId	modifierId

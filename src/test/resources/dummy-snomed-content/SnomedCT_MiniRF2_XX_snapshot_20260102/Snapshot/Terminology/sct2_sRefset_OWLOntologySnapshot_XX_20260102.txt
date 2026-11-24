@@ -1,0 +1,3 @@
+id	effectiveTime	active	moduleId	refsetId	referencedComponentId	owlExpression
+aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa	20260102	0	11000001101	762103008	734147008	Ontology(<http://snomed.info/sct/900000000000207008>)
+bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb	20260102	1	11000001101	762103008	734147008	Ontology(<http://snomed.info/sct/11000001101>)

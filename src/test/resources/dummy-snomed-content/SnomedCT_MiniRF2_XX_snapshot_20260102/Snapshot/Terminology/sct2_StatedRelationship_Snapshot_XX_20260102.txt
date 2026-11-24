@@ -1,0 +1,7 @@
+#
+# Comments are removed by unit test
+#
+id	effectiveTime	active	moduleId	sourceId	destinationId	relationshipGroup	typeId	characteristicTypeId	modifierId
+
+# XX module concept - is a - Model Component
+7000021101	20260102	1	11000001101	11000001101	900000000000441003	0	116680003	900000000000010007	900000000000451002

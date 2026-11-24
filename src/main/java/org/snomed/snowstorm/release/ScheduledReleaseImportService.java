@@ -42,11 +42,12 @@ public class ScheduledReleaseImportService {
         if (!initialised) {
             return;
         }
-        logger.info("Start release import...");
+
         if (!running) {
             synchronized (this) {
                 if (!running) {
                     running = true;
+                    logger.info("Starting auto import...");
                     try {
                         List<CodeSystem> codeSystems = codeSystemService.findAll();
                         for (CodeSystem codeSystem : codeSystems) {
@@ -56,13 +57,14 @@ public class ScheduledReleaseImportService {
                                 logger.error("Failed to import the release package for code system {}", codeSystem.getShortName(), e);
                             }
                         }
+                        logger.info("Auto import complete.");
                     } finally {
                         running = false;
                     }
                 }
             }
         } else {
-            logger.info("Release import is already running.");
+            logger.info("Auto import already running.");
         }
     }
 }
