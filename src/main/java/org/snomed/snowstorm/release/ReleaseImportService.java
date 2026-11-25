@@ -112,7 +112,6 @@ public class ReleaseImportService {
             List<ModuleMetadata> allReleases = moduleStorageCoordinator.getAllReleases(mscCodeSystem);
             return allReleases != null ? allReleases : new ArrayList<>();
         } catch (ModuleStorageCoordinatorException.ResourceNotFoundException e) {
-            logger.debug("No releases found in MSC for code system {}: {}", codeSystem.getShortName(), e.getMessage());
             return new ArrayList<>();
         } catch (ModuleStorageCoordinatorException e) {
             logger.error("Failed to list releases from MSC for code system {}", codeSystem.getShortName(), e);
