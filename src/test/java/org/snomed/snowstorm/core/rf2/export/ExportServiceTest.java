@@ -551,6 +551,46 @@ class ExportServiceTest extends AbstractTest {
 	}
 
 	@Test
+	void exportRF2ArchiveForClassificationWithNewNaming() throws Exception {
+		CodeSystem codeSystem = new CodeSystem("SNOMEDCT", "MAIN");
+		codeSystem.setLegacyNamingConvention(false);
+		codeSystem.setPackageType(PackageType.EDITION);
+		codeSystemService.createCodeSystem(codeSystem);
+
+		File exportFile = exportService.exportRF2ArchiveFile("MAIN", "20210731", RF2Type.DELTA, true);
+		exportFile.deleteOnExit();
+
+		List<String> entryNames = new ArrayList<>();
+		try (ZipInputStream zipInputStream = new ZipInputStream(new FileInputStream(exportFile))) {
+			ZipEntry entry;
+			while ((entry = zipInputStream.getNextEntry()) != null) {
+				entryNames.add(entry.getName());
+			}
+		}
+		assertTrue(entryNames.contains("SnomedCT_Export/RF2Release/Terminology/sct2_Concept_Delta_INTEdition_20210731.txt"), entryNames.toString());
+		assertTrue(entryNames.contains("SnomedCT_Export/RF2Release/Terminology/sct2_StatedRelationship_Delta_INTEdition_20210731.txt"), entryNames.toString());
+		assertTrue(entryNames.contains("SnomedCT_Export/RF2Release/Terminology/sct2_sRefset_OWLExpression733073007Delta_INTEdition_20210731.txt"), entryNames.toString());
+		assertTrue(entryNames.stream().allMatch(name -> name.endsWith("_INTEdition_20210731.txt")), entryNames.toString());
+	}
+
+	@Test
+	void exportRF2ArchiveForClassificationWithLegacyNaming() throws Exception {
+		CodeSystem codeSystem = new CodeSystem("SNOMEDCT", "MAIN");
+		codeSystem.setLegacyNamingConvention(true);
+		codeSystem.setPackageType(PackageType.EDITION);
+		codeSystemService.createCodeSystem(codeSystem);
+
+		File exportFile = exportService.exportRF2ArchiveFile("MAIN", "20210731", RF2Type.DELTA, true);
+		exportFile.deleteOnExit();
+
+		try (ZipInputStream zipInputStream = new ZipInputStream(new FileInputStream(exportFile))) {
+			ZipEntry concepts = zipInputStream.getNextEntry();
+			assertNotNull(concepts);
+			assertEquals("SnomedCT_Export/RF2Release/Terminology/sct2_Concept_Delta_INT_20210731.txt", concepts.getName());
+		}
+	}
+
+	@Test
 	void exportRF2ArchiveForRefsetOnly() throws Exception {
 		File exportFile = getTempFile("export", ".zip");
 		exportFile.deleteOnExit();

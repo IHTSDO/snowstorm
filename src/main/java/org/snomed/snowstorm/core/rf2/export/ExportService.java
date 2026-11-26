@@ -74,6 +74,8 @@ public class ExportService {
 		this.sBranchService = sBranchService;
 	}
 
+	private static final String INTERNATIONAL_RF2_NAME = "INT";
+
 	private final Set<String> refsetTypesRequiredForClassification = Sets.newHashSet(Concepts.REFSET_MRCM_ATTRIBUTE_DOMAIN, Concepts.OWL_EXPRESSION_TYPE_REFERENCE_SET, Concepts.MODULE_DEPENDENCY_REFERENCE_SET);
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
@@ -260,14 +262,17 @@ public class ExportService {
 		BranchCriteria selectionBranchCriteria = unpromotedChangesOnly ? versionControlHelper.getChangesOnBranchCriteria(branchPath) : allContentBranchCriteria;
 
 		String entryDirectoryPrefix = "SnomedCT_Export/RF2Release/";
-		String codeSystemRF2Name = "INT";
+		String codeSystemRF2Name = INTERNATIONAL_RF2_NAME;
+		final CodeSystem codeSystem = !legacyZipNaming || forClassification ? codeSystemService.findClosestCodeSystemUsingAnyBranch(branchPath, false) : null;
 		if (!legacyZipNaming) {
 			entryDirectoryPrefix = format("SnomedCT_Export/%s/", exportType.getName());
 
-			final CodeSystem codeSystem = codeSystemService.findClosestCodeSystemUsingAnyBranch(branchPath, false);
 			if (codeSystem != null && codeSystem.getShortCode() != null) {
 				codeSystemRF2Name = codeSystem.getShortCode();
 			}
+		}
+		if (forClassification) {
+			codeSystemRF2Name = getClassificationRF2Name(codeSystem, codeSystemRF2Name);
 		}
 
 		branchService.lockBranch(branchPath, branchMetadataHelper.getBranchLockMetadata("Exporting RF2 " + exportType.getName()));
@@ -407,6 +412,23 @@ public class ExportService {
 						null);
 			}
 		}
+	}
+
+	/**
+	 * The country/namespace element of the RF2 file names in an export for classification, chosen by the code system's
+	 * naming convention. The legacy convention keeps the given name. The new convention uses the code system's short code
+	 * (INT for the International Edition) followed by its package type, for example {@code INTEdition} or {@code BEExtension}.
+	 *
+	 * @param codeSystem the code system being classified, or null if the branch has none
+	 * @param legacyRF2Name the name used under the legacy convention
+	 */
+	static String getClassificationRF2Name(CodeSystem codeSystem, String legacyRF2Name) {
+		if (codeSystem == null || codeSystem.isLegacyNamingConvention()) {
+			return legacyRF2Name;
+		}
+		String rf2Name = codeSystem.getShortCode() != null ? codeSystem.getShortCode() : INTERNATIONAL_RF2_NAME;
+		PackageType packageType = codeSystem.getPackageType();
+		return packageType != null ? rf2Name + packageType.getTag() : rf2Name;
 	}
 
 	public String getFilename(ExportConfiguration exportConfiguration) {
