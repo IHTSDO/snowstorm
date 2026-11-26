@@ -8,6 +8,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.snomed.snowstorm.core.data.domain.CodeSystem;
 import org.snomed.snowstorm.core.data.domain.CodeSystemVersion;
+import org.snomed.snowstorm.core.data.domain.PackageType;
 import org.snomed.snowstorm.core.data.services.CodeSystemDefaultConfigurationService;
 import org.snomed.snowstorm.core.data.services.CodeSystemService;
 import org.snomed.snowstorm.core.data.services.ConceptService;
@@ -112,5 +113,5 @@ class FHIRConceptMapServiceTest {
 	}
 
 	private static final CodeSystemDefaultConfiguration LOINC_CONFIG = new CodeSystemDefaultConfiguration("LOINC Ontology", "SNOMEDCT-LOINCEXT",
-			"11010000107", "us", "Regenstrief Institute", "http://loinc.org", "30051010000102");
+			"11010000107", "us", "Regenstrief Institute", "http://loinc.org", "30051010000102", PackageType.DERIVATIVE);
 }

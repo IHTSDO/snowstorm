@@ -7,6 +7,7 @@ import org.junit.jupiter.api.Test;
 import org.snomed.snowstorm.AbstractTest;
 import org.snomed.snowstorm.core.data.domain.CodeSystem;
 import org.snomed.snowstorm.core.data.domain.CodeSystemVersion;
+import org.snomed.snowstorm.core.data.domain.PackageType;
 import org.snomed.snowstorm.rest.pojo.CodeSystemUpdateRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 
@@ -83,6 +84,50 @@ class CodeSystemServiceTest extends AbstractTest {
 		codeSystemService.update(stored, new CodeSystemUpdateRequest(stored));
 
 		assertFalse(codeSystemService.find("SNOMEDCT").isLegacyNamingConvention());
+	}
+
+	@Test
+	void createCodeSystemTakesPackageTypeFromConfig() {
+		codeSystemService.createCodeSystem(new CodeSystem("SNOMEDCT", "MAIN"));
+		codeSystemService.createCodeSystem(new CodeSystem("SNOMEDCT-NPU", "MAIN/SNOMEDCT-NPU"));
+		codeSystemService.createCodeSystem(new CodeSystem("SNOMEDCT-XX", "MAIN/SNOMEDCT-XX"));
+
+		assertEquals(PackageType.EDITION, codeSystemService.find("SNOMEDCT").getPackageType());
+		assertEquals(PackageType.DERIVATIVE, codeSystemService.find("SNOMEDCT-NPU").getPackageType());
+		assertNull(codeSystemService.find("SNOMEDCT-XX").getPackageType(), "Not configured");
+	}
+
+	@Test
+	void createCodeSystemKeepsGivenPackageType() {
+		CodeSystem codeSystem = new CodeSystem("SNOMEDCT", "MAIN");
+		codeSystem.setPackageType(PackageType.DERIVATIVE);
+		codeSystemService.createCodeSystem(codeSystem);
+
+		assertEquals(PackageType.DERIVATIVE, codeSystemService.find("SNOMEDCT").getPackageType());
+	}
+
+	@Test
+	void updatePackageType() {
+		codeSystemService.createCodeSystem(new CodeSystem("SNOMEDCT", "MAIN"));
+
+		CodeSystemUpdateRequest request = new CodeSystemUpdateRequest("International Edition");
+		request.setPackageType(PackageType.DERIVATIVE);
+		codeSystemService.update(codeSystemService.find("SNOMEDCT"), request);
+		assertEquals(PackageType.DERIVATIVE, codeSystemService.find("SNOMEDCT").getPackageType());
+
+		codeSystemService.update(codeSystemService.find("SNOMEDCT"), new CodeSystemUpdateRequest("International Edition"));
+		assertEquals(PackageType.DERIVATIVE, codeSystemService.find("SNOMEDCT").getPackageType(), "Kept when not in the request");
+	}
+
+	@Test
+	void updateDetailsFromConfigSetsPackageType() {
+		CodeSystem codeSystem = new CodeSystem("SNOMEDCT", "MAIN");
+		codeSystem.setPackageType(PackageType.DERIVATIVE);
+		codeSystemService.createCodeSystem(codeSystem);
+
+		codeSystemService.updateDetailsFromConfig();
+
+		assertEquals(PackageType.EDITION, codeSystemService.find("SNOMEDCT").getPackageType());
 	}
 
 	@Test

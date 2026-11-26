@@ -1,6 +1,7 @@
 package org.snomed.snowstorm.core.data.services;
 
 import jakarta.annotation.PostConstruct;
+import org.snomed.snowstorm.core.data.domain.PackageType;
 import org.snomed.snowstorm.core.data.services.pojo.CodeSystemDefaultConfiguration;
 
 import java.util.HashMap;
@@ -66,6 +67,14 @@ public class CodeSystemDefaultConfigurationService {
 		return null;
 	}
 
+	/**
+	 * @return the package type configured for the code system, or null when the code system is not configured or has no package type
+	 */
+	public PackageType getDefaultPackageType(String codeSystemShortName) {
+		CodeSystemDefaultConfiguration configuration = findByShortName(codeSystemShortName);
+		return configuration != null ? configuration.packageType() : null;
+	}
+
 	@PostConstruct
 	private void init() {
 		configurations = new HashSet<>();
@@ -77,8 +86,15 @@ public class CodeSystemDefaultConfigurationService {
 			String moduleId = split[1];
 			String countryCode = split.length > 2 ? split[2] : null;
 			String owner = split.length > 3 ? split[3] : null;
-			String alternateSchemaUri = split.length > 4 ? split[4] : null;
-			String alternateSchemaSctid = split.length > 5 ? split[5] : null;
+			// Empty when only used as a placeholder before the package type, read as not set
+			String alternateSchemaUri = split.length > 4 && !split[4].isBlank() ? split[4] : null;
+			String alternateSchemaSctid = split.length > 5 && !split[5].isBlank() ? split[5] : null;
+			PackageType packageType;
+			try {
+				packageType = split.length > 6 ? PackageType.fromTag(split[6]) : null;
+			} catch (IllegalArgumentException e) {
+				throw new IllegalStateException("Invalid code system configuration " + key + ": " + e.getMessage(), e);
+			}
 			configurations.add(new CodeSystemDefaultConfiguration(
 					name,
 					codeSystemShortName,
@@ -86,7 +102,8 @@ public class CodeSystemDefaultConfigurationService {
 					countryCode,
 					owner,
 					alternateSchemaUri,
-					alternateSchemaSctid
+					alternateSchemaSctid,
+					packageType
 			));
 		}
 	}

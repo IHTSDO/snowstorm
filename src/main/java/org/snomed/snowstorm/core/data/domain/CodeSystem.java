@@ -23,7 +23,7 @@ import static org.snomed.snowstorm.fhir.config.FHIRConstants.SNOMED_URI;
  */
 @Document(indexName = "#{@indexNameProvider.indexName('codesystem')}", createIndex = false)
 @JsonPropertyOrder({"name", "owner", "shortName", "branchPath", "uriModuleId", "uri", "dependantVersionEffectiveTime", "dailyBuildAvailable", "latestDailyBuild",
-		"legacyNamingConvention", "countryCode", "defaultLanguageCode", "defaultLanguageReferenceSets", "maintainerType", "latestVersion", "languages", "modules"})
+		"legacyNamingConvention", "packageType", "countryCode", "defaultLanguageCode", "defaultLanguageReferenceSets", "maintainerType", "latestVersion", "languages", "modules"})
 public class CodeSystem implements CodeSystemCreate {
 
 	public interface Fields {
@@ -74,6 +74,9 @@ public class CodeSystem implements CodeSystemCreate {
 	// Nullable so that code systems stored before this field existed read as legacy; see isLegacyNamingConvention()
 	@Field(type = FieldType.Boolean)
 	private Boolean legacyNamingConvention;
+
+	@Field(type = FieldType.Keyword)
+	private PackageType packageType;
 
 	@Transient
 	private String defaultModuleId;
@@ -245,6 +248,18 @@ public class CodeSystem implements CodeSystemCreate {
 	 */
 	public void setLegacyNamingConvention(Boolean legacyNamingConvention) {
 		this.legacyNamingConvention = legacyNamingConvention;
+	}
+
+	/**
+	 * The type of release package this code system is published in: Edition, Extension or Derivative.
+	 * Null when not known.
+	 */
+	public PackageType getPackageType() {
+		return packageType;
+	}
+
+	public void setPackageType(PackageType packageType) {
+		this.packageType = packageType;
 	}
 
 	@JsonIgnore

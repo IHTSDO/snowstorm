@@ -2,6 +2,7 @@ package org.snomed.snowstorm.core.data.domain.fieldpermissions;
 
 import com.fasterxml.jackson.annotation.JsonDeserializeAs;
 import org.snomed.snowstorm.core.data.domain.CodeSystem;
+import org.snomed.snowstorm.core.data.domain.PackageType;
 
 @JsonDeserializeAs(CodeSystem.class)
 public interface CodeSystemCreate {
@@ -17,4 +18,5 @@ public interface CodeSystemCreate {
 	String getBranchPath();
 	Integer getDependantVersionEffectiveTime();
 	boolean isLegacyNamingConvention();
+	PackageType getPackageType();
 }

@@ -159,15 +159,26 @@ public class CodeSystemService {
 		for (CodeSystemDefaultConfiguration configuration : codeSystemDefaultConfigurationService.getConfigurations()) {
 			System.out.println(configuration);
 		}
-		// Set CodeSystem URI modules
+		// Set CodeSystem URI modules and package types that are not stored yet
 		Iterable<CodeSystem> codeSystems = repository.findAll();
 		for (CodeSystem codeSystem : codeSystems) {
+			boolean changed = false;
 			if (codeSystem.getUriModuleId() == null) {
 				String defaultModuleId = codeSystemDefaultConfigurationService.getDefaultModuleId(codeSystem.getShortName());
 				if (defaultModuleId != null) {
 					codeSystem.setUriModuleId(defaultModuleId);
-					repository.save(codeSystem);
+					changed = true;
 				}
+			}
+			if (codeSystem.getPackageType() == null) {
+				PackageType packageType = codeSystemDefaultConfigurationService.getDefaultPackageType(codeSystem.getShortName());
+				if (packageType != null) {
+					codeSystem.setPackageType(packageType);
+					changed = true;
+				}
+			}
+			if (changed) {
+				repository.save(codeSystem);
 			}
 		}
 	}
@@ -184,6 +195,9 @@ public class CodeSystemService {
 	@CacheEvict(value = {"code-systems", "code-system-branches"}, allEntries = true)
 	public synchronized CodeSystem createCodeSystem(CodeSystem newCodeSystem) {
 		validatorService.validate(newCodeSystem);
+		if (newCodeSystem.getPackageType() == null) {
+			newCodeSystem.setPackageType(codeSystemDefaultConfigurationService.getDefaultPackageType(newCodeSystem.getShortName()));
+		}
 		if (repository.findById(newCodeSystem.getShortName()).isPresent()) {
 			throw new IllegalArgumentException("A code system already exists with short name " + newCodeSystem.getShortName());
 		}
@@ -438,6 +452,7 @@ public class CodeSystemService {
 			copy.setDailyBuildAvailable(stored.isDailyBuildAvailable());
 			copy.setLatestDailyBuild(stored.getLatestDailyBuild());
 			copy.setLegacyNamingConvention(stored.isLegacyNamingConvention());
+			copy.setPackageType(stored.getPackageType());
 			copies.add(copy);
 		}
 		return copies;
@@ -733,10 +748,15 @@ public class CodeSystemService {
 	@CacheEvict(value = {"code-systems", "code-system-branches"}, allEntries = true)
 	public CodeSystem update(CodeSystem codeSystem, CodeSystemUpdateRequest updateRequest) {
 		boolean legacyNamingConvention = codeSystem.isLegacyNamingConvention();
+		PackageType packageType = codeSystem.getPackageType();
 		modelMapper.map(updateRequest, codeSystem);
 		if (updateRequest.getLegacyNamingConvention() == null) {
 			// Not part of this update, keep the current setting
 			codeSystem.setLegacyNamingConvention(legacyNamingConvention);
+		}
+		if (updateRequest.getPackageType() == null) {
+			// Not part of this update, keep the current setting
+			codeSystem.setPackageType(packageType);
 		}
 		validatorService.validate(codeSystem);
 		repository.save(codeSystem);

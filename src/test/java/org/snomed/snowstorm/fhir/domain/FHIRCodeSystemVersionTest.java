@@ -2,6 +2,7 @@ package org.snomed.snowstorm.fhir.domain;
 
 import org.hl7.fhir.r4.model.CodeSystem;
 import org.junit.jupiter.api.Test;
+import org.snomed.snowstorm.core.data.domain.PackageType;
 import org.snomed.snowstorm.core.data.services.pojo.CodeSystemDefaultConfiguration;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -19,7 +20,7 @@ class FHIRCodeSystemVersionTest {
 	@Test
 	void publisherTakesOwnerFromApplicationConfig() {
 		CodeSystemDefaultConfiguration configuration = new CodeSystemDefaultConfiguration(
-				"United States Edition", "SNOMEDCT-US", "731000124108", "us", "National Library of Medicine", null, null);
+				"United States Edition", "SNOMEDCT-US", "731000124108", "us", "National Library of Medicine", null, null, PackageType.EDITION);
 
 		org.snomed.snowstorm.core.data.domain.CodeSystem codeSystem =
 				new org.snomed.snowstorm.core.data.domain.CodeSystem("SNOMEDCT-US", "MAIN/SNOMEDCT-US");

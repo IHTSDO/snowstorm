@@ -2,6 +2,7 @@ package org.snomed.snowstorm.rest.pojo;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import org.snomed.snowstorm.core.data.domain.CodeSystem;
+import org.snomed.snowstorm.core.data.domain.PackageType;
 import org.snomed.snowstorm.core.data.services.pojo.CodeSystemDefaultConfiguration;
 
 public class CodeSystemUpdateRequest {
@@ -21,6 +22,9 @@ public class CodeSystemUpdateRequest {
 	@Schema(description = "True for the legacy release package and RF2 file naming convention, false for the new one. Leave out to keep the current setting.")
 	private Boolean legacyNamingConvention;
 
+	@Schema(description = "The type of release package: Edition, Extension or Derivative. Leave out to keep the current setting.")
+	private PackageType packageType;
+
 	public CodeSystemUpdateRequest() {
 	}
 
@@ -34,6 +38,7 @@ public class CodeSystemUpdateRequest {
 		defaultLanguageReferenceSets = codeSystem.getDefaultLanguageReferenceSets();
 		dailyBuildAvailable = codeSystem.isDailyBuildAvailable();
 		legacyNamingConvention = codeSystem.isLegacyNamingConvention();
+		packageType = codeSystem.getPackageType();
 	}
 
 	public CodeSystemUpdateRequest(String name) {
@@ -54,6 +59,9 @@ public class CodeSystemUpdateRequest {
 		}
 		if (configuration.owner() != null) {
 			owner = configuration.owner();
+		}
+		if (configuration.packageType() != null) {
+			packageType = configuration.packageType();
 		}
 		return this;
 	}
@@ -100,6 +108,14 @@ public class CodeSystemUpdateRequest {
 
 	public void setLegacyNamingConvention(Boolean legacyNamingConvention) {
 		this.legacyNamingConvention = legacyNamingConvention;
+	}
+
+	public PackageType getPackageType() {
+		return packageType;
+	}
+
+	public void setPackageType(PackageType packageType) {
+		this.packageType = packageType;
 	}
 
 }
