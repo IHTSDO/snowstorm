@@ -24,7 +24,8 @@ public class ConcreteValue {
 	public enum DataType {
 		DECIMAL("dec"),
 		INTEGER("int"),
-		STRING("str");
+		STRING("str"),
+		BOOLEAN("bool");
 
 		private final String shorthand;
 
@@ -58,6 +59,10 @@ public class ConcreteValue {
 			if (value == null || value.length() < 2) {
 				throw new IllegalArgumentException("'value' cannot be null or less than 2 characters long. Received: '" + value + "'");
 			}
+			// RF2 writes a boolean bare, with no prefix
+			if (isBooleanLiteral(value)) {
+				return DataType.BOOLEAN;
+			}
 			//We'll have to assume a decimal given a # symbol with no further information
             return switch (value.charAt(0)) {
                 case '\"' -> DataType.STRING;
@@ -65,6 +70,13 @@ public class ConcreteValue {
                 default -> throw new IllegalArgumentException("Unrecognised concrete value prefix in  '" + value + "'");
             };
 		}
+	}
+
+	/**
+	 * @return true if the value is an RF2 boolean concrete value: {@code true} or {@code false}, without a prefix.
+	 */
+	public static boolean isBooleanLiteral(String value) {
+		return "true".equals(value) || "false".equals(value);
 	}
 
 	public ConcreteValue() {
@@ -136,6 +148,7 @@ public class ConcreteValue {
 		if (dataType == DataType.STRING) {
 			return "\"" + value + "\"";
 		}
+		// BOOLEAN has no prefix
 		return value;
 	}
 
@@ -166,6 +179,9 @@ public class ConcreteValue {
 	public String toString() {
         if (Objects.requireNonNull(dataType) == DataType.STRING) {
             return "\"" + this.value + "\"";
+        }
+        if (dataType == DataType.BOOLEAN) {
+            return this.value;
         }
         return "#" + this.value;
     }

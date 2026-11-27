@@ -1435,6 +1435,50 @@ class SemanticIndexUpdateServiceTest extends AbstractTest {
 		assertEquals(0, queryService.search(queryService.createQueryBuilder(false).ecl("*:363698007=*"), path, PAGE_REQUEST).getTotalElements());
 	}
 
+	@Test
+	void testRebuildSemanticIndexWithBooleanConcreteValues() throws ServiceException {
+		String path = "MAIN";
+		List<Concept> concepts = createConcreteValueTestConcepts(path);
+		// 396070086 is a data attribute with no MRCM range, as in the HL7 tx-ecosystem test edition
+		concepts.add(new Concept("396070086").addRelationship(new Relationship(UUID.randomUUID().toString(), ISA, CONCEPT_MODEL_DATA_ATTRIBUTE)));
+
+		// RF2 writes booleans bare: true / false
+		concepts.add(new Concept("34020007").addRelationship(new Relationship(UUID.randomUUID().toString(), ISA, "34020006"))
+				.addRelationship(new Relationship("3332956025", null, true, "900000000000207008", "34020007", "true", 0, "396070086", "900000000000011006", "900000000000451002"))
+				.addRelationship(new Relationship("3332956026", null, true, "900000000000207008", "34020007", "#20", 0, "396070082", "900000000000011006", "900000000000451002")));
+		concepts.add(new Concept("34020009").addRelationship(new Relationship(UUID.randomUUID().toString(), ISA, "34020006"))
+				.addRelationship(new Relationship("34900001020", null, true, "900000000000207008", "34020009", "false", 0, "396070086", "900000000000011006", "900000000000451002")));
+		simulateRF2Import(path, concepts);
+
+		assertEquals(Set.of("34020007"), eclIds("*:396070086 = true", path));
+		assertEquals(Set.of("34020009"), eclIds("*:396070086 = false", path));
+		assertEquals(Set.of("34020009"), eclIds("*:396070086 != true", path));
+		assertEquals(Set.of("34020007", "34020009"), eclIds("*:396070086 = *", path));
+		assertEquals(Set.of("34020007"), eclIds("<<34020006:* = true", path));
+		// a boolean is not a number
+		assertEquals(Set.of(), eclIds("*:396070086 = #1", path));
+		// the other concrete values on the same concept are unaffected
+		assertEquals(Set.of("34020007"), eclIds("*:396070082 = #20", path));
+	}
+
+	@Test
+	void testRebuildSemanticIndexWithBooleanValueForNumericType() throws ServiceException {
+		String path = "MAIN";
+		List<Concept> concepts = createConcreteValueTestConcepts(path);
+
+		// 396070080 has data type decimal in the MRCM
+		concepts.add(new Concept("34020007").addRelationship(new Relationship(UUID.randomUUID().toString(), ISA, "34020006"))
+				.addRelationship(new Relationship("3332956025", null, true, "900000000000207008", "34020007", "true", 1, "396070080", "900000000000011006", "900000000000451002")));
+		Exception exception = assertThrows(IllegalStateException.class, () -> simulateRF2Import(path, concepts));
+		assertEquals("Concrete value true with data type BOOLEAN in relationship is not matching data type DECIMAL defined in the MRCM for attribute 396070080",
+				exception.getMessage());
+	}
+
+	private Set<String> eclIds(String ecl, String path) {
+		return queryService.search(queryService.createQueryBuilder(false).ecl(ecl), path, PAGE_REQUEST).getContent().stream()
+				.map(ConceptMini::getConceptId).collect(Collectors.toSet());
+	}
+
 	private void simulateRF2Import(String path, List<Concept> concepts) {
 		try (Commit commit = branchService.openCommit(path)) {
 			concepts.forEach(Concept::markChanged);

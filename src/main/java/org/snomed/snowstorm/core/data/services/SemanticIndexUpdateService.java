@@ -448,7 +448,9 @@ public class SemanticIndexUpdateService extends ComponentService implements Comm
 			String errorMsg = String.format("Concrete value %s with data type %s in relationship is not matching data type %s defined in the MRCM for attribute %s",
 					relationship.getConcreteValue().getValue(), actualType, mrcmDataType, relationship.getTypeId());
 			if ((ConcreteValue.DataType.DECIMAL == mrcmDataType && actualType == ConcreteValue.DataType.STRING) ||
-					(ConcreteValue.DataType.STRING == mrcmDataType && mrcmDataType != actualType)) {
+					(ConcreteValue.DataType.STRING == mrcmDataType && mrcmDataType != actualType) ||
+					// A boolean only matches a boolean range, and a boolean range only a boolean
+					((ConcreteValue.DataType.BOOLEAN == mrcmDataType) != (ConcreteValue.DataType.BOOLEAN == actualType))) {
 				throw new IllegalStateException(errorMsg);
 			}
 
@@ -466,7 +468,8 @@ public class SemanticIndexUpdateService extends ComponentService implements Comm
 			typeToUse = actualType;
 		}
 
-		// Convert concrete value
+		// Convert concrete value. A boolean stays the string "true" or "false", which is what ECL boolean
+		// comparisons match on (see SEclAttribute).
 		Object value = relationship.getValue();
 		if (ConcreteValue.DataType.INTEGER == typeToUse) {
 			value = Integer.parseInt(relationship.getConcreteValue().getValue());
