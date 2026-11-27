@@ -72,7 +72,7 @@ public class AxiomConversionService {
 			for (Axiom axiom : concept.getClassAxioms()) {
 				String owlExpression;
 				ReferenceSetMember referenceSetMember = getReferenceSetMember(axiom, branchPath);
-				if (!axiom.isActive() && referenceSetMember != null) {
+				if (referenceSetMember != null && shouldPreserveOwlExpression(concept, axiom)) {
 					owlExpression = referenceSetMember.getAdditionalField(ReferenceSetMember.OwlExpressionFields.OWL_EXPRESSION);
 				} else {
 					owlExpression = conversionService.convertRelationshipsToAxiom(mapFromInternalRelationshipType(concept.getConceptId(), axiom.getDefinitionStatusId(), axiom.getRelationships(), true));
@@ -83,7 +83,7 @@ public class AxiomConversionService {
 			for (Axiom gciAxiom : concept.getGciAxioms()) {
 				String owlExpression;
 				ReferenceSetMember referenceSetMember = getReferenceSetMember(gciAxiom, branchPath);
-				if (!gciAxiom.isActive() && referenceSetMember != null) {
+				if (referenceSetMember != null && shouldPreserveOwlExpression(concept, gciAxiom)) {
 					owlExpression = referenceSetMember.getAdditionalField(ReferenceSetMember.OwlExpressionFields.OWL_EXPRESSION);
 				} else {
 					owlExpression = conversionService.convertRelationshipsToAxiom(mapFromInternalRelationshipType(concept.getConceptId(), gciAxiom.getDefinitionStatusId(), gciAxiom.getRelationships(), false));
@@ -106,6 +106,10 @@ public class AxiomConversionService {
 	private ConversionException toConversionException(String memberId, RuntimeException e) {
 		logger.debug("Failed to parse axiom expression for member {}", memberId, e);
 		return new ConversionException("Failed to parse axiom expression" + (memberId != null ? " for member " + memberId : "") + ".");
+	}
+
+	private boolean shouldPreserveOwlExpression(Concept concept, Axiom axiom) {
+		return !concept.isActive() || !axiom.isActive();
 	}
 
 	private ReferenceSetMember createMember(Concept concept, Axiom axiom, String owlExpression) {

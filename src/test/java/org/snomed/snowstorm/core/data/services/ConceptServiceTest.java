@@ -773,7 +773,45 @@ class ConceptServiceTest extends AbstractTest {
 						PageRequest.of(0, 1));
 		assertEquals(0, descriptionInactivationMembers.getTotalElements());
 	}
-	
+
+	@Test
+	void updateConcept_ShouldNotChangeAxiomOwlExpression_WhenConceptIsInactivated() throws ServiceException {
+		String path = "MAIN";
+		Map<String, String> intPreferred = Map.of(US_EN_LANG_REFSET, descriptionAcceptabilityNames.get(PREFERRED), GB_EN_LANG_REFSET, descriptionAcceptabilityNames.get(PREFERRED));
+		String ci = "CASE_INSENSITIVE";
+
+		// Create concept
+		Concept concept = new Concept()
+				.addDescription(new Description("Fully defined concept (finding)").setTypeId(FSN).setCaseSignificance(ci).setAcceptabilityMap(intPreferred))
+				.addDescription(new Description("Fully defined concept").setTypeId(SYNONYM).setCaseSignificance(ci).setAcceptabilityMap(intPreferred))
+				.addAxiom(new Axiom(null, FULLY_DEFINED, Sets.newHashSet(new Relationship(ISA, SNOMEDCT_ROOT))));
+		concept = conceptService.create(concept, path);
+
+		// Version
+		codeSystemService.createVersion(codeSystem, 20200131, "");
+
+		// Assert
+		concept = conceptService.find(concept.getConceptId(), path);
+		assertEquals(FULLY_DEFINED, concept.getDefinitionStatusId());
+		Axiom classAxiom = concept.getClassAxioms().iterator().next();
+		assertEquals(FULLY_DEFINED, classAxiom.getDefinitionStatusId());
+		String originalOwlExpression = classAxiom.getReferenceSetMember().getAdditionalField(ReferenceSetMember.OwlExpressionFields.OWL_EXPRESSION);
+		assertTrue(originalOwlExpression.startsWith("EquivalentClasses(:"));
+
+		// Inactivate
+		concept.setActive(false);
+		concept.setInactivationIndicator(inactivationIndicatorNames.get(DUPLICATE));
+		classAxiom.setDefinitionStatusId(PRIMITIVE);
+		concept = conceptService.update(concept, path);
+
+		// Assert
+		Axiom inactivatedAxiom = concept.getClassAxioms().iterator().next();
+		assertFalse(inactivatedAxiom.isActive());
+		assertEquals(originalOwlExpression, inactivatedAxiom.getReferenceSetMember().getAdditionalField(ReferenceSetMember.OwlExpressionFields.OWL_EXPRESSION));
+		concept = conceptService.find(concept.getConceptId(), path);
+		assertEquals(PRIMITIVE, concept.getDefinitionStatusId());
+	}
+
 	@Test
 	void testConceptReactivationInExtension() throws ServiceException {
 		String path = "MAIN";
