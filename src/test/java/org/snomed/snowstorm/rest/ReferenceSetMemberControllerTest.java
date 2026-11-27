@@ -5,8 +5,10 @@ import io.kaicode.elasticvc.api.BranchService;
 import org.junit.jupiter.api.Test;
 import org.snomed.snowstorm.AbstractTest;
 import org.snomed.snowstorm.TestConfig;
-import org.snomed.snowstorm.core.data.domain.Concepts;
-import org.snomed.snowstorm.core.data.domain.ReferenceSetMember;
+import org.snomed.snowstorm.config.Config;
+import org.snomed.snowstorm.core.data.domain.*;
+import org.snomed.snowstorm.core.data.services.CodeSystemService;
+import org.snomed.snowstorm.core.data.services.ConceptService;
 import org.snomed.snowstorm.core.data.services.ReferenceSetMemberService;
 import org.snomed.snowstorm.core.data.services.pojo.MemberSearchRequest;
 import org.snomed.snowstorm.loadtest.ItemsPagePojo;
@@ -53,6 +55,12 @@ class ReferenceSetMemberControllerTest extends AbstractTest {
 
 	@Autowired
 	private BranchService branchService;
+
+	@Autowired
+	private CodeSystemService codeSystemService;
+
+	@Autowired
+	private ConceptService conceptService;
 
 	@Test
 	void findRefsetMembers_ShouldPage_WhenGivenSearchAfterRequestParameter() throws InterruptedException {
@@ -144,6 +152,66 @@ class ReferenceSetMemberControllerTest extends AbstractTest {
 		}
 	}
 
+	@Test
+	void createMember_ShouldUseDefaultModuleId_WhenModuleIdOmittedFromPostBody() throws Exception {
+		String extBranch = "MAIN/SNOMEDCT-XX";
+
+		// Create CodeSystem
+		codeSystemService.createCodeSystem(new CodeSystem("SNOMEDCT-XX", extBranch));
+		Concept extModuleConcept = conceptService.create(
+				new Concept()
+						.addDescription(new Description("Extension module (module)").setTypeId(Concepts.FSN))
+						.addDescription(new Description("Extension module").setTypeId(Concepts.SYNONYM))
+						.addAxiom(new Relationship(Concepts.ISA, Concepts.MODULE)),
+				extBranch);
+		String extModuleId = extModuleConcept.getConceptId();
+		branchService.updateMetadata(extBranch, Map.of(Config.DEFAULT_MODULE_ID_KEY, extModuleId));
+
+		// Create Concepts
+		Concept vehicle = conceptService.create(
+				new Concept()
+						.addDescription(new Description("Vehicle (vehicle)").setTypeId(Concepts.FSN))
+						.addDescription(new Description("Vehicle").setTypeId(Concepts.SYNONYM))
+						.addAxiom(new Relationship(Concepts.ISA, Concepts.SNOMEDCT_ROOT)),
+				extBranch);
+
+		Concept car = conceptService.create(
+				new Concept()
+						.addDescription(new Description("Car (vehicle)").setTypeId(Concepts.FSN))
+						.addDescription(new Description("Car").setTypeId(Concepts.SYNONYM))
+						.addAxiom(new Relationship(Concepts.ISA, vehicle.getConceptId())),
+				extBranch);
+
+		Concept motorisedVehicle = conceptService.create(
+				new Concept()
+						.addDescription(new Description("Motorised vehicle (vehicle)").setTypeId(Concepts.FSN))
+						.addDescription(new Description("Motorised vehicle").setTypeId(Concepts.SYNONYM))
+						.addAxiom(new Relationship(Concepts.ISA, vehicle.getConceptId())),
+				extBranch);
+
+		// Version CodeSystem
+		codeSystemService.createVersion(codeSystemService.find("SNOMEDCT-XX"), 20240201, "2024-02-01");
+
+		// Inactivate
+		motorisedVehicle = conceptService.find(motorisedVehicle.getConceptId(), extBranch);
+		motorisedVehicle.setActive(false);
+		conceptService.update(motorisedVehicle, extBranch);
+
+		// Add inactivation indicator (via post)
+		Map<String, Object> memberBody = Map.of(
+				"refsetId", Concepts.REFSET_POSSIBLY_EQUIVALENT_TO_ASSOCIATION,
+				"referencedComponentId", motorisedVehicle.getConceptId(),
+				"additionalFields", Map.of(ReferenceSetMember.AssociationFields.TARGET_COMP_ID, car.getConceptId())
+		);
+		ResponseEntity<ReferenceSetMember> postResponse = postReferenceSetMember(extBranch, memberBody);
+		String memberId = postResponse.getBody().getMemberId();
+		assertNotNull(memberId);
+
+		// Assert
+		ReferenceSetMember referenceSetMember = referenceSetMemberService.findMember(extBranch, memberId);
+		assertEquals(extModuleId, referenceSetMember.getModuleId());
+	}
+
 	private ItemsPagePojo<ReferenceSetMember> findRefsetMembers() {
 		return this.restTemplate.exchange("http://localhost:" + port + "/MAIN/members", HttpMethod.GET, new HttpEntity<>((HttpHeaders) null), FIND_REFSET_MEMBERS_RESPONSE_TYPE).getBody();
 	}
@@ -158,5 +226,9 @@ class ReferenceSetMemberControllerTest extends AbstractTest {
 
 	private ItemsPagePojo<ReferenceSetMember> findRefsetMembers(String searchAfter, int limit) {
 		return this.restTemplate.exchange("http://localhost:" + port + "/MAIN/members?searchAfter=" + searchAfter + "&limit=" + limit, HttpMethod.GET, new HttpEntity<>((HttpHeaders) null), FIND_REFSET_MEMBERS_RESPONSE_TYPE).getBody();
+	}
+
+	private ResponseEntity<ReferenceSetMember> postReferenceSetMember(String branchPath, Map<String, Object> memberBody){
+		return restTemplate.postForEntity("http://localhost:" + port + "/" + branchPath + "/members", memberBody, ReferenceSetMember.class);
 	}
 }
