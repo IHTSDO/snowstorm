@@ -567,10 +567,13 @@ class ExportServiceTest extends AbstractTest {
 				entryNames.add(entry.getName());
 			}
 		}
-		assertTrue(entryNames.contains("SnomedCT_Export/RF2Release/Terminology/sct2_Concept_Delta_INTEdition_20210731.txt"), entryNames.toString());
-		assertTrue(entryNames.contains("SnomedCT_Export/RF2Release/Terminology/sct2_StatedRelationship_Delta_INTEdition_20210731.txt"), entryNames.toString());
-		assertTrue(entryNames.contains("SnomedCT_Export/RF2Release/Terminology/sct2_sRefset_OWLExpression733073007Delta_INTEdition_20210731.txt"), entryNames.toString());
-		assertTrue(entryNames.stream().allMatch(name -> name.endsWith("_INTEdition_20210731.txt")), entryNames.toString());
+		assertTrue(entryNames.contains("SnomedCT_Export/RF2Release/Terminology/sct2_ConceptEdition_Delta_INT_20210731.txt"), entryNames.toString());
+		assertTrue(entryNames.contains("SnomedCT_Export/RF2Release/Terminology/sct2_StatedRelationshipEdition_Delta_INT_20210731.txt"), entryNames.toString());
+		assertTrue(entryNames.contains("SnomedCT_Export/RF2Release/Terminology/sct2_RelationshipConcreteValuesEdition_Delta_INT_20210731.txt"), entryNames.toString());
+		assertTrue(entryNames.contains("SnomedCT_Export/RF2Release/Terminology/sct2_sRefset_OWLExpression733073007EditionDelta_INT_20210731.txt"), entryNames.toString());
+		// Core component files take the tag after the content type, refset files before the release type
+		assertTrue(entryNames.stream().allMatch(name -> name.endsWith(name.contains("Refset_") ? "EditionDelta_INT_20210731.txt" : "Edition_Delta_INT_20210731.txt")),
+				entryNames.toString());
 	}
 
 	@Test
